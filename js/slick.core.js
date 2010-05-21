@@ -24,9 +24,9 @@ if (! String.format) {
 
 /* initialise sidelab functions */
 
-var SIDELAB = {};
+var SLICK = {};
 
-SIDELAB.Logger = function() {
+SLICK.Logger = function() {
     // initialise constants
     var DEFAULT_LOGGING_LEVEL = 1;
     
@@ -79,5 +79,5 @@ SIDELAB.Logger = function() {
 
 var LOGGER = null;
 jQuery(document).ready(function() {
-    LOGGER = new SIDELAB.Logger();
+    LOGGER = new SLICK.Logger();
 }); // ready

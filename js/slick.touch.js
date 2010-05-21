@@ -1,4 +1,4 @@
-SIDELAB.Vector = function(init_x, init_y) {
+SLICK.Vector = function(init_x, init_y) {
     // if the initialise x is not specified then set to 0
     if (! init_x) {
         init_x = 0;
@@ -22,7 +22,7 @@ SIDELAB.Vector = function(init_x, init_y) {
     return self;
 }; // MAPPING.Point
 
-SIDELAB.Touches = function() {
+SLICK.Touches = function() {
     // initialise private members
     var _vectors = [];
     
@@ -41,7 +41,7 @@ SIDELAB.Touches = function() {
             var previous_vector = previous_touches.getTouch(0);
             
             // LOGGER.info(String.format("calculating delta: current vector = {0}, previous vector = {1}", _vectors[0], previous_vector));
-            return previous_vector ? new SIDELAB.Vector(_vectors[0].x - previous_vector.x, _vectors[0].y - previous_vector.y) : new SIDELAB.Vector();
+            return previous_vector ? new SLICK.Vector(_vectors[0].x - previous_vector.x, _vectors[0].y - previous_vector.y) : new SLICK.Vector();
         },
         
         /*
@@ -84,9 +84,9 @@ SIDELAB.Touches = function() {
     }; // self
     
     return self;
-}; // SIDELAB.Touches
+}; // SLICK.Touches
 
-SIDELAB.TouchHelper = function() {
+SLICK.TouchHelper = function() {
     // initialise constants
     var PANREFRESH = 5;
     var TOUCH_TYPES = {
@@ -115,7 +115,7 @@ SIDELAB.TouchHelper = function() {
         
         getTouchPoints: function(touch_event, type_priority) {
             // initilaise variables
-            var fnresult = new SIDELAB.Touches();
+            var fnresult = new SLICK.Touches();
             
             // if the type priority is not set, then use the default
             if (! type_priority) {
@@ -147,7 +147,7 @@ SIDELAB.TouchHelper = function() {
             
             // if we have the touch array, then populate the touch points
             for (var ii = 0; touch_array && (ii < touch_array.length); ii++) {
-                fnresult.addTouch(new SIDELAB.Vector(touch_array[ii].pageX, touch_array[ii].pageY));
+                fnresult.addTouch(new SLICK.Vector(touch_array[ii].pageX, touch_array[ii].pageY));
             } // for
 
             return fnresult;
@@ -160,7 +160,7 @@ SIDELAB.TouchHelper = function() {
         start: function(touch_event) {
             touches_start = self.getTouchPoints(touch_event);
             touches_last = self.getTouchPoints(touch_event);
-            touch_delta = new SIDELAB.Vector();
+            touch_delta = new SLICK.Vector();
 
             // log the current touch start time
             ticks.current = new Date().getTime();
@@ -239,7 +239,7 @@ jQuery.fn.canTouchThis = function(params) {
     }, params);
     
     // create the touch helper
-    var touch_helper = new SIDELAB.TouchHelper();
+    var touch_helper = new SLICK.TouchHelper();
     
     // initialise the touch helper from the plugin params
     touch_helper.handleMove = plugin_params.moveHandler;
@@ -283,3 +283,24 @@ jQuery.fn.canTouchThis = function(params) {
             LOGGER.info("Got a mouse wheel event");
         });
 }; // canTouchThis
+
+jQuery.fn.untouchable = function() {
+    // define acceptable touch items
+    var TAGS_CANTOUCH = /^(A|BUTTON)$/i;
+    
+    return this
+        /*
+        .bind("touchstart", function(evt) {
+            if (! (evt.target && TAGS_CANTOUCH.test(evt.target.tagName))) {
+                // check to see whether a click handler has been assigned for the current object
+                if (! (evt.target.onclick || evt.target.ondblclick)) {
+                    LOGGER.info("no touch for: " + evt.target.tagName);
+                    evt.preventDefault();
+                } // if
+            } // if
+        })
+        */
+        .bind("touchmove", function(evt) {
+            evt.preventDefault();
+        });
+}; // untouchable
