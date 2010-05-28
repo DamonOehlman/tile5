@@ -22,6 +22,12 @@ if (! String.format) {
     };    
 } // if
 
+if (! Number.toRad) {
+    Number.prototype.toRad = function() {  // convert degrees to radians 
+      return this * Math.PI / 180; 
+    }; // 
+} // if
+
 /* initialise sidelab functions */
 
 var SLICK = {};
@@ -35,6 +41,7 @@ SLICK.Logger = function() {
     
     // initialise the log level classes
     var log_level_classes = ['debug', 'info', 'warn', 'error'];
+    var log_lines = [];
     
     // initialise self
     var self = {
@@ -42,6 +49,10 @@ SLICK.Logger = function() {
         LOGLEVEL_INFO: 1,
         LOGLEVEL_WARN: 2,
         LOGLEVEL_ERROR: 3,
+        
+        displayToggle: function() {
+            jQuery("ul#console").slideToggle();
+        },
         
         log: function(message, level) {
             // if the debug div is not defined, then exit the function
@@ -60,16 +71,45 @@ SLICK.Logger = function() {
                 class_name = log_level_classes[level];
             } // if
             
-            jQuery(debug_div).prepend(String.format("<li class='{0}'>> {2}: {1}</li>", class_name, message, new Date().getTime()));
+            // add to the log lines
+            log_lines.push({
+                time: new Date().getTime(),
+                lvl: level,
+                msg: message
+            });
+            
+            jQuery(debug_div).prepend(String.format("<li class='{0}'>{1}</li>", class_name, message));
+            
+            // if the console is defined, then log a message
+            if (console) {
+                console.info(message);
+            } // if
+        },
+        
+        debug: function(message) {
+            self.log(message, self.LOGLEVEL_DEBUG);
         },
         
         info: function(message) {
             self.log(message, self.LOGLEVEL_INFO);
         },
         
+        warn: function(message) {
+            self.log(message, self.LOGLEVEL_WARN);
+        },
+        
+        error: function(message) {
+            self.log(message, self.LOGLEVEL_ERROR);
+        },
+        
         exception: function(e) {
             // TODO: more detail in this...
-            self.log(e.message, self.LOGLEVEL_ERROR);
+            self.log("EXCEPTION: " + e.message, self.LOGLEVEL_ERROR);
+            
+            // if we have a stack trace, then display that as well
+            if (e.stack) {
+                self.log("STACK TRACE: " + e.stack, self.LOGLEVEL_ERROR);
+            } // if
         }
         
     }; // self
@@ -80,4 +120,16 @@ SLICK.Logger = function() {
 var LOGGER = null;
 jQuery(document).ready(function() {
     LOGGER = new SLICK.Logger();
+
+    /*
+    jQuery(window).bind("error", function(evt) {
+        alert("caught an error");
+    }); // error handler 
+    */
+    
+    /*
+    window.onerror = document.onerror = function(error_msg) {
+        alert(error_msg);
+    };
+    */ 
 }); // ready

@@ -14,6 +14,11 @@ SLICK.Vector = function(init_x, init_y) {
         x: init_x,
         y: init_y,
         
+        add: function(vector) {
+          self.x += vector.x;
+          self.y += vector.y;
+        },
+        
         toString: function() {
             return self.x + ", " + self.y;
         }
@@ -80,6 +85,18 @@ SLICK.Touches = function() {
         
         getTouchCount: function() {
             return _vectors.length;
+        },
+        
+        toString: function() {
+            // initialise return value
+            var fnresult = "";
+            
+            // iterate through the vectors and each to the string result
+            for (var ii = 0; ii < _vectors.length; ii++) {
+                fnresult += "[" + _vectors[ii] + "]";
+            } // for
+            
+            return fnresult;
         }
     }; // self
     
@@ -95,11 +112,21 @@ SLICK.TouchHelper = function() {
         CHANGED: 'changedTouches'
     };
     var DEFAULT_TOUCHTYPE_PRIORITY = [TOUCH_TYPES.GLOBAL, TOUCH_TYPES.TARGET];
+    var TOUCH_MODES = {
+        TAP: 0,
+        MOVE: 1, 
+        PINCHZOOM: 2
+    }; // TOUCH_MODES
+    
+    // TODO: configure the move distance to be screen size sensitive....
+    var MIN_MOVEDIST = 7;
     
     // initialise private members
     var touches_start = null;
     var touches_last = null;
     var touch_delta = null;
+    var total_delta = null;
+    var touch_mode = null;
     var ticks = {
         current: 0,
         last: 0
@@ -137,7 +164,8 @@ SLICK.TouchHelper = function() {
             // that means you can prioritize using targetTouches or changedTouches over the 
             // global touches data.
             var touch_array = null;
-            for (var ii = 0; ii < type_priority.length; ii++) {
+            var ii = 0;
+            for (ii = 0; ii < type_priority.length; ii++) {
                 var touch_type = type_priority[ii];
                 if (touch_event[touch_type] && touch_event[touch_type].length > 0) {
                     touch_array = touch_event[touch_type];
@@ -146,7 +174,7 @@ SLICK.TouchHelper = function() {
             } // if
             
             // if we have the touch array, then populate the touch points
-            for (var ii = 0; touch_array && (ii < touch_array.length); ii++) {
+            for (ii = 0; touch_array && (ii < touch_array.length); ii++) {
                 fnresult.addTouch(new SLICK.Vector(touch_array[ii].pageX, touch_array[ii].pageY));
             } // for
 
@@ -161,6 +189,7 @@ SLICK.TouchHelper = function() {
             touches_start = self.getTouchPoints(touch_event);
             touches_last = self.getTouchPoints(touch_event);
             touch_delta = new SLICK.Vector();
+            total_delta = new SLICK.Vector();
 
             // log the current touch start time
             ticks.current = new Date().getTime();
@@ -172,6 +201,9 @@ SLICK.TouchHelper = function() {
                     self.handleDoubleTap(pos.x, pos.y);
                 } // if
             } // if
+            
+            // reset the touch mode to unknown
+            touch_mode = TOUCH_MODES.TAP;
         },
         
         move: function(touch_event) {
@@ -184,23 +216,47 @@ SLICK.TouchHelper = function() {
                 zoom_amount = touches_current.getDistance() - touches_last.getDistance();
             } // if
             
-            // TODO: queue touch count history to enable an informed decision on touch end whether
-            // a single or multitouch event is completing...
-            
-            // if we aren't pinching or zooming then do the move 
-            if (zoom_amount == 0) {
-                // calculate the pan delta
-                touch_delta = touches_current.calculateDelta(touches_last);
+            // if the touch mode is tap, then check to see if we have gone beyond a move threshhold
+            if (touch_mode === TOUCH_MODES.TAP) {
+                // get the delta between the first touch and the current touch
+                var tap_delta = touches_current.calculateDelta(touches_start);
                 
-                // LOGGER.info("touch delta = " + touch_delta.toString());
-                if (self.handleMove) {
-                    self.handleMove(touch_delta.x, touch_delta.y);
+                // if the delta.x or delta.y is greater than the move threshhold, we are no longer moving
+                if ((Math.abs(tap_delta.x) >= MIN_MOVEDIST) || (Math.abs(tap_delta.y) >= MIN_MOVEDIST)) {
+                    touch_mode = TOUCH_MODES.MOVE;
                 } // if
+            } // if
+            
+            
+            // if we aren't in tap mode, then let's see what we should do
+            if (touch_mode !== TOUCH_MODES.TAP) {
+                // TODO: queue touch count history to enable an informed decision on touch end whether
+                // a single or multitouch event is completing...
+            
+                // if we aren't pinching or zooming then do the move 
+                if (zoom_amount == 0) {
+                    // calculate the pan delta
+                    touch_delta = touches_current.calculateDelta(touches_last);
+                
+                    // update the total delta
+                    total_delta.add(touch_delta);
+                
+                    // LOGGER.info("touch delta = " + touch_delta.toString());
+                    if (self.handleMove) {
+                        self.handleMove(touch_delta.x, touch_delta.y);
+                    } // if
+                
+                    // set the touch mode to move
+                    touch_mode = TOUCH_MODES.MOVE;
 
-                // TODO: investigate whether it is more efficient to animate on a timer or not
-            }
-            else if (self.handlePinchZoom) {
-                self.handlePinchZoom(zoom_amount);
+                    // TODO: investigate whether it is more efficient to animate on a timer or not
+                }
+                else if (self.handlePinchZoom) {
+                    self.handlePinchZoom(zoom_amount);
+                
+                    // set the touch mode to pinch zoom
+                    touch_mode = TOUCH_MODES.PINCHZOOM;
+                } // if..else
             } // if..else
             
             // update the last touch position
@@ -211,9 +267,30 @@ SLICK.TouchHelper = function() {
         end: function(touch_event) {
             // save the current ticks to the last ticks
             ticks.last = ticks.current;
+            
+            // if tapping, then first the tap event
+            if ((touch_mode === TOUCH_MODES.TAP) && self.handleTap) {
+                // get the start touch
+                var touch_pos = touches_start.getTouch(0);
+                
+                self.handleTap(touch_pos.x, touch_pos.y);
+            }
+            // if moving, then fire the move end
+            else if ((touch_mode == TOUCH_MODES.MOVE) && self.handleMoveEnd) {
+                self.handleMoveEnd(total_delta.x, total_delta.y);
+            }
+            // if pinchzooming, then fire the pinch zoom end
+            else if ((touch_mode == TOUCH_MODES.ZOOM) && self.handlePinchZoomEnd) {
+                // TODO: pass the total zoom amount
+                self.handlePinchZoomEnd(0);
+            } // if..else
         },
 
         /* event handlers */
+        
+        handleTap: function(x, y) {
+            
+        },
         
         handleDoubleTap: function(x, y) {
             
@@ -222,7 +299,15 @@ SLICK.TouchHelper = function() {
         handleMove: function(x, y) {
         },
         
+        handleMoveEnd: function(x, y) {
+            
+        },
+        
         handlePinchZoom: function(zoom_delta) {
+        },
+        
+        handlePinchZoomEnd: function(zoom_delta) {
+            
         }
     };
     
@@ -234,7 +319,10 @@ jQuery.fn.canTouchThis = function(params) {
     var plugin_params = jQuery.extend({
         preventDefault: true,
         moveHandler: null,
+        moveEndHandler: null,
         pinchZoomHandler: null,
+        pinchZoomEndHandler: null,
+        tapHandler: null,
         doubleTapHandler: null
     }, params);
     
@@ -242,8 +330,12 @@ jQuery.fn.canTouchThis = function(params) {
     var touch_helper = new SLICK.TouchHelper();
     
     // initialise the touch helper from the plugin params
+    // TODO: could probably clean this up
     touch_helper.handleMove = plugin_params.moveHandler;
+    touch_helper.handleMoveEnd = plugin_params.moveEndHandler;
     touch_helper.handlePinchZoom = plugin_params.pinchZoomHandler;
+    touch_helper.handlePinchZoomEnd = plugin_params.pinchZoomEndHandler;
+    touch_helper.handleTap = plugin_params.tapHandler;
     touch_helper.handleDoubleTap = plugin_params.doubleTapHandler;
     
     // bind the touch events

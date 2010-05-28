@@ -1,0 +1,36 @@
+div.infobox {
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0.0, #999999), color-stop(0.3, #777777), color-stop(1.0, #333333));
+    display: none;
+}
+
+div.infobox .box-content {
+    color: white;
+    padding: 8px 0 10px 0;
+}
+
+div.infobox .box-buttons {
+    background: none;
+    display: none;
+}
+
+div.infobox .box-buttons a {
+    color: white;
+    font-size: 0.85em;
+    padding: 4px 8px;
+    background-color: #333333;
+    -webkit-box-shadow:0 0 2px black;
+    -webkit-border-bottom-right-radius:4px;
+    -webkit-border-bottom-left-radius:4px;
+    margin: 0 0 0 10px;
+    float: left;
+}
+
+div.infobox .box-buttons a.right {
+    float: right;
+    margin: 0 10px 0 0;
+}
+
+div.infobox .box-buttona a.center {
+    width: 100%;
+    margin: 0 10px 0 10px
+}
