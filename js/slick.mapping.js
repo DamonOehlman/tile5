@@ -197,6 +197,7 @@ GEO.PointOfInterest = function(args) {
         title: args.title,
         pos: args.pos,
         pin: null,
+        type: args.type,
         
         toString: function() {
             return String.format("{0}: '{1}'", self.id, self.title);
@@ -216,6 +217,7 @@ GEO.POIInfoBox = function(args) {
     args = jQuery.extend({}, DEFAULT_ARGS, args);
     
     // initialise the pois
+    var active_poi = null;
     var pois = args.pois;
     var poi_index = 0;
     
@@ -243,6 +245,17 @@ GEO.POIInfoBox = function(args) {
         buttons.push({
             text: "View Details",
             click: function() {
+                // save a reference to the button
+                var this_button = this;
+                
+                if (self.getDetailsVisible()) {
+                    self.hideDetails();
+                }
+                else if (self.args.requirePOIDetails) {
+                    self.args.requirePOIDetails(self.getActivePOI(), function(details_html) {
+                        self.showDetails(details_html);
+                    });
+                } // if..else
             },
             align: 'center'
         });
@@ -253,8 +266,23 @@ GEO.POIInfoBox = function(args) {
     
     function updateDisplay() {
         LOGGER.info("updating poi display: index = " + poi_index);
+        
+        active_poi = null;
         if ((poi_index >= 0) && (poi_index < pois.length)) {
-            self.updateContent("<h4>" + pois[poi_index].title + "</h4>");
+            active_poi = pois[poi_index];
+            self.updateContent("<h4>" + active_poi.title + "</h4>");
+
+            // if the details are visible, then hide them
+            if (self.getDetailsVisible()) {
+                if (self.args.requirePOIDetails) {
+                    self.args.requirePOIDetails(active_poi, function(details_html) {
+                        self.showDetails(details_html);
+                    });
+                }
+                else {
+                    self.hideDetails();
+                } // if..else
+            } // if
         } // if
     } // updateDisplay
     
@@ -264,6 +292,10 @@ GEO.POIInfoBox = function(args) {
     // initialise self
     var self = jQuery.extend({}, parent, {
         args: args,
+        
+        getActivePOI: function() {
+            return active_poi;
+        },
         
         setActivePOI: function(index, force_change) {
             // wrap the index 
@@ -446,6 +478,7 @@ GEO.POIProvider = function(args) {
     var last_bounds = new GEO.BoundingBox();
     var next_bounds = new GEO.BoundingBox();
     var request_active = false;
+    var request_timer = 0;
     
     /*
     Function:  updatePOIs
@@ -508,59 +541,67 @@ GEO.POIProvider = function(args) {
                 return;
             } // if
             
-            // check for empty bounds, if empty then exit
-            if ((! bounds) || bounds.isEmpty()) {
-                LOGGER.warn("cannot get pois for empty bounding box");
-                return;
-            } // if
+            if (request_timer) {
+                clearTimeout(request_timer);
+            };
             
-            // calculate the bounds change
-            var bounds_change = null;
-            if (! last_bounds.isEmpty()) {
-                bounds_change = new GEO.Distance(last_bounds.min, bounds.min);
-            } // if
+            request_timer = setTimeout(function() {
+                // check for empty bounds, if empty then exit
+                if ((! bounds) || bounds.isEmpty()) {
+                    LOGGER.warn("cannot get pois for empty bounding box");
+                    return;
+                } // if
             
-            if ((! bounds_change) || self.testBoundsChange(bounds_change)) {
-                LOGGER.info("yep - bounds changed = " + bounds_change);
+                // calculate the bounds change
+                var bounds_change = null;
+                if (! last_bounds.isEmpty()) {
+                    bounds_change = new GEO.Distance(last_bounds.min, bounds.min);
+                } // if
+            
+                if ((! bounds_change) || self.testBoundsChange(bounds_change)) {
+                    LOGGER.info("yep - bounds changed = " + bounds_change);
 
-                // define the ajax args
-                var ajax_args = jQuery.extend({
-                    success: function(data, textStatus, raw_request) {
-                        try {
-                            // update the pois
-                            updatePOIs(self.parseResponse(data, textStatus, raw_request));
+                    // define the ajax args
+                    var ajax_args = jQuery.extend({
+                        success: function(data, textStatus, raw_request) {
+                            try {
+                                // update the pois
+                                updatePOIs(self.parseResponse(data, textStatus, raw_request));
+                                request_active = false;
+                            
+                                if (callback) {
+                                    callback(self.pois);
+                                } // if
+                            
+                                // if we have a next request, then execute that request
+                                request_timer = 0;
+                                if (! next_bounds.isEmpty()) {
+                                    self.getForBounds(next_bounds, callback);
+                            
+                                    // update the next bounds to empty
+                                    next_bounds.clear();
+                                } // if
+                            }  
+                            catch (e) {
+                                LOGGER.exception(e);
+                            } // try..catch
+                        },
+                        error: function(raw_request, textStatus, errorThrown) {
                             request_active = false;
-                            
-                            if (callback) {
-                                callback(self.pois);
-                            } // if
-                            
-                            // if we have a next request, then execute that request
-                            if (! next_bounds.isEmpty()) {
-                                self.getForBounds(next_bounds, callback);
-                            
-                                // update the next bounds to empty
-                                next_bounds.clear();
-                            } // if
-                        }  
-                        catch (e) {
-                            LOGGER.exception(e);
-                        } // try..catch
-                    },
-                    error: function(raw_request, textStatus, errorThrown) {
-                        request_active = false;
-                    }
-                }, self.initRequest());
+                            LOGGER.error("failed getting POIS from server: " + textStatus + ":" + errorThrown);
+                        }
+                    }, self.initRequest());
                 
-                // update the last bounds called and flag the request as active
-                last_bounds.copy(bounds);
-                request_active = true;
+                    // update the last bounds called and flag the request as active
+                    last_bounds.copy(bounds);
+                    request_active = true;
                 
-                // make the request
-                LOGGER.info("Looking for POIS within bounding box");
-                jQuery.ajax(ajax_args);
+                    // make the request
+                    LOGGER.info("Looking for POIS within bounding box");
+                    jQuery.ajax(ajax_args);
                 
-            } // if
+                } // if
+            }, 500);
         },
         
         initRequest: function() {
@@ -628,8 +669,6 @@ SLICK.MappingTiler = function(args) {
     
     // initialise our own pan handler
     args.panHandler = function(x, y) {
-        LOGGER.info("overridden pan handler");
-        
         // get the grid
         var grid = self.getGrid();
         if (grid) {

@@ -35,6 +35,8 @@ var SLICK = {};
 SLICK.Logger = function() {
     // initialise constants
     var DEFAULT_LOGGING_LEVEL = 1;
+    var REDRAW_FREQUENCY = 2000;
+    var DISPLAY_LINES = 20;
     
     // look for the debug window
     var debug_div = jQuery("#console").get(0);
@@ -42,6 +44,9 @@ SLICK.Logger = function() {
     // initialise the log level classes
     var log_level_classes = ['debug', 'info', 'warn', 'error'];
     var log_lines = [];
+    
+    var visible = false;
+    var redraw_interval = 0;
     
     // initialise self
     var self = {
@@ -51,15 +56,36 @@ SLICK.Logger = function() {
         LOGLEVEL_ERROR: 3,
         
         displayToggle: function() {
-            jQuery("ul#console").slideToggle();
+            // toggle the visible state
+            visible = ! visible;
+            
+            // if we are visible then slide down
+            visible ? jQuery("ul#console").slideDown() : jQuery("ul#console").slideUp();
+            
+            // if we are visible, then set the update timer running
+            if (visible) {
+                redraw_interval = setInterval(function() {
+                    var html_content = "";
+                    
+                    var ii = log_lines.length - 1;
+                    while ((ii >= 0) && (ii >= (log_lines.length - DISPLAY_LINES))) {
+                        html_content += "<li class='" + log_lines[ii].clsName + "'>" + log_lines[ii].msg + "</li>";
+                        
+                        // decrement ii
+                        ii--;
+                    } // while
+                    
+                    // update the debug div content
+                    jQuery(debug_div).html(html_content);
+                }, REDRAW_FREQUENCY);
+                
+            }
+            else {
+                clearInterval(redraw_interval);
+            }
         },
         
         log: function(message, level) {
-            // if the debug div is not defined, then exit the function
-            if (! debug_div) {
-                return;
-            } // if
-            
             // if the level is not defined, then set to the default level
             if (! level) {
                 level = DEFAULT_LOGGING_LEVEL;
@@ -75,10 +101,9 @@ SLICK.Logger = function() {
             log_lines.push({
                 time: new Date().getTime(),
                 lvl: level,
+                clsName: class_name,
                 msg: message
             });
-            
-            jQuery(debug_div).prepend(String.format("<li class='{0}'>{1}</li>", class_name, message));
             
             // if the console is defined, then log a message
             if (console) {

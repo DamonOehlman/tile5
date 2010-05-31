@@ -12,8 +12,9 @@ Section: Version History
 // define the tiler config
 SLICK.TilerConfig = {
     TILESIZE: 128,
-    TILEBUFFER: 6,
-    TILEBUFFER_LOADNEW: 1,
+    // TODO: put some logic in to determine optimal buffer size based on connection speed...
+    TILEBUFFER: 1,
+    TILEBUFFER_LOADNEW: 0.2,
     // TODO: change this to a real default value
     EMPTYTILE: "/public/images/tile.png"
 }; // TilerConfig
@@ -29,11 +30,15 @@ SLICK.Border = {
 
 SLICK.TileGrid = function(args) {
     // initialise defaults
+    var BUFFER_COUNT = 2;
     var DEFAULT_ARGS = {
         width: 800,
         height: 600,
-        tilesize: SLICK.TilerConfig.TILESIZE
+        tilesize: SLICK.TilerConfig.TILESIZE,
+        onNeedTiles: null
     }; // DEFAULT_ARGS
+    
+    var DEFAULT_BG = "rgb(200, 200, 200)";
     
     // check the tile size is not equal to 0
     if (tile_size == 0) {
@@ -56,23 +61,54 @@ SLICK.TileGrid = function(args) {
     var row_count = Math.ceil(height / tile_size) + SLICK.TilerConfig.TILEBUFFER;
     var x_offset = 0;
     var y_offset = 0;
+    var scale_amount = 0;
+    var inv_tile_aspect_ratio = 0;
+    var inv_screen_aspect_ratio = 0;
     var redraw_timeout = 0;
     var queued_tiles = [];
     var queued_load_timeout = 0;
     var updating_tile_canvas = false;
+    var update_listeners = [];
+    var checkbuffers_timer = 0;
+    var buffer_index = 0;
     
     // ensure that both column and row count are odd, so we have a center tile
     // TODO: perhaps this should be optional...
     col_count = col_count % 2 == 0 ? col_count + 1 : col_count;
     row_count = row_count % 2 == 0 ? row_count + 1 : row_count;
     
-    // create the offscreen buffer
-    var tile_canvas = document.createElement("canvas");
-    tile_canvas.width = col_count * tile_size;
-    tile_canvas.height = row_count * tile_size;
+    var buffers = null;
+    createBuffers(BUFFER_COUNT);
+    
+    // create placeholder canvas
+    var placeholder_tile = document.createElement("canvas");
+    placeholder_tile.width = tile_size;
+    placeholder_tile.height = tile_size;
+    prepCanvas(placeholder_tile);
     
     // initialise the tile array
     var tiles = new Array(col_count * row_count);
+    
+    function createBuffers(buffer_count) {
+        // initialise the buffers
+        buffers = [];
+        
+        for (var ii = 0; ii < buffer_count; ii++) {
+            // create the canvas
+            var buffer_canvas = document.createElement("canvas");
+            
+            // initialise the canvas size
+            buffer_canvas.width = col_count * tile_size;
+            buffer_canvas.height = row_count * tile_size;
+            
+            // add the buffer
+            buffers.push(buffer_canvas);
+        } // for
+        
+        // calculate the inverse aspect ratio
+        inv_tile_aspect_ratio = row_count / col_count;
+        inv_screen_aspect_ratio = height / width;
+    } // createBuffers
     
     /*
     This function is used to determine whether we have sufficient tiles, or whether additional
@@ -87,62 +123,67 @@ SLICK.TileGrid = function(args) {
         
         // calculate the current display rect
         var display_rect = {
-            top: y_offset - tile_size,
+            top: y_offset,
             left: x_offset,
-            bottom: y_offset + (row_count * tile_size),
-            right: x_offset + (col_count * tile_size)
+            bottom: y_offset + height,
+            right: x_offset + width
         }; 
-        var borders_required = 0;
-        var count_delta = {
-            cols: 0,
-            rows: 0
-        };
         var offset_delta = {
             cols: 0,
             rows: 0
         };
         
         // check the y tolerances
-        if (tile_size + display_rect.top >= 0) {
-            count_delta.rows = 1;
-            offset_delta.rows = -1;
+        if (display_rect.top <= (tile_size * buffer_required)) {
+            offset_delta.rows = 1;
         }
-        else if (display_rect.bottom - height <= tile_size) {
-            count_delta.rows = 1;
+        else if (display_rect.bottom + (tile_size * buffer_required) >= getTileCanvas().height) {
+            offset_delta.rows = -1;
         } // if..else
         
         // check the x tolerances
-        if (tile_size + display_rect.left >= 0) {
-            count_delta.cols = 1;
-            offset_delta.cols = -1;
+        if (display_rect.left <= (tile_size * buffer_required)) {
+            offset_delta.cols = 1;
         }
-        else if (display_rect.right - width <= tile_size) {
-            count_delta.cols = 1;
+        else if (display_rect.right + (tile_size * buffer_required) >= getTileCanvas().width) {
+            offset_delta.cols = -1;
         } // if..else
         
         // if things have changed then we need to change them
-        if ((count_delta.cols || count_delta.rows) && self.onNeedTiles) {
-            needTiles(count_delta, offset_delta);
+        if ((offset_delta.rows !== 0) || (offset_delta.cols !== 0)) {
+            needTiles(offset_delta);
         } // if
     } // checkTileBuffers
     
-    function drawTile(tile, col, row) {
+    function drawTile(tile, col, row, page_index) {
         // get the offscreen context
-        var tile_context = tile_canvas.getContext("2d");
+        var tile_context = getTileCanvas(page_index).getContext("2d");
         
         // draw the tile ot the canvas
-        LOGGER.info(String.format("drawing {0} at ({1}, {2})", tile.src, col, row));
         tile_context.drawImage(tile, col * tile_size, row * tile_size, tile_size, tile_size);
+        
+        // let the update listeners know we have loaded
+        for (var ii = 0; ii < update_listeners.length; ii++) {
+            update_listeners[ii]();
+        } // for
     } // drawTile
     
+    function getTileCanvas(index) {
+        return buffers[index ? index : buffer_index];
+    } // getTileCanvas
+    
     function monitorTile(monitor_tile, init_col, init_row) {
-        if (! monitor_tile.complete) {
+        if (monitor_tile.src && (! monitor_tile.complete)) {
             // add the tile to the queued tiles array
             queued_tiles.push({
                 tile: monitor_tile,
                 col: init_col,
-                row: init_row
+                row: init_row,
+                page_index: buffer_index
             });
+            
+            // draw the placeholder to the column and row
+            drawTile(placeholder_tile, init_col, init_row);
         
             monitor_tile.onload = function() {
                 if (! updating_tile_canvas) {
@@ -155,7 +196,11 @@ SLICK.TileGrid = function(args) {
                             var ii = 0;
                             while (ii < queued_tiles.length) {
                                 if (queued_tiles[ii].tile.complete) {
-                                    drawTile(queued_tiles[ii].tile, queued_tiles[ii].col, queued_tiles[ii].row);
+                                    drawTile(
+                                        queued_tiles[ii].tile, 
+                                        queued_tiles[ii].col, 
+                                        queued_tiles[ii].row, 
+                                        queued_tiles[ii].page_index);
                     
                                     // splice the current tile out of the array
                                     queued_tiles.splice(ii, 1);
@@ -180,86 +225,65 @@ SLICK.TileGrid = function(args) {
         } // if..else
     } // monitorTile
     
-    function needTiles(count_delta, offset_delta) {
-        // LOGGER.info("TILES NEEDED: " + count_delta + ", " + offset_delta);
-        
-        /*
-        TODO: make this work, will probably need some matrix operations :(
-        // transpose the tiles
-        transposeTiles(col_count + count_delta.cols, row_count + count_delta.rows, offset_delta);
-        
-        // update the offset
-        x_offset += tile_size * offset_delta.cols;
-        y_offset += tile_size * offset_delta.rows;
-
+    function needTiles(offset_delta) {
         // fire the on need tiles event
-        if (self.onNeedTiles) {
-            self.onNeedTiles(tiles, count_delta, offset_delta);
+        if (args.onNeedTiles) {
+            queued_tiles = [];
+            args.onNeedTiles(offset_delta);
+            
+            // shift the canvas by the required amount
+            // shiftCanvas(offset_delta);
+            
+            /*
+            // shift the queued tiles
+            for (var ii = 0; ii < queued_tiles.length; ii++) {
+                queued_tiles[ii].col += offset_delta.cols;
+                queued_tiles[ii].row += offset_delta.rows;
+            } // for
+            
+            */
+            
+            // update the offset
+            x_offset = Math.min(Math.max(x_offset + (tile_size * offset_delta.cols), 0), (col_count * tile_size) - width);
+            y_offset = Math.min(Math.max(y_offset + (tile_size * offset_delta.rows), 0), (row_count * tile_size) - height);        
         } // if
-        */
     } // loadTiles
     
-    function prepTileCanvas() {
+    function prepCanvas(prep_canvas) {
+        // if the canvas is not defined, then log a warning and return
+        if (! prep_canvas) {
+            LOGGER.warn("Cannot prep canvas - not supplied");
+            return;
+        } // if
+        
         // get the tile context
-        var tile_context = tile_canvas.getContext("2d");
+        var tile_context = prep_canvas.getContext("2d");
+        
+        tile_context.fillStyle = "rgb(200, 200, 200)";
+        tile_context.fillRect(0, 0, width, height);
         
         // set the context line color and style
         tile_context.strokeStyle = "rgb(180, 180, 180)";
         tile_context.lineWidth = 0.5;
 
-        for (var xx = 0; xx < tile_canvas.width; xx += GRID_LINE_SPACING) {
+        for (var xx = 0; xx < prep_canvas.width; xx += GRID_LINE_SPACING) {
             // draw the column lines
             tile_context.beginPath();
             tile_context.moveTo(xx, 0);
-            tile_context.lineTo(xx, tile_canvas.height);
+            tile_context.lineTo(xx, prep_canvas.height);
             tile_context.stroke();
             tile_context.closePath();
 
-            for (var yy = 0; yy < tile_canvas.height; yy += GRID_LINE_SPACING) {
+            for (var yy = 0; yy < prep_canvas.height; yy += GRID_LINE_SPACING) {
                 // draw the row lines
                 tile_context.beginPath();
                 tile_context.moveTo(0, yy);
-                tile_context.lineTo(tile_canvas.width, yy);
+                tile_context.lineTo(prep_canvas.width, yy);
                 tile_context.stroke();
                 tile_context.closePath();
             } // for
         } // for        
     }
-    
-    function transposeTiles(new_colcount, new_rowcount, offset_delta) {
-        // initialise the new tile array
-        var tmp_tiles = new Array(new_colcount * new_rowcount);
-        
-        // initialise start positions
-        // TODO: make this work for positive offsets as well
-        var start_x = Math.abs(offset_delta.cols);
-        var start_y = Math.abs(offset_delta.rows);
-        
-        // iterate through the new tile array, and load in existing tiles
-        for (var xx = start_x; xx < new_colcount; xx++) {
-            for (var yy = start_y; yy < new_rowcount; yy++) {
-                tmp_tiles[(yy * new_rowcount) + xx] = self.getTile(xx + offset_delta.cols, yy + offset_delta.rows);
-            } // for
-        } // for
-        
-        // update the col count and row count to the new values
-        col_count = new_colcount;
-        row_count = new_rowcount;
-        
-        // update the tiles array
-        tiles = tmp_tiles;
-        LOGGER.info(String.format("tiles transposed into array length ({0}), new col count = {1}, new row count = {2}", tiles.length, new_colcount, new_rowcount));
-    } // transposeTiles
-    
-    function queueRedrawToContext(context) {
-        if (redraw_timeout) {
-            clearTimeout(redraw_timeout);
-        } // if
-        
-        redraw_timeout = setTimeout(function() {
-            self.drawToContext(context);
-        }, REDRAW_DELAY);
-    } // queueRedrawToContext
     
     // initialise self
     var self = {
@@ -272,12 +296,61 @@ SLICK.TileGrid = function(args) {
         },
         
         drawToContext: function(context) {
+            // get the tile canvas
+            var tile_canvas = getTileCanvas();
+            
+            // fill the background
             context.fillStyle = "rgb(200, 200, 200)";
             context.fillRect(0, 0, width, height);
+            
+            var dst_x = 0;
+            var dst_y = 0;
+            var dst_width = width;
+            var dst_height = height;
+            
+            // determine the x_offset and y_offset taking into account the scale
+            var src_x = x_offset + scale_amount;
+            var src_y = y_offset + scale_amount;
+            var src_width = width - (scale_amount * 2);
+            var src_height = src_width * inv_screen_aspect_ratio;
+            
+            LOGGER.info(String.format("width = {0}, height = {1}", src_width, src_height));
+            
+            if (src_x < 0 || src_x + src_width > tile_canvas.width || src_y < 0 || src_y + src_height > tile_canvas.height) {
+                src_x = Math.min(Math.max(src_x, 0), tile_canvas.width);
+                src_y = Math.min(Math.max(src_y, 0), tile_canvas.height);
+                src_width = Math.min(src_width, tile_canvas.width - src_x);
+                src_height = src_width * inv_screen_aspect_ratio;
+                
+                // check the src height
+                if (src_y + src_height > tile_canvas.height) {
+                    src_height = tile_canvas.height - src_y;
+                    src_width = src_height * (width / height);
+                } // if
+                
+                // determine the destination positions and height
+                dst_width = Math.max(Math.min(width + (scale_amount * 2), width), 200);
+                dst_height = dst_width * inv_screen_aspect_ratio;
+                dst_x = (width - dst_width) * 0.5;
+                dst_y = (height - dst_height) * 0.5;
+            } // if
             
             // draw the sliced tile grid to the canvas
             context.drawImage(
                 tile_canvas, // the source canvas
+                src_x, // the source x, y, width and height
+                src_y, 
+                src_width,
+                src_height,
+                dst_x, // the dest x, y, width and height
+                dst_y,
+                dst_width,
+                dst_height);
+                
+            /*
+            // draw the sliced tile grid to the canvas
+            context.drawImage(
+                getTileCanvas(buffer_index ? 0 : 1), // the source canvas
                 x_offset, // the source x, y, width and height
                 y_offset, 
                 width,
@@ -286,14 +359,22 @@ SLICK.TileGrid = function(args) {
                 0,
                 width,
                 height);
+            */
         },
         
         pan: function(x, y) {
             x_offset = Math.min(Math.max(x_offset - x, 0), (col_count * tile_size) - width);
             y_offset = Math.min(Math.max(y_offset - y, 0), (row_count * tile_size) - height);
             
-            // check the tile buffers
             checkTileBuffers();
+        },
+        
+        scale: function(amount) {
+            scale_amount = amount * 0.5;
+        },
+        
+        requestUpdates: function(listener) {
+            update_listeners.push(listener);
         },
         
         getTile: function(col, row) {
@@ -306,27 +387,21 @@ SLICK.TileGrid = function(args) {
         },
         
         setTile: function(col, row, tile) {
+            tile = tile ? tile : placeholder_tile;
+            
+            // update the tile in the arrah
             tiles[(row * row_count) + col] = tile;
             
             // draw the tile if valid
-            if (tile && tile.src) {
+            if (tile) {
                 monitorTile(tile, col, row);
             } // if
-        },
-        
-        // event handlers templates
-        
-        onNeedTiles: function(grid, count_delta, offset_delta) {
-            
         }
     };
     
     // calculate the offsets
     x_offset = Math.round(((col_count * tile_size) - width) / 2);
     y_offset = Math.round(((row_count * tile_size) - height) / 2);
-    
-    // prep the tile canvas
-    prepTileCanvas();
     
     return self;
 }; // SLICK.TileGrid
@@ -342,8 +417,16 @@ SLICK.Tiler = function(args) {
     
     // apply touch functionality
     jQuery(args.container).canTouchThis({
+        touchStartHandler: function(x, y) {
+            // reset the scale to 0
+            self.scale(0);
+        },
         moveHandler: function(x, y) {
             self.pan(x, y);
+        },
+        
+        pinchZoomHandler: function(zoom_amount) {
+            self.scale(zoom_amount);
         }
     });
     
@@ -354,7 +437,6 @@ SLICK.Tiler = function(args) {
         context = canvas.getContext('2d');
     } // if
     var redraw_timer = 0;
-    
     
     // initialise layers
     var grid = null;
@@ -381,20 +463,16 @@ SLICK.Tiler = function(args) {
             }; 
         },
         
-        invalidate: function() {
-            /*
-            // TODO: set a timer or something to reduce repainting overheads
-            if (context && grid && (redraw_timer === 0)) {
+        invalidate: function(force) {
+            if (force && context && grid) {
+                grid.drawToContext(context);
+            }
+            else if (context && grid && (redraw_timer === 0)) {
                 redraw_timer = setTimeout(function() {
                     grid.drawToContext(context);
                     
                     redraw_timer = 0;
                 }, 40); // this redraw time equates to approx 25FPS
-            } // if
-            */
-            
-            if (context && grid) {
-                grid.drawToContext(context);
             } // if
         },
         
@@ -405,17 +483,28 @@ SLICK.Tiler = function(args) {
         setGrid: function(value) {
             grid = value;
             self.invalidate();
+            
+            grid.requestUpdates(function() {
+                self.invalidate();
+            });
         },
         
         pan: function(x, y) {
             if (grid) {
                 grid.pan(x, y);
-                self.invalidate();
+                self.invalidate(true);
                 
                 // if we have a pan handler defined, then call it
                 if (self.args.panHandler) {
                     self.args.panHandler(x, y);
                 } // if
+            } // if
+        },
+        
+        scale: function(amount) {
+            if (grid) {
+                grid.scale(amount);
+                self.invalidate(true);
             } // if
         }
     }; // self

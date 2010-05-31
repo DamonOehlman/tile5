@@ -103,7 +103,18 @@ SLICK.Touches = function() {
     return self;
 }; // SLICK.Touches
 
-SLICK.TouchHelper = function() {
+SLICK.TouchHelper = function(args) {
+    // initialise default args
+    var DEFAULT_ARGS = {
+        touchStartHandler: null,
+        moveHandler: null,
+        moveEndHandler: null,
+        pinchZoomHandler: null,
+        pinchZoomEndHandler: null,
+        tapHandler: null,
+        doubleTapHandler: null
+    }; // DEFAULT_ARGS
+    
     // initialise constants
     var PANREFRESH = 5;
     var TOUCH_TYPES = {
@@ -134,6 +145,8 @@ SLICK.TouchHelper = function() {
     
     // initialise self
     var self = {
+        args: jQuery.extend({}, DEFAULT_ARGS, args),
+        
         /* define mutable constants (yeah, I know that's a contradiction) */
         
         THRESHOLD_DOUBLETAP: 300,
@@ -194,11 +207,17 @@ SLICK.TouchHelper = function() {
             // log the current touch start time
             ticks.current = new Date().getTime();
             
+            // if we have a touch start handler, then fire that
+            if (self.args.touchStartHandler) {
+                var touch_vector = touches_start.getTouch();
+                self.args.touchStartHandler(touch_vector.x, touch_vector.y);
+            } // if
+            
             // if the time between taps is less than the thresh-hold fire a double-tap event
-            if ((ticks.current - ticks.last < self.THRESHOLD_DOUBLETAP) && self.handleDoubleTap) {
+            if ((ticks.current - ticks.last < self.THRESHOLD_DOUBLETAP) && self.args.doubleTapHandler) {
                 var pos = touches_start.getTouch(0);
                 if (pos) {
-                    self.handleDoubleTap(pos.x, pos.y);
+                    self.args.doubleTapHandler(pos.x, pos.y);
                 } // if
             } // if
             
@@ -213,7 +232,7 @@ SLICK.TouchHelper = function() {
             
             // check to see if we are pinching or zooming
             if (touches_current.getTouchCount() > 1) {
-                zoom_amount = touches_current.getDistance() - touches_last.getDistance();
+                zoom_amount = touches_last.getDistance() - touches_start.getDistance();
             } // if
             
             // if the touch mode is tap, then check to see if we have gone beyond a move threshhold
@@ -242,8 +261,8 @@ SLICK.TouchHelper = function() {
                     total_delta.add(touch_delta);
                 
                     // LOGGER.info("touch delta = " + touch_delta.toString());
-                    if (self.handleMove) {
-                        self.handleMove(touch_delta.x, touch_delta.y);
+                    if (self.args.moveHandler) {
+                        self.args.moveHandler(touch_delta.x, touch_delta.y);
                     } // if
                 
                     // set the touch mode to move
@@ -251,8 +270,8 @@ SLICK.TouchHelper = function() {
 
                     // TODO: investigate whether it is more efficient to animate on a timer or not
                 }
-                else if (self.handlePinchZoom) {
-                    self.handlePinchZoom(zoom_amount);
+                else if (self.args.pinchZoomHandler) {
+                    self.args.pinchZoomHandler(zoom_amount);
                 
                     // set the touch mode to pinch zoom
                     touch_mode = TOUCH_MODES.PINCHZOOM;
@@ -269,45 +288,21 @@ SLICK.TouchHelper = function() {
             ticks.last = ticks.current;
             
             // if tapping, then first the tap event
-            if ((touch_mode === TOUCH_MODES.TAP) && self.handleTap) {
+            if ((touch_mode === TOUCH_MODES.TAP) && self.args.tapHandler) {
                 // get the start touch
                 var touch_pos = touches_start.getTouch(0);
                 
-                self.handleTap(touch_pos.x, touch_pos.y);
+                self.args.tapHandler(touch_pos.x, touch_pos.y);
             }
             // if moving, then fire the move end
-            else if ((touch_mode == TOUCH_MODES.MOVE) && self.handleMoveEnd) {
-                self.handleMoveEnd(total_delta.x, total_delta.y);
+            else if ((touch_mode == TOUCH_MODES.MOVE) && self.args.moveEndHandler) {
+                self.args.moveEndHandler(total_delta.x, total_delta.y);
             }
             // if pinchzooming, then fire the pinch zoom end
-            else if ((touch_mode == TOUCH_MODES.ZOOM) && self.handlePinchZoomEnd) {
+            else if ((touch_mode == TOUCH_MODES.ZOOM) && self.args.pinchZoomEndHandler) {
                 // TODO: pass the total zoom amount
-                self.handlePinchZoomEnd(0);
+                self.args.pinchZoomEndHandler(0);
             } // if..else
-        },
-
-        /* event handlers */
-        
-        handleTap: function(x, y) {
-            
-        },
-        
-        handleDoubleTap: function(x, y) {
-            
-        },
-        
-        handleMove: function(x, y) {
-        },
-        
-        handleMoveEnd: function(x, y) {
-            
-        },
-        
-        handlePinchZoom: function(zoom_delta) {
-        },
-        
-        handlePinchZoomEnd: function(zoom_delta) {
-            
         }
     };
     
@@ -317,26 +312,11 @@ SLICK.TouchHelper = function() {
 jQuery.fn.canTouchThis = function(params) {
     // initialise the parameters with default params
     var plugin_params = jQuery.extend({
-        preventDefault: true,
-        moveHandler: null,
-        moveEndHandler: null,
-        pinchZoomHandler: null,
-        pinchZoomEndHandler: null,
-        tapHandler: null,
-        doubleTapHandler: null
+        preventDefault: true
     }, params);
     
     // create the touch helper
-    var touch_helper = new SLICK.TouchHelper();
-    
-    // initialise the touch helper from the plugin params
-    // TODO: could probably clean this up
-    touch_helper.handleMove = plugin_params.moveHandler;
-    touch_helper.handleMoveEnd = plugin_params.moveEndHandler;
-    touch_helper.handlePinchZoom = plugin_params.pinchZoomHandler;
-    touch_helper.handlePinchZoomEnd = plugin_params.pinchZoomEndHandler;
-    touch_helper.handleTap = plugin_params.tapHandler;
-    touch_helper.handleDoubleTap = plugin_params.doubleTapHandler;
+    var touch_helper = new SLICK.TouchHelper(params);
     
     // bind the touch events
     return this

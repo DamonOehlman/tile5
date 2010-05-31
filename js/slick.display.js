@@ -7,6 +7,10 @@ Section: Version History
 21/05/2010 (DJO) - Created File
 */
 
+SLICK.DisplayOpts = {
+    ajaxActivityImage: null
+}; // DisplayOpts
+
 SLICK.InfoBox = function(args) {
     // initialise default args
     var DEFAULT_ARGS = {
@@ -17,6 +21,7 @@ SLICK.InfoBox = function(args) {
     }; 
     // initialise the box id
     var box_id = "box_" + new Date().getTime();
+    var details_visible = false;
     
     // include default args
     args = jQuery.extend({}, DEFAULT_ARGS, args);
@@ -25,11 +30,22 @@ SLICK.InfoBox = function(args) {
     var container = null;
     var container_opts = [args.position, "top", "bottom"];
     for (var ii = 0; (! container) && (ii < container_opts.length); ii++) {
-        container = jQuery("#anchor-" + container_opts[ii]).get(0);
+        container = jQuery("#container-" + container_opts[ii]).get(0);
     } // for
     
     // create the top box with the style of hidden
-    jQuery(container).append(String.format("<div id='{0}' class='infobox {2}'><div class='box-content'>{1}</div><div class='box-buttons'></div></div>", box_id, args.content, args.classes.join(" ")));
+    jQuery(container).append(
+        String.format(
+            "<div id='{0}' class='infobox {2}'>" + 
+                "<div class='box-content'>{1}</div>" + 
+                "<div class='box-details'>I'm some details</div>" + 
+                "<div class='box-buttons'></div>" + 
+            "</div>", 
+            box_id, 
+            args.content, 
+            args.classes.join(" ")
+        )
+    );
     
     function getBox() {
         return jQuery("#" + box_id);
@@ -79,12 +95,29 @@ SLICK.InfoBox = function(args) {
         } // for
     } // createButtons
     
+    function updateButtonLabels() {
+        var details_button_regex = /.*?\sDETAILS$/i;
+        
+        // look for a anchor tag with the text of "Blah Details"
+        getBox().find("a").each(function() {
+            // button text
+            var button_text = jQuery(this).text();
+            if (details_button_regex.test(button_text)) {
+                jQuery(this).text((details_visible ? "Hide" : "Show") + " Details");
+            } // if
+        }); // each
+    } // updateButtonLabels
+    
     // initialise self
     var self = {
         buttons: args.buttons,
         
         getId: function() {
             return box_id;
+        },
+        
+        getDetailsVisible: function() {
+            return details_visible;
         },
         
         setButtons: function(value) {
@@ -94,14 +127,43 @@ SLICK.InfoBox = function(args) {
         },
         
         show: function() {
-            getBox().slideDown("normal", function() {
-                getBox().find(".box-buttons").show();
+            var box = getBox();
+            
+            box.slideDown("normal", function() {
+                box.find(".box-buttons").show();
             });
         },
         
         hide: function() {
-            getBox().find(".box-buttons").hide();
-            getBox().slideUp("normal");
+            // get the box reference
+            var box = getBox();
+            
+            box.find(".box-buttons").hide();
+            box.find(".box-details").hide();
+            box.slideUp("normal");
+        },
+        
+        showDetails: function(html_details, callback) {
+            getBox().find(".box-details").html(html_details).slideDown("fast", function() {
+                details_visible = true;
+                updateButtonLabels();
+                
+                if (callback) {
+                    callback();
+                } // if
+            });
+        },
+        
+        hideDetails: function(callback) {
+            getBox().find(".box-details").slideUp("fast", function() {
+                jQuery(this).html("");
+                details_visible = false;
+                updateButtonLabels();
+                
+                if (callback) {
+                    callback();
+                } // if
+            }); // slideup
         },
         
         updateContent: function(html_content) {
@@ -115,19 +177,104 @@ SLICK.InfoBox = function(args) {
     return self;
 }; // SLICK.TopBox
 
+SLICK.Notification = function() {
+    
+};
+
 /*
 Module: SLICK.DisplayHelper
 This module is used to define helpers for determining screen size, etc
 */
 SLICK.DisplayHelper = function() {
+    var LOADER_ID = "ajax_loader_indicator";
+    var LOADER_POS_PREFS = ['top', 'bottom'];
+    var DEFAULT_POS_PREFS = ['top', 'bottom'];
+    var REGEX_TEMPLATE_VAR = /\$\{(.*?)\}/ig;
+    
     // initialise private variables
+    var containers = {
+        top: null,
+        right: null,
+        bottom: null,
+        left: null
+    }; // containers
 
     // initialise self
     var self = {
+        init: function() {
+            // iterate through the container positions and find them
+            for (var container_pos in containers) {
+                containers[container_pos] = jQuery("#container-" + container_pos).get(0);
+            } // for
+            
+            // if the ajaxActivityImage is set, then attach handlers to the jquery ajax start and stop events
+            LOGGER.info("ajax activity indicator: " + SLICK.DisplayOpts.ajaxActivityImage);
+            if (SLICK.DisplayOpts.ajaxActivityImage) {
+                self.addChunk(String.format("<img id='{0}' src='{1}' />", LOADER_ID, SLICK.DisplayOpts.ajaxActivityImage), LOADER_POS_PREFS);
+                jQuery("#" + LOADER_ID)
+                    .ajaxStart(function() {
+                        jQuery(this).show();
+                    })
+                    .ajaxStop(function() {
+                        jQuery(this).hide();
+                    });
+            } // if
+        },
+        
+        addChunk: function(html_content, container_prefs, callback) {
+            // if the container preferences aren't specified use the defaults
+            container_prefs = container_prefs ? container_prefs : DEFAULT_POS_PREFS;
+            
+            // find the required container
+            var container = null;
+            for (var ii = 0; (! container) && (ii < container_prefs.length); ii++) {
+                container = containers[container_prefs[ii]];
+            } // for
+            
+            // if the container is specified then add the html snippet
+            if (container) {
+                jQuery(container).append(html_content);
+            } // if
+        },
+        
+        removeChunk: function(selector) {
+            jQuery(selector).remove();
+        },
+        
+        parseTemplate: function(template_html, data) {
+            // initialise variables
+            var fnresult = template_html;
+            
+            // look for template variables in the html
+            var matches = REGEX_TEMPLATE_VAR.exec(fnresult);
+            while (matches) {
+                // remove the variable from the text
+                fnresult = fnresult.replace(matches[0], jQuery(data).find(matches[1]).text());
+                
+                // find the next match
+                matches = REGEX_TEMPLATE_VAR.exec(fnresult);
+            } // while
+            
+            return fnresult;
+        }
     }; // 
     
     return self;
 };
 
+SLICK.Template = function() {
+    // initialise variables
+    
+    // initialise self
+    var self = {
+        
+    }; 
+    
+    return self;
+}; // SLICK.Template
+
 // initialise the screen object
 SLICK.display = new SLICK.DisplayHelper();
+jQuery(document).ready(function() {
+    SLICK.display.init();
+});

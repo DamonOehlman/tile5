@@ -135,8 +135,8 @@ GEO.DECARTA.PortrayMapRequest = function(config, lat, lon) {
                     tileSize: grid.Tile.Map.Content.height,
                     tileContext: new GEO.DECARTA.CenterContext(grid.CenterContext),
                     centerTile: {
-                        N: parseInt(urlData.N),
-                        E: parseInt(urlData.E)
+                        N: parseInt(urlData.N, 10),
+                        E: parseInt(urlData.E, 10)
                     }
                 };
             } // if
@@ -144,7 +144,7 @@ GEO.DECARTA.PortrayMapRequest = function(config, lat, lon) {
     });
     
     return self;
-}
+};
 
 /* define the map provider */
 
@@ -160,10 +160,14 @@ GEO.DECARTA.MapProvider = function(params) {
         release: "4.4.2sp03",
         tileFormat: "PNG",
         fixedGrid: true,
-        useCache: true,
+        useCache: true
     }, params);
     
     var center_tile = null;
+    var tile_grid = null;
+    var image_url = "";
+    
+    var loaded_images = {};
     
     // initialise parent
     var parent = new GEO.MapProvider();
@@ -171,56 +175,86 @@ GEO.DECARTA.MapProvider = function(params) {
     function buildTileGrid(tile_context, container_dimensions) {
         // initialise the first tile origin
         // TODO: think about whether to throw an error if not divisble
-        var half_width = Math.round(tile_context.tileSize * .5);
+        var half_width = Math.round(tile_context.tileSize * 0.5);
         var pos_first = {
             x: container_dimensions.center.x - half_width,
             y: container_dimensions.center.y - half_width
         }; 
         
         // create the tile grid
-        var fnresult = new SLICK.MapTileGrid({
+        image_url = tile_context.imageUrl;
+        tile_grid = new SLICK.MapTileGrid({
             width: container_dimensions.width, 
             height: container_dimensions.height, 
-            tilsize: tile_context.tileSize
+            tilesize: tile_context.tileSize,
+            onNeedTiles: function(offset_delta) {
+                // if the tile grid is defined, then we know the base_n and e
+                if (tile_grid) {
+                    tile_grid.customdata.base_n += offset_delta.rows;
+                    tile_grid.customdata.base_e -= offset_delta.cols;
+                } // if
+
+                populateTiles();
+            }
         });
         
         // associate some custom data with the tile grid (gotta love javascript)
-        fnresult.customdata = {
-            base_n: tile_context.centerTile.N + fnresult.centerTile.row,
-            base_e: tile_context.centerTile.E - fnresult.centerTile.col
+        tile_grid.customdata = {
+            base_n: tile_context.centerTile.N + tile_grid.centerTile.row,
+            base_e: tile_context.centerTile.E - tile_grid.centerTile.col
         }; // customdata
         
         // add the on need tiles handler
-        fnresult.onNeedTiles = function(tile_array, col_delta, offset_delta) {
+        tile_grid.onNeedTiles = function(tile_array, col_delta, offset_delta) {
             LOGGER.info("Need new tiles");
-        } // onNeedTiles
+        }; // onNeedTiles
         
         // write a whole pile of log messages
         LOGGER.info(String.format("building a tile grid for container {0} x {1}", container_dimensions.width, container_dimensions.height));
         LOGGER.info(String.format("center point = x: {0}, y: {1}", container_dimensions.center.x, container_dimensions.center.y));
         LOGGER.info(String.format("tile size {0} x {0}", tile_context.tileSize));
         LOGGER.info(String.format("first tile x: {0}, y: {0}", pos_first.x, pos_first.y));
-        LOGGER.info(String.format("tile grid = {0} columns wide and {1} rows high", fnresult.columns, fnresult.rows));
-        LOGGER.info(String.format("center tile col = {0}, row = {1}", fnresult.centerTile.col, fnresult.centerTile.row));
-        LOGGER.info(String.format("top tile = N:{0} E:{1}", fnresult.customdata.base_n, fnresult.customdata.base_e));
+        LOGGER.info(String.format("tile grid = {0} columns wide and {1} rows high", tile_grid.columns, tile_grid.rows));
+        LOGGER.info(String.format("center tile col = {0}, row = {1}", tile_grid.centerTile.col, tile_grid.centerTile.row));
+        LOGGER.info(String.format("top tile = N:{0} E:{1}", tile_grid.customdata.base_n, tile_grid.customdata.base_e));
+        
+        populateTiles();
+        
+        return tile_grid;
+    } // buildTileGrid
+    
+    function populateTiles() {
+        if (! tile_grid) {
+            LOGGER.warn("No tile grid to populate");
+            return;
+        }
         
         // load the tiles
-        for (var xx = 0; xx < fnresult.columns; xx++) {
-            for (var yy = 0; yy < fnresult.rows; yy++) {
-                // initialise tile image 
-                var tile_image = new Image();
+        for (var xx = 0; xx < tile_grid.columns; xx++) {
+            for (var yy = 0; yy < tile_grid.rows; yy++) {
+                // initialise the image url
+                var tile_url = image_url.replace("${N}", tile_grid.customdata.base_n - yy).replace("${E}", tile_grid.customdata.base_e + xx);
                 
-                // set the image source
-                tile_image.src = tile_context.imageUrl.replace("${N}", fnresult.customdata.base_n - yy).replace("${E}", fnresult.customdata.base_e + xx);
+                // get the image for that tile
+                var tile_image = loaded_images[tile_url];
+                
+                // if the tile is not available, then create it
+                if (! tile_image) {
+                    // initialise tile image 
+                    tile_image = new Image();
+
+                    // set the image source
+                    tile_image.src = tile_url;
+                    
+                    // add the tile to the loaded images array
+                    loaded_images[tile_url] = tile_image;
+                } // if
                 
                 // set the tile in the grid
-                LOGGER.info(String.format("set tile ({0}, {1}) to: {2}", xx, yy, tile_image.src));
-                fnresult.setTile(xx, yy, tile_image);
+                tile_grid.setTile(xx, yy, tile_image);
             } // for
         } // for
-        
-        return fnresult;
-    } // buildTileGrid
+    } // populateTiles
     
     function createRequestHeader(payload) {
         // TODO: write a function that takes parameters and generates xml
