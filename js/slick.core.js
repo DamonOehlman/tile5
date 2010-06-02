@@ -28,6 +28,16 @@ if (! Number.toRad) {
     }; // 
 } // if
 
+// include the secant method for Number
+// code from the excellent number extensions library:
+// http://safalra.com/web-design/javascript/number-object-extensions/
+if (! Number.sec) {
+    Number.prototype.sec =
+        function(){
+          return 1 / Math.cos(this);
+        };
+} // if
+
 /* initialise sidelab functions */
 
 var SLICK = {};
@@ -141,6 +151,35 @@ SLICK.Logger = function() {
     
     return self;
 }; // SIDELAB.Debugger
+
+SLICK.Vector = function(init_x, init_y) {
+    // if the initialise x is not specified then set to 0
+    if (! init_x) {
+        init_x = 0;
+    } // if
+    
+    // repeat for the y
+    if (! init_y) {
+        init_y = 0;
+    } // if
+    
+    // initialise self
+    var self = {
+        x: init_x,
+        y: init_y,
+        
+        add: function(vector) {
+          self.x += vector.x;
+          self.y += vector.y;
+        },
+        
+        toString: function() {
+            return self.x + ", " + self.y;
+        }
+    }; // self
+    
+    return self;
+}; // MAPPING.Point
 
 var LOGGER = null;
 jQuery(document).ready(function() {

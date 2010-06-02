@@ -47,6 +47,7 @@ SLICK.TileGrid = function(args) {
     
     // extend the args with the default args
     args = jQuery.extend({}, DEFAULT_ARGS, args);
+    LOGGER.info("Creating a tiler with tilesize " + args.tilesize);
     
     // define constants
     var REDRAW_DELAY = 50;
@@ -244,6 +245,7 @@ SLICK.TileGrid = function(args) {
             */
             
             // update the offset
+            // TODO: the offset calculation amount may need to be provided by the on need tiles function
             x_offset = Math.min(Math.max(x_offset + (tile_size * offset_delta.cols), 0), (col_count * tile_size) - width);
             y_offset = Math.min(Math.max(y_offset + (tile_size * offset_delta.rows), 0), (row_count * tile_size) - height);        
         } // if
@@ -313,8 +315,6 @@ SLICK.TileGrid = function(args) {
             var src_y = y_offset + scale_amount;
             var src_width = width - (scale_amount * 2);
             var src_height = src_width * inv_screen_aspect_ratio;
-            
-            LOGGER.info(String.format("width = {0}, height = {1}", src_width, src_height));
             
             if (src_x < 0 || src_x + src_width > tile_canvas.width || src_y < 0 || src_y + src_height > tile_canvas.height) {
                 src_x = Math.min(Math.max(src_x, 0), tile_canvas.width);
@@ -434,7 +434,13 @@ SLICK.Tiler = function(args) {
     var canvas = jQuery(args.container).get(0);
     var context = null;
     if (canvas) {
-        context = canvas.getContext('2d');
+        try {
+            context = canvas.getContext('2d');
+        } 
+        catch (e) {
+            LOGGER.exception(e);
+            throw "Could not initialise canvas on specified tiler element";
+        }
     } // if
     var redraw_timer = 0;
     

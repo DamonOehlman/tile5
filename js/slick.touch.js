@@ -1,32 +1,3 @@
-SLICK.Vector = function(init_x, init_y) {
-    // if the initialise x is not specified then set to 0
-    if (! init_x) {
-        init_x = 0;
-    } // if
-    
-    // repeat for the y
-    if (! init_y) {
-        init_y = 0;
-    } // if
-    
-    // initialise self
-    var self = {
-        x: init_x,
-        y: init_y,
-        
-        add: function(vector) {
-          self.x += vector.x;
-          self.y += vector.y;
-        },
-        
-        toString: function() {
-            return self.x + ", " + self.y;
-        }
-    }; // self
-    
-    return self;
-}; // MAPPING.Point
-
 SLICK.Touches = function() {
     // initialise private members
     var _vectors = [];

@@ -691,6 +691,11 @@ SLICK.MappingTiler = function(args) {
         },
         
         gotoPosition: function(position, zoom_level) {
+            // if the zoom level is not defined, then raise an exception
+            if (! zoom_level) {
+                throw "Zoom level required to goto a position."
+            } // if
+            
             provider.getMapTiles(self, position, zoom_level, function(tile_grid) {
                 LOGGER.info(String.format("created tile grid {0} x {1}", tile_grid.columns, tile_grid.rows));
                 self.setGrid(tile_grid);
