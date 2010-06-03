@@ -1,6 +1,8 @@
 // define the GEO namespace
 var GEO = {};
 
+/* GEO Basic Type definitions */
+
 GEO.Distance = function(pos1, pos2) {
     // define some constants
     var M_PER_KM = 1000;
@@ -46,6 +48,20 @@ GEO.Distance = function(pos1, pos2) {
 
     return self;
 }; // GEO.Distance
+
+GEO.Radius = function(init_dist, init_uom) {
+    // initialise variables
+    
+    // TODO: actually make this class useful
+    
+    // initialise self
+    var self = {
+        distance: parseInt(init_dist, 10),
+        uom: init_uom
+    }; 
+    
+    return self;
+}; // GEO.Radius
 
 GEO.Position = function(init_lat, init_lon) {
     // initialise variables
@@ -103,6 +119,15 @@ GEO.Position = function(init_lat, init_lon) {
             return (self.lat === 0) && (self.lon === 0);
         }, 
         
+        getMercatorPixels: function(rads_per_pixel) {
+            return new SLICK.Vector(GEO.Utilities.lon2pix(self.lon, rads_per_pixel), GEO.Utilities.lat2pix(self.lat, rads_per_pixel));
+        },
+        
+        setMercatorPixels: function(x, y, rads_per_pixel) {
+            self.lat = GEO.Utilities.pix2lat(y, rads_per_pixel);
+            self.lon = GEO.Utilities.pix2lon(x, rads_per_pixel);
+        },
+        
         toString: function() {
             return self.lat + " " + self.lon;
         }
@@ -158,18 +183,70 @@ GEO.BoundingBox = function(init_min, init_max) {
     return self;
 }; // BoundingBox
 
-GEO.MapProvider = function() {
+/* GEO Utilities */
+
+/*
+Module:  GEO.Utilities
+This module contains GIS utility functions that apply across different mapping platforms.  Credit 
+goes to the awesome team at decarta for providing information on many of the following functions through
+their forums here (http://devzone.decarta.com/web/guest/forums?p_p_id=19&p_p_action=0&p_p_state=maximized&p_p_mode=view&_19_struts_action=/message_boards/view_message&_19_messageId=43131)
+*/
+GEO.Utilities = (function() {
+    // define some constants
+    var ECC = 0.08181919084262157;
+    
     // initialise variables
     
-    // initailise self
     var self = {
-        getMapTiles: function(tiler, position, zoom_level, callback) {
+        lat2pix: function(lat, scale) {
+            var radLat = (parseFloat(lat)*(2*Math.PI))/360;
+            var sinPhi = Math.sin(radLat);
+            var eSinPhi = ECC * sinPhi;
+            var retVal = Math.log(((1.0 + sinPhi) / (1.0 - sinPhi)) * Math.pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
             
+            return (retVal / scale);
+        },
+        
+        lon2pix: function(lon, scale) {
+            return ((parseFloat(lon)/180)*Math.PI) / scale;
+        },
+        
+        pix2lon: function(x, scale) {
+            return (x * scale)*180/Math.PI;
+        },
+        
+        pix2lat: function(y, scale) {
+            var phiEpsilon = 1E-7;
+            var phiMaxIter = 12;
+            var t = Math.pow(Math.E, -y * scale);
+            var prevPhi = self.mercatorUnproject(t);
+            var newPhi = self.findRadPhi(prevPhi, t);
+            var iterCount = 0;
+            
+            while (iterCount < phiMaxIter && Math.abs(prevPhi - newPhi) > phiEpsilon) {
+                prevPhi = newPhi;
+                newPhi = self.findRadPhi(prevPhi, t);
+                iterCount++;
+            } // while
+            
+            return newPhi*180/Math.PI;
+        },
+
+        mercatorUnproject: function(t) {
+            return (Math.PI / 2) - 2 * Math.atan(t);
+        },
+        
+        findRadPhi: function(phi, t) {
+            var eSinPhi = ECC * Math.sin(phi);
+
+            return (Math.PI / 2) - (2 * Math.atan (t * Math.pow((1 - eSinPhi) / (1 + eSinPhi), ECC / 2)));
         }
-    };
+    }; // self
     
     return self;
-}; // MapDataProvider
+})();
+
+/* GEO POJSOs */
 
 GEO.PointOfInterest = function(args) {
     // initialise default parameters
@@ -635,6 +712,35 @@ SLICK.MapTileGrid = function(args) {
     };
     
     // initialise variables
+    var rads_per_tile = 0;
+    var center_pos = new GEO.Position();
+    var center_mercator_pix = null;
+    var topleft_mercator_pix = null;
+    var grid_bounds = new GEO.BoundingBox();
+    
+    function calculateGridBounds() {
+        if (center_pos.isEmpty() || (rads_per_tile === 0)) { return; }
+        
+        // determine the mercator 
+        center_mercator_pix = center_pos.getMercatorPixels(rads_per_tile);
+            
+        // now calculate the top left mercator pix
+        topleft_mercator_pix = new SLICK.Vector(
+            center_mercator_pix.x - (self.getGridWidth() * 0.5),
+            center_mercator_pix.y - (self.getGridHeight() * 0.5));
+            
+        // set the bounds min position
+        grid_bounds.min.setMercatorPixels(
+            topleft_mercator_pix.x, 
+            topleft_mercator_pix.y, 
+            rads_per_tile);
+            
+        // set the max bounds position
+        grid_bounds.max.setMercatorPixels(
+            topleft_mercator_pix.x + self.getGridWidth(),
+            topleft_mercator_pix.y + self.getGridHeight(),
+            rads_per_tile);
+    } // calculateGridBounds
     
     // initialise parent
     var parent = new SLICK.TileGrid(args);
@@ -642,22 +748,52 @@ SLICK.MapTileGrid = function(args) {
     // initialise self
     var self = jQuery.extend({}, parent, {
         getBoundingBox: function(buffer_size) {
-            // if the buffer size is not defined, then set to the default
-            if (typeof buffer_size === undefined) {
-                buffer_size = DEFAULT_BUFFER_SIZE;
+            return grid_bounds;
+        },
+        
+        getCenterPos: function() {
+            return center_pos;
+        },
+        
+        setCenterPos: function(value) {
+            // update the center position
+            center_pos.copy(value);
+            calculateGridBounds();
+        },
+        
+        setRadiansPerTile: function(value) {
+            if (rads_per_tile !== value) {
+                rads_per_tile = value;
+                calculateGridBounds();
             } // if
-            
-            return new GEO.BoundingBox();
         }
     });
     
     return self;
 }; // SLICK.MapTileGrid
 
+GEO.MapProvider = function() {
+    // initailise self
+    var self = {
+        zoomLevel: 0,
+        
+        getMapTiles: function(tiler, position, zoom_level, callback) {
+            
+        },
+        
+        getPositionForXY: function(x, y) {
+            return null;
+        }
+    };
+    
+    return self;
+}; // MapDataProvider
+
 SLICK.MappingTiler = function(args) {
     // initialise variables
     var provider = args.provider;
-    var zoom_level = 0;
+    var zoom_level = 10;
+    var current_position = null;
     
     // if the data provider has not been created, then create a default one
     if (! provider) {
@@ -666,6 +802,7 @@ SLICK.MappingTiler = function(args) {
     
     // if we have a pan handler in the args, then save it as we are going to insert our own
     var caller_pan_handler = args.panHandler;
+    var caller_tap_handler = args.tapHandler;
     
     // initialise our own pan handler
     args.panHandler = function(x, y) {
@@ -681,25 +818,60 @@ SLICK.MappingTiler = function(args) {
         } // if
     }; // 
     
+    // initialise our own tap handler
+    args.tapHandler = function(x, y) {
+        if (provider) {
+            alert(provider.getPositionForXY(x, y));
+        } // if
+        
+        if (caller_tap_handler) {
+            caller_tap_handler(x, y); 
+        } // if
+    }; // tapHandler
+    
     // create the base tiler
     var parent = new SLICK.Tiler(args);
     
     // initialise self
     var self = jQuery.extend({}, parent, {
-        getBounds: function() {
-            
+        getBoundingBox: function() {
+            return self.getGrid().getBoundingBox();
         },
         
-        gotoPosition: function(position, zoom_level) {
+        getCenterPosition: function() {
+            // TODO: detect and retrieve the center position
+            return null;
+        },
+        
+        gotoPosition: function(position, new_zoom_level, callback) {
+            // if a new zoom level is specified, then use it
+            zoom_level = new_zoom_level ? new_zoom_level : zoom_level;
+            
             // if the zoom level is not defined, then raise an exception
             if (! zoom_level) {
-                throw "Zoom level required to goto a position."
+                throw "Zoom level required to goto a position.";
             } // if
             
-            provider.getMapTiles(self, position, zoom_level, function(tile_grid) {
+            // update the provider zoom level
+            provider.zoomLevel = zoom_level;
+            provider.getMapTiles(self, position, function(tile_grid) {
                 LOGGER.info(String.format("created tile grid {0} x {1}", tile_grid.columns, tile_grid.rows));
                 self.setGrid(tile_grid);
+                
+                // if we have a callback defined, then run it
+                if (callback) {
+                    callback(self);
+                } // if
             });
+        },
+        
+        setZoomLevel: function(value) {
+            if (zoom_level !== value) {
+                zoom_level = value;
+            } // if
+            
+            // if the current position is set, then goto the updated position
+            self.gotoPosition(self.getCenterPosition(), zoom_level);
         }
     }, parent);
     

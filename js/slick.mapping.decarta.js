@@ -1,5 +1,29 @@
 GEO.DECARTA = {};
 
+// define the decarta utilities as per this thread on the decarta forum
+// http://devzone.decarta.com/web/guest/forums?p_p_id=19&p_p_action=0&p_p_state=maximized&p_p_mode=view&_19_struts_action=/message_boards/view_message&_19_messageId=43131
+
+GEO.DECARTA.Utilities = (function() {
+    // define some constants
+    var MAX_GX_ZOOM = 21;
+    
+    var self = {
+        /* start forum extracted functions */
+        
+        radsPerPixelAtZoom: function(tileSize, gxZoom) {
+            return 2*Math.PI / (tileSize << gxZoom);
+        },
+        
+        /* end forum extracted functions */
+        
+        zoomLevelToGXZoom: function(zoom_level) {
+            return Math.abs(MAX_GX_ZOOM - parseInt(zoom_level, 10));
+        }
+    };
+    
+    return self;
+})();
+
 /* define decarta types */
 
 GEO.DECARTA.CenterContext = function(json_data) {
@@ -7,7 +31,8 @@ GEO.DECARTA.CenterContext = function(json_data) {
     
     // initialise self
     var self = {
-    
+        centerPos: new GEO.Position(json_data.CenterPoint ? json_data.CenterPoint.pos.content : ""),
+        radius: new GEO.Radius(json_data.Radius ? json_data.Radius.content : 0, json_data.Radius ? json_data.Radius.unit : null)
     }; // self
     
     return self;
@@ -36,7 +61,7 @@ GEO.DECARTA.Request = function(config) {
     return self;
 }; // GEO.DECARTA.Request
 
-GEO.DECARTA.PortrayMapRequest = function(config, lat, lon) {
+GEO.DECARTA.PortrayMapRequest = function(config, lat, lon, zoom_level) {
     // initialise variables
     
     function findGridLayer(layers, layer_name) {
@@ -54,8 +79,8 @@ GEO.DECARTA.PortrayMapRequest = function(config, lat, lon) {
             mask: url
         };
         var regexes = [
-            /(\?|\&)(N)\=(\-?\d+)/i,
-            /(\?|\&)(E)\=(\-?\d+)/i
+            (/(\?|\&)(N)\=(\-?\d+)/i),
+            (/(\?|\&)(E)\=(\-?\d+)/i)
         ]; 
 
         // iterate through the regular expressions and capture north position and east positio
@@ -82,6 +107,7 @@ GEO.DECARTA.PortrayMapRequest = function(config, lat, lon) {
         // initialise map request props
         latitude: lat,
         longitude: lon,
+        zoom: zoom_level,
         
         getRequestBody: function() {
             return String.format(
@@ -133,7 +159,7 @@ GEO.DECARTA.PortrayMapRequest = function(config, lat, lon) {
                 return {
                     imageUrl: urlData.mask,
                     tileSize: grid.Tile.Map.Content.height,
-                    tileContext: new GEO.DECARTA.CenterContext(grid.CenterContext),
+                    centerContext: new GEO.DECARTA.CenterContext(grid.CenterContext),
                     centerTile: {
                         N: parseInt(urlData.N, 10),
                         E: parseInt(urlData.E, 10)
@@ -163,7 +189,7 @@ GEO.DECARTA.MapProvider = function(params) {
         useCache: true
     }, params);
     
-    var center_tile = null;
+    var last_map_response = null;
     var tile_grid = null;
     var image_url = "";
     
@@ -172,21 +198,21 @@ GEO.DECARTA.MapProvider = function(params) {
     // initialise parent
     var parent = new GEO.MapProvider();
     
-    function buildTileGrid(tile_context, container_dimensions) {
+    function buildTileGrid(response_data, container_dimensions) {
         // initialise the first tile origin
         // TODO: think about whether to throw an error if not divisble
-        var half_width = Math.round(tile_context.tileSize * 0.5);
+        var half_width = Math.round(response_data.tileSize * 0.5);
         var pos_first = {
             x: container_dimensions.center.x - half_width,
             y: container_dimensions.center.y - half_width
         }; 
         
         // create the tile grid
-        image_url = tile_context.imageUrl;
+        image_url = response_data.imageUrl;
         tile_grid = new SLICK.MapTileGrid({
             width: container_dimensions.width, 
             height: container_dimensions.height, 
-            tilesize: tile_context.tileSize,
+            tilesize: response_data.tileSize,
             onNeedTiles: function(offset_delta) {
                 // if the tile grid is defined, then we know the base_n and e
                 if (tile_grid) {
@@ -200,23 +226,26 @@ GEO.DECARTA.MapProvider = function(params) {
         
         // associate some custom data with the tile grid (gotta love javascript)
         tile_grid.customdata = {
-            base_n: tile_context.centerTile.N + tile_grid.centerTile.row,
-            base_e: tile_context.centerTile.E - tile_grid.centerTile.col
+            base_n: response_data.centerTile.N + tile_grid.centerTile.row,
+            base_e: response_data.centerTile.E - tile_grid.centerTile.col
         }; // customdata
+
+        // right some tests...
+        var gx_zoomlevel = GEO.DECARTA.Utilities.zoomLevelToGXZoom(self.zoomLevel);
         
-        // add the on need tiles handler
-        tile_grid.onNeedTiles = function(tile_array, col_delta, offset_delta) {
-            LOGGER.info("Need new tiles");
-        }; // onNeedTiles
+        // set the tile grid center position
+        tile_grid.setCenterPos(response_data.centerContext.centerPos);
+        tile_grid.setRadiansPerTile(GEO.DECARTA.Utilities.radsPerPixelAtZoom(response_data.tileSize, gx_zoomlevel));
         
         // write a whole pile of log messages
         LOGGER.info(String.format("building a tile grid for container {0} x {1}", container_dimensions.width, container_dimensions.height));
         LOGGER.info(String.format("center point = x: {0}, y: {1}", container_dimensions.center.x, container_dimensions.center.y));
-        LOGGER.info(String.format("tile size {0} x {0}", tile_context.tileSize));
+        LOGGER.info(String.format("tile size {0} x {0}", response_data.tileSize));
         LOGGER.info(String.format("first tile x: {0}, y: {0}", pos_first.x, pos_first.y));
         LOGGER.info(String.format("tile grid = {0} columns wide and {1} rows high", tile_grid.columns, tile_grid.rows));
         LOGGER.info(String.format("center tile col = {0}, row = {1}", tile_grid.centerTile.col, tile_grid.centerTile.row));
         LOGGER.info(String.format("top tile = N:{0} E:{1}", tile_grid.customdata.base_n, tile_grid.customdata.base_e));
+        LOGGER.info(String.format("grid bounds = {0}", tile_grid.getBoundingBox()));
         
         populateTiles();
         
@@ -316,17 +345,27 @@ GEO.DECARTA.MapProvider = function(params) {
     
     // initialise self
     var self = jQuery.extend({}, parent, {
-        getMapTiles: function(tiler, position, zoom_level, callback) {
+        getMapTiles: function(tiler, position, callback) {
             makeServerRequest(
-                    new GEO.DECARTA.PortrayMapRequest(config, "-27.468", "153.028"),
+                    new GEO.DECARTA.PortrayMapRequest(config, position.lat, position.lon, self.zoomLevel),
                     function (response) {
                         // update the center tile details
-                        center_tile = response;
+                        last_map_response = response;
+                        
+                        // TODO: determine the x and y offset given then requested position and returned center context
                         
                         if (callback) {
-                            callback(buildTileGrid(center_tile, tiler.getDimensions()));
+                            // build the tile grid
+                            var tile_grid = buildTileGrid(last_map_response, tiler.getDimensions());
+                            
+                            LOGGER.info("grid center position = " + tile_grid.centerPos);
+                            callback(tile_grid);
                         } // if
                     });
+        },
+        
+        getPositionForXY: function(x, y) {
+            
         }
     });
     

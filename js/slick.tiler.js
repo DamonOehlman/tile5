@@ -60,8 +60,6 @@ SLICK.TileGrid = function(args) {
     var tile_size = args.tilesize;
     var col_count = Math.ceil(width / tile_size) + SLICK.TilerConfig.TILEBUFFER;
     var row_count = Math.ceil(height / tile_size) + SLICK.TilerConfig.TILEBUFFER;
-    var x_offset = 0;
-    var y_offset = 0;
     var scale_amount = 0;
     var inv_tile_aspect_ratio = 0;
     var inv_screen_aspect_ratio = 0;
@@ -77,6 +75,11 @@ SLICK.TileGrid = function(args) {
     // TODO: perhaps this should be optional...
     col_count = col_count % 2 == 0 ? col_count + 1 : col_count;
     row_count = row_count % 2 == 0 ? row_count + 1 : row_count;
+    
+    // calculate the initial x and y offsets
+    var x_offset = ((col_count * tile_size) - width) * 0.5;
+    var y_offset = ((row_count * tile_size) - height) * 0.5;
+    LOGGER.info(String.format("offsets = x: {0}, y: {1}", x_offset, y_offset));
     
     var buffers = null;
     createBuffers(BUFFER_COUNT);
@@ -287,8 +290,11 @@ SLICK.TileGrid = function(args) {
         } // for        
     }
     
+    // initialise the parent
+    var parent = new SLICK.DrawLayer(args);
+    
     // initialise self
-    var self = {
+    var self = jQuery.extend({}, parent, {
         customdata: {},
         columns: col_count,
         rows: row_count,
@@ -377,6 +383,14 @@ SLICK.TileGrid = function(args) {
             update_listeners.push(listener);
         },
         
+        getGridHeight: function() {
+            return row_count * tile_size;
+        },
+        
+        getGridWidth: function() {
+            return col_count * tile_size;
+        },
+        
         getTile: function(col, row) {
             if ((col < col_count) && (col >= 0) && (row < row_count) && (row >= 0)) {
                 return tiles[(row * row_count) + col];
@@ -397,7 +411,7 @@ SLICK.TileGrid = function(args) {
                 monitorTile(tile, col, row);
             } // if
         }
-    };
+    });
     
     // calculate the offsets
     x_offset = Math.round(((col_count * tile_size) - width) / 2);
@@ -410,7 +424,8 @@ SLICK.Tiler = function(args) {
     // define default args
     var DEFAULT_ARGS = {
         container: "",
-        panHandler: null
+        panHandler: null,
+        tapHandler: null
     }; 
     
     // TODO: add some error detection here
@@ -421,12 +436,11 @@ SLICK.Tiler = function(args) {
             // reset the scale to 0
             self.scale(0);
         },
-        moveHandler: function(x, y) {
-            self.pan(x, y);
-        },
-        
-        pinchZoomHandler: function(zoom_amount) {
-            self.scale(zoom_amount);
+
+        tapHandler: function(x, y) {
+            if (self.args.tapHandler) {
+                self.args.tapHandler(x, y);
+            } // if
         }
     });
     
@@ -447,8 +461,34 @@ SLICK.Tiler = function(args) {
     // initialise layers
     var grid = null;
     
+    // create some behaviour mixins
+    var pannable = new SLICK.Pannable({
+        container: args.container,
+        onPan: function(x, y) {
+            if (grid) {
+                grid.pan(x, y);
+                self.invalidate(true);
+                
+                // if we have a pan handler defined, then call it
+                if (self.args.panHandler) {
+                    self.args.panHandler(x, y);
+                } // if
+            } // if
+        }
+    }); // pannable
+    
+    var scalable = new SLICK.Scalable({
+        container: args.container,
+        onScale: function(scale_amount) {
+            if (grid) {
+                grid.scale(scale_amount);
+                self.invalidate(true);
+            } // if
+        }
+    }); // scalable
+    
     // initialise self
-    var self = {
+    var self = jQuery.extend({}, pannable, scalable, {
         args: jQuery.extend({}, DEFAULT_ARGS, args),
         
         getDimensions: function() {
@@ -493,27 +533,8 @@ SLICK.Tiler = function(args) {
             grid.requestUpdates(function() {
                 self.invalidate();
             });
-        },
-        
-        pan: function(x, y) {
-            if (grid) {
-                grid.pan(x, y);
-                self.invalidate(true);
-                
-                // if we have a pan handler defined, then call it
-                if (self.args.panHandler) {
-                    self.args.panHandler(x, y);
-                } // if
-            } // if
-        },
-        
-        scale: function(amount) {
-            if (grid) {
-                grid.scale(amount);
-                self.invalidate(true);
-            } // if
         }
-    }; // self
+    }); // self
     
     return self;
 }; // Tiler
