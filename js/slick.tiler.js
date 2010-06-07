@@ -255,18 +255,18 @@ SLICK.TileGrid = function(args) {
 
             // check the y tolerances
             if (display_rect.top <= (tile_size * buffer_required)) {
-                offset_delta.rows = 1;
+                offset_delta.rows = Math.abs(Math.floor(display_rect.top / tile_size)) + 1;
             }
             else if (display_rect.bottom + (tile_size * buffer_required) >= self.height) {
-                offset_delta.rows = -1;
+                offset_delta.rows = -(Math.floor((display_rect.bottom - self.height) / tile_size) + 1);
             } // if..else
 
             // check the x tolerances
             if (display_rect.left <= (tile_size * buffer_required)) {
-                offset_delta.cols = 1;
+                offset_delta.cols = Math.abs(Math.floor(display_rect.left / tile_size)) + 1;
             }
             else if (display_rect.right + (tile_size * buffer_required) >= self.width) {
-                offset_delta.cols = -1;
+                offset_delta.cols = -(Math.floor((display_rect.right - self.width) / tile_size) + 1);
             } // if..else
 
             // if things have changed then we need to change them
@@ -368,6 +368,7 @@ SLICK.Tiler = function(args) {
     // create some behaviour mixins
     var pannable = new SLICK.Pannable({
         container: args.container,
+        /*
         checkOffset: function(offset) {
             if (grid) {
                 // get the dimensions of the tiler
@@ -381,6 +382,7 @@ SLICK.Tiler = function(args) {
             
             return offset;
         },
+        */
         onPan: function(x, y) {
             if (grid) {
                 self.invalidate(true);

@@ -29,7 +29,7 @@ SLICK.Pannable = function(args) {
         },
         
         pan: function(x, y) {
-            self.updateOffset(offset.x - x, offset.y - y);
+            self.updateOffset(offset.x + x, offset.y + y);
 
             // if the on pan event is defined, then hook into it
             if (args.onPan) {
@@ -53,7 +53,7 @@ SLICK.Pannable = function(args) {
     if (self.args.container) {
         jQuery(self.args.container).canTouchThis({
             moveHandler: function(x, y) {
-                self.pan(x, y);
+                self.pan(-x, -y);
             }
         });
     } // if

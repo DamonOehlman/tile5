@@ -211,13 +211,13 @@ GEO.TRANSFORM = (function() {
     return {
         Shrink: function(new_width, new_height) {
             return function() {
-                LOGGER.info(String.format("SHRINKING {2} to {0} x {1}", new_width, new_height, this));
+                //LOGGER.info(String.format("SHRINKING {2} to {0} x {1}", new_width, new_height, this));
             };
         },
         
         Offset: function(x_offset, y_offset) {
             return function() {
-                LOGGER.info(String.format("OFFSETING {2} by {0}, {1}", x_offset, y_offset, this));
+                //LOGGER.info(String.format("OFFSETING {2} by {0}, {1}", x_offset, y_offset, this));
             };
         }
     };

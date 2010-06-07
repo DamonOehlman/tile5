@@ -93,14 +93,6 @@ SLICK.MapTileGrid = function(args) {
             return new SLICK.Vector(offset_x, offset_y);
         },
         
-        getPanVectorForPosition: function(pos) {
-            // get the offset for the position, and the return the negative result
-            var offset = self.getGridXYForPosition(pos);
-
-            // determine the difference between the current center position and the required center position
-            return new SLICK.Vector(-offset.x - self.getTileSize(), -offset.y - self.getTileSize());
-        },
-        
         getRadsPerPixel: function() {
             return rads_per_pixel;
         },
@@ -219,6 +211,8 @@ SLICK.MappingTiler = function(args) {
             
             // turn that into a bounds object
             tap_bounds = new GEO.BoundingBox(min_pos.toString(), max_pos.toString());
+            
+            LOGGER.info("tap bounds = " + tap_bounds);
         } // if
         
         if (caller_tap_handler) {
@@ -283,16 +277,32 @@ SLICK.MappingTiler = function(args) {
                 LOGGER.info(String.format("created tile grid {0} x {1}", tile_grid.columns, tile_grid.rows));
                 self.setGrid(tile_grid);
                 
+                self.panToPosition(position, callback);
+            });
+        },
+        
+        panToPosition: function(position, callback) {
+            var grid = self.getGrid();
+            if (grid) {
                 // determine the tile offset for the requested position
-                var pan_vector = tile_grid.getPanVectorForPosition(position);
-                LOGGER.info(String.format("need to apply pan vector of ({0}) to correctly center", pan_vector));
-                self.pan(pan_vector.x, pan_vector.y);
-                
+                var center_xy = grid.getGridXYForPosition(position);
+                var dimensions = self.getDimensions();
+            
+                // determine the actual pan amount, by calculating the center of the viewport
+                center_xy.x -= dimensions.width * 0.5;
+                center_xy.y -= dimensions.height * 0.5;
+            
+                // pan the required amount
+                LOGGER.info(String.format("need to apply pan vector of ({0}) to correctly center", center_xy));
+                LOGGER.info("offset before pan = " + self.getOffset());
+                self.pan(center_xy.x, center_xy.y);
+                LOGGER.info("offset after pan = " + self.getOffset());
+            
                 // if we have a callback defined, then run it
                 if (callback) {
                     callback(self);
                 } // if
-            });
+            } // if
         },
         
         setZoomLevel: function(value) {

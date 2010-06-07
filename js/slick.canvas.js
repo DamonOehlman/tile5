@@ -130,28 +130,28 @@ SLICK.OffscreenCanvas = function(args) {
             var src_x = Math.min(Math.max(offset.x + scale_amount, 0), buffer_canvas.width);
             var src_y = Math.min(Math.max(offset.y + scale_amount, 0), buffer_canvas.height);
             var src_width = dimensions.width - (scale_amount * 2);
-            var src_height = src_width * dimensions.inv_aspect_ratio;
+            var src_height = Math.round(src_width * dimensions.inv_aspect_ratio);
             
             if (src_x < 0 || src_x + src_width > buffer_canvas.width || src_y < 0 || src_y + src_height > buffer_canvas.height) {
                 src_width = Math.min(src_width, buffer_canvas.width - src_x);
-                src_height = src_width * dimensions.inv_aspect_ratio;
+                src_height = Math.round(src_width * dimensions.inv_aspect_ratio);
                 
                 // check the src height
                 if (src_y + src_height > buffer_canvas.height) {
                     src_height = buffer_canvas.height - src_y;
-                    src_width = src_height * dimensions.aspect_ratio;
+                    src_width = Math.round(src_height * dimensions.aspect_ratio);
                 } // if
                 
                 // determine the destination positions and height
                 dst_width = Math.max(Math.min(dimensions.width + (scale_amount * 2), dimensions.width), 200);
-                dst_height = dst_width * self.inv_aspect_ratio;
+                dst_height = Math.round(dst_width * dimensions.inv_aspect_ratio);
                 dst_x = (dimensions.width - dst_width) * 0.5;
                 dst_y = (dimensions.height - dst_height) * 0.5;
             } // if
             
-            // LOGGER.info(String.format("offset = {0}, scale = {1}", offset, scale_amount));
-            // LOGGER.info(String.format("src: x = {0}, y = {1}, width = {2}, height = {3}", src_x, src_y, src_width, src_height));
-            // LOGGER.info(String.format("dst: x = {0}, y = {1}, width = {2}, height = {3}", dst_x, dst_y, dst_width, dst_height));
+            //LOGGER.info(String.format("offset = {0}, scale = {1}", offset, scale_amount));
+            //LOGGER.info(String.format("src: x = {0}, y = {1}, width = {2}, height = {3}", src_x, src_y, src_width, src_height));
+            //LOGGER.info(String.format("dst: x = {0}, y = {1}, width = {2}, height = {3}", dst_x, dst_y, dst_width, dst_height));
             
             // draw the sliced tile grid to the canvas
             context.drawImage(
