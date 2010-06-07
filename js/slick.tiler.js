@@ -32,9 +32,9 @@ SLICK.TileGrid = function(args) {
     // initialise defaults
     var BUFFER_COUNT = 2;
     var DEFAULT_ARGS = {
+        tilesize: SLICK.TilerConfig.TILESIZE,
         width: 800,
         height: 600,
-        tilesize: SLICK.TilerConfig.TILESIZE,
         onNeedTiles: null
     }; // DEFAULT_ARGS
     
@@ -55,34 +55,24 @@ SLICK.TileGrid = function(args) {
     var QUEUE_REDRAW_DELAY = 200;
     
     // calculate the col and row count
-    var width = args.width;
-    var height = args.height;
     var tile_size = args.tilesize;
-    var col_count = Math.ceil(width / tile_size) + SLICK.TilerConfig.TILEBUFFER;
-    var row_count = Math.ceil(height / tile_size) + SLICK.TilerConfig.TILEBUFFER;
-    var scale_amount = 0;
-    var inv_tile_aspect_ratio = 0;
-    var inv_screen_aspect_ratio = 0;
+    var col_count = Math.ceil(args.width / tile_size) + SLICK.TilerConfig.TILEBUFFER;
+    var row_count = Math.ceil(args.height / tile_size) + SLICK.TilerConfig.TILEBUFFER;
     var redraw_timeout = 0;
     var queued_tiles = [];
     var queued_load_timeout = 0;
     var updating_tile_canvas = false;
     var update_listeners = [];
     var checkbuffers_timer = 0;
-    var buffer_index = 0;
     
     // ensure that both column and row count are odd, so we have a center tile
     // TODO: perhaps this should be optional...
     col_count = col_count % 2 == 0 ? col_count + 1 : col_count;
     row_count = row_count % 2 == 0 ? row_count + 1 : row_count;
     
-    // calculate the initial x and y offsets
-    var x_offset = ((col_count * tile_size) - width) * 0.5;
-    var y_offset = ((row_count * tile_size) - height) * 0.5;
-    LOGGER.info(String.format("offsets = x: {0}, y: {1}", x_offset, y_offset));
-    
-    var buffers = null;
-    createBuffers(BUFFER_COUNT);
+    // calculate the layer width
+    args.width = col_count * tile_size;
+    args.height = row_count * tile_size;
     
     // create placeholder canvas
     var placeholder_tile = document.createElement("canvas");
@@ -93,75 +83,9 @@ SLICK.TileGrid = function(args) {
     // initialise the tile array
     var tiles = new Array(col_count * row_count);
     
-    function createBuffers(buffer_count) {
-        // initialise the buffers
-        buffers = [];
-        
-        for (var ii = 0; ii < buffer_count; ii++) {
-            // create the canvas
-            var buffer_canvas = document.createElement("canvas");
-            
-            // initialise the canvas size
-            buffer_canvas.width = col_count * tile_size;
-            buffer_canvas.height = row_count * tile_size;
-            
-            // add the buffer
-            buffers.push(buffer_canvas);
-        } // for
-        
-        // calculate the inverse aspect ratio
-        inv_tile_aspect_ratio = row_count / col_count;
-        inv_screen_aspect_ratio = height / width;
-    } // createBuffers
-    
-    /*
-    This function is used to determine whether we have sufficient tiles, or whether additional
-    tiles need to be loaded due to panning.  Note that tile buffers should not be examined or 
-    re-evaluated when scaling as it would just be silly...
-    */
-    function checkTileBuffers(buffer_required) {
-        // if the buffer required is not defined, then set to the default
-        if (! buffer_required) {
-            buffer_required = SLICK.TilerConfig.TILEBUFFER_LOADNEW;
-        } // if
-        
-        // calculate the current display rect
-        var display_rect = {
-            top: y_offset,
-            left: x_offset,
-            bottom: y_offset + height,
-            right: x_offset + width
-        }; 
-        var offset_delta = {
-            cols: 0,
-            rows: 0
-        };
-        
-        // check the y tolerances
-        if (display_rect.top <= (tile_size * buffer_required)) {
-            offset_delta.rows = 1;
-        }
-        else if (display_rect.bottom + (tile_size * buffer_required) >= getTileCanvas().height) {
-            offset_delta.rows = -1;
-        } // if..else
-        
-        // check the x tolerances
-        if (display_rect.left <= (tile_size * buffer_required)) {
-            offset_delta.cols = 1;
-        }
-        else if (display_rect.right + (tile_size * buffer_required) >= getTileCanvas().width) {
-            offset_delta.cols = -1;
-        } // if..else
-        
-        // if things have changed then we need to change them
-        if ((offset_delta.rows !== 0) || (offset_delta.cols !== 0)) {
-            needTiles(offset_delta);
-        } // if
-    } // checkTileBuffers
-    
-    function drawTile(tile, col, row, page_index) {
+    function drawTile(tile, col, row) {
         // get the offscreen context
-        var tile_context = getTileCanvas(page_index).getContext("2d");
+        var tile_context = self.getContext();
         
         // draw the tile ot the canvas
         tile_context.drawImage(tile, col * tile_size, row * tile_size, tile_size, tile_size);
@@ -172,18 +96,13 @@ SLICK.TileGrid = function(args) {
         } // for
     } // drawTile
     
-    function getTileCanvas(index) {
-        return buffers[index ? index : buffer_index];
-    } // getTileCanvas
-    
     function monitorTile(monitor_tile, init_col, init_row) {
         if (monitor_tile.src && (! monitor_tile.complete)) {
             // add the tile to the queued tiles array
             queued_tiles.push({
                 tile: monitor_tile,
                 col: init_col,
-                row: init_row,
-                page_index: buffer_index
+                row: init_row
             });
             
             // draw the placeholder to the column and row
@@ -203,8 +122,7 @@ SLICK.TileGrid = function(args) {
                                     drawTile(
                                         queued_tiles[ii].tile, 
                                         queued_tiles[ii].col, 
-                                        queued_tiles[ii].row, 
-                                        queued_tiles[ii].page_index);
+                                        queued_tiles[ii].row);
                     
                                     // splice the current tile out of the array
                                     queued_tiles.splice(ii, 1);
@@ -229,7 +147,10 @@ SLICK.TileGrid = function(args) {
         } // if..else
     } // monitorTile
     
-    function needTiles(offset_delta) {
+    function needTiles(offset, offset_delta) {
+        // initialise the return offset
+        var fnresult = new SLICK.Vector(offset.x, offset.y);
+        
         // fire the on need tiles event
         if (args.onNeedTiles) {
             queued_tiles = [];
@@ -247,11 +168,11 @@ SLICK.TileGrid = function(args) {
             
             */
             
-            // update the offset
-            // TODO: the offset calculation amount may need to be provided by the on need tiles function
-            x_offset = Math.min(Math.max(x_offset + (tile_size * offset_delta.cols), 0), (col_count * tile_size) - width);
-            y_offset = Math.min(Math.max(y_offset + (tile_size * offset_delta.rows), 0), (row_count * tile_size) - height);        
+            fnresult.x += tile_size * offset_delta.cols;
+            fnresult.y += tile_size * offset_delta.rows;
         } // if
+        
+        return fnresult;
     } // loadTiles
     
     function prepCanvas(prep_canvas) {
@@ -265,7 +186,7 @@ SLICK.TileGrid = function(args) {
         var tile_context = prep_canvas.getContext("2d");
         
         tile_context.fillStyle = "rgb(200, 200, 200)";
-        tile_context.fillRect(0, 0, width, height);
+        tile_context.fillRect(0, 0, prep_canvas.width, prep_canvas.height);
         
         // set the context line color and style
         tile_context.strokeStyle = "rgb(180, 180, 180)";
@@ -291,7 +212,7 @@ SLICK.TileGrid = function(args) {
     }
     
     // initialise the parent
-    var parent = new SLICK.DrawLayer(args);
+    var parent = new SLICK.OffscreenCanvas(args);
     
     // initialise self
     var self = jQuery.extend({}, parent, {
@@ -303,80 +224,56 @@ SLICK.TileGrid = function(args) {
             row: Math.ceil(row_count * 0.5)
         },
         
-        drawToContext: function(context) {
-            // get the tile canvas
-            var tile_canvas = getTileCanvas();
-            
-            // fill the background
-            context.fillStyle = "rgb(200, 200, 200)";
-            context.fillRect(0, 0, width, height);
-            
-            var dst_x = 0;
-            var dst_y = 0;
-            var dst_width = width;
-            var dst_height = height;
-            
-            // determine the x_offset and y_offset taking into account the scale
-            var src_x = x_offset + scale_amount;
-            var src_y = y_offset + scale_amount;
-            var src_width = width - (scale_amount * 2);
-            var src_height = src_width * inv_screen_aspect_ratio;
-            
-            if (src_x < 0 || src_x + src_width > tile_canvas.width || src_y < 0 || src_y + src_height > tile_canvas.height) {
-                src_x = Math.min(Math.max(src_x, 0), tile_canvas.width);
-                src_y = Math.min(Math.max(src_y, 0), tile_canvas.height);
-                src_width = Math.min(src_width, tile_canvas.width - src_x);
-                src_height = src_width * inv_screen_aspect_ratio;
-                
-                // check the src height
-                if (src_y + src_height > tile_canvas.height) {
-                    src_height = tile_canvas.height - src_y;
-                    src_width = src_height * (width / height);
-                } // if
-                
-                // determine the destination positions and height
-                dst_width = Math.max(Math.min(width + (scale_amount * 2), width), 200);
-                dst_height = dst_width * inv_screen_aspect_ratio;
-                dst_x = (width - dst_width) * 0.5;
-                dst_y = (height - dst_height) * 0.5;
+        /*
+        This function is used to determine whether we have sufficient tiles, or whether additional
+        tiles need to be loaded due to panning.  Note that tile buffers should not be examined or 
+        re-evaluated when scaling as it would just be silly...
+        */
+        checkTileBuffers: function(view, buffer_required) {
+            // if the buffer required is not defined, then set to the default
+            if (! buffer_required) {
+                buffer_required = SLICK.TilerConfig.TILEBUFFER_LOADNEW;
             } // if
             
-            // draw the sliced tile grid to the canvas
-            context.drawImage(
-                tile_canvas, // the source canvas
-                src_x, // the source x, y, width and height
-                src_y, 
-                src_width,
-                src_height,
-                dst_x, // the dest x, y, width and height
-                dst_y,
-                dst_width,
-                dst_height);
-                
-            /*
-            // draw the sliced tile grid to the canvas
-            context.drawImage(
-                getTileCanvas(buffer_index ? 0 : 1), // the source canvas
-                x_offset, // the source x, y, width and height
-                y_offset, 
-                width,
-                height,
-                0, // the dest x, y, width and height
-                0,
-                width,
-                height);
-            */
-        },
-        
-        pan: function(x, y) {
-            x_offset = Math.min(Math.max(x_offset - x, 0), (col_count * tile_size) - width);
-            y_offset = Math.min(Math.max(y_offset - y, 0), (row_count * tile_size) - height);
+            // get the offset and dimensions
+            var offset = view.pannable ? view.getOffset() : new Vector();
+            var dimensions = view.getDimensions();
             
-            checkTileBuffers();
-        },
-        
-        scale: function(amount) {
-            scale_amount = amount * 0.5;
+            // calculate the current display rect
+            var display_rect = {
+                top: offset.y,
+                left: offset.x,
+                bottom: offset.y + dimensions.height,
+                right: offset.x + dimensions.width
+            }; 
+            var offset_delta = {
+                cols: 0,
+                rows: 0
+            };
+            
+            LOGGER.info(String.format("CHECKING TILE BUFFERS, display rect = (top: {0}, left: {1}, bottom: {2}, right: {3})", display_rect.top, display_rect.left, display_rect.bottom, display_rect.right));
+
+            // check the y tolerances
+            if (display_rect.top <= (tile_size * buffer_required)) {
+                offset_delta.rows = 1;
+            }
+            else if (display_rect.bottom + (tile_size * buffer_required) >= self.height) {
+                offset_delta.rows = -1;
+            } // if..else
+
+            // check the x tolerances
+            if (display_rect.left <= (tile_size * buffer_required)) {
+                offset_delta.cols = 1;
+            }
+            else if (display_rect.right + (tile_size * buffer_required) >= self.width) {
+                offset_delta.cols = -1;
+            } // if..else
+
+            // if things have changed then we need to change them
+            if ((offset_delta.rows !== 0) || (offset_delta.cols !== 0)) {
+                updated_offset = needTiles(offset, offset_delta);
+                view.updateOffset(updated_offset.x, updated_offset.y);
+            } // if
         },
         
         requestUpdates: function(listener) {
@@ -410,12 +307,12 @@ SLICK.TileGrid = function(args) {
             if (tile) {
                 monitorTile(tile, col, row);
             } // if
+        },
+        
+        getTileSize: function() {
+            return tile_size;
         }
     });
-    
-    // calculate the offsets
-    x_offset = Math.round(((col_count * tile_size) - width) / 2);
-    y_offset = Math.round(((row_count * tile_size) - height) / 2);
     
     return self;
 }; // SLICK.TileGrid
@@ -425,7 +322,8 @@ SLICK.Tiler = function(args) {
     var DEFAULT_ARGS = {
         container: "",
         panHandler: null,
-        tapHandler: null
+        tapHandler: null,
+        onDraw: null
     }; 
     
     // TODO: add some error detection here
@@ -444,30 +342,51 @@ SLICK.Tiler = function(args) {
         }
     });
     
-    // get the container context
-    var canvas = jQuery(args.container).get(0);
-    var context = null;
-    if (canvas) {
-        try {
-            context = canvas.getContext('2d');
-        } 
-        catch (e) {
-            LOGGER.exception(e);
-            throw "Could not initialise canvas on specified tiler element";
-        }
-    } // if
-    var redraw_timer = 0;
-    
     // initialise layers
     var grid = null;
+    var overlays = [];
+    
+    // create the parent
+    var view = new SLICK.View(jQuery.extend({}, args, {
+        onDraw: function(context) {
+            if (grid) {
+                grid.drawToView(view);
+                
+                // iterate through the overlays and draw them to the view also
+                for (var ii = 0; ii < overlays.length; ii++) {
+                    overlays[ii].drawToView(view);
+                } // for
+            } // if
+            
+            // if we have been passed an onDraw handler, then call that too
+            if (self.args.onDraw) {
+                self.args.onDraw(context);
+            } // if
+        }
+    }));
     
     // create some behaviour mixins
     var pannable = new SLICK.Pannable({
         container: args.container,
+        checkOffset: function(offset) {
+            if (grid) {
+                // get the dimensions of the tiler
+                var dimensions = self.getDimensions();
+                
+                LOGGER.info("offset before check: " + offset);
+                offset.x = Math.min(Math.max(offset.x, 0), grid.width - dimensions.width);
+                offset.y = Math.min(Math.max(offset.y, 0), grid.height - dimensions.height);
+                LOGGER.info("offset after check:  " + offset);
+            } // if
+            
+            return offset;
+        },
         onPan: function(x, y) {
             if (grid) {
-                grid.pan(x, y);
                 self.invalidate(true);
+                
+                // get the grid to check tile buffers
+                grid.checkTileBuffers(self);
                 
                 // if we have a pan handler defined, then call it
                 if (self.args.panHandler) {
@@ -481,46 +400,14 @@ SLICK.Tiler = function(args) {
         container: args.container,
         onScale: function(scale_amount) {
             if (grid) {
-                grid.scale(scale_amount);
                 self.invalidate(true);
             } // if
         }
     }); // scalable
     
     // initialise self
-    var self = jQuery.extend({}, pannable, scalable, {
+    var self = jQuery.extend(view, pannable, scalable, {
         args: jQuery.extend({}, DEFAULT_ARGS, args),
-        
-        getDimensions: function() {
-            // get the jquery wrapper
-            var jq_container = jQuery(canvas);
-            
-            // initialise variables
-            var w = jq_container.width();
-            var h = jq_container.height();
-            
-            return {
-                width: w,
-                height: h,
-                center: {
-                    x: Math.round(w * 0.5),
-                    y: Math.round(h * 0.5)
-                }
-            }; 
-        },
-        
-        invalidate: function(force) {
-            if (force && context && grid) {
-                grid.drawToContext(context);
-            }
-            else if (context && grid && (redraw_timer === 0)) {
-                redraw_timer = setTimeout(function() {
-                    grid.drawToContext(context);
-                    
-                    redraw_timer = 0;
-                }, 40); // this redraw time equates to approx 25FPS
-            } // if
-        },
         
         getGrid: function() {
             return grid;
@@ -533,6 +420,17 @@ SLICK.Tiler = function(args) {
             grid.requestUpdates(function() {
                 self.invalidate();
             });
+        },
+        
+        gridPixToViewPix: function(vector) {
+            var offset = self.getOffset();
+            return new SLICK.Vector(vector.x - offset.x, vector.y - offset.y);
+        },
+        
+        viewPixToGridPix: function(vector) {
+            var offset = self.getOffset();
+            LOGGER.info("Offset = " + offset);
+            return new SLICK.Vector(vector.x + offset.x, vector.y + offset.y);
         }
     }); // self
     

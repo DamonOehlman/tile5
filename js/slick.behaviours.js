@@ -13,16 +13,39 @@ SLICK.Pannable = function(args) {
     // initialise defaults
     var DEFAULT_ARGS = {
         container: null,
-        onPan: null
+        onPan: null,
+        checkOffset: null
     };
+    
+    var offset = new SLICK.Vector();
     
     // initialise self
     var self = {
         args: jQuery.extend({}, DEFAULT_ARGS, args),
+        pannable: true,
+        
+        getOffset: function() {
+            return new SLICK.Vector(offset.x, offset.y);
+        },
         
         pan: function(x, y) {
+            self.updateOffset(offset.x - x, offset.y - y);
+
+            // if the on pan event is defined, then hook into it
             if (args.onPan) {
                 args.onPan(x, y);
+            } // if
+        },
+        
+        updateOffset: function(x, y) {
+            offset.x = x;
+            offset.y = y;
+            
+            // if a checkoffset handler is defined, then call it to so if it needs to vito any of the offset
+            // modifications that have been made in the pan event.  For example, when using an offscreen buffer
+            // we need to keep the offset within tolerable bounds
+            if (args.checkOffset) {
+                offset = args.checkOffset(offset);
             } // if
         }
     };
@@ -45,11 +68,23 @@ SLICK.Scalable = function(args) {
         onScale: null
     };
     
+    var scale_amount = 0;
+    
     // initialise self
     var self = {
         args: jQuery.extend({}, DEFAULT_ARGS, args),
+        scalable: true,
         
-        scale: function(scale_amount) {
+        getScaleAmount: function() {
+            return scale_amount;
+        },
+        
+        scale: function(amount) {
+            // update the scale factor
+            scale_amount = amount * 0.5;
+            
+            LOGGER.info("scaling by " + scale_amount);
+            
             if (args.onScale) {
                 args.onScale(scale_amount);
             } // if
@@ -58,8 +93,8 @@ SLICK.Scalable = function(args) {
     
     if (self.args.container) {
         jQuery(self.args.container).canTouchThis({
-            pinchZoomHandler: function(scale_amount) {
-                self.scale(scale_amount);
+            pinchZoomHandler: function(amount) {
+                self.scale(amount);
             }
         });
     } // if

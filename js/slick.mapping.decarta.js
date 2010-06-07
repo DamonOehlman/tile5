@@ -203,8 +203,8 @@ GEO.DECARTA.MapProvider = function(params) {
         // TODO: think about whether to throw an error if not divisble
         var half_width = Math.round(response_data.tileSize * 0.5);
         var pos_first = {
-            x: container_dimensions.center.x - half_width,
-            y: container_dimensions.center.y - half_width
+            x: container_dimensions.getCenter().x - half_width,
+            y: container_dimensions.getCenter().y - half_width
         }; 
         
         // create the tile grid
@@ -214,12 +214,17 @@ GEO.DECARTA.MapProvider = function(params) {
             height: container_dimensions.height, 
             tilesize: response_data.tileSize,
             onNeedTiles: function(offset_delta) {
+                LOGGER.info("NEED TILES, offset delta cols = " + offset_delta.cols + ", rows = " + offset_delta.rows);
+                
                 // if the tile grid is defined, then we know the base_n and e
                 if (tile_grid) {
                     tile_grid.customdata.base_n += offset_delta.rows;
                     tile_grid.customdata.base_e -= offset_delta.cols;
+                    
+                    // tile_grid.applyTileOffset(offset_delta);
+                    tile_grid.offsetPixelPositions(offset_delta);
                 } // if
-
+                
                 populateTiles();
             }
         });
@@ -235,11 +240,10 @@ GEO.DECARTA.MapProvider = function(params) {
         
         // set the tile grid center position
         tile_grid.setCenterPos(response_data.centerContext.centerPos);
-        tile_grid.setRadiansPerTile(GEO.DECARTA.Utilities.radsPerPixelAtZoom(response_data.tileSize, gx_zoomlevel));
+        tile_grid.setRadsPerPixel(GEO.DECARTA.Utilities.radsPerPixelAtZoom(response_data.tileSize, gx_zoomlevel));
         
         // write a whole pile of log messages
         LOGGER.info(String.format("building a tile grid for container {0} x {1}", container_dimensions.width, container_dimensions.height));
-        LOGGER.info(String.format("center point = x: {0}, y: {1}", container_dimensions.center.x, container_dimensions.center.y));
         LOGGER.info(String.format("tile size {0} x {0}", response_data.tileSize));
         LOGGER.info(String.format("first tile x: {0}, y: {0}", pos_first.x, pos_first.y));
         LOGGER.info(String.format("tile grid = {0} columns wide and {1} rows high", tile_grid.columns, tile_grid.rows));
@@ -257,6 +261,8 @@ GEO.DECARTA.MapProvider = function(params) {
             LOGGER.warn("No tile grid to populate");
             return;
         }
+        
+        LOGGER.info("POPULATING TILES!!!");
         
         // load the tiles
         for (var xx = 0; xx < tile_grid.columns; xx++) {

@@ -173,13 +173,43 @@ SLICK.Vector = function(init_x, init_y) {
           self.y += vector.y;
         },
         
+        copy: function(vector) {
+            self.x = vector.x;
+            self.y = vector.y;
+        },
+        
+        offset: function(x, y) {
+            return new SLICK.Vector(self.x + x, self.y + y);
+        },
+        
         toString: function() {
             return self.x + ", " + self.y;
         }
     }; // self
     
     return self;
-}; // MAPPING.Point
+}; // SLICK.Vector
+
+SLICK.Dimensions = function(init_width, init_height) {
+    // initialise variables
+    
+    // calculate the aspect ratio
+    var init_aspect_ratio = init_height ? (init_width / init_height) : 1;
+    
+    // intiialise self
+    var self = {
+        width: init_width,
+        height: init_height,
+        aspect_ratio: init_aspect_ratio,
+        inv_aspect_ratio: 1 / init_aspect_ratio,
+        
+        getCenter: function() {
+            return new SLICK.Vector(self.width * 0.5, self.height * 0.5);
+        }
+    }; // self
+    
+    return self;
+}; // SLICK.Dimension
 
 var LOGGER = null;
 jQuery(document).ready(function() {
