@@ -1,0 +1,6 @@
+The Sidelab slick library is designed to do a lot of the heavy lifting with regards to 
+mobile and touch-screen device web application front-ends.  The library is best used in 
+conjunction with a mobile bridging framework to access device capabilities that are 
+not yet exposed through HTML5.
+
+// TODO: write a getting started guide
