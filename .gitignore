@@ -1,0 +1,7 @@
+dist
+.settings
+*~
+*.diff
+*.patch
+test/qunit
+.DS_Store
