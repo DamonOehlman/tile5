@@ -1,0 +1,34 @@
+ul#console {
+    background: black;
+    color: white;
+    font: 0.80em Courier New;
+    padding: 4px;
+    width: 100%;
+    height: 140px;
+    overflow: scroll;
+    list-style-type: none;
+    margin: 0px;
+    display: none;
+    position: fixed;
+    z-index: 1000;
+}
+
+ul#console li {
+    padding: 1px 0 1px 20px;
+}
+
+ul#console li.debug {
+    background: url(../img/debug.png) no-repeat;
+}
+
+ul#console li.info {
+    background: url(../img/info.png) no-repeat;
+}
+
+ul#console li.warn {
+    background: url(../img/warn.png) no-repeat;
+}
+
+ul#console li.error {
+    background: url(../img/error.png) no-repeat;
+}

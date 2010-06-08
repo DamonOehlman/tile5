@@ -1,0 +1,107 @@
+<!--
+File:  build.xml
+This file is used to build and minify the sidelab slick library for production use.  The build file
+is adapted from the jQuery build file which can be found at the following location:
+
+http://github.com/jquery/jquery/blob/master/build.xml
+-->
+<project name="slick" default="build-slick" basedir=".">
+	<loadfile property="version" srcfile="version.txt" />
+    <property description="Distribution target for slick library" name="dist" value="./dist" />
+
+	<property name="LIBNAME" value="slick" />
+    <property name="SLICK" value="${dist}/${LIBNAME}.js" />
+    <property name="SLICK_MIN" value="${dist}/${LIBNAME}.min.js" />
+	
+	<available property="qunit" file="test/qunit" />
+	
+	<target name="qunit-clone" unless="qunit">
+		<exec executable="git" outputproperty="git-qunit" >  
+			<arg line="clone git://github.com/jquery/qunit.git test/qunit"/>  
+		</exec>
+		<echo message="git clone qunit: ${git-qunit}" />
+	</target>
+
+	<target name="qunit-pull" if="qunit">
+		<exec executable="git" outputproperty="git-qunit" dir="test/qunit" >  
+			<arg line="pull origin master"/>  
+		</exec> 
+		<echo message="git pull sizzle: ${git-qunit}" />
+	</target>
+	
+	<target name="build-slick" depends="qunit-clone,qunit-pull" description="Slick library core build, concatenates core files and updates @VERSION">
+		<echo message="BUILDING SLICK CORE" />
+		<mkdir dir="${dist}" />
+		
+		<!-- concatenate the core file set -->
+		<concat destfile="${dist}/${LIBNAME}.core.js">
+			<fileset file="src/js/core.js" />
+			<fileset file="src/js/touch.js" />
+			<fileset file="src/js/display.js" />
+			<fileset file="src/js/behaviours.js" />
+			<fileset file="src/js/canvas.js" />
+			<fileset file="src/js/tiler.js" />
+		</concat>
+		
+		<!-- concatenate the mapping file set -->
+		<concat destfile="${dist}/${LIBNAME}.mapping.js">
+			<fileset file="src/js/mapping/geo.js" />
+			<fileset file="src/js/mapping/ui.js" />
+			<fileset file="src/js/mapping/poi.js" />
+		</concat>
+		
+		<!-- TODO: move the provider files across too -->
+		
+		<concat destfile="${SLICK}">
+			<fileset file="src/js/template/header.js" />
+			<fileset file="${dist}/${LIBNAME}.core.js" />
+			<fileset file="${dist}/${LIBNAME}.mapping.js" />
+		</concat>
+		
+		<!-- TODO: call the targets to concatenate the required modules -->
+		
+		<replaceregexp match="@VERSION" replace="${version}" flags="g" byline="true" file="${SLICK}" />
+		<replaceregexp match="Date: " replace="Date: ${date}" file="${SLICK}" />
+        <echo message="${SLICK} built." />
+	</target>
+	
+    <target name="min" depends="build-slick" description="Remove all comments and whitespace, no compression, great in combination with GZip">
+        <echo message="Building ${SLICK_MIN}" />
+		<apply executable="java" parallel="false" verbose="true" dest="${dist}">
+			<fileset dir="${dist}">
+				<include name="${LIBNAME}.js" />
+			</fileset>
+			<arg line="-jar" />
+			<arg path="build/google-compiler-20091218.jar" />
+			<arg value="--warning_level" />
+			<arg value="QUIET" />
+			<arg value="--js_output_file" />
+			<targetfile />
+			<arg value="--js" />
+			<mapper type="glob" from="${LIBNAME}.js" to="tmpmin" />
+		</apply>
+		<concat destfile="${SLICK_MIN}">
+			<filelist files="${SLICK}, dist/tmpmin"/>
+			<filterchain>
+				<headfilter lines="15"/>
+			</filterchain>
+		</concat>
+		<concat destfile="${SLICK_MIN}" append="yes">
+			<filelist files="dist/tmpmin"/>
+		</concat>
+		<delete file="dist/tmpmin"/>
+        <echo message="${SLICK_MIN} built." />
+    </target>
+
+    <target name="clean">
+        <delete dir="${dist}" />
+    </target>
+
+	<target name="openAjaxMetadata">
+		<property name="target" value="openAjaxMetadata-jquery-${version}.xml" />
+		<delete file="dist/jquery-*.xml" />
+		<get src="http://www.exfer.net/jquery/createjQueryXMLDocs.py?version=1.3" dest="${target}" />
+		<xslt includes="${target}" excludes="build.xml" destdir="./dist" style="build/style.xsl" extension=".xml" />
+		<delete file="${target}" />
+	</target>
+</project>
