@@ -89,7 +89,7 @@ SLICK.InfoBox = function(args) {
                     clickButton(this);
                 } 
                 catch (e) {
-                    LOGGER.exception(e);
+                    SLICK.logger.exception(e);
                 } // try..catch
             });
         } // for
@@ -208,7 +208,7 @@ SLICK.DisplayHelper = function() {
             } // for
             
             // if the ajaxActivityImage is set, then attach handlers to the jquery ajax start and stop events
-            LOGGER.info("ajax activity indicator: " + SLICK.DisplayOpts.ajaxActivityImage);
+            SLICK.logger.info("ajax activity indicator: " + SLICK.DisplayOpts.ajaxActivityImage);
             if (SLICK.DisplayOpts.ajaxActivityImage) {
                 self.addChunk(String.format("<img id='{0}' src='{1}' />", LOADER_ID, SLICK.DisplayOpts.ajaxActivityImage), LOADER_POS_PREFS);
                 jQuery("#" + LOADER_ID)

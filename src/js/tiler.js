@@ -47,7 +47,7 @@ SLICK.TileGrid = function(args) {
     
     // extend the args with the default args
     args = jQuery.extend({}, DEFAULT_ARGS, args);
-    LOGGER.info("Creating a tiler with tilesize " + args.tilesize);
+    SLICK.logger.info("Creating a tiler with tilesize " + args.tilesize);
     
     // define constants
     var REDRAW_DELAY = 50;
@@ -133,7 +133,7 @@ SLICK.TileGrid = function(args) {
                             } // while
                         } 
                         catch (e) {
-                            LOGGER.exception(e);
+                            SLICK.logger.exception(e);
                         }
                         finally {
                             updating_tile_canvas = false;
@@ -178,7 +178,7 @@ SLICK.TileGrid = function(args) {
     function prepCanvas(prep_canvas) {
         // if the canvas is not defined, then log a warning and return
         if (! prep_canvas) {
-            LOGGER.warn("Cannot prep canvas - not supplied");
+            SLICK.logger.warn("Cannot prep canvas - not supplied");
             return;
         } // if
         
@@ -251,7 +251,7 @@ SLICK.TileGrid = function(args) {
                 rows: 0
             };
             
-            LOGGER.info(String.format("CHECKING TILE BUFFERS, display rect = (top: {0}, left: {1}, bottom: {2}, right: {3})", display_rect.top, display_rect.left, display_rect.bottom, display_rect.right));
+            SLICK.logger.info(String.format("CHECKING TILE BUFFERS, display rect = (top: {0}, left: {1}, bottom: {2}, right: {3})", display_rect.top, display_rect.left, display_rect.bottom, display_rect.right));
 
             // check the y tolerances
             if (display_rect.top <= (tile_size * buffer_required)) {
@@ -374,10 +374,10 @@ SLICK.Tiler = function(args) {
                 // get the dimensions of the tiler
                 var dimensions = self.getDimensions();
                 
-                LOGGER.info("offset before check: " + offset);
+                SLICK.logger.info("offset before check: " + offset);
                 offset.x = Math.min(Math.max(offset.x, 0), grid.width - dimensions.width);
                 offset.y = Math.min(Math.max(offset.y, 0), grid.height - dimensions.height);
-                LOGGER.info("offset after check:  " + offset);
+                SLICK.logger.info("offset after check:  " + offset);
             } // if
             
             return offset;
@@ -431,7 +431,7 @@ SLICK.Tiler = function(args) {
         
         viewPixToGridPix: function(vector) {
             var offset = self.getOffset();
-            LOGGER.info("Offset = " + offset);
+            SLICK.logger.info("Offset = " + offset);
             return new SLICK.Vector(vector.x + offset.x, vector.y + offset.y);
         }
     }); // self

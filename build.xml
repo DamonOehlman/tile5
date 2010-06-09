@@ -58,6 +58,9 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="${dist}/${LIBNAME}.mapping.js" />
 		</concat>
 		
+		<!-- TODO: if the strip logging property is set, then strip it -->
+		<replaceregexp match="SLICK.logger\.(log|info|warn).*?\;" replace="" flags="g" byline="false" file="${SLICK}" />
+		
 		<!-- TODO: call the targets to concatenate the required modules -->
 		
 		<replaceregexp match="@VERSION" replace="${version}" flags="g" byline="true" file="${SLICK}" />

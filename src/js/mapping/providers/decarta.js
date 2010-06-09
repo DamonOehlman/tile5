@@ -154,7 +154,7 @@ GEO.DECARTA.PortrayMapRequest = function(config, lat, lon, zoom_level) {
                 // parse out the tile url details
                 var urlData = parseImageUrl(grid.Tile.Map.Content.URL);
                 
-                LOGGER.info(String.format("parsed image url: {0}, N = {1}, E = {2}", urlData.mask, urlData.N, urlData.E));
+                SLICK.logger.info(String.format("parsed image url: {0}, N = {1}, E = {2}", urlData.mask, urlData.N, urlData.E));
                 
                 return {
                     imageUrl: urlData.mask,
@@ -214,7 +214,7 @@ GEO.DECARTA.MapProvider = function(params) {
             height: container_dimensions.height, 
             tilesize: response_data.tileSize,
             onNeedTiles: function(offset_delta) {
-                LOGGER.info("NEED TILES, offset delta cols = " + offset_delta.cols + ", rows = " + offset_delta.rows);
+                // SLICK.logger.info("NEED TILES, offset delta cols = " + offset_delta.cols + ", rows = " + offset_delta.rows);
                 
                 // if the tile grid is defined, then we know the base_n and e
                 if (tile_grid) {
@@ -243,13 +243,13 @@ GEO.DECARTA.MapProvider = function(params) {
         tile_grid.setRadsPerPixel(GEO.DECARTA.Utilities.radsPerPixelAtZoom(response_data.tileSize, gx_zoomlevel));
         
         // write a whole pile of log messages
-        LOGGER.info(String.format("building a tile grid for container {0} x {1}", container_dimensions.width, container_dimensions.height));
-        LOGGER.info(String.format("tile size {0} x {0}", response_data.tileSize));
-        LOGGER.info(String.format("first tile x: {0}, y: {0}", pos_first.x, pos_first.y));
-        LOGGER.info(String.format("tile grid = {0} columns wide and {1} rows high", tile_grid.columns, tile_grid.rows));
-        LOGGER.info(String.format("center tile col = {0}, row = {1}", tile_grid.centerTile.col, tile_grid.centerTile.row));
-        LOGGER.info(String.format("top tile = N:{0} E:{1}", tile_grid.customdata.base_n, tile_grid.customdata.base_e));
-        LOGGER.info(String.format("grid bounds = {0}", tile_grid.getBoundingBox()));
+        SLICK.logger.info(String.format("building a tile grid for container {0} x {1}", container_dimensions.width, container_dimensions.height));
+        SLICK.logger.info(String.format("tile size {0} x {0}", response_data.tileSize));
+        SLICK.logger.info(String.format("first tile x: {0}, y: {0}", pos_first.x, pos_first.y));
+        SLICK.logger.info(String.format("tile grid = {0} columns wide and {1} rows high", tile_grid.columns, tile_grid.rows));
+        SLICK.logger.info(String.format("center tile col = {0}, row = {1}", tile_grid.centerTile.col, tile_grid.centerTile.row));
+        SLICK.logger.info(String.format("top tile = N:{0} E:{1}", tile_grid.customdata.base_n, tile_grid.customdata.base_e));
+        SLICK.logger.info(String.format("grid bounds = {0}", tile_grid.getBoundingBox()));
         
         populateTiles();
         
@@ -258,11 +258,11 @@ GEO.DECARTA.MapProvider = function(params) {
     
     function populateTiles() {
         if (! tile_grid) {
-            LOGGER.warn("No tile grid to populate");
+            SLICK.logger.warn("No tile grid to populate");
             return;
         }
         
-        LOGGER.info("POPULATING TILES!!!");
+        SLICK.logger.info("POPULATING TILES!!!");
         
         // load the tiles
         for (var xx = 0; xx < tile_grid.columns; xx++) {
@@ -343,7 +343,7 @@ GEO.DECARTA.MapProvider = function(params) {
                 }
                 // otherwise, report the error
                 else {
-                    LOGGER.error("no responses from server: " + data.response);
+                    SLICK.logger.error("no responses from server: " + data.response);
                 } // if..else
             }
         });
@@ -364,7 +364,7 @@ GEO.DECARTA.MapProvider = function(params) {
                             // build the tile grid
                             var tile_grid = buildTileGrid(last_map_response, tiler.getDimensions());
                             
-                            LOGGER.info("grid center position = " + tile_grid.centerPos);
+                            SLICK.logger.info("grid center position = " + tile_grid.centerPos);
                             callback(tile_grid);
                         } // if
                     });

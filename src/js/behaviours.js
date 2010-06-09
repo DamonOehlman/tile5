@@ -50,8 +50,9 @@ SLICK.Pannable = function(args) {
         }
     };
     
-    if (self.args.container) {
-        jQuery(self.args.container).canTouchThis({
+    var container = jQuery(self.args.container).get(0);
+    if (container) {
+        SLICK.TOUCH.TouchEnable(container, {
             moveHandler: function(x, y) {
                 self.pan(-x, -y);
             }
@@ -83,7 +84,7 @@ SLICK.Scalable = function(args) {
             // update the scale factor
             scale_amount = amount * 0.5;
             
-            LOGGER.info("scaling by " + scale_amount);
+            SLICK.logger.info("scaling by " + scale_amount);
             
             if (args.onScale) {
                 args.onScale(scale_amount);
@@ -91,13 +92,14 @@ SLICK.Scalable = function(args) {
         }
     };
     
-    if (self.args.container) {
-        jQuery(self.args.container).canTouchThis({
+    var container = jQuery(self.args.container).get(0);
+    if (container) {
+        SLICK.TOUCH.TouchEnable(container, {
             pinchZoomHandler: function(amount) {
                 self.scale(amount);
             }
         });
-    } // if
+    } // if    
     
     return self;
 }; // SLICK.Scalable

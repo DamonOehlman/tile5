@@ -49,7 +49,7 @@ GEO.POIPin = function(args) {
         
         drawToContext: function(context, x, y) {
             if (pin_image && pin_image.complete) {
-                LOGGER.info(String.format("DRAWING POI: {0} @ {1}, {2}", self.poi, x, y));
+                SLICK.logger.info(String.format("DRAWING POI: {0} @ {1}, {2}", self.poi, x, y));
                 context.drawImage(pin_image, x, y);
             } // if
         }
@@ -121,7 +121,7 @@ GEO.POIInfoBox = function(args) {
     } // updateButtons
     
     function updateDisplay() {
-        LOGGER.info("updating poi display: index = " + poi_index);
+        SLICK.logger.info("updating poi display: index = " + poi_index);
         
         active_poi = null;
         if ((poi_index >= 0) && (poi_index < pois.length)) {
@@ -351,7 +351,7 @@ GEO.POIProvider = function(args) {
         var ii = 0;
         var time_retrieved = new Date().getTime();
         
-        LOGGER.info(String.format("{0} pois to process :)", refreshed_pois.length));
+        SLICK.logger.info(String.format("{0} pois to process :)", refreshed_pois.length));
         
         // iterate through the pois and determine state
         for (ii = 0; ii < refreshed_pois.length; ii++) {
@@ -372,7 +372,7 @@ GEO.POIProvider = function(args) {
         
         // add new pois to the poi layer
         self.pois.addPOIs(new_pois);
-        LOGGER.info(String.format("POI-UPDATE: {0} new, {1} deleted", new_pois.length, deleted_pois.length));
+        SLICK.logger.info(String.format("POI-UPDATE: {0} new, {1} deleted", new_pois.length, deleted_pois.length));
             
         // fire the on poi added event when appropriate
         for (ii = 0; self.args.onPOIAdded && (ii < new_pois.length); ii++) {
@@ -412,7 +412,7 @@ GEO.POIProvider = function(args) {
             request_timer = setTimeout(function() {
                 // check for empty bounds, if empty then exit
                 if ((! bounds) || bounds.isEmpty()) {
-                    LOGGER.warn("cannot get pois for empty bounding box");
+                    SLICK.logger.warn("cannot get pois for empty bounding box");
                     return;
                 } // if
             
@@ -423,7 +423,7 @@ GEO.POIProvider = function(args) {
                 } // if
             
                 if ((! bounds_change) || self.testBoundsChange(bounds_change)) {
-                    LOGGER.info("yep - bounds changed = " + bounds_change);
+                    SLICK.logger.info("yep - bounds changed = " + bounds_change);
 
                     // define the ajax args
                     var ajax_args = jQuery.extend({
@@ -447,12 +447,12 @@ GEO.POIProvider = function(args) {
                                 } // if
                             }  
                             catch (e) {
-                                LOGGER.exception(e);
+                                SLICK.logger.exception(e);
                             } // try..catch
                         },
                         error: function(raw_request, textStatus, errorThrown) {
                             request_active = false;
-                            LOGGER.error("failed getting POIS from server: " + textStatus + ":" + errorThrown);
+                            SLICK.logger.error("failed getting POIS from server: " + textStatus + ":" + errorThrown);
                         }
                     }, self.initRequest());
                 
@@ -461,7 +461,7 @@ GEO.POIProvider = function(args) {
                     request_active = true;
                 
                     // make the request
-                    LOGGER.info("Looking for POIS within bounding box");
+                    SLICK.logger.info("Looking for POIS within bounding box");
                     jQuery.ajax(ajax_args);
                 
                 } // if
@@ -481,7 +481,7 @@ GEO.POIProvider = function(args) {
         },
         
         testBoundsChange: function(distance) {
-            LOGGER.info("testing for bounds change: distance = " + distance);
+            SLICK.logger.info("testing for bounds change: distance = " + distance);
             
             // if the distance is equal to 0 don't call event, just return false
             if (distance && (distance.toKM() == 0)) { return false; }

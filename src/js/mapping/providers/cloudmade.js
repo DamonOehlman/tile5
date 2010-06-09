@@ -49,11 +49,11 @@ GEO.CLOUDMADE.MapProvider = function(params) {
             onNeedTiles: function(offset_delta) {
                 // if the tile grid is defined, then we know the base_n and e
                 if (tile_grid) {
-                    LOGGER.info(String.format("offset delta = {0} rows, {1} cols", offset_delta.rows, offset_delta.cols));
-                    LOGGER.info(String.format("top tile was: x = {0}, y = {1}", tile_grid.customdata.top_x, tile_grid.customdata.top_y));
+                    SLICK.logger.info(String.format("offset delta = {0} rows, {1} cols", offset_delta.rows, offset_delta.cols));
+                    SLICK.logger.info(String.format("top tile was: x = {0}, y = {1}", tile_grid.customdata.top_x, tile_grid.customdata.top_y));
                     tile_grid.customdata.top_x -= offset_delta.cols;
                     tile_grid.customdata.top_y -= offset_delta.rows;
-                    LOGGER.info(String.format("top tile is:  x = {0}, y = {1}", tile_grid.customdata.top_x, tile_grid.customdata.top_y));
+                    SLICK.logger.info(String.format("top tile is:  x = {0}, y = {1}", tile_grid.customdata.top_x, tile_grid.customdata.top_y));
                 } // if
 
                 populateTiles(current_zoom_level);
@@ -67,13 +67,13 @@ GEO.CLOUDMADE.MapProvider = function(params) {
         }; // customdata
         
         // write a whole pile of log messages
-        LOGGER.info(String.format("building a tile grid for container {0} x {1}", container_dimensions.width, container_dimensions.height));
-        LOGGER.info(String.format("center point = x: {0}, y: {1}", container_dimensions.center.x, container_dimensions.center.y));
-        LOGGER.info(String.format("tile size {0} x {0}", SLICK.TilerConfig.TILESIZE));
-        LOGGER.info(String.format("first tile x: {0}, y: {0}", pos_first.x, pos_first.y));
-        LOGGER.info(String.format("tile grid = {0} columns wide and {1} rows high", tile_grid.columns, tile_grid.rows));
-        LOGGER.info(String.format("center tile col = {0}, row = {1}", tile_grid.centerTile.col, tile_grid.centerTile.row));
-        LOGGER.info(String.format("top tile = X:{0} Y:{1}", tile_grid.customdata.top_x, tile_grid.customdata.top_y));
+        SLICK.logger.info(String.format("building a tile grid for container {0} x {1}", container_dimensions.width, container_dimensions.height));
+        SLICK.logger.info(String.format("center point = x: {0}, y: {1}", container_dimensions.center.x, container_dimensions.center.y));
+        SLICK.logger.info(String.format("tile size {0} x {0}", SLICK.TilerConfig.TILESIZE));
+        SLICK.logger.info(String.format("first tile x: {0}, y: {0}", pos_first.x, pos_first.y));
+        SLICK.logger.info(String.format("tile grid = {0} columns wide and {1} rows high", tile_grid.columns, tile_grid.rows));
+        SLICK.logger.info(String.format("center tile col = {0}, row = {1}", tile_grid.centerTile.col, tile_grid.centerTile.row));
+        SLICK.logger.info(String.format("top tile = X:{0} Y:{1}", tile_grid.customdata.top_x, tile_grid.customdata.top_y));
         
         populateTiles(current_zoom_level);
         
@@ -101,7 +101,7 @@ GEO.CLOUDMADE.MapProvider = function(params) {
         var subdomain_idx = 0;
         
         if (! tile_grid) {
-            LOGGER.warn("No tile grid to populate");
+            SLICK.logger.warn("No tile grid to populate");
             return;
         }
         
@@ -127,7 +127,7 @@ GEO.CLOUDMADE.MapProvider = function(params) {
 
                     // set the image source
                     tile_image.src = String.format("http://{0}.{1}", CLOUDMADE_SUBDOMAINS[subdomain_idx++], tile_url);
-                    LOGGER.info("requesting tile: " + tile_image.src);
+                    SLICK.logger.info("requesting tile: " + tile_image.src);
                     
                     // add the tile to the loaded images array
                     loaded_images[tile_url] = tile_image;

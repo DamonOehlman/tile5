@@ -24,10 +24,10 @@ SLICK.MapTileGrid = function(args) {
             center_mercator_pix.x - (self.getGridWidth() * 0.5),
             center_mercator_pix.y - (self.getGridHeight() * 0.5));
             
-        LOGGER.info("CALCULATING GRID BOUNDS");
-        LOGGER.info("center position:             " + center_pos);
-        LOGGER.info("center mercator pixels:      " + center_mercator_pix);
-        LOGGER.info("bottom left mercator pixels: " + bl_mercator_pix);
+        SLICK.logger.info("CALCULATING GRID BOUNDS");
+        SLICK.logger.info("center position:             " + center_pos);
+        SLICK.logger.info("center mercator pixels:      " + center_mercator_pix);
+        SLICK.logger.info("bottom left mercator pixels: " + bl_mercator_pix);
             
         updateGridBounds();
     } // calculateGridBounds
@@ -82,13 +82,13 @@ SLICK.MapTileGrid = function(args) {
             var pos_mp = pos.getMercatorPixels(rads_per_pixel);
 
             // calculate the offsets
-            LOGGER.info("GETTING OFFSET for position: " + pos);
+            SLICK.logger.info("GETTING OFFSET for position: " + pos);
             var offset_x = Math.abs(pos_mp.x - bl_mercator_pix.x) + self.getTileSize();
             var offset_y = self.getGridHeight() - Math.abs(pos_mp.y - bl_mercator_pix.y) + self.getTileSize();
             
-            LOGGER.info("position mercator pixels: " + pos_mp);
-            LOGGER.info("bottom left mercator pixels: " + bl_mercator_pix);
-            LOGGER.info("calcalated pos offset:    " + offset_x + ", " + offset_y);
+            SLICK.logger.info("position mercator pixels: " + pos_mp);
+            SLICK.logger.info("bottom left mercator pixels: " + bl_mercator_pix);
+            SLICK.logger.info("calcalated pos offset:    " + offset_x + ", " + offset_y);
             
             return new SLICK.Vector(offset_x, offset_y);
         },
@@ -124,11 +124,11 @@ SLICK.MapTileGrid = function(args) {
             var offset_x = -offset_delta.cols * self.getTileSize();
             var offset_y = -offset_delta.rows * self.getTileSize();
             
-            LOGGER.info("OFFSETTING MERCATOR POSITIONS BY: x: " + offset_x + ", y: " + offset_y);
-            LOGGER.info("bottom left mercator before: " + bl_mercator_pix);
+            SLICK.logger.info("OFFSETTING MERCATOR POSITIONS BY: x: " + offset_x + ", y: " + offset_y);
+            SLICK.logger.info("bottom left mercator before: " + bl_mercator_pix);
             bl_mercator_pix.x += offset_x;
             bl_mercator_pix.y -= offset_y;
-            LOGGER.info("bottom left mercator after:  " + bl_mercator_pix);
+            SLICK.logger.info("bottom left mercator after:  " + bl_mercator_pix);
             
             // update the grid bounds
             updateGridBounds();
@@ -212,7 +212,7 @@ SLICK.MappingTiler = function(args) {
             // turn that into a bounds object
             tap_bounds = new GEO.BoundingBox(min_pos.toString(), max_pos.toString());
             
-            LOGGER.info("tap bounds = " + tap_bounds);
+            SLICK.logger.info("tap bounds = " + tap_bounds);
         } // if
         
         if (caller_tap_handler) {
@@ -274,7 +274,7 @@ SLICK.MappingTiler = function(args) {
             // update the provider zoom level
             provider.zoomLevel = zoom_level;
             provider.getMapTiles(self, position, function(tile_grid) {
-                LOGGER.info(String.format("created tile grid {0} x {1}", tile_grid.columns, tile_grid.rows));
+                SLICK.logger.info(String.format("created tile grid {0} x {1}", tile_grid.columns, tile_grid.rows));
                 self.setGrid(tile_grid);
                 
                 self.panToPosition(position, callback);
@@ -293,10 +293,10 @@ SLICK.MappingTiler = function(args) {
                 center_xy.y -= dimensions.height * 0.5;
             
                 // pan the required amount
-                LOGGER.info(String.format("need to apply pan vector of ({0}) to correctly center", center_xy));
-                LOGGER.info("offset before pan = " + self.getOffset());
+                SLICK.logger.info(String.format("need to apply pan vector of ({0}) to correctly center", center_xy));
+                SLICK.logger.info("offset before pan = " + self.getOffset());
                 self.pan(center_xy.x, center_xy.y);
-                LOGGER.info("offset after pan = " + self.getOffset());
+                SLICK.logger.info("offset after pan = " + self.getOffset());
             
                 // if we have a callback defined, then run it
                 if (callback) {
@@ -329,7 +329,7 @@ SLICK.MappingTiler = function(args) {
         },
         
         removePOI: function(poi) {
-            LOGGER.info("removing poi: " + poi);
+            SLICK.logger.info("removing poi: " + poi);
             if (poi && poi.id) {
                 pins[poi.id] = null;
                 self.invalidate();

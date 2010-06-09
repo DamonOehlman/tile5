@@ -1,3 +1,11 @@
+/* global styles - TODO: review what is appropriate here... */
+
+body {
+    margin: 0px;
+}
+
+/* infobox styles */
+
 div.infobox {
     background: #999999;
     display: none;

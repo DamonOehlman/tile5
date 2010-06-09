@@ -23,7 +23,7 @@ SLICK.View = function(args) {
             context = canvas.getContext('2d');
         } 
         catch (e) {
-            LOGGER.exception(e);
+            SLICK.logger.exception(e);
             throw "Could not initialise canvas on specified tiler element";
         }
     } // if
@@ -149,9 +149,9 @@ SLICK.OffscreenCanvas = function(args) {
                 dst_y = (dimensions.height - dst_height) * 0.5;
             } // if
             
-            //LOGGER.info(String.format("offset = {0}, scale = {1}", offset, scale_amount));
-            //LOGGER.info(String.format("src: x = {0}, y = {1}, width = {2}, height = {3}", src_x, src_y, src_width, src_height));
-            //LOGGER.info(String.format("dst: x = {0}, y = {1}, width = {2}, height = {3}", dst_x, dst_y, dst_width, dst_height));
+            //SLICK.logger.info(String.format("offset = {0}, scale = {1}", offset, scale_amount));
+            //SLICK.logger.info(String.format("src: x = {0}, y = {1}, width = {2}, height = {3}", src_x, src_y, src_width, src_height));
+            //SLICK.logger.info(String.format("dst: x = {0}, y = {1}, width = {2}, height = {3}", dst_x, dst_y, dst_width, dst_height));
             
             // draw the sliced tile grid to the canvas
             context.drawImage(
