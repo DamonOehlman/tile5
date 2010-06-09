@@ -1,0 +1,16 @@
+form {
+    background: #EEEEEE;
+}
+
+form ul li {
+    margin: 0 0 8px 0;
+    background: white;
+    border: #666666;
+    padding: 6px;
+    -webkit-border-radius: 8px;
+}
+
+form ul li label {
+    font-size: 0.7em;
+    padding: 0 0 0 20px;
+}

@@ -1,0 +1,22 @@
+form {
+    margin: 0px;
+    padding: 5px;
+    height: 100%;
+}
+
+form ul {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+form ul li {
+}
+
+form ul li label {
+    display: block;
+}
+
+form ul li input, form ul li select, form ul li textarea {
+    width: 100%;
+}
