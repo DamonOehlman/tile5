@@ -8,6 +8,16 @@ SLICK.TOUCH = (function() {
                 addTouch: function(touch_vector) {
                     _vectors.push(touch_vector);
                 },
+                
+                copy: function(source) {
+                    // clear the vectors
+                    _vectors = [];
+                    
+                    // iterate through the touch counts of the source
+                    for (var ii = 0; source && (ii < source.getTouchCount()); ii++) {
+                        _vectors.push(source.getTouch(ii).duplicate());
+                    } // for
+                },
 
                 /*
                 Method: calculateDelta
@@ -40,6 +50,12 @@ SLICK.TOUCH = (function() {
                     } // if
 
                     return fnresult;
+                },
+                
+                getRect: function() {
+                    if (_vectors.length > 1) {
+                        return _vectors[0].createRect(_vectors[1]);
+                    } // if
                 },
 
                 getTouch: function(touch_index) {
@@ -79,6 +95,8 @@ SLICK.TOUCH = (function() {
         TouchHelper: function(params) {
             // initialise default args
             var DEFAULT_ARGS = {
+                panEventThreshhold: 5,
+                pinchZoomThreshold: 5,
                 touchStartHandler: null,
                 moveHandler: null,
                 moveEndHandler: null,
@@ -115,6 +133,7 @@ SLICK.TOUCH = (function() {
             var touches_last = null;
             var touch_delta = null;
             var total_delta = null;
+            var pan_delta = new SLICK.Vector();
             var touch_mode = null;
             var touch_down = false;
             var listeners = [];
@@ -230,11 +249,16 @@ SLICK.TOUCH = (function() {
                     
                     // get the current touches
                     var touches_current = self.getTouchPoints(touch_event);
-                    var zoom_amount = 0;
+                    var zoom_distance = 0;
 
                     // check to see if we are pinching or zooming
                     if (touches_current.getTouchCount() > 1) {
-                        zoom_amount = touches_last.getDistance() - touches_start.getDistance();
+                        // if the start touches does have two touch points, then reset to the current
+                        if (touches_start.getTouchCount() === 1) {
+                            touches_start.copy(touches_current);
+                        } // if
+                        
+                        zoom_distance = touches_start.getDistance() - touches_last.getDistance();
                     } // if
 
                     // if the touch mode is tap, then check to see if we have gone beyond a move threshhold
@@ -255,13 +279,19 @@ SLICK.TOUCH = (function() {
                         // a single or multitouch event is completing...
 
                         // if we aren't pinching or zooming then do the move 
-                        if (zoom_amount == 0) {
+                        if (Math.abs(zoom_distance) < self.args.pinchZoomThreshold) {
                             // calculate the pan delta
                             touch_delta = touches_current.calculateDelta(touches_last);
 
                             // update the total delta
                             total_delta.add(touch_delta);
-                            self.fireEvent('moveHandler', touch_delta.x, touch_delta.y);
+                            pan_delta.add(touch_delta);
+                            
+                            // if the pan_delta is sufficient to fire an event, then do so
+                            if (pan_delta.getAbsSize() > self.args.panEventThreshhold) {
+                                self.fireEvent('moveHandler', pan_delta.x, pan_delta.y);
+                                pan_delta = new SLICK.Vector();
+                            } // if
 
                             // set the touch mode to move
                             touch_mode = TOUCH_MODES.MOVE;
@@ -269,7 +299,7 @@ SLICK.TOUCH = (function() {
                             // TODO: investigate whether it is more efficient to animate on a timer or not
                         }
                         else {
-                            self.fireEvent('pinchZoomHandler', zoom_amount);
+                            self.fireEvent('pinchZoomHandler', touches_start, touches_current);
 
                             // set the touch mode to pinch zoom
                             touch_mode = TOUCH_MODES.PINCHZOOM;
@@ -296,9 +326,9 @@ SLICK.TOUCH = (function() {
                         self.fireEvent('moveEndHandler', total_delta.x, total_delta.y);
                     }
                     // if pinchzooming, then fire the pinch zoom end
-                    else if (touch_mode == TOUCH_MODES.ZOOM) {
+                    else if (touch_mode == TOUCH_MODES.PINCHZOOM) {
                         // TODO: pass the total zoom amount
-                        self.fireEvent('pinchZoomEndHandler', 0);
+                        self.fireEvent('pinchZoomEndHandler', touches_start, touches_last);
                     } // if..else
                     
                     touch_down = false;

@@ -39,8 +39,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/touch.js" />
 			<fileset file="src/js/display.js" />
 			<fileset file="src/js/behaviours.js" />
-			<fileset file="src/js/canvas.js" />
-			<fileset file="src/js/tiler.js" />
+			<fileset file="src/js/graphics.js" />
 		</concat>
 		
 		<!-- concatenate the mapping file set -->
@@ -59,7 +58,9 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		</concat>
 		
 		<!-- TODO: if the strip logging property is set, then strip it -->
+		<!-- 
 		<replaceregexp match="SLICK.logger\.(log|info|warn).*?\;" replace="" flags="g" byline="false" file="${SLICK}" />
+		-->
 		
 		<!-- TODO: call the targets to concatenate the required modules -->
 		

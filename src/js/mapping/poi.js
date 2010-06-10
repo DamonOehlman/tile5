@@ -58,7 +58,7 @@ GEO.POIPin = function(args) {
     // load the image
     // TODO: make this more generic
     var pin_image = new Image();
-    pin_image.src = "/public/images/app/markers/" + self.poi.type + ".png";
+    pin_image.src = "/media/images/app/markers/" + self.poi.type + ".png";
     
     return self;
 }; // POIPin
@@ -429,6 +429,8 @@ GEO.POIProvider = function(args) {
                     var ajax_args = jQuery.extend({
                         success: function(data, textStatus, raw_request) {
                             try {
+                                SLICK.logger.info("received data: " + data);
+                                
                                 // update the pois
                                 updatePOIs(self.parseResponse(data, textStatus, raw_request));
                                 request_active = false;

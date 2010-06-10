@@ -209,38 +209,47 @@ GEO.DECARTA.MapProvider = function(params) {
         
         // create the tile grid
         image_url = response_data.imageUrl;
-        tile_grid = new SLICK.MapTileGrid({
-            width: container_dimensions.width, 
-            height: container_dimensions.height, 
-            tilesize: response_data.tileSize,
-            onNeedTiles: function(offset_delta) {
-                // SLICK.logger.info("NEED TILES, offset delta cols = " + offset_delta.cols + ", rows = " + offset_delta.rows);
-                
-                // if the tile grid is defined, then we know the base_n and e
-                if (tile_grid) {
-                    tile_grid.customdata.base_n += offset_delta.rows;
-                    tile_grid.customdata.base_e -= offset_delta.cols;
-                    
-                    // tile_grid.applyTileOffset(offset_delta);
-                    tile_grid.offsetPixelPositions(offset_delta);
-                } // if
-                
-                populateTiles();
-            }
+        tile_grid = new SLICK.GRAPHICS.TileGrid({
+            tileSize: response_data.tileSize,
+            emptyTile: new SLICK.GRAPHICS.EmptyGridTile({
+                tileSize: response_data.tileSize
+            }),
+            center: new SLICK.Vector(response_data.centerTile.E, response_data.centerTile.N)
         });
         
+        // set the tile grid origin
+        tile_grid.populate(function(col, row, topLeftOffset, gridSize) {
+            return SLICK.GRAPHICS.ImageTile({ url: response_data.imageUrl.replace("${N}", topLeftOffset.y + (gridSize - row)).replace("${E}", topLeftOffset.x + col) });
+        });
+        
+        // get the virtual x y of the center tile
+        // SLICK.logger.info(String.format("tile: N {0}, E {1} virtual center position = {2}", response_data.centerTile.N, response_data.centerTile.E, center_xy));
+        
+        var gx_zoomlevel = GEO.DECARTA.Utilities.zoomLevelToGXZoom(self.zoomLevel);
+
+        // wrap the tile grid in a geo tile grid
+        tile_grid = new SLICK.MAPPING.GeoTileGrid({
+            grid: tile_grid, 
+            centerXY:  tile_grid.getTileVirtualXY(response_data.centerTile.E, response_data.centerTile.N, true),
+            centerPos: response_data.centerContext.centerPos,
+            radsPerPixel: GEO.DECARTA.Utilities.radsPerPixelAtZoom(response_data.tileSize, gx_zoomlevel)
+        });
+        
+        /*
         // associate some custom data with the tile grid (gotta love javascript)
         tile_grid.customdata = {
             base_n: response_data.centerTile.N + tile_grid.centerTile.row,
             base_e: response_data.centerTile.E - tile_grid.centerTile.col
         }; // customdata
+        */
 
         // right some tests...
-        var gx_zoomlevel = GEO.DECARTA.Utilities.zoomLevelToGXZoom(self.zoomLevel);
+        // 
         
+        /*
         // set the tile grid center position
         tile_grid.setCenterPos(response_data.centerContext.centerPos);
-        tile_grid.setRadsPerPixel(GEO.DECARTA.Utilities.radsPerPixelAtZoom(response_data.tileSize, gx_zoomlevel));
+        tile_grid.setRadsPerPixel();
         
         // write a whole pile of log messages
         SLICK.logger.info(String.format("building a tile grid for container {0} x {1}", container_dimensions.width, container_dimensions.height));
@@ -250,8 +259,9 @@ GEO.DECARTA.MapProvider = function(params) {
         SLICK.logger.info(String.format("center tile col = {0}, row = {1}", tile_grid.centerTile.col, tile_grid.centerTile.row));
         SLICK.logger.info(String.format("top tile = N:{0} E:{1}", tile_grid.customdata.base_n, tile_grid.customdata.base_e));
         SLICK.logger.info(String.format("grid bounds = {0}", tile_grid.getBoundingBox()));
+        */
         
-        populateTiles();
+        // populateTiles();
         
         return tile_grid;
     } // buildTileGrid

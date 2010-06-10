@@ -66,37 +66,53 @@ SLICK.Scalable = function(args) {
     // initialise defaults
     var DEFAULT_ARGS = {
         container: null,
+        onPinchZoom: null,
         onScale: null
     };
-    
-    var scale_amount = 0;
+
+    var scaling = false;
+    var startRect = null;
+    var endRect = null;
     
     // initialise self
     var self = {
         args: jQuery.extend({}, DEFAULT_ARGS, args),
         scalable: true,
-        
-        getScaleAmount: function() {
-            return scale_amount;
+
+        getStartRect: function() {
+            return startRect;
         },
         
-        scale: function(amount) {
-            // update the scale factor
-            scale_amount = amount * 0.5;
-            
-            SLICK.logger.info("scaling by " + scale_amount);
-            
-            if (args.onScale) {
-                args.onScale(scale_amount);
-            } // if
+        getEndRect: function() {
+            return endRect;
+        },
+        
+        getScaling: function() {
+            return scaling;
         }
     };
     
     var container = jQuery(self.args.container).get(0);
     if (container) {
         SLICK.TOUCH.TouchEnable(container, {
-            pinchZoomHandler: function(amount) {
-                self.scale(amount);
+            pinchZoomHandler: function(touches_start, touches_current) {
+                startRect = touches_start.getRect();
+                endRect = touches_current.getRect();
+                
+                scaling = true;
+                if (args.onPinchZoom) {
+                    args.onPinchZoom();
+                } // if
+            },
+            
+            pinchZoomEndHandler: function(touches_start, touches_end) {
+                startRect = touches_start.getRect();
+                endRect = touches_end.getRect();                
+                
+                scaling = false;
+                if (args.onScale) {
+                    args.onScale();
+                } // if
             }
         });
     } // if    

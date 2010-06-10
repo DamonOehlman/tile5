@@ -1,142 +1,70 @@
-SLICK.MapTileGrid = function(args) {
-    // initailise defaults
-    var DEFAULT_BUFFER_SIZE = 1;
-    
-    // initialise default args
-    var DEFAULT_ARGS = {
-        
+SLICK.MAPPING = (function() {
+    var module = {
+        GeoTileGrid: function(params) {
+            // extend the params with some defaults
+            params = jQuery.extend({
+                grid: null,
+                centerPos: new GEO.Position(),
+                centerXY: new SLICK.Vector(),
+                radsPerPixel: 0
+            }, params);
+            
+            // determine the mercator 
+            var centerMercatorPix = params.centerPos.getMercatorPixels(params.radsPerPixel);
+            
+            // calculate the bottom left mercator pix
+            var blMercatorPix = new SLICK.Vector(centerMercatorPix.x - params.centerXY.x, centerMercatorPix.y - params.centerXY.y);
+            
+            // initialise self
+            var self = jQuery.extend({}, params.grid, {
+                getBoundingBox: function(x, y, width, height) {
+                    return new GEO.BoundingBox(
+                        self.pixelsToPos(new SLICK.Vector(x, y + height)),
+                        self.pixelsToPos(new SLICK.Vector(x + width, y)));
+                },
+                
+                getCenterOffset: function() {
+                    return params.centerXY;
+                },
+                
+                getGridXYForPosition: function(pos) {
+                    // determine the mercator pixels for teh position
+                    var pos_mp = pos.getMercatorPixels(params.radsPerPixel);
+
+                    // calculate the offsets
+                    SLICK.logger.info("GETTING OFFSET for position: " + pos);
+                    var offset_x = Math.abs(pos_mp.x - blMercatorPix.x);
+                    var offset_y = self.getDimensions().height - Math.abs(pos_mp.y - blMercatorPix.y) + self.getTileSize();
+
+                    SLICK.logger.info("position mercator pixels: " + pos_mp);
+                    SLICK.logger.info("bottom left mercator pixels: " + blMercatorPix);
+                    SLICK.logger.info("calcalated pos offset:    " + offset_x + ", " + offset_y);
+
+                    return new SLICK.Vector(offset_x, offset_y);
+                },
+                
+                pixelsToPos: function(vector) {
+                    // initialise the new position object
+                    var fnresult = new GEO.Position();
+
+                    // update the position pixels
+                    fnresult.setMercatorPixels(
+                        blMercatorPix.x + vector.x - self.getTileSize(), 
+                        blMercatorPix.y + Math.abs(self.getDimensions().height - vector.y) + self.getTileSize(), 
+                        params.radsPerPixel);
+
+                    // return the position
+                    return fnresult;
+                }
+            });
+            
+            return self;
+        }
     };
     
-    // initialise variables
-    var rads_per_pixel = 0;
-    var center_pos = new GEO.Position();
-    var bl_mercator_pix = null;
-    var grid_bounds = new GEO.BoundingBox();
-    
-    function calculateGridBounds() {
-        if (center_pos.isEmpty() || (rads_per_pixel === 0)) { return; }
-        
-        // determine the mercator 
-        var center_mercator_pix = center_pos.getMercatorPixels(rads_per_pixel);
-            
-        // now calculate the top left mercator pix
-        bl_mercator_pix = new SLICK.Vector(
-            center_mercator_pix.x - (self.getGridWidth() * 0.5),
-            center_mercator_pix.y - (self.getGridHeight() * 0.5));
-            
-        SLICK.logger.info("CALCULATING GRID BOUNDS");
-        SLICK.logger.info("center position:             " + center_pos);
-        SLICK.logger.info("center mercator pixels:      " + center_mercator_pix);
-        SLICK.logger.info("bottom left mercator pixels: " + bl_mercator_pix);
-            
-        updateGridBounds();
-    } // calculateGridBounds
-    
-    function updateGridBounds() {
-        // set the bounds min position
-        grid_bounds.min.setMercatorPixels(
-            bl_mercator_pix.x, 
-            bl_mercator_pix.y, 
-            rads_per_pixel);
-            
-        // set the max bounds position
-        grid_bounds.max.setMercatorPixels(
-            bl_mercator_pix.x + self.getGridWidth(),
-            bl_mercator_pix.y + self.getGridHeight(),
-            rads_per_pixel);
-    } // updateGridBounds
-    
-    // initialise parent
-    var parent = new SLICK.TileGrid(args);
-    
-    // initialise self
-    var self = jQuery.extend({}, parent, {
-        getBoundingBox: function() {
-            return grid_bounds;
-        },
-        
-        getMercatorMin: function() {
-            return new SLICK.Vector(bl_mercator_pix.x, bl_mercator_pix.y);
-        },
-        
-        getCenterPos: function() {
-            return center_pos;
-        },
-        
-        setCenterPos: function(value) {
-            // update the center position
-            center_pos.copy(value);
-            calculateGridBounds();
-        },
-        
-        getTopLeftMercatorPixels: function() {
-            return new SLICK.Vector(bl_mercator_pix.x, bl_mercator_pix.y + self.getGridHeight());
-        },
-        
-        getMercatorPixelsForPos: function(pos) {
-            return pos.getMercatorPixels(rads_per_pixel);
-        },
-        
-        getGridXYForPosition: function(pos) {
-            // determine the mercator pixels for teh position
-            var pos_mp = pos.getMercatorPixels(rads_per_pixel);
+    return module;
+})();
 
-            // calculate the offsets
-            SLICK.logger.info("GETTING OFFSET for position: " + pos);
-            var offset_x = Math.abs(pos_mp.x - bl_mercator_pix.x) + self.getTileSize();
-            var offset_y = self.getGridHeight() - Math.abs(pos_mp.y - bl_mercator_pix.y) + self.getTileSize();
-            
-            SLICK.logger.info("position mercator pixels: " + pos_mp);
-            SLICK.logger.info("bottom left mercator pixels: " + bl_mercator_pix);
-            SLICK.logger.info("calcalated pos offset:    " + offset_x + ", " + offset_y);
-            
-            return new SLICK.Vector(offset_x, offset_y);
-        },
-        
-        getRadsPerPixel: function() {
-            return rads_per_pixel;
-        },
-        
-        setRadsPerPixel: function(value) {
-            if (rads_per_pixel !== value) {
-                rads_per_pixel = value;
-                calculateGridBounds();
-            } // if
-        },
-        
-        pixelsToPos: function(vector) {
-            // initialise the new position object
-            var fnresult = new GEO.Position();
-            
-            // update the position pixels
-            fnresult.setMercatorPixels(
-                bl_mercator_pix.x + vector.x - self.getTileSize(), 
-                bl_mercator_pix.y + Math.abs(self.getGridHeight() - vector.y) + self.getTileSize(), 
-                rads_per_pixel);
-            
-            // return the position
-            return fnresult;
-        },
-        
-        offsetPixelPositions: function(offset_delta) {
-            // get the tile size
-            // inverse the results as -cols is the top, -rows is the left, which was a bit confusing in hindsight...
-            var offset_x = -offset_delta.cols * self.getTileSize();
-            var offset_y = -offset_delta.rows * self.getTileSize();
-            
-            SLICK.logger.info("OFFSETTING MERCATOR POSITIONS BY: x: " + offset_x + ", y: " + offset_y);
-            SLICK.logger.info("bottom left mercator before: " + bl_mercator_pix);
-            bl_mercator_pix.x += offset_x;
-            bl_mercator_pix.y -= offset_y;
-            SLICK.logger.info("bottom left mercator after:  " + bl_mercator_pix);
-            
-            // update the grid bounds
-            updateGridBounds();
-        }
-    });
-    
-    return self;
-}; // SLICK.MapTileGrid
 
 SLICK.MappingTiler = function(args) {
     // initialise defaults
@@ -163,35 +91,8 @@ SLICK.MappingTiler = function(args) {
     var caller_tap_handler = args.tapHandler;
     var pins = {};
     
-    /*
-    function mercatorPixelsToScreen(x, y) {
-        // get the current offset
-        var offset = self.pannable ? self.getOffset() : new SLICK.Vector();
-        var grid = self.getGrid();
-        var dimensions = self.getDimensions();
-        var fnresult = new SLICK.Vector();
-        
-        if (grid) {
-            var minmerc = grid.getMercatorMin();
-            
-            // calculate the x position
-            fnresult.x = Math.abs(x - minmerc.x) - offset.x;
-            fnresult.y = dimensions.height - (Math.abs(minmerc.y - y) - offset.y);
-        } // if
-        
-        return fnresult;
-    } // 
-    */
-    
     // initialise our own pan handler
     args.panHandler = function(x, y) {
-        // get the grid
-        var grid = self.getGrid();
-        if (grid) {
-            // get the current grid rect
-            bounds = grid.getBoundingBox();
-        } // if
-        
         if (caller_pan_handler) {
             caller_pan_handler(x, y);
         } // if
@@ -241,20 +142,16 @@ SLICK.MappingTiler = function(args) {
     // initialise self
     var self = jQuery.extend({}, parent, {
         getBoundingBox: function(buffer_size) {
-            // initialise the buffer size if left null
-            buffer_size = buffer_size ? buffer_size : 0;
-            
-            // get the current dimensions
-            var dimensions = self.getDimensions();
+            var fnresult = new GEO.BoundingBox();
+            var grid = self.getGrid();
             var offset = self.getOffset();
-            var grid_bounds = self.getGrid().getBoundingBox();
-
-            // get the display bounds (first shrink)
-            var displayBounds = grid_bounds.transform([
-                    GEO.TRANSFORM.Shrink(dimensions.width + buffer_size * 2, dimensions.height + buffer_size * 2),
-                    GEO.TRANSFORM.Offset(offset.x + buffer_size, offset.y + buffer_size)]);
-
-            return displayBounds;
+            var dimensions = self.getDimensions();
+            
+            if (grid) {
+                fnresult = grid.getBoundingBox(offset.x, offset.y, dimensions.width, dimensions.height);
+            } // if
+            
+            return fnresult;
         },
         
         getCenterPosition: function() {
