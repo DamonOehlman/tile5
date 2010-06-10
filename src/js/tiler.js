@@ -11,7 +11,7 @@ Section: Version History
 
 // define the tiler config
 SLICK.TilerConfig = {
-    TILESIZE: 128,
+    TILESIZE: 256,
     // TODO: put some logic in to determine optimal buffer size based on connection speed...
     TILEBUFFER: 1,
     TILEBUFFER_LOADNEW: 0.2,
