@@ -28,7 +28,7 @@ SLICK.Border = {
     LEFT: 4
 }; // Border
 
-SLICK.GRAPHICS = (function() {
+SLICK.Graphics = (function() {
     TileStore = function(params) {
         // initialise defaults
         var DEFAULT_PARAMS = {
@@ -283,6 +283,18 @@ SLICK.GRAPHICS = (function() {
             return self;            
         },
         
+        ImageCache: (function() {
+            // initialise self
+            var self = {
+                // TODO: use this method to return an image from the key value local storage 
+                getImage: function(url, sessionParams) {
+                    return null;
+                }
+            };
+            
+            return self;
+        })(),
+
         Sprite: function(params) {
             // initailise variables
             var listeners = [];
@@ -311,11 +323,12 @@ SLICK.GRAPHICS = (function() {
             
             return self;
         },
-
+        
         ImageTile: function(params) {
             // initialise parameters with defaults
             params = jQuery.extend({
-                url: ""
+                url: "",
+                sessionParams: []
             }, params);
             
             // initialise parent
@@ -334,14 +347,22 @@ SLICK.GRAPHICS = (function() {
                 load: function() {
                     if ((! image)  && params.url) {
                         // create the image
-                        image = new Image();
-                        image.src = params.url;
+                        image = module.ImageCache.getImage(params.url, params.sessionParams);
                         
-                        // watch for the image load
-                        image.onload = function() {
-                            self.loaded = true;
-                            self.changed(self);
-                        }; // onload
+                        // if we didn't get an image from the cache, then load it
+                        if (! image) {
+                            image = new Image();
+                            image.src = params.url;
+
+                            // watch for the image load
+                            image.onload = function() {
+                                // TODO: add the image to the image cache
+                                
+                                self.loaded = true;
+                                self.changed(self);
+                            }; // onload
+                            
+                        } // if
                     }
                 }
             }); 
@@ -582,11 +603,11 @@ SLICK.Tiler = function(args) {
     var overlays = [];
     
     // create the empty tile
-    var emptyTile = new SLICK.GRAPHICS.EmptyGridTile();
+    var emptyTile = new SLICK.Graphics.EmptyGridTile();
     var tileSize = emptyTile.getTileSize();
     
     // create the parent
-    var view = new SLICK.GRAPHICS.View(jQuery.extend({}, args, {
+    var view = new SLICK.Graphics.View(jQuery.extend({}, args, {
         fillBackground: function(context, x, y, width, height) {
             var gradient = context.createLinearGradient(x, 0, x, height);
             gradient.addColorStop(0, "rgb(170, 170, 170)");

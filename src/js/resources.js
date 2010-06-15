@@ -3,6 +3,11 @@ SLICK.Resources = (function() {
     var cachedSnippets = {};
     
     var module = {
+        // TODO: if we have something like phonegap available, maybe look at using it to get the resource and save it locally
+        getCachedUrl: function(url, sessionParams) {
+           return url;
+        },
+        
         getPath: function(path) {
             return basePath + path;
         },

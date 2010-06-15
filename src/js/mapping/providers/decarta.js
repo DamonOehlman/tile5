@@ -209,9 +209,9 @@ GEO.DECARTA.MapProvider = function(params) {
         
         // create the tile grid
         image_url = response_data.imageUrl;
-        tile_grid = new SLICK.GRAPHICS.TileGrid({
+        tile_grid = new SLICK.Graphics.TileGrid({
             tileSize: response_data.tileSize,
-            emptyTile: new SLICK.GRAPHICS.EmptyGridTile({
+            emptyTile: new SLICK.Graphics.EmptyGridTile({
                 tileSize: response_data.tileSize
             }),
             center: new SLICK.Vector(response_data.centerTile.E, response_data.centerTile.N)
@@ -219,7 +219,7 @@ GEO.DECARTA.MapProvider = function(params) {
         
         // set the tile grid origin
         tile_grid.populate(function(col, row, topLeftOffset, gridSize) {
-            return SLICK.GRAPHICS.ImageTile({ url: response_data.imageUrl.replace("${N}", topLeftOffset.y + (gridSize - row)).replace("${E}", topLeftOffset.x + col) });
+            return SLICK.Graphics.ImageTile({ url: response_data.imageUrl.replace("${N}", topLeftOffset.y + (gridSize - row)).replace("${E}", topLeftOffset.x + col) });
         });
         
         // get the virtual x y of the center tile
@@ -228,7 +228,7 @@ GEO.DECARTA.MapProvider = function(params) {
         var gx_zoomlevel = GEO.DECARTA.Utilities.zoomLevelToGXZoom(self.zoomLevel);
 
         // wrap the tile grid in a geo tile grid
-        tile_grid = new SLICK.MAPPING.GeoTileGrid({
+        tile_grid = new SLICK.Mapping.GeoTileGrid({
             grid: tile_grid, 
             centerXY:  tile_grid.getTileVirtualXY(response_data.centerTile.E, response_data.centerTile.N, true),
             centerPos: response_data.centerContext.centerPos,

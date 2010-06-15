@@ -1,4 +1,4 @@
-SLICK.MAPPING = (function() {
+SLICK.Mapping = (function() {
     var module = {
         GeoTileGrid: function(params) {
             // extend the params with some defaults
