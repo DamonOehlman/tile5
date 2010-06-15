@@ -34,12 +34,15 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		<mkdir dir="${dist}" />
 		
 		<!-- concatenate the core file set -->
+		<!-- TODO: create more logical separation in the core library -->
 		<concat destfile="${dist}/${LIBNAME}.core.js">
 			<fileset file="src/js/core.js" />
+			<fileset file="src/js/resources.js" />
 			<fileset file="src/js/touch.js" />
 			<fileset file="src/js/display.js" />
 			<fileset file="src/js/behaviours.js" />
 			<fileset file="src/js/graphics.js" />
+			<fileset file="src/js/dispatcher.js" />
 		</concat>
 		
 		<!-- concatenate the mapping file set -->
@@ -49,12 +52,18 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/mapping/poi.js" />
 		</concat>
 		
+		<!-- concatenate the phonegap file set -->
+		<concat destfile="${dist}/${LIBNAME}.phonegap.js">
+			<fileset file="src/js/phonegap/core.js" />
+		</concat>
+		
 		<!-- TODO: move the provider files across too -->
 		
 		<concat destfile="${SLICK}">
 			<fileset file="src/js/template/header.js" />
 			<fileset file="${dist}/${LIBNAME}.core.js" />
 			<fileset file="${dist}/${LIBNAME}.mapping.js" />
+			<fileset file="${dist}/${LIBNAME}.phonegap.js" />
 		</concat>
 		
 		<!-- TODO: if the strip logging property is set, then strip it -->

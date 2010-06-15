@@ -32,13 +32,13 @@ SLICK.MAPPING = (function() {
                     var pos_mp = pos.getMercatorPixels(params.radsPerPixel);
 
                     // calculate the offsets
-                    SLICK.logger.info("GETTING OFFSET for position: " + pos);
+                    // SLICK.logger.info("GETTING OFFSET for position: " + pos);
                     var offset_x = Math.abs(pos_mp.x - blMercatorPix.x);
                     var offset_y = self.getDimensions().height - Math.abs(pos_mp.y - blMercatorPix.y) + self.getTileSize();
 
-                    SLICK.logger.info("position mercator pixels: " + pos_mp);
-                    SLICK.logger.info("bottom left mercator pixels: " + blMercatorPix);
-                    SLICK.logger.info("calcalated pos offset:    " + offset_x + ", " + offset_y);
+                    // SLICK.logger.info("position mercator pixels: " + pos_mp);
+                    // SLICK.logger.info("bottom left mercator pixels: " + blMercatorPix);
+                    // SLICK.logger.info("calcalated pos offset:    " + offset_x + ", " + offset_y);
 
                     return new SLICK.Vector(offset_x, offset_y);
                 },
@@ -46,12 +46,12 @@ SLICK.MAPPING = (function() {
                 pixelsToPos: function(vector) {
                     // initialise the new position object
                     var fnresult = new GEO.Position();
+                    
+                    var mercX = blMercatorPix.x + vector.x;
+                    var mercY = (blMercatorPix.y + self.getDimensions().height + self.getTileSize()) - vector.y;
 
                     // update the position pixels
-                    fnresult.setMercatorPixels(
-                        blMercatorPix.x + vector.x - self.getTileSize(), 
-                        blMercatorPix.y + Math.abs(self.getDimensions().height - vector.y) + self.getTileSize(), 
-                        params.radsPerPixel);
+                    fnresult.setMercatorPixels(mercX, mercY, params.radsPerPixel);
 
                     // return the position
                     return fnresult;
@@ -99,12 +99,12 @@ SLICK.MappingTiler = function(args) {
     }; // 
     
     // initialise our own tap handler
-    args.tapHandler = function(x, y) {
+    args.tapHandler = function(absPos, relPos) {
         var grid = self.getGrid();
         var tap_bounds = null;
         
         if (grid) {
-            var grid_pos = self.viewPixToGridPix(new SLICK.Vector(x, y));
+            var grid_pos = self.viewPixToGridPix(new SLICK.Vector(relPos.x, relPos.y));
 
             // create a min xy and a max xy using a tap extent
             var min_pos = grid.pixelsToPos(grid_pos.offset(-args.tapExtent, args.tapExtent));
@@ -113,11 +113,13 @@ SLICK.MappingTiler = function(args) {
             // turn that into a bounds object
             tap_bounds = new GEO.BoundingBox(min_pos.toString(), max_pos.toString());
             
+            SLICK.logger.info("tap position = " + relPos.x + ", " + relPos.y);
+            SLICK.logger.info("grid pos = " + grid_pos);
             SLICK.logger.info("tap bounds = " + tap_bounds);
         } // if
         
         if (caller_tap_handler) {
-            caller_tap_handler(x, y, tap_bounds); 
+            caller_tap_handler(absPos, relPos, tap_bounds); 
         } // if
     }; // tapHandler
     
@@ -130,8 +132,10 @@ SLICK.MappingTiler = function(args) {
         for (var pin_id in pins) {
             if (pins[pin_id] && grid) {
                 // get the offset for the position
-                var xy = self.gridPixToViewPix(grid.getGridXYForPosition(pins[pin_id].poi.pos));
-                pins[pin_id].drawToContext(context, xy.x, xy.y);
+                var xy = self.gridPixToViewPix(pins[pin_id].mercXY);
+                pins[pin_id].drawToContext(context, xy.x, xy.y, function() {
+                    self.invalidate(true);
+                });
             } // if
         } // for
     }; // onDraw
@@ -219,14 +223,15 @@ SLICK.MappingTiler = function(args) {
             if (grid && poi && poi.id && poi.pos) {
                 // create the pin
                 pins[poi.id] = new GEO.POIPin({
-                    poi: poi
+                    poi: poi,
+                    mercXY: grid.getGridXYForPosition(poi.pos)
                 });
                 self.invalidate();
             } // if
         },
         
         removePOI: function(poi) {
-            SLICK.logger.info("removing poi: " + poi);
+            // SLICK.logger.info("removing poi: " + poi);
             if (poi && poi.id) {
                 pins[poi.id] = null;
                 self.invalidate();

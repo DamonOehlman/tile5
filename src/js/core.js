@@ -41,8 +41,17 @@ if (! Number.sec) {
 /* initialise sidelab functions */
 
 SLICK = (function () {
-    var self = {
+    var module = {
         logger: null,
+        
+        errorWatch: function(callback) {
+            try {
+                callback();
+            }
+            catch (e) {
+                SLICK.logger.exception(e);
+            } // try..catch
+        },
         
         Logger: function() {
             // initialise constants
@@ -59,6 +68,7 @@ SLICK = (function () {
 
             var visible = false;
             var redraw_interval = 0;
+            var listeners = [];
 
             // initialise self
             var self = {
@@ -110,17 +120,25 @@ SLICK = (function () {
                     } // if
 
                     // add to the log lines
-                    log_lines.push({
+                    // create the new log line
+                    var logLine = {
                         time: new Date().getTime(),
                         lvl: level,
                         clsName: class_name,
                         msg: message
-                    });
+                    }; // logLine
+                    
+                    log_lines.push(logLine);
 
                     // if the console is defined, then log a message
                     if (console) {
                         console.info(message);
                     } // if
+                    
+                    // let the listeners know a log entry has been made
+                    for (var ii = 0; ii < listeners.length; ii++) {
+                        listeners[ii](logLine);
+                    } // for
                 },
 
                 debug: function(message) {
@@ -147,8 +165,11 @@ SLICK = (function () {
                     if (e.stack) {
                         self.log("STACK TRACE: " + e.stack, self.LOGLEVEL_ERROR);
                     } // if
+                },
+                
+                requestUpdates: function(callback) {
+                    listeners.push(callback);
                 }
-
             }; // self
 
             return self;
@@ -283,8 +304,8 @@ SLICK = (function () {
     };
     
     // initialise the logger
-    self.logger = new self.Logger();
+    module.logger = new module.Logger();
     
-    return self;
+    return module;
 })();
 

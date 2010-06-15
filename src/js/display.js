@@ -8,7 +8,7 @@ Section: Version History
 */
 
 SLICK.DisplayOpts = {
-    ajaxActivityImage: null
+    ajaxActivityImage: "images/ajax-loader.gif"
 }; // DisplayOpts
 
 SLICK.InfoBox = function(args) {
@@ -210,7 +210,7 @@ SLICK.DisplayHelper = function() {
             // if the ajaxActivityImage is set, then attach handlers to the jquery ajax start and stop events
             SLICK.logger.info("ajax activity indicator: " + SLICK.DisplayOpts.ajaxActivityImage);
             if (SLICK.DisplayOpts.ajaxActivityImage) {
-                self.addChunk(String.format("<img id='{0}' src='{1}' />", LOADER_ID, SLICK.DisplayOpts.ajaxActivityImage), LOADER_POS_PREFS);
+                self.addChunk(String.format("<img id='{0}' src='{1}' />", LOADER_ID, SLICK.Resources.getPath(SLICK.DisplayOpts.ajaxActivityImage)), LOADER_POS_PREFS);
                 jQuery("#" + LOADER_ID)
                     .ajaxStart(function() {
                         jQuery(this).show();

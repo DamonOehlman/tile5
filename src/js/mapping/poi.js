@@ -34,10 +34,82 @@ GEO.PointOfInterest = function(args) {
     return self;
 }; // PointOfInterest
 
+GEO.POIMarkers = (function() {
+    // initialise the marker image cache
+    var drawQueue = [];
+    var loadedImages = [];
+    
+    function drawQueuedMarkers(markerType, image, callback) {
+        if (drawQueue[markerType]) {
+            for (var ii = 0; ii < drawQueue[markerType].length; ii++) {
+                var queueItem = drawQueue[markerType][ii];
+                queueItem.context.drawImage(image, queueItem.x, queueItem.y);
+            } // for
+            
+            // clear the queue
+            drawQueue[markerType] = [];
+            
+            // if a callback was assigned, then call it to let the caller know the image has been drawn
+            if (callback) {
+                callback();
+            } // if
+        } // if
+    }
+    
+    function getMarkerImage(markerType) {
+        var fnresult = loadedImages[markerType];
+        
+        // if the marker image has not yet been loaded, then create a new image and load it
+        if (! fnresult) {
+            fnresult = new Image();
+            fnresult.src = SLICK.Resources.getPath("images/app/markers/" + markerType + ".png");
+            
+            // add the image to the loaded images array
+            loadedImages[markerType] = fnresult;
+        } // if
+        
+        return fnresult;
+    } // getMarkerImage
+    
+    var self = {
+        drawMarker: function(context, markerType, x, y, callback) {
+            // get the image from the marker cache, if we don't have it then load it
+            var markerImage = getMarkerImage(markerType);
+            
+            // if the marker image has been loaded, then draw it
+            if (markerImage.complete) {
+                context.drawImage(markerImage, x, y);
+            }
+            else { 
+                if (! markerImage.onload) {
+                    markerImage.onload = function() {
+                        drawQueuedMarkers(markerType, markerImage, callback);
+                    }; // onload
+                } // if
+                
+                
+                if (! drawQueue[markerType]) {
+                    drawQueue[markerType] = [];
+                } // if
+                
+                // queue the marker image for drawing
+                drawQueue[markerType].push({
+                    context: context, 
+                    x: x,
+                    y: y
+                });
+            }
+        }
+    };
+    
+    return self;
+})();
+
 GEO.POIPin = function(args) {
     // initialise the default args
     var DEFAULT_ARGS = {
-        poi: null
+        poi: null,
+        mercXY: null
     }; // DEFAULT_ARGS
     
     // initialise args
@@ -46,19 +118,12 @@ GEO.POIPin = function(args) {
     // initialise self
     var self = {
         poi: args.poi,
+        mercXY: args.mercXY,
         
-        drawToContext: function(context, x, y) {
-            if (pin_image && pin_image.complete) {
-                SLICK.logger.info(String.format("DRAWING POI: {0} @ {1}, {2}", self.poi, x, y));
-                context.drawImage(pin_image, x, y);
-            } // if
+        drawToContext: function(context, x, y, callback) {
+            GEO.POIMarkers.drawMarker(context, self.poi.type, x, y, callback);
         }
     }; // self
-    
-    // load the image
-    // TODO: make this more generic
-    var pin_image = new Image();
-    pin_image.src = "/media/images/app/markers/" + self.poi.type + ".png";
     
     return self;
 }; // POIPin
@@ -460,11 +525,16 @@ GEO.POIProvider = function(args) {
                 
                     // update the last bounds called and flag the request as active
                     last_bounds.copy(bounds);
-                    request_active = true;
+                    if (ajax_args.url) {
+                        request_active = true;
                 
-                    // make the request
-                    SLICK.logger.info("Looking for POIS within bounding box");
-                    jQuery.ajax(ajax_args);
+                        // make the request
+                        SLICK.logger.info("Looking for POIS within bounding box: " + bounds);
+                        jQuery.ajax(ajax_args);
+                    } 
+                    else {
+                        SLICK.logger.error("Unable to locate POIS: No search url specified.");
+                    } // if..else
                 
                 } // if
             }, 500);

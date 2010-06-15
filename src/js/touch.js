@@ -95,7 +95,9 @@ SLICK.TOUCH = (function() {
         TouchHelper: function(params) {
             // initialise default args
             var DEFAULT_ARGS = {
-                panEventThreshhold: 5,
+                element: null,
+                maxDistDoubleTap: 20,
+                panEventThreshhold: 0,
                 pinchZoomThreshold: 5,
                 touchStartHandler: null,
                 moveHandler: null,
@@ -171,6 +173,19 @@ SLICK.TOUCH = (function() {
                         } // if
                     }
                 },
+                
+                firePositionEvent: function(eventName, absVector) {
+                    var offsetVector = null;
+                    
+                    // if an element is defined, then determine the element offset
+                    if (self.args.element) {
+                        var offset = jQuery(self.args.element).offset();
+                        offsetVector = absVector.offset(-offset.left, -offset.top);
+                    } // if
+                    
+                    // fire the event
+                    self.fireEvent(eventName, absVector, offsetVector);
+                },
 
                 getTouchPoints: function(touch_event, type_priority) {
                     // initilaise variables
@@ -220,7 +235,6 @@ SLICK.TOUCH = (function() {
                 */
                 start: function(touch_event) {
                     touches_start = self.getTouchPoints(touch_event);
-                    touches_last = self.getTouchPoints(touch_event);
                     touch_delta = new SLICK.Vector();
                     total_delta = new SLICK.Vector();
                     touch_down = true;
@@ -231,17 +245,24 @@ SLICK.TOUCH = (function() {
                     // fire the touch start event handler
                     var touch_vector = touches_start.getTouch();
                     self.fireEvent('touchStartHandler', touch_vector.x, touch_vector.y);
-
-                    // if the time between taps is less than the thresh-hold fire a double-tap event
-                    if ((ticks.current - ticks.last < self.THRESHOLD_DOUBLETAP) && self.args.doubleTapHandler) {
-                        var pos = touches_start.getTouch(0);
-                        if (pos) {
-                            self.fireEvent('doubleTapHandler', pos.x, pos.y);
+                    
+                    // check to see whether this is a double tap (if we are watching for them)
+                    if (ticks.current - ticks.last < self.THRESHOLD_DOUBLETAP) {
+                        // calculate the difference between this and the last touch point
+                        var touchChange = touches_start.calculateDelta(touches_last);
+                        if ((Math.abs(touchChange.x) < self.args.maxDistDoubleTap) && (Math.abs(touchChange.y) < self.args.maxDistDoubleTap)) {
+                            var pos = touches_start.getTouch(0);
+                            if (pos) {
+                                self.fireEvent('doubleTapHandler', pos.x, pos.y);
+                            } // if
                         } // if
                     } // if
 
                     // reset the touch mode to unknown
                     touch_mode = TOUCH_MODES.TAP;
+                    
+                    // update the last touches
+                    touches_last = self.getTouchPoints(touch_event);
                 },
 
                 move: function(touch_event) {
@@ -318,8 +339,7 @@ SLICK.TOUCH = (function() {
                     // if tapping, then first the tap event
                     if (touch_mode === TOUCH_MODES.TAP) {
                         // get the start touch
-                        var touch_pos = touches_start.getTouch(0);
-                        self.fireEvent('tapHandler', touch_pos.x, touch_pos.y);
+                        self.firePositionEvent('tapHandler', touches_start.getTouch(0));
                     }
                     // if moving, then fire the move end
                     else if (touch_mode == TOUCH_MODES.MOVE) {
@@ -361,7 +381,7 @@ SLICK.TOUCH = (function() {
                 
                 // if the touch helper has not been created, then create it and attach to events
                 if (! touch_helper) {
-                    touch_helper = module_types.TouchHelper(params);
+                    touch_helper = module_types.TouchHelper(jQuery.extend({ element: element}, params));
                     touch_helpers[element.id] = touch_helper;
                     
                     // bind the touch events

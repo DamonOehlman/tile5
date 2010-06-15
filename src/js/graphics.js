@@ -128,8 +128,9 @@ SLICK.GRAPHICS = (function() {
             params = jQuery.extend({
                 container: "",
                 fillBackground: null,
-                gutterSize: 256,
-                fps: 5
+                // TODO: reimplement the gutter size at a later time
+                gutterSize: 0,
+                fps: 20
             }, params);
 
             // get the container context
