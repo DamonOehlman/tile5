@@ -1,9 +1,3 @@
-form {
-    margin: 0px;
-    padding: 5px;
-    height: 100%;
-}
-
 form ul {
     list-style-type: none;
     margin: 0;
@@ -18,5 +12,17 @@ form ul li label {
 }
 
 form ul li input, form ul li select, form ul li textarea {
-    width: 100%;
+}
+
+div#dialog-container {
+    z-index: 1100;
+}
+
+div.dialog {
+    padding: 8px;
+    background: -webkit-gradient(linear, left top, left bottom, color-stop(0.0, #FFFFFF), color-stop(0.3, #DDDDDD), color-stop(1.0, #CCCCCC));
+}
+
+div.dialog h3 {
+    margin: 0 0 6px 0;
 }

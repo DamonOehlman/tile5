@@ -1,7 +1,3 @@
-form {
-    background: #EEEEEE;
-}
-
 form ul li {
     margin: 0 0 8px 0;
     background: white;
@@ -12,5 +8,15 @@ form ul li {
 
 form ul li label {
     font-size: 0.7em;
-    padding: 0 0 0 20px;
+    padding: 0 0 0 10px;
+}
+
+div.dialog h3 {
+    color: #333333;
+    font-size: 0.9em;
+    padding: 0 0 0 10px;
+}
+
+:input {
+    border: 0px;
 }
