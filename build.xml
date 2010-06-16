@@ -45,6 +45,12 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/dispatcher.js" />
 		</concat>
 		
+		<!-- create the ui library -->
+		<concat destfile="${dist}/${LIBNAME}.ui.js">
+			<fileset file="src/js/ui/core.js" />
+			<fileset file="src/js/ui/forms.js" />
+		</concat>
+		
 		<!-- concatenate the mapping file set -->
 		<concat destfile="${dist}/${LIBNAME}.mapping.js">
 			<fileset file="src/js/mapping/geo.js" />
@@ -62,13 +68,14 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		<concat destfile="${SLICK}">
 			<fileset file="src/js/template/header.js" />
 			<fileset file="${dist}/${LIBNAME}.core.js" />
+			<fileset file="${dist}/${LIBNAME}.ui.js" />
 			<fileset file="${dist}/${LIBNAME}.mapping.js" />
 			<fileset file="${dist}/${LIBNAME}.phonegap.js" />
 		</concat>
 		
 		<!-- TODO: if the strip logging property is set, then strip it -->
 		<!-- 
-		<replaceregexp match="SLICK.logger\.(log|info|warn).*?\;" replace="" flags="g" byline="false" file="${SLICK}" />
+		<replaceregexp match="SLICK.Logger\.(log|info|warn).*?\;" replace="" flags="g" byline="false" file="${SLICK}" />
 		-->
 		
 		<!-- TODO: call the targets to concatenate the required modules -->

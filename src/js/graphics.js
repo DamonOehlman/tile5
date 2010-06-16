@@ -44,7 +44,7 @@ SLICK.Graphics = (function() {
         var gridHalfWidth = Math.ceil(params.gridSize * 0.5);
         var topLeftOffset = params.center.offset(-gridHalfWidth, -gridHalfWidth);
         
-        SLICK.logger.info("created tile store with tl offset = " + topLeftOffset);
+        SLICK.Logger.info("created tile store with tl offset = " + topLeftOffset);
         
         function getTileIndex(col, row) {
             return (row * params.gridSize) + col;
@@ -84,7 +84,7 @@ SLICK.Graphics = (function() {
                 var startTicks = new Date().getTime();
                 var tileIndex = 0;
                 
-                SLICK.logger.info("poulating grid, top left offset = " + topLeftOffset);
+                SLICK.Logger.info("poulating grid, top left offset = " + topLeftOffset);
 
                 if (tileCreator) {
                     for (var row = 0; row < params.gridSize; row++) {
@@ -103,7 +103,7 @@ SLICK.Graphics = (function() {
                 } // if
 
                 // log how long it took
-                SLICK.logger.info("tile grid populated with " + tileIndex + " tiles in " + (new Date().getTime() - startTicks) + " ms");
+                SLICK.Logger.info("tile grid populated with " + tileIndex + " tiles in " + (new Date().getTime() - startTicks) + " ms");
             },
             
             /*
@@ -123,6 +123,9 @@ SLICK.Graphics = (function() {
     };
     
     var module = {
+        // define module requirements
+        requires: ["Resources"],
+        
         View: function(params) {
             // initialise defaults
             params = jQuery.extend({
@@ -142,7 +145,7 @@ SLICK.Graphics = (function() {
                     main_context = canvas.getContext('2d');
                 } 
                 catch (e) {
-                    SLICK.logger.exception(e);
+                    SLICK.Logger.exception(e);
                     throw "Could not initialise canvas on specified tiler element";
                 }
             } // if
@@ -283,12 +286,55 @@ SLICK.Graphics = (function() {
             return self;            
         },
         
+        // FIXME: Good idea, but doesn't work - security exceptions in chrome...
+        // some good information here:
+        // http://stackoverflow.com/questions/2888812/save-html-5-canvas-to-a-file-in-chrome
+        // looks like implementing this isn't going to fly without some support from a device-side
         ImageCache: (function() {
+            // initialise variables
+            var storageCanvas = null;
+            
+            function getStorageContext(image) {
+                if (! storageCanvas) {
+                    storageCanvas = document.createElement('canvas');
+                }  // if
+
+                // update the canvas to the correct width
+                storageCanvas.width = image.width;
+                storageCanvas.height = image.height;
+                
+                return storageCanvas.getContext('2d');
+            }
+            
+            function imageToCanvas(image) {
+                // get the storage context
+                var context = getStorageContext(image);
+                
+                // draw the image to the context
+                context.drawImage(image, 0, 0);
+                
+                // return the canvas
+                return storageCanvas;
+            }
+            
             // initialise self
             var self = {
                 // TODO: use this method to return an image from the key value local storage 
-                getImage: function(url, sessionParams) {
+                getImage: function(url, sessionParamRegex) {
+                    // ask the resources module to get the cacheable key for the url
+                    var cacheKey = SLICK.Resources.Cache.getUrlCacheKey(url, sessionParamRegex);
+                    
                     return null;
+                },
+                
+                cacheImage: function(url, sessionParamRegex, image) {
+                    // get the cache key
+                    var cacheKey = SLICK.Resources.Cache.getUrlCacheKey(url, sessionParamRegex);
+                    
+                    // if we have local storage then save it
+                    if (image) {
+                        SLICK.Resources.Cache.write(cacheKey, imageToCanvas(image).toDataURL('image/png'));
+                    } // if
                 }
             };
             
@@ -328,7 +374,7 @@ SLICK.Graphics = (function() {
             // initialise parameters with defaults
             params = jQuery.extend({
                 url: "",
-                sessionParams: []
+                sessionParamRegex: null
             }, params);
             
             // initialise parent
@@ -347,7 +393,7 @@ SLICK.Graphics = (function() {
                 load: function() {
                     if ((! image)  && params.url) {
                         // create the image
-                        image = module.ImageCache.getImage(params.url, params.sessionParams);
+                        image = null; // module.ImageCache.getImage(params.url, params.sessionParamRegex);
                         
                         // if we didn't get an image from the cache, then load it
                         if (! image) {
@@ -355,8 +401,8 @@ SLICK.Graphics = (function() {
                             image.src = params.url;
 
                             // watch for the image load
-                            image.onload = function() {
-                                // TODO: add the image to the image cache
+                            image.onload = function() {                                
+                                // module.ImageCache.cacheImage(params.url, params.sessionParamRegex, image);
                                 
                                 self.loaded = true;
                                 self.changed(self);
@@ -492,7 +538,7 @@ SLICK.Graphics = (function() {
                     // get the normalized position from the tile store
                     var pos = tileStore.getNormalizedPos(col, row);
                     
-                    SLICK.logger.info("normalised pos = " + pos);
+                    SLICK.Logger.info("normalised pos = " + pos);
                     var fnresult = new SLICK.Vector(pos.x * params.tileSize, pos.y * params.tileSize);
                     
                     if (getCenter) {
@@ -662,7 +708,7 @@ SLICK.Tiler = function(args) {
         },
         
         onScale: function() {
-            SLICK.logger.info("** SCALING COMPLETE **");
+            SLICK.Logger.info("** SCALING COMPLETE **");
         }
     }); // scalable
     
@@ -703,7 +749,7 @@ SLICK.Tiler = function(args) {
         
         viewPixToGridPix: function(vector) {
             var offset = self.getOffset();
-            SLICK.logger.info("Offset = " + offset);
+            SLICK.Logger.info("Offset = " + offset);
             return new SLICK.Vector(vector.x + offset.x, vector.y + offset.y);
         }
     }); // self

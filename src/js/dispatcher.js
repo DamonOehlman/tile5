@@ -13,7 +13,7 @@ SLICK.Dispatcher = (function() {
                 // get the trailing arguments from the call
                 var actionArgs = [].concat(arguments).slice(0, 1);
                 
-                SLICK.errorWatch(function() {
+                SLICK.errorWatch("EXECUTING ACTION: " + actionId, function() {
                     action.execute(actionArgs);
                 });
             } // if
@@ -30,7 +30,7 @@ SLICK.Dispatcher = (function() {
         },
         
         getRegisteredActions: function() {
-            SLICK.logger.info("we have " + registeredActions.length + " registered actions");
+            SLICK.Logger.info("we have " + registeredActions.length + " registered actions");
             return [].concat(registeredActions);
         },
         
@@ -47,7 +47,7 @@ SLICK.Dispatcher = (function() {
         
         registerAction: function(action) {
             if (action && action.id) {
-                SLICK.logger.info("registered action: " + action);
+                SLICK.Logger.info("registered action: " + action);
                 registeredActions.push(action);
             } // if
         },

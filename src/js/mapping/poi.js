@@ -186,7 +186,7 @@ GEO.POIInfoBox = function(args) {
     } // updateButtons
     
     function updateDisplay() {
-        SLICK.logger.info("updating poi display: index = " + poi_index);
+        SLICK.Logger.info("updating poi display: index = " + poi_index);
         
         active_poi = null;
         if ((poi_index >= 0) && (poi_index < pois.length)) {
@@ -416,7 +416,7 @@ GEO.POIProvider = function(args) {
         var ii = 0;
         var time_retrieved = new Date().getTime();
         
-        SLICK.logger.info(String.format("{0} pois to process :)", refreshed_pois.length));
+        SLICK.Logger.info(String.format("{0} pois to process :)", refreshed_pois.length));
         
         // iterate through the pois and determine state
         for (ii = 0; ii < refreshed_pois.length; ii++) {
@@ -437,7 +437,7 @@ GEO.POIProvider = function(args) {
         
         // add new pois to the poi layer
         self.pois.addPOIs(new_pois);
-        SLICK.logger.info(String.format("POI-UPDATE: {0} new, {1} deleted", new_pois.length, deleted_pois.length));
+        SLICK.Logger.info(String.format("POI-UPDATE: {0} new, {1} deleted", new_pois.length, deleted_pois.length));
             
         // fire the on poi added event when appropriate
         for (ii = 0; self.args.onPOIAdded && (ii < new_pois.length); ii++) {
@@ -477,7 +477,7 @@ GEO.POIProvider = function(args) {
             request_timer = setTimeout(function() {
                 // check for empty bounds, if empty then exit
                 if ((! bounds) || bounds.isEmpty()) {
-                    SLICK.logger.warn("cannot get pois for empty bounding box");
+                    SLICK.Logger.warn("cannot get pois for empty bounding box");
                     return;
                 } // if
             
@@ -488,13 +488,13 @@ GEO.POIProvider = function(args) {
                 } // if
             
                 if ((! bounds_change) || self.testBoundsChange(bounds_change)) {
-                    SLICK.logger.info("yep - bounds changed = " + bounds_change);
+                    SLICK.Logger.info("yep - bounds changed = " + bounds_change);
 
                     // define the ajax args
                     var ajax_args = jQuery.extend({
                         success: function(data, textStatus, raw_request) {
                             try {
-                                SLICK.logger.info("received data: " + data);
+                                SLICK.Logger.info("received data: " + data);
                                 
                                 // update the pois
                                 updatePOIs(self.parseResponse(data, textStatus, raw_request));
@@ -514,12 +514,12 @@ GEO.POIProvider = function(args) {
                                 } // if
                             }  
                             catch (e) {
-                                SLICK.logger.exception(e);
+                                SLICK.Logger.exception(e);
                             } // try..catch
                         },
                         error: function(raw_request, textStatus, errorThrown) {
                             request_active = false;
-                            SLICK.logger.error("failed getting POIS from server: " + textStatus + ":" + errorThrown);
+                            SLICK.Logger.error("failed getting POIS from server: " + textStatus + ":" + errorThrown);
                         }
                     }, self.initRequest());
                 
@@ -529,11 +529,11 @@ GEO.POIProvider = function(args) {
                         request_active = true;
                 
                         // make the request
-                        SLICK.logger.info("Looking for POIS within bounding box: " + bounds);
+                        SLICK.Logger.info("Looking for POIS within bounding box: " + bounds);
                         jQuery.ajax(ajax_args);
                     } 
                     else {
-                        SLICK.logger.error("Unable to locate POIS: No search url specified.");
+                        SLICK.Logger.error("Unable to locate POIS: No search url specified.");
                     } // if..else
                 
                 } // if
@@ -553,7 +553,7 @@ GEO.POIProvider = function(args) {
         },
         
         testBoundsChange: function(distance) {
-            SLICK.logger.info("testing for bounds change: distance = " + distance);
+            SLICK.Logger.info("testing for bounds change: distance = " + distance);
             
             // if the distance is equal to 0 don't call event, just return false
             if (distance && (distance.toKM() == 0)) { return false; }

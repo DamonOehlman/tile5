@@ -28,7 +28,7 @@ SLICK.TOUCH = (function() {
                     // get the second vector
                     var previous_vector = previous_touches ? previous_touches.getTouch(0) : null;
 
-                    // SLICK.logger.info(String.format("calculating delta: current vector = {0}, previous vector = {1}", _vectors[0], previous_vector));
+                    // SLICK.Logger.info(String.format("calculating delta: current vector = {0}, previous vector = {1}", _vectors[0], previous_vector));
                     return previous_vector ? new SLICK.Vector(_vectors[0].x - previous_vector.x, _vectors[0].y - previous_vector.y) : new SLICK.Vector();
                 },
 
@@ -432,7 +432,7 @@ jQuery.fn.untouchable = function() {
             if (! (evt.target && TAGS_CANTOUCH.test(evt.target.tagName))) {
                 // check to see whether a click handler has been assigned for the current object
                 if (! (evt.target.onclick || evt.target.ondblclick)) {
-                    SLICK.logger.info("no touch for: " + evt.target.tagName);
+                    SLICK.Logger.info("no touch for: " + evt.target.tagName);
                     evt.preventDefault();
                 } // if
             } // if

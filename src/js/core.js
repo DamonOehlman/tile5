@@ -42,18 +42,16 @@ if (! Number.sec) {
 
 SLICK = (function () {
     var module = {
-        logger: null,
-        
-        errorWatch: function(callback) {
+        errorWatch: function(sectionDesc, callback) {
             try {
                 callback();
             }
             catch (e) {
-                SLICK.logger.exception(e);
+                SLICK.Logger.exception(e, sectionDesc);
             } // try..catch
         },
         
-        Logger: function() {
+        Logger: (function() {
             // initialise constants
             var DEFAULT_LOGGING_LEVEL = 1;
             var REDRAW_FREQUENCY = 2000;
@@ -135,6 +133,12 @@ SLICK = (function () {
                         console.info(message);
                     } // if
                     
+                    // if we have phonegap installed, then we will probably have the phonegap debugger available to us
+                    // so send messages to that also
+                    if (typeof debug !== 'undefined') {
+                        debug.log(message);
+                    } // if
+                    
                     // let the listeners know a log entry has been made
                     for (var ii = 0; ii < listeners.length; ii++) {
                         listeners[ii](logLine);
@@ -157,9 +161,9 @@ SLICK = (function () {
                     self.log(message, self.LOGLEVEL_ERROR);
                 },
 
-                exception: function(e) {
+                exception: function(e, prefix) {
                     // TODO: more detail in this...
-                    self.log("EXCEPTION: " + e.message, self.LOGLEVEL_ERROR);
+                    self.log("EXCEPTION " + (prefix ? "(in " + prefix + ")" : "") + " : " + e.message, self.LOGLEVEL_ERROR);
 
                     // if we have a stack trace, then display that as well
                     if (e.stack) {
@@ -173,7 +177,7 @@ SLICK = (function () {
             }; // self
 
             return self;
-        }, // Logger
+        })(), // Logger
         
         Vector: function(init_x, init_y) {
             // if the initialise x is not specified then set to 0
@@ -302,9 +306,6 @@ SLICK = (function () {
             return self;
         }
     };
-    
-    // initialise the logger
-    module.logger = new module.Logger();
     
     return module;
 })();

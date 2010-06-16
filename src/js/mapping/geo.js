@@ -188,7 +188,7 @@ GEO.BoundingBox = function(init_min, init_max) {
             // create a new instance of the BoundingBox to transform
             var target = new GEO.BoundingBox(self.min, self.max);
             
-            SLICK.logger.info("applying " + transformers.length + " transformers");
+            SLICK.Logger.info("applying " + transformers.length + " transformers");
             // iterate through the transformers, and call them
             for (var ii = 0; transformers && (ii < transformers.length); ii++) {
                 transformers[ii].apply(target);
@@ -211,13 +211,13 @@ GEO.TRANSFORM = (function() {
     return {
         Shrink: function(new_width, new_height) {
             return function() {
-                //SLICK.logger.info(String.format("SHRINKING {2} to {0} x {1}", new_width, new_height, this));
+                //SLICK.Logger.info(String.format("SHRINKING {2} to {0} x {1}", new_width, new_height, this));
             };
         },
         
         Offset: function(x_offset, y_offset) {
             return function() {
-                //SLICK.logger.info(String.format("OFFSETING {2} by {0}, {1}", x_offset, y_offset, this));
+                //SLICK.Logger.info(String.format("OFFSETING {2} by {0}, {1}", x_offset, y_offset, this));
             };
         }
     };
