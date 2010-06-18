@@ -528,9 +528,11 @@ GEO.POIProvider = function(args) {
                     if (ajax_args.url) {
                         request_active = true;
                 
-                        // make the request
-                        SLICK.Logger.info("Looking for POIS within bounding box: " + bounds);
-                        jQuery.ajax(ajax_args);
+                        SLICK.errorWatch("POI SEARCH REQUEST", function() {
+                            // make the request
+                            SLICK.Logger.info("Looking for POIS within bounding box: " + bounds);
+                            jQuery.ajax(ajax_args);
+                        });
                     } 
                     else {
                         SLICK.Logger.error("Unable to locate POIS: No search url specified.");

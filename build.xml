@@ -39,7 +39,6 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/core.js" />
 			<fileset file="src/js/resources.js" />
 			<fileset file="src/js/touch.js" />
-			<fileset file="src/js/display.js" />
 			<fileset file="src/js/behaviours.js" />
 			<fileset file="src/js/graphics.js" />
 			<fileset file="src/js/dispatcher.js" />
@@ -48,7 +47,9 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		<!-- create the ui library -->
 		<concat destfile="${dist}/${LIBNAME}.ui.js">
 			<fileset file="src/js/ui/core.js" />
+			<fileset file="src/js/ui/display.js" />
 			<fileset file="src/js/ui/forms.js" />
+			<fileset file="src/js/ui/navigation.js" />
 		</concat>
 		
 		<!-- concatenate the mapping file set -->
@@ -60,7 +61,13 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		
 		<!-- concatenate the phonegap file set -->
 		<concat destfile="${dist}/${LIBNAME}.phonegap.js">
-			<fileset file="src/js/phonegap/core.js" />
+			<fileset file="src/js/plugins/phonegap/core.js" />
+		</concat>
+		
+		<concat destfile="${dist}/${LIBNAME}.titanium.js">
+			<fileset file="src/js/plugins/titanium/core.js" />
+			<fileset file="src/js/plugins/titanium/ajax.js" />
+			<fileset file="src/js/plugins/titanium/jqtouch.js" />
 		</concat>
 		
 		<!-- TODO: move the provider files across too -->
@@ -68,9 +75,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		<concat destfile="${SLICK}">
 			<fileset file="src/js/template/header.js" />
 			<fileset file="${dist}/${LIBNAME}.core.js" />
-			<fileset file="${dist}/${LIBNAME}.ui.js" />
 			<fileset file="${dist}/${LIBNAME}.mapping.js" />
-			<fileset file="${dist}/${LIBNAME}.phonegap.js" />
 		</concat>
 		
 		<!-- TODO: if the strip logging property is set, then strip it -->

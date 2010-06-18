@@ -229,12 +229,13 @@ GEO.DECARTA.MapProvider = function(params) {
         // SLICK.Logger.info(String.format("tile: N {0}, E {1} virtual center position = {2}", response_data.centerTile.N, response_data.centerTile.E, center_xy));
         
         var gx_zoomlevel = GEO.DECARTA.Utilities.zoomLevelToGXZoom(self.zoomLevel);
-
+        
         // wrap the tile grid in a geo tile grid
         tile_grid = new SLICK.Mapping.GeoTileGrid({
             grid: tile_grid, 
             centerXY:  tile_grid.getTileVirtualXY(response_data.centerTile.E, response_data.centerTile.N, true),
             centerPos: response_data.centerContext.centerPos,
+            offsetAdjustment: new SLICK.Vector(0, response_data.tileSize),
             radsPerPixel: GEO.DECARTA.Utilities.radsPerPixelAtZoom(response_data.tileSize, gx_zoomlevel)
         });
         

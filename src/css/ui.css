@@ -1,3 +1,11 @@
+/* define some positional classes */
+
+.anchor-bottom {
+    position: fixed;
+    bottom: 0px;
+    width: 100%;
+}
+
 form ul {
     list-style-type: none;
     margin: 0;
@@ -25,4 +33,21 @@ div.dialog {
 
 div.dialog h3 {
     margin: 0 0 6px 0;
+}
+
+/* action bar basic styling */
+
+ul.actionbar {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+    z-index: 99;
+}
+
+ul.actionbar li {
+    float: left;
+    margin: 0;
+    padding: 11px 0 0 0;
+    width: 63px;
+    text-align: center;
 }

@@ -50,7 +50,7 @@ SLICK = (function () {
                 SLICK.Logger.exception(e, sectionDesc);
             } // try..catch
         },
-        
+
         Logger: (function() {
             // initialise constants
             var DEFAULT_LOGGING_LEVEL = 1;
@@ -137,6 +137,11 @@ SLICK = (function () {
                     // so send messages to that also
                     if (typeof debug !== 'undefined') {
                         debug.log(message);
+                    } // if
+                    
+                    // if we are running within titanium, call the logging inside titanium
+                    if (typeof Ti !== 'undefined') {
+                        Ti.API[class_name](message);
                     } // if
                     
                     // let the listeners know a log entry has been made

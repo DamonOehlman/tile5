@@ -94,7 +94,7 @@ SLICK.UI.Forms = (function() {
                 },
                 
                 getDialog: function() {
-                    return attachedDialog ? attachedDialog.get() : null;
+                    return attachedDialog;
                 },
                 
                 getFieldValues: function() {

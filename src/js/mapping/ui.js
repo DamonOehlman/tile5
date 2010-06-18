@@ -6,6 +6,7 @@ SLICK.Mapping = (function() {
                 grid: null,
                 centerPos: new GEO.Position(),
                 centerXY: new SLICK.Vector(),
+                offsetAdjustment: new SLICK.Vector(),
                 radsPerPixel: 0
             }, params);
             
@@ -33,8 +34,8 @@ SLICK.Mapping = (function() {
 
                     // calculate the offsets
                     // SLICK.Logger.info("GETTING OFFSET for position: " + pos);
-                    var offset_x = Math.abs(pos_mp.x - blMercatorPix.x);
-                    var offset_y = self.getDimensions().height - Math.abs(pos_mp.y - blMercatorPix.y) + self.getTileSize();
+                    var offset_x = Math.abs(pos_mp.x - blMercatorPix.x) + params.offsetAdjustment.x;
+                    var offset_y = self.getDimensions().height - Math.abs(pos_mp.y - blMercatorPix.y) + params.offsetAdjustment.y;
 
                     // SLICK.Logger.info("position mercator pixels: " + pos_mp);
                     // SLICK.Logger.info("bottom left mercator pixels: " + blMercatorPix);
