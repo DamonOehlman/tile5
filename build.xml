@@ -59,6 +59,11 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/mapping/poi.js" />
 		</concat>
 		
+		<concat destfile="${dist}/${LIBNAME}.rhodes.js">
+			<fileset file="src/js/plugins/rhodes/core.js" />
+			<fileset file="src/js/plugins/rhodes/ajax.js" />
+		</concat>
+		
 		<!-- concatenate the phonegap file set -->
 		<concat destfile="${dist}/${LIBNAME}.phonegap.js">
 			<fileset file="src/js/plugins/phonegap/core.js" />

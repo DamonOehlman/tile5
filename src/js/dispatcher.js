@@ -7,6 +7,7 @@ SLICK.Dispatcher = (function() {
         execute: function(actionId) {
             // find the requested action
             var action = module.findAction(actionId);
+            SLICK.Logger.info("looking for action to execute, id = " + actionId);
             
             // if we found the action then execute it
             if (action) {

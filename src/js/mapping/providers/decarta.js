@@ -1,9 +1,9 @@
-GEO.DECARTA = {};
+SLICK.Geo.DECARTA = {};
 
 // define the decarta utilities as per this thread on the decarta forum
 // http://devzone.decarta.com/web/guest/forums?p_p_id=19&p_p_action=0&p_p_state=maximized&p_p_mode=view&_19_struts_action=/message_boards/view_message&_19_messageId=43131
 
-GEO.DECARTA.Utilities = (function() {
+SLICK.Geo.DECARTA.Utilities = (function() {
     // define some constants
     var MAX_GX_ZOOM = 21;
     
@@ -26,13 +26,13 @@ GEO.DECARTA.Utilities = (function() {
 
 /* define decarta types */
 
-GEO.DECARTA.CenterContext = function(json_data) {
+SLICK.Geo.DECARTA.CenterContext = function(json_data) {
     // initialise variables
     
     // initialise self
     var self = {
-        centerPos: new GEO.Position(json_data.CenterPoint ? json_data.CenterPoint.pos.content : ""),
-        radius: new GEO.Radius(json_data.Radius ? json_data.Radius.content : 0, json_data.Radius ? json_data.Radius.unit : null)
+        centerPos: new SLICK.Geo.Position(json_data.CenterPoint ? json_data.CenterPoint.pos.content : ""),
+        radius: new SLICK.Geo.Radius(json_data.Radius ? json_data.Radius.content : 0, json_data.Radius ? json_data.Radius.unit : null)
     }; // self
     
     return self;
@@ -40,7 +40,7 @@ GEO.DECARTA.CenterContext = function(json_data) {
 
 /* define the different request types */
 
-GEO.DECARTA.Request = function(config) {
+SLICK.Geo.DECARTA.Request = function(config) {
     // initialise self
     var self = {
         decartaConfig: config,
@@ -59,9 +59,9 @@ GEO.DECARTA.Request = function(config) {
     }; // self
     
     return self;
-}; // GEO.DECARTA.Request
+}; // SLICK.Geo.DECARTA.Request
 
-GEO.DECARTA.PortrayMapRequest = function(config, lat, lon, zoom_level) {
+SLICK.Geo.DECARTA.PortrayMapRequest = function(config, lat, lon, zoom_level) {
     // initialise variables
     
     function findGridLayer(layers, layer_name) {
@@ -97,7 +97,7 @@ GEO.DECARTA.PortrayMapRequest = function(config, lat, lon, zoom_level) {
     } // parseImageUrl
     
     // create the parent
-    var parent = new GEO.DECARTA.Request(config);
+    var parent = new SLICK.Geo.DECARTA.Request(config);
     
     var self = jQuery.extend({}, parent, {
         // override core properties
@@ -159,7 +159,7 @@ GEO.DECARTA.PortrayMapRequest = function(config, lat, lon, zoom_level) {
                 return {
                     imageUrl: urlData.mask,
                     tileSize: grid.Tile.Map.Content.height,
-                    centerContext: new GEO.DECARTA.CenterContext(grid.CenterContext),
+                    centerContext: new SLICK.Geo.DECARTA.CenterContext(grid.CenterContext),
                     centerTile: {
                         N: parseInt(urlData.N, 10),
                         E: parseInt(urlData.E, 10)
@@ -174,7 +174,7 @@ GEO.DECARTA.PortrayMapRequest = function(config, lat, lon, zoom_level) {
 
 /* define the map provider */
 
-GEO.DECARTA.MapProvider = function(params) {
+SLICK.Geo.DECARTA.MapProvider = function(params) {
     // initialise variables
     var config = jQuery.extend({
         sessionID: new Date().getTime(),
@@ -196,7 +196,7 @@ GEO.DECARTA.MapProvider = function(params) {
     var loaded_images = {};
     
     // initialise parent
-    var parent = new GEO.MapProvider();
+    var parent = new SLICK.Geo.MapProvider();
     
     function buildTileGrid(response_data, container_dimensions) {
         // initialise the first tile origin
@@ -228,7 +228,7 @@ GEO.DECARTA.MapProvider = function(params) {
         // get the virtual x y of the center tile
         // SLICK.Logger.info(String.format("tile: N {0}, E {1} virtual center position = {2}", response_data.centerTile.N, response_data.centerTile.E, center_xy));
         
-        var gx_zoomlevel = GEO.DECARTA.Utilities.zoomLevelToGXZoom(self.zoomLevel);
+        var gx_zoomlevel = SLICK.Geo.DECARTA.Utilities.zoomLevelToGXZoom(self.zoomLevel);
         
         // wrap the tile grid in a geo tile grid
         tile_grid = new SLICK.Mapping.GeoTileGrid({
@@ -236,7 +236,7 @@ GEO.DECARTA.MapProvider = function(params) {
             centerXY:  tile_grid.getTileVirtualXY(response_data.centerTile.E, response_data.centerTile.N, true),
             centerPos: response_data.centerContext.centerPos,
             offsetAdjustment: new SLICK.Vector(0, response_data.tileSize),
-            radsPerPixel: GEO.DECARTA.Utilities.radsPerPixelAtZoom(response_data.tileSize, gx_zoomlevel)
+            radsPerPixel: SLICK.Geo.DECARTA.Utilities.radsPerPixelAtZoom(response_data.tileSize, gx_zoomlevel)
         });
         
         /*
@@ -367,7 +367,7 @@ GEO.DECARTA.MapProvider = function(params) {
     var self = jQuery.extend({}, parent, {
         getMapTiles: function(tiler, position, callback) {
             makeServerRequest(
-                    new GEO.DECARTA.PortrayMapRequest(config, position.lat, position.lon, self.zoomLevel),
+                    new SLICK.Geo.DECARTA.PortrayMapRequest(config, position.lat, position.lon, self.zoomLevel),
                     function (response) {
                         // update the center tile details
                         last_map_response = response;

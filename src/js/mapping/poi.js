@@ -1,4 +1,4 @@
-GEO.PointOfInterest = function(args) {
+SLICK.Geo.PointOfInterest = function(args) {
     // initialise default parameters
     var DEFAULT_ARGS = {
         id: 0,
@@ -15,7 +15,7 @@ GEO.PointOfInterest = function(args) {
     
     // if the position is not defined, but we have a lat and lon, create a new position
     if ((! args.pos) && args.lat && args.lon) {
-        args.pos = new GEO.Position(args.lat, args.lon);
+        args.pos = new SLICK.Geo.Position(args.lat, args.lon);
     } // if
     
     // initialise self
@@ -34,7 +34,7 @@ GEO.PointOfInterest = function(args) {
     return self;
 }; // PointOfInterest
 
-GEO.POIMarkers = (function() {
+SLICK.Geo.POIMarkers = (function() {
     // initialise the marker image cache
     var drawQueue = [];
     var loadedImages = [];
@@ -105,7 +105,7 @@ GEO.POIMarkers = (function() {
     return self;
 })();
 
-GEO.POIPin = function(args) {
+SLICK.Geo.POIPin = function(args) {
     // initialise the default args
     var DEFAULT_ARGS = {
         poi: null,
@@ -121,14 +121,14 @@ GEO.POIPin = function(args) {
         mercXY: args.mercXY,
         
         drawToContext: function(context, x, y, callback) {
-            GEO.POIMarkers.drawMarker(context, self.poi.type, x, y, callback);
+            SLICK.Geo.POIMarkers.drawMarker(context, self.poi.type, x, y, callback);
         }
     }; // self
     
     return self;
 }; // POIPin
 
-GEO.POIInfoBox = function(args) {
+SLICK.Geo.POIInfoBox = function(args) {
     // initialise default args
     var DEFAULT_ARGS = {
         pois: []
@@ -269,7 +269,7 @@ simple operations on that array that make managing the pois simpler.
 TODO: optimize the find functions
 TODO: add a sort function to sort the pois 
 */
-GEO.POILayer = function(args) {
+SLICK.Geo.POILayer = function(args) {
     // initialise default args
     var DEFAULT_ARGS = {
         visibilityChange: null
@@ -373,7 +373,7 @@ GEO.POILayer = function(args) {
     };
     
     return self;
-}; // GEO.POILayer
+}; // SLICK.Geo.POILayer
 
 /*
 The POIProvider class is used to define generic methods for implementing
@@ -384,7 +384,7 @@ data retrieval for points of interest.  To that end, the POI provider has
 events that inform the application / tiler when points of interest are added
 or removed and hence should be added to or removed from the map.  
 */
-GEO.POIProvider = function(args) {
+SLICK.Geo.POIProvider = function(args) {
     // initialise default args
     var DEFAULT_ARGS = {
         poitype: "",
@@ -394,12 +394,12 @@ GEO.POIProvider = function(args) {
         onPOIAdded: null,
         onPOIDeleted: null,
         onChangedPOIs: null,
-        layerClass: GEO.POILayer
+        layerClass: SLICK.Geo.POILayer
     }; 
     
     // initialise variables
-    var last_bounds = new GEO.BoundingBox();
-    var next_bounds = new GEO.BoundingBox();
+    var last_bounds = new SLICK.Geo.BoundingBox();
+    var next_bounds = new SLICK.Geo.BoundingBox();
     var request_active = false;
     var request_timer = 0;
     var update_listeners = [];
@@ -484,7 +484,7 @@ GEO.POIProvider = function(args) {
                 // calculate the bounds change
                 var bounds_change = null;
                 if (! last_bounds.isEmpty()) {
-                    bounds_change = new GEO.Distance(last_bounds.min, bounds.min);
+                    bounds_change = new SLICK.Geo.Distance(last_bounds.min, bounds.min);
                 } // if
             
                 if ((! bounds_change) || self.testBoundsChange(bounds_change)) {
@@ -565,4 +565,4 @@ GEO.POIProvider = function(args) {
     };
     
     return self;
-}; // GEO.POIProvider
+}; // SLICK.Geo.POIProvider

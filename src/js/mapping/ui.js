@@ -4,7 +4,7 @@ SLICK.Mapping = (function() {
             // extend the params with some defaults
             params = jQuery.extend({
                 grid: null,
-                centerPos: new GEO.Position(),
+                centerPos: new SLICK.Geo.Position(),
                 centerXY: new SLICK.Vector(),
                 offsetAdjustment: new SLICK.Vector(),
                 radsPerPixel: 0
@@ -19,7 +19,7 @@ SLICK.Mapping = (function() {
             // initialise self
             var self = jQuery.extend({}, params.grid, {
                 getBoundingBox: function(x, y, width, height) {
-                    return new GEO.BoundingBox(
+                    return new SLICK.Geo.BoundingBox(
                         self.pixelsToPos(new SLICK.Vector(x, y + height)),
                         self.pixelsToPos(new SLICK.Vector(x + width, y)));
                 },
@@ -46,7 +46,7 @@ SLICK.Mapping = (function() {
                 
                 pixelsToPos: function(vector) {
                     // initialise the new position object
-                    var fnresult = new GEO.Position();
+                    var fnresult = new SLICK.Geo.Position();
                     
                     var mercX = blMercatorPix.x + vector.x;
                     var mercY = (blMercatorPix.y + self.getDimensions().height + self.getTileSize()) - vector.y;
@@ -84,7 +84,7 @@ SLICK.MappingTiler = function(args) {
     
     // if the data provider has not been created, then create a default one
     if (! provider) {
-        provider = new GEO.MapProvider();
+        provider = new SLICK.Geo.MapProvider();
     } // if
     
     // if we have a pan handler in the args, then save it as we are going to insert our own
@@ -112,7 +112,7 @@ SLICK.MappingTiler = function(args) {
             var max_pos = grid.pixelsToPos(grid_pos.offset(args.tapExtent, -args.tapExtent));
             
             // turn that into a bounds object
-            tap_bounds = new GEO.BoundingBox(min_pos.toString(), max_pos.toString());
+            tap_bounds = new SLICK.Geo.BoundingBox(min_pos.toString(), max_pos.toString());
             
             SLICK.Logger.info("tap position = " + relPos.x + ", " + relPos.y);
             SLICK.Logger.info("grid pos = " + grid_pos);
@@ -147,7 +147,7 @@ SLICK.MappingTiler = function(args) {
     // initialise self
     var self = jQuery.extend({}, parent, {
         getBoundingBox: function(buffer_size) {
-            var fnresult = new GEO.BoundingBox();
+            var fnresult = new SLICK.Geo.BoundingBox();
             var grid = self.getGrid();
             var offset = self.getOffset();
             var dimensions = self.getDimensions();
@@ -223,7 +223,7 @@ SLICK.MappingTiler = function(args) {
             
             if (grid && poi && poi.id && poi.pos) {
                 // create the pin
-                pins[poi.id] = new GEO.POIPin({
+                pins[poi.id] = new SLICK.Geo.POIPin({
                     poi: poi,
                     mercXY: grid.getGridXYForPosition(poi.pos)
                 });
