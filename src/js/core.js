@@ -42,6 +42,8 @@ if (! Number.sec) {
 
 SLICK = (function () {
     var module = {
+        alertOnError: false,
+        
         errorWatch: function(sectionDesc, callback) {
             try {
                 callback();
@@ -50,7 +52,13 @@ SLICK = (function () {
                 SLICK.Logger.exception(e, sectionDesc);
             } // try..catch
         },
-
+        
+        throwError: function(errorMsg) {
+            // log the error
+            module.Logger.error(errorMsg);
+            throw new Error(errorMsg);
+        },
+        
         Logger: (function() {
             // initialise constants
             var DEFAULT_LOGGING_LEVEL = 1;
@@ -139,11 +147,6 @@ SLICK = (function () {
                         debug.log(message);
                     } // if
                     
-                    // if we are running within titanium, call the logging inside titanium
-                    if (typeof Ti !== 'undefined') {
-                        Ti.API[class_name](message);
-                    } // if
-                    
                     // let the listeners know a log entry has been made
                     for (var ii = 0; ii < listeners.length; ii++) {
                         listeners[ii](logLine);
@@ -163,6 +166,10 @@ SLICK = (function () {
                 },
 
                 error: function(message) {
+                    if (module.alertOnError) {
+                        alert("ERROR: " + message);
+                    } // if
+                    
                     self.log(message, self.LOGLEVEL_ERROR);
                 },
 
@@ -183,6 +190,38 @@ SLICK = (function () {
 
             return self;
         })(), // Logger
+        
+        Settings: (function() {
+            var currentSettings = {};
+            
+            // define self
+            var self = {
+                get: function(name) {
+                    return currentSettings[name];
+                },
+                
+                set: function(name, value) {
+                    currentSettings[name] = value;
+                },
+                
+                extend: function(params) {
+                    jQuery.extend(currentSettings, params);
+                }
+            };
+            
+            return self;
+        })(),
+        
+        Converter: (function() {
+            // define self
+            var self = {
+                xmlToJson: function(xmlData) {
+                    return {};
+                }
+            };
+            
+            return self;
+        })(),
         
         Vector: function(init_x, init_y) {
             // if the initialise x is not specified then set to 0
