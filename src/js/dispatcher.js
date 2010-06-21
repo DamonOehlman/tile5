@@ -4,6 +4,9 @@ SLICK.Dispatcher = (function() {
     
     // initialise the module
     var module = {
+        
+        /* actions */
+        
         execute: function(actionId) {
             // find the requested action
             var action = module.findAction(actionId);
@@ -88,6 +91,38 @@ SLICK.Dispatcher = (function() {
             } // if
             
             return self;
+        },
+        
+        /* agents */
+        
+        createAgent: function(params) {
+            params = jQuery.extend({
+                name: "Untitled",
+                execute: null
+            }, params);
+            
+            // define the wrapper for the agent
+            var self = {
+                getName: function() {
+                    return params.name;
+                },
+                
+                run: function(args, callback) {
+                    var agentResults = null;
+                    if (params.execute) {
+                        params.execute.call(this, args, callback);
+                    } // if
+                } // run
+            };
+            
+            return self;
+        },
+        
+        runAgents: function(agents, args, callback) {
+            // iterate through the agents and run them
+            for (var ii = 0; ii < agents.length; ii++) {
+                agents[ii].run(args, callback);
+            } // for
         }
     };
     
