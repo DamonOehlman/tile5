@@ -1,0 +1,23 @@
+SLICK.Rhodes = (function() {
+    // initialise the module
+    var module = {
+        
+    };
+    
+    // ATTACH a logging listener to send logging messages back to base
+    SLICK.Logger.requestUpdates(function(logentry) {
+        jQuery.ajax({
+            url: "/app/SlickBridge/logProxy",
+            method: "POST",
+            data: logentry
+        });
+    });
+    
+    // register the module with the native modules
+    if (typeof SLICK.Native !== 'undefined') {
+        SLICK.Native.registerPlatformModule("rhodes", module);
+    } // if    
+    
+    return module;
+})();
+
