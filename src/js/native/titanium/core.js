@@ -2,7 +2,7 @@ SLICK.Titanium = (function() {
     // initialise the module
     var module = {
         platformExec: function(fnCall, params) {
-            Ti.App.fireEvent("platformExec", jQuery.extend({
+            Ti.App.fireEvent("platformExec", GRUNT.extend({
                 call: fnCall
             }, params));
         }
@@ -11,8 +11,8 @@ SLICK.Titanium = (function() {
     // if we are running within titanium, call the logging inside titanium
     if (typeof Ti !== 'undefined') {
         // ATTACH a logging listener to send logging messages back to base
-        SLICK.Logger.requestUpdates(function(logEntry) {
-            Ti.API[logEntry.clsName](logEntry.msg);
+        GRUNT.Log.requestUpdates(function(message, level) {
+            Ti.API[level](message);
         });    
     } // if
     

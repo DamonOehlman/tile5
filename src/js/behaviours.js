@@ -21,7 +21,7 @@ SLICK.Pannable = function(args) {
     
     // initialise self
     var self = {
-        args: jQuery.extend({}, DEFAULT_ARGS, args),
+        args: GRUNT.extend({}, DEFAULT_ARGS, args),
         pannable: true,
         
         getOffset: function() {
@@ -76,7 +76,7 @@ SLICK.Scalable = function(args) {
     
     // initialise self
     var self = {
-        args: jQuery.extend({}, DEFAULT_ARGS, args),
+        args: GRUNT.extend({}, DEFAULT_ARGS, args),
         scalable: true,
 
         getStartRect: function() {

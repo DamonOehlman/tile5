@@ -5,12 +5,24 @@ SLICK.Dispatcher = (function() {
     // initialise the module
     var module = {
         
+        /* basic AJAX functionality */
+        // TODO: implement the functionality correctly as per the W3C recommendation - http://www.w3.org/TR/XMLHttpRequest/
+        
+        // placeholder for global and overridable ajax settings
+        ajaxSettings: {
+            xhr: null
+        },
+        
+        ajax: function(params) {
+            module.XHR.ajax(params);
+        },
+        
         /* actions */
         
         execute: function(actionId) {
             // find the requested action
             var action = module.findAction(actionId);
-            SLICK.Logger.info("looking for action to execute, id = " + actionId);
+            GRUNT.Log.info("looking for action to execute, id = " + actionId);
             
             // if we found the action then execute it
             if (action) {
@@ -34,7 +46,7 @@ SLICK.Dispatcher = (function() {
         },
         
         getRegisteredActions: function() {
-            SLICK.Logger.info("we have " + registeredActions.length + " registered actions");
+            GRUNT.Log.info("we have " + registeredActions.length + " registered actions");
             return [].concat(registeredActions);
         },
         
@@ -51,14 +63,14 @@ SLICK.Dispatcher = (function() {
         
         registerAction: function(action) {
             if (action && action.id) {
-                SLICK.Logger.info("registered action: " + action);
+                GRUNT.Log.info("registered action: " + action);
                 registeredActions.push(action);
             } // if
         },
         
         Action: function(params) {
             // use default parameter when insufficient are provided
-            params = jQuery.extend({
+            params = GRUNT.extend({
                 autoRegister: true,
                 id: '',
                 title: '',
@@ -96,7 +108,7 @@ SLICK.Dispatcher = (function() {
         /* agents */
         
         createAgent: function(params) {
-            params = jQuery.extend({
+            params = GRUNT.extend({
                 name: "Untitled",
                 execute: null
             }, params);
@@ -105,6 +117,10 @@ SLICK.Dispatcher = (function() {
             var self = {
                 getName: function() {
                     return params.name;
+                },
+                
+                getId: function() {
+                    return SLICK.Utils.toId(self.getName());
                 },
                 
                 run: function(args, callback) {

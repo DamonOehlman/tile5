@@ -2,7 +2,7 @@ SLICK.Mapping = (function() {
     var module = {
         GeoTileGrid: function(params) {
             // extend the params with some defaults
-            params = jQuery.extend({
+            params = GRUNT.extend({
                 grid: null,
                 centerPos: new SLICK.Geo.Position(),
                 centerXY: new SLICK.Vector(),
@@ -17,7 +17,7 @@ SLICK.Mapping = (function() {
             var blMercatorPix = new SLICK.Vector(centerMercatorPix.x - params.centerXY.x, centerMercatorPix.y - params.centerXY.y);
             
             // initialise self
-            var self = jQuery.extend({}, params.grid, {
+            var self = GRUNT.extend({}, params.grid, {
                 getBoundingBox: function(x, y, width, height) {
                     return new SLICK.Geo.BoundingBox(
                         self.pixelsToPos(new SLICK.Vector(x, y + height)),
@@ -33,13 +33,13 @@ SLICK.Mapping = (function() {
                     var pos_mp = pos.getMercatorPixels(params.radsPerPixel);
 
                     // calculate the offsets
-                    // SLICK.Logger.info("GETTING OFFSET for position: " + pos);
+                    // GRUNT.Log.info("GETTING OFFSET for position: " + pos);
                     var offset_x = Math.abs(pos_mp.x - blMercatorPix.x) + params.offsetAdjustment.x;
                     var offset_y = self.getDimensions().height - Math.abs(pos_mp.y - blMercatorPix.y) + params.offsetAdjustment.y;
 
-                    // SLICK.Logger.info("position mercator pixels: " + pos_mp);
-                    // SLICK.Logger.info("bottom left mercator pixels: " + blMercatorPix);
-                    // SLICK.Logger.info("calcalated pos offset:    " + offset_x + ", " + offset_y);
+                    // GRUNT.Log.info("position mercator pixels: " + pos_mp);
+                    // GRUNT.Log.info("bottom left mercator pixels: " + blMercatorPix);
+                    // GRUNT.Log.info("calcalated pos offset:    " + offset_x + ", " + offset_y);
 
                     return new SLICK.Vector(offset_x, offset_y);
                 },
@@ -75,7 +75,7 @@ SLICK.MappingTiler = function(args) {
     };
     
     // extend the args
-    args = jQuery.extend({}, DEFAULT_ARGS, args);
+    args = GRUNT.extend({}, DEFAULT_ARGS, args);
     
     // initialise variables
     var provider = args.provider;
@@ -114,9 +114,9 @@ SLICK.MappingTiler = function(args) {
             // turn that into a bounds object
             tap_bounds = new SLICK.Geo.BoundingBox(min_pos.toString(), max_pos.toString());
             
-            SLICK.Logger.info("tap position = " + relPos.x + ", " + relPos.y);
-            SLICK.Logger.info("grid pos = " + grid_pos);
-            SLICK.Logger.info("tap bounds = " + tap_bounds);
+            GRUNT.Log.info("tap position = " + relPos.x + ", " + relPos.y);
+            GRUNT.Log.info("grid pos = " + grid_pos);
+            GRUNT.Log.info("tap bounds = " + tap_bounds);
         } // if
         
         if (caller_tap_handler) {
@@ -145,7 +145,7 @@ SLICK.MappingTiler = function(args) {
     var parent = new SLICK.Tiler(args);
     
     // initialise self
-    var self = jQuery.extend({}, parent, {
+    var self = GRUNT.extend({}, parent, {
         getBoundingBox: function(buffer_size) {
             var fnresult = new SLICK.Geo.BoundingBox();
             var grid = self.getGrid();
@@ -176,7 +176,7 @@ SLICK.MappingTiler = function(args) {
             // update the provider zoom level
             provider.zoomLevel = zoom_level;
             provider.getMapTiles(self, position, function(tile_grid) {
-                SLICK.Logger.info(String.format("created tile grid {0} x {1}", tile_grid.columns, tile_grid.rows));
+                GRUNT.Log.info(String.format("created tile grid {0} x {1}", tile_grid.columns, tile_grid.rows));
                 self.setGrid(tile_grid);
                 
                 self.panToPosition(position, callback);
@@ -195,10 +195,10 @@ SLICK.MappingTiler = function(args) {
                 center_xy.y -= dimensions.height * 0.5;
             
                 // pan the required amount
-                SLICK.Logger.info(String.format("need to apply pan vector of ({0}) to correctly center", center_xy));
-                SLICK.Logger.info("offset before pan = " + self.getOffset());
+                GRUNT.Log.info(String.format("need to apply pan vector of ({0}) to correctly center", center_xy));
+                GRUNT.Log.info("offset before pan = " + self.getOffset());
                 self.pan(center_xy.x, center_xy.y);
-                SLICK.Logger.info("offset after pan = " + self.getOffset());
+                GRUNT.Log.info("offset after pan = " + self.getOffset());
             
                 // if we have a callback defined, then run it
                 if (callback) {
@@ -232,7 +232,7 @@ SLICK.MappingTiler = function(args) {
         },
         
         removePOI: function(poi) {
-            // SLICK.Logger.info("removing poi: " + poi);
+            // GRUNT.Log.info("removing poi: " + poi);
             if (poi && poi.id) {
                 pins[poi.id] = null;
                 self.invalidate();

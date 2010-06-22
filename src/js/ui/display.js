@@ -24,7 +24,7 @@ SLICK.InfoBox = function(args) {
     var details_visible = false;
     
     // include default args
-    args = jQuery.extend({}, DEFAULT_ARGS, args);
+    args = GRUNT.extend({}, DEFAULT_ARGS, args);
     
     // find the container for the info box
     var container = null;
@@ -89,7 +89,7 @@ SLICK.InfoBox = function(args) {
                     clickButton(this);
                 } 
                 catch (e) {
-                    SLICK.Logger.exception(e);
+                    GRUNT.Log.exception(e);
                 } // try..catch
             });
         } // for
@@ -208,7 +208,8 @@ SLICK.DisplayHelper = function() {
             } // for
             
             // if the ajaxActivityImage is set, then attach handlers to the jquery ajax start and stop events
-            SLICK.Logger.info("ajax activity indicator: " + SLICK.DisplayOpts.ajaxActivityImage);
+            // TODO: replace the jQuery ajax start and stop functionality with some GRUNTY goodness (current code does nothing)
+            GRUNT.Log.info("ajax activity indicator: " + SLICK.DisplayOpts.ajaxActivityImage);
             if (SLICK.DisplayOpts.ajaxActivityImage) {
                 self.addChunk(String.format("<img id='{0}' src='{1}' />", LOADER_ID, SLICK.Resources.getPath(SLICK.DisplayOpts.ajaxActivityImage)), LOADER_POS_PREFS);
                 jQuery("#" + LOADER_ID)

@@ -7,7 +7,7 @@ SLICK.errorWatch("SLICK-RHODES AJAX INIT", function() {
     jQuery.ajax = function(args) {
         // use the appcelerator proxy for cross domain requests
         if (CROSSDOMAIN_REQ_REGEX.test(args.url) && (args.url.indexOf("localhost") < 0) && (args.dataType !== 'jsonp')) {
-            SLICK.Logger.info("got cross domain request - handling");
+            GRUNT.Log.info("got cross domain request - handling");
             
             args.xhr = function() {
                 var request = null;
@@ -58,7 +58,7 @@ SLICK.errorWatch("SLICK-RHODES AJAX INIT", function() {
                                 }; // if
 
                                 // send the request
-                                client.send(jQuery.param(jQuery.extend({}, request, {
+                                client.send(jQuery.param(GRUNT.extend({}, request, {
                                     data: data
                                 }), false));
                             });

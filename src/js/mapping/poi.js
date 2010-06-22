@@ -11,7 +11,7 @@ SLICK.Geo.PointOfInterest = function(args) {
     };
 
     // extend args with defaults
-    args = jQuery.extend({}, DEFAULT_ARGS, args);
+    args = GRUNT.extend({}, DEFAULT_ARGS, args);
     
     // if the position is not defined, but we have a lat and lon, create a new position
     if ((! args.pos) && args.lat && args.lon) {
@@ -113,7 +113,7 @@ SLICK.Geo.POIPin = function(args) {
     }; // DEFAULT_ARGS
     
     // initialise args
-    args = jQuery.extend({}, DEFAULT_ARGS, args);
+    args = GRUNT.extend({}, DEFAULT_ARGS, args);
     
     // initialise self
     var self = {
@@ -135,7 +135,7 @@ SLICK.Geo.POIInfoBox = function(args) {
     }; // initialise
 
     // extend args with the defaults
-    args = jQuery.extend({}, DEFAULT_ARGS, args);
+    args = GRUNT.extend({}, DEFAULT_ARGS, args);
     
     // initialise the pois
     var active_poi = null;
@@ -186,7 +186,7 @@ SLICK.Geo.POIInfoBox = function(args) {
     } // updateButtons
     
     function updateDisplay() {
-        SLICK.Logger.info("updating poi display: index = " + poi_index);
+        GRUNT.Log.info("updating poi display: index = " + poi_index);
         
         active_poi = null;
         if ((poi_index >= 0) && (poi_index < pois.length)) {
@@ -211,7 +211,7 @@ SLICK.Geo.POIInfoBox = function(args) {
     var parent = new SLICK.InfoBox(args);
     
     // initialise self
-    var self = jQuery.extend({}, parent, {
+    var self = GRUNT.extend({}, parent, {
         args: args,
         
         getActivePOI: function() {
@@ -281,7 +281,7 @@ SLICK.Geo.POILayer = function(args) {
     
     // initialise self
     var self = {
-        args: jQuery.extend({}, DEFAULT_ARGS, args),
+        args: GRUNT.extend({}, DEFAULT_ARGS, args),
         
         getPOIs: function() {
             var fnresult = [];
@@ -416,7 +416,7 @@ SLICK.Geo.POIProvider = function(args) {
         var ii = 0;
         var time_retrieved = new Date().getTime();
         
-        SLICK.Logger.info(String.format("{0} pois to process :)", refreshed_pois.length));
+        GRUNT.Log.info(String.format("{0} pois to process :)", refreshed_pois.length));
         
         // iterate through the pois and determine state
         for (ii = 0; ii < refreshed_pois.length; ii++) {
@@ -437,7 +437,7 @@ SLICK.Geo.POIProvider = function(args) {
         
         // add new pois to the poi layer
         self.pois.addPOIs(new_pois);
-        SLICK.Logger.info(String.format("POI-UPDATE: {0} new, {1} deleted", new_pois.length, deleted_pois.length));
+        GRUNT.Log.info(String.format("POI-UPDATE: {0} new, {1} deleted", new_pois.length, deleted_pois.length));
             
         // fire the on poi added event when appropriate
         for (ii = 0; self.args.onPOIAdded && (ii < new_pois.length); ii++) {
@@ -456,7 +456,7 @@ SLICK.Geo.POIProvider = function(args) {
     } // updatePOIs
     
     // extend the args
-    args = jQuery.extend({}, DEFAULT_ARGS, args);
+    args = GRUNT.extend({}, DEFAULT_ARGS, args);
     
     // initialise self
     var self = {
@@ -477,7 +477,7 @@ SLICK.Geo.POIProvider = function(args) {
             request_timer = setTimeout(function() {
                 // check for empty bounds, if empty then exit
                 if ((! bounds) || bounds.isEmpty()) {
-                    SLICK.Logger.warn("cannot get pois for empty bounding box");
+                    GRUNT.Log.warn("cannot get pois for empty bounding box");
                     return;
                 } // if
             
@@ -488,13 +488,14 @@ SLICK.Geo.POIProvider = function(args) {
                 } // if
             
                 if ((! bounds_change) || self.testBoundsChange(bounds_change)) {
-                    SLICK.Logger.info("yep - bounds changed = " + bounds_change);
+                    GRUNT.Log.info("yep - bounds changed = " + bounds_change);
 
                     // define the ajax args
-                    var ajax_args = jQuery.extend({
+                    var ajax_args = GRUNT.extend({
+                        method: "POST",
                         success: function(data, textStatus, raw_request) {
                             try {
-                                SLICK.Logger.info("received data: " + data);
+                                GRUNT.Log.info("received data: " + data);
                                 
                                 // update the pois
                                 updatePOIs(self.parseResponse(data, textStatus, raw_request));
@@ -514,12 +515,12 @@ SLICK.Geo.POIProvider = function(args) {
                                 } // if
                             }  
                             catch (e) {
-                                SLICK.Logger.exception(e);
+                                GRUNT.Log.exception(e);
                             } // try..catch
                         },
                         error: function(raw_request, textStatus, errorThrown) {
                             request_active = false;
-                            SLICK.Logger.error("failed getting POIS from server: " + textStatus + ":" + errorThrown);
+                            GRUNT.Log.error("failed getting POIS from server: " + textStatus + ":" + errorThrown);
                         }
                     }, self.initRequest());
                 
@@ -530,12 +531,12 @@ SLICK.Geo.POIProvider = function(args) {
                 
                         SLICK.errorWatch("POI SEARCH REQUEST", function() {
                             // make the request
-                            SLICK.Logger.info("Looking for POIS within bounding box: " + bounds);
-                            jQuery.ajax(ajax_args);
+                            GRUNT.Log.info("Looking for POIS within bounding box: " + bounds);
+                            GRUNT.XHR.ajax(ajax_args);
                         });
                     } 
                     else {
-                        SLICK.Logger.error("Unable to locate POIS: No search url specified.");
+                        GRUNT.Log.error("Unable to locate POIS: No search url specified.");
                     } // if..else
                 
                 } // if
@@ -555,7 +556,7 @@ SLICK.Geo.POIProvider = function(args) {
         },
         
         testBoundsChange: function(distance) {
-            SLICK.Logger.info("testing for bounds change: distance = " + distance);
+            GRUNT.Log.info("testing for bounds change: distance = " + distance);
             
             // if the distance is equal to 0 don't call event, just return false
             if (distance && (distance.toKM() == 0)) { return false; }

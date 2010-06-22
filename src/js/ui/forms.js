@@ -3,7 +3,7 @@ SLICK.UI.Forms = (function() {
         requires: "Resources",
         
         createForm: function(params, submitCallback) {
-            params = jQuery.extend({
+            params = GRUNT.extend({
                 submitHandler: submitCallback
             }, params);
             
@@ -11,7 +11,7 @@ SLICK.UI.Forms = (function() {
         },
         
         Form: function(params) {
-            params= jQuery.extend({
+            params= GRUNT.extend({
                 title: "",
                 fields: [],
                 snippet: null,
@@ -33,7 +33,7 @@ SLICK.UI.Forms = (function() {
                         blurTimeout = setTimeout(function() {
                             // TODO: add some parameters on this to determine how it works
                             if (jQuery(document).scrollTop() > 0) {
-                                SLICK.Logger.info("heading back to top, no field focused");
+                                GRUNT.Log.info("heading back to top, no field focused");
                                 jQuery(document).scrollTop(0);
                             } // if
                         }, 100);
@@ -58,7 +58,7 @@ SLICK.UI.Forms = (function() {
             
             function updateDialogContent() {
                 if (attachedDialog && content) {
-                    SLICK.Logger.info("updating form content: dialog = " + attachedDialog +", content = " + content);
+                    GRUNT.Log.info("updating form content: dialog = " + attachedDialog +", content = " + content);
                     SLICK.errorWatch("UPDATING DIALOG CONTENT", function() {
                         // set the title of the dialog
                         attachedDialog.setTitle(params.title);
@@ -87,7 +87,7 @@ SLICK.UI.Forms = (function() {
             var self = {
                 attachToDialog: function(dialog) {
                     attachedDialog = dialog;
-                    SLICK.Logger.info("dialog changed to " + dialog);
+                    GRUNT.Log.info("dialog changed to " + dialog);
                     
                     // update the content
                     updateDialogContent();
@@ -113,7 +113,7 @@ SLICK.UI.Forms = (function() {
             
             // get the form content and populate the dialog
             getFormContent(function(data) {
-                SLICK.Logger.info("content retrieved");
+                GRUNT.Log.info("content retrieved");
                 content = data;
                 updateDialogContent();
             });

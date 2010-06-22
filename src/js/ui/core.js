@@ -56,7 +56,7 @@ SLICK.UI = (function() {
                     id: "form_" + formId
                 });
                 
-                SLICK.Logger.info("created dialog: " + dialog.id);
+                GRUNT.Log.info("created dialog: " + dialog.id);
 
                 // load the form defnition
                 SLICK.Resources.loadResource({
@@ -85,7 +85,7 @@ SLICK.UI = (function() {
         
         Dialog: function(params) {
             // initialise parameter values
-            params = jQuery.extend({
+            params = GRUNT.extend({
                 id: "dialog_" + (new Date().getTime()),
                 title: "",
                 snippet: null

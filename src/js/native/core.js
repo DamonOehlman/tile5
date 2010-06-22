@@ -18,7 +18,7 @@ SLICK.Native = (function() {
         },
         
         platformExec: function(fnCall, params) {
-            SLICK.Logger.info("Attempting to call native platform fn: " + fnCall);
+            GRUNT.Log.info("Attempting to call native platform fn: " + fnCall);
             
             // get the native platform module
             var searchTarget = module.getPlatformModule();
@@ -32,7 +32,7 @@ SLICK.Native = (function() {
                 searchTarget.platformExec(fnCall, params);
             }
             catch (e) {
-                SLICK.Logger.error("Native platform does not support platform exec call: '" + fnCall + "'");
+                GRUNT.Log.error("Native platform does not support platform exec call: '" + fnCall + "'");
             }
         },
         

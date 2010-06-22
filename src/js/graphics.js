@@ -37,14 +37,14 @@ SLICK.Graphics = (function() {
         };
         
         // initialise the parameters with the defaults
-        params = jQuery.extend({}, DEFAULT_PARAMS, params);
+        params = GRUNT.extend({}, DEFAULT_PARAMS, params);
         
         // initialise the storage array
         var storage = new Array(Math.pow(params.gridSize, 2));
         var gridHalfWidth = Math.ceil(params.gridSize * 0.5);
         var topLeftOffset = params.center.offset(-gridHalfWidth, -gridHalfWidth);
         
-        SLICK.Logger.info("created tile store with tl offset = " + topLeftOffset);
+        GRUNT.Log.info("created tile store with tl offset = " + topLeftOffset);
         
         function getTileIndex(col, row) {
             return (row * params.gridSize) + col;
@@ -84,7 +84,7 @@ SLICK.Graphics = (function() {
                 var startTicks = new Date().getTime();
                 var tileIndex = 0;
                 
-                SLICK.Logger.info("poulating grid, top left offset = " + topLeftOffset);
+                GRUNT.Log.info("poulating grid, top left offset = " + topLeftOffset);
 
                 if (tileCreator) {
                     for (var row = 0; row < params.gridSize; row++) {
@@ -103,7 +103,7 @@ SLICK.Graphics = (function() {
                 } // if
 
                 // log how long it took
-                SLICK.Logger.info("tile grid populated with " + tileIndex + " tiles in " + (new Date().getTime() - startTicks) + " ms");
+                GRUNT.Log.info("tile grid populated with " + tileIndex + " tiles in " + (new Date().getTime() - startTicks) + " ms");
             },
             
             /*
@@ -128,7 +128,7 @@ SLICK.Graphics = (function() {
         
         View: function(params) {
             // initialise defaults
-            params = jQuery.extend({
+            params = GRUNT.extend({
                 container: "",
                 fillBackground: null,
                 // TODO: reimplement the gutter size at a later time
@@ -145,7 +145,7 @@ SLICK.Graphics = (function() {
                     main_context = canvas.getContext('2d');
                 } 
                 catch (e) {
-                    SLICK.Logger.exception(e);
+                    GRUNT.Log.exception(e);
                     throw "Could not initialise canvas on specified tiler element";
                 }
             } // if
@@ -259,7 +259,7 @@ SLICK.Graphics = (function() {
                 },
 
                 invalidate: function(args) {
-                    args = jQuery.extend({
+                    args = GRUNT.extend({
                         force: false
                     }, args);
 
@@ -372,7 +372,7 @@ SLICK.Graphics = (function() {
         
         ImageTile: function(params) {
             // initialise parameters with defaults
-            params = jQuery.extend({
+            params = GRUNT.extend({
                 url: "",
                 sessionParamRegex: null
             }, params);
@@ -382,7 +382,7 @@ SLICK.Graphics = (function() {
             var image = null;
             
             // initialise self
-            var self = jQuery.extend({}, parent, {
+            var self = GRUNT.extend({}, parent, {
                 draw: function(context, x, y) {
                     if (image && image.complete) {
                         // TODO: handle scaling
@@ -418,7 +418,7 @@ SLICK.Graphics = (function() {
         
         EmptyGridTile: function(params) {
             // initialise parameters with defaults
-            params = jQuery.extend({
+            params = GRUNT.extend({
                 tileSize: 256,
                 gridLineSpacing: 16
             }, params);
@@ -465,7 +465,7 @@ SLICK.Graphics = (function() {
             } // prepBuffer
             
             // initialise self
-            var self = jQuery.extend({}, parent, {
+            var self = GRUNT.extend({}, parent, {
                 draw: function(context, x, y, scale) {
                     // draw the buffer to the context
                     // TODO: handle scaling
@@ -497,7 +497,7 @@ SLICK.Graphics = (function() {
             };
             
             // extend the params with the defaults
-            params = jQuery.extend({}, DEFAULT_PARAMS, params);
+            params = GRUNT.extend({}, DEFAULT_PARAMS, params);
             
             // initialise varibles
             var halfTileSize = Math.round(params.tileSize * 0.5);
@@ -538,7 +538,7 @@ SLICK.Graphics = (function() {
                     // get the normalized position from the tile store
                     var pos = tileStore.getNormalizedPos(col, row);
                     
-                    SLICK.Logger.info("normalised pos = " + pos);
+                    GRUNT.Log.info("normalised pos = " + pos);
                     var fnresult = new SLICK.Vector(pos.x * params.tileSize, pos.y * params.tileSize);
                     
                     if (getCenter) {
@@ -653,7 +653,7 @@ SLICK.Tiler = function(args) {
     var tileSize = emptyTile.getTileSize();
     
     // create the parent
-    var view = new SLICK.Graphics.View(jQuery.extend({}, args, {
+    var view = new SLICK.Graphics.View(GRUNT.extend({}, args, {
         fillBackground: function(context, x, y, width, height) {
             var gradient = context.createLinearGradient(x, 0, x, height);
             gradient.addColorStop(0, "rgb(170, 170, 170)");
@@ -708,13 +708,13 @@ SLICK.Tiler = function(args) {
         },
         
         onScale: function() {
-            SLICK.Logger.info("** SCALING COMPLETE **");
+            GRUNT.Log.info("** SCALING COMPLETE **");
         }
     }); // scalable
     
     // initialise self
-    var self = jQuery.extend(view, pannable, scalable, {
-        args: jQuery.extend({}, DEFAULT_ARGS, args),
+    var self = GRUNT.extend(view, pannable, scalable, {
+        args: GRUNT.extend({}, DEFAULT_ARGS, args),
         
         getGrid: function() {
             return grid;
@@ -749,7 +749,7 @@ SLICK.Tiler = function(args) {
         
         viewPixToGridPix: function(vector) {
             var offset = self.getOffset();
-            SLICK.Logger.info("Offset = " + offset);
+            GRUNT.Log.info("Offset = " + offset);
             return new SLICK.Vector(vector.x + offset.x, vector.y + offset.y);
         }
     }); // self

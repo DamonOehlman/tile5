@@ -99,7 +99,7 @@ SLICK.Geo.DECARTA.PortrayMapRequest = function(config, lat, lon, zoom_level) {
     // create the parent
     var parent = new SLICK.Geo.DECARTA.Request(config);
     
-    var self = jQuery.extend({}, parent, {
+    var self = GRUNT.extend({}, parent, {
         // override core properties
         methodName: "PortrayMap",
         maxResponses: 10,
@@ -154,7 +154,7 @@ SLICK.Geo.DECARTA.PortrayMapRequest = function(config, lat, lon, zoom_level) {
                 // parse out the tile url details
                 var urlData = parseImageUrl(grid.Tile.Map.Content.URL);
                 
-                SLICK.Logger.info(String.format("parsed image url: {0}, N = {1}, E = {2}", urlData.mask, urlData.N, urlData.E));
+                GRUNT.Log.info(String.format("parsed image url: {0}, N = {1}, E = {2}", urlData.mask, urlData.N, urlData.E));
                 
                 return {
                     imageUrl: urlData.mask,
@@ -176,7 +176,7 @@ SLICK.Geo.DECARTA.PortrayMapRequest = function(config, lat, lon, zoom_level) {
 
 SLICK.Geo.DECARTA.MapProvider = function(params) {
     // initialise variables
-    var config = jQuery.extend({
+    var config = GRUNT.extend({
         sessionID: new Date().getTime(),
         server: "",
         clientName: "",
@@ -226,7 +226,7 @@ SLICK.Geo.DECARTA.MapProvider = function(params) {
         });
         
         // get the virtual x y of the center tile
-        // SLICK.Logger.info(String.format("tile: N {0}, E {1} virtual center position = {2}", response_data.centerTile.N, response_data.centerTile.E, center_xy));
+        // GRUNT.Log.info(String.format("tile: N {0}, E {1} virtual center position = {2}", response_data.centerTile.N, response_data.centerTile.E, center_xy));
         
         var gx_zoomlevel = SLICK.Geo.DECARTA.Utilities.zoomLevelToGXZoom(self.zoomLevel);
         
@@ -256,13 +256,13 @@ SLICK.Geo.DECARTA.MapProvider = function(params) {
         tile_grid.setRadsPerPixel();
         
         // write a whole pile of log messages
-        SLICK.Logger.info(String.format("building a tile grid for container {0} x {1}", container_dimensions.width, container_dimensions.height));
-        SLICK.Logger.info(String.format("tile size {0} x {0}", response_data.tileSize));
-        SLICK.Logger.info(String.format("first tile x: {0}, y: {0}", pos_first.x, pos_first.y));
-        SLICK.Logger.info(String.format("tile grid = {0} columns wide and {1} rows high", tile_grid.columns, tile_grid.rows));
-        SLICK.Logger.info(String.format("center tile col = {0}, row = {1}", tile_grid.centerTile.col, tile_grid.centerTile.row));
-        SLICK.Logger.info(String.format("top tile = N:{0} E:{1}", tile_grid.customdata.base_n, tile_grid.customdata.base_e));
-        SLICK.Logger.info(String.format("grid bounds = {0}", tile_grid.getBoundingBox()));
+        GRUNT.Log.info(String.format("building a tile grid for container {0} x {1}", container_dimensions.width, container_dimensions.height));
+        GRUNT.Log.info(String.format("tile size {0} x {0}", response_data.tileSize));
+        GRUNT.Log.info(String.format("first tile x: {0}, y: {0}", pos_first.x, pos_first.y));
+        GRUNT.Log.info(String.format("tile grid = {0} columns wide and {1} rows high", tile_grid.columns, tile_grid.rows));
+        GRUNT.Log.info(String.format("center tile col = {0}, row = {1}", tile_grid.centerTile.col, tile_grid.centerTile.row));
+        GRUNT.Log.info(String.format("top tile = N:{0} E:{1}", tile_grid.customdata.base_n, tile_grid.customdata.base_e));
+        GRUNT.Log.info(String.format("grid bounds = {0}", tile_grid.getBoundingBox()));
         */
         
         // populateTiles();
@@ -272,11 +272,11 @@ SLICK.Geo.DECARTA.MapProvider = function(params) {
     
     function populateTiles() {
         if (! tile_grid) {
-            SLICK.Logger.warn("No tile grid to populate");
+            GRUNT.Log.warn("No tile grid to populate");
             return;
         }
         
-        SLICK.Logger.info("POPULATING TILES!!!");
+        GRUNT.Log.info("POPULATING TILES!!!");
         
         // load the tiles
         for (var xx = 0; xx < tile_grid.columns; xx++) {
@@ -357,14 +357,14 @@ SLICK.Geo.DECARTA.MapProvider = function(params) {
                 }
                 // otherwise, report the error
                 else {
-                    SLICK.Logger.error("no responses from server: " + data.response);
+                    GRUNT.Log.error("no responses from server: " + data.response);
                 } // if..else
             }
         });
     } // openlsComms
     
     // initialise self
-    var self = jQuery.extend({}, parent, {
+    var self = GRUNT.extend({}, parent, {
         getMapTiles: function(tiler, position, callback) {
             makeServerRequest(
                     new SLICK.Geo.DECARTA.PortrayMapRequest(config, position.lat, position.lon, self.zoomLevel),
@@ -378,7 +378,7 @@ SLICK.Geo.DECARTA.MapProvider = function(params) {
                             // build the tile grid
                             var tile_grid = buildTileGrid(last_map_response, tiler.getDimensions());
                             
-                            SLICK.Logger.info("grid center position = " + tile_grid.centerPos);
+                            GRUNT.Log.info("grid center position = " + tile_grid.centerPos);
                             callback(tile_grid);
                         } // if
                     });

@@ -7,7 +7,7 @@ SLICK.UI.Navigation = (function() {
         
         ActionBar: function(params) {
             // initialise default parameters
-            params = jQuery.extend({
+            params = GRUNT.extend({
                 selector: "ul.actionbar"
             }, params);
             

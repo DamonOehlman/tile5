@@ -29,13 +29,37 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		<echo message="git pull sizzle: ${git-qunit}" />
 	</target>
 	
-	<target name="build-slick" depends="qunit-clone,qunit-pull" description="Slick library core build, concatenates core files and updates @VERSION">
+	<!-- grunt cloning code -->
+	
+	<available property="grunt" file="lib/grunt" />
+	
+	<target name="grunt-clone" unless="grunt">
+		<exec executable="git" outputproperty="git-grunt" >  
+			<arg line="clone git://github.com/sidelab/grunt.git lib/grunt"/>  
+		</exec>
+		<echo message="git clone grunt: ${git-grunt}" />
+	</target>
+
+	<target name="grunt-pull" if="grunt">
+		<exec executable="git" outputproperty="git-grunt" dir="lib/grunt" >  
+			<arg line="pull origin master"/>  
+		</exec> 
+		<echo message="git pull grunt: ${git-grunt}" />
+	</target>
+	
+	<target name="grunt-build" depends="grunt-clone,grunt-pull">
+		<ant dir="lib/grunt" />
+	</target>
+	
+	<target name="build-slick" depends="qunit-clone,qunit-pull,grunt-build" description="Slick library core build, concatenates core files and updates @VERSION">
 		<echo message="BUILDING SLICK CORE" />
 		<mkdir dir="${dist}" />
 		
 		<!-- concatenate the core file set -->
 		<!-- TODO: create more logical separation in the core library -->
 		<concat destfile="${dist}/${LIBNAME}.core.js">
+			<fileset file="lib/json2.js" />
+			<fileset file="lib/grunt/dist/grunt.js" />
 			<fileset file="src/js/core.js" />
 			<fileset file="src/js/resources.js" />
 			<fileset file="src/js/touch.js" />
@@ -90,7 +114,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		
 		<!-- TODO: if the strip logging property is set, then strip it -->
 		<!-- 
-		<replaceregexp match="SLICK.Logger\.(log|info|warn).*?\;" replace="" flags="g" byline="false" file="${SLICK}" />
+		<replaceregexp match="GRUNT.Log\.(log|info|warn).*?\;" replace="" flags="g" byline="false" file="${SLICK}" />
 		-->
 		
 		<!-- TODO: call the targets to concatenate the required modules -->

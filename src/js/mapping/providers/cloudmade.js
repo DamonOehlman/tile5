@@ -17,7 +17,7 @@ SLICK.Geo.Cloudmade = (function() {
             var CLOUDMADE_TILEURL = "tile.cloudmade.com/{0}/{1}/{2}/{3}/{4}/{5}.png";
 
             // initialise variables
-            var config = jQuery.extend({
+            var config = GRUNT.extend({
                 apikey: "",
                 styleid: 1
             }, params);
@@ -97,7 +97,7 @@ SLICK.Geo.Cloudmade = (function() {
 
 
             // initialise self
-            var self = jQuery.extend({}, parent, {
+            var self = GRUNT.extend({}, parent, {
                 getMapTiles: function(tiler, position, callback) {
                     // check and update the tiler tile size if required
 

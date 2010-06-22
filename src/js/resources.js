@@ -32,7 +32,7 @@ SLICK.Resources = (function() {
                 },
 
                 isValidCacheKey: function(cacheKey) {
-                    SLICK.Logger.info("cache key = " + cacheKey);
+                    GRUNT.Log.info("cache key = " + cacheKey);
 
                     return false;
                 }
@@ -56,14 +56,14 @@ SLICK.Resources = (function() {
         
         loadResource: function(params) {
             // extend parameters with defaults
-            params = jQuery.extend({
+            params = GRUNT.extend({
                 filename: "",
                 cacheable: true,
                 dataType: null,
                 callback: null
             }, params);
             
-            SLICK.Logger.info(params.filename + " resource requested");
+            GRUNT.Log.info(params.filename + " resource requested");
             var callback = function(data) {
                 if (params.callback) {
                     SLICK.errorWatch("CALLING RESOURCE CALLBACK", function() {
@@ -76,10 +76,11 @@ SLICK.Resources = (function() {
                 callback(cachedResources[params.filename]); 
             }
             else {
-                jQuery.ajax({
+                GRUNT.XHR.ajax({
                     url: module.getPath(params.filename),
                     dataType: params.dataType,
-                    success: function(data, textStatus, xml_request) {
+                    success: function(data) {
+                        GRUNT.Log.info("got data: " + data);
                         // add the snippet to the cache
                         if (params.cacheable) {
                             cachedResources[params.filename] = data;
@@ -89,7 +90,7 @@ SLICK.Resources = (function() {
                         callback(data);
                     },
                     error: function(raw_request, textStatus, error_thrown) {
-                        SLICK.Logger.error("error loading resource [" + params.filename + "], error = " + error_thrown);
+                        GRUNT.Log.error("error loading resource [" + params.filename + "], error = " + error_thrown);
                     }
                 });
             } // if..else

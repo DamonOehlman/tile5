@@ -28,7 +28,7 @@ SLICK.TOUCH = (function() {
                     // get the second vector
                     var previous_vector = previous_touches ? previous_touches.getTouch(0) : null;
 
-                    // SLICK.Logger.info(String.format("calculating delta: current vector = {0}, previous vector = {1}", _vectors[0], previous_vector));
+                    // GRUNT.Log.info(String.format("calculating delta: current vector = {0}, previous vector = {1}", _vectors[0], previous_vector));
                     return previous_vector ? new SLICK.Vector(_vectors[0].x - previous_vector.x, _vectors[0].y - previous_vector.y) : new SLICK.Vector();
                 },
 
@@ -146,7 +146,7 @@ SLICK.TOUCH = (function() {
 
             // initialise self
             var self = {
-                args: jQuery.extend({}, DEFAULT_ARGS, params),
+                args: GRUNT.extend({}, DEFAULT_ARGS, params),
                 supportsTouch: touchReady,
 
                 /* define mutable constants (yeah, I know that's a contradiction) */
@@ -372,7 +372,7 @@ SLICK.TOUCH = (function() {
                 } // if
                 
                 // initialise the parameters with default params
-                var plugin_params = jQuery.extend({
+                var plugin_params = GRUNT.extend({
                     preventDefault: true
                 }, params);
 
@@ -381,7 +381,7 @@ SLICK.TOUCH = (function() {
                 
                 // if the touch helper has not been created, then create it and attach to events
                 if (! touch_helper) {
-                    touch_helper = module_types.TouchHelper(jQuery.extend({ element: element}, params));
+                    touch_helper = module_types.TouchHelper(GRUNT.extend({ element: element}, params));
                     touch_helpers[element.id] = touch_helper;
                     
                     // bind the touch events
@@ -432,7 +432,7 @@ jQuery.fn.untouchable = function() {
             if (! (evt.target && TAGS_CANTOUCH.test(evt.target.tagName))) {
                 // check to see whether a click handler has been assigned for the current object
                 if (! (evt.target.onclick || evt.target.ondblclick)) {
-                    SLICK.Logger.info("no touch for: " + evt.target.tagName);
+                    GRUNT.Log.info("no touch for: " + evt.target.tagName);
                     evt.preventDefault();
                 } // if
             } // if
