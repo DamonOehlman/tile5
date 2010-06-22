@@ -5,18 +5,6 @@ SLICK.Dispatcher = (function() {
     // initialise the module
     var module = {
         
-        /* basic AJAX functionality */
-        // TODO: implement the functionality correctly as per the W3C recommendation - http://www.w3.org/TR/XMLHttpRequest/
-        
-        // placeholder for global and overridable ajax settings
-        ajaxSettings: {
-            xhr: null
-        },
-        
-        ajax: function(params) {
-            module.XHR.ajax(params);
-        },
-        
         /* actions */
         
         execute: function(actionId) {

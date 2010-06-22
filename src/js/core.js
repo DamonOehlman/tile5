@@ -3,7 +3,7 @@ SLICK = (function () {
         alertOnError: false,
         
         /* end jQuery core functions */
-        
+
         errorWatch: function(sectionDesc, callback) {
             try {
                 callback();
@@ -34,37 +34,6 @@ SLICK = (function () {
                 
                 extend: function(params) {
                     GRUNT.extend(currentSettings, params);
-                }
-            };
-            
-            return self;
-        })(),
-        
-        Converter: (function() {
-            // define self
-            var self = {
-                xmlToJson: function(xmlData) {
-                    // initialise variables
-                    var objData = {};
-                    
-                    SLICK.errorWatch("CONVERTING XML DATA TO JSON", function() {
-                        // add attribute data to the current object data
-                        if (xmlData && xmlData.attributes) {
-                            for (var attrName in xmlData.attributes) {
-                                objData[attrName] = xmlData.attributes[attrName];
-                            } // for
-                        } // if
-                    
-                        if (xmlData && xmlData.childNodes) {
-                            // iterate through the child nodes
-                            for (var ii = 0; ii < xmlData.childNodes.length; ii++) {
-                                objData[xmlData.childNodes[ii].tagName] = module.Converter.xmlToJson(xmlData.childNodes[ii]);
-                            } // for
-                        
-                        } // if
-                    });
-                    
-                    return objData;
                 }
             };
             

@@ -6,9 +6,6 @@ Section:  Version History
 2010-06-03 (DJO) - Created File
 */
 
-// TODO: investigate the overheads of having multiple touch helpers created for each object that implements
-// each one of these behaviours
-
 SLICK.Pannable = function(args) {
     // initialise defaults
     var DEFAULT_ARGS = {
