@@ -1,24 +1,5 @@
 SLICK = (function () {
     var module = {
-        alertOnError: false,
-        
-        /* end jQuery core functions */
-
-        errorWatch: function(sectionDesc, callback) {
-            try {
-                callback();
-            }
-            catch (e) {
-                GRUNT.Log.exception(e, sectionDesc);
-            } // try..catch
-        },
-        
-        throwError: function(errorMsg) {
-            // log the error
-            module.Logger.error(errorMsg);
-            throw new Error(errorMsg);
-        },
-        
         Settings: (function() {
             var currentSettings = {};
             

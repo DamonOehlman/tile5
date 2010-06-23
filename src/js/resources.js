@@ -66,7 +66,7 @@ SLICK.Resources = (function() {
             GRUNT.Log.info(params.filename + " resource requested");
             var callback = function(data) {
                 if (params.callback) {
-                    SLICK.errorWatch("CALLING RESOURCE CALLBACK", function() {
+                    GRUNT.Log.watch("CALLING RESOURCE CALLBACK", function() {
                         params.callback(data);
                     });
                 } // if

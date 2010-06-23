@@ -47,10 +47,7 @@
                                     var parser = new DOMParser();
                                     self.responseXML = parser.parseFromString(self.responseText, "text/xml");
                                 } // if
-
-                                // NOTE: jQuery 1.3.2 and 1.4.2 handle AJAX requests quite differently, and 1.3.2 does
-                                // not attach a handler to the event but rather just monitors the readyState of the XHR
-                                // object.  So 
+                                
                                 GRUNT.Log.info("status = " + self.status);
                                 if (self.onreadystatechange) {
                                     self.onreadystatechange.call(self);
@@ -66,9 +63,16 @@
                     },
 
                     getResponseHeader: function(name) {
+                        // convert the header name to upper case
+                        name = name.toUpperCase();
+                        
                         GRUNT.Log.info("requesting response header: " + name);
                         if (self.responseHeaders) {
-                            return self.responseHeaders[name];
+                            for (var keyname in self.responseHeaders) {
+                                if (keyname.toUpperCase() == name) {
+                                    return self.responseHeaders[keyname];
+                                }
+                            } // for
                         } // if
 
                         return "";

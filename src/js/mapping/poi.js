@@ -529,7 +529,7 @@ SLICK.Geo.POIProvider = function(args) {
                     if (ajax_args.url) {
                         request_active = true;
                 
-                        SLICK.errorWatch("POI SEARCH REQUEST", function() {
+                        GRUNT.Log.watch("POI SEARCH REQUEST", function() {
                             // make the request
                             GRUNT.Log.info("Looking for POIS within bounding box: " + bounds);
                             GRUNT.XHR.ajax(ajax_args);

@@ -59,7 +59,7 @@ SLICK.UI.Forms = (function() {
             function updateDialogContent() {
                 if (attachedDialog && content) {
                     GRUNT.Log.info("updating form content: dialog = " + attachedDialog +", content = " + content);
-                    SLICK.errorWatch("UPDATING DIALOG CONTENT", function() {
+                    GRUNT.Log.watch("UPDATING DIALOG CONTENT", function() {
                         // set the title of the dialog
                         attachedDialog.setTitle(params.title);
 
@@ -74,7 +74,7 @@ SLICK.UI.Forms = (function() {
                     
                     attachedDialog.get().find("form").bind("submit", function() {
                         if (params.submitHandler) {
-                            SLICK.errorWatch("FORM SUBMIT HANDLER", function() {
+                            GRUNT.Log.watch("FORM SUBMIT HANDLER", function() {
                                 params.submitHandler(self);
                             });
                         } // if

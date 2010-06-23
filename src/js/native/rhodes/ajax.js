@@ -1,4 +1,4 @@
-SLICK.errorWatch("SLICK-RHODES AJAX INIT", function() {
+GRUNT.Log.watch("SLICK-RHODES AJAX INIT", function() {
     var CROSSDOMAIN_REQ_REGEX = /^https?/i;
     
     var oldAjax = jQuery.ajax;
@@ -29,7 +29,7 @@ SLICK.errorWatch("SLICK-RHODES AJAX INIT", function() {
                     send: function(data) {
                         // add the data to the request
                         if (request) {
-                            SLICK.errorWatch("XHR RHODES REQUEST", function() {
+                            GRUNT.Log.watch("XHR RHODES REQUEST", function() {
                                 // create the client
                                 client = new XMLHttpRequest();
 

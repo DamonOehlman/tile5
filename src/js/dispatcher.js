@@ -17,7 +17,7 @@ SLICK.Dispatcher = (function() {
                 // get the trailing arguments from the call
                 var actionArgs = [].concat(arguments).slice(0, 1);
                 
-                SLICK.errorWatch("EXECUTING ACTION: " + actionId, function() {
+                GRUNT.Log.watch("EXECUTING ACTION: " + actionId, function() {
                     action.execute(actionArgs);
                 });
             } // if
@@ -105,6 +105,10 @@ SLICK.Dispatcher = (function() {
             var self = {
                 getName: function() {
                     return params.name;
+                },
+                
+                getParam: function(key) {
+                    return params[key];
                 },
                 
                 getId: function() {

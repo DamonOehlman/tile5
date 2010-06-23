@@ -25,7 +25,7 @@ SLICK.Native = (function() {
             
             // if we don't have a platform module, then throw an exception
             if (! searchTarget) {
-                SLICK.throwError("No platform modules defined, unable to execute: " + fnCall);
+                GRUNT.Log.throwError("No platform modules defined, unable to execute: " + fnCall);
             } // if
 
             try {
