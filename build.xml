@@ -76,6 +76,11 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/ui/navigation.js" />
 		</concat>
 		
+		<!-- create jqtouch helpers -->
+		<concat destfile="${dist}/${LIBNAME}.jqtouch.js">
+			<fileset file="src/js/jqtouch/core.js" />
+		</concat>
+		
 		<!-- concatenate the mapping file set -->
 		<concat destfile="${dist}/${LIBNAME}.mapping.js">
 			<fileset file="src/js/mapping/geo.js" />
