@@ -218,6 +218,33 @@ SLICK.Geo = (function() {
             };
         })(),
         
+        /* addressing and geocoding support */
+        
+        // TODO: probably need to include local support for addressing, but really don't want to bulk out slick :/
+        
+        Address: function(params) {
+            params = GRUNT.extend({
+                streetDetails: "",
+                location: "",
+                country: "",
+                postalCode: "",
+                pos: null,
+                boundingBox: null
+            }, params);
+            
+            // define self
+            var self = {
+                toString: function() {
+                    return params.streetDetails + " " + params.location;
+                }
+            };
+            
+            return self;
+        },
+        
+        /* utilities */
+        
+        
         /*
         Module:  SLICK.Geo.Utilities
         This module contains GIS utility functions that apply across different mapping platforms.  Credit 
