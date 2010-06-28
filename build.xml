@@ -58,7 +58,6 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		<!-- concatenate the core file set -->
 		<!-- TODO: create more logical separation in the core library -->
 		<concat destfile="${dist}/${LIBNAME}.core.js">
-			<fileset file="lib/json2.js" />
 			<fileset file="lib/grunt/dist/grunt.js" />
 			<fileset file="src/js/core.js" />
 			<fileset file="src/js/resources.js" />
