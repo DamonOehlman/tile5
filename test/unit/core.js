@@ -1,0 +1,4 @@
+SLICK.Tests = (function() {
+    
+})();
+
