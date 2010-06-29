@@ -65,6 +65,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/behaviours.js" />
 			<fileset file="src/js/graphics.js" />
 			<fileset file="src/js/dispatcher.js" />
+			<fileset file="src/js/messaging.js" />
 		</concat>
 		
 		<!-- create the ui library -->
@@ -114,6 +115,12 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/template/header.js" />
 			<fileset file="${dist}/${LIBNAME}.core.js" />
 			<fileset file="${dist}/${LIBNAME}.mapping.js" />
+		</concat>
+		
+		<concat destfile="${dist}/tests.${LIBNAME}.js">
+			<fileset file="lib/grunt/dist/grunt.test.js" />
+			<fileset file="test/unit/core.js" />
+			<fileset file="test/unit/mapping.js" />
 		</concat>
 		
 		<!-- TODO: if the strip logging property is set, then strip it -->
