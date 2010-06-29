@@ -152,6 +152,7 @@ SLICK.Graphics = (function() {
 
             var redraw_timer = 0;
             var redraw_sleep = Math.floor(1000 / params.fps);
+            var canvasAspectRatio = canvas.width / canvas.height;
 
             // TODO: at some stage make the buffer canvas centered (i.e. gutter both sides)
             var buffer_canvas = document.createElement("canvas");
@@ -178,7 +179,7 @@ SLICK.Graphics = (function() {
 
                 buffer_offset = self.pannable ? self.getOffset() : new SLICK.Vector();
             } // drawToCache
-
+            
             function drawBufferToMain() {
                 // get the current offset
                 var currentOffset = self.pannable ? self.getOffset() : new SLICK.Vector();
@@ -214,34 +215,59 @@ SLICK.Graphics = (function() {
                     } // if
                 } // if
             } // drawBufferToMain
+
+            /**
+            Draw the buffer scaled by the ratio difference between the start and end rect
             
+            TODO: constraint the 
+            */
             function drawScaledBuffer() {
-                // get the scaling rects
+                // get the scaling rects (from the scalable behaviour - we have checked this is implemented previously)
                 var startRect = self.getStartRect();
                 var endRect = self.getEndRect();
                 var startRectSize = startRect.getSize();
                 var endRectSize = endRect.getSize();
+                var endRectCenter = endRect.getCenter();
+                
+                // determine the size ratio
+                var sizeRatio = startRectSize != 0 ? endRectSize / startRectSize : 1;
+                var delta = null;
+                var startDrawRect = startRect.duplicate();
+                var endDrawRect = endRect.duplicate();
 
                 // if we are scaling down, then
                 // TODO: expand the start and end rects so the displays fill the screen
                 if (startRectSize > endRectSize) {
+                    delta = startRect.getRequiredDelta(new SLICK.Rect(0, 0, canvas.width, canvas.height));
+                    
+                    // apply the delta to the start draw rect
+                    startDrawRect.applyDelta(delta);
+                    
+                    // determine the end draw rect
+                    endDrawRect.applyDelta(delta, sizeRatio, canvasAspectRatio);
                 }
                 // otherwise
                 else {
-                
+                    delta = endRect.getRequiredDelta(new SLICK.Rect(0, 0, canvas.width, canvas.height));
+                    
+                    // apply the required delta to the end rect
+                    endDrawRect.applyDelta(delta);
+
+                    // apply the delta to the start rect by the inverse size ratio
+                    startDrawRect.applyDelta(delta, 1 / sizeRatio, canvasAspectRatio);
                 } // if..else
                 
                 if (startRect && endRect) {
                     main_context.drawImage(
                         buffer_canvas,
-                        startRect.origin.x, 
-                        startRect.origin.y,
-                        startRect.dimensions.width,
-                        startRect.dimensions.height,
-                        endRect.origin.x,
-                        endRect.origin.y,
-                        endRect.dimensions.width,
-                        endRect.dimensions.height);
+                        startDrawRect.origin.x, 
+                        startDrawRect.origin.y,
+                        startDrawRect.dimensions.width,
+                        startDrawRect.dimensions.height,
+                        endDrawRect.origin.x,
+                        endDrawRect.origin.y,
+                        endDrawRect.dimensions.width,
+                        endDrawRect.dimensions.height);
                 } // if
             } // drawScaledBuffer
 
@@ -283,7 +309,7 @@ SLICK.Graphics = (function() {
                 }
             };
 
-            return self;            
+            return self;
         },
         
         // FIXME: Good idea, but doesn't work - security exceptions in chrome...
@@ -623,8 +649,10 @@ SLICK.Tiler = function(args) {
     // define default args
     var DEFAULT_ARGS = {
         container: "",
+        drawCenter: false,
         panHandler: null,
         tapHandler: null,
+        zoomHandler: null,
         onDraw: null
     }; 
     
@@ -709,6 +737,11 @@ SLICK.Tiler = function(args) {
         
         onScale: function() {
             GRUNT.Log.info("** SCALING COMPLETE **");
+            
+            // if the zoom handler is assigned, then call it
+            if (args.zoomHandler) {
+                args.zoomHandler(self.getScaleAmount());
+            } // if
         }
     }); // scalable
     
