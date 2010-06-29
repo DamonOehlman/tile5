@@ -1,18 +1,45 @@
+/**
+@fileOverview
+This file contains the definition of the core SLICK namespace and associated types and helpers.
+*/
+
+/**
+@namespace 
+
+The top level SLICK namespace.  This module contains core types and functionality for implementing 
+*/
 SLICK = (function () {
     var module = {
+        /** @lends SLICK */
+
+        /** @namespace
+        Core SLICK module for setting and retrieving application settings.
+        - should possibly be moved to GRUNT as it's pretty useful for most applications
+        */
         Settings: (function() {
             var currentSettings = {};
             
             // define self
             var self = {
+                /** @lends SLICK.Settings */
+                
+                /** 
+                @static
+                Get a setting with the specified name
+                
+                @param {String} name the name of the setting to retrieve
+                @returns the value of the setting if definied, undefined otherwise
+                */
                 get: function(name) {
                     return currentSettings[name];
                 },
                 
+                /** @static */
                 set: function(name, value) {
                     currentSettings[name] = value;
                 },
                 
+                /** static */
                 extend: function(params) {
                     GRUNT.extend(currentSettings, params);
                 }
@@ -21,9 +48,13 @@ SLICK = (function () {
             return self;
         })(),
         
+        /** @namespace 
+        SLICK Utilities module - another candidate for moving to GRUNT
+        */
         Utils: (function() {
-            // define self
+            /** name SLICK.Utils */
             var self = {
+                /** @static */
                 toId: function(text) {
                     return text.replace(/\s/g, "-");
                 }
@@ -32,6 +63,15 @@ SLICK = (function () {
             return self;
         })(),
         
+        /**
+        Initialise a new Vector instance
+        
+        @param {Number} init_x the Initial x value for the Vector
+        @param {Number} init_y the Initial y value for the Vector
+
+        @class 
+        @name SLICK.Vector
+        */
         Vector: function(init_x, init_y) {
             // if the initialise x is not specified then set to 0
             if (! init_x) {
@@ -43,11 +83,19 @@ SLICK = (function () {
                 init_y = 0;
             } // if
 
-            // initialise self
             var self = {
+                /** @lends SLICK.Vector */
+                
                 x: init_x,
                 y: init_y,
 
+                /**
+                Add the value of the specified to the *current* vector and return the updated value of the vector.
+                
+                @memberOf SLICK.Vector#
+                @param {SLICK.Vector} vector the vector to add to the current vector object
+                @returns {SLICK.Vector} itself (chaining style)
+                */
                 add: function(vector) {
                   self.x += vector.x;
                   self.y += vector.y;
@@ -55,11 +103,25 @@ SLICK = (function () {
                   return self;
                 },
 
+                /**
+                Copy the specified vector value into the current object
+                
+                @memberOf SLICK.Vector#
+                @param {SLICK.Vector} vector the source vector from which to copy the x, y values
+                */
                 copy: function(vector) {
                     self.x = vector.x;
                     self.y = vector.y;
                 },
                 
+                /**
+                Create a new {SLICK.Rect} by using the current vector and vector passed to the function to specify the 
+                bounds of the rect.
+                
+                @memberOf SLICK.Vector#
+                @param {SLICK.Vector} vector the vector to combine with the current vector to create rect bounds
+                @returns {SLICK.Rect} a *new* rect object representing the bounds of the two vectors
+                */
                 createRect: function(vector) {
                     return new SLICK.Rect(
                         Math.min(self.x, vector.x),
@@ -68,22 +130,51 @@ SLICK = (function () {
                         Math.abs(self.y - vector.y));
                 },
                 
+                /**
+                Create a copy of the current object
+                
+                @memberOf SLICK.Vector#
+                @returns {SLICK.Vector} a new vector instance with the x, y value of the current vector
+                */
                 duplicate: function() {
-                    return self.offset(0, 0);
+                    return new SLICK.Vector(self.x, self.y);
                 },
                 
+                /**
+                @memberOf SLICK.Vector#
+                */
                 getAbsSize: function() {
                     return Math.max(Math.abs(self.x), Math.abs(self.y));
                 },
 
+                /** 
+                Apply an offset to the current vector and return the result as a new vector instance.  The value
+                of the current object is not changed through calling this function.
+                
+                @memberOf SLICK.Vector#
+                @param {Number} x the amount to apply to the x value of the vector
+                @param {Number} y the amount to apply to the y value of the vector
+                @returns {SLICK.Vector} a *new* vector instance offset from the current value by the specified x, y values
+                */
                 offset: function(x, y) {
                     return new SLICK.Vector(self.x + x, self.y + y);
                 },
                 
+                /** 
+                Return a new vector instance that is the inverted value of the current vector
+                
+                @memberOf SLICK.Vector#
+                @returns {SLICK.Vector} a *new* vector instance that contains the inverted values of the current vector
+                */
                 invert: function() {
                     return new SLICK.Vector(-self.x, -self.y);
                 },
 
+                /** 
+                Return a string representation "x, y" of the current vector
+                
+                @memberOf SLICK.Vector#
+                */
                 toString: function() {
                     return self.x + ", " + self.y;
                 }
@@ -92,6 +183,9 @@ SLICK = (function () {
             return self;
         }, // Vector
         
+        /**
+        @class
+        */
         Dimensions: function(init_width, init_height) {
             // initialise variables
 
@@ -100,6 +194,8 @@ SLICK = (function () {
 
             // intiialise self
             var self = {
+                /** lends SLICK.Dimensions */
+                
                 width: init_width,
                 height: init_height,
                 aspect_ratio: init_aspect_ratio,
@@ -121,10 +217,13 @@ SLICK = (function () {
             return self;
         }, // Dimensions
         
+        /** @class */
         Rect: function(x, y, width, height) {
             // TODO: move dimensions access through setters and getters so half width can be calculated once and only when required
             
             var self = {
+                /** @lends SLICK.Rect */
+                
                 origin: new SLICK.Vector(x, y),
                 dimensions: new SLICK.Dimensions(width, height),
                 
@@ -160,12 +259,11 @@ SLICK = (function () {
                 The alignTo function is used to determine the 
                 delta amounts required to adjust the rect to the specified target rect.  
                 
-                @returns {
-                    top: the delta change to adjust the top to the target rect,
-                    left: the delta change to adjust the left
-                    bottom: the delta bottom change
-                    right: the delta right change
-                }
+                @returns a hash object containing the following parameters
+                 - top: the delta change to adjust the top to the target rect,
+                 - left: the delta change to adjust the left
+                 - bottom: the delta bottom change
+                 - right: the delta right change
                 */
                 getRequiredDelta: function(targetRect) {
                     var delta = {

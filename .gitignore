@@ -1,4 +1,5 @@
 dist
+apidoc
 lib/grunt
 .settings
 *~

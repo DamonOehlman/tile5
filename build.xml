@@ -12,6 +12,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 	<property name="LIBNAME" value="slick" />
     <property name="SLICK" value="${dist}/${LIBNAME}.js" />
     <property name="SLICK_MIN" value="${dist}/${LIBNAME}.min.js" />
+	<property name="JSDOC_HOME" value="/development/tools/jsdoc-toolkit" />
 	
 	<available property="qunit" file="test/qunit" />
 	
@@ -132,7 +133,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		
 		<replaceregexp match="@VERSION" replace="${version}" flags="g" byline="true" file="${SLICK}" />
 		<replaceregexp match="Date: " replace="Date: ${date}" file="${SLICK}" />
-        <echo message="${SLICK} built." />
+        <echo message="${SLICK} (and associated libraries) built." />
 	</target>
 	
     <target name="min" depends="build-slick" description="Remove all comments and whitespace, no compression, great in combination with GZip">
@@ -166,6 +167,12 @@ http://github.com/jquery/jquery/blob/master/build.xml
     <target name="clean">
         <delete dir="${dist}" />
     </target>
+
+	<target name="jsdoc">
+		<exec executable="java">
+			<arg line="-jar ${JSDOC_HOME}/jsrun.jar ${JSDOC_HOME}/app/run.js -v -t=${JSDOC_HOME}/templates/jsdoc/ --recurse=10 -d=apidoc src/js"/>
+		</exec>
+	</target>
 
 	<target name="openAjaxMetadata">
 		<property name="target" value="openAjaxMetadata-jquery-${version}.xml" />
