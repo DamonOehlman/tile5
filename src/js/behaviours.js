@@ -59,21 +59,20 @@ SLICK.Pannable = function(args) {
     return self;
 }; // SLICK.Pannable
 
-SLICK.Scalable = function(args) {
-    // initialise defaults
-    var DEFAULT_ARGS = {
+SLICK.Scalable = function(params) {
+    params = GRUNT.extend({
         container: null,
         onPinchZoom: null,
         onScale: null
-    };
+    }, params);
 
     var scaling = false;
     var startRect = null;
     var endRect = null;
+    var scaleAmount = 0;
     
     // initialise self
     var self = {
-        args: GRUNT.extend({}, DEFAULT_ARGS, args),
         scalable: true,
 
         getStartRect: function() {
@@ -86,10 +85,14 @@ SLICK.Scalable = function(args) {
         
         getScaling: function() {
             return scaling;
+        },
+        
+        getScaleAmount: function() {
+            return scaleAmount;
         }
     };
     
-    var container = jQuery(self.args.container).get(0);
+    var container = jQuery(params.container).get(0);
     if (container) {
         SLICK.TOUCH.TouchEnable(container, {
             pinchZoomHandler: function(touches_start, touches_current) {
@@ -97,18 +100,21 @@ SLICK.Scalable = function(args) {
                 endRect = touches_current.getRect();
                 
                 scaling = true;
-                if (args.onPinchZoom) {
-                    args.onPinchZoom();
+                if (params.onPinchZoom) {
+                    params.onPinchZoom();
                 } // if
             },
             
             pinchZoomEndHandler: function(touches_start, touches_end) {
                 startRect = touches_start.getRect();
-                endRect = touches_end.getRect();                
+                endRect = touches_end.getRect();
+                
+                // determine the ratio between the start rect and the end rect
+                scaleAmount = (startRect && startRect.getSize() != 0) ? endRect.getSize() / startRect.getSize() : 1;
                 
                 scaling = false;
-                if (args.onScale) {
-                    args.onScale();
+                if (params.onScale) {
+                    params.onScale();
                 } // if
             }
         });
