@@ -155,6 +155,16 @@ SLICK.MappingTiler = function(args) {
         } // if
     }; // tapHandler
     
+    args.doubleTapHandler = function(absPos, relPos) {
+        var grid = self.getGrid();
+        if (grid) {
+            var grid_pos = self.viewPixToGridPix(new SLICK.Vector(relPos.x, relPos.y));
+
+            // create a min xy and a max xy using a tap extent
+            self.gotoPosition(grid.pixelsToPos(grid_pos.offset(-args.tapExtent, args.tapExtent)), zoom_level + 1);
+        } // if
+    }; // doubleTapHandler
+    
     args.zoomHandler = function(scaleAmount) {
         var zoomChange = 0;
         

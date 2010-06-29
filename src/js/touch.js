@@ -131,6 +131,8 @@ SLICK.TOUCH = (function() {
             var MIN_MOVEDIST = 7;
 
             // initialise private members
+            var doubleTap = false;
+            var tapTimer = 0;
             var touches_start = null;
             var touches_last = null;
             var touch_delta = null;
@@ -238,6 +240,7 @@ SLICK.TOUCH = (function() {
                     touch_delta = new SLICK.Vector();
                     total_delta = new SLICK.Vector();
                     touch_down = true;
+                    doubleTap = false;
 
                     // log the current touch start time
                     ticks.current = new Date().getTime();
@@ -251,10 +254,7 @@ SLICK.TOUCH = (function() {
                         // calculate the difference between this and the last touch point
                         var touchChange = touches_start.calculateDelta(touches_last);
                         if ((Math.abs(touchChange.x) < self.args.maxDistDoubleTap) && (Math.abs(touchChange.y) < self.args.maxDistDoubleTap)) {
-                            var pos = touches_start.getTouch(0);
-                            if (pos) {
-                                self.fireEvent('doubleTapHandler', pos.x, pos.y);
-                            } // if
+                            doubleTap = true;
                         } // if
                     } // if
 
@@ -338,8 +338,16 @@ SLICK.TOUCH = (function() {
 
                     // if tapping, then first the tap event
                     if (touch_mode === TOUCH_MODES.TAP) {
-                        // get the start touch
-                        self.firePositionEvent('tapHandler', touches_start.getTouch(0));
+                        // start the timer to fire the tap handler, if 
+                        if (! tapTimer) {
+                            tapTimer = setTimeout(function() {
+                                // reset the timer 
+                                tapTimer = 0;
+                                
+                                // fire the appropriate tap event
+                                self.firePositionEvent(doubleTap ? 'doubleTapHandler' : 'tapHandler', touches_start.getTouch(0));
+                            }, self.THRESHOLD_DOUBLETAP + 50);
+                        }
                     }
                     // if moving, then fire the move end
                     else if (touch_mode == TOUCH_MODES.MOVE) {

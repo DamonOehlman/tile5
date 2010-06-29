@@ -645,32 +645,19 @@ SLICK.Graphics = (function() {
     return module;
 })();
 
-SLICK.Tiler = function(args) {
-    // define default args
-    var DEFAULT_ARGS = {
+SLICK.Tiler = function(params) {
+    params = GRUNT.extend({
         container: "",
         drawCenter: false,
         panHandler: null,
         tapHandler: null,
+        doubleTapHandler: null,
         zoomHandler: null,
         onDraw: null
-    }; 
-    
-    // TODO: add some error detection here
-    
-    // apply touch functionality
-    jQuery(args.container).canTouchThis({
-        touchStartHandler: function(x, y) {
-            // reset the scale to 0
-            // self.scale(1);
-        },
+    }, params);
 
-        tapHandler: function(x, y) {
-            if (self.args.tapHandler) {
-                self.args.tapHandler(x, y);
-            } // if
-        }
-    });
+    // apply touch functionality
+    jQuery(params.container).canTouchThis(params);
     
     // initialise layers
     var grid = null;
@@ -681,7 +668,7 @@ SLICK.Tiler = function(args) {
     var tileSize = emptyTile.getTileSize();
     
     // create the parent
-    var view = new SLICK.Graphics.View(GRUNT.extend({}, args, {
+    var view = new SLICK.Graphics.View(GRUNT.extend({}, params, {
         fillBackground: function(context, x, y, width, height) {
             var gradient = context.createLinearGradient(x, 0, x, height);
             gradient.addColorStop(0, "rgb(170, 170, 170)");
@@ -705,30 +692,30 @@ SLICK.Tiler = function(args) {
             } // if
             
             // if we have been passed an onDraw handler, then call that too
-            if (self.args.onDraw) {
-                self.args.onDraw(context);
+            if (params.onDraw) {
+                params.onDraw(context);
             } // if
         }
     }));
     
     // create some behaviour mixins
     var pannable = new SLICK.Pannable({
-        container: args.container,
+        container: params.container,
 
         onPan: function(x, y) {
             if (grid) {
                 self.invalidate();
                 
                 // if we have a pan handler defined, then call it
-                if (self.args.panHandler) {
-                    self.args.panHandler(x, y);
+                if (params.panHandler) {
+                    params.panHandler(x, y);
                 } // if
             } // if
         }
     }); // pannable
     
     var scalable = new SLICK.Scalable({
-        container: args.container,
+        container: params.container,
         onPinchZoom: function() {
             if (grid) {
                 self.invalidate();
@@ -739,16 +726,14 @@ SLICK.Tiler = function(args) {
             GRUNT.Log.info("** SCALING COMPLETE **");
             
             // if the zoom handler is assigned, then call it
-            if (args.zoomHandler) {
-                args.zoomHandler(self.getScaleAmount());
+            if (params.zoomHandler) {
+                params.zoomHandler(self.getScaleAmount());
             } // if
         }
     }); // scalable
     
     // initialise self
     var self = GRUNT.extend(view, pannable, scalable, {
-        args: GRUNT.extend({}, DEFAULT_ARGS, args),
-        
         getGrid: function() {
             return grid;
         },
