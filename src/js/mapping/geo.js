@@ -234,6 +234,10 @@ SLICK.Geo = (function() {
             
             // define self
             var self = {
+                getPos: function() {
+                    return params.pos;
+                },
+                
                 toString: function() {
                     return params.streetDetails + " " + params.location;
                 }

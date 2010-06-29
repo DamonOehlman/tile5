@@ -73,7 +73,7 @@ SLICK.Geo.Cloudmade = (function() {
                     offsetAdjustment: new SLICK.Vector(0, SLICK.TilerConfig.TILESIZE),
                     // NOTE: zoom level is similar to decarta GX zoom level but 1 less...
                     // TODO: implement some kind of universal zoom level... there probably is one already... 
-                    radsPerPixel: SLICK.Geo.DECARTA.Utilities.radsPerPixelAtZoom(SLICK.TilerConfig.TILESIZE, self.zoomLevel - 1)
+                    radsPerPixel: SLICK.Geo.Decarta.Utilities.radsPerPixelAtZoom(SLICK.TilerConfig.TILESIZE, self.zoomLevel - 1)
                 });
 
                 return tile_grid;

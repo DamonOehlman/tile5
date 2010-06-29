@@ -38,6 +38,7 @@ SLICK.Geo.POIMarkers = (function() {
     // initialise the marker image cache
     var drawQueue = [];
     var loadedImages = [];
+    var markerOffsets = {};
     
     function drawQueuedMarkers(markerType, image, callback) {
         if (drawQueue[markerType]) {
@@ -71,6 +72,14 @@ SLICK.Geo.POIMarkers = (function() {
         return fnresult;
     } // getMarkerImage
     
+    function getMarkerOffset(markerType, markerImage) {
+        if (! markerOffsets[markerType]) {
+            markerOffsets[markerType] = new SLICK.Vector(markerImage.width * 0.5, markerImage.height * 0.5);
+        } 
+        
+        return markerOffsets[markerType];
+    }
+    
     var self = {
         drawMarker: function(context, markerType, x, y, callback) {
             // get the image from the marker cache, if we don't have it then load it
@@ -78,7 +87,8 @@ SLICK.Geo.POIMarkers = (function() {
             
             // if the marker image has been loaded, then draw it
             if (markerImage.complete) {
-                context.drawImage(markerImage, x, y);
+                var markerOffset = getMarkerOffset(markerType, markerImage);
+                context.drawImage(markerImage, x - markerOffset.x, y - markerOffset.y);
             }
             else { 
                 if (! markerImage.onload) {
