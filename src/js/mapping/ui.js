@@ -146,9 +146,9 @@ SLICK.MappingTiler = function(args) {
             // turn that into a bounds object
             tap_bounds = new SLICK.Geo.BoundingBox(min_pos.toString(), max_pos.toString());
             
-            GRUNT.Log.info("tap position = " + relPos.x + ", " + relPos.y);
-            GRUNT.Log.info("grid pos = " + grid_pos);
-            GRUNT.Log.info("tap bounds = " + tap_bounds);
+            // GRUNT.Log.info("tap position = " + relPos.x + ", " + relPos.y);
+            // GRUNT.Log.info("grid pos = " + grid_pos);
+            // GRUNT.Log.info("tap bounds = " + tap_bounds);
         } // if
         
         if (caller_tap_handler) {
@@ -179,7 +179,7 @@ SLICK.MappingTiler = function(args) {
         // get the updated center position
         updateCenterPos();
 
-        GRUNT.Log.info("adjust zoom by: " + zoomChange);
+        // GRUNT.Log.info("adjust zoom by: " + zoomChange);
         self.gotoPosition(centerPos, zoom_level + Math.round(zoomChange));
     }; // zoomHandler
     
@@ -241,7 +241,7 @@ SLICK.MappingTiler = function(args) {
             // update the provider zoom level
             provider.zoomLevel = zoom_level;
             provider.getMapTiles(self, position, function(tile_grid) {
-                GRUNT.Log.info(String.format("created tile grid {0} x {1}", tile_grid.columns, tile_grid.rows));
+                // GRUNT.Log.info(String.format("created tile grid {0} x {1}", tile_grid.columns, tile_grid.rows));
                 self.setGrid(tile_grid);
                 
                 self.panToPosition(position, callback);
@@ -262,10 +262,10 @@ SLICK.MappingTiler = function(args) {
                 center_xy.y -= (dimensions.height * 0.5);
             
                 // pan the required amount
-                GRUNT.Log.info(String.format("need to apply pan vector of ({0}) to correctly center", center_xy));
-                GRUNT.Log.info("offset before pan = " + self.getOffset());
+                // GRUNT.Log.info(String.format("need to apply pan vector of ({0}) to correctly center", center_xy));
+                // GRUNT.Log.info("offset before pan = " + self.getOffset());
                 self.pan(center_xy.x, center_xy.y);
-                GRUNT.Log.info("offset after pan = " + self.getOffset());
+                // GRUNT.Log.info("offset after pan = " + self.getOffset());
             
                 // if we have a callback defined, then run it
                 if (callback) {

@@ -69,7 +69,7 @@ SLICK.Geo.Cloudmade = (function() {
                     centerPos: calculatePositionFromTileOffset(tile_offset.x + 0.5, tile_offset.y - 0.5, self.zoomLevel),
                     // NOTE: zoom level is similar to decarta GX zoom level but 1 less...
                     // TODO: implement some kind of universal zoom level... there probably is one already... 
-                    radsPerPixel: SLICK.Geo.Decarta.Utilities.radsPerPixelAtZoom(SLICK.TilerConfig.TILESIZE, self.zoomLevel)
+                    radsPerPixel: SLICK.Geo.Cloudmade.radsPerPixelAtZoom(SLICK.TilerConfig.TILESIZE, self.zoomLevel)
                 });
 
                 return tile_grid;
@@ -123,6 +123,10 @@ SLICK.Geo.Cloudmade = (function() {
             });
 
             return self;
+        },
+        
+        radsPerPixelAtZoom: function(tileSize, zoomLevel) {
+            return 2*Math.PI / (tileSize << zoomLevel);
         }
     }; 
     
