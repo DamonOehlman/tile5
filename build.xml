@@ -65,6 +65,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/touch.js" />
 			<fileset file="src/js/behaviours.js" />
 			<fileset file="src/js/graphics.js" />
+			<fileset file="src/js/tiling.js" />
 			<fileset file="src/js/dispatcher.js" />
 			<fileset file="src/js/messaging.js" />
 		</concat>

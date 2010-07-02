@@ -1,4 +1,4 @@
-SLICK.TOUCH = (function() {
+SLICK.Touch = (function() {
     var module_types = {
         Touches: function() {
             // initialise private members
@@ -426,7 +426,7 @@ SLICK.TOUCH = (function() {
 jQuery.fn.canTouchThis = function(params) {
     // bind the touch events
     return this.each(function() {
-        SLICK.TOUCH.TouchEnable(this, params);
+        SLICK.Touch.TouchEnable(this, params);
     });
 }; // canTouchThis
 

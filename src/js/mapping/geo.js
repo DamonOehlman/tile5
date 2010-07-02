@@ -314,6 +314,10 @@ SLICK.Geo = (function() {
             // initailise self
             var self = {
                 zoomLevel: 0,
+                
+                checkZoomLevel: function(zoomLevel) {
+                    return zoomLevel;
+                },
 
                 getMapTiles: function(tiler, position, zoom_level, callback) {
 

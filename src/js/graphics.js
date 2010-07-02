@@ -9,16 +9,6 @@ Section: Version History
 21/05/2010 (DJO) - Created File
 */
 
-// define the tiler config
-SLICK.TilerConfig = {
-    TILESIZE: 256,
-    // TODO: put some logic in to determine optimal buffer size based on connection speed...
-    TILEBUFFER: 1,
-    TILEBUFFER_LOADNEW: 0.2,
-    // TODO: change this to a real default value
-    EMPTYTILE: "/public/images/tile.png"
-}; // TilerConfig
-
 // define the slick tile borders
 SLICK.Border = {
     NONE: 0,
@@ -29,286 +19,362 @@ SLICK.Border = {
 }; // Border
 
 SLICK.Graphics = (function() {
-    TileStore = function(params) {
-        // initialise defaults
-        var DEFAULT_PARAMS = {
-            gridSize: 70,
-            center: new SLICK.Vector()
-        };
-        
-        // initialise the parameters with the defaults
-        params = GRUNT.extend({}, DEFAULT_PARAMS, params);
-        
-        // initialise the storage array
-        var storage = new Array(Math.pow(params.gridSize, 2));
-        var gridHalfWidth = Math.ceil(params.gridSize * 0.5);
-        var topLeftOffset = params.center.offset(-gridHalfWidth, -gridHalfWidth);
-        
-        GRUNT.Log.info("created tile store with tl offset = " + topLeftOffset);
-        
-        function getTileIndex(col, row) {
-            return (row * params.gridSize) + col;
-        } // getTileIndex
-        
-        function shiftOrigin(col, row) {
-            // TODO: move the tiles around
-        } // shiftOrigin
-        
-        // initialise self
-        var self = {
-            getGridSize: function() {
-                return params.gridSize;
-            },
-            
-            getNormalizedPos: function(col, row) {
-                return new SLICK.Vector(col, row).add(topLeftOffset.invert());
-            },
-            
-            getTile: function(col, row) {
-                return storage[getTileIndex(col, row)];
-            },
-            
-            setTile: function(col, row, tile) {
-                storage[getTileIndex(col, row)] = tile;
-            },
-            
-            /*
-            What a cool function this is.  Basically, this goes through the tile
-            grid and creates each of the tiles required at that position of the grid.
-            The tileCreator is a callback function that takes a two parameters (col, row) and
-            can do whatever it likes but should return a Tile object or null for the specified
-            column and row.
-            */
-            populate: function(tileCreator, notifyListener) {
-                // take a tick count as we want to time this
-                var startTicks = new Date().getTime();
-                var tileIndex = 0;
-                
-                GRUNT.Log.info("poulating grid, top left offset = " + topLeftOffset);
-
-                if (tileCreator) {
-                    for (var row = 0; row < params.gridSize; row++) {
-                        for (var col = 0; col < params.gridSize; col++) {
-                            var tile = tileCreator(col, row, topLeftOffset, params.gridSize);
-                        
-                            // if the tile was created and we have a notify listener request updates
-                            if (tile && notifyListener) {
-                                tile.requestUpdates(notifyListener);
-                            } // if
-                        
-                            // add the tile to storage
-                            storage[tileIndex++] = tile;
-                        } // for
-                    } // for
-                } // if
-
-                // log how long it took
-                GRUNT.Log.info("tile grid populated with " + tileIndex + " tiles in " + (new Date().getTime() - startTicks) + " ms");
-            },
-            
-            /*
-            The setOrigin method is used to tell the tile store the position of the center tile in the grid
-            */
-            setOrigin: function(col, row) {
-                if (! tileOrigin) {
-                    topLeftOffset = new SLICK.Vector(col, row).offset(-tileHalfWidth, -tileHalfWidth);
-                }
-                else {
-                    shiftOrigin(col, row);
-                } // if..else
-            }
-        };
-        
-        return self;
-    };
     
     var module = {
         // define module requirements
         requires: ["Resources"],
         
+        /**
+        Scale the source canvas to a new canvas
+        */
+        scaleCanvas: function(srcCanvas, scaleFactor) {
+            // create the new canvas
+            var fnresult = document.createElement("canvas");
+            fnresult.width = srcCanvas.width * scaleFactor;
+            fnresult.height = srcCanvas.height * scaleFactor;
+            
+            var context = fnresult.getContext("2d");
+            
+            // draw the source canvas scaled correctly to the destination canvas
+            context.drawImage(
+                srcCanvas,
+                0, 0, srcCanvas.width, srcCanvas.height,
+                0, 0, fnresult.width, fnresult.height);
+                
+            // return the new canvas
+            return fnresult;
+        },
+        
+        drawScaledRect: function(context, dimensions, srcCanvas, startRect, endRect) {
+            // TODO: this needs to be FASTER!!!
+            
+            // get the scaling rects (from the scalable behaviour - we have checked this is implemented previously)
+            var startRectSize = startRect.getSize();
+            var endRectSize = endRect.getSize();
+            var endRectCenter = endRect.getCenter();
+            
+            // determine the size ratio
+            var sizeRatio = startRectSize != 0 ? endRectSize / startRectSize : 1;
+            var delta = null;
+            var startDrawRect = startRect.duplicate();
+            var endDrawRect = endRect.duplicate();
+            var aspectRatio = dimensions.width / dimensions.height;
+
+            // if we are scaling down, then
+            // TODO: expand the start and end rects so the displays fill the screen
+            if (startRectSize > endRectSize) {
+                delta = startRect.getRequiredDelta(new SLICK.Rect(0, 0, dimensions.width, dimensions.height));
+                
+                // apply the delta to the start draw rect
+                startDrawRect.applyDelta(delta);
+                
+                // determine the end draw rect
+                endDrawRect.applyDelta(delta, sizeRatio, aspectRatio);
+            }
+            // otherwise
+            else {
+                delta = endRect.getRequiredDelta(new SLICK.Rect(0, 0, dimensions.width, dimensions.height));
+                
+                // apply the required delta to the end rect
+                endDrawRect.applyDelta(delta);
+
+                // apply the delta to the start rect by the inverse size ratio
+                startDrawRect.applyDelta(delta, 1 / sizeRatio, aspectRatio);
+            } // if..else
+            
+            if (startRect && endRect) {
+                context.drawImage(
+                    srcCanvas,
+                    startDrawRect.origin.x, 
+                    startDrawRect.origin.y,
+                    startDrawRect.dimensions.width,
+                    startDrawRect.dimensions.height,
+                    endDrawRect.origin.x,
+                    endDrawRect.origin.y,
+                    endDrawRect.dimensions.width,
+                    endDrawRect.dimensions.height);
+            } // if            
+        },
+        
+        ViewLayer: function(params) {
+            params = GRUNT.extend({
+                id: "",
+                drawBuffer: null,
+                draw: null,
+                centerOnScale: true
+            }, params);
+
+            var buffer = null;
+            var bufferContext = null;
+            var bufferOffset = new SLICK.Vector();
+            var frozen = false;
+            var lastOffset;
+            var lastScaleFactor;
+            var lastStartRect;
+            var lastEndRect;
+            
+            // if this is a buffered layer, then initialise the buffer
+            if (params.drawBuffer) {
+                // if width and height are not defined, then raise an exception
+                if ((! params.width) || (! params.height)) {
+                    throw new Error("Width and height required to define a buffered view layer");
+                } // if
+            
+                // define a buffer for the layer
+                buffer = document.createElement("canvas");
+                buffer.width = params.width;
+                buffer.height = params.height;
+                
+                // define the context
+                bufferContext = buffer.getContext("2d");
+            } // if
+            
+            
+            var self = {
+                getId: function() {
+                    return params.id;
+                },
+                
+                setId: function(value) {
+                    params.id = value;
+                },
+                
+                drawBuffer: function(offset, dimensions) {
+                    if (params.drawBuffer) {
+                        bufferOffset = offset;
+                        params.drawBuffer(bufferContext, offset, dimensions);
+                    } // if
+                },
+                
+                draw: function(context, offset, dimensions, scaleFactor, scaling) {
+                    // if we are frozen then update the offset and scale factors
+                    if (frozen) {
+                        offset = lastOffset;
+                        scaleFactor = lastScaleFactor;
+                    } // if
+                    
+                    // if we are buffered, then draw the buffer to the canvas
+                    if (buffer) {
+                        var startRect = frozen ? lastStartRect : scaling.getStartRect();
+                        var endRect = frozen ? lastEndRect : scaling.getEndRect();
+                        
+                        if (scaleFactor != 1) {
+                            module.drawScaledRect(context, dimensions, buffer, startRect, endRect);
+                        }
+                        else {
+                            // calculate the relative offset
+                            var relativeOffset = bufferOffset.diff(offset);
+
+                            // draw the image to the canvas
+                            context.drawImage(buffer, relativeOffset.x, relativeOffset.y, dimensions.width, dimensions.height);
+                        } // if..else
+                        
+                        // update the last start and end rect
+                        lastStartRect = startRect;
+                        lastEndRect = endRect;
+                    } // if
+                    
+                    if (params.draw) {
+                        params.draw(context, offset, dimensions, scaleFactor);
+                    } // if
+
+                    // update the last offset and scale factor
+                    lastOffset = offset;
+                    lastScaleFactor = scaleFactor;
+                },
+                
+                getFrozen: function() {
+                    return frozen;
+                },
+                
+                setFrozen: function(value) {
+                    frozen = value;
+                },
+                
+                setBufferOffset: function(x, y) {
+                    bufferOffset.x = x; bufferOffset.y = y;
+                }
+            }; // self
+            
+            return self;
+        },
+        
         View: function(params) {
             // initialise defaults
             params = GRUNT.extend({
                 container: "",
-                fillBackground: null,
-                // TODO: reimplement the gutter size at a later time
-                gutterSize: 0,
-                fps: 20
+                defineLayers: null,
+                pannable: false,
+                scalable: false,
+                scaleDamping: false,
+                redrawDelay: 100,
+                onPan: null,
+                onPinchZoom: null,
+                onScale: null
             }, params);
-
+            
             // get the container context
-            // TODO: attach a resize event to the canvas...
-            var canvas = jQuery(params.container).get(0);
+            var canvas = document.getElementById(params.container);
             var main_context = null;
+            var lastPan = 0;
+            var dimensions;
+
+            GRUNT.Log.info("Creating a new view instance, attached to container: " + params.container + ", canvas = ", canvas);
+
             if (canvas) {
                 try {
                     main_context = canvas.getContext('2d');
                 } 
                 catch (e) {
                     GRUNT.Log.exception(e);
-                    throw "Could not initialise canvas on specified tiler element";
+                    throw new Error("Could not initialise canvas on specified view element");
                 }
             } // if
-
-            var redraw_timer = 0;
-            var redraw_sleep = Math.floor(1000 / params.fps);
-            var canvasAspectRatio = canvas.width / canvas.height;
-
-            // TODO: at some stage make the buffer canvas centered (i.e. gutter both sides)
-            var buffer_canvas = document.createElement("canvas");
-            buffer_canvas.height = canvas.height + params.gutterSize;
-            buffer_canvas.width = canvas.width + params.gutterSize;
             
-            // calculate the buffer canvas aspect ratio
-            var bufferCanvasAR = buffer_canvas.width !== 0 ? buffer_canvas.height / buffer_canvas.width : 1;
-
-            // get the cached context
-            var buffer_context = buffer_canvas.getContext("2d");
-            var buffer_offset = new SLICK.Vector();
-
-            function defaultBackgroundFill(context, x, y, width, height) {
-                context.fillStyle = "rgb(180, 180, 180)";
-                context.fillRect(0, 0, width, height);
-            } // defaultBackgroundFill
-
-            function drawToBuffer() {
-                // capture the offset at this particular point in time
-                if (params.onDraw) {
-                    params.onDraw(buffer_context, buffer_canvas.width, buffer_canvas.height);
-                } // if
-
-                buffer_offset = self.pannable ? self.getOffset() : new SLICK.Vector();
-            } // drawToCache
+            // initialise the layers
+            var layers = [];
+            if (params.defineLayers) {
+                layers = params.defineLayers();
+            } // if
             
-            function drawBufferToMain() {
-                // get the current offset
-                var currentOffset = self.pannable ? self.getOffset() : new SLICK.Vector();
-
-                if (main_context) {
-                    var topX = buffer_offset.x - currentOffset.x;
-                    var topY = buffer_offset.y - currentOffset.y;
-                    var drawWidth = buffer_canvas.width - Math.abs(topX); // , canvas.width - Math.abs(topX));
-                    var drawHeight = buffer_canvas.height - Math.abs(topY); // , canvas.height - Math.abs(topX));
-
-                    if ((drawWidth > 0) && (drawHeight > 0)) {
-                        // fill the background
-                        params.fillBackground ? 
-                            params.fillBackground(main_context, topX, topY, buffer_canvas.width, buffer_canvas.height) : 
-                            defaultFillBackground(main_context, topX, topY, buffer_canvas.width, buffer_canvas.height);
-                            
-                        // if we are scalable and scaling, then pinch and zoom
-                        if (self.scalable && self.getScaling()) {
-                            drawScaledBuffer();
+            var pannable = null;
+            if (params.pannable) {
+                pannable = new SLICK.Pannable({
+                    container: params.container,
+                    onPan: function(x, y) {
+                        lastPan = new Date().getTime();
+                        self.invalidate();
+                        
+                        if (params.onPan) {
+                            params.onPan(x, y);
+                        } // if
+                    }
+                });
+            } // if
+            
+            var scalable = null;
+            var scaleFactor = 1;
+            if (params.scalable) {
+                scalable = new SLICK.Scalable({
+                    scaleDamping: params.scaleDamping,
+                    container: params.container,
+                    onPinchZoom: function(touchesStart, touchesCurrent) {
+                        self.invalidate();
+                        
+                        if (params.onPinchZoom) {
+                            params.onPinchZoom(touchesStart, touchesCurrent);
+                        } // if
+                    },
+                    
+                    onScale: function(scaleFactor) {
+                        if (params.onScale) {
+                            params.onScale(scaleFactor);
                         }
-                        else {
-                            main_context.drawImage(
-                                buffer_canvas, // the source canvas
-                                topX < 0 ? Math.abs(topX) : 0, // the source x, y, width and height
-                                topY < 0 ? Math.abs(topY) : 0, 
-                                drawWidth,
-                                drawHeight,
-                                topX > 0 ? topX : 0, // the dest x, y, width and height
-                                topY > 0 ? topY : 0,
-                                drawWidth,
-                                drawHeight);                            
-                        }
+                    }
+                });
+            } // if
+            
+            function getLayerIndex(id) {
+                for (var ii = 0; ii < layers.length; ii++) {
+                    if (layers[ii].getId() == id) {
+                        return ii;
                     } // if
-                } // if
-            } // drawBufferToMain
-
-            /**
-            Draw the buffer scaled by the ratio difference between the start and end rect
-            
-            TODO: constraint the 
-            */
-            function drawScaledBuffer() {
-                // get the scaling rects (from the scalable behaviour - we have checked this is implemented previously)
-                var startRect = self.getStartRect();
-                var endRect = self.getEndRect();
-                var startRectSize = startRect.getSize();
-                var endRectSize = endRect.getSize();
-                var endRectCenter = endRect.getCenter();
+                } // for
                 
-                // determine the size ratio
-                var sizeRatio = startRectSize != 0 ? endRectSize / startRectSize : 1;
-                var delta = null;
-                var startDrawRect = startRect.duplicate();
-                var endDrawRect = endRect.duplicate();
-
-                // if we are scaling down, then
-                // TODO: expand the start and end rects so the displays fill the screen
-                if (startRectSize > endRectSize) {
-                    delta = startRect.getRequiredDelta(new SLICK.Rect(0, 0, canvas.width, canvas.height));
-                    
-                    // apply the delta to the start draw rect
-                    startDrawRect.applyDelta(delta);
-                    
-                    // determine the end draw rect
-                    endDrawRect.applyDelta(delta, sizeRatio, canvasAspectRatio);
-                }
-                // otherwise
-                else {
-                    delta = endRect.getRequiredDelta(new SLICK.Rect(0, 0, canvas.width, canvas.height));
-                    
-                    // apply the required delta to the end rect
-                    endDrawRect.applyDelta(delta);
-
-                    // apply the delta to the start rect by the inverse size ratio
-                    startDrawRect.applyDelta(delta, 1 / sizeRatio, canvasAspectRatio);
-                } // if..else
-                
-                if (startRect && endRect) {
-                    main_context.drawImage(
-                        buffer_canvas,
-                        startDrawRect.origin.x, 
-                        startDrawRect.origin.y,
-                        startDrawRect.dimensions.width,
-                        startDrawRect.dimensions.height,
-                        endDrawRect.origin.x,
-                        endDrawRect.origin.y,
-                        endDrawRect.dimensions.width,
-                        endDrawRect.dimensions.height);
-                } // if
-            } // drawScaledBuffer
+                return -1;
+            } // getLayerIndex
 
             // initialise self
-            var self = {
+            var self = GRUNT.extend({}, pannable, scalable, {
                 getContext: function() {
                     return buffer_context;
                 },
-
+                
                 getDimensions: function() {
-                    // get the jquery wrapper
-                    var jq_container = jQuery(canvas);
+                    if (canvas) {
+                        return new SLICK.Dimensions(canvas.width, canvas.height);
+                    } // if
+                },
+                
+                /* layer getter and setters */
+                
+                getLayer: function(id) {
+                    // look for the matching layer, and return when found
+                    for (var ii = 0; ii < layers.length; ii++) {
+                        if (layers[ii].getId() == id) {
+                            return layers[ii];
+                        } // if
+                    } // for
+                    
+                    return null;
+                },
+                
+                setLayer: function(id, value) {
+                    // look for the matching layer, it not found, then add it
+                    for (var ii = 0; ii < layers.length; ii++) {
+                        if (layers[ii].getId() == id) {
+                            layers[ii] = value;
+                            return;
+                        } // if
+                    } // for
+                    
+                    if (value) {
+                        // make sure the layer has the correct id
+                        value.setId(id);
 
-                    return new SLICK.Dimensions(jq_container.width(), jq_container.height()); 
+                        // didn't find the layer, add it
+                        layers.push(value);
+                    } // if
+                },
+                
+                /**
+                Freeze the specified layer in a specified position.  This means that the layer will 
+                not move from it's current position when the other layers pan.
+                */
+                freezeLayer: function(id) {
+                    var layerIndex = getLayerIndex(id);
+                    if ((layerIndex >= 0) && (layerIndex < layers.length)) {
+                        layers[layerIndex].setFrozen(true);
+                    } // if
+                },
+                
+                removeLayer: function(id, timeout) {
+                    // if timeout not set, then set to fire instantly
+                    setTimeout(function() {
+                        GRUNT.Log.info("attempting to remove layer: " + id);
+                        var layerIndex = getLayerIndex(id);
+                        if ((layerIndex >= 0) && (layerIndex < layers.length)) {
+                            GRUNT.Log.info("removing layer: " + id);
+                            layers.splice(layerIndex, 1);
+                        } // if
+                    }, timeout ? timeout : 1);
                 },
 
                 invalidate: function(args) {
-                    args = GRUNT.extend({
-                        force: false
-                    }, args);
-
-                    if (args.force) {
-                        drawToBuffer();
-                    } 
-                    else {
-                        if (redraw_timer) {
-                            clearTimeout(redraw_timer);
-                        } // if
-
-                        redraw_timer = setTimeout(function() {
-                            drawToBuffer();
-                            drawBufferToMain(params.scale);
-                            redraw_timer = 0;
-                        }, redraw_sleep); // this redraw time equates to approx 25FPS
-                    } // if
-
-                    // draw the cached_context to the 
-                    drawBufferToMain();
+                    // iterate through the layers and draw them
+                    for (var ii = 0; ii < layers.length; ii++) {
+                        // draw the layer output to the main canvas
+                        layers[ii].draw(main_context, pannable ? pannable.getOffset() : new SLICK.Vector(), dimensions, self.getScaleFactor(), scalable);
+                    } // for
                 }
-            };
+            });
+            
+            // get the dimensions
+            dimensions = self.getDimensions();
 
+            // create an interval to do a proper redraw on the layers
+            setInterval(function() {
+                // if we are actively panning, don't do anything - it makes the display look choppy...
+                if ((new Date().getTime()) - lastPan < params.redrawDelay) { return; }
+                
+                // iterate through the layers and draw them
+                for (var ii = 0; ii < layers.length; ii++) {
+                    layers[ii].drawBuffer(pannable ? pannable.getOffset() : new SLICK.Vector(), dimensions);
+                } // for
+                
+                self.invalidate();
+            }, params.redrawDelay);
+            
             return self;
         },
         
@@ -394,397 +460,10 @@ SLICK.Graphics = (function() {
             };
             
             return self;
-        },
-        
-        ImageTile: function(params) {
-            // initialise parameters with defaults
-            params = GRUNT.extend({
-                url: "",
-                sessionParamRegex: null
-            }, params);
-            
-            // initialise parent
-            var parent = new module.Sprite(params);
-            var image = null;
-            
-            // initialise self
-            var self = GRUNT.extend({}, parent, {
-                draw: function(context, x, y) {
-                    if (image && image.complete) {
-                        context.drawImage(image, x, y);
-                    } // if
-                },
-                
-                load: function() {
-                    if ((! image)  && params.url) {
-                        // create the image
-                        image = null; // module.ImageCache.getImage(params.url, params.sessionParamRegex);
-                        
-                        // if we didn't get an image from the cache, then load it
-                        if (! image) {
-                            image = new Image();
-                            image.src = params.url;
-
-                            // watch for the image load
-                            image.onload = function() {                                
-                                // module.ImageCache.cacheImage(params.url, params.sessionParamRegex, image);
-                                
-                                self.loaded = true;
-                                self.changed(self);
-                            }; // onload
-                            
-                        } // if
-                    }
-                }
-            }); 
-            
-            return self;
-        },
-        
-        EmptyGridTile: function(params) {
-            // initialise parameters with defaults
-            params = GRUNT.extend({
-                tileSize: 256,
-                gridLineSpacing: 16
-            }, params);
-            
-            // initialise the parent
-            var parent = new module.Sprite(params);
-            var buffer = null;
-            
-            function prepBuffer() {
-                // if the buffer has not beem created, then create it
-                if (! buffer) {
-                    buffer = document.createElement("canvas");
-                    buffer.width = params.tileSize;
-                    buffer.height = params.tileSize;
-                } // if
-                
-                // get the tile context
-                var tile_context = buffer.getContext("2d");
-
-                tile_context.fillStyle = "rgb(200, 200, 200)";
-                tile_context.fillRect(0, 0, buffer.width, buffer.height);
-
-                // set the context line color and style
-                tile_context.strokeStyle = "rgb(180, 180, 180)";
-                tile_context.lineWidth = 0.5;
-
-                for (var xx = 0; xx < buffer.width; xx += params.gridLineSpacing) {
-                    // draw the column lines
-                    tile_context.beginPath();
-                    tile_context.moveTo(xx, 0);
-                    tile_context.lineTo(xx, buffer.height);
-                    tile_context.stroke();
-                    tile_context.closePath();
-
-                    for (var yy = 0; yy < buffer.height; yy += params.gridLineSpacing) {
-                        // draw the row lines
-                        tile_context.beginPath();
-                        tile_context.moveTo(0, yy);
-                        tile_context.lineTo(buffer.width, yy);
-                        tile_context.stroke();
-                        tile_context.closePath();
-                    } // for
-                } // for        
-            } // prepBuffer
-            
-            // initialise self
-            var self = GRUNT.extend({}, parent, {
-                draw: function(context, x, y, scale) {
-                    // draw the buffer to the context
-                    // TODO: handle scaling
-                    context.drawImage(buffer, x, y);
-                },
-                
-                getBuffer: function() {
-                    return buffer;
-                },
-                
-                getTileSize: function() {
-                    return params.tileSize;
-                }
-            });
-            
-            // prep the buffer
-            prepBuffer();
-            
-            return self;
-        },
-        
-        TileGrid: function(params) {
-            // extend the params with the defaults
-            params = GRUNT.extend({
-                emptyTileImage: null,
-                tileSize: SLICK.TilerConfig.TILESIZE,
-                emptyTile: null,
-                drawGrid: false,
-                center: new SLICK.Vector()
-            }, params);
-            
-            // initialise varibles
-            var halfTileSize = Math.round(params.tileSize * 0.5);
-            var listeners = [];
-            var invTileSize = params.tileSize ? 1 / params.tileSize : 0;
-            
-            // create the tile store
-            var tileStore = new TileStore(params);
-            
-            // create the offscreen buffer
-            var buffer = null;
-            
-            function notifyListeners(tile) {
-                for (var ii = 0; ii < listeners.length; ii++) {
-                    listeners[ii](tile);
-                } // for
-            } // notifyListeners
-            
-            function drawTileBorder(context, x, y) {
-                context.beginPath();
-                context.rect(x, y, params.tileSize, params.tileSize);
-                context.closePath();
-                context.stroke();
-            } // drawTileBorder
-            
-            // initialise self
-            var self = {
-                addTile: function(col, row, tile) {
-                    // update the tile store 
-                    tileStore.setTile(col, row, tile);
-                    
-                    if (tile) {
-                        // when the tile changes, flag updates
-                        tile.requestUpdates(function(tile) {
-                            notifyListeners(tile);
-                        });
-                    }
-                },
-                
-                getTileSize: function() {
-                    return params.tileSize;
-                },
-                
-                getTileVirtualXY: function(col, row, getCenter) {
-                    // get the normalized position from the tile store
-                    var pos = tileStore.getNormalizedPos(col, row);
-                    
-                    GRUNT.Log.info("normalised pos = " + pos);
-                    var fnresult = new SLICK.Vector(pos.x * params.tileSize, pos.y * params.tileSize);
-                    
-                    if (getCenter) {
-                        fnresult.x += halfTileSize;
-                        fnresult.y += halfTileSize;
-                    }
-                    
-                    return fnresult;
-                },
-                
-                getCenterXY: function() {
-                    // get the center column and row index
-                    var midIndex = Math.ceil(tileStore.getGridSize() * 0.5);
-                    
-                    return self.getTileVirtualXY(midIndex, midIndex, true);
-                },
-                
-                draw: function(context, offsetX, offsetY, width, height) {
-                    // find the tile for the specified position
-                    var tileStart = new SLICK.Vector(Math.floor(offsetX * invTileSize), Math.floor(offsetY * invTileSize));
-                    var tileCols = Math.ceil(width * invTileSize) + 1;
-                    var tileRows = Math.ceil(height * invTileSize) + 1;
-                    var tileOffset = new SLICK.Vector(
-                        (tileStart.x * params.tileSize) - offsetX,
-                        (tileStart.y * params.tileSize) - offsetY);
-                        
-                    // set the context stroke style for the border
-                    if (params.drawGrid) {
-                        context.strokeStyle = "rgba(50, 50, 50, 0.3)";
-                    } // if
-                    
-                    // right, let's draw some tiles (draw rows first)
-                    for (var yy = 0; yy < tileRows; yy++) {
-                        // initialise the y position
-                        var yPos = yy * params.tileSize + tileOffset.y;
-                        
-                        // iterate through the columns and draw the tiles
-                        for (var xx = 0; xx < tileCols; xx++) {
-                            // get the tile
-                            var tile = tileStore.getTile(xx + tileStart.x, yy + tileStart.y);
-                            var xPos = xx * params.tileSize + tileOffset.x;
-                            
-                            // if the tile is loaded, then draw, otherwise load
-                            if (tile && tile.loaded) {
-                                tile.draw(context, xPos, yPos);
-                            }
-                            else {
-                                if (params.emptyTile) {
-                                    params.emptyTile.draw(context, xPos, yPos);
-                                }
-                                
-                                if (tile) {
-                                    tile.load();
-                                } // if
-                            } // if..else
-                            
-                            // if we are drawing borders, then draw that now
-                            if (params.drawGrid) {
-                                drawTileBorder(context, xPos, yPos);
-                            } // if
-                        } // for
-                    } // for
-                },
-                
-                /*
-                Get the virtual dimensions of the tile grid 
-                */
-                getDimensions: function() {
-                    var widthHeight = tileStore.getGridSize() * params.tileSize;
-                    return new SLICK.Dimensions(widthHeight, widthHeight);
-                },
-
-                populate: function(tileCreator) {
-                    tileStore.populate(tileCreator, function(tile) {
-                        notifyListeners(tile);
-                    });
-                },
-                
-                requestUpdates: function(callback) {
-                    listeners.push(callback);
-                }
-            };
-            
-            return self;
         }
     }; 
     
     return module;
 })();
 
-SLICK.Tiler = function(params) {
-    params = GRUNT.extend({
-        container: "",
-        drawCenter: false,
-        panHandler: null,
-        tapHandler: null,
-        doubleTapHandler: null,
-        zoomHandler: null,
-        onDraw: null
-    }, params);
 
-    // apply touch functionality
-    jQuery(params.container).canTouchThis(params);
-    
-    // initialise layers
-    var grid = null;
-    var overlays = [];
-    
-    // create the empty tile
-    var emptyTile = new SLICK.Graphics.EmptyGridTile();
-    var tileSize = emptyTile.getTileSize();
-    
-    // create the parent
-    var view = new SLICK.Graphics.View(GRUNT.extend({}, params, {
-        fillBackground: function(context, x, y, width, height) {
-            var gradient = context.createLinearGradient(x, 0, x, height);
-            gradient.addColorStop(0, "rgb(170, 170, 170)");
-            gradient.addColorStop(1, "rgb(210, 210, 210)");
-            
-            context.fillStyle = gradient; 
-            context.fillRect(0, 0, width, height);
-        },
-        
-        onDraw: function(context, width, height) {
-            // get the offset
-            var offset = self.getOffset();
-            
-            if (grid) {
-                grid.draw(context, offset.x, offset.y, width, height);
-                
-                // iterate through the overlays and draw them to the view also
-                for (var ii = 0; ii < overlays.length; ii++) {
-                    overlays[ii].drawToView(view);
-                } // for
-            } // if
-            
-            // if we have been passed an onDraw handler, then call that too
-            if (params.onDraw) {
-                params.onDraw(context);
-            } // if
-        }
-    }));
-    
-    // create some behaviour mixins
-    var pannable = new SLICK.Pannable({
-        container: params.container,
-
-        onPan: function(x, y) {
-            if (grid) {
-                self.invalidate();
-                
-                // if we have a pan handler defined, then call it
-                if (params.panHandler) {
-                    params.panHandler(x, y);
-                } // if
-            } // if
-        }
-    }); // pannable
-    
-    var scalable = new SLICK.Scalable({
-        container: params.container,
-        onPinchZoom: function() {
-            if (grid) {
-                self.invalidate();
-            } // if
-        },
-        
-        onScale: function() {
-            GRUNT.Log.info("** SCALING COMPLETE **");
-            
-            // if the zoom handler is assigned, then call it
-            if (params.zoomHandler) {
-                params.zoomHandler(self.getScaleAmount());
-            } // if
-        }
-    }); // scalable
-    
-    // initialise self
-    var self = GRUNT.extend(view, pannable, scalable, {
-        getGrid: function() {
-            return grid;
-        },
-        
-        setGrid: function(value) {
-            grid = value;
-            
-            if (grid) {
-                /* 
-                REMOVED: as this calculation is done when panning to position
-                var offset = grid.getCenterOffset();
-                self.updateOffset(offset.x, offset.y);
-                */
-                
-                self.updateOffset(0, 0);
-                
-                // request updates
-                grid.requestUpdates(function(tile) {
-                    self.invalidate();
-                });
-                
-                
-                self.invalidate();
-            } // if
-        },
-        
-        gridPixToViewPix: function(vector) {
-            var offset = self.getOffset();
-            return new SLICK.Vector(vector.x - offset.x, vector.y - offset.y);
-        },
-        
-        viewPixToGridPix: function(vector) {
-            var offset = self.getOffset();
-            GRUNT.Log.info("Offset = " + offset);
-            return new SLICK.Vector(vector.x + offset.x, vector.y + offset.y);
-        }
-    }); // self
-    
-    return self;
-}; // Tiler

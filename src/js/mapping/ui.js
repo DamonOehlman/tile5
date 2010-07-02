@@ -83,6 +83,7 @@ SLICK.MappingTiler = function(args) {
     var zoom_level = 10;
     var current_position = null;
     var centerPos = null;
+    var initialized = false;
     
     // if the data provider has not been created, then create a default one
     if (! provider) {
@@ -113,7 +114,7 @@ SLICK.MappingTiler = function(args) {
     function updateCenterPos() {
         // get the dimensions of the object
         var dimensions = self.getDimensions();
-        var grid = self.getGrid();
+        var grid = self.getTileLayer();
 
         if (grid) {
             // get the relative positioning on the grid for the current control center position
@@ -125,7 +126,7 @@ SLICK.MappingTiler = function(args) {
     } // updateCenterPos
     
     // initialise our own pan handler
-    args.panHandler = function(x, y) {
+    args.onPan = function(x, y) {
         if (caller_pan_handler) {
             caller_pan_handler(x, y);
         } // if
@@ -133,7 +134,7 @@ SLICK.MappingTiler = function(args) {
     
     // initialise our own tap handler
     args.tapHandler = function(absPos, relPos) {
-        var grid = self.getGrid();
+        var grid = self.getTileLayer();
         var tap_bounds = null;
         
         if (grid) {
@@ -157,7 +158,7 @@ SLICK.MappingTiler = function(args) {
     }; // tapHandler
     
     args.doubleTapHandler = function(absPos, relPos) {
-        var grid = self.getGrid();
+        var grid = self.getTileLayer();
         if (grid) {
             var grid_pos = self.viewPixToGridPix(new SLICK.Vector(relPos.x, relPos.y));
 
@@ -166,8 +167,11 @@ SLICK.MappingTiler = function(args) {
         } // if
     }; // doubleTapHandler
     
-    args.zoomHandler = function(scaleAmount) {
+    args.onScale = function(scaleAmount) {
         var zoomChange = 0;
+        
+        // damp the scale amount
+        scaleAmount = Math.sqrt(scaleAmount);
         
         if (scaleAmount < 1) {
             zoomChange = -(1 / scaleAmount);
@@ -178,7 +182,11 @@ SLICK.MappingTiler = function(args) {
         
         // get the updated center position
         updateCenterPos();
-
+        
+        // TODO: check that the new zoom level is acceptable
+        // remove the grid layer
+        // self.removeLayer("grid");
+        
         // GRUNT.Log.info("adjust zoom by: " + zoomChange);
         self.gotoPosition(centerPos, zoom_level + Math.round(zoomChange));
     }; // zoomHandler
@@ -186,7 +194,7 @@ SLICK.MappingTiler = function(args) {
     args.onDraw = function(context) {
         // get the offset
         var offset = self.pannable ? self.getOffset() : new SLICK.Vector();;
-        var grid = self.getGrid();
+        var grid = self.getTileLayer();
 
         // draw each of the pins
         for (var pin_id in pins) {
@@ -207,13 +215,13 @@ SLICK.MappingTiler = function(args) {
     }; // onDraw
     
     // create the base tiler
-    var parent = new SLICK.Tiler(args);
+    var parent = new SLICK.Tiling.Tiler(args);
     
     // initialise self
     var self = GRUNT.extend({}, parent, {
         getBoundingBox: function(buffer_size) {
             var fnresult = new SLICK.Geo.BoundingBox();
-            var grid = self.getGrid();
+            var grid = self.getTileLayer();
             var offset = self.getOffset();
             var dimensions = self.getDimensions();
             
@@ -229,29 +237,50 @@ SLICK.MappingTiler = function(args) {
             return centerPos;
         },
         
-        gotoPosition: function(position, new_zoom_level, callback) {
+        gotoPosition: function(position, newZoomLevel, callback) {
+            // save the current zoom level
+            var currentZoomLevel = zoom_level;
+            
             // if a new zoom level is specified, then use it
-            zoom_level = new_zoom_level ? new_zoom_level : zoom_level;
+            zoom_level = newZoomLevel ? newZoomLevel : zoom_level;
             
             // if the zoom level is not defined, then raise an exception
             if (! zoom_level) {
                 throw "Zoom level required to goto a position.";
             } // if
             
-            // update the provider zoom level
-            provider.zoomLevel = zoom_level;
-            provider.getMapTiles(self, position, function(tile_grid) {
-                // GRUNT.Log.info(String.format("created tile grid {0} x {1}", tile_grid.columns, tile_grid.rows));
-                self.setGrid(tile_grid);
+            // check the zoom level is ok
+            if (args.provider) {
+                zoom_level = args.provider.checkZoomLevel(zoom_level);
+            } // if
+            
+            // if the zoom level is different from the current zoom level, then update the map tiles
+            if ((! initialized) || (zoom_level != currentZoomLevel)) {
+                // if the map is initialise, then pan to the specified position
+                if (initialized) {
+                    self.panToPosition(position);
+                    self.newTileLayer();
+                } // if
                 
+                // update the provider zoom level
+                provider.zoomLevel = zoom_level;
+                provider.getMapTiles(self, position, function(tile_grid) {
+                    self.setTileLayer(tile_grid);
+                    self.panToPosition(position, callback);
+                    
+                    centerPos = position;
+                });
+                
+                initialized = true;
+            }
+            // otherwise, just pan to the correct position
+            else {
                 self.panToPosition(position, callback);
-                
-                centerPos = position;
-            });
+            } // if..else
         },
         
         panToPosition: function(position, callback) {
-            var grid = self.getGrid();
+            var grid = self.getTileLayer();
             if (grid) {
                 // determine the tile offset for the requested position
                 var center_xy = grid.getGridXYForPosition(position);
@@ -262,10 +291,11 @@ SLICK.MappingTiler = function(args) {
                 center_xy.y -= (dimensions.height * 0.5);
             
                 // pan the required amount
-                // GRUNT.Log.info(String.format("need to apply pan vector of ({0}) to correctly center", center_xy));
-                // GRUNT.Log.info("offset before pan = " + self.getOffset());
-                self.pan(center_xy.x, center_xy.y);
-                // GRUNT.Log.info("offset after pan = " + self.getOffset());
+                //GRUNT.Log.info(String.format("need to apply pan vector of ({0}) to correctly center", center_xy));
+                //GRUNT.Log.info("offset before pan = " + self.getOffset());
+                self.setOffset(center_xy.x, center_xy.y);
+                self.invalidate();
+                //GRUNT.Log.info("offset after pan = " + self.getOffset());
             
                 // if we have a callback defined, then run it
                 if (callback) {
@@ -294,7 +324,7 @@ SLICK.MappingTiler = function(args) {
         /* poi methods */
         
         addPOI: function(poi) {
-            var grid = self.getGrid();
+            var grid = self.getTileLayer();
             
             if (grid && poi && poi.id && poi.pos) {
                 // create the pin

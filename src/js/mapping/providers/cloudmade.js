@@ -2,6 +2,10 @@
 @namespace
 */
 SLICK.Geo.Cloudmade = (function() {
+    // define some constants
+    var ZOOMLEVEL_MIN = 3;
+    var ZOOMLEVEL_MAX = 17;
+    
     // define the module
     var module = {
         /** @lends SLICK.Geo.Cloudmade */
@@ -26,11 +30,10 @@ SLICK.Geo.Cloudmade = (function() {
                 // TODO: think about whether to throw an error if not divisble
                 var subdomain_idx = 0;
 
-                tile_grid = new SLICK.Graphics.TileGrid({
-                    tileSize: SLICK.TilerConfig.TILESIZE,
-                    emptyTile: new SLICK.Graphics.EmptyGridTile({
-                        tileSize: SLICK.TilerConfig.TILESIZE
-                    }),
+                tile_grid = new SLICK.Tiling.TileGrid({
+                    tileSize: SLICK.Tiling.Config.TILESIZE,
+                    width: container_dimensions.width,
+                    height: container_dimensions.height,
                     center: tile_offset,
                     drawGrid: config.drawGrid
                 });
@@ -41,7 +44,7 @@ SLICK.Geo.Cloudmade = (function() {
                     var tile_url = String.format(CLOUDMADE_TILEURL,
                         config.apikey,
                         config.styleid,
-                        SLICK.TilerConfig.TILESIZE,
+                        SLICK.Tiling.Config.TILESIZE,
                         self.zoomLevel,
                         topLeftOffset.x + col,
                         topLeftOffset.y + row);       
@@ -51,7 +54,7 @@ SLICK.Geo.Cloudmade = (function() {
                         subdomain_idx = 0;
                     } // if                     
 
-                    return SLICK.Graphics.ImageTile({ 
+                    return SLICK.Tiling.ImageTile({ 
                         url: String.format("http://{0}.{1}", CLOUDMADE_SUBDOMAINS[subdomain_idx++], tile_url),
                         sessionParamRegex: /(SESSIONID)/i 
                     });
@@ -69,7 +72,7 @@ SLICK.Geo.Cloudmade = (function() {
                     centerPos: calculatePositionFromTileOffset(tile_offset.x + 0.5, tile_offset.y - 0.5, self.zoomLevel),
                     // NOTE: zoom level is similar to decarta GX zoom level but 1 less...
                     // TODO: implement some kind of universal zoom level... there probably is one already... 
-                    radsPerPixel: SLICK.Geo.Cloudmade.radsPerPixelAtZoom(SLICK.TilerConfig.TILESIZE, self.zoomLevel)
+                    radsPerPixel: SLICK.Geo.Cloudmade.radsPerPixelAtZoom(SLICK.Tiling.Config.TILESIZE, self.zoomLevel)
                 });
 
                 return tile_grid;
@@ -109,6 +112,10 @@ SLICK.Geo.Cloudmade = (function() {
 
             // initialise self
             var self = GRUNT.extend({}, parent, {
+                checkZoomLevel: function(zoomLevel) {
+                    return Math.max(ZOOMLEVEL_MIN, Math.min(ZOOMLEVEL_MAX, zoomLevel));
+                },
+                
                 getMapTiles: function(tiler, position, callback) {
                     // check and update the tiler tile size if required
 
@@ -131,8 +138,8 @@ SLICK.Geo.Cloudmade = (function() {
     }; 
     
     // check the tile size, if not valid then correct to a valid tilesize
-    if ((SLICK.TilerConfig.TILESIZE !== 64) || (SLICK.TilerConfig.TILESIZE !== 256)) {
-        SLICK.TilerConfig.TILESIZE = 256;
+    if ((SLICK.Tiling.Config.TILESIZE !== 64) || (SLICK.Tiling.Config.TILESIZE !== 256)) {
+        SLICK.Tiling.Config.TILESIZE = 256;
     } // if    
     
     return module;

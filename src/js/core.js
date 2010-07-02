@@ -97,6 +97,18 @@ SLICK = (function () {
                   
                   return self;
                 },
+                
+                /**
+                Determine the difference between the current vector and a second vector. The result is returned in a new
+                vector
+                
+                @memberOf SLICK.Vector#
+                @param {SLICK.Vector} vector the vector to subtract from the current vector
+                @return {SLICK.Vector} a new vector representing the difference between the current vector and the 2nd vector
+                */
+                diff: function(vector) {
+                    return new SLICK.Vector(self.x - vector.x, self.y - vector.y);
+                },
 
                 /**
                 Copy the specified vector value into the current object
