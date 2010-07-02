@@ -1,16 +1,11 @@
-/*
-File:  slick.mapping.cloudmade.js
-This file is used to define a MapProvider for the cloudmade HTTP Tile API, documentation
-about that API can be found @ http://developers.cloudmade.com/projects/show/tiles.
-
-Section:  Version History
-02/06/2010 (DJO) - Created File
+/**
+@namespace
 */
-
-// define the cloudmade namespace
 SLICK.Geo.Cloudmade = (function() {
     // define the module
     var module = {
+        /** @lends SLICK.Geo.Cloudmade */
+        
         MapProvider: function(params) {
             // initialise constants
             var CLOUDMADE_SUBDOMAINS = ['a', 'b', 'c'];
@@ -19,7 +14,8 @@ SLICK.Geo.Cloudmade = (function() {
             // initialise variables
             var config = GRUNT.extend({
                 apikey: "",
-                styleid: 1
+                styleid: 1,
+                drawGrid: false
             }, params);
 
             // initialise parent
@@ -35,7 +31,8 @@ SLICK.Geo.Cloudmade = (function() {
                     emptyTile: new SLICK.Graphics.EmptyGridTile({
                         tileSize: SLICK.TilerConfig.TILESIZE
                     }),
-                    center: tile_offset
+                    center: tile_offset,
+                    drawGrid: config.drawGrid
                 });
 
                 // set the tile grid origin
@@ -69,11 +66,10 @@ SLICK.Geo.Cloudmade = (function() {
                                     tile_offset.x, 
                                     tile_offset.y,
                                     true),
-                    centerPos: centerPos,
-                    offsetAdjustment: new SLICK.Vector(0, SLICK.TilerConfig.TILESIZE),
+                    centerPos: calculatePositionFromTileOffset(tile_offset.x + 0.5, tile_offset.y - 0.5, self.zoomLevel),
                     // NOTE: zoom level is similar to decarta GX zoom level but 1 less...
                     // TODO: implement some kind of universal zoom level... there probably is one already... 
-                    radsPerPixel: SLICK.Geo.Decarta.Utilities.radsPerPixelAtZoom(SLICK.TilerConfig.TILESIZE, self.zoomLevel - 1)
+                    radsPerPixel: SLICK.Geo.Decarta.Utilities.radsPerPixelAtZoom(SLICK.TilerConfig.TILESIZE, self.zoomLevel)
                 });
 
                 return tile_grid;
@@ -86,15 +82,30 @@ SLICK.Geo.Cloudmade = (function() {
 
             http://developers.cloudmade.com/projects/tiles/examples/convert-coordinates-to-tile-numbers
             */
-            function calculateTileOffset(position, zoom_level) {
-                // determine the n factor (TODO: find out what n is)
-                var n = Math.pow(2, zoom_level);
-                var x_tile = ((position.lon + 180) / 360) * n;
-                var y_tile = (1 - (Math.log(Math.tan(position.lat.toRad()) + position.lat.toRad().sec()) / Math.PI)) / 2 * n;
-
-                return new SLICK.Vector(Math.floor(x_tile), Math.floor(y_tile));
+            function calculateTileOffset(position, zoomLevel) {
+                // functions from the open street map wiki
+                // http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
+                function long2tile(lon,zoom) { return (Math.floor((lon+180)/360*Math.pow(2,zoom))); }
+                function lat2tile(lat,zoom)  { return (Math.floor((1-Math.log(Math.tan(lat*Math.PI/180) + 1/Math.cos(lat*Math.PI/180))/Math.PI)/2 *Math.pow(2,zoom))); }
+                
+                return new SLICK.Vector(long2tile(position.lon, zoomLevel), lat2tile(position.lat, zoomLevel));
             } // calculateTileOffset
-
+            
+            function calculatePositionFromTileOffset(x, y, zoomLevel) {
+                // functions from the open street map wiki
+                // http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
+                
+                function tile2long(x,z) {
+                  return (x/Math.pow(2,z)*360-180);
+                }
+                 
+                function tile2lat(y,z) {
+                  var n=Math.PI-2*Math.PI*y/Math.pow(2,z);
+                  return (180/Math.PI*Math.atan(0.5*(Math.exp(n)-Math.exp(-n))));
+                }
+                
+                return new SLICK.Geo.Position(tile2lat(y, zoomLevel), tile2long(x, zoomLevel));
+            } // calculatePositionFromTileOffset
 
             // initialise self
             var self = GRUNT.extend({}, parent, {
@@ -103,7 +114,7 @@ SLICK.Geo.Cloudmade = (function() {
 
                     // firstly determine the tile offset of the specified position
                     tile_offset = calculateTileOffset(position, self.zoomLevel);
-
+                    
                     // if the callback is defined, then build the tile grid
                     if (callback) {
                         callback(buildTileGrid(tile_offset, tiler.getDimensions(), position));

@@ -1,9 +1,4 @@
 /**
-@fileOverview
-This file contains the definition of the core SLICK namespace and associated types and helpers.
-*/
-
-/**
 @namespace 
 
 The top level SLICK namespace.  This module contains core types and functionality for implementing 
@@ -288,9 +283,10 @@ SLICK = (function () {
                 Apply a delta that was previously calculated using the getRequiredDelta function or one you determined
                 yourself, given you are of course smart enough ;)
                 
-                @delta - the delta to apply in the form of a named hash (top, left, bottom, right)
-                @scalingFactor (optional) - a scaling factor to apply to the delta transformation
-                @aspectRatio (optional) - the aspect ratio to constrain the transformation by - if specified, the height will be automatically calculated
+                @memberOf SLICK.Rect#
+                @param {Object} delta the delta to apply in the form of a named hash (top, left, bottom, right)
+                @param {Number} scalingFactor a scaling factor to apply to the delta transformation (optional)
+                @param {Number} aspectRatio the aspect ratio to constrain the transformation by - if specified, the height will be automatically calculated (optional)
                 */
                 applyDelta: function(delta, scalingFactor, aspectRatio) {
                     // check the delta

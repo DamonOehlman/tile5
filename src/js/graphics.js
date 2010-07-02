@@ -411,7 +411,6 @@ SLICK.Graphics = (function() {
             var self = GRUNT.extend({}, parent, {
                 draw: function(context, x, y) {
                     if (image && image.complete) {
-                        // TODO: handle scaling
                         context.drawImage(image, x, y);
                     } // if
                 },
@@ -514,16 +513,14 @@ SLICK.Graphics = (function() {
         },
         
         TileGrid: function(params) {
-            // initialise default params
-            var DEFAULT_PARAMS = {
+            // extend the params with the defaults
+            params = GRUNT.extend({
                 emptyTileImage: null,
                 tileSize: SLICK.TilerConfig.TILESIZE,
                 emptyTile: null,
+                drawGrid: false,
                 center: new SLICK.Vector()
-            };
-            
-            // extend the params with the defaults
-            params = GRUNT.extend({}, DEFAULT_PARAMS, params);
+            }, params);
             
             // initialise varibles
             var halfTileSize = Math.round(params.tileSize * 0.5);
@@ -541,6 +538,13 @@ SLICK.Graphics = (function() {
                     listeners[ii](tile);
                 } // for
             } // notifyListeners
+            
+            function drawTileBorder(context, x, y) {
+                context.beginPath();
+                context.rect(x, y, params.tileSize, params.tileSize);
+                context.closePath();
+                context.stroke();
+            } // drawTileBorder
             
             // initialise self
             var self = {
@@ -590,6 +594,11 @@ SLICK.Graphics = (function() {
                     var tileOffset = new SLICK.Vector(
                         (tileStart.x * params.tileSize) - offsetX,
                         (tileStart.y * params.tileSize) - offsetY);
+                        
+                    // set the context stroke style for the border
+                    if (params.drawGrid) {
+                        context.strokeStyle = "rgba(50, 50, 50, 0.3)";
+                    } // if
                     
                     // right, let's draw some tiles (draw rows first)
                     for (var yy = 0; yy < tileRows; yy++) {
@@ -615,6 +624,11 @@ SLICK.Graphics = (function() {
                                     tile.load();
                                 } // if
                             } // if..else
+                            
+                            // if we are drawing borders, then draw that now
+                            if (params.drawGrid) {
+                                drawTileBorder(context, xPos, yPos);
+                            } // if
                         } // for
                     } // for
                 },

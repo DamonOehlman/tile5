@@ -122,6 +122,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="lib/grunt/dist/grunt.test.js" />
 			<fileset file="test/unit/core.js" />
 			<fileset file="test/unit/mapping.js" />
+			<fileset file="test/unit/cloudmade.js" />
 		</concat>
 		
 		<!-- TODO: if the strip logging property is set, then strip it -->
@@ -138,28 +139,26 @@ http://github.com/jquery/jquery/blob/master/build.xml
 	
     <target name="min" depends="build-slick" description="Remove all comments and whitespace, no compression, great in combination with GZip">
         <echo message="Building ${SLICK_MIN}" />
+
 		<apply executable="java" parallel="false" verbose="true" dest="${dist}">
 			<fileset dir="${dist}">
 				<include name="${LIBNAME}.js" />
 			</fileset>
 			<arg line="-jar" />
-			<arg path="build/google-compiler-20091218.jar" />
-			<arg value="--warning_level" />
-			<arg value="QUIET" />
+			<arg path="build/google-compiler-20100629.jar" />
+			<!-- go hard with advanced optimizations -->
+			<arg value="--compilation_level" />
+			<arg value="SIMPLE_OPTIMIZATIONS" />
 			<arg value="--js_output_file" />
 			<targetfile />
 			<arg value="--js" />
 			<mapper type="glob" from="${LIBNAME}.js" to="tmpmin" />
 		</apply>
+		
 		<concat destfile="${SLICK_MIN}">
-			<filelist files="${SLICK}, dist/tmpmin"/>
-			<filterchain>
-				<headfilter lines="15"/>
-			</filterchain>
-		</concat>
-		<concat destfile="${SLICK_MIN}" append="yes">
 			<filelist files="dist/tmpmin"/>
 		</concat>
+		
 		<delete file="dist/tmpmin"/>
         <echo message="${SLICK_MIN} built." />
     </target>

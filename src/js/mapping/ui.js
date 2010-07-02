@@ -98,6 +98,7 @@ SLICK.MappingTiler = function(args) {
         var xPos = width * 0.5;
         var yPos = height * 0.5;
 
+        context.strokeStyle = "#333333";
         context.beginPath();
         context.moveTo(xPos, 0);
         context.lineTo(xPos, height);

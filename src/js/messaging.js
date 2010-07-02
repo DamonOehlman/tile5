@@ -1,5 +1,5 @@
 /**
-SLICK Messaging module
+@namespace 
 
 The concept behind SLICK messaging, is to enable client-side javascript to send messages and have
 those messages be handled in some way.  In some cases, a message being handled will involve moving
@@ -68,7 +68,7 @@ SLICK.Messaging = (function() {
         to respond to the message, if they have handled the message they can update the message
         status and add message log entries.  
         
-        @params - a hashed array containing message details
+        @param {Hash} params a hashed array containing message details
         */
         send: function(params) {
             params = GRUNT.extend({
