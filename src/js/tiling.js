@@ -505,12 +505,6 @@ SLICK.Tiling = (function() {
 
                 setTileLayer: function(value) {
                     self.setLayer("grid" + gridIndex, value);
-                    
-                    if (value.requestUpdates) {
-                        value.requestUpdates(function(tile) {
-                            self.invalidate();
-                        });
-                    } // if
                 },
 
                 gridPixToViewPix: function(vector) {

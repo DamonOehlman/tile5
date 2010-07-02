@@ -202,9 +202,7 @@ SLICK.MappingTiler = function(args) {
                 // get the offset for the position
                 // TODO: optimize this (eg. var xy = self.gridPixToViewPix(pins[pin_id].mercXY);)
                 var xy = self.gridPixToViewPix(grid.getGridXYForPosition(pins[pin_id].poi.pos));
-                pins[pin_id].drawToContext(context, xy.x, xy.y, function() {
-                    self.invalidate();
-                });
+                pins[pin_id].drawToContext(context, xy.x, xy.y);
             } // if
         } // for
         
@@ -294,7 +292,6 @@ SLICK.MappingTiler = function(args) {
                 //GRUNT.Log.info(String.format("need to apply pan vector of ({0}) to correctly center", center_xy));
                 //GRUNT.Log.info("offset before pan = " + self.getOffset());
                 self.setOffset(center_xy.x, center_xy.y);
-                self.invalidate();
                 //GRUNT.Log.info("offset after pan = " + self.getOffset());
             
                 // if we have a callback defined, then run it
@@ -305,12 +302,8 @@ SLICK.MappingTiler = function(args) {
         },
         
         setZoomLevel: function(value) {
-            if (zoom_level !== value) {
-                zoom_level = value;
-            } // if
-            
             // if the current position is set, then goto the updated position
-            self.gotoPosition(self.getCenterPosition(), zoom_level);
+            self.gotoPosition(self.getCenterPosition(), value);
         },
         
         zoomIn: function() {
@@ -332,7 +325,6 @@ SLICK.MappingTiler = function(args) {
                     poi: poi
                     // mercXY: grid.getGridXYForPosition(poi.pos)
                 });
-                self.invalidate();
             }
             else {
                 throw new Error("Unable to add POI: " + (grid ? "Insufficient POI details" : "Mapping Grid not defined"));
@@ -343,7 +335,6 @@ SLICK.MappingTiler = function(args) {
             // GRUNT.Log.info("removing poi: " + poi);
             if (poi && poi.id) {
                 pins[poi.id] = null;
-                self.invalidate();
             } // if
         }
     }, parent);

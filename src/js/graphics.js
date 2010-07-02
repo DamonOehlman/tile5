@@ -207,17 +207,23 @@ SLICK.Graphics = (function() {
                 pannable: false,
                 scalable: false,
                 scaleDamping: false,
-                redrawDelay: 100,
+                bufferRefresh: 100,
+                fps: 40,
                 onPan: null,
                 onPinchZoom: null,
-                onScale: null
+                onScale: null,
+                onDraw: null
             }, params);
             
             // get the container context
             var canvas = document.getElementById(params.container);
             var main_context = null;
-            var lastPan = 0;
+            var lastInvalidate = 0;
             var dimensions;
+            
+            // calculate the repaint interval
+            var repaintInterval = params.fps ? (1000 / params.fps) : 40;
+            var bufferTime = 0;
 
             GRUNT.Log.info("Creating a new view instance, attached to container: " + params.container + ", canvas = ", canvas);
 
@@ -242,7 +248,6 @@ SLICK.Graphics = (function() {
                 pannable = new SLICK.Pannable({
                     container: params.container,
                     onPan: function(x, y) {
-                        lastPan = new Date().getTime();
                         self.invalidate();
                         
                         if (params.onPan) {
@@ -283,6 +288,36 @@ SLICK.Graphics = (function() {
                 
                 return -1;
             } // getLayerIndex
+            
+            /* draw code */
+            
+            var drawing = false;
+            
+            function drawView() {
+                if (drawing) { return; }
+                
+                // initialise variables
+                var panOffset = pannable ? pannable.getOffset() : new SLICK.Vector();
+                var scaleFactor = self.getScaleFactor();
+                
+                try {
+                    drawing = true;
+                    
+                    // iterate through the layers and draw them
+                    for (var ii = 0; ii < layers.length; ii++) {
+                        // draw the layer output to the main canvas
+                        layers[ii].draw(main_context, panOffset, dimensions, scaleFactor, scalable);
+                    } // for
+                
+                    // if we have an on draw parameter specified, then draw away
+                    if (params.onDraw) {
+                        params.onDraw(main_context, panOffset, dimensions, scaleFactor, scalable);
+                    } // if
+                } 
+                finally {
+                    drawing = false;
+                } // try..finally
+            } // drawView
 
             // initialise self
             var self = GRUNT.extend({}, pannable, scalable, {
@@ -351,11 +386,7 @@ SLICK.Graphics = (function() {
                 },
 
                 invalidate: function(args) {
-                    // iterate through the layers and draw them
-                    for (var ii = 0; ii < layers.length; ii++) {
-                        // draw the layer output to the main canvas
-                        layers[ii].draw(main_context, pannable ? pannable.getOffset() : new SLICK.Vector(), dimensions, self.getScaleFactor(), scalable);
-                    } // for
+                    lastInvalidate = new Date().getTime();
                 }
             });
             
@@ -364,16 +395,19 @@ SLICK.Graphics = (function() {
 
             // create an interval to do a proper redraw on the layers
             setInterval(function() {
-                // if we are actively panning, don't do anything - it makes the display look choppy...
-                if ((new Date().getTime()) - lastPan < params.redrawDelay) { return; }
+                // check to see if we are panning
+                var viewInvalidating = (new Date().getTime()) - lastInvalidate < params.bufferRefresh;
                 
-                // iterate through the layers and draw them
-                for (var ii = 0; ii < layers.length; ii++) {
-                    layers[ii].drawBuffer(pannable ? pannable.getOffset() : new SLICK.Vector(), dimensions);
-                } // for
+                bufferTime += repaintInterval;
+                if ((! viewInvalidating) && (bufferTime > params.bufferRefresh)) {
+                    // iterate through the layers and draw them
+                    for (var ii = 0; ii < layers.length; ii++) {
+                        layers[ii].drawBuffer(pannable ? pannable.getOffset() : new SLICK.Vector(), dimensions);
+                    } // for
+                } // if
                 
-                self.invalidate();
-            }, params.redrawDelay);
+                drawView();
+            }, repaintInterval);
             
             return self;
         },
