@@ -93,9 +93,9 @@ SLICK.Touch = (function() {
         }, // Touches        
         
         TouchHelper: function(params) {
-            // initialise default args
-            var DEFAULT_ARGS = {
+            params = GRUNT.extend({
                 element: null,
+                inertiaTrigger: 20,
                 maxDistDoubleTap: 20,
                 panEventThreshhold: 0,
                 pinchZoomThreshold: 5,
@@ -106,7 +106,7 @@ SLICK.Touch = (function() {
                 pinchZoomEndHandler: null,
                 tapHandler: null,
                 doubleTapHandler: null
-            }; // DEFAULT_ARGS
+            }, params);
 
             // determine whether touch is supported
             // nice work to thomas fuchs on this:
@@ -145,10 +145,86 @@ SLICK.Touch = (function() {
                 current: 0,
                 last: 0
             };
+            
+            var INERTIA_TOUCH_COUNT = 4;
+            var INERTIA_ANIMATION_STEPS = 20;
+            var BENCHMARK_INTERVAL = 300;
+            var inertiaTouches = [];
+            var inertiaInterval = 0;
+            var inertiaCounter = 0;
+            
+            function updateInertia(vector) {
+                if (inertiaTouches.length > INERTIA_TOUCH_COUNT) {
+                    inertiaTouches.pop();
+                } // if
+                
+                inertiaTouches.unshift({
+                    vector: vector,
+                    ticks: new Date().getTime()
+                });
+            } // updateInertia
+            
+            function calculateInertia() {
+                var fnresult = new SLICK.Vector();
+
+                // if we have sufficient points, then calculate inertia
+                if (inertiaTouches.length > 1) {
+                    // calculate the time elapsed
+                    var speedFactor = (inertiaTouches[inertiaTouches.length - 1].ticks - inertiaTouches[0].ticks) / BENCHMARK_INTERVAL;
+                    
+                    // calculate the total distance
+                    for (var ii = 0; ii < inertiaTouches.length; ii++) {
+                        fnresult.add(inertiaTouches[ii].vector);
+                    } // for
+
+                    // calculate the inertia as a factor of distance by time
+                    fnresult = new SLICK.Vector(
+                                    (-fnresult.x / inertiaTouches.length) / speedFactor,
+                                    (-fnresult.y / inertiaTouches.length) / speedFactor);
+                }
+                
+                inertiaTouches = [];
+                return fnresult;
+            } // calculateInertia
+            
+            function checkInertia() {
+                var hasInertia = false;
+                var inertia = calculateInertia();
+                var moved = new SLICK.Vector();
+                var minDivisor = INERTIA_ANIMATION_STEPS / 4;
+                
+                GRUNT.Log.info("checking inertia (" + inertia + ") against inertia trigger: " + params.inertiaTrigger);
+
+                if ((Math.abs(inertia.x) > params.inertiaTrigger) || (Math.abs(inertia.y) > params.inertiaTrigger)) {
+                    hasInertia = true;
+                    inertiaCounter = 0;
+                    
+                    GRUNT.Log.info("yep, inertia triggered");
+                    inertiaInterval = setInterval(function() {
+                        var moveX = inertia.x / Math.max(minDivisor, inertiaCounter);
+                        var moveY = inertia.y / Math.max(minDivisor, inertiaCounter);
+                        
+                        self.fireEvent('moveHandler', moveX, moveY);
+                        moved.add(moveX, moveY);
+                        
+                        // decrement the inertia counter
+                        inertiaCounter++;
+                        
+                        // if the inertia counter is less than or equal to 0, clear the interal, and fire the on move end handler
+                        if (inertiaCounter >=  INERTIA_ANIMATION_STEPS) {
+                            clearInterval(inertiaInterval);
+                            inertiaInterval = 0;
+                            
+                            self.fireEvent('moveEndHandler', total_delta.x + moved.x, total_delta.y + moved.y);
+                        } // if
+                    }, 30);
+                } // if
+                
+                return hasInertia;
+            } // checkInertia
 
             // initialise self
             var self = {
-                args: GRUNT.extend({}, DEFAULT_ARGS, params),
                 supportsTouch: touchReady,
 
                 /* define mutable constants (yeah, I know that's a contradiction) */
@@ -180,8 +256,8 @@ SLICK.Touch = (function() {
                     var offsetVector = null;
                     
                     // if an element is defined, then determine the element offset
-                    if (self.args.element) {
-                        var offset = jQuery(self.args.element).offset();
+                    if (params.element) {
+                        var offset = jQuery(params.element).offset();
                         offsetVector = absVector.offset(-offset.left, -offset.top);
                     } // if
                     
@@ -241,7 +317,10 @@ SLICK.Touch = (function() {
                     total_delta = new SLICK.Vector();
                     touch_down = true;
                     doubleTap = false;
-
+                    
+                    // clear the inertia interval if it is running
+                    clearInterval(inertiaInterval);
+                    
                     // log the current touch start time
                     ticks.current = new Date().getTime();
 
@@ -253,7 +332,7 @@ SLICK.Touch = (function() {
                     if (ticks.current - ticks.last < self.THRESHOLD_DOUBLETAP) {
                         // calculate the difference between this and the last touch point
                         var touchChange = touches_start.calculateDelta(touches_last);
-                        if ((Math.abs(touchChange.x) < self.args.maxDistDoubleTap) && (Math.abs(touchChange.y) < self.args.maxDistDoubleTap)) {
+                        if ((Math.abs(touchChange.x) < params.maxDistDoubleTap) && (Math.abs(touchChange.y) < params.maxDistDoubleTap)) {
                             doubleTap = true;
                         } // if
                     } // if
@@ -300,7 +379,7 @@ SLICK.Touch = (function() {
                         // a single or multitouch event is completing...
 
                         // if we aren't pinching or zooming then do the move 
-                        if (Math.abs(zoom_distance) < self.args.pinchZoomThreshold) {
+                        if (Math.abs(zoom_distance) < params.pinchZoomThreshold) {
                             // calculate the pan delta
                             touch_delta = touches_current.calculateDelta(touches_last);
 
@@ -308,8 +387,11 @@ SLICK.Touch = (function() {
                             total_delta.add(touch_delta);
                             pan_delta.add(touch_delta);
                             
+                            // update the inertia
+                            updateInertia(touch_delta);
+                            
                             // if the pan_delta is sufficient to fire an event, then do so
-                            if (pan_delta.getAbsSize() > self.args.panEventThreshhold) {
+                            if (pan_delta.getAbsSize() > params.panEventThreshhold) {
                                 self.fireEvent('moveHandler', pan_delta.x, pan_delta.y);
                                 pan_delta = new SLICK.Vector();
                             } // if
@@ -333,9 +415,12 @@ SLICK.Touch = (function() {
                 },
 
                 end: function(touch_event) {
+                    // get the end tick
+                    var endTick = new Date().getTime();
+                    
                     // save the current ticks to the last ticks
                     ticks.last = ticks.current;
-
+                    
                     // if tapping, then first the tap event
                     if (touch_mode === TOUCH_MODES.TAP) {
                         // start the timer to fire the tap handler, if 
@@ -351,7 +436,7 @@ SLICK.Touch = (function() {
                     }
                     // if moving, then fire the move end
                     else if (touch_mode == TOUCH_MODES.MOVE) {
-                        self.fireEvent('moveEndHandler', total_delta.x, total_delta.y);
+                        self.fireEvent('moveEndHandler', total_delta.x, total_delta.y, calculateInertia());
                     }
                     // if pinchzooming, then fire the pinch zoom end
                     else if (touch_mode == TOUCH_MODES.PINCHZOOM) {
