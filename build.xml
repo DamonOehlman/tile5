@@ -58,33 +58,26 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		
 		<!-- concatenate the core file set -->
 		<!-- TODO: create more logical separation in the core library -->
-		<concat destfile="${dist}/${LIBNAME}.core.js">
+		<concat destfile="${SLICK}">
+			<!-- include the header -->
+			<fileset file="src/js/template/header.js" />
+			
+			<!-- include dependencies -->
 			<fileset file="lib/grunt/dist/grunt.js" />
+			
+			<!-- include core functionality -->
 			<fileset file="src/js/core.js" />
 			<fileset file="src/js/resources.js" />
 			<fileset file="src/js/touch.js" />
 			<fileset file="src/js/behaviours.js" />
-			<fileset file="src/js/graphics.js" />
-			<fileset file="src/js/tiling.js" />
 			<fileset file="src/js/dispatcher.js" />
 			<fileset file="src/js/messaging.js" />
-		</concat>
-		
-		<!-- create the ui library -->
-		<concat destfile="${dist}/${LIBNAME}.ui.js">
-			<fileset file="src/js/ui/core.js" />
-			<fileset file="src/js/ui/display.js" />
-			<fileset file="src/js/ui/forms.js" />
-			<fileset file="src/js/ui/navigation.js" />
-		</concat>
-		
-		<!-- create jqtouch helpers -->
-		<concat destfile="${dist}/${LIBNAME}.jqtouch.js">
-			<fileset file="src/js/jqtouch/core.js" />
-		</concat>
-		
-		<!-- concatenate the mapping file set -->
-		<concat destfile="${dist}/${LIBNAME}.mapping.js">
+			
+			<!-- include graphics and tiling -->
+			<fileset file="src/js/graphics.js" />
+			<fileset file="src/js/tiling.js" />
+			
+			<!-- include mapping -->
 			<fileset file="src/js/mapping/geo.js" />
 			<fileset file="src/js/mapping/ui.js" />
 			<fileset file="src/js/mapping/poi.js" />
@@ -109,14 +102,6 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		<concat destfile="${dist}/${LIBNAME}.titanium.js">
 			<fileset file="src/js/native/titanium/core.js" />
 			<fileset file="src/js/native/titanium/ajax.js" />
-		</concat>
-		
-		<!-- TODO: move the provider files across too -->
-		
-		<concat destfile="${SLICK}">
-			<fileset file="src/js/template/header.js" />
-			<fileset file="${dist}/${LIBNAME}.core.js" />
-			<fileset file="${dist}/${LIBNAME}.mapping.js" />
 		</concat>
 		
 		<concat destfile="${dist}/tests.${LIBNAME}.js">
