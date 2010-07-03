@@ -139,10 +139,10 @@ SLICK.Graphics = (function() {
                     params.id = value;
                 },
                 
-                drawBuffer: function(offset, dimensions) {
+                drawBuffer: function(offset, dimensions, invalidating) {
                     if (params.drawBuffer) {
                         bufferOffset = offset;
-                        params.drawBuffer(bufferContext, offset, dimensions);
+                        params.drawBuffer(bufferContext, offset, dimensions, invalidating);
                     } // if
                 },
                 
@@ -181,6 +181,10 @@ SLICK.Graphics = (function() {
                     // update the last offset and scale factor
                     lastOffset = offset;
                     lastScaleFactor = scaleFactor;
+                },
+                
+                notify: function(eventType) {
+                    
                 },
                 
                 getFrozen: function() {
@@ -272,6 +276,9 @@ SLICK.Graphics = (function() {
                     },
                     
                     onScale: function(scaleFactor) {
+                        // notify layers that we are adjusting scale
+                        notifyLayers("scale");
+                        
                         if (params.onScale) {
                             params.onScale(scaleFactor);
                         }
@@ -288,6 +295,12 @@ SLICK.Graphics = (function() {
                 
                 return -1;
             } // getLayerIndex
+            
+            function notifyLayers(eventType) {
+                for (var ii = 0; ii < layers.length; ii++) {
+                    layers[ii].notify(eventType);
+                } // for
+            } // notifyLayers
             
             /* draw code */
             
@@ -402,8 +415,10 @@ SLICK.Graphics = (function() {
                 if ((! viewInvalidating) && (bufferTime > params.bufferRefresh)) {
                     // iterate through the layers and draw them
                     for (var ii = 0; ii < layers.length; ii++) {
-                        layers[ii].drawBuffer(pannable ? pannable.getOffset() : new SLICK.Vector(), dimensions);
+                        layers[ii].drawBuffer(pannable ? pannable.getOffset() : new SLICK.Vector(), dimensions, viewInvalidating);
                     } // for
+                    
+                    bufferTime = 0;
                 } // if
                 
                 drawView();

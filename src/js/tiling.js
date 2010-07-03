@@ -318,7 +318,7 @@ SLICK.Tiling = (function() {
                 context.stroke();
             } // drawTileBorder
             
-            function drawTiles(context, offset, dimensions) {
+            function drawTiles(context, offset, dimensions, invalidating) {
                 // find the tile for the specified position
                 var tileStart = new SLICK.Vector(Math.floor(offset.x * invTileSize), Math.floor(offset.y * invTileSize));
                 var tileCols = Math.ceil(dimensions.width * invTileSize) + 1;
@@ -349,7 +349,7 @@ SLICK.Tiling = (function() {
                         }
                         else if (tile) {
                             // load the tile (if the layer is not frozen, otherwise, no real point)
-                            if (! self.getFrozen()) {
+                            if ((! invalidating) && (! self.getFrozen())) {
                                 tile.load();
                             } // if
                             
@@ -439,9 +439,10 @@ SLICK.Tiling = (function() {
                 tapHandler: null,
                 doubleTapHandler: null,
                 zoomHandler: null,
-                onDraw: null
+                onDraw: null,
+                layerRemoveDelay: 2000
             }, params);
-
+            
             // initialise layers
             var grid = null;
             var overlays = [];
@@ -493,7 +494,7 @@ SLICK.Tiling = (function() {
                 newTileLayer: function() {
                     // queue the current grid layer for deletion
                     self.freezeLayer("grid" + gridIndex);
-                    self.removeLayer("grid" + gridIndex, 5000);
+                    self.removeLayer("grid" + gridIndex, params.layerRemoveDelay);
                     
                     // increment the grid index
                     gridIndex++;
