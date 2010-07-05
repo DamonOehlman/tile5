@@ -101,7 +101,8 @@ SLICK.Graphics = (function() {
                 id: "",
                 drawBuffer: null,
                 draw: null,
-                centerOnScale: true
+                centerOnScale: true,
+                zindex: 0
             }, params);
 
             var buffer = null;
@@ -139,6 +140,10 @@ SLICK.Graphics = (function() {
                     params.id = value;
                 },
                 
+                getZIndex: function() {
+                    return params.zindex;
+                },
+                
                 drawBuffer: function(offset, dimensions, invalidating) {
                     if (params.drawBuffer) {
                         bufferOffset = offset;
@@ -146,27 +151,27 @@ SLICK.Graphics = (function() {
                     } // if
                 },
                 
-                draw: function(context, offset, dimensions, scaleFactor, scaling) {
+                draw: function(drawArgs) {
                     // if we are frozen then update the offset and scale factors
                     if (frozen) {
-                        offset = lastOffset;
-                        scaleFactor = lastScaleFactor;
+                        drawArgs.offset = lastOffset;
+                        drawArgs.scaleFactor = lastScaleFactor;
                     } // if
                     
                     // if we are buffered, then draw the buffer to the canvas
                     if (buffer) {
-                        var startRect = frozen ? lastStartRect : scaling.getStartRect();
-                        var endRect = frozen ? lastEndRect : scaling.getEndRect();
+                        var startRect = frozen ? lastStartRect : drawArgs.scaling.getStartRect();
+                        var endRect = frozen ? lastEndRect : drawArgs.scaling.getEndRect();
                         
-                        if (scaleFactor != 1) {
-                            module.drawScaledRect(context, dimensions, buffer, startRect, endRect);
+                        if (drawArgs.scaleFactor != 1) {
+                            module.drawScaledRect(drawArgs.context, drawArgs.dimensions, buffer, startRect, endRect);
                         }
                         else {
                             // calculate the relative offset
-                            var relativeOffset = bufferOffset.diff(offset);
+                            var relativeOffset = bufferOffset.diff(drawArgs.offset);
 
                             // draw the image to the canvas
-                            context.drawImage(buffer, relativeOffset.x, relativeOffset.y, dimensions.width, dimensions.height);
+                            drawArgs.context.drawImage(buffer, relativeOffset.x, relativeOffset.y, drawArgs.dimensions.width, drawArgs.dimensions.height);
                         } // if..else
                         
                         // update the last start and end rect
@@ -175,12 +180,12 @@ SLICK.Graphics = (function() {
                     } // if
                     
                     if (params.draw) {
-                        params.draw(context, offset, dimensions, scaleFactor);
+                        params.draw(drawArgs);
                     } // if
 
                     // update the last offset and scale factor
-                    lastOffset = offset;
-                    lastScaleFactor = scaleFactor;
+                    lastOffset = drawArgs.offset;
+                    lastScaleFactor = drawArgs.scaleFactor;
                 },
                 
                 notify: function(eventType) {
@@ -212,7 +217,7 @@ SLICK.Graphics = (function() {
                 scalable: false,
                 scaleDamping: false,
                 bufferRefresh: 100,
-                fps: 40,
+                fps: 25,
                 onPan: null,
                 onPinchZoom: null,
                 onScale: null,
@@ -223,7 +228,7 @@ SLICK.Graphics = (function() {
             var canvas = document.getElementById(params.container);
             var main_context = null;
             var lastInvalidate = 0;
-            var dimensions;
+            var dimensions = null;
             
             // calculate the repaint interval
             var repaintInterval = params.fps ? (1000 / params.fps) : 40;
@@ -286,6 +291,32 @@ SLICK.Graphics = (function() {
                 });
             } // if
             
+            function addLayer(id, value) {
+                // look for the appropriate position to add the layer
+                var addIndex = 0;
+                while (addIndex < layers.length) {
+                    // if the zindex of the current layer is greater than the new layer, then break from the loop
+                    if (layers[addIndex].getZIndex() > value.getZIndex()) {
+                        break;
+                    } // if
+                    
+                    addIndex++;
+                } // while
+                
+                // make sure the layer has the correct id
+                value.setId(id);
+
+                // if we need to insert the new layer in before the last layer, then splice it in
+                GRUNT.Log.info("adding layer '" + id + "' at index " + addIndex);
+                if (addIndex < layers.length) {
+                    layers.splice(addIndex, 0, value);
+                }
+                // otherwise, just push it on the end
+                else {
+                    layers.push(value);
+                } // if..else
+            } // addLayer
+            
             function getLayerIndex(id) {
                 for (var ii = 0; ii < layers.length; ii++) {
                     if (layers[ii].getId() == id) {
@@ -306,12 +337,23 @@ SLICK.Graphics = (function() {
             
             var drawing = false;
             
-            function drawView() {
+            function drawView(tickCount) {
                 if (drawing) { return; }
                 
-                // initialise variables
-                var panOffset = pannable ? pannable.getOffset() : new SLICK.Vector();
-                var scaleFactor = self.getScaleFactor();
+                // if the dimensions have not been defined, then get them
+                if (! dimensions) {
+                    dimensions = self.getDimensions();
+                } // if
+                
+                // initialise the draw params
+                var drawArgs = {
+                    context: main_context,
+                    offset: pannable ? pannable.getOffset() : new SLICK.Vector(),
+                    dimensions: dimensions,
+                    scaleFactor: self.getScaleFactor(),
+                    scaling: scalable,
+                    ticks: tickCount
+                };
                 
                 try {
                     drawing = true;
@@ -319,12 +361,12 @@ SLICK.Graphics = (function() {
                     // iterate through the layers and draw them
                     for (var ii = 0; ii < layers.length; ii++) {
                         // draw the layer output to the main canvas
-                        layers[ii].draw(main_context, panOffset, dimensions, scaleFactor, scalable);
+                        layers[ii].draw(drawArgs);
                     } // for
                 
                     // if we have an on draw parameter specified, then draw away
                     if (params.onDraw) {
-                        params.onDraw(main_context, panOffset, dimensions, scaleFactor, scalable);
+                        params.onDraw(drawArgs);
                     } // if
                 } 
                 finally {
@@ -367,11 +409,7 @@ SLICK.Graphics = (function() {
                     } // for
                     
                     if (value) {
-                        // make sure the layer has the correct id
-                        value.setId(id);
-
-                        // didn't find the layer, add it
-                        layers.push(value);
+                        addLayer(id, value);
                     } // if
                 },
                 
@@ -409,7 +447,8 @@ SLICK.Graphics = (function() {
             // create an interval to do a proper redraw on the layers
             setInterval(function() {
                 // check to see if we are panning
-                var viewInvalidating = (new Date().getTime()) - lastInvalidate < params.bufferRefresh;
+                var tickCount = new Date().getTime();
+                var viewInvalidating = tickCount - lastInvalidate < params.bufferRefresh;
                 
                 bufferTime += repaintInterval;
                 if ((! viewInvalidating) && (bufferTime > params.bufferRefresh)) {
@@ -421,7 +460,7 @@ SLICK.Graphics = (function() {
                     bufferTime = 0;
                 } // if
                 
-                drawView();
+                drawView(tickCount);
             }, repaintInterval);
             
             return self;

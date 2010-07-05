@@ -189,23 +189,21 @@ SLICK.Tiling = (function() {
                 tile_context.strokeStyle = "rgb(180, 180, 180)";
                 tile_context.lineWidth = 0.5;
 
+                tile_context.beginPath();
+                
                 for (var xx = 0; xx < buffer.width; xx += params.gridLineSpacing) {
                     // draw the column lines
-                    tile_context.beginPath();
                     tile_context.moveTo(xx, 0);
                     tile_context.lineTo(xx, buffer.height);
-                    tile_context.stroke();
-                    tile_context.closePath();
 
                     for (var yy = 0; yy < buffer.height; yy += params.gridLineSpacing) {
                         // draw the row lines
-                        tile_context.beginPath();
                         tile_context.moveTo(0, yy);
                         tile_context.lineTo(buffer.width, yy);
-                        tile_context.stroke();
-                        tile_context.closePath();
                     } // for
-                } // for        
+                } // for    
+                
+                tile_context.stroke();
             } // prepBuffer
             
             // initialise self
@@ -236,6 +234,7 @@ SLICK.Tiling = (function() {
                 lineDist: 16,
                 fillStyle: "rgb(200, 200, 200)",
                 strokeStyle: "rgb(180, 180, 180)",
+                zindex: -1,
                 draw: drawTileBackground
             });
             
@@ -250,9 +249,9 @@ SLICK.Tiling = (function() {
             // initialise the grid pattern
             var gridPattern = null;
             
-            function drawTileBackground(context, offset, dimensions, scaleFactor) {
-                var lineX = params.lineDist - Math.abs(offset.x % params.lineDist);
-                var lineY = Math.abs(offset.y % params.lineDist);
+            function drawTileBackground(drawArgs) {
+                var lineX = params.lineDist - Math.abs(drawArgs.offset.x % params.lineDist);
+                var lineY = Math.abs(drawArgs.offset.y % params.lineDist);
                 
                 // GRUNT.Log.info("line x = " + lineX + ", line y = " + lineY);
                 
@@ -262,23 +261,20 @@ SLICK.Tiling = (function() {
                 sectionContext.beginPath();
                 sectionContext.moveTo(lineX, 0);
                 sectionContext.lineTo(lineX, params.lineDist);
-                sectionContext.stroke();
-                
-                sectionContext.beginPath();
                 sectionContext.moveTo(0, lineY);
                 sectionContext.lineTo(params.lineDist, lineY);
                 sectionContext.stroke();
                 
                 // if the scale factor is not equal to 1, then scale the context
-                if (scaleFactor !== 1) {
-                    gridPattern = context.createPattern(SLICK.Graphics.scaleCanvas(gridSection, scaleFactor), 'repeat');
+                if (drawArgs.scaleFactor !== 1) {
+                    gridPattern = drawArgs.context.createPattern(SLICK.Graphics.scaleCanvas(gridSection, drawArgs.scaleFactor), 'repeat');
                 }
                 else {
-                    gridPattern = context.createPattern(gridSection, 'repeat');
+                    gridPattern = drawArgs.context.createPattern(gridSection, 'repeat');
                 } // if..else
                 
-                context.fillStyle = gridPattern;
-                context.fillRect(0, 0, dimensions.width, dimensions.height);
+                drawArgs.context.fillStyle = gridPattern;
+                drawArgs.context.fillRect(0, 0, drawArgs.dimensions.width, drawArgs.dimensions.height);
             } // drawTileBackground
             
             return new SLICK.Graphics.ViewLayer(params);
@@ -311,13 +307,6 @@ SLICK.Tiling = (function() {
                 } // for
             } // notifyListeners
             
-            function drawTileBorder(context, x, y) {
-                context.beginPath();
-                context.rect(x, y, params.tileSize, params.tileSize);
-                context.closePath();
-                context.stroke();
-            } // drawTileBorder
-            
             function drawTiles(context, offset, dimensions, invalidating) {
                 // find the tile for the specified position
                 var tileStart = new SLICK.Vector(Math.floor(offset.x * invTileSize), Math.floor(offset.y * invTileSize));
@@ -331,6 +320,9 @@ SLICK.Tiling = (function() {
                 if (params.drawGrid) {
                     context.strokeStyle = "rgba(50, 50, 50, 0.3)";
                 } // if
+                
+                // begin the path for the tile borders
+                context.beginPath();
 
                 // right, let's draw some tiles (draw rows first)
                 for (var yy = 0; yy < tileRows; yy++) {
@@ -358,10 +350,13 @@ SLICK.Tiling = (function() {
 
                         // if we are drawing borders, then draw that now
                         if (params.drawGrid) {
-                            drawTileBorder(context, xPos, yPos);
+                            context.rect(xPos, yPos, params.tileSize, params.tileSize);
                         } // if
                     } // for
                 } // for
+                
+                // draw the borders if we have them...
+                context.stroke();
             } // drawTiles            
             
             // initialise self
