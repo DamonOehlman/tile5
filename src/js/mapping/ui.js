@@ -139,7 +139,8 @@ SLICK.Mapping = (function() {
             params = GRUNT.extend({
                 lineWidth: 1.5,
                 strokeStyle: "rgba(0, 0, 0, 0.5)",
-                size: 15
+                size: 15,
+                drawOnScale: true
             }, params);
             
             function drawCrosshair(context, centerPos, size) {

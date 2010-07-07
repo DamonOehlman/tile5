@@ -109,7 +109,8 @@ SLICK.Graphics = (function() {
                 centerOnScale: true,
                 zindex: 0,
                 bufferPadding: 0,
-                drawOnScale: false
+                drawOnScale: false,
+                canCache: true
             }, params);
 
             var buffer = null,
@@ -193,6 +194,10 @@ SLICK.Graphics = (function() {
                     bufferOffset.x = x; bufferOffset.y = y;
                 },
                 
+                canCache: function() {
+                    return params.canCache;
+                },
+                
                 canDrawOnScale: function() {
                     return params.drawOnScale;
                 },
@@ -224,10 +229,12 @@ SLICK.Graphics = (function() {
             // get the container context
             var canvas = document.getElementById(params.container),
                 main_context = null,
-                scalingCanvas = null,
-                scalingContext = null,
+                savedCanvas = null,
+                savedContext = null,
+                savedOffset = new SLICK.Vector(),
                 lastInvalidate = 0,
                 dimensions = null,
+                drawArgs = null,
                 status = module.DisplayStatus.ACTIVE;
             
             // calculate the repaint interval
@@ -241,10 +248,10 @@ SLICK.Graphics = (function() {
                     main_context = canvas.getContext('2d');
                     
                     // create a scaling context if required
-                    if (params.scalable) {
-                        scalingCanvas = document.createElement('canvas');
-                        scalingCanvas.width = canvas.width;
-                        scalingCanvas.height = canvas.height;
+                    if (params.scalable || params.pannable) {
+                        savedCanvas = document.createElement('canvas');
+                        savedCanvas.width = canvas.width;
+                        savedCanvas.height = canvas.height;
                     } // if
                 } 
                 catch (e) {
@@ -269,6 +276,16 @@ SLICK.Graphics = (function() {
                         if (params.onPan) {
                             params.onPan(x, y);
                         } // if
+                        
+                        // create the scale buffer
+                        if (! savedContext) {
+                            saveContext();
+                        } // if
+                    },
+                    
+                    onPanEnd: function(x, y) {
+                        GRUNT.Log.info("!!! panning end");
+                        savedContext = null;
                     }
                 });
             } // if
@@ -287,9 +304,8 @@ SLICK.Graphics = (function() {
                         } // if
                         
                         // create the scale buffer
-                        if (! scalingContext) {
-                            scalingContext = scalingCanvas.getContext('2d');
-                            scalingContext.drawImage(canvas, 0, 0);
+                        if (! savedContext) {
+                            saveContext();
                         } // if
                     },
                     
@@ -302,7 +318,7 @@ SLICK.Graphics = (function() {
                         }
                         
                         // reset the scale buffer
-                        scalingContext = null;
+                        savedContext = null;
                     }
                 });
             } // if
@@ -355,6 +371,30 @@ SLICK.Graphics = (function() {
                 } // for
             } // notifyLayers
             
+            /* saved canvas / context code */
+            
+            function saveContext() {
+                // get the context
+                savedContext = savedCanvas.getContext('2d');
+                
+                // if we have valid draw args from the last successful draw, then draw the buffers that can't scale
+                if (drawArgs) {
+                    // update the draw args to use the saved context rather than the main context
+                    drawArgs.context = savedContext;
+                    
+                    // iterate through the layers, and for any layers that cannot draw on scale, draw them to 
+                    // the saved context
+                    for (var ii = 0; ii < layers.length; ii++) {
+                        if ((! layers[ii].canDrawOnScale()) && layers[ii].canCache()) {
+                            layers[ii].draw(drawArgs);
+                        } // if
+                    } // for
+                    
+                    // update the saved offset
+                    savedOffset = drawArgs.offset.duplicate();
+                } // if
+            } // getSavedContext
+            
             /* draw code */
             
             var drawing = false;
@@ -368,7 +408,7 @@ SLICK.Graphics = (function() {
                 } // if
                 
                 // initialise the draw params
-                var drawArgs = {
+                drawArgs = {
                     context: main_context,
                     offset: pannable ? pannable.getOffset() : new SLICK.Vector(),
                     dimensions: dimensions,
@@ -387,14 +427,20 @@ SLICK.Graphics = (function() {
                     for (var ii = 0; ii < layers.length; ii++) {
                         // draw the layer output to the main canvas
                         // but only if we don't have a scale buffer or the layer is a draw on scale layer
-                        if ((! scalingContext) || (layers[ii].canDrawOnScale())) {
+                        if ((! savedContext) || (layers[ii].canDrawOnScale())) {
                             layers[ii].draw(drawArgs);
                         } // if
                     } // for
 
                     // if we have a scale buffer, then draw it
-                    if (scalingContext) {
-                        module.drawScaledRect(main_context, dimensions, scalingCanvas, scalable.getStartRect(), scalable.getEndRect());
+                    if (savedContext) {
+                        if (drawArgs.scaleFactor !== 1) {
+                            module.drawScaledRect(main_context, dimensions, savedCanvas, scalable.getStartRect(), scalable.getEndRect());
+                        } 
+                        else {
+                            var relativeOffset = savedOffset.diff(drawArgs.offset);
+                            main_context.drawImage(savedCanvas, relativeOffset.x, relativeOffset.y);
+                        } // if..else
                     } // if
                 
                     // if we have an on draw parameter specified, then draw away

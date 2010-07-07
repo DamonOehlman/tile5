@@ -10,6 +10,7 @@ SLICK.Pannable = function(params) {
     params = GRUNT.extend({
         container: null,
         onPan: null,
+        onPanEnd: null,
         checkOffset: null
     }, params);
     
@@ -36,6 +37,12 @@ SLICK.Pannable = function(params) {
             } // if
         },
         
+        panEnd: function(x, y) {
+            if (params.onPanEnd) {
+                params.onPanEnd(x, y);
+            } // if
+        },
+        
         updateOffset: function(x, y) {
             offset.x = x;
             offset.y = y;
@@ -55,6 +62,10 @@ SLICK.Pannable = function(params) {
         SLICK.Touch.TouchEnable(container, {
             moveHandler: function(x, y) {
                 self.pan(-x, -y);
+            },
+            
+            moveEndHandler: function(x, y) {
+                self.panEnd(x, y);
             }
         });
     } // if
