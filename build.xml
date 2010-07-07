@@ -81,6 +81,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/mapping/geo.js" />
 			<fileset file="src/js/mapping/ui.js" />
 			<fileset file="src/js/mapping/poi.js" />
+			<fileset file="src/js/mapping/routing.js" />
 		</concat>
 		
 		<!-- construct the native libraries -->

@@ -96,6 +96,11 @@ SLICK.Graphics = (function() {
             } // if            
         },
         
+        LayerStatus: {
+            ACTIVE: 0,
+            FROZEN: 1
+        },
+        
         ViewLayer: function(params) {
             params = GRUNT.extend({
                 id: "",
@@ -108,11 +113,9 @@ SLICK.Graphics = (function() {
             var buffer = null;
             var bufferContext = null;
             var bufferOffset = new SLICK.Vector();
-            var frozen = false;
-            var lastOffset;
-            var lastScaleFactor;
-            var lastStartRect;
-            var lastEndRect;
+            var status = false;
+            var lastDrawArgs = null;
+            var overrideDrawArgs = null;
             
             // if this is a buffered layer, then initialise the buffer
             if (params.drawBuffer) {
@@ -145,23 +148,19 @@ SLICK.Graphics = (function() {
                 },
                 
                 drawBuffer: function(offset, dimensions, invalidating) {
-                    if (params.drawBuffer) {
+                    if (params.drawBuffer && (status !== module.LayerStatus.FROZEN)) {
                         bufferOffset = offset;
                         params.drawBuffer(bufferContext, offset, dimensions, invalidating);
                     } // if
                 },
                 
-                draw: function(drawArgs) {
-                    // if we are frozen then update the offset and scale factors
-                    if (frozen) {
-                        drawArgs.offset = lastOffset;
-                        drawArgs.scaleFactor = lastScaleFactor;
-                    } // if
+                draw: function(args) {
+                    var drawArgs = (status == module.LayerStatus.FROZEN) ? lastDrawArgs : args;
                     
                     // if we are buffered, then draw the buffer to the canvas
-                    if (buffer) {
-                        var startRect = frozen ? lastStartRect : drawArgs.scaling.getStartRect();
-                        var endRect = frozen ? lastEndRect : drawArgs.scaling.getEndRect();
+                    if (buffer && drawArgs) {
+                        var startRect = drawArgs.scaling.getStartRect();
+                        var endRect = drawArgs.scaling.getEndRect();
                         
                         if (drawArgs.scaleFactor != 1) {
                             module.drawScaledRect(drawArgs.context, drawArgs.dimensions, buffer, startRect, endRect);
@@ -173,31 +172,32 @@ SLICK.Graphics = (function() {
                             // draw the image to the canvas
                             drawArgs.context.drawImage(buffer, relativeOffset.x, relativeOffset.y, drawArgs.dimensions.width, drawArgs.dimensions.height);
                         } // if..else
-                        
-                        // update the last start and end rect
-                        lastStartRect = startRect;
-                        lastEndRect = endRect;
                     } // if
                     
                     if (params.draw) {
                         params.draw(drawArgs);
                     } // if
-
-                    // update the last offset and scale factor
-                    lastOffset = drawArgs.offset;
-                    lastScaleFactor = drawArgs.scaleFactor;
+                    
+                    // save the last drawArgs
+                    lastDrawArgs = drawArgs;
                 },
                 
                 notify: function(eventType) {
                     
                 },
                 
-                getFrozen: function() {
-                    return frozen;
+                getStatus: function() {
+                    return status;
                 },
                 
-                setFrozen: function(value) {
-                    frozen = value;
+                setStatus: function(value) {
+                    GRUNT.Log.info("LAYER STATUS CHANGE (" + params.id + " status = " + value + ")");
+                    status = value;
+                    
+                    overrideDrawArgs = null;
+                    if (status == module.LayerStatus.FROZEN) {
+                        overrideDrawArgs = lastDrawArgs;
+                    } // if
                 },
                 
                 setBufferOffset: function(x, y) {
@@ -315,6 +315,9 @@ SLICK.Graphics = (function() {
                 else {
                     layers.push(value);
                 } // if..else
+                
+                // fire a notify event for adding the layer
+                self.notifyLayerListeners("add", id, value);
             } // addLayer
             
             function getLayerIndex(id) {
@@ -327,6 +330,9 @@ SLICK.Graphics = (function() {
                 return -1;
             } // getLayerIndex
             
+            /* layer listeners code */
+            
+            var layerListeners = [];
             function notifyLayers(eventType) {
                 for (var ii = 0; ii < layers.length; ii++) {
                     layers[ii].notify(eventType);
@@ -373,7 +379,7 @@ SLICK.Graphics = (function() {
                     drawing = false;
                 } // try..finally
             } // drawView
-
+            
             // initialise self
             var self = GRUNT.extend({}, pannable, scalable, {
                 getContext: function() {
@@ -411,16 +417,22 @@ SLICK.Graphics = (function() {
                     if (value) {
                         addLayer(id, value);
                     } // if
+                    
+                    // iterate through the layer update listeners and fire the callbacks
+                    self.notifyLayerListeners("update", id, value);
                 },
                 
-                /**
-                Freeze the specified layer in a specified position.  This means that the layer will 
-                not move from it's current position when the other layers pan.
-                */
-                freezeLayer: function(id) {
+                eachLayer: function(callback) {
+                    // iterate through each of the layers and fire the callback for each 
+                    for (var ii = 0; ii < layers.length; ii++) {
+                        callback(layers[ii]);
+                    } // for
+                },
+                
+                setLayerStatus: function(id, status) {
                     var layerIndex = getLayerIndex(id);
                     if ((layerIndex >= 0) && (layerIndex < layers.length)) {
-                        layers[layerIndex].setFrozen(true);
+                        layers[layerIndex].setStatus(status);
                     } // if
                 },
                 
@@ -430,10 +442,22 @@ SLICK.Graphics = (function() {
                         GRUNT.Log.info("attempting to remove layer: " + id);
                         var layerIndex = getLayerIndex(id);
                         if ((layerIndex >= 0) && (layerIndex < layers.length)) {
+                            self.notifyLayerListeners("remove", id, layers[layerIndex]);
+                            
                             GRUNT.Log.info("removing layer: " + id);
                             layers.splice(layerIndex, 1);
                         } // if
                     }, timeout ? timeout : 1);
+                },
+                
+                registerLayerListener: function(callback) {
+                    layerListeners.push(callback);
+                },
+                
+                notifyLayerListeners: function(eventType, id, layer) {
+                    for (var ii = 0; ii < layerListeners.length; ii++) {
+                        layerListeners[ii](eventType, id, layer);
+                    } // for
                 },
 
                 invalidate: function(args) {

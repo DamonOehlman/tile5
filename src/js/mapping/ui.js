@@ -167,6 +167,82 @@ SLICK.Mapping = (function() {
             }, params));
         },
         
+        /** 
+        Route Overlay
+        */
+        RouteOverlay: function(params) {
+            params = GRUNT.extend({
+                strokeStyles: ["rgba(0, 51, 119, 0.9)"],
+                lineWidths: [4],
+                geometry: [],
+                pixelGeneralization: 8
+            }, params);
+            
+            var coordinates = [];
+            
+            // create the view layer the we will draw the view
+            var view = new SLICK.Graphics.ViewLayer(GRUNT.extend({
+                zindex: 50,
+                drawBuffer: function(context, offset, dimensions, invalidating) {
+                    // TODO: see how this can be optimized... 
+                    
+                    if (coordinates.length > 0) {
+                        context.clearRect(0, 0, dimensions.width, dimensions.height);
+
+                        for (var strokeIndex = 0; strokeIndex < params.strokeStyles.length; strokeIndex++) {
+                            // update the context stroke style and line width
+                            context.strokeStyle = params.strokeStyles[strokeIndex];
+                            context.lineWidth = params.lineWidths[strokeIndex];
+
+                            // start drawing the path
+                            context.beginPath();
+                            context.moveTo(coordinates[0].x - offset.x, coordinates[0].y - offset.y);
+
+                            for (var ii = 1; ii < coordinates.length; ii++) {
+                                context.lineTo(coordinates[ii].x - offset.x, coordinates[ii].y - offset.y);
+                            } // for
+
+                            context.stroke();
+                        } // for
+                    }
+                }
+            }, params));
+            
+            // define self
+            var self = GRUNT.extend(view, {
+                calcCoordinates: function(grid) {
+                    coordinates = [];
+                    GRUNT.Log.info("calculating position coordinates");
+
+                    var tickCount = new Date().getTime();
+                    var current, last = null;
+
+                    // iterate through the position geometry and determine xy coordinates
+                    for (var ii = 0; ii < params.geometry.length; ii++) {
+                        // calculate the current position
+                        current = grid.getGridXYForPosition(params.geometry[ii]);
+
+                        // determine whether the current point should be included
+                        var include = (! last) || 
+                                (ii == params.geometry.length-1) || 
+                                (Math.abs(current.x - last.x) + Math.abs(current.y - last.y) > params.pixelGeneralization);
+                        
+                        
+                        if (include) {
+                            coordinates.push(current);
+                            
+                            // update the last
+                            last = current;
+                        } // if
+                    } // for
+
+                    GRUNT.Log.info("converted geometry of " + params.geometry.length + " positions to " + coordinates.length + " coords in " + (new Date().getTime() - tickCount) + " ms");
+                }
+            });
+
+            return self;
+        },
+        
         Tiler: function(params) {
             params = GRUNT.extend({
                 tapExtent: 10,
@@ -204,7 +280,7 @@ SLICK.Mapping = (function() {
                     centerPos = grid.pixelsToPos(grid_pos);
                 } // if
             } // updateCenterPos
-
+            
             // initialise our own pan handler
             params.onPan = function(x, y) {
                 if (caller_pan_handler) {
@@ -285,10 +361,42 @@ SLICK.Mapping = (function() {
                     } // if
                 } // for
             }; // onDraw
-
+            
             // create the base tiler
             var parent = new SLICK.Tiling.Tiler(params);
+            
+            // register a layer listener to properly initialise GeoOverlays
+            parent.registerLayerListener(function(eventType, layerId, layer) {
+                // if the layer is a geo layer and has a handler for the calcposition coordinates method, then call it
+                GRUNT.Log.info("layer " + layerId + " " + eventType + " event, has position coordinates event: " + (layer.calcCoordinates ? "true" : "false"));
+                if (layer.calcCoordinates) {
+                    layer.calcCoordinates(self.getTileLayer());
+                } // if
 
+                // handlers for changes to the grid
+                if (/grid\d+/.test(layerId)) {
+                    // if the event type is adding, then freeze geo sensitive layers
+                    if (eventType == "add") {
+                        self.eachLayer(function(checkLayer) {
+                           if (checkLayer.calcCoordinates) {
+                               checkLayer.setStatus(SLICK.Graphics.LayerStatus.FROZEN);
+                           } // if
+                        });
+                    }
+                    // otherwise if the event is load, then recalc position information, and unfreeze those layers
+                    else if (eventType == "load") {
+                        GRUNT.Log.info("GRID LOADED, need to recalc positions");
+                        
+                        self.eachLayer(function(checkLayer) {
+                            if (checkLayer.calcCoordinates) {
+                                checkLayer.calcCoordinates(layer);
+                                checkLayer.setStatus(SLICK.Graphics.LayerStatus.ACTIVE);
+                            } // if                            
+                        });
+                    } // if
+                } // if
+            });
+            
             // initialise self
             var self = GRUNT.extend({}, parent, {
                 getBoundingBox: function(buffer_size) {
@@ -328,6 +436,9 @@ SLICK.Mapping = (function() {
 
                     // if the zoom level is different from the current zoom level, then update the map tiles
                     if ((! initialized) || (zoomLevel != currentZoomLevel)) {
+                        // flag the route and poi layers as frozen
+                        self.setLayerStatus("route", SLICK.Graphics.LayerStatus.FROZEN);
+                        
                         // if the map is initialise, then pan to the specified position
                         if (initialized) {
                             self.panToPosition(position);

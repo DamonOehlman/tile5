@@ -8,6 +8,11 @@ File is used to define geo namespace and classes for implementing GIS classes an
 SLICK.Geo = (function() {
     // define the module
     var module = {
+        
+        /* module functions */
+        
+        /* geo type definitions */
+        
         Distance: function(pos1, pos2) {
             // define some constants
             var M_PER_KM = 1000;
