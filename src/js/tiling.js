@@ -291,7 +291,7 @@ SLICK.Tiling = (function() {
                 tileSize: SLICK.Tiling.Config.TILESIZE,
                 drawGrid: false,
                 center: new SLICK.Vector(),
-                drawBuffer: drawTiles,
+                draw: drawTiles,
                 bufferPadding: 150
             }, params);
             
@@ -314,27 +314,27 @@ SLICK.Tiling = (function() {
                 } // for
             } // notifyListeners
             
-            function drawTiles(context, offset, dimensions, invalidating) {
+            function drawTiles(drawArgs) {
                 // grow the dimensions, and tweak the offset by a centered amount
                 // dimensions.grow(params.bufferSize, params.bufferSize);
                 // offset.x -= halfBuffer;
                 // offset.y -= halfBuffer;
                 
                 // find the tile for the specified position
-                var tileStart = new SLICK.Vector(Math.floor(offset.x * invTileSize), Math.floor(offset.y * invTileSize));
-                var tileCols = Math.ceil(dimensions.width * invTileSize) + 1;
-                var tileRows = Math.ceil(dimensions.height * invTileSize) + 1;
+                var tileStart = new SLICK.Vector(Math.floor(drawArgs.offset.x * invTileSize), Math.floor(drawArgs.offset.y * invTileSize));
+                var tileCols = Math.ceil(drawArgs.dimensions.width * invTileSize) + 1;
+                var tileRows = Math.ceil(drawArgs.dimensions.height * invTileSize) + 1;
                 var tileOffset = new SLICK.Vector(
-                    (tileStart.x * params.tileSize) - offset.x,
-                    (tileStart.y * params.tileSize) - offset.y);
+                    (tileStart.x * params.tileSize) - drawArgs.offset.x,
+                    (tileStart.y * params.tileSize) - drawArgs.offset.y);
 
                 // set the context stroke style for the border
                 if (params.drawGrid) {
-                    context.strokeStyle = "rgba(50, 50, 50, 0.3)";
+                    drawArgs.context.strokeStyle = "rgba(50, 50, 50, 0.3)";
                 } // if
                 
                 // begin the path for the tile borders
-                context.beginPath();
+                drawArgs.context.beginPath();
 
                 // right, let's draw some tiles (draw rows first)
                 for (var yy = 0; yy < tileRows; yy++) {
@@ -349,7 +349,7 @@ SLICK.Tiling = (function() {
 
                         // if the tile is loaded, then draw, otherwise load
                         if (tile && tile.loaded) {
-                            tile.draw(context, xPos, yPos);
+                            tile.draw(drawArgs.context, xPos, yPos);
                         }
                         else if (tile) {
                             // load the tile (if the layer is not frozen, otherwise, no real point)
@@ -361,18 +361,18 @@ SLICK.Tiling = (function() {
                                 });
                             } // if
                             
-                            context.clearRect(xPos, yPos, params.tileSize, params.tileSize);
+                            // drawArgs.context.clearRect(xPos, yPos, params.tileSize, params.tileSize);
                         } // if..else
 
                         // if we are drawing borders, then draw that now
                         if (params.drawGrid) {
-                            context.rect(xPos, yPos, params.tileSize, params.tileSize);
+                            drawArgs.context.rect(xPos, yPos, params.tileSize, params.tileSize);
                         } // if
                     } // for
                 } // for
                 
                 // draw the borders if we have them...
-                context.stroke();
+                drawArgs.context.stroke();
             } // drawTiles 
             
             // initialise self
