@@ -57,8 +57,6 @@ SLICK.Geo.Routing = (function() {
             var engine = findEngine(args.engineId);
             if (engine) {
                 engine.calculateRoute(args, function(routeData) {
-                    GRUNT.Log.info("route calculated, route geometry = ", routeData.getGeometry());
-                    
                     // firstly, if we have a map defined, then let's place the route on the map
                     // you know, just because we are nice like that
                     if (args.map) {

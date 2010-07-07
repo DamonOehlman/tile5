@@ -227,7 +227,7 @@ SLICK.Tiling = (function() {
                     return params.tileSize;
                 }
             });
-            
+
             // prep the buffer
             prepBuffer();
             
@@ -240,7 +240,8 @@ SLICK.Tiling = (function() {
                 fillStyle: "rgb(200, 200, 200)",
                 strokeStyle: "rgb(180, 180, 180)",
                 zindex: -1,
-                draw: drawTileBackground
+                draw: drawTileBackground,
+                drawOnScale: true
             });
             
             var gridSection = document.createElement('canvas');
@@ -257,8 +258,6 @@ SLICK.Tiling = (function() {
             function drawTileBackground(drawArgs) {
                 var lineX = params.lineDist - Math.abs(drawArgs.offset.x % params.lineDist);
                 var lineY = Math.abs(drawArgs.offset.y % params.lineDist);
-                
-                // GRUNT.Log.info("line x = " + lineX + ", line y = " + lineY);
                 
                 // if the grid pattern is not defined, then do that now
                 sectionContext.fillRect(0, 0, gridSection.width, gridSection.height);
@@ -292,7 +291,8 @@ SLICK.Tiling = (function() {
                 tileSize: SLICK.Tiling.Config.TILESIZE,
                 drawGrid: false,
                 center: new SLICK.Vector(),
-                drawBuffer: drawTiles
+                drawBuffer: drawTiles,
+                bufferPadding: 150
             }, params);
             
             // initialise varibles
@@ -300,6 +300,7 @@ SLICK.Tiling = (function() {
             var listeners = [];
             var invTileSize = params.tileSize ? 1 / params.tileSize : 0;
             var loadedTileCount = 0;
+            var halfBuffer = params.bufferSize * 0.5;
             
             // create the tile store
             var tileStore = new TileStore(params);
@@ -314,6 +315,11 @@ SLICK.Tiling = (function() {
             } // notifyListeners
             
             function drawTiles(context, offset, dimensions, invalidating) {
+                // grow the dimensions, and tweak the offset by a centered amount
+                // dimensions.grow(params.bufferSize, params.bufferSize);
+                // offset.x -= halfBuffer;
+                // offset.y -= halfBuffer;
+                
                 // find the tile for the specified position
                 var tileStart = new SLICK.Vector(Math.floor(offset.x * invTileSize), Math.floor(offset.y * invTileSize));
                 var tileCols = Math.ceil(dimensions.width * invTileSize) + 1;
@@ -347,7 +353,7 @@ SLICK.Tiling = (function() {
                         }
                         else if (tile) {
                             // load the tile (if the layer is not frozen, otherwise, no real point)
-                            if ((! invalidating) && (self.getStatus() !== SLICK.Graphics.LayerStatus.FROZEN)) {
+                            if (! invalidating) {
                                 // load the image
                                 tile.load(function() {
                                     loadedTileCount++;
@@ -367,7 +373,7 @@ SLICK.Tiling = (function() {
                 
                 // draw the borders if we have them...
                 context.stroke();
-            } // drawTiles            
+            } // drawTiles 
             
             // initialise self
             var self = new SLICK.Graphics.ViewLayer(params);
@@ -390,6 +396,15 @@ SLICK.Tiling = (function() {
                 
                 getLoadedTileCount: function() {
                     return loadedTileCount;
+                },
+                
+                getVisibleTileCount: function(dimensions) {
+                    // get the dimensions
+                    if (params.tileSize !== 0) {
+                        return Math.ceil(dimensions.width / params.tileSize) + Math.ceil(dimensions.height / params.tileSize);
+                    } // if
+                    
+                    return 0;
                 },
                 
                 getTileSize: function() {
@@ -449,7 +464,7 @@ SLICK.Tiling = (function() {
                 doubleTapHandler: null,
                 zoomHandler: null,
                 onDraw: null,
-                tileLoadThreshold: 1
+                tileLoadThreshold: "first"
             }, params);
             
             // initialise layers
@@ -461,6 +476,20 @@ SLICK.Tiling = (function() {
             var tileSize = emptyTile.getTileSize();
             var gridIndex = 0;
             var lastTileLayerLoaded = "";
+            var actualTileLoadThreshold = 0;
+            
+            var tileCountLoaderFns = {
+                first: function(tileCount) {
+                    return 1;
+                },
+                auto: function(tileCount) {
+                    return tileCount * 0.5;
+                },
+                
+                all: function(tileCount) {
+                    return tileCount;
+                }
+            };
             
             // handle tap and double tap events
             SLICK.Touch.TouchEnable(document.getElementById(params.container), params);
@@ -469,17 +498,27 @@ SLICK.Tiling = (function() {
                 // monitor tile loads for the layer
                 layer.requestUpdates(function(eventType, tile) {
                     if (eventType == "load") {
-                        if ((layerId != lastTileLayerLoaded) && (layer.getLoadedTileCount() >= params.tileLoadThreshold)) {
+                        if ((layerId != lastTileLayerLoaded) && (layer.getLoadedTileCount() >= actualTileLoadThreshold)) {
                             // remove the previous tile layer
-                            self.removeLayer("grid" + (parseInt(layerId.replace(/^grid(\d+)/, "$1"), 10) - 1));
-
-                            // trigger the layer listeners
                             self.notifyLayerListeners("load", layerId, layer);
+
+                            // update the last layer loaded id
                             lastTileLayerLoaded = layerId;
                         } // if 
                     } // if
                 });
             } // monitorLayerLoad
+            
+            function updateTileLoadThreshold(layer) {
+                var tileCount = layer.getVisibleTileCount(self.getDimensions());
+
+                if (tileCountLoaderFns[params.tileLoadThreshold]) {
+                    actualTileLoadThreshold = tileCountLoaderFns[params.tileLoadThreshold](tileCount);
+                }
+                else {
+                    actualTileLoadThreshold = parseInt(params.tileLoadThreshold, 10);
+                } // if..else
+            } // updateTileLoadThreshold
             
             // create the parent
             var self = new SLICK.Graphics.View(GRUNT.extend({}, params, {
@@ -519,7 +558,7 @@ SLICK.Tiling = (function() {
             GRUNT.extend(self, {
                 newTileLayer: function() {
                     // queue the current grid layer for deletion
-                    self.setLayerStatus("grid" + gridIndex, SLICK.Graphics.LayerStatus.FROZEN);
+                    self.removeLayer("grid" + gridIndex);
                     
                     // increment the grid index
                     gridIndex++;
@@ -532,6 +571,9 @@ SLICK.Tiling = (function() {
                 setTileLayer: function(value) {
                     monitorLayerLoad("grid" + gridIndex, value);
                     self.setLayer("grid" + gridIndex, value);
+                    
+                    // update the tile load threshold
+                    updateTileLoadThreshold(value);
                 },
 
                 gridPixToViewPix: function(vector) {

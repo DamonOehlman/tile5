@@ -96,7 +96,7 @@ SLICK.Graphics = (function() {
             } // if            
         },
         
-        LayerStatus: {
+        DisplayStatus: {
             ACTIVE: 0,
             FROZEN: 1
         },
@@ -107,15 +107,15 @@ SLICK.Graphics = (function() {
                 drawBuffer: null,
                 draw: null,
                 centerOnScale: true,
-                zindex: 0
+                zindex: 0,
+                bufferPadding: 0,
+                drawOnScale: false
             }, params);
 
-            var buffer = null;
-            var bufferContext = null;
-            var bufferOffset = new SLICK.Vector();
-            var status = false;
-            var lastDrawArgs = null;
-            var overrideDrawArgs = null;
+            var buffer = null,
+                bufferContext = null,
+                bufferOffset = new SLICK.Vector(),
+                paddingOffset = new SLICK.Vector();
             
             // if this is a buffered layer, then initialise the buffer
             if (params.drawBuffer) {
@@ -123,11 +123,17 @@ SLICK.Graphics = (function() {
                 if ((! params.width) || (! params.height)) {
                     throw new Error("Width and height required to define a buffered view layer");
                 } // if
+                
+                // calculate the padding offset
+                if (params.bufferPadding) {
+                    paddingOffset.x = -params.bufferPadding;
+                    paddingOffset.y = -params.bufferPadding * (params.height / params.width);
+                }
             
                 // define a buffer for the layer
                 buffer = document.createElement("canvas");
-                buffer.width = params.width;
-                buffer.height = params.height;
+                buffer.width = params.width + Math.abs(paddingOffset.x) * 2;
+                buffer.height = params.height + Math.abs(paddingOffset.y) * 2;
                 
                 // define the context
                 bufferContext = buffer.getContext("2d");
@@ -148,60 +154,51 @@ SLICK.Graphics = (function() {
                 },
                 
                 drawBuffer: function(offset, dimensions, invalidating) {
-                    if (params.drawBuffer && (status !== module.LayerStatus.FROZEN)) {
-                        bufferOffset = offset;
-                        params.drawBuffer(bufferContext, offset, dimensions, invalidating);
+                    if (params.drawBuffer && (status !== module.DisplayStatus.FROZEN)) {
+                        bufferOffset = offset.offset(paddingOffset.x, paddingOffset.y);
+                        
+                        // draw the buffer
+                        // we duplicate the offset and dimensions to prevent them being changes by
+                        // a mischevious implementation of a ViewLayer
+                        params.drawBuffer(
+                            bufferContext, 
+                            bufferOffset.duplicate(),
+                            dimensions.grow(Math.abs(paddingOffset.x) * 2, Math.abs(paddingOffset.y) * 2), 
+                            invalidating);
                     } // if
                 },
                 
                 draw: function(args) {
-                    var drawArgs = (status == module.LayerStatus.FROZEN) ? lastDrawArgs : args;
+                    var drawArgs = args;
                     
-                    // if we are buffered, then draw the buffer to the canvas
-                    if (buffer && drawArgs) {
-                        var startRect = drawArgs.scaling.getStartRect();
-                        var endRect = drawArgs.scaling.getEndRect();
-                        
-                        if (drawArgs.scaleFactor != 1) {
-                            module.drawScaledRect(drawArgs.context, drawArgs.dimensions, buffer, startRect, endRect);
-                        }
-                        else {
-                            // calculate the relative offset
-                            var relativeOffset = bufferOffset.diff(drawArgs.offset);
+                    // if we are buffered, then draw the buffer to the canvas (and only when the scale factor is one)
+                    if (buffer && drawArgs && (drawArgs.scaleFactor == 1)) {
+                        // calculate the relative offset
+                        var relativeOffset = bufferOffset.diff(drawArgs.offset);
 
-                            // draw the image to the canvas
-                            drawArgs.context.drawImage(buffer, relativeOffset.x, relativeOffset.y, drawArgs.dimensions.width, drawArgs.dimensions.height);
-                        } // if..else
+                        // draw the image to the canvas
+                        drawArgs.context.drawImage(buffer, relativeOffset.x, relativeOffset.y, buffer.width, buffer.height);
                     } // if
                     
                     if (params.draw) {
                         params.draw(drawArgs);
                     } // if
-                    
-                    // save the last drawArgs
-                    lastDrawArgs = drawArgs;
                 },
                 
                 notify: function(eventType) {
                     
                 },
                 
-                getStatus: function() {
-                    return status;
-                },
-                
-                setStatus: function(value) {
-                    GRUNT.Log.info("LAYER STATUS CHANGE (" + params.id + " status = " + value + ")");
-                    status = value;
-                    
-                    overrideDrawArgs = null;
-                    if (status == module.LayerStatus.FROZEN) {
-                        overrideDrawArgs = lastDrawArgs;
-                    } // if
-                },
-                
                 setBufferOffset: function(x, y) {
                     bufferOffset.x = x; bufferOffset.y = y;
+                },
+                
+                canDrawOnScale: function() {
+                    return params.drawOnScale;
+                },
+                
+                isBuffered: function() {
+                    return (params.drawBuffer !== null);
                 }
             }; // self
             
@@ -225,10 +222,13 @@ SLICK.Graphics = (function() {
             }, params);
             
             // get the container context
-            var canvas = document.getElementById(params.container);
-            var main_context = null;
-            var lastInvalidate = 0;
-            var dimensions = null;
+            var canvas = document.getElementById(params.container),
+                main_context = null,
+                scalingCanvas = null,
+                scalingContext = null,
+                lastInvalidate = 0,
+                dimensions = null,
+                status = module.DisplayStatus.ACTIVE;
             
             // calculate the repaint interval
             var repaintInterval = params.fps ? (1000 / params.fps) : 40;
@@ -239,6 +239,13 @@ SLICK.Graphics = (function() {
             if (canvas) {
                 try {
                     main_context = canvas.getContext('2d');
+                    
+                    // create a scaling context if required
+                    if (params.scalable) {
+                        scalingCanvas = document.createElement('canvas');
+                        scalingCanvas.width = canvas.width;
+                        scalingCanvas.height = canvas.height;
+                    } // if
                 } 
                 catch (e) {
                     GRUNT.Log.exception(e);
@@ -278,6 +285,12 @@ SLICK.Graphics = (function() {
                         if (params.onPinchZoom) {
                             params.onPinchZoom(touchesStart, touchesCurrent);
                         } // if
+                        
+                        // create the scale buffer
+                        if (! scalingContext) {
+                            scalingContext = scalingCanvas.getContext('2d');
+                            scalingContext.drawImage(canvas, 0, 0);
+                        } // if
                     },
                     
                     onScale: function(scaleFactor) {
@@ -287,6 +300,9 @@ SLICK.Graphics = (function() {
                         if (params.onScale) {
                             params.onScale(scaleFactor);
                         }
+                        
+                        // reset the scale buffer
+                        scalingContext = null;
                     }
                 });
             } // if
@@ -296,7 +312,7 @@ SLICK.Graphics = (function() {
                 var addIndex = 0;
                 while (addIndex < layers.length) {
                     // if the zindex of the current layer is greater than the new layer, then break from the loop
-                    if (layers[addIndex].getZIndex() > value.getZIndex()) {
+                    if (layers[addIndex].getZIndex() >= value.getZIndex()) {
                         break;
                     } // if
                     
@@ -344,7 +360,7 @@ SLICK.Graphics = (function() {
             var drawing = false;
             
             function drawView(tickCount) {
-                if (drawing) { return; }
+                if (drawing || (status == module.DisplayStatus.FROZEN)) { return; }
                 
                 // if the dimensions have not been defined, then get them
                 if (! dimensions) {
@@ -364,11 +380,22 @@ SLICK.Graphics = (function() {
                 try {
                     drawing = true;
                     
+                    // clear the canvas
+                    main_context.clearRect(0, 0, canvas.width, canvas.height);
+                    
                     // iterate through the layers and draw them
                     for (var ii = 0; ii < layers.length; ii++) {
                         // draw the layer output to the main canvas
-                        layers[ii].draw(drawArgs);
+                        // but only if we don't have a scale buffer or the layer is a draw on scale layer
+                        if ((! scalingContext) || (layers[ii].canDrawOnScale())) {
+                            layers[ii].draw(drawArgs);
+                        } // if
                     } // for
+
+                    // if we have a scale buffer, then draw it
+                    if (scalingContext) {
+                        module.drawScaledRect(main_context, dimensions, scalingCanvas, scalable.getStartRect(), scalable.getEndRect());
+                    } // if
                 
                     // if we have an on draw parameter specified, then draw away
                     if (params.onDraw) {
@@ -429,11 +456,8 @@ SLICK.Graphics = (function() {
                     } // for
                 },
                 
-                setLayerStatus: function(id, status) {
-                    var layerIndex = getLayerIndex(id);
-                    if ((layerIndex >= 0) && (layerIndex < layers.length)) {
-                        layers[layerIndex].setStatus(status);
-                    } // if
+                setDisplayStatus: function(value) {
+                    status = value;
                 },
                 
                 removeLayer: function(id, timeout) {

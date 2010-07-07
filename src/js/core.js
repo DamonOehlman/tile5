@@ -218,6 +218,10 @@ SLICK = (function () {
 
                 getCenter: function() {
                     return new SLICK.Vector(self.width * 0.5, self.height * 0.5);
+                },
+                
+                grow: function(widthDelta, heightDelta) {
+                    return new SLICK.Dimensions(self.width + widthDelta, self.height + heightDelta);
                 }
             }; // self
 
@@ -272,17 +276,17 @@ SLICK = (function () {
                  - bottom: the delta bottom change
                  - right: the delta right change
                 */
-                getRequiredDelta: function(targetRect) {
+                getRequiredDelta: function(targetRect, offset) {
                     var delta = {
                         top: 0,
                         left: 0,
                         bottom: 0,
                         right: 0
                     }; // delta
-
+                    
                     // calculate the top left delta
-                    delta.top = targetRect.origin.y - self.origin.y;
-                    delta.left = targetRect.origin.x - self.origin.x;
+                    delta.top = targetRect.origin.y - self.origin.y + (offset ? offset.y : 0);
+                    delta.left = targetRect.origin.x - self.origin.x + (offset ? offset.x : 0);
                     
                     // calculate the bottom right delta
                     delta.right = (targetRect.origin.x + targetRect.dimensions.width) - (self.origin.x + self.dimensions.width) - delta.left;

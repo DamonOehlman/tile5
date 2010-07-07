@@ -375,24 +375,17 @@ SLICK.Mapping = (function() {
 
                 // handlers for changes to the grid
                 if (/grid\d+/.test(layerId)) {
-                    // if the event type is adding, then freeze geo sensitive layers
+                    // if the event type is an add event, then recalculate the necessary coordinates
                     if (eventType == "add") {
-                        self.eachLayer(function(checkLayer) {
-                           if (checkLayer.calcCoordinates) {
-                               checkLayer.setStatus(SLICK.Graphics.LayerStatus.FROZEN);
-                           } // if
-                        });
-                    }
-                    // otherwise if the event is load, then recalc position information, and unfreeze those layers
-                    else if (eventType == "load") {
-                        GRUNT.Log.info("GRID LOADED, need to recalc positions");
-                        
                         self.eachLayer(function(checkLayer) {
                             if (checkLayer.calcCoordinates) {
                                 checkLayer.calcCoordinates(layer);
-                                checkLayer.setStatus(SLICK.Graphics.LayerStatus.ACTIVE);
                             } // if                            
                         });
+                    }
+                    // otherwise if the event is load, then recalc position information, and unfreeze the display
+                    else if (eventType == "load") {
+                        self.setDisplayStatus(SLICK.Graphics.DisplayStatus.ACTIVE);
                     } // if
                 } // if
             });
@@ -437,7 +430,7 @@ SLICK.Mapping = (function() {
                     // if the zoom level is different from the current zoom level, then update the map tiles
                     if ((! initialized) || (zoomLevel != currentZoomLevel)) {
                         // flag the route and poi layers as frozen
-                        self.setLayerStatus("route", SLICK.Graphics.LayerStatus.FROZEN);
+                        self.setDisplayStatus(SLICK.Graphics.DisplayStatus.FROZEN);
                         
                         // if the map is initialise, then pan to the specified position
                         if (initialized) {
