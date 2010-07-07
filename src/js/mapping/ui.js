@@ -184,26 +184,24 @@ SLICK.Mapping = (function() {
             // create the view layer the we will draw the view
             var view = new SLICK.Graphics.ViewLayer(GRUNT.extend({
                 zindex: 50,
-                drawBuffer: function(context, offset, dimensions, invalidating) {
+                draw: function(drawArgs) {
                     // TODO: see how this can be optimized... 
                     
                     if (coordinates.length > 0) {
-                        context.clearRect(0, 0, dimensions.width, dimensions.height);
-
                         for (var strokeIndex = 0; strokeIndex < params.strokeStyles.length; strokeIndex++) {
                             // update the context stroke style and line width
-                            context.strokeStyle = params.strokeStyles[strokeIndex];
-                            context.lineWidth = params.lineWidths[strokeIndex];
+                            drawArgs.context.strokeStyle = params.strokeStyles[strokeIndex];
+                            drawArgs.context.lineWidth = params.lineWidths[strokeIndex];
 
                             // start drawing the path
-                            context.beginPath();
-                            context.moveTo(coordinates[0].x - offset.x, coordinates[0].y - offset.y);
+                            drawArgs.context.beginPath();
+                            drawArgs.context.moveTo(coordinates[0].x - offset.x, coordinates[0].y - offset.y);
 
                             for (var ii = 1; ii < coordinates.length; ii++) {
-                                context.lineTo(coordinates[ii].x - offset.x, coordinates[ii].y - offset.y);
+                                drawArgs.context.lineTo(coordinates[ii].x - offset.x, coordinates[ii].y - offset.y);
                             } // for
 
-                            context.stroke();
+                            drawArgs.context.stroke();
                         } // for
                     }
                 }
