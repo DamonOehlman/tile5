@@ -176,7 +176,8 @@ SLICK.Mapping = (function() {
                 strokeStyles: ["rgba(0, 51, 119, 0.9)"],
                 lineWidths: [4],
                 geometry: [],
-                pixelGeneralization: 8
+                pixelGeneralization: 8,
+                canCache: true
             }, params);
             
             var coordinates = [];
@@ -383,11 +384,11 @@ SLICK.Mapping = (function() {
                         });
                         
                         // TODO: remove this once we are triggering the tile load as necessary
-                        self.setDisplayStatus(SLICK.Graphics.DisplayStatus.ACTIVE);
+                        self.setDisplayStatus(SLICK.Graphics.DisplayState.ACTIVE);
                     }
                     // otherwise if the event is load, then recalc position information, and unfreeze the display
                     else if (eventType == "load") {
-                        self.setDisplayStatus(SLICK.Graphics.DisplayStatus.ACTIVE);
+                        self.setDisplayStatus(SLICK.Graphics.DisplayState.ACTIVE);
                     } // if
                 } // if
             });
@@ -434,7 +435,7 @@ SLICK.Mapping = (function() {
                         // if the map is initialise, then pan to the specified position
                         if (initialized) {
                             // flag the route and poi layers as frozen
-                            self.setDisplayStatus(SLICK.Graphics.DisplayStatus.FROZEN);
+                            self.setDisplayStatus(SLICK.Graphics.DisplayState.FROZEN);
 
                             self.panToPosition(position);
                             self.newTileLayer();

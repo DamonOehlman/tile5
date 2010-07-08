@@ -293,7 +293,7 @@ SLICK.Tiling = (function() {
                 center: new SLICK.Vector(),
                 beginDraw: checkTileQueue,
                 draw: drawTiles,
-                bufferPadding: 150
+                canCache: true
             }, params);
             
             // initialise varibles
@@ -319,8 +319,6 @@ SLICK.Tiling = (function() {
             } // notifyListeners
             
             function updateDrawQueue(drawArgs) {
-                GRUNT.Log.info("UPDATING DRAW QUEUE");
-                
                 // find the tile for the specified position
                 var tileStart = new SLICK.Vector(Math.floor(drawArgs.offset.x * invTileSize), Math.floor(drawArgs.offset.y * invTileSize));
                 var tileCols = Math.ceil(drawArgs.dimensions.width * invTileSize) + 1;
