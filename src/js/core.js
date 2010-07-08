@@ -176,6 +176,10 @@ SLICK = (function () {
                 invert: function() {
                     return new SLICK.Vector(-self.x, -self.y);
                 },
+                
+                matches: function(test) {
+                    return test && (self.x == test.x) && (self.y == test.y);
+                },
 
                 /** 
                 Return a string representation "x, y" of the current vector
@@ -222,6 +226,14 @@ SLICK = (function () {
                 
                 grow: function(widthDelta, heightDelta) {
                     return new SLICK.Dimensions(self.width + widthDelta, self.height + heightDelta);
+                },
+                
+                matches: function(test) {
+                    return test && (self.width == test.width) && (self.height == test.height);
+                },
+                
+                toString: function() {
+                    return self.width + " x " + self.height;
                 }
             }; // self
 
@@ -264,6 +276,14 @@ SLICK = (function () {
                     self.origin.y -= amountY;
                     self.dimensions.width += amountX;
                     self.dimensions.height += amountY;
+                },
+                
+                offset: function(offsetVector) {
+                    return new module.Rect(
+                                    self.origin.x + offsetVector.x, 
+                                    self.origin.y + offsetVector.y,
+                                    self.dimensions.width,
+                                    self.dimensions.height);
                 },
                 
                 /**
@@ -369,6 +389,10 @@ SLICK = (function () {
                     self.origin.y = y;
                     
                     return offsetFactor;
+                },
+                
+                toString: function() {
+                    return String.format("(origin: {0}, dimensions: {1})", self.origin, self.dimensions);
                 }
             };
             

@@ -241,7 +241,7 @@ SLICK.Tiling = (function() {
                 strokeStyle: "rgb(180, 180, 180)",
                 zindex: -1,
                 draw: drawTileBackground,
-                drawOnScale: true
+                canCache: false
             });
             
             var gridSection = document.createElement('canvas');
@@ -291,16 +291,20 @@ SLICK.Tiling = (function() {
                 tileSize: SLICK.Tiling.Config.TILESIZE,
                 drawGrid: false,
                 center: new SLICK.Vector(),
+                beginDraw: checkTileQueue,
                 draw: drawTiles,
                 bufferPadding: 150
             }, params);
             
             // initialise varibles
-            var halfTileSize = Math.round(params.tileSize * 0.5);
-            var listeners = [];
-            var invTileSize = params.tileSize ? 1 / params.tileSize : 0;
-            var loadedTileCount = 0;
-            var halfBuffer = params.bufferSize * 0.5;
+            var halfTileSize = Math.round(params.tileSize * 0.5),
+                listeners = [],
+                invTileSize = params.tileSize ? 1 / params.tileSize : 0,
+                loadedTileCount = 0,
+                lastOffset = null,
+                tileDrawQueue = [],
+                refreshQueue = false,
+                halfBuffer = params.bufferSize * 0.5;
             
             // create the tile store
             var tileStore = new TileStore(params);
@@ -314,28 +318,18 @@ SLICK.Tiling = (function() {
                 } // for
             } // notifyListeners
             
-            function drawTiles(drawArgs) {
-                // grow the dimensions, and tweak the offset by a centered amount
-                // dimensions.grow(params.bufferSize, params.bufferSize);
-                // offset.x -= halfBuffer;
-                // offset.y -= halfBuffer;
+            function updateDrawQueue(drawArgs) {
+                GRUNT.Log.info("UPDATING DRAW QUEUE");
                 
                 // find the tile for the specified position
                 var tileStart = new SLICK.Vector(Math.floor(drawArgs.offset.x * invTileSize), Math.floor(drawArgs.offset.y * invTileSize));
                 var tileCols = Math.ceil(drawArgs.dimensions.width * invTileSize) + 1;
                 var tileRows = Math.ceil(drawArgs.dimensions.height * invTileSize) + 1;
-                var tileOffset = new SLICK.Vector(
-                    (tileStart.x * params.tileSize) - drawArgs.offset.x,
-                    (tileStart.y * params.tileSize) - drawArgs.offset.y);
-
-                // set the context stroke style for the border
-                if (params.drawGrid) {
-                    drawArgs.context.strokeStyle = "rgba(50, 50, 50, 0.3)";
-                } // if
+                var tileOffset = new SLICK.Vector((tileStart.x * params.tileSize), (tileStart.y * params.tileSize));
+                    
+                // reset the tile draw queue
+                tileDrawQueue = [];
                 
-                // begin the path for the tile borders
-                drawArgs.context.beginPath();
-
                 // right, let's draw some tiles (draw rows first)
                 for (var yy = 0; yy < tileRows; yy++) {
                     // initialise the y position
@@ -347,29 +341,129 @@ SLICK.Tiling = (function() {
                         var tile = tileStore.getTile(xx + tileStart.x, yy + tileStart.y);
                         var xPos = xx * params.tileSize + tileOffset.x;
 
-                        // if the tile is loaded, then draw, otherwise load
-                        if (tile && tile.loaded) {
-                            tile.draw(drawArgs.context, xPos, yPos);
-                        }
-                        else if (tile) {
-                            // load the tile (if the layer is not frozen, otherwise, no real point)
-                            if (! invalidating) {
-                                // load the image
-                                tile.load(function() {
-                                    loadedTileCount++;
-                                    notifyListeners("load", tile);
-                                });
-                            } // if
-                            
-                            // drawArgs.context.clearRect(xPos, yPos, params.tileSize, params.tileSize);
-                        } // if..else
-
-                        // if we are drawing borders, then draw that now
-                        if (params.drawGrid) {
-                            drawArgs.context.rect(xPos, yPos, params.tileSize, params.tileSize);
-                        } // if
+                        // add the tile and position to the tile draw queue
+                        tileDrawQueue.push({
+                            tile: tile,
+                            coordinates: new SLICK.Vector(xPos, yPos)
+                        });
                     } // for
                 } // for
+                
+                // spiralize the queue
+                spiralizeQueue(tileCols, tileRows);
+                
+                // reset the refresh queue flag
+                refreshQueue = false;
+            } // fileTileDrawQueue
+            
+            function spiralizeQueue(cols, rows) {
+                var spiralFns = [{
+                    vector: new SLICK.Vector(1, 0)
+                }, {
+                    vector: new SLICK.Vector(0, 1),
+                    decrementor: new SLICK.Vector(0, -1)
+                }, {
+                    vector: new SLICK.Vector(-1, 0),
+                    decrementor: new SLICK.Vector(-1, 0)
+                }, {
+                    vector: new SLICK.Vector(0, -1),
+                    decrementor: new SLICK.Vector(0, -1)
+                }];
+                
+                var pos = new SLICK.Vector(0, 0);
+                var xyMax = new SLICK.Vector(cols - 1, rows - 1); 
+                var ii = 0;
+                var spiralQueue = [];
+                var fnIndex = 0;
+                var fnIterations = 0;
+                var indexList = [];
+                
+                while (ii < cols * rows) {
+                    var index = pos.y * cols + pos.x; 
+                    spiralQueue.push(tileDrawQueue[index]);
+                    
+                    // get the function vector
+                    var fnVector = spiralFns[fnIndex].vector;
+                    fnIterations++;
+                    
+                    // apply the vector
+                    pos.add(fnVector);
+
+                    // if applying the vector again would push us over, then increment the function index
+                    var testVector = pos.offset(fnVector.x, fnVector.y);
+                    if ((fnVector.x && (fnIterations >= xyMax.x)) || 
+                        (fnVector.y && (fnIterations >= xyMax.y))) {
+                        // apply the decrementor to the xymax values
+                        spiralFns[fnIndex].decrementor ? xyMax.add(spiralFns[fnIndex].decrementor) : null ;
+                        
+                        // increment the function index and autowrap
+                        fnIterations = 0;
+                        fnIndex = (fnIndex + 1) % spiralFns.length;
+                    } // if
+                    
+                    // GRUNT.Log.info("index = " + index + ", pos = " + pos + ", test vector = " + testVector + ", xymax = " + xyMax + ", fnindex = " + fnIndex);
+                    
+                    indexList.push(index);
+                    ii++;
+                } // while
+                
+                // GRUNT.Log.info("spiralized queue (" + cols + " x " + rows + ")", indexList);
+                
+                // update the tile draw queue with the output queue
+                tileDrawQueue = spiralQueue.reverse();
+            } // spiralizeQueue
+            
+            function checkTileQueue(drawArgs) {
+                refreshQueue = refreshQueue || drawArgs.offsetChanged || drawArgs.dimensionsChanged;
+            }
+            
+            function drawTiles(drawArgs) {
+                // grow the dimensions, and tweak the offset by a centered amount
+                // dimensions.grow(params.bufferSize, params.bufferSize);
+                // offset.x -= halfBuffer;
+                // offset.y -= halfBuffer;
+                if (refreshQueue) { 
+                    updateDrawQueue(drawArgs);
+                } // if
+
+                // set the context stroke style for the border
+                if (params.drawGrid) {
+                    drawArgs.context.strokeStyle = "rgba(50, 50, 50, 0.3)";
+                } // if
+                
+                // begin the path for the tile borders
+                drawArgs.context.beginPath();
+                
+                // iterate through the tiles in the draw queue
+                for (var ii = 0; ii < tileDrawQueue.length; ii++) {
+                    var tile = tileDrawQueue[ii].tile;
+                    var coord = tileDrawQueue[ii].coordinates.duplicate();
+                    
+                    coord.x -= drawArgs.offset.x;
+                    coord.y -= drawArgs.offset.y;
+                    
+                    // if the tile is loaded, then draw, otherwise load
+                    if (tile && tile.loaded) {
+                        tile.draw(drawArgs.context, coord.x, coord.y);
+                    }
+                    else if (tile) {
+                        // load the image
+                        tile.load(function() {
+                            loadedTileCount++;
+
+                            self.layerChanged();
+                            notifyListeners("load", tile);
+                        });
+
+                        // drawArgs.context.clearRect(xPos, yPos, params.tileSize, params.tileSize);
+                    } // if..else
+
+                    // if we are drawing borders, then draw that now
+                    if (params.drawGrid) {
+                        drawArgs.context.rect(coord.x, coord.y, params.tileSize, params.tileSize);
+                    } // if                    
+                } // for
+
                 
                 // draw the borders if we have them...
                 drawArgs.context.stroke();

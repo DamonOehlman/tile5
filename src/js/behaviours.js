@@ -104,11 +104,11 @@ SLICK.Scalable = function(params) {
         scalable: true,
 
         getStartRect: function() {
-            return startRect;
+            return startRect.duplicate();
         },
         
         getEndRect: function() {
-            return endRect;
+            return endRect.duplicate();
         },
         
         getScaling: function() {

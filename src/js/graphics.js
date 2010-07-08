@@ -96,51 +96,27 @@ SLICK.Graphics = (function() {
             } // if            
         },
         
+        drawRect: function(context, rect) {
+            context.strokeRect(rect.origin.x, rect.origin.y, rect.dimensions.width, rect.dimensions.height);
+        },
+        
         DisplayStatus: {
             ACTIVE: 0,
-            FROZEN: 1
+            FROZEN: 1,
+            PINCHZOOM: 2
         },
         
         ViewLayer: function(params) {
             params = GRUNT.extend({
                 id: "",
-                drawBuffer: null,
                 draw: null,
                 centerOnScale: true,
                 zindex: 0,
-                bufferPadding: 0,
-                drawOnScale: false,
                 canCache: true
             }, params);
+            
+            var changeListeners = [];
 
-            var buffer = null,
-                bufferContext = null,
-                bufferOffset = new SLICK.Vector(),
-                paddingOffset = new SLICK.Vector();
-            
-            // if this is a buffered layer, then initialise the buffer
-            if (params.drawBuffer) {
-                // if width and height are not defined, then raise an exception
-                if ((! params.width) || (! params.height)) {
-                    throw new Error("Width and height required to define a buffered view layer");
-                } // if
-                
-                // calculate the padding offset
-                if (params.bufferPadding) {
-                    paddingOffset.x = -params.bufferPadding;
-                    paddingOffset.y = -params.bufferPadding * (params.height / params.width);
-                }
-            
-                // define a buffer for the layer
-                buffer = document.createElement("canvas");
-                buffer.width = params.width + Math.abs(paddingOffset.x) * 2;
-                buffer.height = params.height + Math.abs(paddingOffset.y) * 2;
-                
-                // define the context
-                bufferContext = buffer.getContext("2d");
-            } // if
-            
-            
             var self = {
                 getId: function() {
                     return params.id;
@@ -154,40 +130,30 @@ SLICK.Graphics = (function() {
                     return params.zindex;
                 },
                 
-                drawBuffer: function(offset, dimensions, invalidating) {
-                    if (params.drawBuffer && (status !== module.DisplayStatus.FROZEN)) {
-                        bufferOffset = offset.offset(paddingOffset.x, paddingOffset.y);
-                        
-                        // draw the buffer
-                        // we duplicate the offset and dimensions to prevent them being changes by
-                        // a mischevious implementation of a ViewLayer
-                        params.drawBuffer(
-                            bufferContext, 
-                            bufferOffset.duplicate(),
-                            dimensions.grow(Math.abs(paddingOffset.x) * 2, Math.abs(paddingOffset.y) * 2), 
-                            invalidating);
+                beginDraw: function(args) {
+                    if (params.beginDraw) {
+                        params.beginDraw(args);
                     } // if
                 },
                 
                 draw: function(args) {
-                    var drawArgs = args;
-                    
-                    // if we are buffered, then draw the buffer to the canvas (and only when the scale factor is one)
-                    if (buffer && drawArgs && (drawArgs.scaleFactor == 1)) {
-                        // calculate the relative offset
-                        var relativeOffset = bufferOffset.diff(drawArgs.offset);
-
-                        // draw the image to the canvas
-                        drawArgs.context.drawImage(buffer, relativeOffset.x, relativeOffset.y, buffer.width, buffer.height);
-                    } // if
-                    
                     if (params.draw) {
-                        params.draw(drawArgs);
+                        params.draw(args);
                     } // if
+                },
+                
+                layerChanged: function() {
+                    for (var ii = 0; ii < changeListeners.length; ii++) {
+                        changeListeners[ii](self);
+                    } // for
                 },
                 
                 notify: function(eventType) {
                     
+                },
+                
+                registerChangeListener: function(callback) {
+                    changeListeners.push(callback);
                 },
                 
                 setBufferOffset: function(x, y) {
@@ -196,14 +162,6 @@ SLICK.Graphics = (function() {
                 
                 canCache: function() {
                     return params.canCache;
-                },
-                
-                canDrawOnScale: function() {
-                    return params.drawOnScale;
-                },
-                
-                isBuffered: function() {
-                    return (params.drawBuffer !== null);
                 }
             }; // self
             
@@ -219,19 +177,25 @@ SLICK.Graphics = (function() {
                 scalable: false,
                 scaleDamping: false,
                 bufferRefresh: 100,
+                // TODO: padding breaks pinch zoom functionality... need to fix...
+                padding: 0,
                 fps: 25,
                 onPan: null,
                 onPinchZoom: null,
                 onScale: null,
-                onDraw: null
+                onDraw: null,
+                pinchZoomDebug: false
             }, params);
             
             // get the container context
             var canvas = document.getElementById(params.container),
                 main_context = null,
-                savedCanvas = null,
-                savedContext = null,
-                savedOffset = new SLICK.Vector(),
+                cachedCanvas = null,
+                cachedContext = null,
+                cachedOffset = new SLICK.Vector(),
+                cachedZIndex = 0,
+                cachedArgs = null,
+                layerChangesSinceCache = 0,
                 lastInvalidate = 0,
                 dimensions = null,
                 drawArgs = null,
@@ -246,19 +210,18 @@ SLICK.Graphics = (function() {
             if (canvas) {
                 try {
                     main_context = canvas.getContext('2d');
-                    
-                    // create a scaling context if required
-                    if (params.scalable || params.pannable) {
-                        savedCanvas = document.createElement('canvas');
-                        savedCanvas.width = canvas.width;
-                        savedCanvas.height = canvas.height;
-                    } // if
                 } 
                 catch (e) {
                     GRUNT.Log.exception(e);
                     throw new Error("Could not initialise canvas on specified view element");
                 }
             } // if
+            
+            // create the cached context
+            cachedCanvas = document.createElement('canvas');
+            cachedCanvas.width = canvas.width + params.padding * 2;
+            cachedCanvas.height = canvas.height + params.padding * 2;
+            cachedContext = cachedCanvas.getContext("2d"); 
             
             // initialise the layers
             var layers = [];
@@ -276,16 +239,10 @@ SLICK.Graphics = (function() {
                         if (params.onPan) {
                             params.onPan(x, y);
                         } // if
-                        
-                        // create the scale buffer
-                        if (! savedContext) {
-                            saveContext();
-                        } // if
                     },
                     
                     onPanEnd: function(x, y) {
                         GRUNT.Log.info("!!! panning end");
-                        savedContext = null;
                     }
                 });
             } // if
@@ -303,10 +260,8 @@ SLICK.Graphics = (function() {
                             params.onPinchZoom(touchesStart, touchesCurrent);
                         } // if
                         
-                        // create the scale buffer
-                        if (! savedContext) {
-                            saveContext();
-                        } // if
+                        // flag that we are scaling
+                        status = module.DisplayStatus.PINCHZOOM;
                     },
                     
                     onScale: function(scaleFactor) {
@@ -317,8 +272,8 @@ SLICK.Graphics = (function() {
                             params.onScale(scaleFactor);
                         }
                         
-                        // reset the scale buffer
-                        savedContext = null;
+                        // reset the scaling flag
+                        status = module.DisplayStatus.ACTIVE;
                     }
                 });
             } // if
@@ -337,6 +292,11 @@ SLICK.Graphics = (function() {
                 
                 // make sure the layer has the correct id
                 value.setId(id);
+                
+                // attach the change listener
+                value.registerChangeListener(function() {
+                    layerChangesSinceCache++;
+                });
 
                 // if we need to insert the new layer in before the last layer, then splice it in
                 GRUNT.Log.info("adding layer '" + id + "' at index " + addIndex);
@@ -373,25 +333,53 @@ SLICK.Graphics = (function() {
             
             /* saved canvas / context code */
             
-            function saveContext() {
+            function cacheContext() {
                 // get the context
-                savedContext = savedCanvas.getContext('2d');
+                cachedZIndex = 1000;
                 
                 // if we have valid draw args from the last successful draw, then draw the buffers that can't scale
                 if (drawArgs) {
-                    // update the draw args to use the saved context rather than the main context
-                    drawArgs.context = savedContext;
-                    
-                    // iterate through the layers, and for any layers that cannot draw on scale, draw them to 
-                    // the saved context
-                    for (var ii = 0; ii < layers.length; ii++) {
-                        if ((! layers[ii].canDrawOnScale()) && layers[ii].canCache()) {
-                            layers[ii].draw(drawArgs);
-                        } // if
-                    } // for
-                    
-                    // update the saved offset
-                    savedOffset = drawArgs.offset.duplicate();
+                    var shouldRedraw = 
+                            (layerChangesSinceCache > 0) || (! cachedArgs) || 
+                            (! cachedArgs.offset.matches(drawArgs.offset)) || 
+                            (! cachedArgs.dimensions.matches(drawArgs.dimensions));
+                            
+                    if (shouldRedraw) {
+                        // GRUNT.Log.info("UPDATING CACHE");
+                        // GRUNT.Log.info("cached args vs draw args", cachedArgs, drawArgs);
+                        
+                        // clear the cached context
+                        cachedContext.clearRect(0, 0, cachedCanvas.width, cachedCanvas.height);
+                        
+                        // update the cached args
+                        cachedArgs = GRUNT.extend({}, drawArgs);
+
+                        // update the draw args to use the saved context rather than the main context
+                        drawArgs.context = cachedContext;
+
+                        // update the offset to take into account the buffer
+                        drawArgs.offset = drawArgs.offset.offset(-params.padding, -params.padding);
+
+                        // grow the dimensions
+                        drawArgs.dimensions = drawArgs.dimensions.grow(params.padding * 2, params.padding * 2);
+
+                        // iterate through the layers, and for any layers that cannot draw on scale, draw them to 
+                        // the saved context
+                        for (var ii = 0; ii < layers.length; ii++) {
+                            if (layers[ii].canCache()) {
+                                layers[ii].draw(drawArgs);
+
+                                // calculate the zindex as the zindex of the lowest saved layer
+                                cachedZIndex = Math.min(cachedZIndex, layers[ii].getZIndex());
+                            } // if
+                        } // for
+
+                        // reset the layer changes since cache count
+                        layerChangesSinceCache = 0;
+
+                        // update the saved offset
+                        cachedOffset = drawArgs.offset.duplicate();                        
+                    }
                 } // if
             } // getSavedContext
             
@@ -399,7 +387,7 @@ SLICK.Graphics = (function() {
             
             var drawing = false;
             
-            function drawView(tickCount) {
+            function drawView(tickCount, invalidating) {
                 if (drawing || (status == module.DisplayStatus.FROZEN)) { return; }
                 
                 // if the dimensions have not been defined, then get them
@@ -407,11 +395,17 @@ SLICK.Graphics = (function() {
                     dimensions = self.getDimensions();
                 } // if
                 
+                var currentOffset = pannable ? pannable.getOffset() : new SLICK.Vector();
+                var offsetChanged = (! drawArgs) || (! drawArgs.offset.matches(currentOffset));
+                var dimensionsChanged = (! drawArgs) || (! drawArgs.dimensions.matches(dimensions));
+                
                 // initialise the draw params
                 drawArgs = {
-                    context: main_context,
-                    offset: pannable ? pannable.getOffset() : new SLICK.Vector(),
+                    context: null, 
+                    offset: currentOffset,
+                    offsetChanged: offsetChanged,
                     dimensions: dimensions,
+                    dimensionsChanged: dimensionsChanged,
                     scaleFactor: self.getScaleFactor(),
                     scaling: scalable,
                     ticks: tickCount
@@ -419,29 +413,60 @@ SLICK.Graphics = (function() {
                 
                 try {
                     drawing = true;
+                    var savedDrawn = false;
                     
                     // clear the canvas
                     main_context.clearRect(0, 0, canvas.width, canvas.height);
                     
                     // iterate through the layers and draw them
                     for (var ii = 0; ii < layers.length; ii++) {
+                        // tell the layer we are going through a draw cycle
+                        // it may not get drawn, but it can give it a chance to check if it needs to 
+                        // load something, animate something, etc
+                        layers[ii].beginDraw(drawArgs);
+                        
+                        // add the context to the draw args
+                        drawArgs.context = main_context;
+                        
                         // draw the layer output to the main canvas
                         // but only if we don't have a scale buffer or the layer is a draw on scale layer
-                        if ((! savedContext) || (layers[ii].canDrawOnScale())) {
+                        if ((! invalidating) || (! layers[ii].canCache())) {
                             layers[ii].draw(drawArgs);
                         } // if
-                    } // for
+                        
+                        // draw the saved context if required and at the appropriate zindex
+                        if (invalidating && (! savedDrawn) && (cachedZIndex >= layers[ii].getZIndex())) {
+                            var relativeOffset = cachedOffset.diff(drawArgs.offset);
+                            
+                            if (drawArgs.scaleFactor !== 1) {
+                                // get the end rect
+                                var startRect = scalable.getStartRect();
+                                var endRect = scalable.getEndRect();
+                                
+                                // draw the scaled rect
+                                module.drawScaledRect(
+                                    main_context,
+                                    dimensions.grow(params.padding * 2, params.padding * 2),
+                                    cachedCanvas,
+                                    startRect,
+                                    endRect);
+                                
+                                if (params.pinchZoomDebug) {
+                                    main_context.strokeStyle = "#0000FF";
+                                    main_context.lineWidth = 4;
+                                    module.drawRect(main_context, startRect);
 
-                    // if we have a scale buffer, then draw it
-                    if (savedContext) {
-                        if (drawArgs.scaleFactor !== 1) {
-                            module.drawScaledRect(main_context, dimensions, savedCanvas, scalable.getStartRect(), scalable.getEndRect());
-                        } 
-                        else {
-                            var relativeOffset = savedOffset.diff(drawArgs.offset);
-                            main_context.drawImage(savedCanvas, relativeOffset.x, relativeOffset.y);
-                        } // if..else
-                    } // if
+                                    main_context.strokeStyle = "#FF0000";
+                                    module.drawRect(main_context, endRect);
+                                }
+                            } 
+                            else {
+                                main_context.drawImage(cachedCanvas, relativeOffset.x, relativeOffset.y);
+                            } // if..else
+
+                            savedDrawn = true;
+                        } // if
+                    } // for
                 
                     // if we have an on draw parameter specified, then draw away
                     if (params.onDraw) {
@@ -537,24 +562,26 @@ SLICK.Graphics = (function() {
             
             // get the dimensions
             dimensions = self.getDimensions();
+            
+            GRUNT.Log.info("setting repaint interval to " + repaintInterval + " ms");
 
             // create an interval to do a proper redraw on the layers
             setInterval(function() {
-                // check to see if we are panning
-                var tickCount = new Date().getTime();
-                var viewInvalidating = tickCount - lastInvalidate < params.bufferRefresh;
+                try {
+                    // check to see if we are panning
+                    var tickCount = new Date().getTime();
+                    var viewInvalidating = (status == module.DisplayStatus.PINCHZOOM) || (tickCount - lastInvalidate < params.bufferRefresh);
                 
-                bufferTime += repaintInterval;
-                if ((! viewInvalidating) && (bufferTime > params.bufferRefresh)) {
-                    // iterate through the layers and draw them
-                    for (var ii = 0; ii < layers.length; ii++) {
-                        layers[ii].drawBuffer(pannable ? pannable.getOffset() : new SLICK.Vector(), dimensions, viewInvalidating);
-                    } // for
+                    drawView(tickCount, viewInvalidating);
                     
-                    bufferTime = 0;
-                } // if
-                
-                drawView(tickCount);
+                    // if the view is not invalidating, then save the current context
+                    if (! viewInvalidating) {
+                        cacheContext();
+                    } // if
+                }
+                catch (e) {
+                    GRUNT.Log.exception(e);
+                }
             }, repaintInterval);
             
             return self;

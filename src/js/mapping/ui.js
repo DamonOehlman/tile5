@@ -140,7 +140,7 @@ SLICK.Mapping = (function() {
                 lineWidth: 1.5,
                 strokeStyle: "rgba(0, 0, 0, 0.5)",
                 size: 15,
-                drawOnScale: true
+                canCache: false
             }, params);
             
             function drawCrosshair(context, centerPos, size) {
@@ -195,10 +195,10 @@ SLICK.Mapping = (function() {
 
                             // start drawing the path
                             drawArgs.context.beginPath();
-                            drawArgs.context.moveTo(coordinates[0].x - offset.x, coordinates[0].y - offset.y);
+                            drawArgs.context.moveTo(coordinates[0].x - drawArgs.offset.x, coordinates[0].y - drawArgs.offset.y);
 
                             for (var ii = 1; ii < coordinates.length; ii++) {
-                                drawArgs.context.lineTo(coordinates[ii].x - offset.x, coordinates[ii].y - offset.y);
+                                drawArgs.context.lineTo(coordinates[ii].x - drawArgs.offset.x, coordinates[ii].y - drawArgs.offset.y);
                             } // for
 
                             drawArgs.context.stroke();
@@ -381,6 +381,9 @@ SLICK.Mapping = (function() {
                                 checkLayer.calcCoordinates(layer);
                             } // if                            
                         });
+                        
+                        // TODO: remove this once we are triggering the tile load as necessary
+                        self.setDisplayStatus(SLICK.Graphics.DisplayStatus.ACTIVE);
                     }
                     // otherwise if the event is load, then recalc position information, and unfreeze the display
                     else if (eventType == "load") {
@@ -428,11 +431,11 @@ SLICK.Mapping = (function() {
 
                     // if the zoom level is different from the current zoom level, then update the map tiles
                     if ((! initialized) || (zoomLevel != currentZoomLevel)) {
-                        // flag the route and poi layers as frozen
-                        self.setDisplayStatus(SLICK.Graphics.DisplayStatus.FROZEN);
-                        
                         // if the map is initialise, then pan to the specified position
                         if (initialized) {
+                            // flag the route and poi layers as frozen
+                            self.setDisplayStatus(SLICK.Graphics.DisplayStatus.FROZEN);
+
                             self.panToPosition(position);
                             self.newTileLayer();
                         } // if
@@ -527,6 +530,7 @@ SLICK.Mapping = (function() {
             // add the copyright layer
             self.setLayer("copyright", new SLICK.Graphics.ViewLayer({
                 zindex: 999,
+                canCache: false,
                 draw: function(drawArgs) {
                     drawArgs.context.lineWidth = 2.5;
                     drawArgs.context.fillStyle = "rgb(50, 50, 50)";
