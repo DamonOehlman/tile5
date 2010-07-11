@@ -117,6 +117,7 @@ SLICK.Graphics = (function() {
                 centerOnScale: true,
                 zindex: 0,
                 canCache: false,
+                checkOK: null,
                 validStates: module.DisplayState.ACTIVE | module.DisplayState.INVALIDATING | module.DisplayState.PINCHZOOM
             }, params);
             
@@ -143,6 +144,14 @@ SLICK.Graphics = (function() {
                 
                 canDraw: function(currentState) {
                     return currentState & params.validStates !== 0;
+                },
+                
+                checkOK: function(drawArgs, updateArgs) {
+                    if (params.checkOK) { 
+                        return params.checkOK(drawArgs, updateArgs);
+                    }
+                    
+                    return true;
                 },
                 
                 draw: function(args) {
@@ -440,7 +449,7 @@ SLICK.Graphics = (function() {
                     var savedDrawn = false;
                     
                     // clear the canvas
-                    main_context.clearRect(0, 0, canvas.width, canvas.height);
+                    // main_context.clearRect(0, 0, canvas.width, canvas.height);
                     
                     // iterate through the layers and draw them
                     for (var ii = 0; ii < layers.length; ii++) {
@@ -593,14 +602,72 @@ SLICK.Graphics = (function() {
             setInterval(function() {
                 try {
                     // check to see if we are panning
-                    var tickCount = new Date().getTime();
-                    var viewInvalidating = (status == module.DisplayState.PINCHZOOM) || (tickCount - lastInvalidate < params.bufferRefresh);
-                
-                    drawView(tickCount, viewInvalidating);
+                    var tickCount = new Date().getTime(),
+                        viewInvalidating = (status == module.DisplayState.PINCHZOOM) || (tickCount - lastInvalidate < params.bufferRefresh),
+                        drawOK = true,
+                        updateArgs = {
+                            offset: pannable ? pannable.getOffset() : new SLICK.Vector()
+                        };
+
+                    // check that all is right with each layer
+                    for (var ii = 0; ii < layers.length; ii++) {
+                        if (drawOK && (! layers[ii].checkOK(drawArgs, updateArgs))) {
+                            var checkOffset = drawArgs ? drawArgs.offset : pannable.getOffset();
+                            
+                            drawOK = false;
+                            
+                            // if the current offset and the updated offset don't match flag
+                            if (pannable && (! updateArgs.offset.matches(checkOffset))) {
+                                var relativeOffset = cachedOffset.diff(checkOffset);
+                                var offsetChange = checkOffset.diff(updateArgs.offset).invert();
+                                
+                                GRUNT.Log.info("old offset = " + checkOffset);
+                                GRUNT.Log.info("cached offset = " + cachedOffset);
+                                GRUNT.Log.info("relative cache offset = " + relativeOffset);
+                                GRUNT.Log.info("offset change = " + offsetChange);
+                                
+                                
+                                
+                                // calculate the difference between the current offset and the new offset
+                               // var offsetDiff = updateArgs.offset.diff(pannable.getOffset());
+                                
+                                // add the difference between the cached offset and the pannable offset
+                                // offsetDiff.add(cachedOffset.diff(drawArgs.offset));
+                                
+                                // apply the diff to the cached offset
+                                // cachedOffset.add(offsetDiff);
+
+                                // update the pannable offset
+                                self.updateOffset(updateArgs.offset.x, updateArgs.offset.y);
+                                GRUNT.Log.info("OFFSET UPDATED AS REQUIRED BY A LAYER");
+                                
+                                // let other objects know that a view's offset has changed at the request
+                                // of a child layer
+                                GRUNT.WaterCooler.say("view.offset-changed", {
+                                    view: self,
+                                    triggerLayer: layers[ii],
+                                    change: offsetChange
+                                });
+                                
+                                // update the cached offset
+                                cachedOffset = pannable.getOffset();
+                                cachedOffset.add(relativeOffset);
+                                
+                                GRUNT.Log.info("new offset = " + pannable.getOffset());
+                                GRUNT.Log.info("new cached offset = " + cachedOffset);
+                                GRUNT.Log.info("new relative cache offset = " + cachedOffset.diff(pannable.getOffset()));
+                            } // if
+                        } // if
+                    } // for
                     
-                    // if the view is not invalidating, then save the current context
-                    if (! viewInvalidating) {
-                        cacheContext();
+                    // if drawing is not ok at the moment, flick to invalidating mode
+                    if (drawOK) {
+                        drawView(tickCount, viewInvalidating);
+
+                        // if the view is not invalidating, then save the current context
+                        if (! viewInvalidating) {
+                            cacheContext();
+                        } // if
                     } // if
                 }
                 catch (e) {

@@ -1,18 +1,17 @@
 SLICK.Tiling = (function() {
     TileStore = function(params) {
-        // initialise defaults
-        var DEFAULT_PARAMS = {
-            gridSize: 50,
-            center: new SLICK.Vector()
-        };
-        
         // initialise the parameters with the defaults
-        params = GRUNT.extend({}, DEFAULT_PARAMS, params);
+        params = GRUNT.extend({
+            gridSize: 40,
+            center: new SLICK.Vector()
+        }, params);
         
         // initialise the storage array
-        var storage = new Array(Math.pow(params.gridSize, 2));
-        var gridHalfWidth = Math.ceil(params.gridSize * 0.5);
-        var topLeftOffset = params.center.offset(-gridHalfWidth, -gridHalfWidth);
+        var storage = new Array(Math.pow(params.gridSize, 2)),
+            gridHalfWidth = Math.ceil(params.gridSize * 0.5),
+            topLeftOffset = params.center.offset(-gridHalfWidth, -gridHalfWidth),
+            lastTileCreator = null,
+            lastNotifyListener = null;
         
         GRUNT.Log.info("created tile store with tl offset = " + topLeftOffset);
         
@@ -23,6 +22,17 @@ SLICK.Tiling = (function() {
         function shiftOrigin(col, row) {
             // TODO: move the tiles around
         } // shiftOrigin
+        
+        function copyStorage(dst, src, delta) {
+            // set the length of the destination to match the source
+            dst.length = src.length;
+
+            for (var xx = 0; xx < params.gridSize; xx++) {
+                for (var yy = 0; yy < params.gridSize; yy++) {
+                    dst[getTileIndex(xx, yy)] = self.getTile(xx + delta.x, yy + delta.y);
+                } // for
+            } // for
+        } // copyStorage
         
         // initialise self
         var self = {
@@ -35,7 +45,7 @@ SLICK.Tiling = (function() {
             },
             
             getTile: function(col, row) {
-                return storage[getTileIndex(col, row)];
+                return (col >= 0 && col < params.gridSize) ? storage[getTileIndex(col, row)] : null;
             },
             
             setTile: function(col, row, tile) {
@@ -51,29 +61,76 @@ SLICK.Tiling = (function() {
             */
             populate: function(tileCreator, notifyListener) {
                 // take a tick count as we want to time this
-                var startTicks = new Date().getTime();
-                var tileIndex = 0;
+                var startTicks = new Date().getTime(),
+                    tileIndex = 0;
                 
                 GRUNT.Log.info("poulating grid, top left offset = " + topLeftOffset);
 
                 if (tileCreator) {
                     for (var row = 0; row < params.gridSize; row++) {
                         for (var col = 0; col < params.gridSize; col++) {
-                            var tile = tileCreator(col, row, topLeftOffset, params.gridSize);
+                            if (! storage[tileIndex]) {
+                                var tile = tileCreator(col, row, topLeftOffset, params.gridSize);
                         
-                            // if the tile was created and we have a notify listener request updates
-                            if (tile && notifyListener) {
-                                tile.requestUpdates(notifyListener);
+                                // if the tile was created and we have a notify listener request updates
+                                if (tile && notifyListener) {
+                                    tile.requestUpdates(notifyListener);
+                                } // if
+                        
+                                // add the tile to storage
+                                storage[tileIndex] = tile;
                             } // if
-                        
-                            // add the tile to storage
-                            storage[tileIndex++] = tile;
+                            
+                            // increment the tile index
+                            tileIndex++;
                         } // for
                     } // for
                 } // if
+                
+                // save the last tile creator
+                lastTileCreator = tileCreator;
+                lastNotifyListener = notifyListener;
 
                 // log how long it took
                 GRUNT.Log.info("tile grid populated with " + tileIndex + " tiles in " + (new Date().getTime() - startTicks) + " ms");
+            },
+            
+            getShiftDelta: function(topLeftX, topLeftY, cols, rows) {
+                // initialise variables
+                var shiftAmount = Math.floor(params.gridSize * 0.2),
+                    shiftDelta = new SLICK.Vector();
+                
+                if (topLeftX < 0 || topLeftX + cols > params.gridSize) {
+                    shiftDelta.x = topLeftX < 0 ? -shiftAmount : shiftAmount;
+                } // if
+                
+                if (topLeftY < 0 || topLeftY + rows > params.gridSize) {
+                    shiftDelta.y = topLeftY < 0 ? -shiftAmount : shiftAmount;
+                } // if
+                
+                return shiftDelta;
+            },
+            
+            
+            shift: function(shiftDelta) {
+                // if the shift delta x and the shift delta y are both 0, then return
+                if ((shiftDelta.x === 0) && (shiftDelta.y === 0)) { return; }
+                
+                var ii;
+                GRUNT.Log.info("need to shift tile store grid, " + shiftDelta.x + " cols and " + shiftDelta.y + " rows.");
+                
+                // create new storage
+                var newStorage = Array(storage.length);
+                
+                // copy the storage from given the various offsets
+                copyStorage(newStorage, storage, shiftDelta);
+                
+                // update the storage and top left offset
+                storage = newStorage;
+                topLeftOffset = new SLICK.Vector(topLeftOffset.x + shiftDelta.x, topLeftOffset.y - shiftDelta.y);
+
+                // populate with the last tile creator (crazy talk)
+                self.populate(lastTileCreator, lastNotifyListener);
             },
             
             /*
@@ -241,7 +298,8 @@ SLICK.Tiling = (function() {
                 strokeStyle: "rgb(180, 180, 180)",
                 zindex: -1,
                 draw: drawTileBackground,
-                canCache: false
+                canCache: false,
+                validStates: SLICK.Graphics.AnyDisplayState
             });
             
             var gridSection = document.createElement('canvas');
@@ -293,6 +351,7 @@ SLICK.Tiling = (function() {
                 center: new SLICK.Vector(),
                 beginDraw: checkTileQueue,
                 draw: drawTiles,
+                checkOK: checkShiftDelta,
                 canCache: true
             }, params);
             
@@ -304,6 +363,8 @@ SLICK.Tiling = (function() {
                 lastOffset = null,
                 tileDrawQueue = [],
                 refreshQueue = false,
+                shiftDelta = new SLICK.Vector(),
+                reloadTimeout = 0,
                 halfBuffer = params.bufferSize * 0.5;
             
             // create the tile store
@@ -318,6 +379,23 @@ SLICK.Tiling = (function() {
                 } // for
             } // notifyListeners
             
+            function checkShiftDelta(drawArgs, updateArgs) {
+                var needTiles = shiftDelta.x + shiftDelta.y !== 0;
+                
+                if (needTiles) {
+                    tileStore.shift(shiftDelta);
+                    
+                    // update the offset
+                    GRUNT.Log.info("shift delta = " + shiftDelta);
+                    updateArgs.offset = drawArgs.offset.offset(-shiftDelta.x * params.tileSize, -shiftDelta.y * params.tileSize);
+                    
+                    // reset the delta
+                    shiftDelta = new SLICK.Vector();
+                } // if
+                
+                return !needTiles;
+            } // checkShiftDelta
+            
             function updateDrawQueue(drawArgs) {
                 // find the tile for the specified position
                 var tileStart = new SLICK.Vector(Math.floor(drawArgs.offset.x * invTileSize), Math.floor(drawArgs.offset.y * invTileSize));
@@ -327,6 +405,7 @@ SLICK.Tiling = (function() {
                     
                 // reset the tile draw queue
                 tileDrawQueue = [];
+                tilesNeeded = false;
                 
                 // right, let's draw some tiles (draw rows first)
                 for (var yy = 0; yy < tileRows; yy++) {
@@ -338,7 +417,11 @@ SLICK.Tiling = (function() {
                         // get the tile
                         var tile = tileStore.getTile(xx + tileStart.x, yy + tileStart.y);
                         var xPos = xx * params.tileSize + tileOffset.x;
-
+                        
+                        if (! tile) {
+                            shiftDelta = tileStore.getShiftDelta(tileStart.x, tileStart.y, tileCols, tileRows);
+                        } // if
+                        
                         // add the tile and position to the tile draw queue
                         tileDrawQueue.push({
                             tile: tile,
@@ -412,7 +495,9 @@ SLICK.Tiling = (function() {
             } // spiralizeQueue
             
             function checkTileQueue(drawArgs) {
-                refreshQueue = refreshQueue || drawArgs.offsetChanged || drawArgs.dimensionsChanged;
+                if (drawArgs.offsetChanged || drawArgs.dimensionsChanged) {
+                    updateDrawQueue(drawArgs);
+                } // if
             }
             
             function drawTiles(drawArgs) {
@@ -423,7 +508,7 @@ SLICK.Tiling = (function() {
                 if (refreshQueue) { 
                     updateDrawQueue(drawArgs);
                 } // if
-
+                
                 // set the context stroke style for the border
                 if (params.drawGrid) {
                     drawArgs.context.strokeStyle = "rgba(50, 50, 50, 0.3)";

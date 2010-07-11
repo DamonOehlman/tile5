@@ -34,8 +34,8 @@ SLICK.Mapping = (function() {
 
                     // calculate the offsets
                     // GRUNT.Log.info("GETTING OFFSET for position: " + pos);
-                    var offset_x = Math.abs(pos_mp.x - blMercatorPix.x);
-                    var offset_y = self.getDimensions().height - Math.abs(pos_mp.y - blMercatorPix.y);
+                    var offset_x = pos_mp.x - blMercatorPix.x;
+                    var offset_y = self.getDimensions().height - (pos_mp.y - blMercatorPix.y);
 
                     // GRUNT.Log.info("position mercator pixels: " + pos_mp);
                     // GRUNT.Log.info("bottom left mercator pixels: " + blMercatorPix);
@@ -58,6 +58,17 @@ SLICK.Mapping = (function() {
                     return fnresult;
                 }
             });
+            
+            // listen for updates to the view.offset-changed message
+            GRUNT.WaterCooler.listen("view.offset-changed", function(args) {
+                // TODO: check if the message is related to the view that this object belongs to
+
+                // add the specified change to the reference mercator position
+                if (args.change) {
+                    blMercatorPix.y += args.change.y;
+                    blMercatorPix.x -= args.change.x;
+                } // if
+            }); 
             
             return self;
         },
@@ -174,19 +185,22 @@ SLICK.Mapping = (function() {
         RouteOverlay: function(params) {
             params = GRUNT.extend({
                 strokeStyles: ["rgba(0, 51, 119, 0.9)"],
+                waypointFillStyle: "#FFFFFF",
                 lineWidths: [4],
-                geometry: [],
+                data: null,
                 pixelGeneralization: 8,
                 canCache: true
             }, params);
             
             var coordinates = [];
+            var instructionCoords = [];
             
             // create the view layer the we will draw the view
             var view = new SLICK.Graphics.ViewLayer(GRUNT.extend({
                 zindex: 50,
                 draw: function(drawArgs) {
                     // TODO: see how this can be optimized... 
+                    var ii;
                     
                     if (coordinates.length > 0) {
                         for (var strokeIndex = 0; strokeIndex < params.strokeStyles.length; strokeIndex++) {
@@ -198,13 +212,30 @@ SLICK.Mapping = (function() {
                             drawArgs.context.beginPath();
                             drawArgs.context.moveTo(coordinates[0].x - drawArgs.offset.x, coordinates[0].y - drawArgs.offset.y);
 
-                            for (var ii = 1; ii < coordinates.length; ii++) {
+                            for (ii = 1; ii < coordinates.length; ii++) {
                                 drawArgs.context.lineTo(coordinates[ii].x - drawArgs.offset.x, coordinates[ii].y - drawArgs.offset.y);
                             } // for
 
                             drawArgs.context.stroke();
                         } // for
                     }
+                    
+                    drawArgs.context.fillStyle = params.waypointFillStyle;
+                    
+                    // draw the instruction coordinates
+                    for (ii = 0; ii < instructionCoords.length; ii++) {
+                        drawArgs.context.beginPath();
+                        drawArgs.context.arc(
+                            instructionCoords[ii].x - drawArgs.offset.x, 
+                            instructionCoords[ii].y - drawArgs.offset.y,
+                            2,
+                            0,
+                            Math.PI * 2,
+                            false);
+                        
+                        drawArgs.context.stroke();
+                        drawArgs.context.fill();
+                    } // for
                 }
             }, params));
             
@@ -212,20 +243,23 @@ SLICK.Mapping = (function() {
             var self = GRUNT.extend(view, {
                 calcCoordinates: function(grid) {
                     coordinates = [];
-                    GRUNT.Log.info("calculating position coordinates");
+                    instructionCoords = [];
 
                     var tickCount = new Date().getTime();
-                    var current, last = null;
+                    var ii, current, last = null, include,
+                        geometry = params.data ? params.data.getGeometry() : [],
+                        instructions = params.data ? params.data.getInstructions() : [];
+                        
+                    // TODO: improve the code reuse in the code below
 
                     // iterate through the position geometry and determine xy coordinates
-                    for (var ii = 0; ii < params.geometry.length; ii++) {
+                    for (ii = 0; ii < geometry.length; ii++) {
                         // calculate the current position
-                        current = grid.getGridXYForPosition(params.geometry[ii]);
+                        current = grid.getGridXYForPosition(geometry[ii]);
 
                         // determine whether the current point should be included
-                        var include = (! last) || 
-                                (ii == params.geometry.length-1) || 
-                                (Math.abs(current.x - last.x) + Math.abs(current.y - last.y) > params.pixelGeneralization);
+                        include = (! last) || (ii == geometry.length-1) || 
+                            (Math.abs(current.x - last.x) + Math.abs(current.y - last.y) > params.pixelGeneralization);
                         
                         
                         if (include) {
@@ -235,9 +269,46 @@ SLICK.Mapping = (function() {
                             last = current;
                         } // if
                     } // for
+                    
+                    // iterate throught the instructions and add any points to the instruction coordinates array
+                    last = null;
+                    for (ii = 0; ii < instructions.length; ii++) {
+                        if (instructions[ii].position) {
+                            // calculate the current position
+                            current = grid.getGridXYForPosition(instructions[ii].position);
 
-                    GRUNT.Log.info("converted geometry of " + params.geometry.length + " positions to " + coordinates.length + " coords in " + (new Date().getTime() - tickCount) + " ms");
+                            // determine whether the current point should be included
+                            include = (! last) || (ii == instructions.length-1) || 
+                                (Math.abs(current.x - last.x) + Math.abs(current.y - last.y) > params.pixelGeneralization);
+
+                            if (include) {
+                                instructionCoords.push(current);
+
+                                // update the last
+                                last = current;
+                            } // if
+                        } // if
+                    } // for
+
+                    GRUNT.Log.info("geometry = " + geometry.length + ", coordinates = " + coordinates.length + ", instructions = " + instructionCoords.length + ", calctime = " + (new Date().getTime() - tickCount) + " ms");
                 }
+            });
+            
+            // listen for updates to the view.offset-changed message
+            GRUNT.WaterCooler.listen("view.offset-changed", function(args) {
+                // TODO: check if the message is related to the view that this object belongs to
+                
+                if (args.change) {
+                    var ii;
+                    // iterate through the items in the coordinates
+                    for (ii = 0; ii < coordinates.length; ii++) {
+                        coordinates[ii].add(args.change);
+                    } // for
+
+                    for (ii = 0; ii < instructionCoords.length; ii++) {
+                        instructionCoords[ii].add(args.change);
+                    } // for
+                } // if
             });
 
             return self;
@@ -367,30 +438,38 @@ SLICK.Mapping = (function() {
             
             // register a layer listener to properly initialise GeoOverlays
             parent.registerLayerListener(function(eventType, layerId, layer) {
-                // if the layer is a geo layer and has a handler for the calcposition coordinates method, then call it
-                GRUNT.Log.info("layer " + layerId + " " + eventType + " event, has position coordinates event: " + (layer.calcCoordinates ? "true" : "false"));
-                if (layer.calcCoordinates) {
-                    layer.calcCoordinates(self.getTileLayer());
-                } // if
-
-                // handlers for changes to the grid
-                if (/grid\d+/.test(layerId)) {
-                    // if the event type is an add event, then recalculate the necessary coordinates
-                    if (eventType == "add") {
-                        self.eachLayer(function(checkLayer) {
-                            if (checkLayer.calcCoordinates) {
-                                checkLayer.calcCoordinates(layer);
-                            } // if                            
-                        });
-                        
-                        // TODO: remove this once we are triggering the tile load as necessary
-                        self.setDisplayStatus(SLICK.Graphics.DisplayState.ACTIVE);
-                    }
-                    // otherwise if the event is load, then recalc position information, and unfreeze the display
-                    else if (eventType == "load") {
-                        self.setDisplayStatus(SLICK.Graphics.DisplayState.ACTIVE);
+                if (layer) {
+                    // if the layer is a geo layer and has a handler for the calcposition coordinates method, then call it
+                    GRUNT.Log.info("layer " + layerId + " " + eventType + " event, has position coordinates event: " + (layer.calcCoordinates ? "true" : "false"));
+                    if (layer.calcCoordinates) {
+                        layer.calcCoordinates(self.getTileLayer());
                     } // if
-                } // if
+
+                    // handlers for changes to the grid
+                    if (/grid\d+/.test(layerId)) {
+                        GRUNT.Log.info("CAPTURED NOTIFY EVENT: type = " + eventType + ", layerId = " + layerId);
+                        // if the event type is an add event, then recalculate the necessary coordinates
+                        if ((eventType == "add") || (eventType == "offset-changed")) {
+                            self.eachLayer(function(checkLayer) {
+                                if (checkLayer.calcCoordinates) {
+                                    checkLayer.calcCoordinates(layer);
+                                } // if                            
+                            });
+                        }
+                        // otherwise if the event is load, then recalc position information, and unfreeze the display
+                        else if (eventType == "load") {
+                            self.setDisplayStatus(SLICK.Graphics.DisplayState.ACTIVE);
+                        } // if
+                    } // if
+                } 
+                // looks like we have a global event
+                else {
+                    self.eachLayer(function(checkLayer) {
+                        if (checkLayer.calcCoordinates) {
+                            checkLayer.calcCoordinates(self.getTileLayer());
+                        } // if                            
+                    });
+                }
             });
             
             // initialise self

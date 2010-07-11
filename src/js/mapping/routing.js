@@ -29,9 +29,11 @@ SLICK.Geo.Routing = (function() {
         // get the map dimensions
         var dimensions = map.getDimensions();
         
+        // GRUNT.Log.info("creating route overlay with route data: ", routeData);
+        
         // create a new route overlay for the specified data
         var overlay = new SLICK.Mapping.RouteOverlay({
-            geometry: routeData.getGeometry(),
+            data: routeData,
             width: dimensions.width,
             height: dimensions.height
         });
@@ -117,9 +119,55 @@ SLICK.Geo.Routing = (function() {
             GRUNT.Log.info(String.format("Routing engine '{0}' registered", args.id));
         },
         
+        Maneuver: {
+            None: 0,
+            
+            // continue maneuver
+            Continue: 1,
+            
+            // turn left maneuvers
+            TurnLeft: 100,
+            TurnLeftSlight: 101,
+            TurnLeftSharp: 102,
+            
+            // turn right maneuvers
+            TurnRight: 110,
+            TurnRightSlight: 111,
+            TurnRightSharp: 112,
+            
+            // uturn
+            TurnAround: 190,
+            
+            // enter roundabout maneuver
+            EnterRoundabout: 200,
+            
+            // exit ramp
+            ExitRamp: 300
+        },
+        
+        Instruction: function(params) {
+            params = GRUNT.extend({
+                position: null,
+                description: "",
+                manuever: module.Maneuver.None
+            }, params);
+            
+            // initialise self
+            var self = {
+                position: params.position,
+                
+                getDescription: function() {
+                    return params.description;
+                }
+            };
+            
+            return self;
+        },
+        
         RouteData: function(params) {
             params = GRUNT.extend({
-                geometry: []
+                geometry: [],
+                instructions: []
             }, params);
             
             var positions = new Array(params.geometry.length);
@@ -133,6 +181,10 @@ SLICK.Geo.Routing = (function() {
             var self = {
                 getGeometry: function() {
                     return positions;
+                },
+                
+                getInstructions: function() {
+                    return params.instructions;
                 }
             };
             
