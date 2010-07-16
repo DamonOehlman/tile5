@@ -60,7 +60,7 @@ SLICK.Mapping = (function() {
             });
             
             // listen for updates to the view.offset-changed message
-            GRUNT.WaterCooler.listen("view.offset-changed", function(args) {
+            GRUNT.WaterCooler.listen("tiler.shift", function(args) {
                 // TODO: check if the message is related to the view that this object belongs to
 
                 // add the specified change to the reference mercator position
@@ -295,7 +295,7 @@ SLICK.Mapping = (function() {
             });
             
             // listen for updates to the view.offset-changed message
-            GRUNT.WaterCooler.listen("view.offset-changed", function(args) {
+            GRUNT.WaterCooler.listen("tiler.shift", function(args) {
                 // TODO: check if the message is related to the view that this object belongs to
                 
                 if (args.change) {
@@ -313,18 +313,199 @@ SLICK.Mapping = (function() {
 
             return self;
         },
+
+        /* annotations and annotations overlay */
+        
+        Annotation: function(params) {
+            params = GRUNT.extend({
+                xy: null,
+                pos: null,
+                draw: null
+            }, params);
+            
+            // TODO: make this inherit from sprite
+            var self = {
+                xy: params.xy,
+                pos: params.pos,
+                
+                draw: function(drawArgs) {
+                    if (! self.xy) { return; }
+                    
+                    if (params.draw) {
+                        params.draw(drawArgs, new SLICK.Vector(self.xy.x - drawArgs.offset.x, self.xy.y - drawArgs.offset.y));
+                    }
+                    else {
+                        drawArgs.context.beginPath();
+                        drawArgs.context.arc(
+                            self.xy.x - drawArgs.offset.x, 
+                            self.xy.y - drawArgs.offset.y,
+                            4,
+                            0,
+                            Math.PI * 2,
+                            false);                    
+                        drawArgs.context.fill();                    
+                    }
+                }
+            }; // self
+            
+            return self;
+        },
+        
+        ImageAnnotation: function(params) {
+            params = GRUNT.extend({
+                imageUrl: null
+            }, params);
+            
+            var image = null,
+                imageOffset = new SLICK.Vector();
+            
+            params.draw = function(drawArgs, xy) {
+                if (! image) { return; }
+                
+                // determine the position to draw the image
+                var imageXY = xy.offset(imageOffset.x, imageOffset.y);
+                
+                // draw the image
+                drawArgs.context.drawImage(image, imageXY.x, imageXY.y, image.width, image.height);
+            }; // draw
+            
+            // load the image
+            SLICK.Resources.loadImage({
+                url: params.imageUrl,
+                callback: function(loadedImage) {
+                    image = loadedImage;
+                    
+                    // calculate the image offset
+                    if (image) {
+                        imageOffset.x = -image.width * 0.5;
+                        imageOffset.y = -image.height * 0.5;
+                    } // if
+                }
+            });
+
+            return new module.Annotation(params);
+        },
+        
+        AnnotationsOverlay: function(params) {
+            params = GRUNT.extend({
+                pois: null,
+                map: null,
+                createAnnotationForPOI: null,
+                canCache: true
+            }, params);
+            
+            var annotations = [],
+                staticAnnotations = [];
+                
+            function createAnnotationForPOI(poi) {
+                if (poi && poi.pos) {
+                    if (params.createAnnotationForPOI) {
+                        return params.createAnnotationForPOI(poi);
+                    }
+                    else {
+                        return new module.Annotation({
+                            pos: poi.pos
+                        });
+                    } // if..else
+                } // if
+            } // createAnnotationForPOI
+            
+            function updateAnnotations(newPOIs) {
+                try {
+                    // reset the annotations array
+                    annotations = [];
+                
+                    // iterate through the pois and generate the annotations
+                    for (var ii = 0; ii < newPOIs.length; ii++) {
+                        if (newPOIs[ii].pos) {
+                            var newAnnotation = createAnnotationForPOI(newPOIs[ii]);
+                            if (newAnnotation) {
+                                annotations.push(newAnnotation); 
+                            } // if
+                        } // if
+                    } // for
+                    
+                    updateAnnotationCoordinates(annotations);
+                }
+                catch (e) {
+                    GRUNT.Log.exception(e);
+                }
+            } // updateAnnotations
+            
+            function updateAnnotationCoordinates(annotationsArray) {
+                var grid = params.map ? params.map.getTileLayer() : null;
+                
+                GRUNT.Log.info("calculating " + annotationsArray.length + " annotation coordinates, map = " + grid);
+
+                // iterate through the annotations and calculate the xy coordinates
+                for (var ii = 0; grid && (ii < annotationsArray.length); ii++) {
+                    // update the annotation xy coordinates
+                    annotationsArray[ii].xy = grid.getGridXYForPosition(annotationsArray[ii].pos);
+                } // for
+            }
+
+            // create the view layer the we will draw the view
+            var self = new SLICK.Graphics.ViewLayer(GRUNT.extend({
+                zindex: 100,
+                
+                /**
+                This method provides that ability for the creation of static annotations (as opposed)
+                to annotations that are kept in sync with the pois that are POIStorage of the map. 
+                */
+                add: function(annotation) {
+                    staticAnnotations.push(annotation);
+                    updateAnnotationCoordinates(staticAnnotations);
+                },
+                
+                draw: function(drawArgs) {
+                    // initialise variables
+                    var ii;
+                    
+                    drawArgs.context.fillStyle = "rgba(255, 0, 0, 0.75)";
+                    
+                    // iterate through the annotations and draw them
+                    for (ii = 0; ii < annotations.length; ii++) {
+                        annotations[ii].draw(drawArgs);
+                    } // for
+                    
+                    // iterate through the annotations and draw them
+                    for (ii = 0; ii < staticAnnotations.length; ii++) {
+                        staticAnnotations[ii].draw(drawArgs);
+                    } // for
+                }
+            }, params));
+            
+            // listen for updates to the view.offset-changed message
+            GRUNT.WaterCooler.listen("tiler.shift", function(args) {
+                updateAnnotationCoordinates(annotations);
+            });
+            
+            GRUNT.WaterCooler.listen("geo.pois-updated", function(args) {
+                // if the event source id matches our current poi storage, then apply updates
+                if (params.pois && (params.pois.id == args.srcID)) {
+                    updateAnnotations(args.pois);
+                } // if
+            });
+            
+            return self;
+        },
         
         Tiler: function(params) {
             params = GRUNT.extend({
                 tapExtent: 10,
                 provider: null,
                 crosshair: false,
-                zoomLevel: 0
+                zoomLevel: 0,
+                boundsChange: null,
+                boundsChangeThreshold: 30,
+                pois: new SLICK.Geo.POIStorage(),
+                createAnnotationForPOI: null
             }, params);
 
             // initialise variables
-            var current_position = null;
-            var centerPos = null;
+            var current_position = null,
+                lastBoundsChangeOffset = new SLICK.Vector(),
+                centerPos = null;
             var initialized = false;
             var zoomLevel = params.zoomLevel;
 
@@ -474,6 +655,8 @@ SLICK.Mapping = (function() {
             
             // initialise self
             var self = GRUNT.extend({}, parent, {
+                pois: params.pois,
+                
                 getBoundingBox: function(buffer_size) {
                     var fnresult = new SLICK.Geo.BoundingBox();
                     var grid = self.getTileLayer();
@@ -598,6 +781,16 @@ SLICK.Mapping = (function() {
                     } // if
                 }
             }, parent);
+
+            // create an annotations layer
+            var annotations = new SLICK.Mapping.AnnotationsOverlay({
+                pois: self.pois,
+                map: self,
+                createAnnotationForPOI: params.createAnnotationForPOI
+            });
+            
+            // add the annotations layer
+            self.setLayer("annotations", annotations);
             
             // add the radar overlay
             // self.setLayer("radar", new SLICK.Mapping.RadarOverlay());
@@ -621,6 +814,19 @@ SLICK.Mapping = (function() {
                     drawArgs.context.fillText("© RACQ, deCarta & Navteq 2010", 10, drawArgs.dimensions.height - 10);
                 }
             }));
+            
+            // listen for the view idling
+            GRUNT.WaterCooler.listen("view-idle", function(args) {
+                if (args.id && (args.id == self.id)) {
+                    // compare the last bounds change offset with the current offset
+                    var changeDelta = lastBoundsChangeOffset.diff(self.getOffset()).getAbsSize();
+                    
+                    if ((changeDelta > params.boundsChangeThreshold) && params.boundsChange) {
+                        lastBoundsChangeOffset = self.getOffset();
+                        params.boundsChange(self.getBoundingBox());
+                    } // if
+                }
+            });
 
             return self;
         }

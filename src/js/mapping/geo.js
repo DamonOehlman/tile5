@@ -6,10 +6,71 @@ File is used to define geo namespace and classes for implementing GIS classes an
 /* GEO Basic Type definitions */
 
 SLICK.Geo = (function() {
+    // define the engines array
+    var engines = {};
+    
+    function findEngine(capability, preference) {
+        var matchingEngine = null;
+        
+        // iterate through the registered engines
+        for (var engineId in engines) {
+            if (preference) {
+                if ((engineId == preference) && engines[engineId][capability]) {
+                    matchingEngine = engines[engineId];
+                    break;
+                } // if
+            }
+            else if (engines[engineId][capability]) {
+                matchingEngine = engines[engineId];
+                break;
+            } // if..else
+        } // for
+
+        return matchingEngine;
+    } // findEngine
+    
     // define the module
     var module = {
         
         /* module functions */
+        
+        /* geo engine class */
+        
+        Engine: function(params) {
+            // if the id for the engine is not specified, throw an exception
+            if (! params.id) {
+                throw new Error("A GEO.Engine cannot be registered without providing an id.");
+            } // if
+
+            // map the parameters directly to self
+            var self = GRUNT.extend({
+                remove: function() {
+                    delete engines[self.id];
+                }
+            }, params);
+            
+            // register the engine
+            engines[self.id] = self;
+            
+            return self;
+        },
+        
+        /**
+        Returns the engine that provides the required functionality.  If preferred engines are supplied
+        as additional arguments, then those are looked for first
+        */
+        getEngine: function(requiredCapability) {
+            // initialise variables
+            var fnresult = null;
+            
+            // iterate through the arguments beyond the capabililty for the preferred engine
+            for (var ii = 1; (! fnresult) && (ii < arguments.length); ii++) {
+                fnresult = findEngine(requiredCapability, arguments[ii]);
+            } // for
+            
+            // if we found an engine using preferences, return that otherwise return an alternative
+            return fnresult ? fnresult : findEngine(requiredCapability);
+        },
         
         /* geo type definitions */
         
@@ -251,6 +312,13 @@ SLICK.Geo = (function() {
             return self;
         },
         
+        /**
+        A landmark is a specialized type of address, something like a park, airport, etc
+        */
+        Landmark: function(params) {
+            
+        },
+        
         /* utilities */
         
         
@@ -315,6 +383,258 @@ SLICK.Geo = (function() {
             return self;
         })(), // Utilitities
         
+        GeocodingAgent: function(params) {
+            // extend parameters with defaults
+            params = GRUNT.extend({
+                name: "Geocoding Search Agent",
+                paramTranslator: null,
+                execute: function(searchParams, callback) {
+                    try {
+                        GRUNT.Log.info("Running geocoding agent");
+                    
+                        // if we have a param translator, then call that on the search params
+                        if (params.paramTranslator) {
+                            searchParams = params.paramTranslator(searchParams);
+                        } // if
+                    
+                        // check for a freeform request
+                        if ((! searchParams.reverse) && (! searchParams.freeform)) {
+                            address = new module.Address(searchParams);
+                        } // if
+                        
+                        // get the geocoding engine
+                        var engine = module.getEngine("geocode");
+                        if (engine) {
+                            engine.geocode({
+                                addresses: [searchParams.freeform ? searchParams.freeform : address],
+                                complete: function(requestAddress, possibleMatches) {
+                                    if (callback) {
+                                        callback(possibleMatches, params);
+                                    } // if
+                                }
+                            });
+                        } // if
+                    } 
+                    catch (e) {
+                        GRUNT.Log.exception(e);
+                    } // try..catch
+                }
+            }, params);
+            
+            return SLICK.Dispatcher.createAgent(params);
+        },
+        
+        /* Point of Interest Objects */
+        
+        PointOfInterest: function(params) {
+            params = GRUNT.extend({
+                id: 0,
+                title: "",
+                pos: null,
+                lat: "",
+                lon: "",
+                group: "",
+                retrieved: 0
+            }, params);
+
+            // if the position is not defined, but we have a lat and lon, create a new position
+            if ((! params.pos) && params.lat && params.lon) {
+                params.pos = new SLICK.Geo.Position(params.lat, params.lon);
+            } // if
+            
+            return GRUNT.extend({
+                toString: function() {
+                    return params.id + ": '" + params.title + "'";
+                }
+            }, params);
+        },
+        
+        POIStorage: function(params) {
+            params = GRUNT.extend({
+                visibilityChange: null,
+                onPOIDeleted: null,
+                onPOIAdded: null
+            }, params);
+
+            // initialise variables
+            var storageGroups = {},
+                visible = true;
+                
+            function getStorageGroup(groupName) {
+                // first get storage group for the poi based on type
+                var groupKey = groupName ? groupName : "default";
+                
+                // if the storage group does not exist, then create it
+                if (! storageGroups[groupKey]) {
+                    storageGroups[groupKey] = [];
+                } // if                
+                
+                return storageGroups[groupKey];
+            } // getStorageGroup
+                
+            function findExisting(poi) {
+                if (! poi) { return null; }
+                
+                // iterate through the specified group and look for the key by matching the id
+                var group = getStorageGroup(poi.group);
+                for (var ii = 0; ii < group.length; ii++) {
+                    if (group[ii].id == poi.id) {
+                        return group[ii];
+                    } // if
+                } // for
+                
+                return null;
+            } // findExisting
+            
+            function addPOI(poi) {
+                getStorageGroup(poi.group).push(poi);
+            } // addPOI
+            
+            function removeFromStorage(poi) {
+                var group = getStorageGroup(poi.group);
+                
+                for (var ii = 0; ii < group.length; ii++) {
+                    if (group[ii].id == poi.id) {
+                        group.splice(ii, 1);
+                        break;
+                    }
+                } // for
+            } // removeFromStorage
+            
+            function poiGrabber(test) {
+                var matchingPOIs = [];
+                
+                // iterate through the groups and pois within each group
+                for (var groupKey in storageGroups) {
+                    for (var ii = 0; ii < storageGroups[groupKey].length; ii++) {
+                        if ((! test) || test(storageGroups[groupKey][ii])) {
+                            matchingPOIs.push(storageGroups[groupKey][ii]);
+                        } // if
+                    } // for
+                } // for
+                
+                return matchingPOIs;
+            } // poiGrabber
+
+            // initialise self
+            var self = {
+                id: GRUNT.generateObjectID(),
+                
+                getPOIs: function() {
+                    return poiGrabber();
+                },
+
+                getOldPOIs: function(groupName, testTime) {
+                    return poiGrabber(function(testPOI) {
+                        return (testPOI.group == groupName) && (testPOI.retrieved < testTime);
+                    });
+                },
+
+                getVisible: function() {
+                    return visible;
+                },
+
+                setVisible: function(value) {
+                    if (value != visible) {
+                        visible = value;
+
+                        // fire the visibility change event
+                        if (params.visibilityChange) {
+                            params.visibilityChange();
+                        } // if
+                    } // if
+                },
+
+                findById: function(searchId) {
+                    var matches = poiGrabber(function(testPOI) {
+                        return testPOI.id == searchId;
+                    });
+                    
+                    return matches.length > 0 ? matches[0] : null;
+                },
+
+                /*
+                Method:  findByBounds
+                Returns an array of the points of interest that have been located within
+                the bounds of the specified bounding box
+                */
+                findByBounds: function(searchBounds) {
+                    return poiGrabber(function(testPOI) {
+                        return testPOI.pos.inBounds(searchBounds);
+                    });
+                },
+
+                addPOIs: function(newPOIs, clearExisting) {
+                    // if we need to clear existing, then reset the storage
+                    if (clearExisting) {
+                        storageGroups = {};
+                    } // if
+
+                    // iterate through the new pois and put into storage
+                    for (var ii = 0; newPOIs && (ii < newPOIs.length); ii++) {
+                        newPOIs[ii].retrieved = new Date().getTime();
+                        addPOI(newPOIs[ii]);
+                    } // for
+                },
+                
+                update: function(refreshedPOIs) {
+                    // initialise arrays to receive the pois
+                    var newPOIs = [],
+                        ii = 0,
+                        groupName = refreshedPOIs.length > 0 ? refreshedPOIs[0].group : '',
+                        timeRetrieved = new Date().getTime();
+                        
+                    GRUNT.Log.info(String.format("{0} {1} pois to process :)", refreshedPOIs.length, groupName));
+
+                    // iterate through the pois and determine state
+                    for (ii = 0; ii < refreshedPOIs.length; ii++) {
+                        // look for the poi in the poi layer
+                        var foundPOI = findExisting(refreshedPOIs[ii]);
+
+                        // add the poi to either the update or new array according to whether it was found
+                        if (foundPOI) {
+                            foundPOI.retrieved = timeRetrieved;
+                        }
+                        else {
+                            newPOIs.push(refreshedPOIs[ii]);
+                        }
+                    } // for
+                    
+                    // now all we have left are deleted pois transpose those into the deleted list
+                    var deletedPOIs = self.getOldPOIs(groupName, timeRetrieved);
+
+                    // add new pois to the poi layer
+                    self.addPOIs(newPOIs);
+                    GRUNT.Log.info(String.format("POI-UPDATE: {0} new, {1} deleted", newPOIs.length, deletedPOIs.length));
+
+                    // fire the on poi added event when appropriate
+                    for (ii = 0; params.onPOIAdded && (ii < newPOIs.length); ii++) {
+                        params.onPOIAdded(newPOIs[ii]);
+                    } // for
+
+                    for (ii = 0; ii < deletedPOIs.length; ii++) {
+                        // trigger the event if assigned
+                        if (params.onPOIDeleted) {
+                            params.onPOIDeleted(deletedPOIs[ii]);
+                        } // if
+
+                        // remove the poi from storage
+                        removeFromStorage(deletedPOIs[ii]);
+                    } // for
+                    
+                    // if we have made updates, then fire the geo pois updated event
+                    if (newPOIs.length + deletedPOIs.length > 0) {
+                        GRUNT.WaterCooler.say("geo.pois-updated", {
+                            srcID: self.id,
+                            pois: self.getPOIs()
+                        });
+                    } // if
+                }
+            };
+
+            return self;
+        },
+          
         MapProvider: function() {
             // initailise self
             var self = {

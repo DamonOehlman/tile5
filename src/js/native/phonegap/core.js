@@ -8,26 +8,39 @@ SLICK.PhoneGap = (function() {
         });
     } // createTabItem
     
+    // ATTACH a logging listener to send logging messages back to base
+    GRUNT.Log.requestUpdates(function(message, level) {
+        PhoneGap.exec("DebugConsole.log", message);
+    });
+    
     // initialise module
     var module = {
         makeActionBar: function(actions) {
-            // if the actions aren't specified, get the registered actions from the dispatcher
-            if (! actions) {
-                actions = SLICK.Dispatcher.getRegisteredActions();
-            } // if
+            try {
+                // if the actions aren't specified, get the registered actions from the dispatcher
+                if (! actions) {
+                    actions = SLICK.Dispatcher.getRegisteredActions();
+                } // if
+                
+                // window.uicontrols.createToolBar();
+                // window.uicontrols.setToolBarTitle("RACQ Trip Planner");
             
-            window.uicontrols.createTabBar();
+                window.uicontrols.createTabBar();
             
-            // get the application modes
-            var activeTabs = ["UIControls.showTabBarItems"];
-            for (var ii = 0; ii < actions.length; ii++) {
-                createTabItem(actions[ii]);
-                activeTabs.push(actions[ii].id);
-            } // for
+                // get the application modes
+                var activeTabs = ["UIControls.showTabBarItems"];
+                for (var ii = 0; ii < actions.length; ii++) {
+                    createTabItem(actions[ii]);
+                    activeTabs.push(actions[ii].id);
+                } // for
 
-            // show the tab bar
-            window.uicontrols.showTabBar();
-            PhoneGap.exec.apply(this, activeTabs);            
+                // show the tab bar
+                window.uicontrols.showTabBar();
+                PhoneGap.exec.apply(this, activeTabs);
+            }
+            catch (e) {
+                GRUNT.Log.exception(e);
+            }
         }
     };
     

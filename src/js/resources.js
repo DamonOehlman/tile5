@@ -2,6 +2,16 @@ SLICK.Resources = (function() {
     var basePath = "";
     var cachedSnippets = {};
     var cachedResources = {};
+    var images = {};
+    
+    function getImageResource(url) {
+        // if the requested image does not exist, then request it
+        if (! images[url]) {
+            images[url] = new module.ImageResource({ url: url });
+        } // if
+        
+        return images[url];
+    } // getImageResource
     
     var module = {
         Cache: (function() {
@@ -47,11 +57,39 @@ SLICK.Resources = (function() {
         },
         
         getPath: function(path) {
-            return basePath + path;
+            // if the path is an absolute url, then just return that
+            if (/^(https?|\/)/.test(path)) {
+                return path;
+            }
+            // otherwise prepend the base path
+            else {
+                return basePath + path;
+            } // if..else
         },
         
         setBasePath: function(path) {
             basePath = path;
+        },
+        
+        loadImage: function(args) {
+            args = GRUNT.extend({
+                url: null,
+                callback: null
+            }, args);
+            
+            // get the image url
+            var image = getImageResource(module.getPath(args.url));
+            
+            // if the image is loaded, then fire the callback immediated
+            if (image.loaded) {
+                if (args.callback) {
+                    args.callback(image.get());
+                }
+            }
+            // otherwise add the callback to the load listeners for the image
+            else {
+                image.loadListeners.push(args.callback);
+            } // if
         },
         
         loadResource: function(params) {
@@ -107,6 +145,44 @@ SLICK.Resources = (function() {
                 callback: callback,
                 dataType: "html"
             });
+        },
+        
+        ImageResource: function(params) {
+            params = GRUNT.extend({
+                url: ""
+            }, params);
+            
+            var image = null;
+            
+            var self = {
+                loaded: false,
+                loadListeners: [],
+                
+                get: function() {
+                    return image;
+                }
+            };
+            
+            if (params.url) {
+                GRUNT.Log.info("LOADING IMAGE RESOURCE FROM: " + params.url);
+                
+                image = new Image();
+                image.onload = function() {
+                    self.loaded = true;
+                    
+                    // iterate through the load listeners and let them know the image is loaded
+                    for (var ii = 0; ii < self.loadListeners.length; ii++) {
+                        if (self.loadListeners[ii]) {
+                            self.loadListeners[ii](image);
+                        } // if
+                    } // for
+                }; // onload handler
+
+                // update the image source
+                image.src = params.url;
+            } // if
+            
+            return self;
         }
     };
     

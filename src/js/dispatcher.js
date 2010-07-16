@@ -112,7 +112,7 @@ SLICK.Dispatcher = (function() {
                 },
                 
                 getId: function() {
-                    return SLICK.Utils.toId(self.getName());
+                    return GRUNT.toID(self.getName());
                 },
                 
                 run: function(args, callback) {

@@ -43,21 +43,6 @@ SLICK = (function () {
             return self;
         })(),
         
-        /** @namespace 
-        SLICK Utilities module - another candidate for moving to GRUNT
-        */
-        Utils: (function() {
-            /** name SLICK.Utils */
-            var self = {
-                /** @static */
-                toId: function(text) {
-                    return text.replace(/\s/g, "-");
-                }
-            };
-            
-            return self;
-        })(),
-        
         /**
         Initialise a new Vector instance
         

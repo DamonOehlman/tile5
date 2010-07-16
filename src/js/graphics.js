@@ -20,6 +20,9 @@ SLICK.Border = {
 
 SLICK.Graphics = (function() {
     
+    // initialise variables
+    var viewCounter = 0;
+    
     var module = {
         // define module requirements
         requires: ["Resources"],
@@ -204,6 +207,7 @@ SLICK.Graphics = (function() {
         View: function(params) {
             // initialise defaults
             params = GRUNT.extend({
+                id: "view_" + viewCounter++,
                 container: "",
                 defineLayers: null,
                 pannable: false,
@@ -232,6 +236,7 @@ SLICK.Graphics = (function() {
                 lastInvalidate = 0,
                 dimensions = null,
                 drawArgs = null,
+                idle = false,
                 status = module.DisplayState.ACTIVE;
             
             // calculate the repaint interval
@@ -449,7 +454,10 @@ SLICK.Graphics = (function() {
                     var savedDrawn = false;
                     
                     // clear the canvas
-                    // main_context.clearRect(0, 0, canvas.width, canvas.height);
+                    // TODO: handle scaling clearing the background correctly...
+                    if (drawArgs.scaleFactor != 1) {
+                        main_context.clearRect(0, 0, canvas.width, canvas.height);
+                    } // if
                     
                     // iterate through the layers and draw them
                     for (var ii = 0; ii < layers.length; ii++) {
@@ -513,6 +521,8 @@ SLICK.Graphics = (function() {
             
             // initialise self
             var self = GRUNT.extend({}, pannable, scalable, {
+                id: params.id,
+                
                 getContext: function() {
                     return buffer_context;
                 },
@@ -621,10 +631,10 @@ SLICK.Graphics = (function() {
                                 var relativeOffset = cachedOffset.diff(checkOffset);
                                 var offsetChange = checkOffset.diff(updateArgs.offset).invert();
                                 
-                                GRUNT.Log.info("old offset = " + checkOffset);
-                                GRUNT.Log.info("cached offset = " + cachedOffset);
-                                GRUNT.Log.info("relative cache offset = " + relativeOffset);
-                                GRUNT.Log.info("offset change = " + offsetChange);
+                                // GRUNT.Log.info("old offset = " + checkOffset);
+                                // GRUNT.Log.info("cached offset = " + cachedOffset);
+                                // GRUNT.Log.info("relative cache offset = " + relativeOffset);
+                                // GRUNT.Log.info("offset change = " + offsetChange);
                                 
                                 
                                 
@@ -641,24 +651,19 @@ SLICK.Graphics = (function() {
                                 self.updateOffset(updateArgs.offset.x, updateArgs.offset.y);
                                 GRUNT.Log.info("OFFSET UPDATED AS REQUIRED BY A LAYER");
                                 
-                                // let other objects know that a view's offset has changed at the request
-                                // of a child layer
-                                GRUNT.WaterCooler.say("view.offset-changed", {
-                                    view: self,
-                                    triggerLayer: layers[ii],
-                                    change: offsetChange
-                                });
-                                
                                 // update the cached offset
                                 cachedOffset = pannable.getOffset();
                                 cachedOffset.add(relativeOffset);
                                 
-                                GRUNT.Log.info("new offset = " + pannable.getOffset());
-                                GRUNT.Log.info("new cached offset = " + cachedOffset);
-                                GRUNT.Log.info("new relative cache offset = " + cachedOffset.diff(pannable.getOffset()));
+                                // GRUNT.Log.info("new offset = " + pannable.getOffset());
+                                // GRUNT.Log.info("new cached offset = " + cachedOffset);
+                                // GRUNT.Log.info("new relative cache offset = " + cachedOffset.diff(pannable.getOffset()));
                             } // if
                         } // if
                     } // for
+                    
+                    // update the idle status
+                    idle = idle && (! viewInvalidating);
                     
                     // if drawing is not ok at the moment, flick to invalidating mode
                     if (drawOK) {
@@ -667,6 +672,12 @@ SLICK.Graphics = (function() {
                         // if the view is not invalidating, then save the current context
                         if (! viewInvalidating) {
                             cacheContext();
+                            
+                            // if the idle flag is not set, then fire the view idle event
+                            if (! idle) {
+                                idle = true;
+                                GRUNT.WaterCooler.say("view-idle", { id: self.id });
+                            }
                         } // if
                     } // if
                 }

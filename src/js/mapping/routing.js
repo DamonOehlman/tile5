@@ -4,26 +4,6 @@
 Define functionality to enable routing for mapping
 */
 SLICK.Geo.Routing = (function() {
-    // initialise variables
-    var engines = [];
-    
-    function findEngine(engineId) {
-        var matchingEngine = null;
-        
-        // first pass, look for an engine with the matching id or the preferred engine if engine id is not supplied
-        for (var ii = 0; ii < engines.length; ii++) {
-            if ((engineId && (engines[ii].id == engineId)) || ((! engineId) && engines[ii].preferred)) {
-                matchingEngine = engines[ii];
-            } // if
-        } // for
-        
-        // if we don't have a matching engine, but we do have engines, just take the first one
-        if ((! matchingEngine) && (engines.length > 0)) {
-            matchingEngine = engines[0];
-        } // if
-        
-        return matchingEngine;
-    } // findEngine
     
     function createRouteOverlay(map, routeData) {
         // get the map dimensions
@@ -56,9 +36,9 @@ SLICK.Geo.Routing = (function() {
             }, args);
             
             // find an available routing engine
-            var engine = findEngine(args.engineId);
+            var engine = SLICK.Geo.getEngine("route");
             if (engine) {
-                engine.calculateRoute(args, function(routeData) {
+                engine.route(args, function(routeData) {
                     // firstly, if we have a map defined, then let's place the route on the map
                     // you know, just because we are nice like that
                     if (args.map) {
@@ -71,52 +51,6 @@ SLICK.Geo.Routing = (function() {
                     }
                 });
             } // if
-        },
-        
-        /**
-        Add / update a routing engine in the array of routing engines.  In most cases only one routing engine will
-        be registered in an application, but just in case there are more than one, the functionality has been provided
-        to support multiple.
-        
-        */
-        register: function(args) {
-            args = GRUNT.extend({
-                id: "",
-                preferred: engines.length === 0,
-                calculateRoute: null
-            }, args);
-            
-            // initialise variables
-            var existingIndex = -1;
-            
-            // if calculate route is not defined for the engine, then raise an exception
-            // (why do we want a routing engine that can't provide a route)
-            if (! args.calculateRoute) {
-                throw new Error(String.format("Routing Engine '{0}' provides no calculateRoute functionality - not adding", args.id));
-            } // if
-            
-            // if the id for the engine is not specified, throw an exception
-            if (! args.id) {
-                throw new Error("Routing engines require an id to register them.");
-            } // if
-            
-            // iterate through the engines and look for a router with the id already specified
-            for (var ii = 0; ii < engines.length; ii++) {
-                if (engines[ii].id == args.id) {
-                    existingIndex = ii;
-                    break;
-                } // if
-            } // if
-            
-            // if the engine has already been registered, then update it
-            if (existingIndex >= 0) {
-                engines[existingIndex] = args;
-            }
-            else {
-                engines.push(args);
-            } // if..else
-            
-            GRUNT.Log.info(String.format("Routing engine '{0}' registered", args.id));
         },
         
         Maneuver: {

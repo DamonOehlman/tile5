@@ -2,7 +2,7 @@ SLICK.Tiling = (function() {
     TileStore = function(params) {
         // initialise the parameters with the defaults
         params = GRUNT.extend({
-            gridSize: 40,
+            gridSize: 25,
             center: new SLICK.Vector()
         }, params);
         
@@ -128,9 +128,14 @@ SLICK.Tiling = (function() {
                 // update the storage and top left offset
                 storage = newStorage;
                 topLeftOffset = new SLICK.Vector(topLeftOffset.x + shiftDelta.x, topLeftOffset.y - shiftDelta.y);
-
+                
                 // populate with the last tile creator (crazy talk)
                 self.populate(lastTileCreator, lastNotifyListener);
+
+                // let other layers know the tiler has shifted base position
+                GRUNT.WaterCooler.say("tiler.shift", {
+                    change: new SLICK.Vector(-shiftDelta.x * params.tileSize, -shiftDelta.y * params.tileSize)
+                });
             },
             
             /*
@@ -315,7 +320,7 @@ SLICK.Tiling = (function() {
             
             function drawTileBackground(drawArgs) {
                 var lineX = params.lineDist - Math.abs(drawArgs.offset.x % params.lineDist);
-                var lineY = Math.abs(drawArgs.offset.y % params.lineDist);
+                var lineY = params.lineDist - Math.abs(drawArgs.offset.y % params.lineDist);
                 
                 // if the grid pattern is not defined, then do that now
                 sectionContext.fillRect(0, 0, gridSection.width, gridSection.height);
@@ -632,15 +637,21 @@ SLICK.Tiling = (function() {
             return self;
         },
         
+        DataLayer: function(params) {
+            
+        },
+        
         Tiler: function(params) {
             params = GRUNT.extend({
                 container: "",
                 drawCenter: false,
-                panHandler: null,
+                onPan: null,
+                onPanEnd: null,
                 tapHandler: null,
                 doubleTapHandler: null,
                 zoomHandler: null,
                 onDraw: null,
+                datasources: {},
                 tileLoadThreshold: "first"
             }, params);
             
@@ -699,9 +710,14 @@ SLICK.Tiling = (function() {
             
             // create the parent
             var self = new SLICK.Graphics.View(GRUNT.extend({}, params, {
+                // define panning and scaling properties
                 pannable: true,
                 scalable: true,
                 scaleDamping: true,
+                
+                // define data layer properties
+                datasources: params.datasources,
+                
                 fillBackground: function(context, x, y, width, height) {
                     var gradient = context.createLinearGradient(x, 0, x, height);
                     gradient.addColorStop(0, "rgb(170, 170, 170)");

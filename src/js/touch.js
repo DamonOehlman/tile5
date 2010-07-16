@@ -388,7 +388,7 @@ SLICK.Touch = (function() {
                             pan_delta.add(touch_delta);
                             
                             // update the inertia
-                            updateInertia(touch_delta);
+                            // updateInertia(touch_delta);
                             
                             // if the pan_delta is sufficient to fire an event, then do so
                             if (pan_delta.getAbsSize() > params.panEventThreshhold) {
