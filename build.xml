@@ -82,6 +82,12 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/mapping/routing.js" />
 		</concat>
 		
+		<!-- construct the core providers -->
+		<concat destfile="${dist}/${LIBNAME}.openstreetmap.js">
+			<fileset file="src/js/mapping/providers/osm.js" />
+			<fileset file="src/js/mapping/providers/cloudmade.js" />
+		</concat>
+		
 		<!-- construct the native libraries -->
 		<concat destfile="${dist}/${LIBNAME}.native.js">
 			<fileset file="src/js/native/core.js" />
@@ -111,7 +117,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		</concat>
 		
 		<!-- TODO: if the strip logging property is set, then strip it -->
-		<!-- 
+		<!--
 		<replaceregexp match="GRUNT.Log\.(log|info|warn).*?\;" replace="" flags="g" byline="false" file="${SLICK}" />
 		-->
 		

@@ -48,6 +48,34 @@
         },
         
         tests: [{
+            title: "Display Map",
+            runner: function(test, testData) {
+                map.gotoPosition(testData.positions.goldcoast, testData.zoomLevel, function() {
+                    test.ready();
+                });
+            }
+        }, {
+            title: "Route from Brisbane to Sydney",
+            runner: function(test, testData) {
+                GRUNT.Log.info("requesting the route from brisbane to sydney");
+                
+                // calculate the route between brisbane and sydney
+                SLICK.Geo.Routing.calculate({
+                    waypoints: [
+                        testData.positions.brisbane, 
+                        testData.positions.toowoomba, 
+                        testData.positions.mudgee,
+                        testData.positions.sydney
+                    ],
+                    map: map
+                });
+                
+                // set the route overlay
+                // map.setRoute();
+                
+                // test.ready();
+            }
+        }, {
             title: "Geocoding Test",
             runner: function(test, testData) {
                 // get a mapping engine for geocoding

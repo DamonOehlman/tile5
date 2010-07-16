@@ -32,8 +32,11 @@ SLICK.Geo.Routing = (function() {
                 waypoints: [],
                 map: null,
                 error: null,
+                autoFit: true,
                 success: null
             }, args);
+            
+            GRUNT.Log.info("attempting to calculate route");
             
             // find an available routing engine
             var engine = SLICK.Geo.getEngine("route");
@@ -43,6 +46,12 @@ SLICK.Geo.Routing = (function() {
                     // you know, just because we are nice like that
                     if (args.map) {
                         createRouteOverlay(args.map, routeData);
+                        
+                        // if we are to auto fit the map to the bounds, then do that now
+                        if (args.autoFit) {
+                            GRUNT.Log.info("AUTOFITTING MAP TO ROUTE: bounds = " + routeData.getBoundingBox());
+                            args.map.gotoBounds(routeData.getBoundingBox());
+                        } // if
                     } // if
                     
                     // if we have a success handler, then call it
@@ -101,20 +110,31 @@ SLICK.Geo.Routing = (function() {
         RouteData: function(params) {
             params = GRUNT.extend({
                 geometry: [],
-                instructions: []
+                instructions: [],
+                boundingBox: null
             }, params);
             
-            var positions = new Array(params.geometry.length);
+            var positions = new Array(params.geometry.length),
+                boundingBox = params.boundingBox;
             
             // create position objects for the specified geometry
             for (var ii = 0; ii < params.geometry.length; ii++) {
                 positions[ii] = new SLICK.Geo.Position(params.geometry[ii]);
             } // for
             
+            // update the bounding box
+            if (! boundingBox) {
+                boundingBox = SLICK.Geo.getBoundsForPositions(positions);
+            } // if
+            
             // initialise self
             var self = {
                 getGeometry: function() {
                     return positions;
+                },
+                
+                getBoundingBox: function() {
+                    return boundingBox;
                 },
                 
                 getInstructions: function() {

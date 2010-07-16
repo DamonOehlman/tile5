@@ -112,7 +112,7 @@ SLICK.Tiling = (function() {
             },
             
             
-            shift: function(shiftDelta) {
+            shift: function(shiftDelta, shiftOriginCallback) {
                 // if the shift delta x and the shift delta y are both 0, then return
                 if ((shiftDelta.x === 0) && (shiftDelta.y === 0)) { return; }
                 
@@ -127,7 +127,14 @@ SLICK.Tiling = (function() {
                 
                 // update the storage and top left offset
                 storage = newStorage;
-                topLeftOffset = new SLICK.Vector(topLeftOffset.x + shiftDelta.x, topLeftOffset.y - shiftDelta.y);
+                
+                // TODO: check whether this is right or not
+                if (shiftOriginCallback) {
+                    topLeftOffset = shiftOriginCallback(topLeftOffset, shiftDelta);
+                }
+                else {
+                    topLeftOffset.add(shiftDelta);
+                } // if..else
                 
                 // populate with the last tile creator (crazy talk)
                 self.populate(lastTileCreator, lastNotifyListener);
@@ -357,6 +364,7 @@ SLICK.Tiling = (function() {
                 beginDraw: checkTileQueue,
                 draw: drawTiles,
                 checkOK: checkShiftDelta,
+                shiftOrigin: null,
                 canCache: true
             }, params);
             
@@ -388,7 +396,7 @@ SLICK.Tiling = (function() {
                 var needTiles = shiftDelta.x + shiftDelta.y !== 0;
                 
                 if (needTiles) {
-                    tileStore.shift(shiftDelta);
+                    tileStore.shift(shiftDelta, params.shiftOrigin);
                     
                     // update the offset
                     GRUNT.Log.info("shift delta = " + shiftDelta);

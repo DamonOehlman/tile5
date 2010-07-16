@@ -6,6 +6,15 @@ File is used to define geo namespace and classes for implementing GIS classes an
 /* GEO Basic Type definitions */
 
 SLICK.Geo = (function() {
+    // define constants
+    var LAT_VARIABILITIES = [
+        1.406245461070741,
+        1.321415085624082,
+        1.077179995861952,
+        0.703119412486786,
+        0.488332580888611
+    ];
+    
     // define the engines array
     var engines = {};
     
@@ -156,10 +165,14 @@ SLICK.Geo = (function() {
             var self = {
                 lat: parseFloat(init_lat),
                 lon: parseFloat(init_lon),
-
+                
                 copy: function(src_pos) {
                     self.lat = src_pos.lat;
                     self.lon = src_pos.lon;
+                },
+                
+                duplicate: function() {
+                    return new module.Position(self.lat, self.lon);
                 },
 
                 clear: function() {
@@ -167,25 +180,7 @@ SLICK.Geo = (function() {
                     self.lon = 0;
 
                 },
-
-                /*
-                Method: inBounds
-                This method is used to determine whether or not the position is
-                within the bounds rect supplied. 
-                */
-                inBounds: function(bounds) {
-                    // initialise variables
-                    var fnresult = ! (self.isEmpty() || bounds.isEmpty());
-
-                    // check the pos latitude
-                    fnresult = fnresult && (self.lat >= bounds.min.lat) && (self.lat <= bounds.max.lat);
-
-                    // check the pos longitude
-                    fnresult = fnresult && (self.lon >= bounds.min.lon) && (self.lon <= bounds.max.lon);
-
-                    return fnresult;
-                },
-
+                
                 isEmpty: function() {
                     return (self.lat === 0) && (self.lon === 0);
                 }, 
@@ -200,7 +195,7 @@ SLICK.Geo = (function() {
                     } // if
 
                     self.lat = SLICK.Geo.Utilities.pix2lat(y, rads_per_pixel);
-                    self.lon = SLICK.Geo.Utilities.pix2lon(x, rads_per_pixel);
+                    self.lon = SLICK.Geo.Utilities.normalizeLon(SLICK.Geo.Utilities.pix2lon(x, rads_per_pixel));
                 },
 
                 toString: function() {
@@ -242,11 +237,30 @@ SLICK.Geo = (function() {
                     self.min.clear();
                     self.max.clear();
                 },
+                
+                expand: function(amount) {
+                    self.min.lat -= amount;
+                    self.min.lon -= module.Utilities.normalizeLon(amount);
+                    self.max.lat += amount;
+                    self.max.lon += module.Utilities.normalizeLon(amount);
+                },
+                
+                getDistance: function() {
+                    return new module.Distance(self.min, self.max);
+                },
+                
+                getCenter: function() {
+                    // calculate the bounds size
+                    var size = module.calculateBoundsSize(self.min, self.max);
+                    
+                    // create a new position offset from the current min
+                    return new SLICK.Geo.Position(self.min.lat + (size.y * 0.5), self.min.lon + (size.x * 0.5));
+                },
 
                 isEmpty: function() {
                     return self.min.isEmpty() || self.max.isEmpty();
                 },
-
+                
                 transform: function(transformers) {
                     // create a new instance of the BoundingBox to transform
                     var target = new SLICK.Geo.BoundingBox(self.min, self.max);
@@ -332,8 +346,6 @@ SLICK.Geo = (function() {
             // define some constants
             var ECC = 0.08181919084262157;
 
-            // initialise variables
-
             var self = {
                 lat2pix: function(lat, scale) {
                     var radLat = (parseFloat(lat)*(2*Math.PI))/360;
@@ -349,7 +361,7 @@ SLICK.Geo = (function() {
                 },
 
                 pix2lon: function(x, scale) {
-                    return (x * scale)*180/Math.PI;
+                    return self.normalizeLon((x * scale)*180/Math.PI);
                 },
 
                 pix2lat: function(y, scale) {
@@ -377,6 +389,19 @@ SLICK.Geo = (function() {
                     var eSinPhi = ECC * Math.sin(phi);
 
                     return (Math.PI / 2) - (2 * Math.atan (t * Math.pow((1 - eSinPhi) / (1 + eSinPhi), ECC / 2)));
+                },
+                
+                normalizeLon: function(lon) {
+                    // return lon;
+                    while (lon < -180) {
+                        lon += 360;
+                    } // while
+                    
+                    while (lon > 180) {
+                        lon -= 360;
+                    } // while
+                    
+                    return lon;
                 }
             }; // self
 
@@ -560,7 +585,7 @@ SLICK.Geo = (function() {
                 */
                 findByBounds: function(searchBounds) {
                     return poiGrabber(function(testPOI) {
-                        return testPOI.pos.inBounds(searchBounds);
+                        return SLICK.Geo.posInBounds(testPOI.pos, searchBounds);
                     });
                 },
 
@@ -643,6 +668,9 @@ SLICK.Geo = (function() {
                 checkZoomLevel: function(zoomLevel) {
                     return zoomLevel;
                 },
+                
+                getCopyright: function() {
+                },
 
                 getMapTiles: function(tiler, position, zoom_level, callback) {
 
@@ -654,7 +682,107 @@ SLICK.Geo = (function() {
             };
 
             return self;
-        } // MapProvider
+        }, // MapProvider
+        
+        /* static functions */
+        
+        /*
+        Method: inBounds
+        This method is used to determine whether or not the position is
+        within the bounds rect supplied. 
+        */
+        posInBounds: function(pos, bounds) {
+            // initialise variables
+            var fnresult = ! (pos.isEmpty() || bounds.isEmpty());
+
+            // check the pos latitude
+            fnresult = fnresult && (pos.lat >= bounds.min.lat) && (pos.lat <= bounds.max.lat);
+
+            // check the pos longitude
+            fnresult = fnresult && (pos.lon >= bounds.min.lon) && (pos.lon <= bounds.max.lon);
+
+            return fnresult;
+        },
+        
+        calculateBoundsSize: function(min, max, normalize) {
+            var size = new SLICK.Vector(0, max.lat - min.lat);
+            if (typeof normalize === 'undefined') {
+                normalize = true;
+            } // if
+            
+            if (normalize && (min.lon > max.lon)) {
+                size.x = 360 - min.lon + max.lon;
+            }
+            else {
+                size.x = max.lon - min.lon;
+            } // if..else
+            
+            return size;
+        },
+        
+        /** 
+        Function adapted from the following code:
+        http://groups.google.com/group/google-maps-js-api-v3/browse_thread/thread/43958790eafe037f/66e889029c555bee
+        */
+        getBoundingBoxZoomLevel: function(bounds, displaySize) {
+            // get the constant index for the center of the bounds
+            var boundsCenter = bounds.getCenter(),
+                variabilityIndex = Math.min(Math.round(Math.abs(boundsCenter.lat) * 0.05), LAT_VARIABILITIES.length),
+                variability = LAT_VARIABILITIES[variabilityIndex],
+                delta = module.calculateBoundsSize(bounds.min, bounds.max),
+                // interestingly, the original article had the variability included, when in actual reality it isn't, 
+                // however a constant value is required. must find out exactly what it is.  At present, though this
+                // works fine.
+                bestZoomH = Math.ceil(Math.log(LAT_VARIABILITIES[3] * displaySize.height / delta.y) / Math.log(2)),
+                bestZoomW = Math.ceil(Math.log(variability * displaySize.width / delta.x) / Math.log(2));
+            
+            GRUNT.Log.info("constant index for bbox: " + bounds + " (center = " + boundsCenter + ") is " + variabilityIndex);
+            GRUNT.Log.info("distances  = " + delta);
+            GRUNT.Log.info("optimal zoom levels: height = " + bestZoomH + ", width = " + bestZoomW);
+            
+            // return the lower of the two zoom levels
+            return Math.min(bestZoomH, bestZoomW);
+        },
+        
+        getBoundsForPositions: function(positions, padding) {
+            var bounds = null,
+                startTicks = new Date().getTime();
+                
+            // if padding is not specified, then set to auto
+            if (! padding) {
+                padding = "auto";
+            } // if
+            
+            for (var ii = 0; ii < positions.length; ii++) {
+                if (! bounds) {
+                    bounds = new SLICK.Geo.BoundingBox(positions[ii].duplicate(), positions[ii].duplicate());
+                }
+                else {
+                    var minDiff = module.calculateBoundsSize(bounds.min, positions[ii], false),
+                        maxDiff = module.calculateBoundsSize(positions[ii], bounds.max, false);
+
+                    if (minDiff.x < 0) { bounds.min.lon = positions[ii].lon; }
+                    if (minDiff.y < 0) { bounds.min.lat = positions[ii].lat; }
+                    if (maxDiff.y < 0) { bounds.max.lon = positions[ii].lon; }
+                    if (maxDiff.y < 0) { bounds.max.lat = positions[ii].lat; }
+                } // if..else
+            } // for
+            
+            // expand the bounds to give us some padding
+            if (padding) {
+                if (padding == "auto") {
+                    var size = module.calculateBoundsSize(bounds.min, bounds.max);
+                    
+                    // update padding to be a third of the max size
+                    padding = Math.max(size.x, size.y) * 0.3;
+                } // if
+                
+                bounds.expand(padding);
+            } // if
+            
+            GRUNT.Log.info(":: " + (new Date().getTime() - startTicks) + "ms to calculate bounds for " + positions.length + " position values");
+            return bounds;
+        }
     }; // module
     
     return module;

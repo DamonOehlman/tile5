@@ -445,17 +445,8 @@ SLICK.Mapping = (function() {
             }
 
             // create the view layer the we will draw the view
-            var self = new SLICK.Graphics.ViewLayer(GRUNT.extend({
+            var view = new SLICK.Graphics.ViewLayer(GRUNT.extend({
                 zindex: 100,
-                
-                /**
-                This method provides that ability for the creation of static annotations (as opposed)
-                to annotations that are kept in sync with the pois that are POIStorage of the map. 
-                */
-                add: function(annotation) {
-                    staticAnnotations.push(annotation);
-                    updateAnnotationCoordinates(staticAnnotations);
-                },
                 
                 draw: function(drawArgs) {
                     // initialise variables
@@ -474,6 +465,24 @@ SLICK.Mapping = (function() {
                     } // for
                 }
             }, params));
+
+            // create the view layer the we will draw the view
+            var self = GRUNT.extend(view, {
+                /**
+                This method provides that ability for the creation of static annotations (as opposed)
+                to annotations that are kept in sync with the pois that are POIStorage of the map. 
+                */
+                add: function(annotation) {
+                    staticAnnotations.push(annotation);
+                    updateAnnotationCoordinates(staticAnnotations);
+                },
+                
+                calcCoordinates: function(grid) {
+                    GRUNT.Log.info("UPDATING ANNOTATION COORDINATES");
+                    updateAnnotationCoordinates(annotations);
+                    updateAnnotationCoordinates(staticAnnotations);
+                }
+            });
             
             // listen for updates to the view.offset-changed message
             GRUNT.WaterCooler.listen("tiler.shift", function(args) {
@@ -505,7 +514,8 @@ SLICK.Mapping = (function() {
             // initialise variables
             var current_position = null,
                 lastBoundsChangeOffset = new SLICK.Vector(),
-                centerPos = null;
+                centerPos = null,
+                copyrightMessage = params.provider ? params.provider.getCopyright() : "";
             var initialized = false;
             var zoomLevel = params.zoomLevel;
 
@@ -674,6 +684,15 @@ SLICK.Mapping = (function() {
                     // TODO: detect and retrieve the center position
                     return centerPos;
                 },
+                
+                gotoBounds: function(bounds, callback) {
+                    // calculate the zoom level required for the specified bounds
+                    var zoomLevel = SLICK.Geo.getBoundingBoxZoomLevel(bounds, self.getDimensions());
+                    
+                    // goto the center position of the bounding box with the calculated zoom level
+                    GRUNT.Log.info("BOUNDS CHANGE REQUIRED CENTER: " + bounds.getCenter() + ", ZOOM LEVEL: " + zoomLevel);
+                    self.gotoPosition(bounds.getCenter(), zoomLevel, callback);
+                },
 
                 gotoPosition: function(position, newZoomLevel, callback) {
                     // save the current zoom level
@@ -737,6 +756,11 @@ SLICK.Mapping = (function() {
                         self.setOffset(center_xy.x, center_xy.y);
                         //GRUNT.Log.info("offset after pan = " + self.getOffset());
 
+                        // trigger a bounds change event
+                        if (params.boundsChange) {
+                            params.boundsChange(self.getBoundingBox());
+                        } // if
+
                         // if we have a callback defined, then run it
                         if (callback) {
                             callback(self);
@@ -799,21 +823,23 @@ SLICK.Mapping = (function() {
             if (params.crosshair) {
                 self.setLayer("crosshair", new SLICK.Mapping.CrosshairOverlay());
             } // if
-            
-            // add the copyright layer
-            self.setLayer("copyright", new SLICK.Graphics.ViewLayer({
-                zindex: 999,
-                canCache: false,
-                draw: function(drawArgs) {
-                    drawArgs.context.lineWidth = 2.5;
-                    drawArgs.context.fillStyle = "rgb(50, 50, 50)";
-                    drawArgs.context.strokeStyle = "rgba(255, 255, 255, 0.8)";
-                    drawArgs.context.font = "bold 10px sans";
-                    drawArgs.context.textBaseline = "bottom";
-                    drawArgs.context.strokeText("© RACQ, deCarta & Navteq 2010", 10, drawArgs.dimensions.height - 10);
-                    drawArgs.context.fillText("© RACQ, deCarta & Navteq 2010", 10, drawArgs.dimensions.height - 10);
-                }
-            }));
+
+            // if we have a copyright message, then add the message
+            if (copyrightMessage) {
+                self.setLayer("copyright", new SLICK.Graphics.ViewLayer({
+                    zindex: 999,
+                    canCache: false,
+                    draw: function(drawArgs) {
+                        drawArgs.context.lineWidth = 2.5;
+                        drawArgs.context.fillStyle = "rgb(50, 50, 50)";
+                        drawArgs.context.strokeStyle = "rgba(255, 255, 255, 0.8)";
+                        drawArgs.context.font = "bold 10px sans";
+                        drawArgs.context.textBaseline = "bottom";
+                        drawArgs.context.strokeText(copyrightMessage, 10, drawArgs.dimensions.height - 10);
+                        drawArgs.context.fillText(copyrightMessage, 10, drawArgs.dimensions.height - 10);
+                    }
+                }));
+            } // if
             
             // listen for the view idling
             GRUNT.WaterCooler.listen("view-idle", function(args) {
