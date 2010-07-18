@@ -14,7 +14,8 @@ SLICK.Pannable = function(params) {
         checkOffset: null
     }, params);
     
-    var offset = new SLICK.Vector();
+    var panimating = false,
+        offset = new SLICK.Vector();
     
     // initialise self
     var self = {
@@ -24,17 +25,32 @@ SLICK.Pannable = function(params) {
             return new SLICK.Vector(offset.x, offset.y);
         },
         
+        isPanimating: function() {
+            return panimating;
+        },
+        
         setOffset: function(x, y) {
             offset.x = x; offset.y = y;
         },
         
-        pan: function(x, y) {
-            self.updateOffset(offset.x + x, offset.y + y);
+        pan: function(x, y, tweenFn) {
+            // if no tween function is defined, then go ahead
+            if (! tweenFn) {
+                self.updateOffset(offset.x + x, offset.y + y);
 
-            // if the on pan event is defined, then hook into it
-            if (params.onPan) {
-                params.onPan(x, y);
-            } // if
+                // if the on pan event is defined, then hook into it
+                if (params.onPan) {
+                    params.onPan(x, y);
+                } // if
+            }
+            // otherwise, apply the tween function to the offset
+            else {
+                panimating = true;
+                SLICK.Animation.tweenVector(offset, offset.x + x, offset.y + y, tweenFn, function() {
+                    panimating = false;
+                    self.pan(0, 0);
+                });
+            } // if..else
         },
         
         panEnd: function(x, y) {

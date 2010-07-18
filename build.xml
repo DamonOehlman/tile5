@@ -72,6 +72,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/behaviours.js" />
 			<fileset file="src/js/dispatcher.js" />
 			<fileset file="src/js/messaging.js" />
+			<fileset file="src/js/animation.js" />
 			
 			<!-- include graphics and tiling -->
 			<fileset file="src/js/graphics.js" />

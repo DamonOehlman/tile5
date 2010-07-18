@@ -106,7 +106,7 @@ SLICK.Graphics = (function() {
         DisplayState: {
             NONE: 0,
             ACTIVE: 1,
-            INVALIDATING: 2,
+            INTERACTING: 2,
             FROZEN: 4,
             PINCHZOOM: 8
         },
@@ -121,7 +121,7 @@ SLICK.Graphics = (function() {
                 zindex: 0,
                 canCache: false,
                 checkOK: null,
-                validStates: module.DisplayState.ACTIVE | module.DisplayState.INVALIDATING | module.DisplayState.PINCHZOOM
+                validStates: module.DisplayState.ACTIVE | module.DisplayState.INTERACTING | module.DisplayState.PINCHZOOM
             }, params);
             
             var changeListeners = [];
@@ -424,7 +424,7 @@ SLICK.Graphics = (function() {
             
             var drawing = false;
             
-            function drawView(tickCount, invalidating) {
+            function drawView(tickCount, interacting) {
                 if (drawing) { return; }
                 
                 // if the dimensions have not been defined, then get them
@@ -442,6 +442,7 @@ SLICK.Graphics = (function() {
                     displayState: status,
                     offset: currentOffset,
                     offsetChanged: offsetChanged,
+                    animating: interacting || SLICK.Animation.isTweening(),
                     dimensions: dimensions,
                     dimensionsChanged: dimensionsChanged,
                     scaleFactor: self.getScaleFactor(),
@@ -471,12 +472,12 @@ SLICK.Graphics = (function() {
                         
                         // draw the layer output to the main canvas
                         // but only if we don't have a scale buffer or the layer is a draw on scale layer
-                        if (((! invalidating) || (! layers[ii].canCache())) && layers[ii].canDraw(status)) {
+                        if (((! interacting) || (! layers[ii].canCache())) && layers[ii].canDraw(status)) {
                             layers[ii].draw(drawArgs);
                         } // if
                         
                         // draw the saved context if required and at the appropriate zindex
-                        if (invalidating && (! savedDrawn) && (cachedZIndex >= layers[ii].getZIndex())) {
+                        if (interacting && (! savedDrawn) && (cachedZIndex >= layers[ii].getZIndex())) {
                             var relativeOffset = cachedOffset.diff(drawArgs.offset);
                             
                             if (drawArgs.scaleFactor !== 1) {
@@ -597,7 +598,7 @@ SLICK.Graphics = (function() {
                         layerListeners[ii](eventType, id, layer);
                     } // for
                 },
-
+                
                 invalidate: function(args) {
                     lastInvalidate = new Date().getTime();
                 }
@@ -613,14 +614,23 @@ SLICK.Graphics = (function() {
                 try {
                     // check to see if we are panning
                     var tickCount = new Date().getTime(),
-                        viewInvalidating = (status == module.DisplayState.PINCHZOOM) || (tickCount - lastInvalidate < params.bufferRefresh),
+                        userInteracting = (status == module.DisplayState.PINCHZOOM) || (tickCount - lastInvalidate < params.bufferRefresh),
                         drawOK = true,
+                        ii,
                         updateArgs = {
                             offset: pannable ? pannable.getOffset() : new SLICK.Vector()
                         };
+                        
+                    // if the user is interating, cancel any active animation
+                    if (userInteracting) {
+                        SLICK.Animation.cancel();
+                    } // if
+
+                    // update any active tweens
+                    SLICK.Animation.update(tickCount);
 
                     // check that all is right with each layer
-                    for (var ii = 0; ii < layers.length; ii++) {
+                    for (ii = 0; ii < layers.length; ii++) {
                         if (drawOK && (! layers[ii].checkOK(drawArgs, updateArgs))) {
                             var checkOffset = drawArgs ? drawArgs.offset : pannable.getOffset();
                             
@@ -663,14 +673,14 @@ SLICK.Graphics = (function() {
                     } // for
                     
                     // update the idle status
-                    idle = idle && (! viewInvalidating);
+                    idle = idle && (! userInteracting);
                     
-                    // if drawing is not ok at the moment, flick to invalidating mode
+                    // if drawing is not ok at the moment, flick to interacing mode
                     if (drawOK) {
-                        drawView(tickCount, viewInvalidating);
+                        drawView(tickCount, userInteracting);
 
-                        // if the view is not invalidating, then save the current context
-                        if (! viewInvalidating) {
+                        // if the user is not interacting, then save the current context
+                        if (! userInteracting) {
                             cacheContext();
                             
                             // if the idle flag is not set, then fire the view idle event

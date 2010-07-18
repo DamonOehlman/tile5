@@ -2,7 +2,7 @@ SLICK.Tiling = (function() {
     TileStore = function(params) {
         // initialise the parameters with the defaults
         params = GRUNT.extend({
-            gridSize: 25,
+            gridSize: 10,
             center: new SLICK.Vector()
         }, params);
         
@@ -542,7 +542,7 @@ SLICK.Tiling = (function() {
                     if (tile && tile.loaded) {
                         tile.draw(drawArgs.context, coord.x, coord.y);
                     }
-                    else if (tile) {
+                    else if (tile && (! drawArgs.animating)) {
                         // load the image
                         tile.load(function() {
                             loadedTileCount++;
