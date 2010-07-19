@@ -118,7 +118,7 @@ SLICK.Resources = (function() {
                     url: module.getPath(params.filename),
                     dataType: params.dataType,
                     success: function(data) {
-                        GRUNT.Log.info("got data: " + data);
+                        // GRUNT.Log.info("got data: " + data);
                         // add the snippet to the cache
                         if (params.cacheable) {
                             cachedResources[params.filename] = data;
