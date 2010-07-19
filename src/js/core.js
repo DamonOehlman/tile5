@@ -231,15 +231,37 @@ SLICK = (function () {
             return self;
         }, // Vector
         
-        VectorArray: function(srcArray) {
+        VectorArray: function(srcArray, copy) {
+            var data = [];
+            
+            // copy the source array
+            for (var ii = 0; ii < srcArray.length; ii++) {
+                data.push(copy ? srcArray[ii].duplicate() : srcArray[ii]);
+            } // for
+            
             return {
+                applyOffset: function(offset) {
+                    for (var ii = 0; ii < data.length; ii++) {
+                        data[ii].add(offset);
+                    } // for
+                },
+                
                 getRect: function() {
                     return new SLICK.Rect(
-                        Math.min(srcArray[0].x, srcArray[1].x),
-                        Math.min(srcArray[0].y, srcArray[1].y),
-                        Math.abs(srcArray[0].x - srcArray[1].x),
-                        Math.abs(srcArray[0].y - srcArray[1].y)
+                        Math.min(data[0].x, data[1].x),
+                        Math.min(data[0].y, data[1].y),
+                        Math.abs(data[0].x - data[1].x),
+                        Math.abs(data[0].y - data[1].y)
                     );
+                },
+                
+                toString: function() {
+                    var fnresult = "";
+                    for (var ii = 0; ii < data.length; ii++) {
+                        fnresult += "[" + data[ii].toString() + "] ";
+                    } // for
+                    
+                    return fnresult;
                 }
             };
         },

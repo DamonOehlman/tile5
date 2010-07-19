@@ -87,6 +87,17 @@ SLICK.Touch = (function() {
                     last: 0
                 },
                 BENCHMARK_INTERVAL = 300;
+                
+            function relativeTouches(touches) {
+                var fnresult = new SLICK.VectorArray(touches, true);
+                
+                // apply the offset
+                if (params.element) {
+                    fnresult.applyOffset(new SLICK.Vector(-params.element.offsetLeft, -params.element.offsetTop));
+                } // if
+                
+                return fnresult;
+            } // relativeTouches
             
             // initialise self
             var self = {
@@ -122,8 +133,7 @@ SLICK.Touch = (function() {
                     
                     // if an element is defined, then determine the element offset
                     if (params.element) {
-                        var offset = jQuery(params.element).offset();
-                        offsetVector = absVector.offset(-offset.left, -offset.top);
+                        offsetVector = absVector.offset(-params.element.offsetLeft, -params.element.offsetTop);
                     } // if
                     
                     // fire the event
@@ -198,7 +208,7 @@ SLICK.Touch = (function() {
                         // check to see whether this is a double tap (if we are watching for them)
                         if (ticks.current - ticks.last < self.THRESHOLD_DOUBLETAP) {
                             // calculate the difference between this and the last touch point
-                            var touchChange = touchesLast ? touchesStart.diff(touchesLast) : null;
+                            var touchChange = touchesLast ? touchesStart[0].diff(touchesLast[0]) : null;
                             if (touchChange && (Math.abs(touchChange.x) < params.maxDistDoubleTap) && (Math.abs(touchChange.y) < params.maxDistDoubleTap)) {
                                 doubleTap = true;
                             } // if
@@ -208,10 +218,10 @@ SLICK.Touch = (function() {
                         touchMode = TOUCH_MODES.TAP;
                     
                         // update the last touches
-                        touchesLast = self.getTouchPoints(touchEvent);
+                        touchesLast = copyTouches(touchesStart);
                     }
                     catch (e) {
-                        SLICK.Log.exception(e);
+                        GRUNT.Log.exception(e);
                     }
                 },
 
@@ -226,6 +236,8 @@ SLICK.Touch = (function() {
                         var touchesCurrent = self.getTouchPoints(touchEvent, [TOUCH_TYPES.CHANGED, TOUCH_TYPES.GLOBAL]),
                             zoomDistance = 0;
 
+                        GRUNT.Log.info("processing move: " + touchesCurrent);
+
                         // check to see if we are pinching or zooming
                         if (touchesCurrent.length > 1) {
                             // if the start touches does have two touch points, then reset to the current
@@ -233,7 +245,7 @@ SLICK.Touch = (function() {
                                 touchesStart = copyTouches(touchesCurrent);
                             } // if
 
-                            zoomDistance = calcDistance(touchesStart) - calcDistance(touchesLast);
+                            zoomDistance = calcDistance(touchesStart) - calcDistance(touchesCurrent);
                         } // if
 
                         // if the touch mode is tap, then check to see if we have gone beyond a move threshhold
@@ -274,7 +286,7 @@ SLICK.Touch = (function() {
                                 // TODO: investigate whether it is more efficient to animate on a timer or not
                             }
                             else {
-                                self.fireEvent('pinchZoomHandler', new SLICK.VectorArray(touchesStart), new SLICK.VectorArray(touchesCurrent));
+                                self.fireEvent('pinchZoomHandler', relativeTouches(touchesStart), relativeTouches(touchesCurrent));
 
                                 // set the touch mode to pinch zoom
                                 touchMode = TOUCH_MODES.PINCHZOOM;
@@ -284,7 +296,7 @@ SLICK.Touch = (function() {
                         touchesLast = copyTouches(touchesCurrent);                        
                     }
                     catch (e) {
-                        SLICK.Log.exception(e);
+                        GRUNT.Log.exception(e);
                     } // try..catch
                 },
 
@@ -321,13 +333,13 @@ SLICK.Touch = (function() {
                         // if pinchzooming, then fire the pinch zoom end
                         else if (touchMode == TOUCH_MODES.PINCHZOOM) {
                             // TODO: pass the total zoom amount
-                            self.fireEvent('pinchZoomEndHandler', new SLICK.VectorArray(touchesStart), new SLICK.VectorArray(touchesLast));
+                            self.fireEvent('pinchZoomEndHandler', relativeTouches(touchesStart), relativeTouches(touchesLast));
                         } // if..else
 
                         touchDown = false;
                     }
                     catch (e) {
-                        SLICK.Log.exception(e);
+                        GRUNT.Log.exception(e);
                     } // try..catch
                 }
             };
@@ -341,58 +353,56 @@ SLICK.Touch = (function() {
     
     // define the module members
     return {
-        TouchEnable: (function() {
-            return function(element, params) {
-                try {
-                    // if the element does not have an id, then generate on
-                    if (! element.id) {
-                        element.id = new Date().getTime();
-                    } // if
+        captureTouch: function(element, params) {
+            try {
+                // if the element does not have an id, then generate on
+                if (! element.id) {
+                    element.id = new Date().getTime();
+                } // if
+            
+                // create the touch helper
+                var touchHelper = touchHelpers[element.id];
                 
-                    // create the touch helper
-                    var touchHelper = touchHelpers[element.id];
+                // if the touch helper has not been created, then create it and attach to events
+                if (! touchHelper) {
+                    touchHelper = module_types.TouchHelper(GRUNT.extend({ element: element}, params));
+                    touchHelpers[element.id] = touchHelper;
                     
-                    // if the touch helper has not been created, then create it and attach to events
-                    if (! touchHelper) {
-                        touchHelper = module_types.TouchHelper(GRUNT.extend({ element: element}, params));
-                        touchHelpers[element.id] = touchHelper;
-                        
-                        // get the event target
-                        var eventTarget = SLICK.Device.getPlatform().eventTarget;
-                        
-                        GRUNT.Log.info("event target = " + eventTarget);
-                        
-                        // bind the touch events
-                        // TOUCH START
-                        eventTarget.addEventListener(touchHelper.supportsTouch ? 'touchstart' : 'mousedown', touchHelper.start, false);
-                        eventTarget.addEventListener(touchHelper.supportsTouch ? 'touchmove' : 'mousemove', touchHelper.move, false);
-                        eventTarget.addEventListener(touchHelper.supportsTouch ? 'touchend' : 'mouseup', touchHelper.end, false);
+                    // get the event target
+                    var eventTarget = SLICK.Device.getPlatform().eventTarget;
+                    
+                    GRUNT.Log.info("event target = " + eventTarget);
+                    
+                    // bind the touch events
+                    // TOUCH START
+                    eventTarget.addEventListener(touchHelper.supportsTouch ? 'touchstart' : 'mousedown', touchHelper.start, false);
+                    eventTarget.addEventListener(touchHelper.supportsTouch ? 'touchmove' : 'mousemove', touchHelper.move, false);
+                    eventTarget.addEventListener(touchHelper.supportsTouch ? 'touchend' : 'mouseup', touchHelper.end, false);
 
-                        // if we support touch, then disable mouse wheel events
-                        if (touchHelper.supportsTouch) {
-                            element['onmousewheel'] = function(evt) {
-                                evt.preventDefault();
-                            }; // mousewheel
-                        } // if
+                    // if we support touch, then disable mouse wheel events
+                    if (touchHelper.supportsTouch) {
+                        element['onmousewheel'] = function(evt) {
+                            evt.preventDefault();
+                        }; // mousewheel
                     } // if
-                    
-                    GRUNT.Log.info("TOUCH HELPER ADDED");
-                                    
-                    // add the listeners to the helper
-                    touchHelper.addListeners(params);
-                }
-                catch (e) {
-                    GRUNT.Log.exception(e);
-                }
-            }; 
-        })()
+                } // if
+                
+                GRUNT.Log.info("TOUCH HELPER ADDED");
+                                
+                // add the listeners to the helper
+                touchHelper.addListeners(params);
+            }
+            catch (e) {
+                GRUNT.Log.exception(e);
+            }
+        }
     }; // module
 })();
 
 jQuery.fn.canTouchThis = function(params) {
     // bind the touch events
     return this.each(function() {
-        SLICK.Touch.TouchEnable(this, params);
+        SLICK.Touch.captureTouch(this, params);
     });
 }; // canTouchThis
 

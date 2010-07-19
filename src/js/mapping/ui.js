@@ -594,10 +594,10 @@ SLICK.Mapping = (function() {
             params.doubleTapHandler = function(absPos, relPos) {
                 var grid = self.getTileLayer();
                 if (grid) {
-                    var grid_pos = self.viewPixToGridPix(new SLICK.Vector(relPos.x, relPos.y));
+                    var gridPos = self.viewPixToGridPix(new SLICK.Vector(relPos.x, relPos.y));
 
                     // create a min xy and a max xy using a tap extent
-                    self.gotoPosition(grid.pixelsToPos(grid_pos.offset(-params.tapExtent, params.tapExtent)), zoomLevel + 1);
+                    self.gotoPosition(grid.pixelsToPos(gridPos), zoomLevel + 1);
                 } // if
             }; // doubleTapHandler
 

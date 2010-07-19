@@ -313,6 +313,7 @@ SLICK.Tiling = (function() {
         TileGridBackground: function(params) {
             params = GRUNT.extend({
                 lineDist: 16,
+                lineWidth: 1,
                 fillStyle: "rgb(200, 200, 200)",
                 strokeStyle: "rgb(180, 180, 180)",
                 zindex: -1,
@@ -330,21 +331,33 @@ SLICK.Tiling = (function() {
             sectionContext.strokeStyle = params.strokeStyle;
 
             // initialise the grid pattern
-            var gridPattern = null;
-            
-            function drawTileBackground(drawArgs) {
+            var gridPattern = null,
+                sectionDrawn = false;
+                
+            function drawSection(drawArgs) {
                 var lineX = params.lineDist - Math.abs(drawArgs.offset.x % params.lineDist);
                 var lineY = params.lineDist - Math.abs(drawArgs.offset.y % params.lineDist);
                 
                 // if the grid pattern is not defined, then do that now
                 sectionContext.fillRect(0, 0, gridSection.width, gridSection.height);
                 
+                // draw the lines
+                sectionContext.lineWidth = params.lineWidth;
                 sectionContext.beginPath();
                 sectionContext.moveTo(lineX, 0);
                 sectionContext.lineTo(lineX, params.lineDist);
                 sectionContext.moveTo(0, lineY);
                 sectionContext.lineTo(params.lineDist, lineY);
                 sectionContext.stroke();
+                
+                // flag the section as drawn
+                sectionDrawn = true;
+            } // drawSection
+            
+            function drawTileBackground(drawArgs) {
+                // if the section is not drawn, then draw it
+                // TODO: optimize this - currently due to moving we need to draw it every time...
+                drawSection(drawArgs);
                 
                 // if the scale factor is not equal to 1, then scale the context
                 if (drawArgs.scaleFactor !== 1) {
@@ -698,7 +711,7 @@ SLICK.Tiling = (function() {
             };
             
             // handle tap and double tap events
-            SLICK.Touch.TouchEnable(document.getElementById(params.container), params);
+            SLICK.Touch.captureTouch(document.getElementById(params.container), params);
             
             function monitorLayerLoad(layerId, layer) {
                 // monitor tile loads for the layer

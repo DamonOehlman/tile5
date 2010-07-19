@@ -77,7 +77,7 @@ SLICK.Pannable = function(params) {
     var container = document.getElementById(params.container);
     if (container) {
         GRUNT.Log.info("making element #" + container.id + " pannable");
-        SLICK.Touch.TouchEnable(container, {
+        SLICK.Touch.captureTouch(container, {
             moveHandler: function(x, y) {
                 self.pan(-x, -y);
             },
@@ -141,7 +141,7 @@ SLICK.Scalable = function(params) {
     var container = document.getElementById(params.container);
     if (container) {
         GRUNT.Log.info("making element #" + container.id + " scalable");
-        SLICK.Touch.TouchEnable(container, {
+        SLICK.Touch.captureTouch(container, {
             pinchZoomHandler: function(touchesStart, touchesCurrent) {
                 checkTouches(touchesStart, touchesCurrent);
                 
