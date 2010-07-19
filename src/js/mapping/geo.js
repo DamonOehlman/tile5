@@ -459,7 +459,8 @@ SLICK.Geo = (function() {
                 lat: "",
                 lon: "",
                 group: "",
-                retrieved: 0
+                retrieved: 0,
+                isNew: true
             }, params);
 
             // if the position is not defined, but we have a lat and lon, create a new position
@@ -618,7 +619,9 @@ SLICK.Geo = (function() {
 
                         // add the poi to either the update or new array according to whether it was found
                         if (foundPOI) {
+                            // GRUNT.Log.info("FOUND EXISTING POI");
                             foundPOI.retrieved = timeRetrieved;
+                            foundPOI.isNew = false;
                         }
                         else {
                             newPOIs.push(refreshedPOIs[ii]);

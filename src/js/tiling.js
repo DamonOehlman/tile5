@@ -2,7 +2,7 @@ SLICK.Tiling = (function() {
     TileStore = function(params) {
         // initialise the parameters with the defaults
         params = GRUNT.extend({
-            gridSize: 10,
+            gridSize: 70,
             center: new SLICK.Vector()
         }, params);
         
@@ -11,6 +11,7 @@ SLICK.Tiling = (function() {
             gridHalfWidth = Math.ceil(params.gridSize * 0.5),
             topLeftOffset = params.center.offset(-gridHalfWidth, -gridHalfWidth),
             lastTileCreator = null,
+            tileShift = new SLICK.Vector(),
             lastNotifyListener = null;
         
         GRUNT.Log.info("created tile store with tl offset = " + topLeftOffset);
@@ -41,7 +42,11 @@ SLICK.Tiling = (function() {
             },
             
             getNormalizedPos: function(col, row) {
-                return new SLICK.Vector(col, row).add(topLeftOffset.invert());
+                return new SLICK.Vector(col, row).add(topLeftOffset.invert()).add(tileShift);
+            },
+            
+            getTileShift: function() {
+                return tileShift.duplicate();
             },
             
             getTile: function(col, row) {
@@ -99,11 +104,13 @@ SLICK.Tiling = (function() {
                 // initialise variables
                 var shiftAmount = Math.floor(params.gridSize * 0.2),
                     shiftDelta = new SLICK.Vector();
-                
+                    
+                // test the x
                 if (topLeftX < 0 || topLeftX + cols > params.gridSize) {
                     shiftDelta.x = topLeftX < 0 ? -shiftAmount : shiftAmount;
                 } // if
-                
+
+                // test the y
                 if (topLeftY < 0 || topLeftY + rows > params.gridSize) {
                     shiftDelta.y = topLeftY < 0 ? -shiftAmount : shiftAmount;
                 } // if
@@ -117,17 +124,17 @@ SLICK.Tiling = (function() {
                 if ((shiftDelta.x === 0) && (shiftDelta.y === 0)) { return; }
                 
                 var ii;
-                GRUNT.Log.info("need to shift tile store grid, " + shiftDelta.x + " cols and " + shiftDelta.y + " rows.");
-                
+                // GRUNT.Log.info("need to shift tile store grid, " + shiftDelta.x + " cols and " + shiftDelta.y + " rows.");
+
                 // create new storage
                 var newStorage = Array(storage.length);
-                
+
                 // copy the storage from given the various offsets
                 copyStorage(newStorage, storage, shiftDelta);
-                
+
                 // update the storage and top left offset
                 storage = newStorage;
-                
+
                 // TODO: check whether this is right or not
                 if (shiftOriginCallback) {
                     topLeftOffset = shiftOriginCallback(topLeftOffset, shiftDelta);
@@ -135,14 +142,14 @@ SLICK.Tiling = (function() {
                 else {
                     topLeftOffset.add(shiftDelta);
                 } // if..else
-                
+
+                // create the tile shift offset
+                tileShift.x += (-shiftDelta.x * params.tileSize);
+                tileShift.y += (-shiftDelta.y * params.tileSize);
+                GRUNT.Log.info("shifting... tile shift = " + tileShift);
+
                 // populate with the last tile creator (crazy talk)
                 self.populate(lastTileCreator, lastNotifyListener);
-
-                // let other layers know the tiler has shifted base position
-                GRUNT.WaterCooler.say("tiler.shift", {
-                    change: new SLICK.Vector(-shiftDelta.x * params.tileSize, -shiftDelta.y * params.tileSize)
-                });
             },
             
             /*
@@ -392,15 +399,11 @@ SLICK.Tiling = (function() {
                 } // for
             } // notifyListeners
             
-            function checkShiftDelta(drawArgs, updateArgs) {
+            function checkShiftDelta(drawArgs) {
                 var needTiles = shiftDelta.x + shiftDelta.y !== 0;
                 
                 if (needTiles) {
                     tileStore.shift(shiftDelta, params.shiftOrigin);
-                    
-                    // update the offset
-                    GRUNT.Log.info("shift delta = " + shiftDelta);
-                    updateArgs.offset = drawArgs.offset.offset(-shiftDelta.x * params.tileSize, -shiftDelta.y * params.tileSize);
                     
                     // reset the delta
                     shiftDelta = new SLICK.Vector();
@@ -411,10 +414,13 @@ SLICK.Tiling = (function() {
             
             function updateDrawQueue(drawArgs) {
                 // find the tile for the specified position
-                var tileStart = new SLICK.Vector(Math.floor(drawArgs.offset.x * invTileSize), Math.floor(drawArgs.offset.y * invTileSize));
-                var tileCols = Math.ceil(drawArgs.dimensions.width * invTileSize) + 1;
-                var tileRows = Math.ceil(drawArgs.dimensions.height * invTileSize) + 1;
-                var tileOffset = new SLICK.Vector((tileStart.x * params.tileSize), (tileStart.y * params.tileSize));
+                var tileShift = tileStore.getTileShift(),
+                    tileStart = new SLICK.Vector(
+                                    Math.floor((drawArgs.offset.x + tileShift.x) * invTileSize), 
+                                    Math.floor((drawArgs.offset.y + tileShift.y) * invTileSize)),
+                    tileCols = Math.ceil(drawArgs.dimensions.width * invTileSize) + 1,
+                    tileRows = Math.ceil(drawArgs.dimensions.height * invTileSize) + 1,
+                    tileOffset = new SLICK.Vector((tileStart.x * params.tileSize), (tileStart.y * params.tileSize));
                     
                 // reset the tile draw queue
                 tileDrawQueue = [];
@@ -518,6 +524,10 @@ SLICK.Tiling = (function() {
                 // dimensions.grow(params.bufferSize, params.bufferSize);
                 // offset.x -= halfBuffer;
                 // offset.y -= halfBuffer;
+                
+                // initialise variables
+                var tileShift = tileStore.getTileShift();
+                
                 if (refreshQueue) { 
                     updateDrawQueue(drawArgs);
                 } // if
@@ -535,8 +545,8 @@ SLICK.Tiling = (function() {
                     var tile = tileDrawQueue[ii].tile;
                     var coord = tileDrawQueue[ii].coordinates.duplicate();
                     
-                    coord.x -= drawArgs.offset.x;
-                    coord.y -= drawArgs.offset.y;
+                    coord.x -= (drawArgs.offset.x + tileShift.x);
+                    coord.y -= (drawArgs.offset.y + tileShift.y);;
                     
                     // if the tile is loaded, then draw, otherwise load
                     if (tile && tile.loaded) {

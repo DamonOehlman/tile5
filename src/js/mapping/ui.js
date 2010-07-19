@@ -1,5 +1,8 @@
 SLICK.Mapping = (function() {
     var module = {
+        // change this value to have the annotations tween in (eg. SLICK.Animation.Easing.Sine.Out)
+        AnnotationTween: null,
+        
         GeoTileGrid: function(params) {
             // extend the params with some defaults
             params = GRUNT.extend({
@@ -58,17 +61,6 @@ SLICK.Mapping = (function() {
                     return fnresult;
                 }
             });
-            
-            // listen for updates to the view.offset-changed message
-            GRUNT.WaterCooler.listen("tiler.shift", function(args) {
-                // TODO: check if the message is related to the view that this object belongs to
-
-                // add the specified change to the reference mercator position
-                if (args.change) {
-                    blMercatorPix.y += args.change.y;
-                    blMercatorPix.x -= args.change.x;
-                } // if
-            }); 
             
             return self;
         },
@@ -294,23 +286,6 @@ SLICK.Mapping = (function() {
                 }
             });
             
-            // listen for updates to the view.offset-changed message
-            GRUNT.WaterCooler.listen("tiler.shift", function(args) {
-                // TODO: check if the message is related to the view that this object belongs to
-                
-                if (args.change) {
-                    var ii;
-                    // iterate through the items in the coordinates
-                    for (ii = 0; ii < coordinates.length; ii++) {
-                        coordinates[ii].add(args.change);
-                    } // for
-
-                    for (ii = 0; ii < instructionCoords.length; ii++) {
-                        instructionCoords[ii].add(args.change);
-                    } // for
-                } // if
-            });
-
             return self;
         },
 
@@ -320,16 +295,37 @@ SLICK.Mapping = (function() {
             params = GRUNT.extend({
                 xy: null,
                 pos: null,
-                draw: null
+                draw: null,
+                tweenIn: module.AnnotationTween
             }, params);
             
             // TODO: make this inherit from sprite
+            var animating = false;
+            
             var self = {
                 xy: params.xy,
                 pos: params.pos,
+                isNew: false,
+                
+                isAnimating: function() {
+                    return animating;
+                },
                 
                 draw: function(drawArgs) {
                     if (! self.xy) { return; }
+                    
+                    if (self.isNew && (params.tweenIn)) {
+                        // get the end value and update the y value
+                        var endValue = self.xy.y;
+                        self.xy.y = drawArgs.offset.y - 20;
+                        
+                        // animate the annotation
+                        animating = true;
+                        SLICK.Animation.tween(self.xy, "y", endValue, params.tweenIn, function() {
+                            self.xy.y = endValue;
+                            animating = false;
+                        }, 250 + (Math.random() * 250));
+                    } // if
                     
                     if (params.draw) {
                         params.draw(drawArgs, new SLICK.Vector(self.xy.x - drawArgs.offset.x, self.xy.y - drawArgs.offset.y));
@@ -345,6 +341,8 @@ SLICK.Mapping = (function() {
                             false);                    
                         drawArgs.context.fill();                    
                     }
+                    
+                    self.isNew = false;
                 }
             }; // self
             
@@ -395,18 +393,27 @@ SLICK.Mapping = (function() {
             }, params);
             
             var annotations = [],
+                animating = false,
                 staticAnnotations = [];
                 
             function createAnnotationForPOI(poi) {
                 if (poi && poi.pos) {
+                    var annotation = null;
                     if (params.createAnnotationForPOI) {
-                        return params.createAnnotationForPOI(poi);
+                        annotation = params.createAnnotationForPOI(poi);
                     }
                     else {
-                        return new module.Annotation({
+                        annotation = new module.Annotation({
                             pos: poi.pos
                         });
                     } // if..else
+                    
+                    if (annotation) {
+                        annotation.isNew = poi.isNew;
+                        poi.isNew = false;
+                    } // if
+                    
+                    return annotation;
                 } // if
             } // createAnnotationForPOI
             
@@ -445,29 +452,38 @@ SLICK.Mapping = (function() {
             }
 
             // create the view layer the we will draw the view
-            var view = new SLICK.Graphics.ViewLayer(GRUNT.extend({
+            var layer = new SLICK.Graphics.ViewLayer(GRUNT.extend({
                 zindex: 100,
                 
                 draw: function(drawArgs) {
                     // initialise variables
                     var ii;
                     
+                    // reset animating to false
+                    animating = false;
+                    
                     drawArgs.context.fillStyle = "rgba(255, 0, 0, 0.75)";
                     
                     // iterate through the annotations and draw them
                     for (ii = 0; ii < annotations.length; ii++) {
                         annotations[ii].draw(drawArgs);
+                        animating = animating || annotations[ii].isAnimating();
                     } // for
                     
                     // iterate through the annotations and draw them
                     for (ii = 0; ii < staticAnnotations.length; ii++) {
                         staticAnnotations[ii].draw(drawArgs);
+                        animating = animating || annotations[ii].isAnimating();
                     } // for
+                    
+                    if (animating) {
+                        self.layerChanged();
+                    } // if
                 }
             }, params));
 
             // create the view layer the we will draw the view
-            var self = GRUNT.extend(view, {
+            var self = GRUNT.extend(layer, {
                 /**
                 This method provides that ability for the creation of static annotations (as opposed)
                 to annotations that are kept in sync with the pois that are POIStorage of the map. 
@@ -481,18 +497,18 @@ SLICK.Mapping = (function() {
                     GRUNT.Log.info("UPDATING ANNOTATION COORDINATES");
                     updateAnnotationCoordinates(annotations);
                     updateAnnotationCoordinates(staticAnnotations);
+                },
+                
+                isAnimating: function() {
+                    return animating;
                 }
-            });
-            
-            // listen for updates to the view.offset-changed message
-            GRUNT.WaterCooler.listen("tiler.shift", function(args) {
-                updateAnnotationCoordinates(annotations);
             });
             
             GRUNT.WaterCooler.listen("geo.pois-updated", function(args) {
                 // if the event source id matches our current poi storage, then apply updates
                 if (params.pois && (params.pois.id == args.srcID)) {
                     updateAnnotations(args.pois);
+                    self.layerChanged();
                 } // if
             });
             

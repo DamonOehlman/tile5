@@ -106,9 +106,10 @@ SLICK.Graphics = (function() {
         DisplayState: {
             NONE: 0,
             ACTIVE: 1,
-            INTERACTING: 2,
-            FROZEN: 4,
-            PINCHZOOM: 8
+            ANIMATING: 2,
+            INTERACTING: 4,
+            FROZEN: 8,
+            PINCHZOOM: 16
         },
         
         AnyDisplayState: 255,
@@ -139,6 +140,10 @@ SLICK.Graphics = (function() {
                     return params.zindex;
                 },
                 
+                isAnimating: function() {
+                    return false;
+                },
+                
                 beginDraw: function(args) {
                     if (params.beginDraw) {
                         params.beginDraw(args);
@@ -149,9 +154,9 @@ SLICK.Graphics = (function() {
                     return currentState & params.validStates !== 0;
                 },
                 
-                checkOK: function(drawArgs, updateArgs) {
+                checkOK: function(drawArgs) {
                     if (params.checkOK) { 
-                        return params.checkOK(drawArgs, updateArgs);
+                        return params.checkOK(drawArgs);
                     }
                     
                     return true;
@@ -216,7 +221,7 @@ SLICK.Graphics = (function() {
                 bufferRefresh: 100,
                 // TODO: padding breaks pinch zoom functionality... need to fix...
                 padding: 0,
-                fps: 25,
+                fps: 50,
                 onPan: null,
                 onPinchZoom: null,
                 onScale: null,
@@ -236,6 +241,7 @@ SLICK.Graphics = (function() {
                 lastInvalidate = 0,
                 dimensions = null,
                 drawArgs = null,
+                forceRedraw = false,
                 idle = false,
                 status = module.DisplayState.ACTIVE;
             
@@ -403,7 +409,7 @@ SLICK.Graphics = (function() {
                         // iterate through the layers, and for any layers that cannot draw on scale, draw them to 
                         // the saved context
                         for (var ii = 0; ii < layers.length; ii++) {
-                            if (layers[ii].canCache()) {
+                            if (layers[ii].canCache() && (! layers[ii].isAnimating())) {
                                 layers[ii].draw(drawArgs);
 
                                 // calculate the zindex as the zindex of the lowest saved layer
@@ -615,72 +621,32 @@ SLICK.Graphics = (function() {
                     // check to see if we are panning
                     var tickCount = new Date().getTime(),
                         userInteracting = (status == module.DisplayState.PINCHZOOM) || (tickCount - lastInvalidate < params.bufferRefresh),
-                        drawOK = true,
-                        ii,
-                        updateArgs = {
-                            offset: pannable ? pannable.getOffset() : new SLICK.Vector()
-                        };
+                        drawOK = true;
                         
                     // if the user is interating, cancel any active animation
                     if (userInteracting) {
                         SLICK.Animation.cancel();
                     } // if
-
+                    
                     // update any active tweens
                     SLICK.Animation.update(tickCount);
 
                     // check that all is right with each layer
-                    for (ii = 0; ii < layers.length; ii++) {
-                        if (drawOK && (! layers[ii].checkOK(drawArgs, updateArgs))) {
-                            var checkOffset = drawArgs ? drawArgs.offset : pannable.getOffset();
-                            
-                            drawOK = false;
-                            
-                            // if the current offset and the updated offset don't match flag
-                            if (pannable && (! updateArgs.offset.matches(checkOffset))) {
-                                var relativeOffset = cachedOffset.diff(checkOffset);
-                                var offsetChange = checkOffset.diff(updateArgs.offset).invert();
-                                
-                                // GRUNT.Log.info("old offset = " + checkOffset);
-                                // GRUNT.Log.info("cached offset = " + cachedOffset);
-                                // GRUNT.Log.info("relative cache offset = " + relativeOffset);
-                                // GRUNT.Log.info("offset change = " + offsetChange);
-                                
-                                
-                                
-                                // calculate the difference between the current offset and the new offset
-                               // var offsetDiff = updateArgs.offset.diff(pannable.getOffset());
-                                
-                                // add the difference between the cached offset and the pannable offset
-                                // offsetDiff.add(cachedOffset.diff(drawArgs.offset));
-                                
-                                // apply the diff to the cached offset
-                                // cachedOffset.add(offsetDiff);
-
-                                // update the pannable offset
-                                self.updateOffset(updateArgs.offset.x, updateArgs.offset.y);
-                                GRUNT.Log.info("OFFSET UPDATED AS REQUIRED BY A LAYER");
-                                
-                                // update the cached offset
-                                cachedOffset = pannable.getOffset();
-                                cachedOffset.add(relativeOffset);
-                                
-                                // GRUNT.Log.info("new offset = " + pannable.getOffset());
-                                // GRUNT.Log.info("new cached offset = " + cachedOffset);
-                                // GRUNT.Log.info("new relative cache offset = " + cachedOffset.diff(pannable.getOffset()));
-                            } // if
+                    for (var ii = 0; ii < layers.length; ii++) {
+                        if (drawOK) {
+                            layers[ii].checkOK(drawArgs);
                         } // if
                     } // for
                     
                     // update the idle status
-                    idle = idle && (! userInteracting);
+                    idle = idle && (! userInteracting) && (! SLICK.Animation.isTweening());
                     
                     // if drawing is not ok at the moment, flick to interacing mode
                     if (drawOK) {
                         drawView(tickCount, userInteracting);
 
                         // if the user is not interacting, then save the current context
-                        if (! userInteracting) {
+                        if ((! userInteracting) && (! SLICK.Animation.isTweening())) {
                             cacheContext();
                             
                             // if the idle flag is not set, then fire the view idle event
@@ -689,6 +655,8 @@ SLICK.Graphics = (function() {
                                 GRUNT.WaterCooler.say("view-idle", { id: self.id });
                             }
                         } // if
+                        
+                        forceRedraw = false;
                     } // if
                 }
                 catch (e) {
