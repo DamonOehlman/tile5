@@ -22,21 +22,24 @@ SLICK.PhoneGap = (function() {
                     actions = SLICK.Dispatcher.getRegisteredActions();
                 } // if
                 
-                // window.uicontrols.createToolBar();
-                // window.uicontrols.setToolBarTitle("RACQ Trip Planner");
+                // uicontrols only exist on iPhone :/
+                if (window.uicontrols) {
+                    // window.uicontrols.createToolBar();
+                    // window.uicontrols.setToolBarTitle("RACQ Trip Planner");
             
-                window.uicontrols.createTabBar();
+                    window.uicontrols.createTabBar();
             
-                // get the application modes
-                var activeTabs = ["UIControls.showTabBarItems"];
-                for (var ii = 0; ii < actions.length; ii++) {
-                    createTabItem(actions[ii]);
-                    activeTabs.push(actions[ii].id);
-                } // for
+                    // get the application modes
+                    var activeTabs = ["UIControls.showTabBarItems"];
+                    for (var ii = 0; ii < actions.length; ii++) {
+                        createTabItem(actions[ii]);
+                        activeTabs.push(actions[ii].id);
+                    } // for
 
-                // show the tab bar
-                window.uicontrols.showTabBar();
-                PhoneGap.exec.apply(this, activeTabs);
+                    // show the tab bar
+                    window.uicontrols.showTabBar();
+                    PhoneGap.exec.apply(this, activeTabs);
+                } // if
             }
             catch (e) {
                 GRUNT.Log.exception(e);
