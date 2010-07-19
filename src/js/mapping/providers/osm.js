@@ -81,7 +81,7 @@ SLICK.Geo.OpenStreetMap = (function() {
                                     tile_offset.x, 
                                     tile_offset.y,
                                     true),
-                    centerPos: calculatePositionFromTileOffset(tile_offset.x + 0.5, tile_offset.y - 1.5, self.zoomLevel),
+                    centerPos: calculatePositionFromTileOffset(tile_offset.x + 0.5, tile_offset.y - 0.5, self.zoomLevel),
                     // NOTE: zoom level is similar to decarta GX zoom level but 1 less...
                     // TODO: implement some kind of universal zoom level... there probably is one already... 
                     radsPerPixel: module.radsPerPixelAtZoom(SLICK.Tiling.Config.TILESIZE, self.zoomLevel)
