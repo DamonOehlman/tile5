@@ -87,7 +87,7 @@ SLICK.Animation = (function() {
             var startTicks = new Date().getTime(),
                 complete = false,
                 beginningValue = 0.0,
-                changePerTick = 0.0;
+                change = 0;
                 
             var self = {
                 isComplete: function() {
@@ -103,22 +103,14 @@ SLICK.Animation = (function() {
                 update: function(tickCount) {
                     // calculate the updated value
                     var elapsed = tickCount - startTicks,
-                        updatedValue = params.tweenFn(elapsed, beginningValue, changePerTick * elapsed, params.duration);
+                        updatedValue = params.tweenFn(elapsed, beginningValue, change, params.duration);
                     
                     // update the property value
                     params.target[params.property] = updatedValue;
-                    // GRUNT.Log.info("updated value = " + updatedValue);
-                    
-                    // check to see if we are complete
-                    /*
-                    if (((params.endValue < beginningValue) && (updatedValue <= params.endValue)) || (updatedValue >= params.endValue)) {
-                        complete = true;
-                    } // if
-                    */
+
                     complete = startTicks + params.duration <= tickCount;
                     if (complete) {
-                        params.target[params.property] = params.tweenFn(params.duration, beginningValue, changePerTick * params.duration, params.duration);
-                        // GRUNT.Log.info("startTime = " + startTicks + ", duration = " + params.duration + ", tickCount = " + tickCount + ", updated value = " + updatedValue + ", complete = " + complete);
+                        params.target[params.property] = params.tweenFn(params.duration, beginningValue, change, params.duration);
                     } // if
                 }
             };
@@ -128,14 +120,14 @@ SLICK.Animation = (function() {
                 beginningValue = params.target[params.property];
                 // check that the end value is not undefined
                 if (typeof params.endValue !== 'undefined') {
-                    changePerTick = (params.endValue - beginningValue) / params.duration;
+                    change = (params.endValue - beginningValue);
                 } // if
             } // if
             
             // GRUNT.Log.info("creating new tween. change = " + changePerTick, params);
 
             // if no change is required, then mark as complete so the update method will never be called
-            if (changePerTick == 0) {
+            if (change == 0) {
                 complete = true;
             } // if..else
             

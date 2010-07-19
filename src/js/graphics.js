@@ -448,7 +448,7 @@ SLICK.Graphics = (function() {
                     displayState: status,
                     offset: currentOffset,
                     offsetChanged: offsetChanged,
-                    animating: interacting || SLICK.Animation.isTweening(),
+                    animating: interacting || pannable.isAnimating(),
                     dimensions: dimensions,
                     dimensionsChanged: dimensionsChanged,
                     scaleFactor: self.getScaleFactor(),

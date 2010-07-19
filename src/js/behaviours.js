@@ -14,7 +14,8 @@ SLICK.Pannable = function(params) {
         checkOffset: null
     }, params);
     
-    var offset = new SLICK.Vector();
+    var animating = false,
+        offset = new SLICK.Vector();
     
     // initialise self
     var self = {
@@ -42,10 +43,16 @@ SLICK.Pannable = function(params) {
             else {
                 var endPosition = new SLICK.Vector(offset.x + x, offset.y + y);
                 
+                animating = true;
                 SLICK.Animation.tweenVector(offset, endPosition.x, endPosition.y, tweenFn, function() {
+                    animating = false;
                     self.panEnd(0, 0);
                 });
             } // if..else
+        },
+        
+        isAnimating: function() {
+            return animating;
         },
         
         panEnd: function(x, y) {

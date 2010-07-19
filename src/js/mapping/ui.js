@@ -324,7 +324,7 @@ SLICK.Mapping = (function() {
                         SLICK.Animation.tween(self.xy, "y", endValue, params.tweenIn, function() {
                             self.xy.y = endValue;
                             animating = false;
-                        }, 250 + (Math.random() * 250));
+                        }, 250 + (Math.random() * 500));
                     } // if
                     
                     if (params.draw) {
