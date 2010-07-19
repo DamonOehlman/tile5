@@ -321,6 +321,7 @@ SLICK.Mapping = (function() {
                         
                         // animate the annotation
                         animating = true;
+                        // TODO: create a single tween instance for pois added around the same time to reduce overheads
                         SLICK.Animation.tween(self.xy, "y", endValue, params.tweenIn, function() {
                             self.xy.y = endValue;
                             animating = false;

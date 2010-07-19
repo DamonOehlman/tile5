@@ -226,6 +226,7 @@ SLICK.Graphics = (function() {
                 onPinchZoom: null,
                 onScale: null,
                 onDraw: null,
+                autoSize: true,
                 pinchZoomDebug: true
             }, params);
             
@@ -252,6 +253,13 @@ SLICK.Graphics = (function() {
             GRUNT.Log.info("Creating a new view instance, attached to container: " + params.container + ", canvas = ", canvas);
 
             if (canvas) {
+                // if we are autosizing the set the size
+                if (params.autoSize) {
+                    GRUNT.Log.info("autosizing view: window.height = " + window.innerHeight + ", width = " + window.innerWidth);
+                    canvas.height = window.innerHeight - canvas.offsetTop - 49;
+                    canvas.width = window.innerWidth - canvas.offsetLeft;
+                } // if
+                
                 try {
                     main_context = canvas.getContext('2d');
                 } 

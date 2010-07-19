@@ -4,6 +4,23 @@
 The top level SLICK namespace.  This module contains core types and functionality for implementing 
 */
 SLICK = (function () {
+    var deviceConfigs = {
+        base: {
+            eventTarget: document,
+            supportsTouch: "createTouch" in document
+        },
+        
+        iphone: {
+            regex: /iphone/i
+        },
+        
+        android: {
+            regex: /android/i,
+            eventTarget: document.body,
+            supportsTouch: true
+        }
+    }; // deviceConfigs
+    
     var module = {
         /** @lends SLICK */
 
@@ -43,58 +60,27 @@ SLICK = (function () {
             return self;
         })(),
         
-        Platforms: {
-            base: {
-                eventTarget: document
-            },
-            
-            iphone: {
-                regex: /iphone/i
-            },
-            
-            android: {
-                regex: /android/i,
-                eventTarget: document.body
-            }
-        },
-        
         Device: (function() {
-            var platform = null;
+            var deviceConfig = null;
+            GRUNT.Log.info("ATTEMPTING TO DETECT PLATFORM: UserAgent = " + navigator.userAgent);
             
-            function detectPlatform() {
-                // reset platform variable
-                platform = null;
+            // iterate through the platforms and run detection on the platform
+            for (var deviceId in deviceConfigs) {
+                var testPlatform = deviceConfigs[deviceId];
                 
-                GRUNT.Log.info("ATTMEMPTING TO DETECT PLATFORM: UserAgent = " + navigator.userAgent);
-                
-                // iterate through the platforms and run detection on the platform
-                for (var platformId in module.Platforms) {
-                    var testPlatform = module.Platforms[platformId];
-                    
-                    if (testPlatform.regex && testPlatform.regex.test(navigator.userAgent)) {
-                        platform = GRUNT.extend({}, module.Platforms.base, testPlatform);
-                        GRUNT.Log.info("PLATFORM DETECTED AS: " + platformId);
-                        break;
-                    } // if
-                } // for
-                
-                if (! platform) {
-                    GRUNT.Log.warn("UNABLE TO DETECT PLATFORM, REVERTING TO BASE CONFIGURATION");
-                    platform = module.Platforms.base;
-                }
-            } // detectPlatform
+                if (testPlatform.regex && testPlatform.regex.test(navigator.userAgent)) {
+                    deviceConfig = GRUNT.extend({}, deviceConfigs.base, testPlatform);
+                    GRUNT.Log.info("PLATFORM DETECTED AS: " + deviceId);
+                    break;
+                } // if
+            } // for
             
-            var subModule = {
-                getPlatform: function() {
-                    if (! platform) {
-                        detectPlatform();
-                    } // if
-                    
-                    return platform;
-                }
-            };
+            if (! deviceConfig) {
+                GRUNT.Log.warn("UNABLE TO DETECT PLATFORM, REVERTING TO BASE CONFIGURATION");
+                deviceConfig = deviceConfigs.base;
+            }
             
-            return subModule;
+            return deviceConfig;
         })(),
         
         Clock: (function() {

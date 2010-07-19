@@ -101,7 +101,7 @@ SLICK.Touch = (function() {
             
             // initialise self
             var self = {
-                supportsTouch: touchReady,
+                supportsTouch: SLICK.Device.supportsTouch,
 
                 /* define mutable constants (yeah, I know that's a contradiction) */
 
@@ -233,10 +233,8 @@ SLICK.Touch = (function() {
                         preventDefaultTouch(touchEvent);
 
                         // get the current touches
-                        var touchesCurrent = self.getTouchPoints(touchEvent, [TOUCH_TYPES.CHANGED, TOUCH_TYPES.GLOBAL]),
+                        var touchesCurrent = self.getTouchPoints(touchEvent),
                             zoomDistance = 0;
-
-                        GRUNT.Log.info("processing move: " + touchesCurrent);
 
                         // check to see if we are pinching or zooming
                         if (touchesCurrent.length > 1) {
@@ -245,7 +243,7 @@ SLICK.Touch = (function() {
                                 touchesStart = copyTouches(touchesCurrent);
                             } // if
 
-                            zoomDistance = calcDistance(touchesStart) - calcDistance(touchesCurrent);
+                            zoomDistance = calcDistance(touchesStart) - calcDistance(touchesLast);
                         } // if
 
                         // if the touch mode is tap, then check to see if we have gone beyond a move threshhold
@@ -368,16 +366,13 @@ SLICK.Touch = (function() {
                     touchHelper = module_types.TouchHelper(GRUNT.extend({ element: element}, params));
                     touchHelpers[element.id] = touchHelper;
                     
-                    // get the event target
-                    var eventTarget = SLICK.Device.getPlatform().eventTarget;
-                    
-                    GRUNT.Log.info("event target = " + eventTarget);
+                    GRUNT.Log.info("CREATED TOUCH HELPER. SUPPORTS TOUCH = " + touchHelper.supportsTouch);
                     
                     // bind the touch events
                     // TOUCH START
-                    eventTarget.addEventListener(touchHelper.supportsTouch ? 'touchstart' : 'mousedown', touchHelper.start, false);
-                    eventTarget.addEventListener(touchHelper.supportsTouch ? 'touchmove' : 'mousemove', touchHelper.move, false);
-                    eventTarget.addEventListener(touchHelper.supportsTouch ? 'touchend' : 'mouseup', touchHelper.end, false);
+                    SLICK.Device.eventTarget.addEventListener(touchHelper.supportsTouch ? 'touchstart' : 'mousedown', touchHelper.start, false);
+                    SLICK.Device.eventTarget.addEventListener(touchHelper.supportsTouch ? 'touchmove' : 'mousemove', touchHelper.move, false);
+                    SLICK.Device.eventTarget.addEventListener(touchHelper.supportsTouch ? 'touchend' : 'mouseup', touchHelper.end, false);
 
                     // if we support touch, then disable mouse wheel events
                     if (touchHelper.supportsTouch) {
