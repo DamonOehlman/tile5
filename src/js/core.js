@@ -43,6 +43,69 @@ SLICK = (function () {
             return self;
         })(),
         
+        Platforms: {
+            base: {
+                eventTarget: document
+            },
+            
+            iphone: {
+                regex: /iphone/i
+            },
+            
+            android: {
+                regex: /android/i,
+                eventTarget: document.body
+            }
+        },
+        
+        Device: (function() {
+            var platform = null;
+            
+            function detectPlatform() {
+                // reset platform variable
+                platform = null;
+                
+                GRUNT.Log.info("ATTMEMPTING TO DETECT PLATFORM: UserAgent = " + navigator.userAgent);
+                
+                // iterate through the platforms and run detection on the platform
+                for (var platformId in module.Platforms) {
+                    var testPlatform = module.Platforms[platformId];
+                    
+                    if (testPlatform.regex && testPlatform.regex.test(navigator.userAgent)) {
+                        platform = GRUNT.extend({}, module.Platforms.base, testPlatform);
+                        GRUNT.Log.info("PLATFORM DETECTED AS: " + platformId);
+                        break;
+                    } // if
+                } // for
+                
+                if (! platform) {
+                    GRUNT.Log.warn("UNABLE TO DETECT PLATFORM, REVERTING TO BASE CONFIGURATION");
+                    platform = module.Platforms.base;
+                }
+            } // detectPlatform
+            
+            var subModule = {
+                getPlatform: function() {
+                    if (! platform) {
+                        detectPlatform();
+                    } // if
+                    
+                    return platform;
+                }
+            };
+            
+            return subModule;
+        })(),
+        
+        Clock: (function() {
+            return {
+                // TODO: reduce the number of calls to new date get time
+                getTime: function() {
+                    return new Date().getTime();
+                }
+            };
+        })(),
+        
         /**
         Initialise a new Vector instance
         
@@ -106,20 +169,9 @@ SLICK = (function () {
                     self.y = vector.y;
                 },
                 
-                /**
-                Create a new {SLICK.Rect} by using the current vector and vector passed to the function to specify the 
-                bounds of the rect.
-                
-                @memberOf SLICK.Vector#
-                @param {SLICK.Vector} vector the vector to combine with the current vector to create rect bounds
-                @returns {SLICK.Rect} a *new* rect object representing the bounds of the two vectors
-                */
-                createRect: function(vector) {
-                    return new SLICK.Rect(
-                        Math.min(self.x, vector.x),
-                        Math.min(self.y, vector.y),
-                        Math.abs(self.x - vector.x),
-                        Math.abs(self.y - vector.y));
+                empty: function() {
+                    self.x = 0;
+                    self.y = 0;
                 },
                 
                 /**
@@ -178,6 +230,19 @@ SLICK = (function () {
 
             return self;
         }, // Vector
+        
+        VectorArray: function(srcArray) {
+            return {
+                getRect: function() {
+                    return new SLICK.Rect(
+                        Math.min(srcArray[0].x, srcArray[1].x),
+                        Math.min(srcArray[0].y, srcArray[1].y),
+                        Math.abs(srcArray[0].x - srcArray[1].x),
+                        Math.abs(srcArray[0].y - srcArray[1].y)
+                    );
+                }
+            };
+        },
         
         /**
         @class

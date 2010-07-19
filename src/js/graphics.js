@@ -221,12 +221,12 @@ SLICK.Graphics = (function() {
                 bufferRefresh: 100,
                 // TODO: padding breaks pinch zoom functionality... need to fix...
                 padding: 0,
-                fps: 50,
+                fps: 40,
                 onPan: null,
                 onPinchZoom: null,
                 onScale: null,
                 onDraw: null,
-                pinchZoomDebug: false
+                pinchZoomDebug: true
             }, params);
             
             // get the container context
