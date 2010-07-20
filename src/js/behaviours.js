@@ -44,10 +44,15 @@ SLICK.Pannable = function(params) {
                 var endPosition = new SLICK.Vector(offset.x + x, offset.y + y);
                 
                 animating = true;
-                SLICK.Animation.tweenVector(offset, endPosition.x, endPosition.y, tweenFn, function() {
+                var tweens = SLICK.Animation.tweenVector(offset, endPosition.x, endPosition.y, tweenFn, function() {
                     animating = false;
                     self.panEnd(0, 0);
                 });
+                
+                // set the tweens to cancel on interact
+                for (var ii = 0; ii < tweens.length; ii++) {
+                    tweens[ii].cancelOnInteract = true;
+                } // for
             } // if..else
         },
         

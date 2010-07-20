@@ -226,7 +226,7 @@ SLICK.Graphics = (function() {
                 onPinchZoom: null,
                 onScale: null,
                 onDraw: null,
-                autoSize: true,
+                autoSize: false,
                 pinchZoomDebug: true
             }, params);
             
@@ -259,6 +259,7 @@ SLICK.Graphics = (function() {
                     canvas.height = window.innerHeight - canvas.offsetTop - 49;
                     canvas.width = window.innerWidth - canvas.offsetLeft;
                 } // if
+                
                 
                 try {
                     main_context = canvas.getContext('2d');
@@ -630,7 +631,9 @@ SLICK.Graphics = (function() {
                         
                     // if the user is interating, cancel any active animation
                     if (userInteracting) {
-                        SLICK.Animation.cancel();
+                        SLICK.Animation.cancel(function(tweenInstance) {
+                            return tweenInstance.cancelOnInteract;
+                        });
                     } // if
                     
                     // update any active tweens

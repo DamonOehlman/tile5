@@ -40,34 +40,42 @@ SLICK.Animation = (function() {
         },
         
         tweenVector: function(target, dstX, dstY, fn, callback, duration) {
+            var fnresult = [];
+            
             if (target) {
                 var xDone = target.x == dstX;
                 var yDone = target.y == dstY;
                 
                 if (! xDone) {
-                    module.tween(target, "x", dstX, fn, function() {
+                    fnresult.push(module.tween(target, "x", dstX, fn, function() {
                         xDone = true;
                         if (xDone && yDone) { callback(); }
-                    }, duration);
+                    }, duration));
                 } // if
                 
                 if (! yDone) {
-                    module.tween(target, "y", dstY, fn, function() {
+                    fnresult.push(module.tween(target, "y", dstY, fn, function() {
                         yDone = true;
                         if (xDone && yDone) { callback(); }
-                    }, duration);
+                    }, duration));
                 } // if
             } // if
         },
         
-        cancel: function() {
-            // trigger the complete for the tween marking it as cancelled
-            for (var ii = 0; ii < tweens.length; ii++) {
-                tweens[ii].triggerComplete(true);
-            } // for
+        cancel: function(checkCallback) {
+            var ii = 0;
             
-            // remove all the tweens
-            tweens = [];
+            // trigger the complete for the tween marking it as cancelled
+            while (ii < tweens.length) {
+                if ((! checkCallback) || checkCallback(tweens[ii])) {
+                    GRUNT.Log.info("CANCELLING ANIMATION");
+                    tweens[ii].triggerComplete(true);
+                    tweens.splice(ii, 1);
+                }
+                else {
+                    ii++;
+                } // if..else
+            } // for
         },
         
         isTweening: function() {
@@ -99,7 +107,8 @@ SLICK.Animation = (function() {
                 endValue: null,
                 duration: module.DURATION,
                 tweenFn: module.DEFAULT,
-                complete: null
+                complete: null,
+                cancelOnInteract: false
             }, params);
             
             // get the start ticks
@@ -116,6 +125,8 @@ SLICK.Animation = (function() {
             } // notifyListeners
                 
             var self = {
+                cancelOnInteract: params.cancelOnInteract,
+                
                 isComplete: function() {
                     return complete;
                 },

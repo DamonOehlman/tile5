@@ -2,12 +2,7 @@ SLICK.Touch = (function() {
     var elementCounter = 0;
     
     function calcDistance(touches) {
-        if (touches.length > 1) {
-            var distVector = touches[0].diff(touches[1]);
-            return Math.sqrt((distVector.x * distVector.x) + (distVector.y * distVector.y));
-        } // if
-        
-        return null;
+        return SLICK.VectorMath.distance(touches);
     } // calcDistance
     
     function calcChange(first, second) {
@@ -341,6 +336,10 @@ SLICK.Touch = (function() {
     return {
         captureTouch: function(element, params) {
             try {
+                if (! element) {
+                    throw new Error("Unable to capture touch of null element");
+                } // if
+                
                 // if the element does not have an id, then generate on
                 if (! element.id) {
                     element.id = "touchable_" + elementCounter++;
@@ -380,30 +379,34 @@ SLICK.Touch = (function() {
     }; // module
 })();
 
-jQuery.fn.canTouchThis = function(params) {
-    // bind the touch events
-    return this.each(function() {
-        SLICK.Touch.captureTouch(this, params);
-    });
-}; // canTouchThis
-
-jQuery.fn.untouchable = function() {
-    // define acceptable touch items
-    var TAGS_CANTOUCH = /^(A|BUTTON)$/i;
-    
-    return this
-        /*
-        .bind("touchstart", function(evt) {
-            if (! (evt.target && TAGS_CANTOUCH.test(evt.target.tagName))) {
-                // check to see whether a click handler has been assigned for the current object
-                if (! (evt.target.onclick || evt.target.ondblclick)) {
-                    GRUNT.Log.info("no touch for: " + evt.target.tagName);
-                    evt.preventDefault();
-                } // if
-            } // if
-        })
-        */
-        .bind("touchmove", function(evt) {
-            evt.preventDefault();
+// if jquery is defined, then add the plugins
+if (typeof(jQuery) !== 'undefined') {
+    jQuery.fn.canTouchThis = function(params) {
+        // bind the touch events
+        return this.each(function() {
+            SLICK.Touch.captureTouch(this, params);
         });
-}; // untouchable
+    }; // canTouchThis
+
+    jQuery.fn.untouchable = function() {
+        // define acceptable touch items
+        var TAGS_CANTOUCH = /^(A|BUTTON)$/i;
+
+        return this
+            /*
+            .bind("touchstart", function(evt) {
+                if (! (evt.target && TAGS_CANTOUCH.test(evt.target.tagName))) {
+                    // check to see whether a click handler has been assigned for the current object
+                    if (! (evt.target.onclick || evt.target.ondblclick)) {
+                        GRUNT.Log.info("no touch for: " + evt.target.tagName);
+                        evt.preventDefault();
+                    } // if
+                } // if
+            })
+            */
+            .bind("touchmove", function(evt) {
+                evt.preventDefault();
+            });
+    }; // untouchable
+} // if
+

@@ -199,8 +199,49 @@ SLICK.Mapping = (function() {
                 canCache: true
             }, params);
             
-            var coordinates = [];
-            var instructionCoords = [];
+            var coordinates = [],
+                instructionCoords = [],
+                edgeData = null,
+                journeyOffset = 0,
+                animating = false;
+                
+            function generateAnimationTimeline() {
+                // firstly calculate the edge lengths and 
+                edgeData = SLICK.VectorMath.edges(coordinates);
+                GRUNT.Log.info("calculated edge data: ", edgeData);
+            } // generateAnimationTimeline
+            
+            function drawJourneyIndicator(drawArgs) {
+                try {
+                    var edgeIndex = 0;
+                
+                    // iterate through the edge data and determine the current journey coordinate index
+                    while ((edgeIndex < edgeData.accrued.length) && (edgeData.accrued[edgeIndex] < journeyOffset)) {
+                        edgeIndex++;
+                    } // while
+                
+                    // if the edge index is valid, then let's determine the xy coordinate
+                    if (edgeIndex < coordinates.length-1) {
+                        var extra = journeyOffset - (edgeIndex > 0 ? edgeData.accrued[edgeIndex - 1] : 0),
+                            indicatorXY = SLICK.VectorMath.pointOnEdge(coordinates[edgeIndex], coordinates[edgeIndex + 1], edgeData.edges[edgeIndex], extra);
+                    
+                        // draw an arc at the specified position
+                        drawArgs.context.fillStyle = "#222222";
+                        drawArgs.context.beginPath();
+                        drawArgs.context.arc(
+                            indicatorXY.x - drawArgs.offset.x, 
+                            indicatorXY.y - drawArgs.offset.y,
+                            4,
+                            0,
+                            Math.PI * 2,
+                            false);                    
+                        drawArgs.context.fill();
+                    } // if
+                }
+                catch (e) {
+                    GRUNT.Log.exception(e);
+                }
+            } // drawJourneyIndicator
             
             // create the view layer the we will draw the view
             var view = new SLICK.Graphics.ViewLayer(GRUNT.extend({
@@ -243,11 +284,48 @@ SLICK.Mapping = (function() {
                         drawArgs.context.stroke();
                         drawArgs.context.fill();
                     } // for
+                    
+                    // if we are animating draw the indicator at the appropriate position
+                    if (animating && edgeData) {
+                        drawJourneyIndicator(drawArgs);
+                    } // if
+                },
+                
+                isAnimating: function() {
+                    return animating;
                 }
             }, params));
             
             // define self
             var self = GRUNT.extend(view, {
+                animate: function(autoCenter) {
+                    if (animating) { return; }
+                    
+                    generateAnimationTimeline();
+                    
+                    animating = true;
+                    var tween = SLICK.Animation.tweenValue(
+                        0, 
+                        edgeData.total, 
+                        SLICK.Animation.Easing.Bounce.InOut, 
+                        function() {
+                            animating = false;
+                        },
+                        10000);
+                        
+                    // if we are autocentering then we need to cancel on interaction
+                    tween.cancelOnInteract = autoCenter;
+                        
+                    // request updates from the tween
+                    tween.requestUpdates(function(updatedValue, complete) {
+                        journeyOffset = updatedValue;
+
+                        if (complete) {
+                            animating = false;
+                        } // if
+                    });
+                },
+                
                 calcCoordinates: function(grid) {
                     coordinates = [];
                     instructionCoords = [];
@@ -743,6 +821,9 @@ SLICK.Mapping = (function() {
 
                     // if the zoom level is different from the current zoom level, then update the map tiles
                     if ((! initialized) || (zoomLevel != currentZoomLevel)) {
+                        // cancel any animations
+                        SLICK.Animation.cancel();
+                        
                         // if the map is initialise, then pan to the specified position
                         if (initialized) {
                             // flag the route and poi layers as frozen

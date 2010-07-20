@@ -254,6 +254,47 @@ SLICK = (function () {
             };
         },
         
+        VectorMath: (function() {
+            function edges(vectors) {
+                if ((! vectors) || (vectors.length <= 1)) {
+                    throw new Error("Cannot determine edge distances for a vector array of only one vector");
+                } // if
+                
+                var fnresult = {
+                    edges: new Array(vectors.length - 1),
+                    accrued: new Array(vectors.length - 1),
+                    total: 0
+                };
+                
+                // iterate through the vectors and calculate the edges
+                for (var ii = 0; ii < vectors.length-1; ii++) {
+                    var diff = vectors[ii].diff(vectors[ii + 1]);
+                    
+                    fnresult.edges[ii] = Math.sqrt((diff.x * diff.x) + (diff.y * diff.y));
+                    fnresult.accrued[ii] = fnresult.total + fnresult.edges[ii];
+                    fnresult.total += fnresult.edges[ii];
+                } // for
+                
+                return fnresult;
+            } // edges
+            
+            return {
+                edges: edges,
+                distance: function(vectors) {
+                    return edges(vectors).total;
+                },
+                pointOnEdge: function(v1, v2, distance, delta) {
+                    // TODO: I'm sure this can be done better... need someone with math skillz :)
+                    var theta = Math.asin((v1.y - v2.y) / distance),
+                        xyDelta = new SLICK.Vector(Math.cos(theta) * delta, Math.sin(theta) * delta);
+                        
+                    return new SLICK.Vector(
+                                    v1.x < v2.x ? v1.x + xyDelta.x : v1.x - xyDelta.x,
+                                    v1.y < v2.y ? v1.y - xyDelta.y : v1.y - xyDelta.y);
+                }
+            };
+        })(),
+        
         /**
         @class
         */

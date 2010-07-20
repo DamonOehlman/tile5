@@ -78,7 +78,14 @@ SLICK.Geo = (function() {
             } // for
             
             // if we found an engine using preferences, return that otherwise return an alternative
-            return fnresult ? fnresult : findEngine(requiredCapability);
+            fnresult = fnresult ? fnresult : findEngine(requiredCapability);
+            
+            // if no engine was found, then throw an exception
+            if (! fnresult) {
+                throw new Error("Unable to find GEO engine with " + requiredCapability + " capability");
+            }
+            
+            return fnresult;
         },
         
         /* geo type definitions */
