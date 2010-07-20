@@ -14,21 +14,10 @@ http://github.com/jquery/jquery/blob/master/build.xml
     <property name="SLICK_MIN" value="${dist}/${LIBNAME}.min.js" />
 	<property name="JSDOC_HOME" value="/development/tools/jsdoc-toolkit" />
 	
-	<available property="qunit" file="test/qunit" />
-	
-	<target name="qunit-clone" unless="qunit">
-		<exec executable="git" outputproperty="git-qunit" >  
-			<arg line="clone git://github.com/jquery/qunit.git test/qunit"/>  
-		</exec>
-		<echo message="git clone qunit: ${git-qunit}" />
-	</target>
-
-	<target name="qunit-pull" if="qunit">
-		<exec executable="git" outputproperty="git-qunit" dir="test/qunit" >  
-			<arg line="pull origin master"/>  
-		</exec> 
-		<echo message="git pull sizzle: ${git-qunit}" />
-	</target>
+	<!-- properties for configuring the test runner -->
+	<property name="PATH.LIGHTTPD" value="/opt/local/sbin/lighttpd" />
+	<property name="TESTRUNNER.HOST" value="10.1.1.100" />
+	<property name="TESTRUNNER.PORT" value="9100" />
 	
 	<!-- grunt cloning code -->
 	
@@ -52,7 +41,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		<ant dir="lib/grunt" />
 	</target>
 	
-	<target name="build-slick" depends="qunit-clone,qunit-pull,grunt-build" description="Slick library core build, concatenates core files and updates @VERSION">
+	<target name="build-slick" depends="grunt-build" description="Slick library core build, concatenates core files and updates @VERSION">
 		<echo message="BUILDING SLICK CORE" />
 		<mkdir dir="${dist}" />
 		
@@ -87,6 +76,10 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		<concat destfile="${dist}/${LIBNAME}.openstreetmap.js">
 			<fileset file="src/js/mapping/providers/osm.js" />
 			<fileset file="src/js/mapping/providers/cloudmade.js" />
+		</concat>
+		
+		<concat destfile="${dist}/${LIBNAME}.decarta.js">
+			<fileset file="src/js/mapping/providers/decarta.js" />
 		</concat>
 		
 		<!-- construct the native libraries -->
@@ -162,6 +155,35 @@ http://github.com/jquery/jquery/blob/master/build.xml
 	<target name="jsdoc">
 		<exec executable="java">
 			<arg line="-jar ${JSDOC_HOME}/jsrun.jar ${JSDOC_HOME}/app/run.js -v -t=${JSDOC_HOME}/templates/jsdoc/ --recurse=10 -d=apidoc src/js"/>
+		</exec>
+	</target>
+	
+	<!-- lighttpd search and destroy functions -->
+	<target name="lighttpd.search">
+		<exec executable="sh" outputproperty="lighttpd.pid" >
+			<arg line="-c 'ps x -o pid=,command= | grep -E lighttpd[[:blank:]]\-f | cut -d \  -f 1'" />
+		</exec>
+	</target>
+	
+	<target name="lighttpd.destroy" if="lighttpd.pid">
+		<exec executable="kill">
+			<arg line="${lighttpd.pid}" />
+		</exec>
+	</target>
+	
+	<target name="testrunner" depends="lighttpd.search, lighttpd.destroy">
+		<!-- copy the template config to the actual config -->
+		<copy tofile="test/frontend/lighttpd.conf" overwrite="true">
+			<fileset file="test/frontend/lighttpd.template.conf" />
+			
+			<filterchain>
+				<expandproperties />
+			</filterchain>
+		</copy>
+		
+		<!-- start lighttpd -->
+		<exec executable="${PATH.LIGHTTPD}">
+			<arg line="-f test/frontend/lighttpd.conf" />
 		</exec>
 	</target>
 
