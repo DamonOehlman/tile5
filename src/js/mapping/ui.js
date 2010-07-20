@@ -1,4 +1,19 @@
 SLICK.Mapping = (function() {
+    var lastAnnotationTween = null,
+        lastAnnotationTweenTicks = null;
+    
+    function getAnnotationTween(tweenType) {
+        // get the current tick count
+        var tickCount = SLICK.Clock.getTime(true);
+
+        if ((! lastAnnotationTween) || (tickCount - lastAnnotationTweenTicks > 100)) {
+            lastAnnotationTween = SLICK.Animation.tweenValue(480, 0, tweenType, null, 250);
+            lastAnnotationTweenTicks = tickCount;
+        } // if
+        
+        return lastAnnotationTween;
+    } // getAnnotationTween
+    
     var module = {
         // change this value to have the annotations tween in (eg. SLICK.Animation.Easing.Sine.Out)
         AnnotationTween: null,
@@ -237,7 +252,6 @@ SLICK.Mapping = (function() {
                     coordinates = [];
                     instructionCoords = [];
 
-                    var tickCount = new Date().getTime();
                     var ii, current, last = null, include,
                         geometry = params.data ? params.data.getGeometry() : [],
                         instructions = params.data ? params.data.getInstructions() : [];
@@ -282,7 +296,7 @@ SLICK.Mapping = (function() {
                         } // if
                     } // for
 
-                    GRUNT.Log.info("geometry = " + geometry.length + ", coordinates = " + coordinates.length + ", instructions = " + instructionCoords.length + ", calctime = " + (new Date().getTime() - tickCount) + " ms");
+                    GRUNT.Log.info("geometry = " + geometry.length + ", coordinates = " + coordinates.length + ", instructions = " + instructionCoords.length);
                 }
             });
             
@@ -317,11 +331,13 @@ SLICK.Mapping = (function() {
                     if (self.isNew && (params.tweenIn)) {
                         // get the end value and update the y value
                         var endValue = self.xy.y;
+
+                        // set the y to offscreen
                         self.xy.y = drawArgs.offset.y - 20;
                         
                         // animate the annotation
                         animating = true;
-                        // TODO: create a single tween instance for pois added around the same time to reduce overheads
+                        
                         SLICK.Animation.tween(self.xy, "y", endValue, params.tweenIn, function() {
                             self.xy.y = endValue;
                             animating = false;
@@ -443,8 +459,6 @@ SLICK.Mapping = (function() {
             function updateAnnotationCoordinates(annotationsArray) {
                 var grid = params.map ? params.map.getTileLayer() : null;
                 
-                GRUNT.Log.info("calculating " + annotationsArray.length + " annotation coordinates, map = " + grid);
-
                 // iterate through the annotations and calculate the xy coordinates
                 for (var ii = 0; grid && (ii < annotationsArray.length); ii++) {
                     // update the annotation xy coordinates
@@ -495,7 +509,6 @@ SLICK.Mapping = (function() {
                 },
                 
                 calcCoordinates: function(grid) {
-                    GRUNT.Log.info("UPDATING ANNOTATION COORDINATES");
                     updateAnnotationCoordinates(annotations);
                     updateAnnotationCoordinates(staticAnnotations);
                 },
@@ -648,14 +661,14 @@ SLICK.Mapping = (function() {
             parent.registerLayerListener(function(eventType, layerId, layer) {
                 if (layer) {
                     // if the layer is a geo layer and has a handler for the calcposition coordinates method, then call it
-                    GRUNT.Log.info("layer " + layerId + " " + eventType + " event, has position coordinates event: " + (layer.calcCoordinates ? "true" : "false"));
+                    // GRUNT.Log.info("layer " + layerId + " " + eventType + " event, has position coordinates event: " + (layer.calcCoordinates ? "true" : "false"));
                     if (layer.calcCoordinates) {
                         layer.calcCoordinates(self.getTileLayer());
                     } // if
 
                     // handlers for changes to the grid
                     if (/grid\d+/.test(layerId)) {
-                        GRUNT.Log.info("CAPTURED NOTIFY EVENT: type = " + eventType + ", layerId = " + layerId);
+                        // GRUNT.Log.info("CAPTURED NOTIFY EVENT: type = " + eventType + ", layerId = " + layerId);
                         // if the event type is an add event, then recalculate the necessary coordinates
                         if ((eventType == "add") || (eventType == "offset-changed")) {
                             self.eachLayer(function(checkLayer) {

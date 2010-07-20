@@ -9,16 +9,34 @@ SLICK.Animation = (function() {
     var module = {
         DURATION: 2000,
         
+        tweenValue: function(startValue, endValue, fn, callback, duration) {
+            // create a tween that doesn't operate on a property
+            var fnresult = new module.Tween({
+                startValue: startValue,
+                endValue: endValue,
+                tweenFn: fn,
+                complete: callback,
+                duration: duration
+            });
+            
+            // add the the list return the new tween
+            tweens.push(fnresult);
+            return fnresult;
+        },
+        
         tween: function(target, property, targetValue, fn, callback, duration) {
-            // if the function is not defined, use the default
-            tweens.push(new module.Tween({
+            var fnresult = new module.Tween({
                 target: target,
                 property: property,
                 endValue: targetValue,
                 tweenFn: fn,
                 duration: duration,
                 complete: callback
-            }));
+            });
+            
+            // return the new tween
+            tweens.push(fnresult);
+            return fnresult;
         },
         
         tweenVector: function(target, dstX, dstY, fn, callback, duration) {
@@ -77,6 +95,7 @@ SLICK.Animation = (function() {
             params = GRUNT.extend({
                 target: null,
                 property: null,
+                startValue: 0,
                 endValue: null,
                 duration: module.DURATION,
                 tweenFn: module.DEFAULT,
@@ -84,10 +103,17 @@ SLICK.Animation = (function() {
             }, params);
             
             // get the start ticks
-            var startTicks = new Date().getTime(),
+            var startTicks = SLICK.Clock.getTime(),
+                updateListeners = [],
                 complete = false,
                 beginningValue = 0.0,
                 change = 0;
+                
+            function notifyListeners(updatedValue, complete) {
+                for (var ii = 0; ii < updateListeners.length; ii++) {
+                    updateListeners[ii](updatedValue, complete);
+                } // for
+            } // notifyListeners
                 
             var self = {
                 isComplete: function() {
@@ -101,30 +127,47 @@ SLICK.Animation = (function() {
                 },
                 
                 update: function(tickCount) {
-                    // calculate the updated value
-                    var elapsed = tickCount - startTicks,
-                        updatedValue = params.tweenFn(elapsed, beginningValue, change, params.duration);
+                    try {
+                        // calculate the updated value
+                        var elapsed = tickCount - startTicks,
+                            updatedValue = params.tweenFn(elapsed, beginningValue, change, params.duration);
                     
-                    // update the property value
-                    params.target[params.property] = updatedValue;
+                        // update the property value
+                        if (params.target) {
+                            params.target[params.property] = updatedValue;
+                        } // if
+                    
+                        // iterate through the update listeners and let them know the updated value
+                        notifyListeners(updatedValue);
 
-                    complete = startTicks + params.duration <= tickCount;
-                    if (complete) {
-                        params.target[params.property] = params.tweenFn(params.duration, beginningValue, change, params.duration);
-                    } // if
+                        complete = startTicks + params.duration <= tickCount;
+                        if (complete) {
+                            if (params.target) {
+                                params.target[params.property] = params.tweenFn(params.duration, beginningValue, change, params.duration);
+                            } // if
+                        
+                            notifyListeners(updatedValue, true);
+                        } // if
+                    }
+                    catch (e) {
+                        GRUNT.Log.exception(e);
+                    } // try..catch
+                },
+                
+                requestUpdates: function(callback) {
+                    updateListeners.push(callback);
                 }
             };
+            
+            // calculate the beginning value
+            beginningValue = (params.target && params.property && params.target[params.property]) ? params.target[params.property] : params.startValue;
 
             // calculate the change and beginning position
-            if (params.target && params.property && params.target[params.property]) {
-                beginningValue = params.target[params.property];
-                // check that the end value is not undefined
-                if (typeof params.endValue !== 'undefined') {
-                    change = (params.endValue - beginningValue);
-                } // if
+            if (typeof params.endValue !== 'undefined') {
+                change = (params.endValue - beginningValue);
             } // if
             
-            // GRUNT.Log.info("creating new tween. change = " + changePerTick, params);
+            // GRUNT.Log.info("creating new tween. change = " + change, params);
 
             // if no change is required, then mark as complete so the update method will never be called
             if (change == 0) {

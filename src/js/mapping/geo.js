@@ -415,8 +415,6 @@ SLICK.Geo = (function() {
                 paramTranslator: null,
                 execute: function(searchParams, callback) {
                     try {
-                        GRUNT.Log.info("Running geocoding agent");
-                    
                         // if we have a param translator, then call that on the search params
                         if (params.paramTranslator) {
                             searchParams = params.paramTranslator(searchParams);
@@ -598,7 +596,7 @@ SLICK.Geo = (function() {
 
                     // iterate through the new pois and put into storage
                     for (var ii = 0; newPOIs && (ii < newPOIs.length); ii++) {
-                        newPOIs[ii].retrieved = new Date().getTime();
+                        newPOIs[ii].retrieved = SLICK.Clock.getTime(true);
                         addPOI(newPOIs[ii]);
                     } // for
                 },
@@ -608,10 +606,8 @@ SLICK.Geo = (function() {
                     var newPOIs = [],
                         ii = 0,
                         groupName = refreshedPOIs.length > 0 ? refreshedPOIs[0].group : '',
-                        timeRetrieved = new Date().getTime();
+                        timeRetrieved = SLICK.Clock.getTime(true);
                         
-                    GRUNT.Log.info(String.format("{0} {1} pois to process :)", refreshedPOIs.length, groupName));
-
                     // iterate through the pois and determine state
                     for (ii = 0; ii < refreshedPOIs.length; ii++) {
                         // look for the poi in the poi layer
@@ -633,7 +629,7 @@ SLICK.Geo = (function() {
 
                     // add new pois to the poi layer
                     self.addPOIs(newPOIs);
-                    GRUNT.Log.info(String.format("POI-UPDATE: {0} new, {1} deleted", newPOIs.length, deletedPOIs.length));
+                    // GRUNT.Log.info(String.format("POI-UPDATE: {0} new, {1} deleted", newPOIs.length, deletedPOIs.length));
 
                     // fire the on poi added event when appropriate
                     for (ii = 0; params.onPOIAdded && (ii < newPOIs.length); ii++) {
@@ -748,8 +744,7 @@ SLICK.Geo = (function() {
         },
         
         getBoundsForPositions: function(positions, padding) {
-            var bounds = null,
-                startTicks = new Date().getTime();
+            var bounds = null;
                 
             // if padding is not specified, then set to auto
             if (! padding) {
@@ -782,8 +777,7 @@ SLICK.Geo = (function() {
                 
                 bounds.expand(padding);
             } // if
-            
-            GRUNT.Log.info(":: " + (new Date().getTime() - startTicks) + "ms to calculate bounds for " + positions.length + " position values");
+
             return bounds;
         }
     }; // module

@@ -1,13 +1,5 @@
 SLICK.Touch = (function() {
-    function copyTouches(srcArray) {
-        var touches = [];
-        
-        for (var ii = 0; ii < srcArray.length; ii++) {
-            touches.push(srcArray[ii]);
-        } // for
-        
-        return touches;
-    } // copyTouches
+    var elementCounter = 0;
     
     function calcDistance(touches) {
         if (touches.length > 1) {
@@ -191,8 +183,6 @@ SLICK.Touch = (function() {
                         // log the current touch start time
                         ticks.current = SLICK.Clock.getTime();
                     
-                        GRUNT.Log.info("TOUCH START");
-
                         // fire the touch start event handler
                         var touchVector = touchesStart.length > 0 ? touchesStart[0] : null;
                     
@@ -218,7 +208,7 @@ SLICK.Touch = (function() {
                         touchMode = TOUCH_MODES.TAP;
                     
                         // update the last touches
-                        touchesLast = copyTouches(touchesStart);
+                        touchesLast = [].concat(touchesStart);
                     }
                     catch (e) {
                         GRUNT.Log.exception(e);
@@ -240,7 +230,7 @@ SLICK.Touch = (function() {
                         if (touchesCurrent.length > 1) {
                             // if the start touches does have two touch points, then reset to the current
                             if (touchesStart.length === 1) {
-                                touchesStart = copyTouches(touchesCurrent);
+                                touchesStart = [].concat(touchesCurrent);
                             } // if
 
                             zoomDistance = calcDistance(touchesStart) - calcDistance(touchesLast);
@@ -291,7 +281,7 @@ SLICK.Touch = (function() {
                             } // if..else
                         } // if..else
 
-                        touchesLast = copyTouches(touchesCurrent);                        
+                        touchesLast = [].concat(touchesCurrent);                        
                     }
                     catch (e) {
                         GRUNT.Log.exception(e);
@@ -308,8 +298,6 @@ SLICK.Touch = (function() {
 
                         // save the current ticks to the last ticks
                         ticks.last = ticks.current;
-
-                        GRUNT.Log.info("TOUCH END");
 
                         // if tapping, then first the tap event
                         if (touchMode === TOUCH_MODES.TAP) {
@@ -355,7 +343,7 @@ SLICK.Touch = (function() {
             try {
                 // if the element does not have an id, then generate on
                 if (! element.id) {
-                    element.id = new Date().getTime();
+                    element.id = "touchable_" + elementCounter++;
                 } // if
             
                 // create the touch helper
@@ -382,8 +370,6 @@ SLICK.Touch = (function() {
                     } // if
                 } // if
                 
-                GRUNT.Log.info("TOUCH HELPER ADDED");
-                                
                 // add the listeners to the helper
                 touchHelper.addListeners(params);
             }

@@ -350,7 +350,6 @@ SLICK.Graphics = (function() {
                 });
 
                 // if we need to insert the new layer in before the last layer, then splice it in
-                GRUNT.Log.info("adding layer '" + id + "' at index " + addIndex);
                 if (addIndex < layers.length) {
                     layers.splice(addIndex, 0, value);
                 }
@@ -592,12 +591,10 @@ SLICK.Graphics = (function() {
                 removeLayer: function(id, timeout) {
                     // if timeout not set, then set to fire instantly
                     setTimeout(function() {
-                        GRUNT.Log.info("attempting to remove layer: " + id);
                         var layerIndex = getLayerIndex(id);
                         if ((layerIndex >= 0) && (layerIndex < layers.length)) {
                             self.notifyLayerListeners("remove", id, layers[layerIndex]);
-                            
-                            GRUNT.Log.info("removing layer: " + id);
+
                             layers.splice(layerIndex, 1);
                         } // if
                     }, timeout ? timeout : 1);
@@ -614,7 +611,7 @@ SLICK.Graphics = (function() {
                 },
                 
                 invalidate: function(args) {
-                    lastInvalidate = new Date().getTime();
+                    lastInvalidate = SLICK.Clock.getTime(true);
                 }
             });
             
@@ -627,7 +624,7 @@ SLICK.Graphics = (function() {
             setInterval(function() {
                 try {
                     // check to see if we are panning
-                    var tickCount = new Date().getTime(),
+                    var tickCount = SLICK.Clock.getTime(),
                         userInteracting = (status == module.DisplayState.PINCHZOOM) || (tickCount - lastInvalidate < params.bufferRefresh),
                         drawOK = true;
                         

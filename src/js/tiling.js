@@ -2,7 +2,7 @@ SLICK.Tiling = (function() {
     TileStore = function(params) {
         // initialise the parameters with the defaults
         params = GRUNT.extend({
-            gridSize: 70,
+            gridSize: 20,
             center: new SLICK.Vector()
         }, params);
         
@@ -66,7 +66,7 @@ SLICK.Tiling = (function() {
             */
             populate: function(tileCreator, notifyListener) {
                 // take a tick count as we want to time this
-                var startTicks = new Date().getTime(),
+                var startTicks = SLICK.Clock.getTime(),
                     tileIndex = 0;
                 
                 GRUNT.Log.info("poulating grid, top left offset = " + topLeftOffset);
@@ -97,7 +97,7 @@ SLICK.Tiling = (function() {
                 lastNotifyListener = notifyListener;
 
                 // log how long it took
-                GRUNT.Log.info("tile grid populated with " + tileIndex + " tiles in " + (new Date().getTime() - startTicks) + " ms");
+                GRUNT.Log.info("tile grid populated with " + tileIndex + " tiles in " + (SLICK.Clock.getTime() - startTicks) + " ms");
             },
             
             getShiftDelta: function(topLeftX, topLeftY, cols, rows) {

@@ -101,7 +101,6 @@ SLICK.Resources = (function() {
                 callback: null
             }, params);
             
-            GRUNT.Log.info(params.filename + " resource requested");
             var callback = function(data) {
                 if (params.callback) {
                     GRUNT.Log.watch("CALLING RESOURCE CALLBACK", function() {
@@ -164,8 +163,6 @@ SLICK.Resources = (function() {
             };
             
             if (params.url) {
-                GRUNT.Log.info("LOADING IMAGE RESOURCE FROM: " + params.url);
-                
                 image = new Image();
                 image.onload = function() {
                     self.loaded = true;

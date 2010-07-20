@@ -10,7 +10,6 @@ SLICK.Dispatcher = (function() {
         execute: function(actionId) {
             // find the requested action
             var action = module.findAction(actionId);
-            GRUNT.Log.info("looking for action to execute, id = " + actionId);
             
             // if we found the action then execute it
             if (action) {
@@ -34,7 +33,6 @@ SLICK.Dispatcher = (function() {
         },
         
         getRegisteredActions: function() {
-            GRUNT.Log.info("we have " + registeredActions.length + " registered actions");
             return [].concat(registeredActions);
         },
         
@@ -51,7 +49,6 @@ SLICK.Dispatcher = (function() {
         
         registerAction: function(action) {
             if (action && action.id) {
-                GRUNT.Log.info("registered action: " + action);
                 registeredActions.push(action);
             } // if
         },
@@ -98,8 +95,12 @@ SLICK.Dispatcher = (function() {
         createAgent: function(params) {
             params = GRUNT.extend({
                 name: "Untitled",
+                trashOrphanedResults: true,
                 execute: null
             }, params);
+            
+            // last run time
+            var lastRunTicks = null;
             
             // define the wrapper for the agent
             var self = {
@@ -116,9 +117,21 @@ SLICK.Dispatcher = (function() {
                 },
                 
                 run: function(args, callback) {
-                    var agentResults = null;
                     if (params.execute) {
-                        params.execute.call(this, args, callback);
+                        // update the last run ticks
+                        lastRunTicks = SLICK.Clock.getTime(true);
+                        
+                        // save the run instance ticks to a local variable so we can check it in the callback
+                        var runInstanceTicks = lastRunTicks;
+                        
+                        // execute the agent
+                        params.execute.call(this, args, function(data, agentParams) {
+                            if ((! params.trashOrphanedResults) || (runInstanceTicks == lastRunTicks)) {
+                                if (callback) {
+                                    callback(data, agentParams);
+                                } // if
+                            } // if
+                        });
                     } // if
                 } // run
             };

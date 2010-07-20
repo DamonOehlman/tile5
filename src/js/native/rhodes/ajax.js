@@ -1,6 +1,6 @@
 (function() {
     var CROSSDOMAIN_REQ_REGEX = /^https?/i;
-    var requestId = new Date().getTime();
+    var requestId = SLICK.Clock.getTime();
     
     GRUNT.XHR.ajaxSettings.xhr = function(params) {
         var self = null;

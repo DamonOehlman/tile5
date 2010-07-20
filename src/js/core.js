@@ -84,10 +84,12 @@ SLICK = (function () {
         })(),
         
         Clock: (function() {
+            var ticks = null;
+            
             return {
                 // TODO: reduce the number of calls to new date get time
-                getTime: function() {
-                    return new Date().getTime();
+                getTime: function(cached) {
+                    return (cached && ticks) ? ticks : ticks = new Date().getTime();
                 }
             };
         })(),
