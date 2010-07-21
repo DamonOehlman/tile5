@@ -144,6 +144,10 @@ SLICK.Graphics = (function() {
                     return false;
                 },
                 
+                addToView: function(view) {
+                    view.setLayer(params.id, self);
+                },
+                
                 beginDraw: function(args) {
                     if (params.beginDraw) {
                         params.beginDraw(args);
@@ -178,6 +182,15 @@ SLICK.Graphics = (function() {
                     
                 },
                 
+                /**
+                The remove method enables a view to flag that it is ready or should be removed
+                from any views that it is contained in.  This was introduced specifically for
+                animation layers that should only exist as long as an animation is active.
+                */
+                remove: function() {
+                    GRUNT.WaterCooler.say("layer.remove", { id: params.id });
+                },
+                
                 registerChangeListener: function(callback) {
                     changeListeners.push(callback);
                 },
@@ -207,6 +220,83 @@ SLICK.Graphics = (function() {
                     drawArgs.context.fillText(drawArgs.displayState, 20, 20);
                 }
             });
+        },
+        
+        AnimatedPathLayer: function(params) {
+            params = GRUNT.extend({
+                path: [],
+                id: GRUNT.generateObjectID("pathAnimation"),
+                easing: SLICK.Animation.Easing.Sine.InOut,
+                canCache: false,
+                validStates: module.DisplayState.ACTIVE | module.DisplayState.INTERACTING | module.DisplayState.ANIMATING,
+                drawIndicator: drawDefaultIndicator,
+                duration: 2000
+            }, params);
+            
+            // generate the edge data for the specified path
+            var edgeData = SLICK.VectorMath.edges(params.path), 
+                tween,
+                pathOffset = 0;
+            
+            function drawDefaultIndicator(drawArgs, indicatorXY) {
+                // draw an arc at the specified position
+                drawArgs.context.fillStyle = "#222222";
+                drawArgs.context.beginPath();
+                drawArgs.context.arc(
+                    indicatorXY.x - drawArgs.offset.x, 
+                    indicatorXY.y - drawArgs.offset.y,
+                    4,
+                    0,
+                    Math.PI * 2,
+                    false);                    
+                drawArgs.context.fill();
+            } // drawDefaultIndicator
+            
+            // calculate the tween
+            tween = SLICK.Animation.tweenValue(
+                0, 
+                edgeData.total, 
+                params.easing, 
+                function() {
+                    self.remove();
+                },
+                params.duration);
+                
+            // if we are autocentering then we need to cancel on interaction
+            // tween.cancelOnInteract = autoCenter;
+                
+            // request updates from the tween
+            tween.requestUpdates(function(updatedValue, complete) {
+                pathOffset = updatedValue;
+
+                if (complete) {
+                    self.remove();
+                } // if
+            });
+            
+            // initialise self
+            var self = new module.ViewLayer(GRUNT.extend(params, {
+                draw: function(drawArgs) {
+                    var edgeIndex = 0;
+                
+                    // iterate through the edge data and determine the current journey coordinate index
+                    while ((edgeIndex < edgeData.accrued.length) && (edgeData.accrued[edgeIndex] < pathOffset)) {
+                        edgeIndex++;
+                    } // while
+                
+                    // if the edge index is valid, then let's determine the xy coordinate
+                    if (edgeIndex < params.path.length-1) {
+                        var extra = pathOffset - (edgeIndex > 0 ? edgeData.accrued[edgeIndex - 1] : 0);
+                    
+                        // if the draw indicator method is specified, then draw
+                        if (params.drawIndicator) {
+                            params.drawIndicator(drawArgs, SLICK.VectorMath.pointOnEdge(params.path[edgeIndex], params.path[edgeIndex + 1], edgeData.edges[edgeIndex], extra));
+                        } // if
+                    } // if
+                }
+            }));
+            
+            return self;
         },
         
         View: function(params) {
@@ -671,6 +761,13 @@ SLICK.Graphics = (function() {
                     GRUNT.Log.exception(e);
                 }
             }, repaintInterval);
+            
+            // listen for layer removals
+            GRUNT.WaterCooler.listen("layer.remove", function(args) {
+                if (args.id) {
+                    self.removeLayer(args.id);
+                } // if
+            });
             
             // add a status view layer for experimentation sake
             // self.setLayer("status", new module.StatusViewLayer());

@@ -196,56 +196,15 @@ SLICK.Mapping = (function() {
                 lineWidths: [4],
                 data: null,
                 pixelGeneralization: 8,
-                canCache: true
+                canCache: true,
+                zindex: 50
             }, params);
             
             var coordinates = [],
-                instructionCoords = [],
-                edgeData = null,
-                journeyOffset = 0,
-                animating = false;
+                instructionCoords = [];
                 
-            function generateAnimationTimeline() {
-                // firstly calculate the edge lengths and 
-                edgeData = SLICK.VectorMath.edges(coordinates);
-                GRUNT.Log.info("calculated edge data: ", edgeData);
-            } // generateAnimationTimeline
-            
-            function drawJourneyIndicator(drawArgs) {
-                try {
-                    var edgeIndex = 0;
-                
-                    // iterate through the edge data and determine the current journey coordinate index
-                    while ((edgeIndex < edgeData.accrued.length) && (edgeData.accrued[edgeIndex] < journeyOffset)) {
-                        edgeIndex++;
-                    } // while
-                
-                    // if the edge index is valid, then let's determine the xy coordinate
-                    if (edgeIndex < coordinates.length-1) {
-                        var extra = journeyOffset - (edgeIndex > 0 ? edgeData.accrued[edgeIndex - 1] : 0),
-                            indicatorXY = SLICK.VectorMath.pointOnEdge(coordinates[edgeIndex], coordinates[edgeIndex + 1], edgeData.edges[edgeIndex], extra);
-                    
-                        // draw an arc at the specified position
-                        drawArgs.context.fillStyle = "#222222";
-                        drawArgs.context.beginPath();
-                        drawArgs.context.arc(
-                            indicatorXY.x - drawArgs.offset.x, 
-                            indicatorXY.y - drawArgs.offset.y,
-                            4,
-                            0,
-                            Math.PI * 2,
-                            false);                    
-                        drawArgs.context.fill();
-                    } // if
-                }
-                catch (e) {
-                    GRUNT.Log.exception(e);
-                }
-            } // drawJourneyIndicator
-            
             // create the view layer the we will draw the view
             var view = new SLICK.Graphics.ViewLayer(GRUNT.extend({
-                zindex: 50,
                 draw: function(drawArgs) {
                     // TODO: see how this can be optimized... 
                     var ii;
@@ -284,45 +243,18 @@ SLICK.Mapping = (function() {
                         drawArgs.context.stroke();
                         drawArgs.context.fill();
                     } // for
-                    
-                    // if we are animating draw the indicator at the appropriate position
-                    if (animating && edgeData) {
-                        drawJourneyIndicator(drawArgs);
-                    } // if
-                },
-                
-                isAnimating: function() {
-                    return animating;
                 }
             }, params));
             
             // define self
             var self = GRUNT.extend(view, {
-                animate: function(autoCenter) {
-                    if (animating) { return; }
-                    
-                    generateAnimationTimeline();
-                    
-                    animating = true;
-                    var tween = SLICK.Animation.tweenValue(
-                        0, 
-                        edgeData.total, 
-                        SLICK.Animation.Easing.Bounce.InOut, 
-                        function() {
-                            animating = false;
-                        },
-                        10000);
-                        
-                    // if we are autocentering then we need to cancel on interaction
-                    tween.cancelOnInteract = autoCenter;
-                        
-                    // request updates from the tween
-                    tween.requestUpdates(function(updatedValue, complete) {
-                        journeyOffset = updatedValue;
-
-                        if (complete) {
-                            animating = false;
-                        } // if
+                getAnimation: function(easingFn, duration) {
+                    // create a new animation layer based on the coordinates
+                    return new SLICK.Graphics.AnimatedPathLayer({
+                        path: coordinates,
+                        zindex: params.zindex + 1,
+                        easing: easingFn ? easingFn : SLICK.Animation.Easing.Sine.InOut,
+                        duration: duration ? duration : 5000
                     });
                 },
                 
@@ -913,6 +845,20 @@ SLICK.Mapping = (function() {
                     // GRUNT.Log.info("removing poi: " + poi);
                     if (poi && poi.id) {
                         pins[poi.id] = null;
+                    } // if
+                }, 
+                
+                /* route methods */
+                
+                animateRoute: function(easingFn, duration) {
+                    // get the routing layer
+                    var routeLayer = self.getLayer("route");
+                    if (routeLayer) {
+                        // create the animation layer from the route
+                        var animationLayer = routeLayer.getAnimation(easingFn, duration);
+                        
+                        // add the animation layer
+                        animationLayer.addToView(self);
                     } // if
                 }
             }, parent);
