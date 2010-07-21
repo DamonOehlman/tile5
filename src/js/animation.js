@@ -60,6 +60,8 @@ SLICK.Animation = (function() {
                     }, duration));
                 } // if
             } // if
+            
+            return fnresult;
         },
         
         cancel: function(checkCallback) {

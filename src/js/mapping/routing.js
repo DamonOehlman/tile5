@@ -56,8 +56,8 @@ SLICK.Geo.Routing = (function() {
                     
                     // if we have a success handler, then call it
                     if (args.success) {
-                        
-                    }
+                        args.success(routeData);
+                    } // if
                 });
             } // if
         },

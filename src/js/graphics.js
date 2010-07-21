@@ -644,6 +644,10 @@ SLICK.Graphics = (function() {
                     // look for the matching layer, and return when found
                     for (var ii = 0; ii < layers.length; ii++) {
                         if (layers[ii].getId() == id) {
+                            if (! (/^grid/i).test(id)) {
+                                GRUNT.Log.info("found layer: " + id);
+                            } // if
+                            
                             return layers[ii];
                         } // if
                     } // for
@@ -652,11 +656,11 @@ SLICK.Graphics = (function() {
                 },
                 
                 setLayer: function(id, value) {
-                    // look for the matching layer, it not found, then add it
+                    // if the layer already exists, then remove it
                     for (var ii = 0; ii < layers.length; ii++) {
-                        if (layers[ii].getId() == id) {
-                            layers[ii] = value;
-                            return;
+                        if (layers[ii].getId() === id) {
+                            layers.splice(ii, 1);
+                            break;
                         } // if
                     } // for
                     

@@ -357,9 +357,31 @@ SLICK.Touch = (function() {
                     
                     // bind the touch events
                     // TOUCH START
-                    SLICK.Device.eventTarget.addEventListener(touchHelper.supportsTouch ? 'touchstart' : 'mousedown', touchHelper.start, false);
-                    SLICK.Device.eventTarget.addEventListener(touchHelper.supportsTouch ? 'touchmove' : 'mousemove', touchHelper.move, false);
-                    SLICK.Device.eventTarget.addEventListener(touchHelper.supportsTouch ? 'touchend' : 'mouseup', touchHelper.end, false);
+                    SLICK.Device.eventTarget.addEventListener(
+                        touchHelper.supportsTouch ? 'touchstart' : 'mousedown', 
+                        function (evt) {
+                            if (evt.target && (evt.target === element)) {
+                                touchHelper.start(evt);
+                            } // if
+                        },
+                        false);
+
+                    SLICK.Device.eventTarget.addEventListener(
+                        touchHelper.supportsTouch ? 'touchmove' : 'mousemove', 
+                        function (evt) {
+                            if (evt.target && (evt.target === element)) {
+                                touchHelper.move(evt);
+                            } // if
+                        }
+                        , false);
+                        
+                    SLICK.Device.eventTarget.addEventListener(
+                        touchHelper.supportsTouch ? 'touchend' : 'mouseup', 
+                        function (evt) {
+                            if (evt.target && (evt.target === element)) {
+                                touchHelper.end(evt);
+                            } // if
+                        }, false);
 
                     // if we support touch, then disable mouse wheel events
                     if (touchHelper.supportsTouch) {

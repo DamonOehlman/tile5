@@ -782,12 +782,12 @@ SLICK.Mapping = (function() {
                     } // if..else
                 },
 
-                panToPosition: function(position, callback) {
+                panToPosition: function(position, callback, easingFn) {
                     var grid = self.getTileLayer();
                     if (grid) {
                         // determine the tile offset for the requested position
-                        var center_xy = grid.getGridXYForPosition(position);
-                        var dimensions = self.getDimensions();
+                        var center_xy = grid.getGridXYForPosition(position),
+                            dimensions = self.getDimensions();
 
                         // determine the actual pan amount, by calculating the center of the viewport
                         center_xy.x -= (dimensions.width * 0.5);
@@ -796,7 +796,7 @@ SLICK.Mapping = (function() {
                         // pan the required amount
                         //GRUNT.Log.info(String.format("need to apply pan vector of ({0}) to correctly center", center_xy));
                         //GRUNT.Log.info("offset before pan = " + self.getOffset());
-                        self.setOffset(center_xy.x, center_xy.y);
+                        self.updateOffset(center_xy.x, center_xy.y, easingFn);
                         //GRUNT.Log.info("offset after pan = " + self.getOffset());
 
                         // trigger a bounds change event

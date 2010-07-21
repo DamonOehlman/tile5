@@ -41,18 +41,7 @@ SLICK.Pannable = function(params) {
             }
             // otherwise, apply the tween function to the offset
             else {
-                var endPosition = new SLICK.Vector(offset.x + x, offset.y + y);
-                
-                animating = true;
-                var tweens = SLICK.Animation.tweenVector(offset, endPosition.x, endPosition.y, tweenFn, function() {
-                    animating = false;
-                    self.panEnd(0, 0);
-                });
-                
-                // set the tweens to cancel on interact
-                for (var ii = 0; ii < tweens.length; ii++) {
-                    tweens[ii].cancelOnInteract = true;
-                } // for
+                self.updateOffset(offset.x + x, offset.y + y, tweenFn);
             } // if..else
         },
         
@@ -66,16 +55,24 @@ SLICK.Pannable = function(params) {
             } // if
         },
         
-        updateOffset: function(x, y) {
-            offset.x = x;
-            offset.y = y;
-            
-            // if a checkoffset handler is defined, then call it to so if it needs to vito any of the offset
-            // modifications that have been made in the pan event.  For example, when using an offscreen buffer
-            // we need to keep the offset within tolerable bounds
-            if (params.checkOffset) {
-                offset = params.checkOffset(offset);
-            } // if
+        updateOffset: function(x, y, tweenFn) {
+            if (tweenFn) {
+                var endPosition = new SLICK.Vector(x, y);
+
+                animating = true;
+                var tweens = SLICK.Animation.tweenVector(offset, endPosition.x, endPosition.y, tweenFn, function() {
+                    animating = false;
+                    self.panEnd(0, 0);
+                });
+
+                // set the tweens to cancel on interact
+                for (var ii = 0; ii < tweens.length; ii++) {
+                    tweens[ii].cancelOnInteract = true;
+                } // for            
+            }
+            else {
+                self.setOffset(x, y);
+            } // if..else
         }
     };
     
