@@ -248,13 +248,14 @@ SLICK.Mapping = (function() {
             
             // define self
             var self = GRUNT.extend(view, {
-                getAnimation: function(easingFn, duration) {
+                getAnimation: function(easingFn, duration, drawCallback) {
                     // create a new animation layer based on the coordinates
                     return new SLICK.Graphics.AnimatedPathLayer({
                         path: coordinates,
                         zindex: params.zindex + 1,
                         easing: easingFn ? easingFn : SLICK.Animation.Easing.Sine.InOut,
-                        duration: duration ? duration : 5000
+                        duration: duration ? duration : 5000,
+                        drawIndicator: drawCallback
                     });
                 },
                 
@@ -395,9 +396,9 @@ SLICK.Mapping = (function() {
             }; // draw
             
             // load the image
-            SLICK.Resources.loadImage({
-                url: params.imageUrl,
-                callback: function(loadedImage) {
+            SLICK.Resources.loadImage(
+                params.imageUrl,
+                function(loadedImage) {
                     image = loadedImage;
                     
                     // calculate the image offset
@@ -406,7 +407,7 @@ SLICK.Mapping = (function() {
                         imageOffset.y = -image.height * 0.5;
                     } // if
                 }
-            });
+            );
 
             return new module.Annotation(params);
         },
@@ -850,12 +851,12 @@ SLICK.Mapping = (function() {
                 
                 /* route methods */
                 
-                animateRoute: function(easingFn, duration) {
+                animateRoute: function(easingFn, duration, drawCallback) {
                     // get the routing layer
                     var routeLayer = self.getLayer("route");
                     if (routeLayer) {
                         // create the animation layer from the route
-                        var animationLayer = routeLayer.getAnimation(easingFn, duration);
+                        var animationLayer = routeLayer.getAnimation(easingFn, duration, drawCallback);
                         
                         // add the animation layer
                         animationLayer.addToView(self);

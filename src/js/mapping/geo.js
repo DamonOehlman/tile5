@@ -768,7 +768,7 @@ SLICK.Geo = (function() {
 
                     if (minDiff.x < 0) { bounds.min.lon = positions[ii].lon; }
                     if (minDiff.y < 0) { bounds.min.lat = positions[ii].lat; }
-                    if (maxDiff.y < 0) { bounds.max.lon = positions[ii].lon; }
+                    if (maxDiff.x < 0) { bounds.max.lon = positions[ii].lon; }
                     if (maxDiff.y < 0) { bounds.max.lat = positions[ii].lat; }
                 } // if..else
             } // for

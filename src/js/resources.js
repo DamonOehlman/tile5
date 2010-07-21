@@ -71,24 +71,19 @@ SLICK.Resources = (function() {
             basePath = path;
         },
         
-        loadImage: function(args) {
-            args = GRUNT.extend({
-                url: null,
-                callback: null
-            }, args);
-            
+        loadImage: function(url, callback) {
             // get the image url
-            var image = getImageResource(module.getPath(args.url));
+            var image = getImageResource(module.getPath(url));
             
             // if the image is loaded, then fire the callback immediated
             if (image.loaded) {
-                if (args.callback) {
-                    args.callback(image.get());
+                if (callback) {
+                    callback(image.get());
                 }
             }
             // otherwise add the callback to the load listeners for the image
             else {
-                image.loadListeners.push(args.callback);
+                image.loadListeners.push(callback);
             } // if
         },
         

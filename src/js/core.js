@@ -283,14 +283,16 @@ SLICK = (function () {
                 distance: function(vectors) {
                     return edges(vectors).total;
                 },
-                pointOnEdge: function(v1, v2, distance, delta) {
-                    // TODO: I'm sure this can be done better... need someone with math skillz :)
-                    var theta = Math.asin((v1.y - v2.y) / distance),
-                        xyDelta = new SLICK.Vector(Math.cos(theta) * delta, Math.sin(theta) * delta);
-                        
-                    return new SLICK.Vector(
-                                    v1.x < v2.x ? v1.x + xyDelta.x : v1.x - xyDelta.x,
-                                    v1.y < v2.y ? v1.y - xyDelta.y : v1.y - xyDelta.y);
+                
+                theta: function(v1, v2, distance) {
+                    var theta = Math.asin((v1.y - v2.y) / distance);
+                    return v1.x > v2.x ? theta : Math.PI -theta;
+                },
+                
+                pointOnEdge: function(v1, v2, theta, delta) {
+                    var xyDelta = new SLICK.Vector(Math.cos(theta) * delta, Math.sin(theta) * delta);
+                    
+                    return new SLICK.Vector(v1.x - xyDelta.x, v1.y - xyDelta.y);
                 }
             };
         })(),

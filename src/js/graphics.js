@@ -229,7 +229,7 @@ SLICK.Graphics = (function() {
                 easing: SLICK.Animation.Easing.Sine.InOut,
                 canCache: false,
                 validStates: module.DisplayState.ACTIVE | module.DisplayState.INTERACTING | module.DisplayState.ANIMATING,
-                drawIndicator: drawDefaultIndicator,
+                drawIndicator: null,
                 duration: 2000
             }, params);
             
@@ -240,15 +240,17 @@ SLICK.Graphics = (function() {
             
             function drawDefaultIndicator(drawArgs, indicatorXY) {
                 // draw an arc at the specified position
-                drawArgs.context.fillStyle = "#222222";
+                drawArgs.context.fillStyle = "#FFFFFF";
+                drawArgs.context.strokeStyle = "#222222";
                 drawArgs.context.beginPath();
                 drawArgs.context.arc(
-                    indicatorXY.x - drawArgs.offset.x, 
-                    indicatorXY.y - drawArgs.offset.y,
+                    indicatorXY.x, 
+                    indicatorXY.y,
                     4,
                     0,
                     Math.PI * 2,
-                    false);                    
+                    false);             
+                drawArgs.context.stroke();
                 drawArgs.context.fill();
             } // drawDefaultIndicator
             
@@ -286,12 +288,18 @@ SLICK.Graphics = (function() {
                 
                     // if the edge index is valid, then let's determine the xy coordinate
                     if (edgeIndex < params.path.length-1) {
-                        var extra = pathOffset - (edgeIndex > 0 ? edgeData.accrued[edgeIndex - 1] : 0);
-                    
+                        var extra = pathOffset - (edgeIndex > 0 ? edgeData.accrued[edgeIndex - 1] : 0),
+                            v1 = params.path[edgeIndex],
+                            v2 = params.path[edgeIndex + 1],
+                            theta = SLICK.VectorMath.theta(v1, v2, edgeData.edges[edgeIndex]),
+                            indicatorXY = SLICK.VectorMath.pointOnEdge(v1, v2, theta, extra);
+                            
                         // if the draw indicator method is specified, then draw
-                        if (params.drawIndicator) {
-                            params.drawIndicator(drawArgs, SLICK.VectorMath.pointOnEdge(params.path[edgeIndex], params.path[edgeIndex + 1], edgeData.edges[edgeIndex], extra));
-                        } // if
+                        (params.drawIndicator ? params.drawIndicator : drawDefaultIndicator)(
+                            drawArgs, 
+                            new SLICK.Vector(indicatorXY.x - drawArgs.offset.x, indicatorXY.y - drawArgs.offset.y),
+                            theta
+                        );
                     } // if
                 }
             }));
@@ -310,7 +318,7 @@ SLICK.Graphics = (function() {
                 scaleDamping: false,
                 bufferRefresh: 100,
                 // TODO: padding breaks pinch zoom functionality... need to fix...
-                padding: 0,
+                padding: 200,
                 fps: 40,
                 onPan: null,
                 onPinchZoom: null,
