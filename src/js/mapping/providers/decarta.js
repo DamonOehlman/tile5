@@ -1,0 +1,845 @@
+// define the DECARTA library
+SLICK.Geo.Decarta = (function() {
+    // initialise the default configuration parameters
+    var currentConfig = {
+        sessionID: new Date().getTime(),
+        server: "",
+        clientName: "",
+        clientPassword: "",
+        configuration: "",
+        maxResponses: 25,
+        release: "4.4.2sp03",
+        tileFormat: "PNG",
+        fixedGrid: true,
+        useCache: true,
+        
+        // REQUEST TIMEOUT in milliseconds
+        requestTimeout: 30000,
+        
+        // GEOCODING information
+        geocoding: {
+            countryCode: "US",
+            language: "EN"
+        }
+    };
+    
+    var ZOOM_MAX = 19;
+    var ZOOM_MIN = 3;
+    
+    var placeFormatters = {
+        DEFAULT: function(params) {
+            var keys = ["landmark", "municipalitySubdivision", "municipality", "countrySubdivision"];
+            var place = "";
+            
+            for (var ii = 0; ii < keys.length; ii++) {
+                if (params[keys[ii]]) {
+                    place += params[keys[ii]] + " ";
+                } // if
+            } // for
+
+            return place;
+        } // DEFAULT formatter
+    };
+    
+    var lastZoom = null;
+    
+    // define the decarta internal types
+    var types = {
+        Address: function(params) {
+            params = GRUNT.extend({
+                countryCode: currentConfig.geocoding.countryCode,
+                language: currentConfig.geocoding.language,
+                freeform: null,
+                streetAddress: {
+                    building: null
+                }
+            }, params);
+
+            var self = {
+                getXML: function() {
+                    // initailise the address xml
+                    var addressXml = String.format("<xls:Address countryCode=\"{0}\" language=\"{1}\">", params.countryCode, params.language);
+                    
+                    // if we have a freeform address, then simply add the freeform address request
+                    if (params.freeform) {
+                        addressXml += "<xls:freeFormAddress>" + params.freeform + "</xls:freeFormAddress>";
+                    }
+                    // otherwise, add the structured address request
+                    else {
+                        
+                    } // if..else
+
+                    // return the closed address xml
+                    return addressXml + "</xls:Address>";
+                } //getXML
+            };
+            
+            return self;
+        },
+        
+        Place: function(params) {
+            params = GRUNT.extend({
+                landmark: "",
+                municipality: "",
+                municipalitySubdivision: "",
+                countrySubdivision: "",
+                countryCode: ""
+            }, params);
+            
+            // initialise self (including params in self)
+            var self = {
+                getCountryCode: function() {
+                    if (params.countryCode) {
+                        return params.countryCode.toUpperCase();
+                    } // if
+                    
+                    return "";
+                },
+                
+                parse: function(details) {
+                    // iterate through the details
+                    for (var ii = 0; details && (ii < details.length); ii++) {
+                        // get the type
+                        var contentType = details[ii].type ? (details[ii].type.slice(0, 1).toLowerCase() + details[ii].type.slice(1)) : "";
+                        
+                        if (typeof params[contentType] !== 'undefined') {
+                            params[contentType] = details[ii].content;
+                            
+                            // if the details has a subtype, then create an additional parameter for it
+                            if (details[ii].subType) {
+                                params[contentType + "SubType"] = details[ii].subType;
+                            } // if
+                        } // if
+                    } // for
+                    
+                    // apply the updated parameter values to self
+                    GRUNT.extend(self, params);
+                },
+                
+                toString: function() {
+                    // if a country code is assigned, then look for a place formatter
+                    var formatter = placeFormatters[self.getCountryCode()];
+                    
+                    // if we don't have a formatter assigned, then use the default
+                    if (! formatter) {
+                        formatter = placeFormatters.DEFAULT;
+                    } // if
+                    
+                    return formatter(params);
+                }
+            };
+            
+            return self;
+        },
+        
+        Street: function(params) {
+            params = GRUNT.extend({
+                json: {}
+            }, params);
+            
+            return {
+                toString: function() {
+                    var fnresult = "";
+                    
+                    if (params.json.Street) {
+                        fnresult = params.json.Street;
+                    } // if
+
+                    if (params.json.Building) {
+                        // TODO: suspect name will be involved here possibly also
+                        if (params.json.Building.number) {
+                            fnresult = params.json.Building.number + " " + fnresult;
+                        } // if
+                    }
+                    
+                    return fnresult;
+                }
+            };
+        },
+        
+        CenterContext: function(json_data) {
+            // initialise variables
+
+            // initialise self
+            var self = {
+                centerPos: new SLICK.Geo.Position(json_data.CenterPoint ? json_data.CenterPoint.pos.content : ""),
+                radius: new SLICK.Geo.Radius(json_data.Radius ? json_data.Radius.content : 0, json_data.Radius ? json_data.Radius.unit : null)
+            }; // self
+            
+            // GRUNT.Log.info("Center context created, pos = " + self.centerPos + ", radius = " + self.radius);
+
+            return self;
+        } // CenterContext
+    }; // types
+    
+    /* request types and functions */
+    
+    function createRequestHeader(payload) {
+        // TODO: write a function that takes parameters and generates xml
+        return String.format(
+            "<xls:XLS version='1' xls:lang='en' xmlns:xls='http://www.opengis.net/xls' rel='{4}' xmlns:gml='http://www.opengis.net/gml'>" + 
+                "<xls:RequestHeader clientName='{0}' clientPassword='{1}' sessionID='{2}' configuration='{3}' />" + 
+                "{5}" + 
+            "</xls:XLS>",
+
+            currentConfig.clientName,
+            currentConfig.clientPassword,
+            currentConfig.sessionID,
+            currentConfig.configuration,
+            currentConfig.release,
+            payload);
+    } // createRequestHeader
+    
+    function createRequestTag(request, payload) {
+        return String.format(
+            "<xls:Request maximumResponses='{0}' version='{1}' requestID='{2}' methodName='{3}Request'>{4}</xls:Request>",
+            request.maxResponses,
+            request.version,
+            request.requestID,
+            request.methodName,
+            payload);
+    } // createRequestTag
+
+    function generateRequest(request) {
+        return createRequestHeader(createRequestTag(request, request.getRequestBody()));
+    } // generateRequest
+
+    function generateRequestUrl(request, request_data) {
+        if (! currentConfig.server) {
+            GRUNT.Log.warn("No server configured for deCarta - we are going to have issues");
+        } // if
+        
+        return String.format("{0}/JSON?reqID={1}&chunkNo=1&numChunks=1&data={2}&responseFormat=JSON",
+            currentConfig.server,
+            request.requestID,
+            escape(request_data));
+    } // generateRequestUrl
+
+    function makeServerRequest(request, callback) {
+        // GRUNT.Log.info("making request: " + generateRequest(request));
+        
+        // make the request to the server
+        // TODO: convert ajax request to GRUNT
+        GRUNT.JSONP.get(generateRequestUrl(request, generateRequest(request)), function(data) {
+            // get the number of responses received
+            var response = data.response.XLS.Response;
+
+            // if we have one or more responeses, then handle them
+            if ((response.numberOfResponses > 0) && response[request.methodName + 'Response']) {
+                // parse the response if the handler is assigned
+                var parsedResponse = null;
+                if (request.parseResponse) {
+                    parsedResponse = request.parseResponse(response[request.methodName + 'Response']);
+                } // if
+                
+                // if the callback is assigned, then process the parsed response
+                if (callback) {
+                    callback(parsedResponse);
+                } // if
+            }
+            // otherwise, report the error
+            else {
+                GRUNT.Log.error("no responses from server: " + JSON.stringify(data.response));
+            } // if..else
+        });
+    } // openlsComms
+
+    var requestTypes = {
+        Request: function() {
+            // initialise self
+            var self = {
+                methodName: "",
+                maxResponses: 25,
+                version: "1.0",
+                requestID: new Date().getTime(),
+
+                getRequestBody: function() {
+                    return "";
+                },
+
+                parseResponse: function(response) {
+                    return response;
+                }
+            }; // self
+
+            return self;
+        },
+        
+        PortrayMapRequest: function(lat, lon, zoom_level, pinPosition) {
+            // initialise variables
+
+            function findGridLayer(layers, layer_name) {
+                for (var ii = 0; ii < layers.length; ii++) {
+                    if (layers[ii].GridLayer.name == layer_name) {
+                        return layers[ii];
+                    } // if
+                } // for
+
+                return null;
+            } // findGridLayer
+
+            function parseImageUrl(url) {
+                var fnresult = {
+                    mask: url
+                };
+                var regexes = [
+                    (/(\?|\&)(N)\=(\-?\d+)/i),
+                    (/(\?|\&)(E)\=(\-?\d+)/i)
+                ]; 
+
+                // iterate through the regular expressions and capture north position and east positio
+                for (var ii = 0; ii < regexes.length; ii++) {
+                    // get the matches
+                    var matches = regexes[ii].exec(url);
+
+                    // update the fnresult with the appropriate parameter
+                    fnresult[matches[2]] = matches[3];
+                    fnresult.mask = fnresult.mask.replace(regexes[ii], "$1$2=${$2}");
+                } // for
+
+                return fnresult;
+            } // parseImageUrl
+            
+            // check the zoom level is within tolerances
+            zoom_level = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom_level));
+            
+            // if the last zoom level is defined, then set the zoom string 
+            var zoomString = zoom_level;
+            if (lastZoom) {
+                zoomString += ":" + lastZoom;
+                // GRUNT.Log.info("zoom string = " + zoomString);
+            } // if
+
+            // create the parent
+            var parent = new requestTypes.Request();
+
+            var self = GRUNT.extend({}, parent, {
+                // override core properties
+                methodName: "PortrayMap",
+                maxResponses: 10,
+
+                // initialise map request props
+                latitude: lat,
+                longitude: lon,
+                zoom: zoom_level,
+
+                getRequestBody: function() {
+                    // update the last zoom
+                    lastZoom = zoom_level;
+                    
+                    return String.format(
+                        // initialise the xml request content
+                        "<xls:PortrayMapRequest>" + 
+                            "<xls:Output height='{0}' width='{0}' format='{1}' fixedgrid='{2}' useCache='{3}'>" + 
+                                "<xls:CenterContext SRS='WGS-84'>" + 
+                                    "<xls:CenterPoint>" + 
+                                        "<gml:pos>{4} {5}</gml:pos>" + 
+                                    "</xls:CenterPoint>" +
+                                    "<xls:Radius unit='{6}'>{7}</xls:Radius>" + 
+                                "</xls:CenterContext>" +
+                                "<xls:TileGrid rows='1' columns='1'>" + 
+                                    "<xls:GridLayer name='deCarta' />" + 
+                                    "<xls:GridLayer name='globexplorer' meta-inf='{8}' />" + 
+                                "</xls:TileGrid>" + 
+                            "</xls:Output>" +
+                            (pinPosition ? 
+                            // TODO: encapsulate this center overlay request in a debug setting...
+                            "<xls:Overlay>" + 
+                                "<xls:Position>" + 
+                                    "<gml:Point>" +
+                                        "<gml:pos>{4} {5}</gml:pos>" + 
+                                    "</gml:Point>" +
+                                "</xls:Position>" +
+                                "<xls:Style><xls:StyleContent>poi.gif:Center</xls:StyleContent></xls:Style>" +
+                            "</xls:Overlay>" : "") +
+                        "</xls:PortrayMapRequest>",
+
+                        // set the variables in the order they were used
+                        SLICK.Tiling.Config.TILESIZE,
+                        currentConfig.tileFormat,
+                        currentConfig.fixedGrid,
+                        currentConfig.useCache,
+
+                        // set lat and lon
+                        self.latitude,
+                        self.longitude,
+
+                        // set zoom measurement and radius
+                        // TODO: pass these in effectively...
+                        "KM",
+                        0,
+                        "zoom=" + zoomString
+                    );
+                },
+
+                parseResponse: function(response) {
+                    // find the decarta tile grid layer
+                    var grid = findGridLayer(response.TileGrid, "deCarta");
+                    
+                    function applyPanOffset(offset, tileSize, panInfo) {
+                        if (panInfo.direction == "E") {
+                            // GRUNT.Log.info("E pan offset = " + panInfo.numTiles);
+                            offset.x = (panInfo.numTiles * tileSize);
+                        }
+                        else if (panInfo.direction == "N") {
+                            // GRUNT.Log.info("N pan offset = " + panInfo.numTiles);
+                            offset.y = (panInfo.numTiles * tileSize) - tileSize;
+                        } // if..else
+                    } // applyPanOffset
+
+                    // if we have found the grid, then get the map content url
+                    if (grid) {
+                        // parse out the tile url details
+                        var urlData = parseImageUrl(grid.Tile.Map.Content.URL);
+                        var tileSize = grid.Tile.Map.Content.height;
+                        var panOffset = new SLICK.Vector();
+
+                        // GRUNT.Log.info(String.format("parsed image url: {0}, N = {1}, E = {2}", urlData.mask, urlData.N, urlData.E));
+                        
+                        // calculate the pan offset 
+                        for (var ii = 0; ii < grid.Pan.length; ii++) {
+                            applyPanOffset(panOffset, tileSize, grid.Pan[ii]);
+                        } // for
+
+                        return {
+                            imageUrl: urlData.mask,
+                            tileSize: tileSize,
+                            centerContext: new types.CenterContext(grid.CenterContext),
+                            centerTile: {
+                                N: parseInt(urlData.N, 10),
+                                E: parseInt(urlData.E, 10)
+                            },
+                            panOffset: panOffset
+                        };
+                    } // if
+                }
+            });
+
+            return self;
+        },
+
+        GeocodeRequest: function(params) {
+            params = GRUNT.extend({
+                addresses: [],
+                parserReport: false,
+                parseOnly: false,
+                returnSpatialKeys: false
+            }, params);
+            
+            function parseAddress(address, position) {
+                var streetDetails = new types.Street({
+                    json: address.StreetAddress
+                });
+                
+                var placeDetails = new types.Place({
+                    countryCode: address.countryCode
+                });
+                
+                // parse the place details
+                placeDetails.parse(address.Place);
+                
+                if (placeDetails.landmark) {
+                    GRUNT.Log.info("FOUND A LANDMARK: " + placeDetails.landmark + ", " + placeDetails.landmarkSubType);
+                }
+                
+                // create the new address
+                return new SLICK.Geo.Address({
+                    streetDetails: streetDetails.toString(),
+                    location: placeDetails.toString(),
+                    country: address.countryCode ? address.countryCode : "",
+                    postalCode: address.PostalCode ? address.PostalCode : "",
+                    pos: position
+                });
+            } // placeToAddress
+            
+            function parseMatchResult(match) {
+                var matchAddress = null;
+                var matchPos = null;
+                
+                // if the point is defined, then convert that to a position
+                if (match && match.Point) {
+                    matchPos = new SLICK.Geo.Position(match.Point.pos);
+                } // if
+                
+                // if we have the address then convert that to an address
+                if (match && match.Address) {
+                    matchAddress = parseAddress(match.Address, matchPos);
+                } // if
+                
+                return matchAddress;
+            } // parseMatchResult
+            
+            function getResponseAddresses(responseList) {
+                // get the number of responses
+                var addresses = [];
+                var responseCount = responseList ? responseList.numberOfGeocodedAddresses : 0;
+                var matchList = [];
+                
+                // NOTE: this code has been implemented to compensate for strangeness in deCarta JSON land...
+                // see https://github.com/sidelab/slick-closed/wikis/geocoder-json-response for more information
+                if (responseCount > 1) {
+                    matchList = responseList.GeocodedAddress;
+                }
+                else if (responseCount == 1) {
+                    matchList = [responseList.GeocodedAddress];
+                } // if..else
+                
+                try {
+                    // iterate through the response list
+                    for (var ii = 0; matchList && (ii < matchList.length); ii++) {
+                        addresses.push(parseMatchResult(matchList[ii]));
+                    } // for
+                } 
+                catch (e) {
+                    GRUNT.Log.exception(e);
+                } // try..except
+                
+                return addresses;                
+            } // getResponseAddresses
+                        
+            // create the parent
+            var parent = new requestTypes.Request();
+            
+            // initialise self
+            var self = GRUNT.extend({}, parent, {
+                methodName: "Geocode",
+                
+                getRequestBody: function() {
+                    var body = String.format("<xls:GeocodeRequest parserReport=\"{0}\" parseOnly=\"{1}\" returnSpatialKeys=\"{2}\">", 
+                                    params.parserReport, 
+                                    params.parseOnly,
+                                    params.returnSpatialKeys);
+                    
+                    // iterate through the addresses and create the inner tags
+                    for (var ii = 0; ii < params.addresses.length; ii++) {
+                        body += params.addresses[ii].getXML();
+                    } // for
+                    
+                    return body + "</xls:GeocodeRequest>";
+                },
+                
+                parseResponse: function(response) {
+                    // GRUNT.Log.info("got response: ", response);
+
+                    if (params.addresses.length === 1) {
+                        return [getResponseAddresses(response.GeocodeResponseList)];
+                    }
+                    else {
+                        var results = [];
+                        for (var ii = 0; ii < params.addresses.length; ii++) {
+                            results.push(getResponseAddresses(response.GeocodeResponseList[ii]));
+                        } // for
+                        
+                        return results;
+                    } // if..else
+                }
+            });
+            
+            // return self
+            return self;
+        },
+        
+        RouteRequest: function(params) {
+            params = GRUNT.extend({
+                waypoints: [],
+                provideRouteHandle: false,
+                distanceUnit: "KM",
+                routeQueryType: "RMAN",
+                routePreference: "Fastest",
+                routeInstructions: true,
+                routeGeometry: true
+            }, params);
+            
+            // define the base request
+            var parent = new requestTypes.Request();
+            
+            function parseInstructions(instructionList) {
+                var fnresult = [];
+                var instructions = instructionList && instructionList.RouteInstruction ? instructionList.RouteInstruction : [];
+
+                // GRUNT.Log.info("parsing " + instructions.length + " instructions");
+                for (var ii = 0; ii < instructions.length; ii++) {
+                    fnresult.push(new SLICK.Geo.Routing.Instruction({
+                        position: new SLICK.Geo.Position(instructions[ii].Point),
+                        description: instructions[ii].Instruction
+                    }));
+                } // for
+                
+                return fnresult;
+            } // parseInstructions
+            
+            // initialise self
+            var self = GRUNT.extend({}, parent, {
+                methodName: "DetermineRoute",
+                
+                getRequestBody: function() {
+                    // check that we have some waypoints, if not throw an exception 
+                    if (params.waypoints.length < 2) {
+                        throw new Error("Cannot send RouteRequest, less than 2 waypoints specified");
+                    } // if
+                    
+                    var body = String.format(
+                                    "<xls:DetermineRouteRequest provideRouteHandle=\"{0}\" distanceUnit=\"{1}\" routeQueryType=\"{2}\">",
+                                    params.provideRouteHandle, 
+                                    params.distanceUnit,
+                                    params.routeQueryType);
+                                    
+                    // open the route plan tag
+                    body += "<xls:RoutePlan>";
+                                    
+                    // specify the route preference
+                    body += "<xls:RoutePreference>" + params.routePreference + "</xls:RoutePreference>";
+                    
+                    // open the waypoint list
+                    body += "<xls:WayPointList>";
+                    
+                    // add the waypoints
+                    for (var ii = 0; ii < params.waypoints.length; ii++) {
+                        // determine the appropriate tag to use for the waypoint
+                        // as to why this is required, who knows....
+                        var tagName = (ii === 0 ? "StartPoint" : (ii === params.waypoints.length-1 ? "EndPoint" : "ViaPoint"));
+                        
+                        body += String.format("<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>", tagName, params.waypoints[ii]);
+                    }
+                    
+                    // close the waypoint list
+                    body += "</xls:WayPointList>";
+                    
+                    // TODO: add the avoid list
+                    
+                    // close the route plan tag
+                    body += "</xls:RoutePlan>";
+                    
+                    // add the route instruction request
+                    if (params.routeInstructions) {
+                        body += "<xls:RouteInstructionsRequest rules=\"maneuver-rules\" providePoint=\"true\" />";
+                    } // if
+                    
+                    // add the geometry request
+                    if (params.routeGeometry) {
+                        body += "<xls:RouteGeometryRequest />";
+                    } // if
+                    
+                    // close the route request tag
+                    body += "</xls:DetermineRouteRequest>";
+                    
+                    // GRUNT.Log.info("sending request body: " + body);
+                    return body;
+                },
+                
+                parseResponse: function(response) {
+                    // GRUNT.Log.info("received route request response:", response);
+                    
+                    // create a new route data object and map items 
+                    return new SLICK.Geo.Routing.RouteData({
+                        geometry: response.RouteGeometry.LineString.pos,
+                        instructions: parseInstructions(response.RouteInstructionsList)
+                    });
+                }
+            });
+            
+            return self;
+        }
+    }; // requestTypes
+    
+    /* exposed module functionality */
+    
+    // define the module
+    var module = {
+        
+        applyConfig: function(args) {
+            // extend the current configuration with the supplied params
+            GRUNT.extend(currentConfig, args);
+        },
+        
+        /**
+        Send through a route request to the decarta server 
+        */
+        calculateRoute: function(args, callback) {
+            args = GRUNT.extend({
+               waypoints: []
+            }, args);
+            
+            // create the geocoding request and execute it
+            var request = new requestTypes.RouteRequest(args);
+            makeServerRequest(request, function(routeData) {
+                if (callback) {
+                    callback(routeData);
+                } // if
+            });
+        },
+        
+        geocode: function(args) {
+            args = GRUNT.extend({
+                addresses: [],
+                complete: null
+            }, args);
+            
+            // initialise variables
+            var ii, requestAddresses = [];
+            
+            // iterate through the addresses supplied and issue geocoding requests for them
+            for (ii = 0; ii < args.addresses.length; ii++) {
+                // if the element is a simple object, then treat as a structured geocode
+                if (GRUNT.isPlainObject(args.addresses[ii])) {
+                }
+                // else assume we are dealing with a free form routing request
+                else {
+                    requestAddresses.push(new types.Address({
+                        freeform: args.addresses[ii]
+                    }));
+                }
+            } // if
+            
+            // if we have request addresses to process, then issue a geocoding request
+            // GRUNT.Log.info("attempting to geocode addresses: ", requestAddresses);
+            if (requestAddresses.length > 0) {
+                // create the geocoding request and execute it
+                var request = new requestTypes.GeocodeRequest({
+                    addresses: requestAddresses
+                });
+            
+                makeServerRequest(request, function(geocodeResponses) {
+                    if (args.complete) {
+                        // iterate through the address matches, and fire the complete event for each
+                        for (ii = 0; ii < geocodeResponses.length; ii++) {
+                            args.complete(args.addresses[ii], geocodeResponses[ii]);
+                        } // for
+                    } // if
+                });
+            } // if
+        },
+        
+        // define the decarta utilities as per this thread on the decarta forum
+        // http://devzone.decarta.com/web/guest/forums?p_p_id=19&p_p_action=0&p_p_state=maximized&p_p_mode=view&_19_struts_action=/message_boards/view_message&_19_messageId=43131
+        
+        Utilities: (function() {
+            // define some constants
+            var MAX_GX_ZOOM = 21;
+
+            var self = {
+                /* start forum extracted functions */
+
+                radsPerPixelAtZoom: function(tileSize, gxZoom) {
+                    // GRUNT.Log.info("calculating rpp@z for gx zoomlevel = " + gxZoom + ", tilesize = " + tileSize);
+                    return 2*Math.PI / (tileSize << gxZoom);
+                },
+
+                /* end forum extracted functions */
+
+                zoomLevelToGXZoom: function(zoom_level) {
+                    return Math.abs(MAX_GX_ZOOM - parseInt(zoom_level, 10));
+                }
+            };
+
+            return self;
+        })(),
+        
+        MapProvider: function(params) {
+            params = GRUNT.extend({
+                pinPosition: false,
+                drawGrid: false
+            }, params);
+            
+            var last_map_response = null;
+            var tile_grid = null;
+            var image_url = "";
+
+            var loaded_images = {};
+
+            // initialise parent
+            var parent = new SLICK.Geo.MapProvider();
+
+            function buildTileGrid(requestedPosition, response_data, container_dimensions) {
+                // initialise the first tile origin
+                // TODO: think about whether to throw an error if not divisble
+                var half_width = Math.round(response_data.tileSize * 0.5);
+                var pos_first = {
+                    x: container_dimensions.getCenter().x - half_width,
+                    y: container_dimensions.getCenter().y - half_width
+                }; 
+
+                // create the tile grid
+                image_url = response_data.imageUrl;
+                tile_grid = new SLICK.Tiling.TileGrid({
+                    tileSize: response_data.tileSize,
+                    width: container_dimensions.width,
+                    height: container_dimensions.height,
+                    drawGrid: params.drawGrid,
+                    shiftOrigin: function(topLeftOffset, shiftDelta) {
+                        return new SLICK.Vector(topLeftOffset.x + shiftDelta.x, topLeftOffset.y - shiftDelta.y);
+                    },
+                    center: new SLICK.Vector(response_data.centerTile.E, response_data.centerTile.N)
+                });
+                
+                // set the tile grid origin
+                tile_grid.populate(function(col, row, topLeftOffset, gridSize) {
+                    return SLICK.Tiling.ImageTile({ 
+                        url: response_data.imageUrl.replace("${N}", topLeftOffset.y + (gridSize - row)).replace("${E}", topLeftOffset.x + col),
+                        sessionParamRegex: /(SESSIONID)/i 
+                    });
+                });
+
+                var gx_zoomlevel = module.Utilities.zoomLevelToGXZoom(self.zoomLevel);
+                
+                // add the pan offset
+                // GRUNT.Log.info("pan offset for current position = " + response_data.panOffset);
+                
+                // get the virtual xy
+                var virtualXY = tile_grid.getTileVirtualXY(response_data.centerTile.E, response_data.centerTile.N, true);
+                
+                // apply the pan offset and half tiles
+                virtualXY = virtualXY.offset(response_data.panOffset.x, response_data.panOffset.y);
+                // GRUNT.Log.info("virtualxy of map center = " + virtualXY);
+                
+                // wrap the tile grid in a geo tile grid
+                tile_grid = new SLICK.Mapping.GeoTileGrid({
+                    grid: tile_grid, 
+                    centerXY:  virtualXY,
+                    centerPos: requestedPosition,
+                    offsetAdjustment: new SLICK.Vector(), // response_data.panOffset,
+                    radsPerPixel: module.Utilities.radsPerPixelAtZoom(response_data.tileSize, self.zoomLevel)
+                });
+
+                return tile_grid;
+            } // buildTileGrid
+
+            // initialise self
+            var self = GRUNT.extend({}, parent, {
+                getCopyright: function() {
+                    return "Mapping Webservices copyright deCarta, Map Data copyright Navteq";
+                },
+                
+                getMapTiles: function(tiler, position, callback) {
+                    makeServerRequest(
+                            new requestTypes.PortrayMapRequest(position.lat, position.lon, self.zoomLevel, params.pinPosition),
+                            function (response) {
+                                // update the center tile details
+                                last_map_response = response;
+
+                                // TODO: determine the x and y offset given then requested position and returned center context
+
+                                if (callback) {
+                                    // build the tile grid
+                                    var tile_grid = buildTileGrid(position, last_map_response, tiler.getDimensions());
+
+                                    // GRUNT.Log.info("grid center position = " + tile_grid.centerPos);
+                                    callback(tile_grid);
+                                } // if
+                            });
+                }
+            });
+
+            return self;
+        } // MapProvider
+    };
+    
+    new SLICK.Geo.Engine({
+        id: "decarta",
+        route: module.calculateRoute,
+        geocode: module.geocode
+    });
+    
+    return module;
+})();
+
