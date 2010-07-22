@@ -753,7 +753,7 @@ SLICK.Geo.Decarta = (function() {
             function buildTileGrid(requestedPosition, response_data, container_dimensions) {
                 // initialise the first tile origin
                 // TODO: think about whether to throw an error if not divisble
-                var half_width = Math.round(response_data.tileSize * 0.5);
+                var half_width = Math.round(response_data.tileSize >> 1);
                 var pos_first = {
                     x: container_dimensions.getCenter().x - half_width,
                     y: container_dimensions.getCenter().y - half_width

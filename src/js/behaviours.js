@@ -109,13 +109,12 @@ SLICK.Scalable = function(params) {
         startRect = start.getRect();
         endRect = end.getRect();
         
+        // get the sizes of the rects
+        var startSize = startRect.getSize(),
+            endSize = endRect.getSize();
+        
         // determine the ratio between the start rect and the end rect
-        scaleFactor = (startRect && startRect.getSize() != 0) ? endRect.getSize() / startRect.getSize() : 1;
-        /*
-        if (params.scaleDamping && (scaleAmount != 1)) {
-            scaleAmount = Math.sqrt(scaleAmount);
-        } // if
-        */
+        scaleFactor = (startRect && (startSize !== 0)) ? (endSize / startSize) : 1;
     } // checkTouches
     
     // initialise self
@@ -145,9 +144,9 @@ SLICK.Scalable = function(params) {
             pinchZoomHandler: function(touchesStart, touchesCurrent) {
                 checkTouches(touchesStart, touchesCurrent);
                 
-                scaling = true;
-                if (params.onPinchZoom) {
-                    params.onPinchZoom();
+                scaling = scaleFactor !== 1;
+                if (scaling && params.onPinchZoom) {
+                    params.onPinchZoom(touchesStart, touchesCurrent);
                 } // if
             },
             

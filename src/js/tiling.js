@@ -8,7 +8,7 @@ SLICK.Tiling = (function() {
         
         // initialise the storage array
         var storage = new Array(Math.pow(params.gridSize, 2)),
-            gridHalfWidth = Math.ceil(params.gridSize * 0.5),
+            gridHalfWidth = Math.ceil(params.gridSize >> 1),
             topLeftOffset = params.center.offset(-gridHalfWidth, -gridHalfWidth),
             lastTileCreator = null,
             tileShift = new SLICK.Vector(),
@@ -318,8 +318,7 @@ SLICK.Tiling = (function() {
                 strokeStyle: "rgb(180, 180, 180)",
                 zindex: -1,
                 draw: drawTileBackground,
-                canCache: false,
-                validStates: SLICK.Graphics.AnyDisplayState
+                validStates: SLICK.Graphics.InteractiveDisplayStates
             });
             
             var gridSection = document.createElement('canvas');
@@ -385,11 +384,11 @@ SLICK.Tiling = (function() {
                 draw: drawTiles,
                 checkOK: checkShiftDelta,
                 shiftOrigin: null,
-                canCache: true
+                validStates: SLICK.Graphics.DisplayState.GENCACHE
             }, params);
             
             // initialise varibles
-            var halfTileSize = Math.round(params.tileSize * 0.5),
+            var halfTileSize = Math.round(params.tileSize >> 1),
                 listeners = [],
                 invTileSize = params.tileSize ? 1 / params.tileSize : 0,
                 loadedTileCount = 0,
@@ -398,7 +397,7 @@ SLICK.Tiling = (function() {
                 refreshQueue = false,
                 shiftDelta = new SLICK.Vector(),
                 reloadTimeout = 0,
-                halfBuffer = params.bufferSize * 0.5;
+                halfBuffer = params.bufferSize >> 1;
             
             // create the tile store
             var tileStore = new TileStore(params);
@@ -641,7 +640,7 @@ SLICK.Tiling = (function() {
                 
                 getCenterXY: function() {
                     // get the center column and row index
-                    var midIndex = Math.ceil(tileStore.getGridSize() * 0.5);
+                    var midIndex = Math.ceil(tileStore.getGridSize() >> 1);
                     
                     return self.getTileVirtualXY(midIndex, midIndex, true);
                 },
@@ -702,7 +701,7 @@ SLICK.Tiling = (function() {
                     return 1;
                 },
                 auto: function(tileCount) {
-                    return tileCount * 0.5;
+                    return tileCount >> 1;
                 },
                 
                 all: function(tileCount) {

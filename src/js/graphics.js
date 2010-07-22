@@ -19,6 +19,16 @@ SLICK.Border = {
 }; // Border
 
 SLICK.Graphics = (function() {
+    // initialise display state constants that will be exposed through the module
+    var DISPLAY_STATE = {
+        NONE: 0,
+        ACTIVE: 1,
+        ANIMATING: 2,
+        PAN: 4,
+        PINCHZOOM: 8,
+        GENCACHE: 16,
+        FROZEN: 32
+    };
     
     // initialise variables
     var viewCounter = 0;
@@ -48,71 +58,16 @@ SLICK.Graphics = (function() {
             return fnresult;
         },
         
-        drawScaledRect: function(context, dimensions, srcCanvas, startRect, endRect) {
-            // TODO: this needs to be FASTER!!!
-            
-            // get the scaling rects (from the scalable behaviour - we have checked this is implemented previously)
-            var startRectSize = startRect.getSize();
-            var endRectSize = endRect.getSize();
-            var endRectCenter = endRect.getCenter();
-            
-            // determine the size ratio
-            var sizeRatio = startRectSize != 0 ? endRectSize / startRectSize : 1;
-            var delta = null;
-            var startDrawRect = startRect.duplicate();
-            var endDrawRect = endRect.duplicate();
-            var aspectRatio = dimensions.width / dimensions.height;
-
-            // if we are scaling down, then
-            // TODO: expand the start and end rects so the displays fill the screen
-            if (startRectSize > endRectSize) {
-                delta = startRect.getRequiredDelta(new SLICK.Rect(0, 0, dimensions.width, dimensions.height));
-                
-                // apply the delta to the start draw rect
-                startDrawRect.applyDelta(delta);
-                
-                // determine the end draw rect
-                endDrawRect.applyDelta(delta, sizeRatio, aspectRatio);
-            }
-            // otherwise
-            else {
-                delta = endRect.getRequiredDelta(new SLICK.Rect(0, 0, dimensions.width, dimensions.height));
-                
-                // apply the required delta to the end rect
-                endDrawRect.applyDelta(delta);
-
-                // apply the delta to the start rect by the inverse size ratio
-                startDrawRect.applyDelta(delta, 1 / sizeRatio, aspectRatio);
-            } // if..else
-            
-            if (startRect && endRect) {
-                context.drawImage(
-                    srcCanvas,
-                    startDrawRect.origin.x, 
-                    startDrawRect.origin.y,
-                    startDrawRect.dimensions.width,
-                    startDrawRect.dimensions.height,
-                    endDrawRect.origin.x,
-                    endDrawRect.origin.y,
-                    endDrawRect.dimensions.width,
-                    endDrawRect.dimensions.height);
-            } // if            
-        },
-        
         drawRect: function(context, rect) {
             context.strokeRect(rect.origin.x, rect.origin.y, rect.dimensions.width, rect.dimensions.height);
         },
         
-        DisplayState: {
-            NONE: 0,
-            ACTIVE: 1,
-            ANIMATING: 2,
-            INTERACTING: 4,
-            FROZEN: 8,
-            PINCHZOOM: 16
-        },
+        DisplayState: DISPLAY_STATE,
         
+        // some precanned display states
         AnyDisplayState: 255,
+        ActiveDisplayStates: DISPLAY_STATE.ACTIVE | DISPLAY_STATE.ANIMATING,
+        InteractiveDisplayStates: DISPLAY_STATE.ACTIVE | DISPLAY_STATE.ANIMATING | DISPLAY_STATE.PAN | DISPLAY_STATE.PINCHZOOM,
         
         ViewLayer: function(params) {
             params = GRUNT.extend({
@@ -120,9 +75,8 @@ SLICK.Graphics = (function() {
                 draw: null,
                 centerOnScale: true,
                 zindex: 0,
-                canCache: false,
                 checkOK: null,
-                validStates: module.DisplayState.ACTIVE | module.DisplayState.INTERACTING | module.DisplayState.PINCHZOOM
+                validStates: module.InteractiveDisplayStates
             }, params);
             
             var changeListeners = [];
@@ -156,6 +110,10 @@ SLICK.Graphics = (function() {
                 
                 canDraw: function(currentState) {
                     return currentState & params.validStates !== 0;
+                },
+                
+                shouldDraw: function(displayState) {
+                    return (displayState & params.validStates) !== 0;
                 },
                 
                 checkOK: function(drawArgs) {
@@ -197,10 +155,6 @@ SLICK.Graphics = (function() {
                 
                 setBufferOffset: function(x, y) {
                     bufferOffset.x = x; bufferOffset.y = y;
-                },
-                
-                canCache: function() {
-                    return params.canCache;
                 }
             }; // self
             
@@ -228,7 +182,7 @@ SLICK.Graphics = (function() {
                 id: GRUNT.generateObjectID("pathAnimation"),
                 easing: SLICK.Animation.Easing.Sine.InOut,
                 canCache: false,
-                validStates: module.DisplayState.ACTIVE | module.DisplayState.INTERACTING | module.DisplayState.ANIMATING,
+                validStates: module.InteractiveDisplayStates,
                 drawIndicator: null,
                 duration: 2000
             }, params);
@@ -307,6 +261,14 @@ SLICK.Graphics = (function() {
             return self;
         },
         
+        LoadingLayer: function(params) {
+            params = GRUNT.extend({
+                
+            }, params);
+            
+            
+        },
+        
         View: function(params) {
             // initialise defaults
             params = GRUNT.extend({
@@ -324,13 +286,12 @@ SLICK.Graphics = (function() {
                 onPinchZoom: null,
                 onScale: null,
                 onDraw: null,
-                autoSize: false,
-                pinchZoomDebug: true
+                autoSize: false
             }, params);
             
             // get the container context
             var canvas = document.getElementById(params.container),
-                main_context = null,
+                mainContext = null,
                 cachedCanvas = null,
                 cachedContext = null,
                 cachedOffset = new SLICK.Vector(),
@@ -342,6 +303,7 @@ SLICK.Graphics = (function() {
                 drawArgs = null,
                 forceRedraw = false,
                 idle = false,
+                zoomCenter = null,
                 status = module.DisplayState.ACTIVE;
             
             // calculate the repaint interval
@@ -360,7 +322,7 @@ SLICK.Graphics = (function() {
                 
                 
                 try {
-                    main_context = canvas.getContext('2d');
+                    mainContext = canvas.getContext('2d');
                 } 
                 catch (e) {
                     GRUNT.Log.exception(e);
@@ -515,14 +477,14 @@ SLICK.Graphics = (function() {
                         // iterate through the layers, and for any layers that cannot draw on scale, draw them to 
                         // the saved context
                         for (var ii = 0; ii < layers.length; ii++) {
-                            if (layers[ii].canCache() && (! layers[ii].isAnimating())) {
+                            if (layers[ii].shouldDraw(module.DisplayState.GENCACHE)) {
                                 layers[ii].draw(drawArgs);
 
                                 // calculate the zindex as the zindex of the lowest saved layer
                                 cachedZIndex = Math.min(cachedZIndex, layers[ii].getZIndex());
                             } // if
                         } // for
-
+                        
                         // reset the layer changes since cache count
                         layerChangesSinceCache = 0;
 
@@ -536,6 +498,14 @@ SLICK.Graphics = (function() {
             
             var drawing = false;
             
+            function calcZoomCenter(drawArgs) {
+                var startCenter = scalable.getStartRect().getCenter(),
+                    endCenter = scalable.getEndRect().getCenter(),
+                    centerOffset = startCenter.diff(endCenter);
+                   
+                zoomCenter = new SLICK.Vector(endCenter.x + centerOffset.x, endCenter.y + centerOffset.y);
+            } // calcZoomCenter
+            
             function drawView(tickCount, interacting) {
                 if (drawing) { return; }
                 
@@ -544,9 +514,9 @@ SLICK.Graphics = (function() {
                     dimensions = self.getDimensions();
                 } // if
                 
-                var currentOffset = pannable ? pannable.getOffset() : new SLICK.Vector();
-                var offsetChanged = (! drawArgs) || (! drawArgs.offset.matches(currentOffset));
-                var dimensionsChanged = (! drawArgs) || (! drawArgs.dimensions.matches(dimensions));
+                var currentOffset = pannable ? pannable.getOffset() : new SLICK.Vector(),
+                    offsetChanged = (! drawArgs) || (! drawArgs.offset.matches(currentOffset)),
+                    dimensionsChanged = (! drawArgs) || (! drawArgs.dimensions.matches(dimensions));
                 
                 // initialise the draw params
                 drawArgs = {
@@ -569,7 +539,7 @@ SLICK.Graphics = (function() {
                     // clear the canvas
                     // TODO: handle scaling clearing the background correctly...
                     if (drawArgs.scaleFactor != 1) {
-                        main_context.clearRect(0, 0, canvas.width, canvas.height);
+                        mainContext.clearRect(0, 0, canvas.width, canvas.height);
                     } // if
                     
                     // iterate through the layers and draw them
@@ -580,42 +550,45 @@ SLICK.Graphics = (function() {
                         layers[ii].beginDraw(drawArgs);
                         
                         // add the context to the draw args
-                        drawArgs.context = main_context;
+                        drawArgs.context = mainContext;
                         
                         // draw the layer output to the main canvas
                         // but only if we don't have a scale buffer or the layer is a draw on scale layer
-                        if (((! interacting) || (! layers[ii].canCache())) && layers[ii].canDraw(status)) {
+                        if (layers[ii].shouldDraw(status)) {
                             layers[ii].draw(drawArgs);
                         } // if
                         
                         // draw the saved context if required and at the appropriate zindex
-                        if (interacting && (! savedDrawn) && (cachedZIndex >= layers[ii].getZIndex())) {
+                        if ((! savedDrawn) && (cachedZIndex >= layers[ii].getZIndex())) {
                             var relativeOffset = cachedOffset.diff(drawArgs.offset);
                             
                             if (drawArgs.scaleFactor !== 1) {
-                                // get the end rect
-                                var startRect = scalable.getStartRect();
-                                var endRect = scalable.getEndRect();
+                                calcZoomCenter(drawArgs);
                                 
-                                // draw the scaled rect
-                                module.drawScaledRect(
-                                    main_context,
-                                    dimensions.grow(params.padding * 2, params.padding * 2),
-                                    cachedCanvas,
-                                    startRect,
-                                    endRect);
+                                var endCenter = self.getEndRect().getCenter();
                                 
-                                if (params.pinchZoomDebug) {
-                                    main_context.strokeStyle = "#0000FF";
-                                    main_context.lineWidth = 4;
-                                    module.drawRect(main_context, startRect);
-
-                                    main_context.strokeStyle = "#FF0000";
-                                    module.drawRect(main_context, endRect);
+                                mainContext.save();
+                                try {
+                                    mainContext.translate(endCenter.x, endCenter.y);
+                                    mainContext.scale(drawArgs.scaleFactor, drawArgs.scaleFactor);
+                                    mainContext.drawImage(
+                                            cachedCanvas, 
+                                            relativeOffset.x - zoomCenter.x, 
+                                            relativeOffset.y - zoomCenter.y);
                                 }
+                                finally {
+                                    mainContext.restore();
+                                } // try..finally
+                                
+                                /*
+                                drawArgs.context.beginPath();
+                                drawArgs.context.arc(endCenter.x, endCenter.y, 5 * drawArgs.scaleFactor, 0, Math.PI * 2, false);
+                                drawArgs.context.fill();
+                                drawArgs.context.stroke();
+                                */
                             } 
                             else {
-                                main_context.drawImage(cachedCanvas, relativeOffset.x, relativeOffset.y);
+                                mainContext.drawImage(cachedCanvas, relativeOffset.x, relativeOffset.y);
                             } // if..else
 
                             savedDrawn = true;
@@ -644,6 +617,10 @@ SLICK.Graphics = (function() {
                     if (canvas) {
                         return new SLICK.Dimensions(canvas.width, canvas.height);
                     } // if
+                },
+                
+                getZoomCenter: function() {
+                    return zoomCenter;
                 },
                 
                 /* layer getter and setters */

@@ -324,7 +324,7 @@ SLICK = (function () {
                 },
 
                 getCenter: function() {
-                    return new SLICK.Vector(self.width * 0.5, self.height * 0.5);
+                    return new SLICK.Vector(self.width >> 1, self.height >> 1);
                 },
                 
                 grow: function(widthDelta, heightDelta) {
@@ -358,7 +358,7 @@ SLICK = (function () {
                 },
                 
                 getCenter: function() {
-                    return new SLICK.Vector(self.origin.x + (self.dimensions.width * 0.5), self.origin.y + (self.dimensions.height * 0.5));
+                    return new SLICK.Vector(self.origin.x + (self.dimensions.width >> 1), self.origin.y + (self.dimensions.height >> 1));
                 },
                 
                 getSize: function() {

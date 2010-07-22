@@ -126,8 +126,8 @@ SLICK.Mapping = (function() {
                 zindex: 100,
                 draw: function(drawArgs) {
                     // calculate the center position
-                    var xPos = drawArgs.dimensions.width * 0.5;
-                    var yPos = drawArgs.dimensions.height * 0.5;
+                    var xPos = drawArgs.dimensions.width >> 1;
+                    var yPos = drawArgs.dimensions.height >> 1;
 
                     // initialise the drawing style
                     drawArgs.context.fillStyle = params.radarFill;
@@ -158,7 +158,7 @@ SLICK.Mapping = (function() {
                 lineWidth: 1.5,
                 strokeStyle: "rgba(0, 0, 0, 0.5)",
                 size: 15,
-                canCache: false
+                validStates: SLICK.Graphics.DisplayState.ACTIVE | SLICK.Graphics.DisplayState.ANIMATING | SLICK.Graphics.DisplayState.PAN
             }, params);
             
             function drawCrosshair(context, centerPos, size) {
@@ -196,8 +196,8 @@ SLICK.Mapping = (function() {
                 lineWidths: [4],
                 data: null,
                 pixelGeneralization: 8,
-                canCache: true,
-                zindex: 50
+                zindex: 50,
+                validStates: SLICK.Graphics.DisplayState.GENCACHE
             }, params);
             
             var coordinates = [],
@@ -403,8 +403,8 @@ SLICK.Mapping = (function() {
                     
                     // calculate the image offset
                     if (image) {
-                        imageOffset.x = -image.width * 0.5;
-                        imageOffset.y = -image.height * 0.5;
+                        imageOffset.x = -image.width >> 1;
+                        imageOffset.y = -image.height >> 1;
                     } // if
                 }
             );
@@ -417,7 +417,7 @@ SLICK.Mapping = (function() {
                 pois: null,
                 map: null,
                 createAnnotationForPOI: null,
-                canCache: true
+                validStates: SLICK.Graphics.AnyDisplayState
             }, params);
             
             var annotations = [],
@@ -570,18 +570,16 @@ SLICK.Mapping = (function() {
             var caller_tap_handler = params.tapHandler;
             var pins = {};
 
-            function updateCenterPos() {
-                // get the dimensions of the object
-                var dimensions = self.getDimensions();
-                var grid = self.getTileLayer();
-
-                if (grid) {
-                    // get the relative positioning on the grid for the current control center position
-                    var grid_pos = self.viewPixToGridPix(new SLICK.Vector(dimensions.width * 0.5, dimensions.height * 0.5));
-
-                    // get the position for the grid position
-                    centerPos = grid.pixelsToPos(grid_pos);
+            function updateCenterPos(xy) {
+                // if the xy position is not specified, then get the middle of the map
+                if (! xy) {
+                    // get the dimensions of the object
+                    var dimensions = self.getDimensions();
+                    xy = new SLICK.Vector(dimensions.width >> 1, dimensions.height >> 1);
                 } // if
+                
+                // get the position for the grid position
+                centerPos = self.getTileLayer().pixelsToPos(self.viewPixToGridPix(xy));
             } // updateCenterPos
             
             // initialise our own pan handler
@@ -640,7 +638,7 @@ SLICK.Mapping = (function() {
                 } // if..else
 
                 // get the updated center position
-                updateCenterPos();
+                updateCenterPos(self.getZoomCenter());
 
                 // TODO: check that the new zoom level is acceptable
                 // remove the grid layer
@@ -791,8 +789,8 @@ SLICK.Mapping = (function() {
                             dimensions = self.getDimensions();
 
                         // determine the actual pan amount, by calculating the center of the viewport
-                        center_xy.x -= (dimensions.width * 0.5);
-                        center_xy.y -= (dimensions.height * 0.5);
+                        center_xy.x -= (dimensions.width >> 1);
+                        center_xy.y -= (dimensions.height >> 1);
 
                         // pan the required amount
                         //GRUNT.Log.info(String.format("need to apply pan vector of ({0}) to correctly center", center_xy));
@@ -886,7 +884,6 @@ SLICK.Mapping = (function() {
             if (copyrightMessage) {
                 self.setLayer("copyright", new SLICK.Graphics.ViewLayer({
                     zindex: 999,
-                    canCache: false,
                     draw: function(drawArgs) {
                         drawArgs.context.lineWidth = 2.5;
                         drawArgs.context.fillStyle = "rgb(50, 50, 50)";

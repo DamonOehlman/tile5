@@ -3,6 +3,7 @@ window.addEventListener("load", function() {
     map = new SLICK.Mapping.Tiler({
         container: "tiler",
         crosshair: true,
+        autoSize: (fullScreen ? true : false),
 
         // CURRENT RACQ SERVER
         // provider: new SLICK.Geo.Decarta.MapProvider(),

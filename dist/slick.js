@@ -1755,7 +1755,7 @@ SLICK = (function () {
                 },
 
                 getCenter: function() {
-                    return new SLICK.Vector(self.width * 0.5, self.height * 0.5);
+                    return new SLICK.Vector(self.width >> 1, self.height >> 1);
                 },
                 
                 grow: function(widthDelta, heightDelta) {
@@ -1789,7 +1789,7 @@ SLICK = (function () {
                 },
                 
                 getCenter: function() {
-                    return new SLICK.Vector(self.origin.x + (self.dimensions.width * 0.5), self.origin.y + (self.dimensions.height * 0.5));
+                    return new SLICK.Vector(self.origin.x + (self.dimensions.width >> 1), self.origin.y + (self.dimensions.height >> 1));
                 },
                 
                 getSize: function() {
@@ -2665,13 +2665,12 @@ SLICK.Scalable = function(params) {
         startRect = start.getRect();
         endRect = end.getRect();
         
+        // get the sizes of the rects
+        var startSize = startRect.getSize(),
+            endSize = endRect.getSize();
+        
         // determine the ratio between the start rect and the end rect
-        scaleFactor = (startRect && startRect.getSize() != 0) ? endRect.getSize() / startRect.getSize() : 1;
-        /*
-        if (params.scaleDamping && (scaleAmount != 1)) {
-            scaleAmount = Math.sqrt(scaleAmount);
-        } // if
-        */
+        scaleFactor = (startRect && (startSize !== 0)) ? (endSize / startSize) : 1;
     } // checkTouches
     
     // initialise self
@@ -2701,9 +2700,9 @@ SLICK.Scalable = function(params) {
             pinchZoomHandler: function(touchesStart, touchesCurrent) {
                 checkTouches(touchesStart, touchesCurrent);
                 
-                scaling = true;
-                if (params.onPinchZoom) {
-                    params.onPinchZoom();
+                scaling = scaleFactor !== 1;
+                if (scaling && params.onPinchZoom) {
+                    params.onPinchZoom(touchesStart, touchesCurrent);
                 } // if
             },
             
@@ -3346,6 +3345,16 @@ SLICK.Border = {
 }; // Border
 
 SLICK.Graphics = (function() {
+    // initialise display state constants that will be exposed through the module
+    var DISPLAY_STATE = {
+        NONE: 0,
+        ACTIVE: 1,
+        ANIMATING: 2,
+        PAN: 4,
+        PINCHZOOM: 8,
+        GENCACHE: 16,
+        FROZEN: 32
+    };
     
     // initialise variables
     var viewCounter = 0;
@@ -3375,71 +3384,16 @@ SLICK.Graphics = (function() {
             return fnresult;
         },
         
-        drawScaledRect: function(context, dimensions, srcCanvas, startRect, endRect) {
-            // TODO: this needs to be FASTER!!!
-            
-            // get the scaling rects (from the scalable behaviour - we have checked this is implemented previously)
-            var startRectSize = startRect.getSize();
-            var endRectSize = endRect.getSize();
-            var endRectCenter = endRect.getCenter();
-            
-            // determine the size ratio
-            var sizeRatio = startRectSize != 0 ? endRectSize / startRectSize : 1;
-            var delta = null;
-            var startDrawRect = startRect.duplicate();
-            var endDrawRect = endRect.duplicate();
-            var aspectRatio = dimensions.width / dimensions.height;
-
-            // if we are scaling down, then
-            // TODO: expand the start and end rects so the displays fill the screen
-            if (startRectSize > endRectSize) {
-                delta = startRect.getRequiredDelta(new SLICK.Rect(0, 0, dimensions.width, dimensions.height));
-                
-                // apply the delta to the start draw rect
-                startDrawRect.applyDelta(delta);
-                
-                // determine the end draw rect
-                endDrawRect.applyDelta(delta, sizeRatio, aspectRatio);
-            }
-            // otherwise
-            else {
-                delta = endRect.getRequiredDelta(new SLICK.Rect(0, 0, dimensions.width, dimensions.height));
-                
-                // apply the required delta to the end rect
-                endDrawRect.applyDelta(delta);
-
-                // apply the delta to the start rect by the inverse size ratio
-                startDrawRect.applyDelta(delta, 1 / sizeRatio, aspectRatio);
-            } // if..else
-            
-            if (startRect && endRect) {
-                context.drawImage(
-                    srcCanvas,
-                    startDrawRect.origin.x, 
-                    startDrawRect.origin.y,
-                    startDrawRect.dimensions.width,
-                    startDrawRect.dimensions.height,
-                    endDrawRect.origin.x,
-                    endDrawRect.origin.y,
-                    endDrawRect.dimensions.width,
-                    endDrawRect.dimensions.height);
-            } // if            
-        },
-        
         drawRect: function(context, rect) {
             context.strokeRect(rect.origin.x, rect.origin.y, rect.dimensions.width, rect.dimensions.height);
         },
         
-        DisplayState: {
-            NONE: 0,
-            ACTIVE: 1,
-            ANIMATING: 2,
-            INTERACTING: 4,
-            FROZEN: 8,
-            PINCHZOOM: 16
-        },
+        DisplayState: DISPLAY_STATE,
         
+        // some precanned display states
         AnyDisplayState: 255,
+        ActiveDisplayStates: DISPLAY_STATE.ACTIVE | DISPLAY_STATE.ANIMATING,
+        InteractiveDisplayStates: DISPLAY_STATE.ACTIVE | DISPLAY_STATE.ANIMATING | DISPLAY_STATE.PAN | DISPLAY_STATE.PINCHZOOM,
         
         ViewLayer: function(params) {
             params = GRUNT.extend({
@@ -3447,9 +3401,8 @@ SLICK.Graphics = (function() {
                 draw: null,
                 centerOnScale: true,
                 zindex: 0,
-                canCache: false,
                 checkOK: null,
-                validStates: module.DisplayState.ACTIVE | module.DisplayState.INTERACTING | module.DisplayState.PINCHZOOM
+                validStates: module.InteractiveDisplayStates
             }, params);
             
             var changeListeners = [];
@@ -3483,6 +3436,10 @@ SLICK.Graphics = (function() {
                 
                 canDraw: function(currentState) {
                     return currentState & params.validStates !== 0;
+                },
+                
+                shouldDraw: function(displayState) {
+                    return (displayState & params.validStates) !== 0;
                 },
                 
                 checkOK: function(drawArgs) {
@@ -3524,10 +3481,6 @@ SLICK.Graphics = (function() {
                 
                 setBufferOffset: function(x, y) {
                     bufferOffset.x = x; bufferOffset.y = y;
-                },
-                
-                canCache: function() {
-                    return params.canCache;
                 }
             }; // self
             
@@ -3555,7 +3508,7 @@ SLICK.Graphics = (function() {
                 id: GRUNT.generateObjectID("pathAnimation"),
                 easing: SLICK.Animation.Easing.Sine.InOut,
                 canCache: false,
-                validStates: module.DisplayState.ACTIVE | module.DisplayState.INTERACTING | module.DisplayState.ANIMATING,
+                validStates: module.InteractiveDisplayStates,
                 drawIndicator: null,
                 duration: 2000
             }, params);
@@ -3634,6 +3587,14 @@ SLICK.Graphics = (function() {
             return self;
         },
         
+        LoadingLayer: function(params) {
+            params = GRUNT.extend({
+                
+            }, params);
+            
+            
+        },
+        
         View: function(params) {
             // initialise defaults
             params = GRUNT.extend({
@@ -3651,13 +3612,12 @@ SLICK.Graphics = (function() {
                 onPinchZoom: null,
                 onScale: null,
                 onDraw: null,
-                autoSize: false,
-                pinchZoomDebug: true
+                autoSize: false
             }, params);
             
             // get the container context
             var canvas = document.getElementById(params.container),
-                main_context = null,
+                mainContext = null,
                 cachedCanvas = null,
                 cachedContext = null,
                 cachedOffset = new SLICK.Vector(),
@@ -3669,6 +3629,7 @@ SLICK.Graphics = (function() {
                 drawArgs = null,
                 forceRedraw = false,
                 idle = false,
+                zoomCenter = null,
                 status = module.DisplayState.ACTIVE;
             
             // calculate the repaint interval
@@ -3687,7 +3648,7 @@ SLICK.Graphics = (function() {
                 
                 
                 try {
-                    main_context = canvas.getContext('2d');
+                    mainContext = canvas.getContext('2d');
                 } 
                 catch (e) {
                     GRUNT.Log.exception(e);
@@ -3842,14 +3803,14 @@ SLICK.Graphics = (function() {
                         // iterate through the layers, and for any layers that cannot draw on scale, draw them to 
                         // the saved context
                         for (var ii = 0; ii < layers.length; ii++) {
-                            if (layers[ii].canCache() && (! layers[ii].isAnimating())) {
+                            if (layers[ii].shouldDraw(module.DisplayState.GENCACHE)) {
                                 layers[ii].draw(drawArgs);
 
                                 // calculate the zindex as the zindex of the lowest saved layer
                                 cachedZIndex = Math.min(cachedZIndex, layers[ii].getZIndex());
                             } // if
                         } // for
-
+                        
                         // reset the layer changes since cache count
                         layerChangesSinceCache = 0;
 
@@ -3863,6 +3824,14 @@ SLICK.Graphics = (function() {
             
             var drawing = false;
             
+            function calcZoomCenter(drawArgs) {
+                var startCenter = scalable.getStartRect().getCenter(),
+                    endCenter = scalable.getEndRect().getCenter(),
+                    centerOffset = startCenter.diff(endCenter);
+                   
+                zoomCenter = new SLICK.Vector(endCenter.x + centerOffset.x, endCenter.y + centerOffset.y);
+            } // calcZoomCenter
+            
             function drawView(tickCount, interacting) {
                 if (drawing) { return; }
                 
@@ -3871,9 +3840,9 @@ SLICK.Graphics = (function() {
                     dimensions = self.getDimensions();
                 } // if
                 
-                var currentOffset = pannable ? pannable.getOffset() : new SLICK.Vector();
-                var offsetChanged = (! drawArgs) || (! drawArgs.offset.matches(currentOffset));
-                var dimensionsChanged = (! drawArgs) || (! drawArgs.dimensions.matches(dimensions));
+                var currentOffset = pannable ? pannable.getOffset() : new SLICK.Vector(),
+                    offsetChanged = (! drawArgs) || (! drawArgs.offset.matches(currentOffset)),
+                    dimensionsChanged = (! drawArgs) || (! drawArgs.dimensions.matches(dimensions));
                 
                 // initialise the draw params
                 drawArgs = {
@@ -3896,7 +3865,7 @@ SLICK.Graphics = (function() {
                     // clear the canvas
                     // TODO: handle scaling clearing the background correctly...
                     if (drawArgs.scaleFactor != 1) {
-                        main_context.clearRect(0, 0, canvas.width, canvas.height);
+                        mainContext.clearRect(0, 0, canvas.width, canvas.height);
                     } // if
                     
                     // iterate through the layers and draw them
@@ -3907,42 +3876,45 @@ SLICK.Graphics = (function() {
                         layers[ii].beginDraw(drawArgs);
                         
                         // add the context to the draw args
-                        drawArgs.context = main_context;
+                        drawArgs.context = mainContext;
                         
                         // draw the layer output to the main canvas
                         // but only if we don't have a scale buffer or the layer is a draw on scale layer
-                        if (((! interacting) || (! layers[ii].canCache())) && layers[ii].canDraw(status)) {
+                        if (layers[ii].shouldDraw(status)) {
                             layers[ii].draw(drawArgs);
                         } // if
                         
                         // draw the saved context if required and at the appropriate zindex
-                        if (interacting && (! savedDrawn) && (cachedZIndex >= layers[ii].getZIndex())) {
+                        if ((! savedDrawn) && (cachedZIndex >= layers[ii].getZIndex())) {
                             var relativeOffset = cachedOffset.diff(drawArgs.offset);
                             
                             if (drawArgs.scaleFactor !== 1) {
-                                // get the end rect
-                                var startRect = scalable.getStartRect();
-                                var endRect = scalable.getEndRect();
+                                calcZoomCenter(drawArgs);
                                 
-                                // draw the scaled rect
-                                module.drawScaledRect(
-                                    main_context,
-                                    dimensions.grow(params.padding * 2, params.padding * 2),
-                                    cachedCanvas,
-                                    startRect,
-                                    endRect);
+                                var endCenter = self.getEndRect().getCenter();
                                 
-                                if (params.pinchZoomDebug) {
-                                    main_context.strokeStyle = "#0000FF";
-                                    main_context.lineWidth = 4;
-                                    module.drawRect(main_context, startRect);
-
-                                    main_context.strokeStyle = "#FF0000";
-                                    module.drawRect(main_context, endRect);
+                                mainContext.save();
+                                try {
+                                    mainContext.translate(endCenter.x, endCenter.y);
+                                    mainContext.scale(drawArgs.scaleFactor, drawArgs.scaleFactor);
+                                    mainContext.drawImage(
+                                            cachedCanvas, 
+                                            relativeOffset.x - zoomCenter.x, 
+                                            relativeOffset.y - zoomCenter.y);
                                 }
+                                finally {
+                                    mainContext.restore();
+                                } // try..finally
+                                
+                                /*
+                                drawArgs.context.beginPath();
+                                drawArgs.context.arc(endCenter.x, endCenter.y, 5 * drawArgs.scaleFactor, 0, Math.PI * 2, false);
+                                drawArgs.context.fill();
+                                drawArgs.context.stroke();
+                                */
                             } 
                             else {
-                                main_context.drawImage(cachedCanvas, relativeOffset.x, relativeOffset.y);
+                                mainContext.drawImage(cachedCanvas, relativeOffset.x, relativeOffset.y);
                             } // if..else
 
                             savedDrawn = true;
@@ -3971,6 +3943,10 @@ SLICK.Graphics = (function() {
                     if (canvas) {
                         return new SLICK.Dimensions(canvas.width, canvas.height);
                     } // if
+                },
+                
+                getZoomCenter: function() {
+                    return zoomCenter;
                 },
                 
                 /* layer getter and setters */
@@ -4213,7 +4189,7 @@ SLICK.Tiling = (function() {
         
         // initialise the storage array
         var storage = new Array(Math.pow(params.gridSize, 2)),
-            gridHalfWidth = Math.ceil(params.gridSize * 0.5),
+            gridHalfWidth = Math.ceil(params.gridSize >> 1),
             topLeftOffset = params.center.offset(-gridHalfWidth, -gridHalfWidth),
             lastTileCreator = null,
             tileShift = new SLICK.Vector(),
@@ -4523,8 +4499,7 @@ SLICK.Tiling = (function() {
                 strokeStyle: "rgb(180, 180, 180)",
                 zindex: -1,
                 draw: drawTileBackground,
-                canCache: false,
-                validStates: SLICK.Graphics.AnyDisplayState
+                validStates: SLICK.Graphics.InteractiveDisplayStates
             });
             
             var gridSection = document.createElement('canvas');
@@ -4590,11 +4565,11 @@ SLICK.Tiling = (function() {
                 draw: drawTiles,
                 checkOK: checkShiftDelta,
                 shiftOrigin: null,
-                canCache: true
+                validStates: SLICK.Graphics.DisplayState.GENCACHE
             }, params);
             
             // initialise varibles
-            var halfTileSize = Math.round(params.tileSize * 0.5),
+            var halfTileSize = Math.round(params.tileSize >> 1),
                 listeners = [],
                 invTileSize = params.tileSize ? 1 / params.tileSize : 0,
                 loadedTileCount = 0,
@@ -4603,7 +4578,7 @@ SLICK.Tiling = (function() {
                 refreshQueue = false,
                 shiftDelta = new SLICK.Vector(),
                 reloadTimeout = 0,
-                halfBuffer = params.bufferSize * 0.5;
+                halfBuffer = params.bufferSize >> 1;
             
             // create the tile store
             var tileStore = new TileStore(params);
@@ -4846,7 +4821,7 @@ SLICK.Tiling = (function() {
                 
                 getCenterXY: function() {
                     // get the center column and row index
-                    var midIndex = Math.ceil(tileStore.getGridSize() * 0.5);
+                    var midIndex = Math.ceil(tileStore.getGridSize() >> 1);
                     
                     return self.getTileVirtualXY(midIndex, midIndex, true);
                 },
@@ -4907,7 +4882,7 @@ SLICK.Tiling = (function() {
                     return 1;
                 },
                 auto: function(tileCount) {
-                    return tileCount * 0.5;
+                    return tileCount >> 1;
                 },
                 
                 all: function(tileCount) {
@@ -5130,8 +5105,8 @@ SLICK.Geo = (function() {
 
             // if both position 1 and position 2 are passed and valid
             if (pos1 && (! pos1.isEmpty()) && pos2 && (! pos2.isEmpty())) {
-                var halfdelta_lat = (pos2.lat - pos1.lat).toRad() * 0.5;
-                var halfdelta_lon = (pos2.lon - pos1.lon).toRad() * 0.5;
+                var halfdelta_lat = (pos2.lat - pos1.lat).toRad() >> 1;
+                var halfdelta_lon = (pos2.lon - pos1.lon).toRad() >> 1;
 
                 // TODO: find out what a stands for, I don't like single char variables in code (same goes for c)
                 var a = (Math.sin(halfdelta_lat) * Math.sin(halfdelta_lat)) + 
@@ -5289,7 +5264,7 @@ SLICK.Geo = (function() {
                     var size = module.calculateBoundsSize(self.min, self.max);
                     
                     // create a new position offset from the current min
-                    return new SLICK.Geo.Position(self.min.lat + (size.y * 0.5), self.min.lon + (size.x * 0.5));
+                    return new SLICK.Geo.Position(self.min.lat + (size.y >> 1), self.min.lon + (size.x >> 1));
                 },
 
                 isEmpty: function() {
@@ -5946,8 +5921,8 @@ SLICK.Geo = (function() {
                 zindex: 100,
                 draw: function(drawArgs) {
                     // calculate the center position
-                    var xPos = drawArgs.dimensions.width * 0.5;
-                    var yPos = drawArgs.dimensions.height * 0.5;
+                    var xPos = drawArgs.dimensions.width >> 1;
+                    var yPos = drawArgs.dimensions.height >> 1;
 
                     // initialise the drawing style
                     drawArgs.context.fillStyle = params.radarFill;
@@ -5978,7 +5953,7 @@ SLICK.Geo = (function() {
                 lineWidth: 1.5,
                 strokeStyle: "rgba(0, 0, 0, 0.5)",
                 size: 15,
-                canCache: false
+                validStates: SLICK.Graphics.DisplayState.ACTIVE | SLICK.Graphics.DisplayState.ANIMATING | SLICK.Graphics.DisplayState.PAN
             }, params);
             
             function drawCrosshair(context, centerPos, size) {
@@ -6016,8 +5991,8 @@ SLICK.Geo = (function() {
                 lineWidths: [4],
                 data: null,
                 pixelGeneralization: 8,
-                canCache: true,
-                zindex: 50
+                zindex: 50,
+                validStates: SLICK.Graphics.DisplayState.GENCACHE
             }, params);
             
             var coordinates = [],
@@ -6223,8 +6198,8 @@ SLICK.Geo = (function() {
                     
                     // calculate the image offset
                     if (image) {
-                        imageOffset.x = -image.width * 0.5;
-                        imageOffset.y = -image.height * 0.5;
+                        imageOffset.x = -image.width >> 1;
+                        imageOffset.y = -image.height >> 1;
                     } // if
                 }
             );
@@ -6237,7 +6212,7 @@ SLICK.Geo = (function() {
                 pois: null,
                 map: null,
                 createAnnotationForPOI: null,
-                canCache: true
+                validStates: SLICK.Graphics.AnyDisplayState
             }, params);
             
             var annotations = [],
@@ -6390,18 +6365,16 @@ SLICK.Geo = (function() {
             var caller_tap_handler = params.tapHandler;
             var pins = {};
 
-            function updateCenterPos() {
-                // get the dimensions of the object
-                var dimensions = self.getDimensions();
-                var grid = self.getTileLayer();
-
-                if (grid) {
-                    // get the relative positioning on the grid for the current control center position
-                    var grid_pos = self.viewPixToGridPix(new SLICK.Vector(dimensions.width * 0.5, dimensions.height * 0.5));
-
-                    // get the position for the grid position
-                    centerPos = grid.pixelsToPos(grid_pos);
+            function updateCenterPos(xy) {
+                // if the xy position is not specified, then get the middle of the map
+                if (! xy) {
+                    // get the dimensions of the object
+                    var dimensions = self.getDimensions();
+                    xy = new SLICK.Vector(dimensions.width >> 1, dimensions.height >> 1);
                 } // if
+                
+                // get the position for the grid position
+                centerPos = self.getTileLayer().pixelsToPos(self.viewPixToGridPix(xy));
             } // updateCenterPos
             
             // initialise our own pan handler
@@ -6460,7 +6433,7 @@ SLICK.Geo = (function() {
                 } // if..else
 
                 // get the updated center position
-                updateCenterPos();
+                updateCenterPos(self.getZoomCenter());
 
                 // TODO: check that the new zoom level is acceptable
                 // remove the grid layer
@@ -6611,8 +6584,8 @@ SLICK.Geo = (function() {
                             dimensions = self.getDimensions();
 
                         // determine the actual pan amount, by calculating the center of the viewport
-                        center_xy.x -= (dimensions.width * 0.5);
-                        center_xy.y -= (dimensions.height * 0.5);
+                        center_xy.x -= (dimensions.width >> 1);
+                        center_xy.y -= (dimensions.height >> 1);
 
                         // pan the required amount
                         //GRUNT.Log.info(String.format("need to apply pan vector of ({0}) to correctly center", center_xy));
@@ -6706,7 +6679,6 @@ SLICK.Geo = (function() {
             if (copyrightMessage) {
                 self.setLayer("copyright", new SLICK.Graphics.ViewLayer({
                     zindex: 999,
-                    canCache: false,
                     draw: function(drawArgs) {
                         drawArgs.context.lineWidth = 2.5;
                         drawArgs.context.fillStyle = "rgb(50, 50, 50)";

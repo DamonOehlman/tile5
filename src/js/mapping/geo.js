@@ -102,8 +102,8 @@ SLICK.Geo = (function() {
 
             // if both position 1 and position 2 are passed and valid
             if (pos1 && (! pos1.isEmpty()) && pos2 && (! pos2.isEmpty())) {
-                var halfdelta_lat = (pos2.lat - pos1.lat).toRad() * 0.5;
-                var halfdelta_lon = (pos2.lon - pos1.lon).toRad() * 0.5;
+                var halfdelta_lat = (pos2.lat - pos1.lat).toRad() >> 1;
+                var halfdelta_lon = (pos2.lon - pos1.lon).toRad() >> 1;
 
                 // TODO: find out what a stands for, I don't like single char variables in code (same goes for c)
                 var a = (Math.sin(halfdelta_lat) * Math.sin(halfdelta_lat)) + 
@@ -261,7 +261,7 @@ SLICK.Geo = (function() {
                     var size = module.calculateBoundsSize(self.min, self.max);
                     
                     // create a new position offset from the current min
-                    return new SLICK.Geo.Position(self.min.lat + (size.y * 0.5), self.min.lon + (size.x * 0.5));
+                    return new SLICK.Geo.Position(self.min.lat + (size.y >> 1), self.min.lon + (size.x >> 1));
                 },
 
                 isEmpty: function() {
