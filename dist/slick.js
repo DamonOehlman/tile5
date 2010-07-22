@@ -5264,7 +5264,7 @@ SLICK.Geo = (function() {
                     var size = module.calculateBoundsSize(self.min, self.max);
                     
                     // create a new position offset from the current min
-                    return new SLICK.Geo.Position(self.min.lat + (size.y >> 1), self.min.lon + (size.x >> 1));
+                    return new SLICK.Geo.Position(self.min.lat + (size.y * 0.5), self.min.lon + (size.x * 0.5));
                 },
 
                 isEmpty: function() {
