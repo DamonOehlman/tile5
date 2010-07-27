@@ -517,21 +517,34 @@ if (! String.format) {
     };    
 } // if
 
-if (! Number.toRad) {
-    Number.prototype.toRad = function() {  // convert degrees to radians 
-      return this * Math.PI / 180; 
-    }; // 
-} // if
+String.prototype.containsWord = function(word) {
+    var testString = "";
+
+    // if the word argument is an object, and can be converted to a string, then do so
+    if (word.toString) {
+        word = word.toString();
+    } // if
+
+    // iterate through the string and test escape special characters
+    for (var ii = 0; ii < word.length; ii++) {
+        testString += (! (/\w/).test(word[ii])) ? "\\" + word[ii] : word[ii];
+    } // for
+    
+    var regex = new RegExp("(^|\\s|\\,)" + testString + "(\\,|\\s|$)", "i");
+    
+    return regex.test(this);
+};
+
+Number.prototype.toRad = function() {  // convert degrees to radians 
+  return this * Math.PI / 180; 
+}; // 
 
 // include the secant method for Number
 // code from the excellent number extensions library:
 // http://safalra.com/web-design/javascript/number-object-extensions/
-if (! Number.sec) {
-    Number.prototype.sec =
-        function(){
-          return 1 / Math.cos(this);
-        };
-} // if
+Number.prototype.sec = function() {
+  return 1 / Math.cos(this);
+};
 
 /** @namespace */
 GRUNT = (function() {
@@ -2735,6 +2748,8 @@ SLICK.Dispatcher = (function() {
             // find the requested action
             var action = module.findAction(actionId);
             
+            GRUNT.Log.info("looking for action id: " + actionId + ", found: " + action);
+            
             // if we found the action then execute it
             if (action) {
                 // get the trailing arguments from the call
@@ -2820,6 +2835,7 @@ SLICK.Dispatcher = (function() {
             params = GRUNT.extend({
                 name: "Untitled",
                 trashOrphanedResults: true,
+                translator: null,
                 execute: null
             }, params);
             
@@ -2846,13 +2862,14 @@ SLICK.Dispatcher = (function() {
                         lastRunTicks = SLICK.Clock.getTime(true);
                         
                         // save the run instance ticks to a local variable so we can check it in the callback
-                        var runInstanceTicks = lastRunTicks;
+                        var runInstanceTicks = lastRunTicks,
+                            searchArgs = params.translator ? params.translator(args) : args;
                         
                         // execute the agent
-                        params.execute.call(this, args, function(data, agentParams) {
+                        params.execute.call(self, searchArgs, function(data, agentParams) {
                             if ((! params.trashOrphanedResults) || (runInstanceTicks == lastRunTicks)) {
                                 if (callback) {
-                                    callback(data, agentParams);
+                                    callback(data, agentParams, searchArgs);
                                 } // if
                             } // if
                         });
@@ -3393,7 +3410,6 @@ SLICK.Graphics = (function() {
         // some precanned display states
         AnyDisplayState: 255,
         ActiveDisplayStates: DISPLAY_STATE.ACTIVE | DISPLAY_STATE.ANIMATING,
-        InteractiveDisplayStates: DISPLAY_STATE.ACTIVE | DISPLAY_STATE.ANIMATING | DISPLAY_STATE.PAN | DISPLAY_STATE.PINCHZOOM,
         
         ViewLayer: function(params) {
             params = GRUNT.extend({
@@ -3402,7 +3418,7 @@ SLICK.Graphics = (function() {
                 centerOnScale: true,
                 zindex: 0,
                 checkOK: null,
-                validStates: module.InteractiveDisplayStates
+                validStates: module.ActiveDisplayStates | DISPLAY_STATE.PAN | DISPLAY_STATE.PINCHZOOM
             }, params);
             
             var changeListeners = [];
@@ -3508,7 +3524,7 @@ SLICK.Graphics = (function() {
                 id: GRUNT.generateObjectID("pathAnimation"),
                 easing: SLICK.Animation.Easing.Sine.InOut,
                 canCache: false,
-                validStates: module.InteractiveDisplayStates,
+                validStates: module.ActiveDisplayStates | DISPLAY_STATE.PAN,
                 drawIndicator: null,
                 duration: 2000
             }, params);
@@ -3645,7 +3661,6 @@ SLICK.Graphics = (function() {
                     canvas.height = window.innerHeight - canvas.offsetTop - 49;
                     canvas.width = window.innerWidth - canvas.offsetLeft;
                 } // if
-                
                 
                 try {
                     mainContext = canvas.getContext('2d');
@@ -4499,7 +4514,7 @@ SLICK.Tiling = (function() {
                 strokeStyle: "rgb(180, 180, 180)",
                 zindex: -1,
                 draw: drawTileBackground,
-                validStates: SLICK.Graphics.InteractiveDisplayStates
+                validStates: SLICK.Graphics.ActiveDisplayStates | SLICK.Graphics.DisplayState.PAN | SLICK.Graphics.DisplayState.PINCHZOOM
             });
             
             var gridSection = document.createElement('canvas');
@@ -5018,6 +5033,22 @@ SLICK.Geo = (function() {
         0.488332580888611
     ];
     
+    var REGEX_NUMBERRANGE = /(\d+)\s?\-\s?(\d+)/,
+        REGEX_BUILDINGNO = /^(\d+).*$/,
+        ROADTYPE_REGEX = null,
+        // TODO: I think these need to move to the provider level..
+        ROADTYPE_REPLACEMENTS = {
+            RD: "ROAD",
+            ST: "STREET",
+            CR: "CRESCENT",
+            CRES: "CRESCENT",
+            CT: "COURT",
+            LN: "LANE",
+            HWY: "HIGHWAY",
+            MWY: "MOTORWAY"
+        };
+    
+    
     // define the engines array
     var engines = {};
     
@@ -5040,6 +5071,37 @@ SLICK.Geo = (function() {
 
         return matchingEngine;
     } // findEngine
+    
+    /**
+    This function is used to determine the match weight between a freeform geocoding
+    request and it's structured response.
+    */
+    function plainTextAddressMatch(request, response, compareFns, fieldWeights) {
+        var matchWeight = 0;
+        
+        // uppercase the request for comparisons
+        request = request.toUpperCase();
+        
+        // GRUNT.Log.info("CALCULATING MATCH WEIGHT FOR [" + request + "] = [" + response + "]");
+        
+        // iterate through the field weights
+        for (var fieldId in fieldWeights) {
+            // get the field value
+            var fieldVal = response[fieldId];
+
+            // if we have the field value, and it exists in the request address, then add the weight
+            if (fieldVal) {
+                // get the field comparison function
+                var compareFn = compareFns[fieldId],
+                    matchStrength = compareFn ? compareFn(request, fieldVal) : (request.containsWord(fieldVal) ? 1 : 0);
+
+                // increment the match weight
+                matchWeight += (matchStrength * fieldWeights[fieldId]);
+            } // if
+        } // for
+        
+        return matchWeight;
+    } // plainTextAddressMatch
     
     // define the module
     var module = {
@@ -5323,7 +5385,7 @@ SLICK.Geo = (function() {
             }, params);
             
             // define self
-            var self = {
+            var self = GRUNT.extend(params, {
                 getPos: function() {
                     return params.pos;
                 },
@@ -5331,16 +5393,17 @@ SLICK.Geo = (function() {
                 toString: function() {
                     return params.streetDetails + " " + params.location;
                 }
-            };
+            });
             
             return self;
         },
         
-        /**
-        A landmark is a specialized type of address, something like a park, airport, etc
-        */
-        Landmark: function(params) {
-            
+        GeocodeFieldWeights: {
+            streetDetails: 50,
+            location: 50
+        },
+        
+        AddressCompareFns: {
         },
         
         /* utilities */
@@ -5418,18 +5481,55 @@ SLICK.Geo = (function() {
             return self;
         })(), // Utilitities
         
+        GeoSearchResult: function(params) {
+            params = GRUNT.extend({
+                caption: "",
+                resultType: "",
+                data: null,
+                pos: null,
+                matchWeight: 0
+            }, params);
+            
+            return GRUNT.extend(params, {
+                toString: function() {
+                    return params.caption + (params.matchWeight ? " (" + params.matchWeight + ")" : "");
+                }
+            });
+        },
+        
+        GeoSearchAgent: function(params) {
+            params = GRUNT.extend({
+            }, params);
+
+            // initialise self
+            var self = GRUNT.extend({
+                
+            }, SLICK.Dispatcher.createAgent(params));
+            
+            return self;
+        },
+        
         GeocodingAgent: function(params) {
+            
+            function rankResults(searchParams, results) {
+                // if freeform parameters then rank
+                if (searchParams.freeform) {
+                    results = module.rankGeocodeResponses(searchParams.freeform, results, module.getEngine("geocode"));
+                } // if
+                // TODO: rank structured results
+                else {
+                    
+                }
+
+                return results;
+            } // rankResults
+            
             // extend parameters with defaults
             params = GRUNT.extend({
                 name: "Geocoding Search Agent",
                 paramTranslator: null,
                 execute: function(searchParams, callback) {
                     try {
-                        // if we have a param translator, then call that on the search params
-                        if (params.paramTranslator) {
-                            searchParams = params.paramTranslator(searchParams);
-                        } // if
-                    
                         // check for a freeform request
                         if ((! searchParams.reverse) && (! searchParams.freeform)) {
                             address = new module.Address(searchParams);
@@ -5442,7 +5542,7 @@ SLICK.Geo = (function() {
                                 addresses: [searchParams.freeform ? searchParams.freeform : address],
                                 complete: function(requestAddress, possibleMatches) {
                                     if (callback) {
-                                        callback(possibleMatches, params);
+                                        callback(rankResults(searchParams, possibleMatches), params);
                                     } // if
                                 }
                             });
@@ -5454,7 +5554,9 @@ SLICK.Geo = (function() {
                 }
             }, params);
             
-            return SLICK.Dispatcher.createAgent(params);
+            var self = new module.GeoSearchAgent(params);
+            
+            return self;
         },
         
         /* Point of Interest Objects */
@@ -5754,7 +5856,8 @@ SLICK.Geo = (function() {
         },
         
         getBoundsForPositions: function(positions, padding) {
-            var bounds = null;
+            var bounds = null,
+                startTicks = SLICK.Clock.getTime();
                 
             // if padding is not specified, then set to auto
             if (! padding) {
@@ -5787,13 +5890,131 @@ SLICK.Geo = (function() {
                 
                 bounds.expand(padding);
             } // if
+            
+            GRUNT.Log.info("bounds calculated in " + (SLICK.Clock.getTime() - startTicks) + " ms");
 
             return bounds;
+        },
+        
+        /**
+        The normalizeAddress function is used to take an address that could be in a variety of formats
+        and normalize as many details as possible.  Text is uppercased, road types are replaced, etc.
+        */
+        normalizeAddress: function(addressText) {
+            if (! addressText) { return ""; }
+            
+            addressText = addressText.toUpperCase();
+            
+            // if the road type regular expression has not been initialised, then do that now
+            if (! ROADTYPE_REGEX) {
+                var abbreviations = [];
+                for (var roadTypes in ROADTYPE_REPLACEMENTS) {
+                    abbreviations.push(roadTypes);
+                } // for
+                
+                ROADTYPE_REGEX = new RegExp("(\\s)(" + abbreviations.join("|") + ")(\\s|$)", "i");
+            } // if
+            
+            // run the road type normalizations
+            ROADTYPE_REGEX.lastIndex = -1;
+            
+            // get the matches for the regex
+            var matches = ROADTYPE_REGEX.exec(addressText);
+            if (matches) {
+                // get the replacement road type
+                var normalizedRoadType = ROADTYPE_REPLACEMENTS[matches[2]];
+                addressText = addressText.replace(ROADTYPE_REGEX, "$1" + normalizedRoadType);
+            } // if
+
+            return addressText;
+        },
+        
+        buildingMatch: function(freeform, numberRange, name) {
+            // from the freeform address extract the building number
+            REGEX_BUILDINGNO.lastIndex = -1;
+            if (REGEX_BUILDINGNO.test(freeform)) {
+                var buildingNo = freeform.replace(REGEX_BUILDINGNO, "$1");
+                
+                // split up the number range
+                var numberRanges = numberRange.split(",");
+                for (var ii = 0; ii < numberRanges.length; ii++) {
+                    REGEX_NUMBERRANGE.lastIndex = -1;
+                    if (REGEX_NUMBERRANGE.test(numberRanges[ii])) {
+                        var matches = REGEX_NUMBERRANGE.exec(numberRanges[ii]);
+                        if ((buildingNo >= parseInt(matches[1], 10)) && (buildingNo <= parseInt(matches[2], 10))) {
+                            return true;
+                        } // if
+                    }
+                    else if (buildingNo == numberRanges[ii]) {
+                        return true;
+                    } // if..else
+                } // for
+            } // if
+            
+            return false;
+        },
+        
+        rankGeocodeResponses: function(requestAddress, responseAddresses, engine) {
+            var matches = [],
+                compareFns = module.AddressCompareFns;
+                
+            // if the engine is specified and the engine has compare fns, then extend them
+            if (engine && engine.compareFns) {
+                compareFns = GRUNT.extend({}, compareFns, engine.compareFns);
+            } // if
+            
+            // iterate through the response addresses and compare against the request address
+            for (var ii = 0; ii < responseAddresses.length; ii++) {
+                matches.push(new module.GeoSearchResult({
+                    caption: responseAddresses[ii].toString(),
+                    data: responseAddresses[ii],
+                    pos: responseAddresses[ii].pos,
+                    matchWeight: plainTextAddressMatch(requestAddress, responseAddresses[ii], compareFns, module.GeocodeFieldWeights)
+                }));
+            } // for
+            
+            // TODO: sort the matches
+            matches.sort(function(itemA, itemB) {
+                return itemB.matchWeight - itemA.matchWeight;
+            });
+            
+            return matches;
         }
     }; // module
     
     return module;
-})();SLICK.Mapping = (function() {
+})();SLICK.Geo.Search = (function() {
+    var DEFAULT_MAXDIFF = 20;
+    
+    var module = {
+        bestResults: function(searchResults, maxDifference) {
+            // if the threshold is not defined, use the default 
+            if (! maxDifference) {
+                maxDifference = DEFAULT_MAXDIFF;
+            }
+            
+            // initialise variables
+            var bestMatch = searchResults.length > 0 ? searchResults[0] : null,
+                fnresult = [];
+                
+            // iterate through the search results and cull those that are 
+            for (var ii = 0; ii < searchResults.length; ii++) {
+                if (bestMatch.matchWeight - searchResults[ii].matchWeight <= maxDifference) {
+                    fnresult.push(searchResults[ii]);
+                }
+                else {
+                    break;
+                } // if..else
+            } // for
+            
+            return fnresult;
+        }
+    };
+    
+    return module;
+})();
+
+SLICK.Mapping = (function() {
     var lastAnnotationTween = null,
         lastAnnotationTweenTicks = null;
     
@@ -6212,7 +6433,7 @@ SLICK.Geo = (function() {
                 pois: null,
                 map: null,
                 createAnnotationForPOI: null,
-                validStates: SLICK.Graphics.AnyDisplayState
+                validStates: SLICK.Graphics.ActiveDisplayStates | SLICK.Graphics.DisplayState.PAN | SLICK.Graphics.DisplayState.GENCACHE
             }, params);
             
             var annotations = [],
@@ -6340,18 +6561,24 @@ SLICK.Geo = (function() {
                 tapExtent: 10,
                 provider: null,
                 crosshair: false,
+                copyright: undefined,
                 zoomLevel: 0,
                 boundsChange: null,
                 boundsChangeThreshold: 30,
                 pois: new SLICK.Geo.POIStorage(),
                 createAnnotationForPOI: null
             }, params);
+            
+            // if the copyright message is not defined, then use the provider
+            if (typeof(params.copyright) === 'undefined') {
+                params.copyright = params.provider ? params.provider.getCopyright() : "";
+            } // if
 
             // initialise variables
             var current_position = null,
                 lastBoundsChangeOffset = new SLICK.Vector(),
                 centerPos = null,
-                copyrightMessage = params.provider ? params.provider.getCopyright() : "";
+                copyrightMessage = params.copyright;
             var initialized = false;
             var zoomLevel = params.zoomLevel;
 
@@ -6489,11 +6716,14 @@ SLICK.Geo = (function() {
                 } 
                 // looks like we have a global event
                 else {
-                    self.eachLayer(function(checkLayer) {
-                        if (checkLayer.calcCoordinates) {
-                            checkLayer.calcCoordinates(self.getTileLayer());
-                        } // if                            
-                    });
+                    var grid = self.getTileLayer();
+                    if (grid) {
+                        self.eachLayer(function(checkLayer) {
+                            if (checkLayer.calcCoordinates) {
+                                checkLayer.calcCoordinates(grid);
+                            } // if                            
+                        });
+                    } // if
                 }
             });
             
@@ -6718,23 +6948,6 @@ Define functionality to enable routing for mapping
 */
 SLICK.Geo.Routing = (function() {
     
-    function createRouteOverlay(map, routeData) {
-        // get the map dimensions
-        var dimensions = map.getDimensions();
-        
-        // GRUNT.Log.info("creating route overlay with route data: ", routeData);
-        
-        // create a new route overlay for the specified data
-        var overlay = new SLICK.Mapping.RouteOverlay({
-            data: routeData,
-            width: dimensions.width,
-            height: dimensions.height
-        });
-        
-        // add the overlay to the map
-        map.setLayer("route", overlay);
-    } // createRouteOverlay
-    
     // define the module
     var module = {
         /* module functions */
@@ -6758,7 +6971,7 @@ SLICK.Geo.Routing = (function() {
                     // firstly, if we have a map defined, then let's place the route on the map
                     // you know, just because we are nice like that
                     if (args.map) {
-                        createRouteOverlay(args.map, routeData);
+                        module.createRouteOverlay(args.map, routeData);
                         
                         // if we are to auto fit the map to the bounds, then do that now
                         if (args.autoFit) {
@@ -6773,6 +6986,23 @@ SLICK.Geo.Routing = (function() {
                     } // if
                 });
             } // if
+        },
+        
+        createMapOverlay: function(map, routeData) {
+            // get the map dimensions
+            var dimensions = map.getDimensions();
+
+            // GRUNT.Log.info("creating route overlay with route data: ", routeData);
+
+            // create a new route overlay for the specified data
+            var overlay = new SLICK.Mapping.RouteOverlay({
+                data: routeData,
+                width: dimensions.width,
+                height: dimensions.height
+            });
+
+            // add the overlay to the map
+            map.setLayer("route", overlay);
         },
         
         Maneuver: {
@@ -6809,13 +7039,9 @@ SLICK.Geo.Routing = (function() {
             }, params);
             
             // initialise self
-            var self = {
-                position: params.position,
+            var self = GRUNT.extend(params, {
                 
-                getDescription: function() {
-                    return params.description;
-                }
-            };
+            });
             
             return self;
         },

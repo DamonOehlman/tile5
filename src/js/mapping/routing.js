@@ -5,23 +5,6 @@ Define functionality to enable routing for mapping
 */
 SLICK.Geo.Routing = (function() {
     
-    function createRouteOverlay(map, routeData) {
-        // get the map dimensions
-        var dimensions = map.getDimensions();
-        
-        // GRUNT.Log.info("creating route overlay with route data: ", routeData);
-        
-        // create a new route overlay for the specified data
-        var overlay = new SLICK.Mapping.RouteOverlay({
-            data: routeData,
-            width: dimensions.width,
-            height: dimensions.height
-        });
-        
-        // add the overlay to the map
-        map.setLayer("route", overlay);
-    } // createRouteOverlay
-    
     // define the module
     var module = {
         /* module functions */
@@ -45,7 +28,7 @@ SLICK.Geo.Routing = (function() {
                     // firstly, if we have a map defined, then let's place the route on the map
                     // you know, just because we are nice like that
                     if (args.map) {
-                        createRouteOverlay(args.map, routeData);
+                        module.createRouteOverlay(args.map, routeData);
                         
                         // if we are to auto fit the map to the bounds, then do that now
                         if (args.autoFit) {
@@ -60,6 +43,23 @@ SLICK.Geo.Routing = (function() {
                     } // if
                 });
             } // if
+        },
+        
+        createMapOverlay: function(map, routeData) {
+            // get the map dimensions
+            var dimensions = map.getDimensions();
+
+            // GRUNT.Log.info("creating route overlay with route data: ", routeData);
+
+            // create a new route overlay for the specified data
+            var overlay = new SLICK.Mapping.RouteOverlay({
+                data: routeData,
+                width: dimensions.width,
+                height: dimensions.height
+            });
+
+            // add the overlay to the map
+            map.setLayer("route", overlay);
         },
         
         Maneuver: {
@@ -96,13 +96,9 @@ SLICK.Geo.Routing = (function() {
             }, params);
             
             // initialise self
-            var self = {
-                position: params.position,
+            var self = GRUNT.extend(params, {
                 
-                getDescription: function() {
-                    return params.description;
-                }
-            };
+            });
             
             return self;
         },

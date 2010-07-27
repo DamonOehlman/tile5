@@ -62,7 +62,8 @@ SLICK.Geo.Decarta = (function() {
                     
                     // if we have a freeform address, then simply add the freeform address request
                     if (params.freeform) {
-                        addressXml += "<xls:freeFormAddress>" + params.freeform + "</xls:freeFormAddress>";
+                        var addressText = String(params.freeform).replace(/(\'|\")/, "\\$1");
+                        addressXml += "<xls:freeFormAddress>" + addressText + "</xls:freeFormAddress>";
                     }
                     // otherwise, add the structured address request
                     else {
@@ -88,6 +89,36 @@ SLICK.Geo.Decarta = (function() {
             
             // initialise self (including params in self)
             var self = {
+                calcMatchPercentage: function(input) {
+                    var fnresult = 0;
+                    
+                    // if this place is a landmark and the subtype is in the request
+                    // then process as a landmark
+                    if (params.landmark && params.landmarkSubType) {
+                        // if we found the landmark subtype
+                        if (input.containsWord(params.landmarkSubType)) {
+                            fnresult += 0.4;
+                            
+                            // add another 0.5 if we find the name
+                            fnresult += input.containsWord(params.landmark) ? 0.6 : 0;
+                        } // if
+                    }
+                    else {
+                        fnresult += input.containsWord(params.municipalitySubdivision) ? 0.8 : 0;
+                        
+                        if ((fnresult === 0) && params.municipality) {
+                            fnresult += input.containsWord(params.municipality) ? 0.7 : 0;
+                        } // if
+                    } // if..else
+                    
+                    // check for the country subdivision
+                    if (params.countrySubdivision) {
+                        fnresult += input.containsWord(params.countrySubdivision) ? 0.2 : 0;
+                    } // if
+                    
+                    return fnresult;
+                },
+                
                 getCountryCode: function() {
                     if (params.countryCode) {
                         return params.countryCode.toUpperCase();
@@ -137,14 +168,34 @@ SLICK.Geo.Decarta = (function() {
                 json: {}
             }, params);
             
+            // initialise variables
+            var street = params.json.Street ? params.json.Street : "";
+            
+            // strip any trailing highway specifiers from the street
+            street = street.replace(/\/\d+$/, "");
+            
             return {
-                toString: function() {
-                    var fnresult = "";
-                    
-                    if (params.json.Street) {
-                        fnresult = params.json.Street;
+                calcMatchPercentage: function(input) {
+                    var fnresult = 0,
+                        test1 = SLICK.Geo.normalizeAddress(input), 
+                        test2 = SLICK.Geo.normalizeAddress(street);
+                        
+                    if (params.json.Building) {
+                        if (SLICK.Geo.buildingMatch(input, params.json.Building.number.toString())) {
+                            fnresult += 0.2;
+                        } // if
+                    } // if
+                        
+                    if (test1 && test2 && test1.containsWord(test2)) {
+                        fnresult += 0.8;
                     } // if
 
+                    return fnresult;
+                },
+                
+                toString: function() {
+                    var fnresult = street;
+                    
                     if (params.json.Building) {
                         // TODO: suspect name will be involved here possibly also
                         if (params.json.Building.number) {
@@ -428,8 +479,8 @@ SLICK.Geo.Decarta = (function() {
             
             function parseAddress(address, position) {
                 var streetDetails = new types.Street({
-                    json: address.StreetAddress
-                });
+                        json: address.StreetAddress
+                    });
                 
                 var placeDetails = new types.Place({
                     countryCode: address.countryCode
@@ -438,33 +489,37 @@ SLICK.Geo.Decarta = (function() {
                 // parse the place details
                 placeDetails.parse(address.Place);
                 
-                if (placeDetails.landmark) {
-                    GRUNT.Log.info("FOUND A LANDMARK: " + placeDetails.landmark + ", " + placeDetails.landmarkSubType);
-                }
-                
-                // create the new address
-                return new SLICK.Geo.Address({
-                    streetDetails: streetDetails.toString(),
-                    location: placeDetails.toString(),
+                // initialise the address params
+                var addressParams = {
+                    streetDetails: streetDetails,
+                    location: placeDetails,
                     country: address.countryCode ? address.countryCode : "",
                     postalCode: address.PostalCode ? address.PostalCode : "",
                     pos: position
-                });
+                };
+                
+                return new SLICK.Geo.Address(addressParams);
             } // placeToAddress
+            
+            function validMatch(match) {
+                return match.GeocodeMatchCode && match.GeocodeMatchCode.matchType !== "NO_MATCH";
+            } // validMatch
             
             function parseMatchResult(match) {
                 var matchAddress = null;
                 var matchPos = null;
-                
-                // if the point is defined, then convert that to a position
-                if (match && match.Point) {
-                    matchPos = new SLICK.Geo.Position(match.Point.pos);
-                } // if
-                
-                // if we have the address then convert that to an address
-                if (match && match.Address) {
-                    matchAddress = parseAddress(match.Address, matchPos);
-                } // if
+
+                if (match && validMatch(match)) {
+                    // if the point is defined, then convert that to a position
+                    if (match && match.Point) {
+                        matchPos = new SLICK.Geo.Position(match.Point.pos);
+                    } // if
+
+                    // if we have the address then convert that to an address
+                    if (match && match.Address) {
+                        matchAddress = parseAddress(match.Address, matchPos);
+                    } // if
+                }
                 
                 return matchAddress;
             } // parseMatchResult
@@ -487,7 +542,10 @@ SLICK.Geo.Decarta = (function() {
                 try {
                     // iterate through the response list
                     for (var ii = 0; matchList && (ii < matchList.length); ii++) {
-                        addresses.push(parseMatchResult(matchList[ii]));
+                        var matchResult = parseMatchResult(matchList[ii]);
+                        if (matchResult) {
+                            addresses.push(matchResult);
+                        } // if
                     } // for
                 } 
                 catch (e) {
@@ -678,10 +736,16 @@ SLICK.Geo.Decarta = (function() {
             // initialise variables
             var ii, requestAddresses = [];
             
+            // coerce a simple value into an array...
+            if (args.addresses && (! GRUNT.isArray(args.addresses))) {
+                args.addresses = [args.addresses];
+            } // if
+            
             // iterate through the addresses supplied and issue geocoding requests for them
             for (ii = 0; ii < args.addresses.length; ii++) {
-                // if the element is a simple object, then treat as a structured geocode
+                // TODO: if the element is a simple object, then treat as a structured geocode
                 if (GRUNT.isPlainObject(args.addresses[ii])) {
+                    GRUNT.Log.warn("attempting to geocode a simple object - not implemented");
                 }
                 // else assume we are dealing with a free form routing request
                 else {
@@ -703,9 +767,11 @@ SLICK.Geo.Decarta = (function() {
                     if (args.complete) {
                         // iterate through the address matches, and fire the complete event for each
                         for (ii = 0; ii < geocodeResponses.length; ii++) {
+                            // fire the complete event
                             args.complete(args.addresses[ii], geocodeResponses[ii]);
                         } // for
                     } // if
+                    
                 });
             } // if
         },
@@ -837,7 +903,17 @@ SLICK.Geo.Decarta = (function() {
     new SLICK.Geo.Engine({
         id: "decarta",
         route: module.calculateRoute,
-        geocode: module.geocode
+        geocode: module.geocode,
+        compareFns: (function() {
+            return {
+                streetDetails: function(input, fieldVal) {
+                    return fieldVal.calcMatchPercentage(input);
+                },
+                location: function(input, fieldVal) {
+                    return fieldVal.calcMatchPercentage(input);
+                }
+            };
+        })()
     });
     
     return module;

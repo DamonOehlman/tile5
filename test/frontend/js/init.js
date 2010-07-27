@@ -6,12 +6,14 @@ window.addEventListener("load", function() {
         autoSize: (fullScreen ? true : false),
 
         // CURRENT RACQ SERVER
-        // provider: new SLICK.Geo.Decarta.MapProvider(),
+        provider: new SLICK.Geo.Decarta.MapProvider(),
 
         // CLOUDMADE CONFIG
+        /*
         provider: new SLICK.Geo.Cloudmade.MapProvider({
             apikey: "7960daaf55f84bfdb166014d0b9f8d41"
         }),
+        */
 
         panHandler: function(x, y) {
         },

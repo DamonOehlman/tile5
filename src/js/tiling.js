@@ -318,7 +318,7 @@ SLICK.Tiling = (function() {
                 strokeStyle: "rgb(180, 180, 180)",
                 zindex: -1,
                 draw: drawTileBackground,
-                validStates: SLICK.Graphics.InteractiveDisplayStates
+                validStates: SLICK.Graphics.ActiveDisplayStates | SLICK.Graphics.DisplayState.PAN | SLICK.Graphics.DisplayState.PINCHZOOM
             });
             
             var gridSection = document.createElement('canvas');

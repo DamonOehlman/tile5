@@ -15,6 +15,22 @@ SLICK.Geo = (function() {
         0.488332580888611
     ];
     
+    var REGEX_NUMBERRANGE = /(\d+)\s?\-\s?(\d+)/,
+        REGEX_BUILDINGNO = /^(\d+).*$/,
+        ROADTYPE_REGEX = null,
+        // TODO: I think these need to move to the provider level..
+        ROADTYPE_REPLACEMENTS = {
+            RD: "ROAD",
+            ST: "STREET",
+            CR: "CRESCENT",
+            CRES: "CRESCENT",
+            CT: "COURT",
+            LN: "LANE",
+            HWY: "HIGHWAY",
+            MWY: "MOTORWAY"
+        };
+    
+    
     // define the engines array
     var engines = {};
     
@@ -37,6 +53,37 @@ SLICK.Geo = (function() {
 
         return matchingEngine;
     } // findEngine
+    
+    /**
+    This function is used to determine the match weight between a freeform geocoding
+    request and it's structured response.
+    */
+    function plainTextAddressMatch(request, response, compareFns, fieldWeights) {
+        var matchWeight = 0;
+        
+        // uppercase the request for comparisons
+        request = request.toUpperCase();
+        
+        // GRUNT.Log.info("CALCULATING MATCH WEIGHT FOR [" + request + "] = [" + response + "]");
+        
+        // iterate through the field weights
+        for (var fieldId in fieldWeights) {
+            // get the field value
+            var fieldVal = response[fieldId];
+
+            // if we have the field value, and it exists in the request address, then add the weight
+            if (fieldVal) {
+                // get the field comparison function
+                var compareFn = compareFns[fieldId],
+                    matchStrength = compareFn ? compareFn(request, fieldVal) : (request.containsWord(fieldVal) ? 1 : 0);
+
+                // increment the match weight
+                matchWeight += (matchStrength * fieldWeights[fieldId]);
+            } // if
+        } // for
+        
+        return matchWeight;
+    } // plainTextAddressMatch
     
     // define the module
     var module = {
@@ -320,7 +367,7 @@ SLICK.Geo = (function() {
             }, params);
             
             // define self
-            var self = {
+            var self = GRUNT.extend(params, {
                 getPos: function() {
                     return params.pos;
                 },
@@ -328,16 +375,17 @@ SLICK.Geo = (function() {
                 toString: function() {
                     return params.streetDetails + " " + params.location;
                 }
-            };
+            });
             
             return self;
         },
         
-        /**
-        A landmark is a specialized type of address, something like a park, airport, etc
-        */
-        Landmark: function(params) {
-            
+        GeocodeFieldWeights: {
+            streetDetails: 50,
+            location: 50
+        },
+        
+        AddressCompareFns: {
         },
         
         /* utilities */
@@ -415,18 +463,55 @@ SLICK.Geo = (function() {
             return self;
         })(), // Utilitities
         
+        GeoSearchResult: function(params) {
+            params = GRUNT.extend({
+                caption: "",
+                resultType: "",
+                data: null,
+                pos: null,
+                matchWeight: 0
+            }, params);
+            
+            return GRUNT.extend(params, {
+                toString: function() {
+                    return params.caption + (params.matchWeight ? " (" + params.matchWeight + ")" : "");
+                }
+            });
+        },
+        
+        GeoSearchAgent: function(params) {
+            params = GRUNT.extend({
+            }, params);
+
+            // initialise self
+            var self = GRUNT.extend({
+                
+            }, SLICK.Dispatcher.createAgent(params));
+            
+            return self;
+        },
+        
         GeocodingAgent: function(params) {
+            
+            function rankResults(searchParams, results) {
+                // if freeform parameters then rank
+                if (searchParams.freeform) {
+                    results = module.rankGeocodeResponses(searchParams.freeform, results, module.getEngine("geocode"));
+                } // if
+                // TODO: rank structured results
+                else {
+                    
+                }
+
+                return results;
+            } // rankResults
+            
             // extend parameters with defaults
             params = GRUNT.extend({
                 name: "Geocoding Search Agent",
                 paramTranslator: null,
                 execute: function(searchParams, callback) {
                     try {
-                        // if we have a param translator, then call that on the search params
-                        if (params.paramTranslator) {
-                            searchParams = params.paramTranslator(searchParams);
-                        } // if
-                    
                         // check for a freeform request
                         if ((! searchParams.reverse) && (! searchParams.freeform)) {
                             address = new module.Address(searchParams);
@@ -439,7 +524,7 @@ SLICK.Geo = (function() {
                                 addresses: [searchParams.freeform ? searchParams.freeform : address],
                                 complete: function(requestAddress, possibleMatches) {
                                     if (callback) {
-                                        callback(possibleMatches, params);
+                                        callback(rankResults(searchParams, possibleMatches), params);
                                     } // if
                                 }
                             });
@@ -451,7 +536,9 @@ SLICK.Geo = (function() {
                 }
             }, params);
             
-            return SLICK.Dispatcher.createAgent(params);
+            var self = new module.GeoSearchAgent(params);
+            
+            return self;
         },
         
         /* Point of Interest Objects */
@@ -751,7 +838,8 @@ SLICK.Geo = (function() {
         },
         
         getBoundsForPositions: function(positions, padding) {
-            var bounds = null;
+            var bounds = null,
+                startTicks = SLICK.Clock.getTime();
                 
             // if padding is not specified, then set to auto
             if (! padding) {
@@ -784,8 +872,95 @@ SLICK.Geo = (function() {
                 
                 bounds.expand(padding);
             } // if
+            
+            GRUNT.Log.info("bounds calculated in " + (SLICK.Clock.getTime() - startTicks) + " ms");
 
             return bounds;
+        },
+        
+        /**
+        The normalizeAddress function is used to take an address that could be in a variety of formats
+        and normalize as many details as possible.  Text is uppercased, road types are replaced, etc.
+        */
+        normalizeAddress: function(addressText) {
+            if (! addressText) { return ""; }
+            
+            addressText = addressText.toUpperCase();
+            
+            // if the road type regular expression has not been initialised, then do that now
+            if (! ROADTYPE_REGEX) {
+                var abbreviations = [];
+                for (var roadTypes in ROADTYPE_REPLACEMENTS) {
+                    abbreviations.push(roadTypes);
+                } // for
+                
+                ROADTYPE_REGEX = new RegExp("(\\s)(" + abbreviations.join("|") + ")(\\s|$)", "i");
+            } // if
+            
+            // run the road type normalizations
+            ROADTYPE_REGEX.lastIndex = -1;
+            
+            // get the matches for the regex
+            var matches = ROADTYPE_REGEX.exec(addressText);
+            if (matches) {
+                // get the replacement road type
+                var normalizedRoadType = ROADTYPE_REPLACEMENTS[matches[2]];
+                addressText = addressText.replace(ROADTYPE_REGEX, "$1" + normalizedRoadType);
+            } // if
+
+            return addressText;
+        },
+        
+        buildingMatch: function(freeform, numberRange, name) {
+            // from the freeform address extract the building number
+            REGEX_BUILDINGNO.lastIndex = -1;
+            if (REGEX_BUILDINGNO.test(freeform)) {
+                var buildingNo = freeform.replace(REGEX_BUILDINGNO, "$1");
+                
+                // split up the number range
+                var numberRanges = numberRange.split(",");
+                for (var ii = 0; ii < numberRanges.length; ii++) {
+                    REGEX_NUMBERRANGE.lastIndex = -1;
+                    if (REGEX_NUMBERRANGE.test(numberRanges[ii])) {
+                        var matches = REGEX_NUMBERRANGE.exec(numberRanges[ii]);
+                        if ((buildingNo >= parseInt(matches[1], 10)) && (buildingNo <= parseInt(matches[2], 10))) {
+                            return true;
+                        } // if
+                    }
+                    else if (buildingNo == numberRanges[ii]) {
+                        return true;
+                    } // if..else
+                } // for
+            } // if
+            
+            return false;
+        },
+        
+        rankGeocodeResponses: function(requestAddress, responseAddresses, engine) {
+            var matches = [],
+                compareFns = module.AddressCompareFns;
+                
+            // if the engine is specified and the engine has compare fns, then extend them
+            if (engine && engine.compareFns) {
+                compareFns = GRUNT.extend({}, compareFns, engine.compareFns);
+            } // if
+            
+            // iterate through the response addresses and compare against the request address
+            for (var ii = 0; ii < responseAddresses.length; ii++) {
+                matches.push(new module.GeoSearchResult({
+                    caption: responseAddresses[ii].toString(),
+                    data: responseAddresses[ii],
+                    pos: responseAddresses[ii].pos,
+                    matchWeight: plainTextAddressMatch(requestAddress, responseAddresses[ii], compareFns, module.GeocodeFieldWeights)
+                }));
+            } // for
+            
+            // TODO: sort the matches
+            matches.sort(function(itemA, itemB) {
+                return itemB.matchWeight - itemA.matchWeight;
+            });
+            
+            return matches;
         }
     }; // module
     

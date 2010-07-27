@@ -67,7 +67,6 @@ SLICK.Graphics = (function() {
         // some precanned display states
         AnyDisplayState: 255,
         ActiveDisplayStates: DISPLAY_STATE.ACTIVE | DISPLAY_STATE.ANIMATING,
-        InteractiveDisplayStates: DISPLAY_STATE.ACTIVE | DISPLAY_STATE.ANIMATING | DISPLAY_STATE.PAN | DISPLAY_STATE.PINCHZOOM,
         
         ViewLayer: function(params) {
             params = GRUNT.extend({
@@ -76,7 +75,7 @@ SLICK.Graphics = (function() {
                 centerOnScale: true,
                 zindex: 0,
                 checkOK: null,
-                validStates: module.InteractiveDisplayStates
+                validStates: module.ActiveDisplayStates | DISPLAY_STATE.PAN | DISPLAY_STATE.PINCHZOOM
             }, params);
             
             var changeListeners = [];
@@ -182,7 +181,7 @@ SLICK.Graphics = (function() {
                 id: GRUNT.generateObjectID("pathAnimation"),
                 easing: SLICK.Animation.Easing.Sine.InOut,
                 canCache: false,
-                validStates: module.InteractiveDisplayStates,
+                validStates: module.ActiveDisplayStates | DISPLAY_STATE.PAN,
                 drawIndicator: null,
                 duration: 2000
             }, params);
@@ -319,7 +318,6 @@ SLICK.Graphics = (function() {
                     canvas.height = window.innerHeight - canvas.offsetTop - 49;
                     canvas.width = window.innerWidth - canvas.offsetLeft;
                 } // if
-                
                 
                 try {
                     mainContext = canvas.getContext('2d');

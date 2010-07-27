@@ -11,6 +11,8 @@ SLICK.Dispatcher = (function() {
             // find the requested action
             var action = module.findAction(actionId);
             
+            GRUNT.Log.info("looking for action id: " + actionId + ", found: " + action);
+            
             // if we found the action then execute it
             if (action) {
                 // get the trailing arguments from the call
@@ -96,6 +98,7 @@ SLICK.Dispatcher = (function() {
             params = GRUNT.extend({
                 name: "Untitled",
                 trashOrphanedResults: true,
+                translator: null,
                 execute: null
             }, params);
             
@@ -122,13 +125,14 @@ SLICK.Dispatcher = (function() {
                         lastRunTicks = SLICK.Clock.getTime(true);
                         
                         // save the run instance ticks to a local variable so we can check it in the callback
-                        var runInstanceTicks = lastRunTicks;
+                        var runInstanceTicks = lastRunTicks,
+                            searchArgs = params.translator ? params.translator(args) : args;
                         
                         // execute the agent
-                        params.execute.call(this, args, function(data, agentParams) {
+                        params.execute.call(self, searchArgs, function(data, agentParams) {
                             if ((! params.trashOrphanedResults) || (runInstanceTicks == lastRunTicks)) {
                                 if (callback) {
-                                    callback(data, agentParams);
+                                    callback(data, agentParams, searchArgs);
                                 } // if
                             } // if
                         });

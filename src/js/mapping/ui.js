@@ -417,7 +417,7 @@ SLICK.Mapping = (function() {
                 pois: null,
                 map: null,
                 createAnnotationForPOI: null,
-                validStates: SLICK.Graphics.AnyDisplayState
+                validStates: SLICK.Graphics.ActiveDisplayStates | SLICK.Graphics.DisplayState.PAN | SLICK.Graphics.DisplayState.GENCACHE
             }, params);
             
             var annotations = [],
@@ -545,18 +545,24 @@ SLICK.Mapping = (function() {
                 tapExtent: 10,
                 provider: null,
                 crosshair: false,
+                copyright: undefined,
                 zoomLevel: 0,
                 boundsChange: null,
                 boundsChangeThreshold: 30,
                 pois: new SLICK.Geo.POIStorage(),
                 createAnnotationForPOI: null
             }, params);
+            
+            // if the copyright message is not defined, then use the provider
+            if (typeof(params.copyright) === 'undefined') {
+                params.copyright = params.provider ? params.provider.getCopyright() : "";
+            } // if
 
             // initialise variables
             var current_position = null,
                 lastBoundsChangeOffset = new SLICK.Vector(),
                 centerPos = null,
-                copyrightMessage = params.provider ? params.provider.getCopyright() : "";
+                copyrightMessage = params.copyright;
             var initialized = false;
             var zoomLevel = params.zoomLevel;
 
@@ -694,11 +700,14 @@ SLICK.Mapping = (function() {
                 } 
                 // looks like we have a global event
                 else {
-                    self.eachLayer(function(checkLayer) {
-                        if (checkLayer.calcCoordinates) {
-                            checkLayer.calcCoordinates(self.getTileLayer());
-                        } // if                            
-                    });
+                    var grid = self.getTileLayer();
+                    if (grid) {
+                        self.eachLayer(function(checkLayer) {
+                            if (checkLayer.calcCoordinates) {
+                                checkLayer.calcCoordinates(grid);
+                            } // if                            
+                        });
+                    } // if
                 }
             });
             

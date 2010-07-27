@@ -9,7 +9,36 @@
 
 		<script type="text/javascript" src="../../dist/slick.js"></script>
 		<script type="text/javascript" src="../../dist/slick.openstreetmap.js"></script>
+		<script type="text/javascript" src="../../dist/slick.decarta.js"></script>
 		<script type="text/javascript" src="../../dist/tests.slick.js"></script>
+		<script type="text/javascript">
+		// initialise full screen state
+		var fullScreen = false;
+		
+		/*
+		// initialise the decarta config
+		SLICK.Geo.Decarta.applyConfig({
+	        server: "http://ws.decarta.com/openls",
+	        clientName: "racq-do",
+	        clientPassword: "mz5ff3",
+	        configuration: "old-english-tile", 
+	        geocoding: {
+	            countryCode: "US",
+	            language: "EN"
+	        }
+	    });
+		*/
+	    SLICK.Geo.Decarta.applyConfig({
+	        server: "http://bne3-0236d.server-web.com/openls",
+	        clientName: "RACQ:development",
+	        clientPassword: "49sbn7",
+	        configuration: "AustraliaV13", 
+	        geocoding: {
+	            countryCode: "AU",
+	            language: "EN"
+	        }
+	    });
+		</script>
 		<script type="text/javascript" src="js/init.js"></script>
 	</head>
 	<body>
