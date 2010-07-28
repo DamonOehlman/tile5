@@ -550,6 +550,7 @@ SLICK.Mapping = (function() {
                 boundsChange: null,
                 boundsChangeThreshold: 30,
                 pois: new SLICK.Geo.POIStorage(),
+                freezeOnScale: true,
                 createAnnotationForPOI: null
             }, params);
             
@@ -562,9 +563,9 @@ SLICK.Mapping = (function() {
             var current_position = null,
                 lastBoundsChangeOffset = new SLICK.Vector(),
                 centerPos = null,
-                copyrightMessage = params.copyright;
-            var initialized = false;
-            var zoomLevel = params.zoomLevel;
+                copyrightMessage = params.copyright,
+                initialized = false,
+                zoomLevel = params.zoomLevel;
 
             // if the data provider has not been created, then create a default one
             if (! params.provider) {
@@ -572,9 +573,8 @@ SLICK.Mapping = (function() {
             } // if
 
             // if we have a pan handler in the args, then save it as we are going to insert our own
-            var caller_pan_handler = params.panHandler;
-            var caller_tap_handler = params.tapHandler;
-            var pins = {};
+            var caller_pan_handler = params.panHandler,
+                caller_tap_handler = params.tapHandler;
 
             function updateCenterPos(xy) {
                 // if the xy position is not specified, then get the middle of the map
@@ -654,21 +654,6 @@ SLICK.Mapping = (function() {
                 self.gotoPosition(centerPos, zoomLevel + Math.round(zoomChange));
             }; // zoomHandler
 
-            params.onDraw = function(drawArgs) {
-                // get the offset
-                var grid = self.getTileLayer();
-
-                // draw each of the pins
-                for (var pin_id in pins) {
-                    if (pins[pin_id] && grid) {
-                        // get the offset for the position
-                        // TODO: optimize this (eg. var xy = self.gridPixToViewPix(pins[pin_id].mercXY);)
-                        var xy = self.gridPixToViewPix(grid.getGridXYForPosition(pins[pin_id].poi.pos));
-                        pins[pin_id].drawToContext(drawArgs.context, xy.x, xy.y);
-                    } // if
-                } // for
-            }; // onDraw
-            
             // create the base tiler
             var parent = new SLICK.Tiling.Tiler(params);
             
@@ -694,7 +679,9 @@ SLICK.Mapping = (function() {
                         }
                         // otherwise if the event is load, then recalc position information, and unfreeze the display
                         else if (eventType == "load") {
-                            self.setDisplayStatus(SLICK.Graphics.DisplayState.ACTIVE);
+                            if (self.getDisplayStatus() === SLICK.Graphics.DisplayState.FROZEN) {
+                                self.unfreeze();
+                            } // if
                         } // if
                     } // if
                 } 
@@ -767,19 +754,20 @@ SLICK.Mapping = (function() {
                         // if the map is initialise, then pan to the specified position
                         if (initialized) {
                             // flag the route and poi layers as frozen
-                            self.setDisplayStatus(SLICK.Graphics.DisplayState.FROZEN);
+                            self.freeze();
 
-                            self.panToPosition(position);
+                            // self.panToPosition(position);
                             self.newTileLayer();
                         } // if
 
                         // update the provider zoom level
                         params.provider.zoomLevel = zoomLevel;
-                        params.provider.getMapTiles(self, position, function(tile_grid) {
-                            self.setTileLayer(tile_grid);
+                        params.provider.getMapTiles(self, position, function(tileGrid) {
+                            self.setTileLayer(tileGrid);
                             self.panToPosition(position, callback);
 
                             centerPos = position;
+                            self.unfreeze();
                         });
 
                         initialized = true;
@@ -832,30 +820,6 @@ SLICK.Mapping = (function() {
                     self.setZoomLevel(zoomLevel - 1);
                 },
 
-                /* poi methods */
-
-                addPOI: function(poi) {
-                    var grid = self.getTileLayer();
-
-                    if (grid && poi && poi.id && poi.pos) {
-                        // create the pin
-                        pins[poi.id] = new SLICK.Geo.POIPin({
-                            poi: poi
-                            // mercXY: grid.getGridXYForPosition(poi.pos)
-                        });
-                    }
-                    else {
-                        throw new Error("Unable to add POI: " + (grid ? "Insufficient POI details" : "Mapping Grid not defined"));
-                    }
-                },
-
-                removePOI: function(poi) {
-                    // GRUNT.Log.info("removing poi: " + poi);
-                    if (poi && poi.id) {
-                        pins[poi.id] = null;
-                    } // if
-                }, 
-                
                 /* route methods */
                 
                 animateRoute: function(easingFn, duration, drawCallback) {

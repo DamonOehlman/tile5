@@ -318,7 +318,7 @@ SLICK.Tiling = (function() {
                 strokeStyle: "rgb(180, 180, 180)",
                 zindex: -1,
                 draw: drawTileBackground,
-                validStates: SLICK.Graphics.ActiveDisplayStates | SLICK.Graphics.DisplayState.PAN | SLICK.Graphics.DisplayState.PINCHZOOM
+                validStates: SLICK.Graphics.ActiveDisplayStates | SLICK.Graphics.DisplayState.PAN
             });
             
             var gridSection = document.createElement('canvas');
@@ -357,14 +357,9 @@ SLICK.Tiling = (function() {
                 // if the section is not drawn, then draw it
                 // TODO: optimize this - currently due to moving we need to draw it every time...
                 drawSection(drawArgs);
-                
-                // if the scale factor is not equal to 1, then scale the context
-                if (drawArgs.scaleFactor !== 1) {
-                    gridPattern = drawArgs.context.createPattern(SLICK.Graphics.scaleCanvas(gridSection, drawArgs.scaleFactor), 'repeat');
-                }
-                else {
-                    gridPattern = drawArgs.context.createPattern(gridSection, 'repeat');
-                } // if..else
+
+                // create the grid pattern
+                gridPattern = drawArgs.context.createPattern(gridSection, 'repeat');
                 
                 drawArgs.context.fillStyle = gridPattern;
                 drawArgs.context.fillRect(0, 0, drawArgs.dimensions.width, drawArgs.dimensions.height);
@@ -780,11 +775,13 @@ SLICK.Tiling = (function() {
             // initialise self
             GRUNT.extend(self, {
                 newTileLayer: function() {
+                    /*
                     // queue the current grid layer for deletion
                     self.removeLayer("grid" + gridIndex);
                     
                     // increment the grid index
                     gridIndex++;
+                    */
                 },
                 
                 getTileLayer: function() {
