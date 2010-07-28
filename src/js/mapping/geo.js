@@ -465,6 +465,7 @@ SLICK.Geo = (function() {
         
         GeoSearchResult: function(params) {
             params = GRUNT.extend({
+                id: null,
                 caption: "",
                 resultType: "",
                 data: null,
@@ -633,6 +634,13 @@ SLICK.Geo = (function() {
                 
                 return matchingPOIs;
             } // poiGrabber
+            
+            function triggerUpdate() {
+                GRUNT.WaterCooler.say("geo.pois-updated", {
+                    srcID: self.id,
+                    pois: self.getPOIs()
+                });
+            } // triggerUpdate
 
             // initialise self
             var self = {
@@ -695,6 +703,13 @@ SLICK.Geo = (function() {
                     } // for
                 },
                 
+                removeGroup: function(group) {
+                    if (storageGroups[group]) {
+                        delete storageGroups[group];
+                        triggerUpdate();
+                    } // if
+                },
+                
                 update: function(refreshedPOIs) {
                     // initialise arrays to receive the pois
                     var newPOIs = [],
@@ -742,10 +757,7 @@ SLICK.Geo = (function() {
                     
                     // if we have made updates, then fire the geo pois updated event
                     if (newPOIs.length + deletedPOIs.length > 0) {
-                        GRUNT.WaterCooler.say("geo.pois-updated", {
-                            srcID: self.id,
-                            pois: self.getPOIs()
-                        });
+                        triggerUpdate();
                     } // if
                 }
             };

@@ -375,10 +375,10 @@ SLICK.Tiling = (function() {
                 tileSize: SLICK.Tiling.Config.TILESIZE,
                 drawGrid: false,
                 center: new SLICK.Vector(),
-                beginDraw: checkTileQueue,
                 draw: drawTiles,
                 checkOK: checkShiftDelta,
                 shiftOrigin: null,
+                checkChange: 100,
                 validStates: SLICK.Graphics.DisplayState.GENCACHE
             }, params);
             
@@ -389,6 +389,7 @@ SLICK.Tiling = (function() {
                 loadedTileCount = 0,
                 lastOffset = null,
                 tileDrawQueue = [],
+                lastCheckOffset = new SLICK.Vector(),
                 refreshQueue = false,
                 shiftDelta = new SLICK.Vector(),
                 reloadTimeout = 0,
@@ -520,12 +521,6 @@ SLICK.Tiling = (function() {
                 tileDrawQueue = spiralQueue.reverse();
             } // spiralizeQueue
             
-            function checkTileQueue(drawArgs) {
-                if (drawArgs.offsetChanged || drawArgs.dimensionsChanged) {
-                    updateDrawQueue(drawArgs);
-                } // if
-            }
-            
             function drawTiles(drawArgs) {
                 // grow the dimensions, and tweak the offset by a centered amount
                 // dimensions.grow(params.bufferSize, params.bufferSize);
@@ -535,9 +530,7 @@ SLICK.Tiling = (function() {
                 // initialise variables
                 var tileShift = tileStore.getTileShift();
                 
-                if (refreshQueue) { 
-                    updateDrawQueue(drawArgs);
-                } // if
+                updateDrawQueue(drawArgs);
                 
                 // set the context stroke style for the border
                 if (params.drawGrid) {

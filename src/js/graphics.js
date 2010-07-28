@@ -71,12 +71,6 @@ SLICK.Graphics = (function() {
                     view.setLayer(params.id, self);
                 },
                 
-                beginDraw: function(args) {
-                    if (params.beginDraw) {
-                        params.beginDraw(args);
-                    } // if
-                },
-                
                 shouldDraw: function(displayState) {
                     return (displayState & params.validStates) !== 0;
                 },
@@ -246,8 +240,9 @@ SLICK.Graphics = (function() {
                 fillStyle: "rgb(200, 200, 200)",
                 freezeOnScale: false,
                 bufferRefresh: 100,
+                maxNonCacheDraws: 10,
                 // TODO: padding breaks pinch zoom functionality... need to fix...
-                padding: 0,
+                padding: 100,
                 fps: 40,
                 onPan: null,
                 onPinchZoom: null,
@@ -267,6 +262,7 @@ SLICK.Graphics = (function() {
                 layerChangesSinceCache = 0,
                 lastInvalidate = 0,
                 lastScaleFactor = 1,
+                nonCacheDraws = 0,
                 dimensions = null,
                 drawArgs = null,
                 endCenter = null,
@@ -321,9 +317,13 @@ SLICK.Graphics = (function() {
                         if (params.onPan) {
                             params.onPan(x, y);
                         } // if
+                        
+                        status = DISPLAY_STATE.PAN;
                     },
                     
                     onPanEnd: function(x, y) {
+                        layerChangesSinceCache++;
+                        status = DISPLAY_STATE.ACTIVE;
                     }
                 });
             } // if
@@ -420,52 +420,53 @@ SLICK.Graphics = (function() {
                 // get the context
                 cachedZIndex = 1000;
                 
-                GRUNT.Log.watch("GENERATING CACHED CONTEXT", function() {
-                    // if we have valid draw args from the last successful draw, then draw the buffers that can't scale
-                    if (drawArgs) {
-                        var shouldRedraw = 
-                                (layerChangesSinceCache > 0) || (! cachedArgs) || 
-                                (! cachedArgs.offset.matches(drawArgs.offset)) || 
-                                (! cachedArgs.dimensions.matches(drawArgs.dimensions));
-
-                        if (shouldRedraw) {
-                            // GRUNT.Log.info("UPDATING CACHE");
-                            // GRUNT.Log.info("cached args vs draw args", cachedArgs, drawArgs);
-
-                            // clear the cached context
-                            cachedContext.clearRect(0, 0, cachedCanvas.width, cachedCanvas.height);
-
-                            // update the cached args
-                            cachedArgs = GRUNT.extend({}, drawArgs);
-
-                            // update the draw args to use the saved context rather than the main context
-                            drawArgs.context = cachedContext;
-
-                            // update the offset to take into account the buffer
-                            drawArgs.offset = drawArgs.offset.offset(-params.padding, -params.padding);
-
-                            // grow the dimensions
-                            drawArgs.dimensions = drawArgs.dimensions.grow(params.padding * 2, params.padding * 2);
+                // if we are pinching and zooming do not recache
+                if ((self.getDisplayStatus() & DISPLAY_STATE.PINCHZOOM) !== 0) { return; }
+                
+                // if we have valid draw args from the last successful draw, then draw the buffers that can't scale
+                if (drawArgs) {
+                    var shouldRedraw = (layerChangesSinceCache > 0) || (! cachedArgs),
+                        offsetDiff = cachedArgs ? cachedArgs.offset.diff(drawArgs.offset).getAbsSize() : 0;
                             
-                            // iterate through the layers, and for any layers that cannot draw on scale, draw them to 
-                            // the saved context
-                            for (var ii = 0; ii < layers.length; ii++) {
-                                if (layers[ii].shouldDraw(frozen ? DISPLAY_STATE.FROZEN : DISPLAY_STATE.GENCACHE)) {
-                                    layers[ii].draw(drawArgs);
+                    if (shouldRedraw || (offsetDiff > 50)) {
+                        // let the world know
+                        GRUNT.WaterCooler.say("view.cache", { id: params.id });
+                        
+                        // GRUNT.Log.info("cached args vs draw args", cachedArgs, drawArgs);
 
-                                    // calculate the zindex as the zindex of the lowest saved layer
-                                    cachedZIndex = Math.min(cachedZIndex, layers[ii].zindex);
-                                } // if
-                            } // for
+                        // clear the cached context
+                        cachedContext.clearRect(0, 0, cachedCanvas.width, cachedCanvas.height);
 
-                            // reset the layer changes since cache count
-                            layerChangesSinceCache = 0;
+                        // update the cached args
+                        cachedArgs = GRUNT.extend({}, drawArgs);
 
-                            // update the saved offset
-                            cachedOffset = drawArgs.offset.duplicate();
-                        }
-                    } // if
-                });
+                        // update the draw args to use the saved context rather than the main context
+                        cachedArgs.context = cachedContext;
+
+                        // update the offset to take into account the buffer
+                        cachedArgs.offset = cachedArgs.offset.offset(-params.padding, -params.padding);
+
+                        // grow the dimensions
+                        cachedArgs.dimensions = cachedArgs.dimensions.grow(params.padding, params.padding);
+                        
+                        // iterate through the layers, and for any layers that cannot draw on scale, draw them to 
+                        // the saved context
+                        for (var ii = 0; ii < layers.length; ii++) {
+                            if (layers[ii].shouldDraw(frozen ? DISPLAY_STATE.FROZEN : DISPLAY_STATE.GENCACHE)) {
+                                layers[ii].draw(cachedArgs);
+
+                                // calculate the zindex as the zindex of the lowest saved layer
+                                cachedZIndex = Math.min(cachedZIndex, layers[ii].zindex);
+                            } // if
+                        } // for
+
+                        // reset the layer changes since cache count
+                        layerChangesSinceCache = 0;
+
+                        // update the saved offset
+                        cachedOffset = drawArgs.offset.duplicate();
+                    }
+                } // if
             } // getSavedContext
             
             /* draw code */
@@ -482,11 +483,6 @@ SLICK.Graphics = (function() {
             } // calcZoomCenter
             
             function drawLayer(layer, drawArgs) {
-                // tell the layer we are going through a draw cycle
-                // it may not get drawn, but it can give it a chance to check if it needs to 
-                // load something, animate something, etc
-                layer.beginDraw(drawArgs);
-
                 // draw the layer output to the main canvas
                 // but only if we don't have a scale buffer or the layer is a draw on scale layer
                 if (layer.shouldDraw(status)) {
@@ -517,7 +513,8 @@ SLICK.Graphics = (function() {
                     dimensionsChanged: dimensionsChanged,
                     scaleFactor: frozen ? lastScaleFactor : self.getScaleFactor(),
                     scaling: scalable,
-                    ticks: tickCount
+                    ticks: tickCount,
+                    viewId: params.id
                 };
                 
                 // update the last scale factor
@@ -536,7 +533,8 @@ SLICK.Graphics = (function() {
                     } // if
                     */
                     // initialise composite operations
-                    mainContext.globalCompositeOperation = "copy";
+                    // TODO: investigate dropping this back to copy and implementing source over only when needed
+                    mainContext.globalCompositeOperation = "source-over";
                     
                     if (! frozen) {
                         mainContext.clearRect(0, 0, canvas.width, canvas.height);
@@ -572,7 +570,7 @@ SLICK.Graphics = (function() {
                             
                             // draw the saved context if required and at the appropriate zindex
                             if ((! savedDrawn) && (cachedZIndex >= layers[ii].zindex)) {
-                                var relativeOffset = cachedOffset.diff(drawArgs.offset);
+                                var relativeOffset = cachedOffset.diff(drawArgs.offset).offset(-params.padding, -params.padding);
 
                                 mainContext.drawImage(cachedCanvas, relativeOffset.x, relativeOffset.y);
                                 savedDrawn = true;
@@ -625,21 +623,20 @@ SLICK.Graphics = (function() {
                 } // for
                 
                 // update the idle status
-                idle = idle && (! userInteracting) && (! SLICK.Animation.isTweening());
+                idle = idle && (! userInteracting);
                 
                 // if drawing is not ok at the moment, flick to interacing mode
                 if (drawOK) {
+                    // cache the context
+                    cacheContext();
+
+                    // draw the view
                     drawView(tickCount, userInteracting);
 
                     // if the user is not interacting, then save the current context
-                    if ((! userInteracting) && (! SLICK.Animation.isTweening())) {
-                        cacheContext();
-                        
-                        // if the idle flag is not set, then fire the view idle event
-                        if (! idle) {
-                            idle = true;
-                            GRUNT.WaterCooler.say("view-idle", { id: self.id });
-                        }
+                    if ((! userInteracting) && (! idle)) {
+                        idle = true;
+                        GRUNT.WaterCooler.say("view-idle", { id: self.id });
                     } // if
                     
                     forceRedraw = false;

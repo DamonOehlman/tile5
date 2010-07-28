@@ -417,7 +417,7 @@ SLICK.Mapping = (function() {
                 pois: null,
                 map: null,
                 createAnnotationForPOI: null,
-                validStates: SLICK.Graphics.ActiveDisplayStates | SLICK.Graphics.DisplayState.PAN | SLICK.Graphics.DisplayState.GENCACHE
+                validStates: SLICK.Graphics.ActiveDisplayStates | SLICK.Graphics.DisplayState.PAN | SLICK.Graphics.DisplayState.PINCHZOOM | SLICK.Graphics.DisplayState.GENCACHE
             }, params);
             
             var annotations = [],
@@ -449,7 +449,7 @@ SLICK.Mapping = (function() {
                 try {
                     // reset the annotations array
                     annotations = [];
-                
+                    
                     // iterate through the pois and generate the annotations
                     for (var ii = 0; ii < newPOIs.length; ii++) {
                         if (newPOIs[ii].pos) {
@@ -487,7 +487,6 @@ SLICK.Mapping = (function() {
                     
                     // reset animating to false
                     animating = false;
-                    
                     drawArgs.context.fillStyle = "rgba(255, 0, 0, 0.75)";
                     
                     // iterate through the annotations and draw them
@@ -548,6 +547,7 @@ SLICK.Mapping = (function() {
                 copyright: undefined,
                 zoomLevel: 0,
                 boundsChange: null,
+                tapPOI: null,
                 boundsChangeThreshold: 30,
                 pois: new SLICK.Geo.POIStorage(),
                 freezeOnScale: true,
@@ -565,6 +565,7 @@ SLICK.Mapping = (function() {
                 centerPos = null,
                 copyrightMessage = params.copyright,
                 initialized = false,
+                tappedPOIs = [],
                 zoomLevel = params.zoomLevel;
 
             // if the data provider has not been created, then create a default one
@@ -598,7 +599,7 @@ SLICK.Mapping = (function() {
             // initialise our own tap handler
             params.tapHandler = function(absPos, relPos) {
                 var grid = self.getTileLayer();
-                var tap_bounds = null;
+                var tapBounds = null;
 
                 if (grid) {
                     var grid_pos = self.viewPixToGridPix(new SLICK.Vector(relPos.x, relPos.y));
@@ -608,7 +609,15 @@ SLICK.Mapping = (function() {
                     var max_pos = grid.pixelsToPos(grid_pos.offset(params.tapExtent, -params.tapExtent));
 
                     // turn that into a bounds object
-                    tap_bounds = new SLICK.Geo.BoundingBox(min_pos.toString(), max_pos.toString());
+                    tapBounds = new SLICK.Geo.BoundingBox(min_pos.toString(), max_pos.toString());
+                    
+                    // find the pois in the bounds area
+                    tappedPOIs = self.pois.findByBounds(tapBounds);
+                    GRUNT.Log.info("TAPPED POIS = ", tappedPOIs);
+                    
+                    if (params.tapPOI) {
+                        params.tapPOI(tappedPOIs);
+                    } // if
 
                     // GRUNT.Log.info("tap position = " + relPos.x + ", " + relPos.y);
                     // GRUNT.Log.info("grid pos = " + grid_pos);
@@ -616,7 +625,7 @@ SLICK.Mapping = (function() {
                 } // if
 
                 if (caller_tap_handler) {
-                    caller_tap_handler(absPos, relPos, tap_bounds); 
+                    caller_tap_handler(absPos, relPos, tapBounds); 
                 } // if
             }; // tapHandler
 
