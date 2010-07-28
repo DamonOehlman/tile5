@@ -28,7 +28,7 @@ SLICK.Geo.Routing = (function() {
                     // firstly, if we have a map defined, then let's place the route on the map
                     // you know, just because we are nice like that
                     if (args.map) {
-                        module.createRouteOverlay(args.map, routeData);
+                        module.createMapOverlay(args.map, routeData);
                         
                         // if we are to auto fit the map to the bounds, then do that now
                         if (args.autoFit) {
