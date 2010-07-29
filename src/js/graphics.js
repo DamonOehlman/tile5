@@ -257,7 +257,6 @@ SLICK.Graphics = (function() {
             
             var COPY_PARAMS = [
                 'displayState', 
-                'offset', 
                 'offsetChanged', 
                 'animating', 
                 'dimensions', 
@@ -275,9 +274,13 @@ SLICK.Graphics = (function() {
                 },
                 
                 copy: function(srcArgs) {
+                    // copy the simple parameter values
                     for (var ii = 0; ii < COPY_PARAMS.length; ii++) {
                         self[COPY_PARAMS[ii]] = srcArgs[COPY_PARAMS[ii]];
                     } // for
+                    
+                    // copy the offset
+                    self.offset = srcArgs.offset ? srcArgs.offset.duplicate() : null;
                 }
             }, params);
             
@@ -482,7 +485,7 @@ SLICK.Graphics = (function() {
                 if ((self.getDisplayStatus() & DISPLAY_STATE.PINCHZOOM) !== 0) { return 0; }
                 
                 var shouldRedraw = goingToSleep || (layerChangesSinceCache > 0) || (! cachedArgs),
-                    offsetDiff = 0; // cachedArgs ? cachedArgs.offset.diff(drawArgs.offset).getAbsSize() : 0;
+                    offsetDiff = cachedArgs.offset ? cachedArgs.offset.diff(drawArgs.offset).getAbsSize() : 0;
                         
                 if (shouldRedraw || (offsetDiff > 50)) {
                     // let the world know
