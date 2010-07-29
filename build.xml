@@ -112,7 +112,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		</concat>
 		
 		<!-- TODO: if the strip logging property is set, then strip it -->
-		<!--
+		<!-- 
 		<replaceregexp match="GRUNT.Log\.(log|info|warn).*?\;" replace="" flags="g" byline="false" file="${SLICK}" />
 		-->
 		

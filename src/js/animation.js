@@ -3,7 +3,19 @@ SLICK Animation module
 */
 SLICK.Animation = (function() {
     // initialise variables
-    var tweens = [];
+    var tweens = [],
+        tweenTimer = 0;
+        
+    function wake() {
+        if (tweenTimer !== 0) { return; }
+        
+        tweenTimer = setInterval(function() {
+            if (module.update(SLICK.Clock.getTime()) === 0) {
+                clearInterval(tweenTimer);
+                tweenTimer = 0;
+            } // if
+        }, 20);
+    } // wake
     
     // define the module
     var module = {
@@ -99,6 +111,8 @@ SLICK.Animation = (function() {
                     ii++;
                 } // if..else
             } // while
+            
+            return tweens.length;
         },
         
         Tween: function(params) {
@@ -186,6 +200,9 @@ SLICK.Animation = (function() {
             if (change == 0) {
                 complete = true;
             } // if..else
+            
+            // wake the tween timer
+            wake();
             
             return self;
         },

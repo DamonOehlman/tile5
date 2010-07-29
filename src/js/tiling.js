@@ -3,7 +3,8 @@ SLICK.Tiling = (function() {
         // initialise the parameters with the defaults
         params = GRUNT.extend({
             gridSize: 20,
-            center: new SLICK.Vector()
+            center: new SLICK.Vector(),
+            onPopulate: null
         }, params);
         
         // initialise the storage array
@@ -98,6 +99,11 @@ SLICK.Tiling = (function() {
 
                 // log how long it took
                 GRUNT.Log.info("tile grid populated with " + tileIndex + " tiles in " + (SLICK.Clock.getTime() - startTicks) + " ms");
+                
+                // if we have an onpopulate listener defined, let them know
+                if (params.onPopulate) {
+                    params.onPopulate();
+                } // if
             },
             
             getShiftDelta: function(topLeftX, topLeftY, cols, rows) {
@@ -204,6 +210,8 @@ SLICK.Tiling = (function() {
             
             // initialise self
             var self = GRUNT.extend({}, parent, {
+                loaded: false,
+                
                 draw: function(context, x, y) {
                     if (image && image.complete) {
                         context.drawImage(image, x, y);
@@ -376,7 +384,6 @@ SLICK.Tiling = (function() {
                 drawGrid: false,
                 center: new SLICK.Vector(),
                 draw: drawTiles,
-                checkOK: checkShiftDelta,
                 shiftOrigin: null,
                 checkChange: 100,
                 validStates: SLICK.Graphics.DisplayState.GENCACHE
@@ -386,17 +393,22 @@ SLICK.Tiling = (function() {
             var halfTileSize = Math.round(params.tileSize >> 1),
                 listeners = [],
                 invTileSize = params.tileSize ? 1 / params.tileSize : 0,
-                loadedTileCount = 0,
                 lastOffset = null,
+                gridDirty = false,
                 tileDrawQueue = [],
+                loadedTileCount = 0,
                 lastCheckOffset = new SLICK.Vector(),
-                refreshQueue = false,
                 shiftDelta = new SLICK.Vector(),
                 reloadTimeout = 0,
                 halfBuffer = params.bufferSize >> 1;
             
             // create the tile store
-            var tileStore = new TileStore(params);
+            var tileStore = new TileStore(GRUNT.extend({
+                onPopulate: function() {
+                    gridDirty = true;
+                    self.wakeParent();
+                }
+            }, params));
             
             // create the offscreen buffer
             var buffer = null;
@@ -407,22 +419,9 @@ SLICK.Tiling = (function() {
                 } // for
             } // notifyListeners
             
-            function checkShiftDelta(drawArgs) {
-                var needTiles = shiftDelta.x + shiftDelta.y !== 0;
-                
-                if (needTiles) {
-                    tileStore.shift(shiftDelta, params.shiftOrigin);
-                    
-                    // reset the delta
-                    shiftDelta = new SLICK.Vector();
-                } // if
-                
-                return !needTiles;
-            } // checkShiftDelta
-            
             function updateDrawQueue(drawArgs) {
                 // find the tile for the specified position
-                var tileShift = tileStore.getTileShift(),
+                var tile, tileShift = tileStore.getTileShift(),
                     tileStart = new SLICK.Vector(
                                     Math.floor((drawArgs.offset.x + tileShift.x) * invTileSize), 
                                     Math.floor((drawArgs.offset.y + tileShift.y) * invTileSize)),
@@ -442,7 +441,7 @@ SLICK.Tiling = (function() {
                     // iterate through the columns and draw the tiles
                     for (var xx = 0; xx < tileCols; xx++) {
                         // get the tile
-                        var tile = tileStore.getTile(xx + tileStart.x, yy + tileStart.y);
+                        tile = tileStore.getTile(xx + tileStart.x, yy + tileStart.y);
                         var xPos = xx * params.tileSize + tileOffset.x;
                         
                         if (! tile) {
@@ -460,8 +459,21 @@ SLICK.Tiling = (function() {
                 // spiralize the queue
                 spiralizeQueue(tileCols, tileRows);
                 
-                // reset the refresh queue flag
-                refreshQueue = false;
+                // check that the tiles are loaded
+                for (var ii = 0; ii < tileDrawQueue.length; ii++) {
+                    tile = tileDrawQueue[ii].tile;
+                    
+                    if (tile && (! tile.loaded)) {
+                        // load the image
+                        tile.load(function() {
+                            loadedTileCount++;
+                            gridDirty = true;
+
+                            self.wakeParent();
+                            notifyListeners("load", tile);
+                        });
+                    } // if
+                } // if
             } // fileTileDrawQueue
             
             function spiralizeQueue(cols, rows) {
@@ -552,27 +564,18 @@ SLICK.Tiling = (function() {
                     if (tile && tile.loaded) {
                         tile.draw(drawArgs.context, coord.x, coord.y);
                     }
-                    else if (tile && (! drawArgs.animating)) {
-                        // load the image
-                        tile.load(function() {
-                            loadedTileCount++;
-
-                            self.layerChanged();
-                            notifyListeners("load", tile);
-                        });
-
-                        // drawArgs.context.clearRect(xPos, yPos, params.tileSize, params.tileSize);
-                    } // if..else
 
                     // if we are drawing borders, then draw that now
                     if (params.drawGrid) {
                         drawArgs.context.rect(coord.x, coord.y, params.tileSize, params.tileSize);
                     } // if                    
                 } // for
-
                 
                 // draw the borders if we have them...
                 drawArgs.context.stroke();
+                
+                // flag the grid as not dirty
+                gridDirty = false;
             } // drawTiles 
             
             // initialise self
@@ -592,6 +595,25 @@ SLICK.Tiling = (function() {
                             notifyListeners("updated", tile);
                         });
                     }
+                },
+                
+                cycle: function(cycleArgs) {
+                    var needTiles = shiftDelta.x + shiftDelta.y !== 0;
+
+                    if (needTiles) {
+                        tileStore.shift(shiftDelta, params.shiftOrigin);
+
+                        // reset the delta
+                        shiftDelta = new SLICK.Vector();
+                        
+                        // things need to happen
+                        cycleArgs.changeCount++;
+                    } // if
+                    
+                    // if the grid is dirty let the calling view know
+                    cycleArgs.changeCount += gridDirty ? 1 : 0;
+                    
+                    // GRUNT.Log.info("cycling TileGrid, change count = " + cycleArgs.changeCount);
                 },
                 
                 getLoadedTileCount: function() {
