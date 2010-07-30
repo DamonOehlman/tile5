@@ -248,14 +248,15 @@ SLICK.Mapping = (function() {
             
             // define self
             var self = GRUNT.extend(view, {
-                getAnimation: function(easingFn, duration, drawCallback) {
+                getAnimation: function(easingFn, duration, drawCallback, autoCenter) {
                     // create a new animation layer based on the coordinates
                     return new SLICK.Graphics.AnimatedPathLayer({
                         path: coordinates,
                         zindex: params.zindex + 1,
                         easing: easingFn ? easingFn : SLICK.Animation.Easing.Sine.InOut,
                         duration: duration ? duration : 5000,
-                        drawIndicator: drawCallback
+                        drawIndicator: drawCallback,
+                        autoCenter: autoCenter ? autoCenter : false
                     });
                 },
                 
@@ -832,12 +833,12 @@ SLICK.Mapping = (function() {
 
                 /* route methods */
                 
-                animateRoute: function(easingFn, duration, drawCallback) {
+                animateRoute: function(easingFn, duration, drawCallback, autoCenter) {
                     // get the routing layer
                     var routeLayer = self.getLayer("route");
                     if (routeLayer) {
                         // create the animation layer from the route
-                        var animationLayer = routeLayer.getAnimation(easingFn, duration, drawCallback);
+                        var animationLayer = routeLayer.getAnimation(easingFn, duration, drawCallback, autoCenter);
                         
                         // add the animation layer
                         animationLayer.addToView(self);
