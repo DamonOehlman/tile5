@@ -33,7 +33,8 @@ SLICK.Touch = (function() {
                 pinchZoomHandler: null,
                 pinchZoomEndHandler: null,
                 tapHandler: null,
-                doubleTapHandler: null
+                doubleTapHandler: null,
+                wheelZoomHandler: null
             }, params);
 
             // determine whether touch is supported
@@ -322,6 +323,18 @@ SLICK.Touch = (function() {
                     catch (e) {
                         GRUNT.Log.exception(e);
                     } // try..catch
+                },
+                
+                wheelie: function(evt) {
+                    var delta = new SLICK.Vector(evt.wheelDeltaX, evt.wheelDeltaY),
+                        xy = new SLICK.Vector(evt.clientX, evt.clientY),
+                        zoomAmount = delta.y !== 0 ? Math.abs(delta.y / 120) : 0;
+                        
+                    if (zoomAmount !== 0) {
+                        self.fireEvent("wheelZoomHandler", xy, delta.y > 0 ? zoomAmount + 0.5 : 0.5 / zoomAmount);
+                    } // if
+                    
+                    GRUNT.Log.info("capture mouse wheel event, delta = " + delta + ", position = " + xy);
                 }
             };
 
@@ -382,13 +395,13 @@ SLICK.Touch = (function() {
                                 touchHelper.end(evt);
                             } // if
                         }, false);
-
-                    // if we support touch, then disable mouse wheel events
-                    if (touchHelper.supportsTouch) {
-                        element['onmousewheel'] = function(evt) {
-                            evt.preventDefault();
-                        }; // mousewheel
-                    } // if
+                        
+                    // handle mouse wheel events by
+                    SLICK.Device.eventTarget.addEventListener(
+                        "mousewheel",
+                        function (evt) {
+                            touchHelper.wheelie(evt);
+                        }, false);
                 } // if
                 
                 // add the listeners to the helper

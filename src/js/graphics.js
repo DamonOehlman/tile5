@@ -26,8 +26,8 @@ SLICK.Graphics = (function() {
         ANIMATING: 2,
         PAN: 4,
         PINCHZOOM: 8,
-        GENCACHE: 16,
-        FROZEN: 32
+        GENCACHE: 32,
+        FROZEN: 64
     };
     
     // initialise variables
@@ -420,6 +420,14 @@ SLICK.Graphics = (function() {
                 scalable = new SLICK.Scalable({
                     scaleDamping: params.scaleDamping,
                     container: params.container,
+                    
+                    onAnimate: function() {
+                        // flag that we are scaling
+                        status = module.DisplayState.PINCHZOOM;
+                        
+                        wake();
+                    },
+                    
                     onPinchZoom: function(touchesStart, touchesCurrent) {
                         lastInteraction = SLICK.Clock.getTime(true);
                         wake();
@@ -432,7 +440,7 @@ SLICK.Graphics = (function() {
                         status = module.DisplayState.PINCHZOOM;
                     },
                     
-                    onScale: function(scaleFactor) {
+                    onScale: function(scaleFactor, zoomXY, keepCenter) {
                         // notify layers that we are adjusting scale
                         notifyLayers("scale");
                         if (params.freezeOnScale) {
@@ -442,9 +450,14 @@ SLICK.Graphics = (function() {
                         // reset the status flag
                         status = module.DisplayState.ACTIVE;
                         wake();
+                        
+                        // if we are attempting to keep the center of the control
+                        // FIXME: GET THIS RIGHT!!!!
+                        if (keepCenter) {
+                        } // if
 
                         if (params.onScale) {
-                            params.onScale(scaleFactor);
+                            params.onScale(scaleFactor, zoomXY);
                         }
                     }
                 });
@@ -559,12 +572,24 @@ SLICK.Graphics = (function() {
             var drawing = false;
             
             function calcZoomCenter() {
-                endCenter = scalable.getEndRect().getCenter();
-                
-                var startCenter = scalable.getStartRect().getCenter(),
-                    centerOffset = startCenter.diff(endCenter);
-                   
-                zoomCenter = new SLICK.Vector(endCenter.x + centerOffset.x, endCenter.y + centerOffset.y);
+                var scaleInfo = scalable.getScaleInfo(),
+                    displayCenter = self.getDimensions().getCenter(),
+                    shiftFactor = (scaleInfo.progress ? scaleInfo.progress : 1) * 0.6;
+                    
+                // update the end center
+                endCenter = scaleInfo.center;
+
+                if (scaleInfo.startRect) {
+                    var startCenter = scaleInfo.startRect.getCenter(),
+                        centerOffset = startCenter.diff(endCenter);
+
+                    zoomCenter = new SLICK.Vector(endCenter.x + centerOffset.x, endCenter.y + centerOffset.y);
+                } 
+                else {
+                    var offsetDiff = scaleInfo.start.diff(endCenter);
+                        
+                    zoomCenter = new SLICK.Vector(endCenter.x - offsetDiff.x*shiftFactor, endCenter.y - offsetDiff.y*shiftFactor);
+                } // if..else
             } // calcZoomCenter
             
             function drawLayer(layer, drawArgs) {
@@ -613,7 +638,9 @@ SLICK.Graphics = (function() {
                         } // if
                         
                         // offset the draw args
-                        drawArgs.offset.add(zoomCenter);
+                        if (zoomCenter) {
+                            drawArgs.offset.add(zoomCenter);
+                        } // if
                     } // if
                     
                     mainContext.save();
@@ -681,13 +708,12 @@ SLICK.Graphics = (function() {
                     offsetChanged = (!drawArgs.offset) || !drawArgs.offset.matches(cycleArgs.offset),
                     dimensionsChanged = (!drawArgs.dimensions) || !drawArgs.dimensions.matches(cycleArgs.dimensions);
                         
-                // if the user is interating, cancel any active animation
                 if (cycleArgs.interacting) {
                     SLICK.Animation.cancel(function(tweenInstance) {
                         return tweenInstance.cancelOnInteract;
                     });
-                } // if
-                
+                }  // if
+
                 // update any active tweens
                 SLICK.Animation.update(cycleArgs.ticks);
 
@@ -822,6 +848,25 @@ SLICK.Graphics = (function() {
                 
                 setDisplayStatus: function(value) {
                     status = value;
+                },
+                
+                scale: function(targetScaling, tweenFn, callback, startXY, targetXY) {
+                    // if the start XY is not defined, used the center
+                    if (! startXY) {
+                        startXY = self.getDimensions().getCenter();
+                    } // if
+                    
+                    // if the target xy is not defined, then use the canvas center
+                    if (! targetXY) {
+                        targetXY = self.getDimensions().getCenter();
+                    } // if
+                    
+                    // if the view is scalable then go for it
+                    if (scalable) {
+                        scalable.animate(targetScaling, startXY, targetXY, tweenFn, callback);
+                    }
+                    
+                    return scalable;
                 },
                 
                 freeze: function() {

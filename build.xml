@@ -41,7 +41,28 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		<ant dir="lib/grunt" />
 	</target>
 	
-	<target name="build-slick" depends="grunt-build" description="Slick library core build, concatenates core files and updates @VERSION">
+	<!-- sylvester cloning code -->
+	
+	<available property="sylvester" file="lib/sylvester" />
+	
+	<target name="sylvester-clone" unless="sylvester">
+		<exec executable="git" outputproperty="git-sylvester" >  
+			<arg line="clone http://github.com/jcoglan/sylvester.git lib/sylvester"/>  
+		</exec>
+		<echo message="git clone sylvester: ${git-sylvester}" />
+	</target>
+
+	<target name="sylvester-pull" if="sylvester">
+		<exec executable="git" outputproperty="git-sylvester" dir="lib/sylvester" >  
+			<arg line="pull origin master"/>  
+		</exec> 
+		<echo message="git pull sylvester: ${git-sylvester}" />
+	</target>
+	
+	<target name="sylvester-get" depends="sylvester-clone,sylvester-pull">
+	</target>
+		
+	<target name="build-slick" depends="grunt-build, sylvester-get" description="Slick library core build, concatenates core files and updates @VERSION">
 		<echo message="BUILDING SLICK CORE" />
 		<mkdir dir="${dist}" />
 		

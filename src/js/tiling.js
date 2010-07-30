@@ -463,7 +463,7 @@ SLICK.Tiling = (function() {
                 } // for
                 
                 // spiralize the queue
-                spiralizeQueue(tileCols, tileRows);
+                // spiralizeQueue(tileCols, tileRows);
 
                 // check that the tiles are loaded
                 for (var ii = 0; ii < tileDrawQueue.length; ii++) {
@@ -568,7 +568,7 @@ SLICK.Tiling = (function() {
                     // if the tile is loaded, then draw, otherwise load
                     if (tile && tile.loaded) {
                         tile.draw(drawArgs.context, coord.x, coord.y);
-                    }
+                    } // if
 
                     // if we are drawing borders, then draw that now
                     if (params.drawGrid) {

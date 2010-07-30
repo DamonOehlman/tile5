@@ -2168,7 +2168,8 @@ SLICK.Touch = (function() {
                 pinchZoomHandler: null,
                 pinchZoomEndHandler: null,
                 tapHandler: null,
-                doubleTapHandler: null
+                doubleTapHandler: null,
+                wheelZoomHandler: null
             }, params);
 
             // determine whether touch is supported
@@ -2457,6 +2458,18 @@ SLICK.Touch = (function() {
                     catch (e) {
                         GRUNT.Log.exception(e);
                     } // try..catch
+                },
+                
+                wheelie: function(evt) {
+                    var delta = new SLICK.Vector(evt.wheelDeltaX, evt.wheelDeltaY),
+                        xy = new SLICK.Vector(evt.clientX, evt.clientY),
+                        zoomAmount = delta.y !== 0 ? Math.abs(delta.y / 120) : 0;
+                        
+                    if (zoomAmount !== 0) {
+                        self.fireEvent("wheelZoomHandler", xy, delta.y > 0 ? zoomAmount + 0.5 : 0.5 / zoomAmount);
+                    } // if
+                    
+                    GRUNT.Log.info("capture mouse wheel event, delta = " + delta + ", position = " + xy);
                 }
             };
 
@@ -2517,13 +2530,13 @@ SLICK.Touch = (function() {
                                 touchHelper.end(evt);
                             } // if
                         }, false);
-
-                    // if we support touch, then disable mouse wheel events
-                    if (touchHelper.supportsTouch) {
-                        element['onmousewheel'] = function(evt) {
-                            evt.preventDefault();
-                        }; // mousewheel
-                    } // if
+                        
+                    // handle mouse wheel events by
+                    SLICK.Device.eventTarget.addEventListener(
+                        "mousewheel",
+                        function (evt) {
+                            touchHelper.wheelie(evt);
+                        }, false);
                 } // if
                 
                 // add the listeners to the helper
@@ -2670,15 +2683,20 @@ SLICK.Pannable = function(params) {
 SLICK.Scalable = function(params) {
     params = GRUNT.extend({
         container: null,
+        onAnimate: null,
         onPinchZoom: null,
         onScale: null,
         scaleDamping: false
     }, params);
 
-    var scaling = false;
-    var startRect = null;
-    var endRect = null;
-    var scaleFactor = 1;
+    var scaling = false,
+        startRect = null,
+        endRect = null,
+        scaleFactor = 1,
+        aniProgress = null,
+        tweenStart = null,
+        startCenter = null,
+        zoomCenter = null;
     
     function checkTouches(start, end) {
         startRect = start.getRect();
@@ -2687,6 +2705,9 @@ SLICK.Scalable = function(params) {
         // get the sizes of the rects
         var startSize = startRect.getSize(),
             endSize = endRect.getSize();
+            
+        // update the zoom center
+        zoomCenter = endRect.getCenter();
         
         // determine the ratio between the start rect and the end rect
         scaleFactor = (startRect && (startSize !== 0)) ? (endSize / startSize) : 1;
@@ -2695,13 +2716,65 @@ SLICK.Scalable = function(params) {
     // initialise self
     var self = {
         scalable: true,
-
-        getStartRect: function() {
-            return startRect.duplicate();
-        },
         
-        getEndRect: function() {
-            return endRect.duplicate();
+        animate: function(targetScaleFactor, startXY, targetXY, tweenFn, callback) {
+            
+            function finishAnimation() {
+                // if we have a callback to complete, then call it
+                if (callback) {
+                    callback();
+                } // if
+                
+                scaling = false;
+                if (params.onScale) {
+                    params.onScale(scaleFactor, zoomCenter);
+                } // if
+                
+                // reset the scale factor
+                scaleFactor = 1;
+                aniProgress = null;
+            } // finishAnimation
+            
+            // update the zoom center
+            scaling = true;
+            startCenter = startXY.duplicate();
+            zoomCenter = targetXY.duplicate();
+            startRect = null;
+            
+            // if tweening then update the targetXY
+            if (tweenFn) {
+                tweenStart = scaleFactor;
+                
+                var tween = SLICK.Animation.tweenValue(0, targetScaleFactor - tweenStart, tweenFn, finishAnimation, 1000);
+                tween.requestUpdates(function(updatedValue, completed) {
+                    // calculate the completion percentage
+                    aniProgress = updatedValue / (targetScaleFactor - tweenStart);
+                    
+                    // update the scale factor
+                    scaleFactor = tweenStart + updatedValue;
+                    
+                    // trigger the on animate handler
+                    if (params.onAnimate) {
+                        params.onAnimate();
+                    } // if
+                });
+            }
+            // otherwise, update the scale factor and fire the callback
+            else {
+                scaleFactor = targetScaleFactor;
+                finishAnimation();
+            }  // if..else
+        },
+
+        getScaleInfo: function() {
+            return {
+                factor: scaleFactor,
+                startRect: startRect ? startRect.duplicate() : null,
+                endRect: endRect ? endRect.duplicate() : null,
+                start: startCenter,
+                center: zoomCenter,
+                progress: aniProgress
+            };
         },
         
         getScaling: function() {
@@ -2730,11 +2803,21 @@ SLICK.Scalable = function(params) {
                 
                 scaling = false;
                 if (params.onScale) {
-                    params.onScale(scaleFactor);
+                    params.onScale(scaleFactor, zoomCenter, true);
                 } // if
                 
                 // restore the scale amount to 1
                 scaleFactor = 1;
+            },
+            
+            wheelZoomHandler: function(xy, scaleFactor) {
+                scaleFactor = scaleFactor;
+             
+                // nullify the start rect
+                startRect = endRect = null;
+                
+                // update the xy position
+                zoomCenter = xy.duplicate();
             }
         });
     } // if    
@@ -3022,6 +3105,7 @@ SLICK Animation module
 SLICK.Animation = (function() {
     // initialise variables
     var tweens = [],
+        updating = false,
         tweenTimer = 0;
         
     function wake() {
@@ -3095,19 +3179,27 @@ SLICK.Animation = (function() {
         },
         
         cancel: function(checkCallback) {
-            var ii = 0;
+            if (updating) { return ; }
             
-            // trigger the complete for the tween marking it as cancelled
-            while (ii < tweens.length) {
-                if ((! checkCallback) || checkCallback(tweens[ii])) {
-                    GRUNT.Log.info("CANCELLING ANIMATION");
-                    tweens[ii].triggerComplete(true);
-                    tweens.splice(ii, 1);
-                }
-                else {
-                    ii++;
-                } // if..else
-            } // for
+            updating = true;
+            try {
+                var ii = 0;
+
+                // trigger the complete for the tween marking it as cancelled
+                while (ii < tweens.length) {
+                    if ((! checkCallback) || checkCallback(tweens[ii])) {
+                        GRUNT.Log.info("CANCELLING ANIMATION");
+                        tweens[ii].triggerComplete(true);
+                        tweens.splice(ii, 1);
+                    }
+                    else {
+                        ii++;
+                    } // if..else
+                } // for
+            }
+            finally {
+                updating = false;
+            } // try..finally
         },
         
         isTweening: function() {
@@ -3115,20 +3207,28 @@ SLICK.Animation = (function() {
         },
         
         update: function(tickCount) {
-            // iterate through the active tweens and update each
-            var ii = 0;
-            while (ii < tweens.length) {
-                if (tweens[ii].isComplete()) {
-                    tweens[ii].triggerComplete(false);
-                    tweens.splice(ii, 1);
+            if (updating) { return tweens.length; }
+            
+            updating = true;
+            try {
+                // iterate through the active tweens and update each
+                var ii = 0;
+                while (ii < tweens.length) {
+                    if (tweens[ii].isComplete()) {
+                        tweens[ii].triggerComplete(false);
+                        tweens.splice(ii, 1);
                     
-                    GRUNT.WaterCooler.say("animation.complete");
-                }
-                else {
-                    tweens[ii].update(tickCount);
-                    ii++;
-                } // if..else
-            } // while
+                        GRUNT.WaterCooler.say("animation.complete");
+                    }
+                    else {
+                        tweens[ii].update(tickCount);
+                        ii++;
+                    } // if..else
+                } // while
+            }
+            finally {
+                updating = false;
+            } // try..finally
             
             return tweens.length;
         },
@@ -3392,8 +3492,8 @@ SLICK.Graphics = (function() {
         ANIMATING: 2,
         PAN: 4,
         PINCHZOOM: 8,
-        GENCACHE: 16,
-        FROZEN: 32
+        GENCACHE: 32,
+        FROZEN: 64
     };
     
     // initialise variables
@@ -3786,6 +3886,14 @@ SLICK.Graphics = (function() {
                 scalable = new SLICK.Scalable({
                     scaleDamping: params.scaleDamping,
                     container: params.container,
+                    
+                    onAnimate: function() {
+                        // flag that we are scaling
+                        status = module.DisplayState.PINCHZOOM;
+                        
+                        wake();
+                    },
+                    
                     onPinchZoom: function(touchesStart, touchesCurrent) {
                         lastInteraction = SLICK.Clock.getTime(true);
                         wake();
@@ -3798,7 +3906,7 @@ SLICK.Graphics = (function() {
                         status = module.DisplayState.PINCHZOOM;
                     },
                     
-                    onScale: function(scaleFactor) {
+                    onScale: function(scaleFactor, zoomXY, keepCenter) {
                         // notify layers that we are adjusting scale
                         notifyLayers("scale");
                         if (params.freezeOnScale) {
@@ -3808,9 +3916,14 @@ SLICK.Graphics = (function() {
                         // reset the status flag
                         status = module.DisplayState.ACTIVE;
                         wake();
+                        
+                        // if we are attempting to keep the center of the control
+                        // FIXME: GET THIS RIGHT!!!!
+                        if (keepCenter) {
+                        } // if
 
                         if (params.onScale) {
-                            params.onScale(scaleFactor);
+                            params.onScale(scaleFactor, zoomXY);
                         }
                     }
                 });
@@ -3925,12 +4038,24 @@ SLICK.Graphics = (function() {
             var drawing = false;
             
             function calcZoomCenter() {
-                endCenter = scalable.getEndRect().getCenter();
-                
-                var startCenter = scalable.getStartRect().getCenter(),
-                    centerOffset = startCenter.diff(endCenter);
-                   
-                zoomCenter = new SLICK.Vector(endCenter.x + centerOffset.x, endCenter.y + centerOffset.y);
+                var scaleInfo = scalable.getScaleInfo(),
+                    displayCenter = self.getDimensions().getCenter(),
+                    shiftFactor = (scaleInfo.progress ? scaleInfo.progress : 1) * 0.6;
+                    
+                // update the end center
+                endCenter = scaleInfo.center;
+
+                if (scaleInfo.startRect) {
+                    var startCenter = scaleInfo.startRect.getCenter(),
+                        centerOffset = startCenter.diff(endCenter);
+
+                    zoomCenter = new SLICK.Vector(endCenter.x + centerOffset.x, endCenter.y + centerOffset.y);
+                } 
+                else {
+                    var offsetDiff = scaleInfo.start.diff(endCenter);
+                        
+                    zoomCenter = new SLICK.Vector(endCenter.x - offsetDiff.x*shiftFactor, endCenter.y - offsetDiff.y*shiftFactor);
+                } // if..else
             } // calcZoomCenter
             
             function drawLayer(layer, drawArgs) {
@@ -3979,7 +4104,9 @@ SLICK.Graphics = (function() {
                         } // if
                         
                         // offset the draw args
-                        drawArgs.offset.add(zoomCenter);
+                        if (zoomCenter) {
+                            drawArgs.offset.add(zoomCenter);
+                        } // if
                     } // if
                     
                     mainContext.save();
@@ -4047,13 +4174,12 @@ SLICK.Graphics = (function() {
                     offsetChanged = (!drawArgs.offset) || !drawArgs.offset.matches(cycleArgs.offset),
                     dimensionsChanged = (!drawArgs.dimensions) || !drawArgs.dimensions.matches(cycleArgs.dimensions);
                         
-                // if the user is interating, cancel any active animation
                 if (cycleArgs.interacting) {
                     SLICK.Animation.cancel(function(tweenInstance) {
                         return tweenInstance.cancelOnInteract;
                     });
-                } // if
-                
+                }  // if
+
                 // update any active tweens
                 SLICK.Animation.update(cycleArgs.ticks);
 
@@ -4188,6 +4314,25 @@ SLICK.Graphics = (function() {
                 
                 setDisplayStatus: function(value) {
                     status = value;
+                },
+                
+                scale: function(targetScaling, tweenFn, callback, startXY, targetXY) {
+                    // if the start XY is not defined, used the center
+                    if (! startXY) {
+                        startXY = self.getDimensions().getCenter();
+                    } // if
+                    
+                    // if the target xy is not defined, then use the canvas center
+                    if (! targetXY) {
+                        targetXY = self.getDimensions().getCenter();
+                    } // if
+                    
+                    // if the view is scalable then go for it
+                    if (scalable) {
+                        scalable.animate(targetScaling, startXY, targetXY, tweenFn, callback);
+                    }
+                    
+                    return scalable;
                 },
                 
                 freeze: function() {
@@ -4809,7 +4954,7 @@ SLICK.Tiling = (function() {
                 } // for
                 
                 // spiralize the queue
-                spiralizeQueue(tileCols, tileRows);
+                // spiralizeQueue(tileCols, tileRows);
 
                 // check that the tiles are loaded
                 for (var ii = 0; ii < tileDrawQueue.length; ii++) {
@@ -4914,7 +5059,7 @@ SLICK.Tiling = (function() {
                     // if the tile is loaded, then draw, otherwise load
                     if (tile && tile.loaded) {
                         tile.draw(drawArgs.context, coord.x, coord.y);
-                    }
+                    } // if
 
                     // if we are drawing borders, then draw that now
                     if (params.drawGrid) {
@@ -6353,6 +6498,7 @@ SLICK.Mapping = (function() {
                 lineWidth: 1.5,
                 strokeStyle: "rgba(0, 0, 0, 0.5)",
                 size: 15,
+                zindex: 50,
                 validStates: SLICK.Graphics.DisplayState.ACTIVE | SLICK.Graphics.DisplayState.ANIMATING | SLICK.Graphics.DisplayState.PAN
             }, params);
             
@@ -6443,14 +6589,15 @@ SLICK.Mapping = (function() {
             
             // define self
             var self = GRUNT.extend(view, {
-                getAnimation: function(easingFn, duration, drawCallback) {
+                getAnimation: function(easingFn, duration, drawCallback, autoCenter) {
                     // create a new animation layer based on the coordinates
                     return new SLICK.Graphics.AnimatedPathLayer({
                         path: coordinates,
                         zindex: params.zindex + 1,
                         easing: easingFn ? easingFn : SLICK.Animation.Easing.Sine.InOut,
                         duration: duration ? duration : 5000,
-                        drawIndicator: drawCallback
+                        drawIndicator: drawCallback,
+                        autoCenter: autoCenter ? autoCenter : false
                     });
                 },
                 
@@ -6739,7 +6886,7 @@ SLICK.Mapping = (function() {
             params = GRUNT.extend({
                 tapExtent: 10,
                 provider: null,
-                crosshair: false,
+                crosshair: true,
                 copyright: undefined,
                 zoomLevel: 0,
                 boundsChange: null,
@@ -6758,7 +6905,6 @@ SLICK.Mapping = (function() {
             // initialise variables
             var current_position = null,
                 lastBoundsChangeOffset = new SLICK.Vector(),
-                centerPos = null,
                 copyrightMessage = params.copyright,
                 initialized = false,
                 tappedPOIs = [],
@@ -6773,18 +6919,6 @@ SLICK.Mapping = (function() {
             var caller_pan_handler = params.panHandler,
                 caller_tap_handler = params.tapHandler;
 
-            function updateCenterPos(xy) {
-                // if the xy position is not specified, then get the middle of the map
-                if (! xy) {
-                    // get the dimensions of the object
-                    var dimensions = self.getDimensions();
-                    xy = new SLICK.Vector(dimensions.width >> 1, dimensions.height >> 1);
-                } // if
-                
-                // get the position for the grid position
-                centerPos = self.getTileLayer().pixelsToPos(self.viewPixToGridPix(xy));
-            } // updateCenterPos
-            
             // initialise our own pan handler
             params.onPan = function(x, y) {
                 if (caller_pan_handler) {
@@ -6826,21 +6960,15 @@ SLICK.Mapping = (function() {
             }; // tapHandler
 
             params.doubleTapHandler = function(absPos, relPos) {
-                var grid = self.getTileLayer();
-                if (grid) {
-                    var gridPos = self.viewPixToGridPix(new SLICK.Vector(relPos.x, relPos.y));
-
-                    // create a min xy and a max xy using a tap extent
-                    self.gotoPosition(grid.pixelsToPos(gridPos), zoomLevel + 1);
-                } // if
+                self.animate(1.5, self.getDimensions().getCenter(), new SLICK.Vector(relPos.x, relPos.y), SLICK.Animation.Easing.Sine.Out);
             }; // doubleTapHandler
 
-            params.onScale = function(scaleAmount) {
+            params.onScale = function(scaleAmount, zoomXY) {
                 var zoomChange = 0;
 
                 // damp the scale amount
                 scaleAmount = Math.sqrt(scaleAmount);
-
+                
                 if (scaleAmount < 1) {
                     zoomChange = -(1 / scaleAmount);
                 }
@@ -6848,15 +6976,14 @@ SLICK.Mapping = (function() {
                     zoomChange = scaleAmount;
                 } // if..else
 
-                // get the updated center position
-                updateCenterPos(self.getZoomCenter());
-
                 // TODO: check that the new zoom level is acceptable
                 // remove the grid layer
-                // self.removeLayer("grid");
+                self.removeLayer("grid");
 
                 // GRUNT.Log.info("adjust zoom by: " + zoomChange);
-                self.gotoPosition(centerPos, zoomLevel + Math.round(zoomChange));
+                self.gotoPosition(self.getXYPosition(zoomXY), zoomLevel + Math.floor(zoomChange));
+                
+                GRUNT.Log.info("zoomchange = " + zoomChange);
             }; // zoomHandler
 
             // create the base tiler
@@ -6921,8 +7048,12 @@ SLICK.Mapping = (function() {
                 },
 
                 getCenterPosition: function() {
-                    // TODO: detect and retrieve the center position
-                    return centerPos;
+                    // get the position for the grid position
+                    return self.getXYPosition(self.getDimensions().getCenter());
+                },
+                
+                getXYPosition: function(xy) {
+                    return self.getTileLayer().pixelsToPos(self.viewPixToGridPix(xy));
                 },
                 
                 gotoBounds: function(bounds, callback) {
@@ -6970,8 +7101,7 @@ SLICK.Mapping = (function() {
                         params.provider.getMapTiles(self, position, function(tileGrid) {
                             self.setTileLayer(tileGrid);
                             self.panToPosition(position, callback);
-
-                            centerPos = position;
+                            
                             self.unfreeze();
                         });
 
@@ -7018,21 +7148,25 @@ SLICK.Mapping = (function() {
                 },
 
                 zoomIn: function() {
-                    self.setZoomLevel(zoomLevel + 1);
+                    if (! self.scale(2, SLICK.Animation.Easing.Sine.Out)) {
+                        self.setZoomLevel(zoomLevel + 1);
+                    } // if
                 },
 
                 zoomOut: function() {
-                    self.setZoomLevel(zoomLevel - 1);
+                    if (! self.scale(0.5, SLICK.Animation.Easing.Sine.Out)) {
+                        self.setZoomLevel(zoomLevel - 1);
+                    } // if
                 },
 
                 /* route methods */
                 
-                animateRoute: function(easingFn, duration, drawCallback) {
+                animateRoute: function(easingFn, duration, drawCallback, autoCenter) {
                     // get the routing layer
                     var routeLayer = self.getLayer("route");
                     if (routeLayer) {
                         // create the animation layer from the route
-                        var animationLayer = routeLayer.getAnimation(easingFn, duration, drawCallback);
+                        var animationLayer = routeLayer.getAnimation(easingFn, duration, drawCallback, autoCenter);
                         
                         // add the animation layer
                         animationLayer.addToView(self);

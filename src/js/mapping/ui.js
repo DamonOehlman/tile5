@@ -158,6 +158,7 @@ SLICK.Mapping = (function() {
                 lineWidth: 1.5,
                 strokeStyle: "rgba(0, 0, 0, 0.5)",
                 size: 15,
+                zindex: 50,
                 validStates: SLICK.Graphics.DisplayState.ACTIVE | SLICK.Graphics.DisplayState.ANIMATING | SLICK.Graphics.DisplayState.PAN
             }, params);
             
@@ -545,7 +546,7 @@ SLICK.Mapping = (function() {
             params = GRUNT.extend({
                 tapExtent: 10,
                 provider: null,
-                crosshair: false,
+                crosshair: true,
                 copyright: undefined,
                 zoomLevel: 0,
                 boundsChange: null,
@@ -564,7 +565,6 @@ SLICK.Mapping = (function() {
             // initialise variables
             var current_position = null,
                 lastBoundsChangeOffset = new SLICK.Vector(),
-                centerPos = null,
                 copyrightMessage = params.copyright,
                 initialized = false,
                 tappedPOIs = [],
@@ -579,18 +579,6 @@ SLICK.Mapping = (function() {
             var caller_pan_handler = params.panHandler,
                 caller_tap_handler = params.tapHandler;
 
-            function updateCenterPos(xy) {
-                // if the xy position is not specified, then get the middle of the map
-                if (! xy) {
-                    // get the dimensions of the object
-                    var dimensions = self.getDimensions();
-                    xy = new SLICK.Vector(dimensions.width >> 1, dimensions.height >> 1);
-                } // if
-                
-                // get the position for the grid position
-                centerPos = self.getTileLayer().pixelsToPos(self.viewPixToGridPix(xy));
-            } // updateCenterPos
-            
             // initialise our own pan handler
             params.onPan = function(x, y) {
                 if (caller_pan_handler) {
@@ -632,21 +620,15 @@ SLICK.Mapping = (function() {
             }; // tapHandler
 
             params.doubleTapHandler = function(absPos, relPos) {
-                var grid = self.getTileLayer();
-                if (grid) {
-                    var gridPos = self.viewPixToGridPix(new SLICK.Vector(relPos.x, relPos.y));
-
-                    // create a min xy and a max xy using a tap extent
-                    self.gotoPosition(grid.pixelsToPos(gridPos), zoomLevel + 1);
-                } // if
+                self.animate(1.5, self.getDimensions().getCenter(), new SLICK.Vector(relPos.x, relPos.y), SLICK.Animation.Easing.Sine.Out);
             }; // doubleTapHandler
 
-            params.onScale = function(scaleAmount) {
+            params.onScale = function(scaleAmount, zoomXY) {
                 var zoomChange = 0;
 
                 // damp the scale amount
                 scaleAmount = Math.sqrt(scaleAmount);
-
+                
                 if (scaleAmount < 1) {
                     zoomChange = -(1 / scaleAmount);
                 }
@@ -654,15 +636,14 @@ SLICK.Mapping = (function() {
                     zoomChange = scaleAmount;
                 } // if..else
 
-                // get the updated center position
-                updateCenterPos(self.getZoomCenter());
-
                 // TODO: check that the new zoom level is acceptable
                 // remove the grid layer
-                // self.removeLayer("grid");
+                self.removeLayer("grid");
 
                 // GRUNT.Log.info("adjust zoom by: " + zoomChange);
-                self.gotoPosition(centerPos, zoomLevel + Math.round(zoomChange));
+                self.gotoPosition(self.getXYPosition(zoomXY), zoomLevel + Math.floor(zoomChange));
+                
+                GRUNT.Log.info("zoomchange = " + zoomChange);
             }; // zoomHandler
 
             // create the base tiler
@@ -727,8 +708,12 @@ SLICK.Mapping = (function() {
                 },
 
                 getCenterPosition: function() {
-                    // TODO: detect and retrieve the center position
-                    return centerPos;
+                    // get the position for the grid position
+                    return self.getXYPosition(self.getDimensions().getCenter());
+                },
+                
+                getXYPosition: function(xy) {
+                    return self.getTileLayer().pixelsToPos(self.viewPixToGridPix(xy));
                 },
                 
                 gotoBounds: function(bounds, callback) {
@@ -776,8 +761,7 @@ SLICK.Mapping = (function() {
                         params.provider.getMapTiles(self, position, function(tileGrid) {
                             self.setTileLayer(tileGrid);
                             self.panToPosition(position, callback);
-
-                            centerPos = position;
+                            
                             self.unfreeze();
                         });
 
@@ -824,11 +808,15 @@ SLICK.Mapping = (function() {
                 },
 
                 zoomIn: function() {
-                    self.setZoomLevel(zoomLevel + 1);
+                    if (! self.scale(2, SLICK.Animation.Easing.Sine.Out)) {
+                        self.setZoomLevel(zoomLevel + 1);
+                    } // if
                 },
 
                 zoomOut: function() {
-                    self.setZoomLevel(zoomLevel - 1);
+                    if (! self.scale(0.5, SLICK.Animation.Easing.Sine.Out)) {
+                        self.setZoomLevel(zoomLevel - 1);
+                    } // if
                 },
 
                 /* route methods */

@@ -101,15 +101,20 @@ SLICK.Pannable = function(params) {
 SLICK.Scalable = function(params) {
     params = GRUNT.extend({
         container: null,
+        onAnimate: null,
         onPinchZoom: null,
         onScale: null,
         scaleDamping: false
     }, params);
 
-    var scaling = false;
-    var startRect = null;
-    var endRect = null;
-    var scaleFactor = 1;
+    var scaling = false,
+        startRect = null,
+        endRect = null,
+        scaleFactor = 1,
+        aniProgress = null,
+        tweenStart = null,
+        startCenter = null,
+        zoomCenter = null;
     
     function checkTouches(start, end) {
         startRect = start.getRect();
@@ -118,6 +123,9 @@ SLICK.Scalable = function(params) {
         // get the sizes of the rects
         var startSize = startRect.getSize(),
             endSize = endRect.getSize();
+            
+        // update the zoom center
+        zoomCenter = endRect.getCenter();
         
         // determine the ratio between the start rect and the end rect
         scaleFactor = (startRect && (startSize !== 0)) ? (endSize / startSize) : 1;
@@ -126,13 +134,65 @@ SLICK.Scalable = function(params) {
     // initialise self
     var self = {
         scalable: true,
-
-        getStartRect: function() {
-            return startRect.duplicate();
-        },
         
-        getEndRect: function() {
-            return endRect.duplicate();
+        animate: function(targetScaleFactor, startXY, targetXY, tweenFn, callback) {
+            
+            function finishAnimation() {
+                // if we have a callback to complete, then call it
+                if (callback) {
+                    callback();
+                } // if
+                
+                scaling = false;
+                if (params.onScale) {
+                    params.onScale(scaleFactor, zoomCenter);
+                } // if
+                
+                // reset the scale factor
+                scaleFactor = 1;
+                aniProgress = null;
+            } // finishAnimation
+            
+            // update the zoom center
+            scaling = true;
+            startCenter = startXY.duplicate();
+            zoomCenter = targetXY.duplicate();
+            startRect = null;
+            
+            // if tweening then update the targetXY
+            if (tweenFn) {
+                tweenStart = scaleFactor;
+                
+                var tween = SLICK.Animation.tweenValue(0, targetScaleFactor - tweenStart, tweenFn, finishAnimation, 1000);
+                tween.requestUpdates(function(updatedValue, completed) {
+                    // calculate the completion percentage
+                    aniProgress = updatedValue / (targetScaleFactor - tweenStart);
+                    
+                    // update the scale factor
+                    scaleFactor = tweenStart + updatedValue;
+                    
+                    // trigger the on animate handler
+                    if (params.onAnimate) {
+                        params.onAnimate();
+                    } // if
+                });
+            }
+            // otherwise, update the scale factor and fire the callback
+            else {
+                scaleFactor = targetScaleFactor;
+                finishAnimation();
+            }  // if..else
+        },
+
+        getScaleInfo: function() {
+            return {
+                factor: scaleFactor,
+                startRect: startRect ? startRect.duplicate() : null,
+                endRect: endRect ? endRect.duplicate() : null,
+                start: startCenter,
+                center: zoomCenter,
+                progress: aniProgress
+            };
         },
         
         getScaling: function() {
@@ -161,11 +221,21 @@ SLICK.Scalable = function(params) {
                 
                 scaling = false;
                 if (params.onScale) {
-                    params.onScale(scaleFactor);
+                    params.onScale(scaleFactor, zoomCenter, true);
                 } // if
                 
                 // restore the scale amount to 1
                 scaleFactor = 1;
+            },
+            
+            wheelZoomHandler: function(xy, scaleFactor) {
+                scaleFactor = scaleFactor;
+             
+                // nullify the start rect
+                startRect = endRect = null;
+                
+                // update the xy position
+                zoomCenter = xy.duplicate();
             }
         });
     } // if    

@@ -4,6 +4,7 @@ SLICK Animation module
 SLICK.Animation = (function() {
     // initialise variables
     var tweens = [],
+        updating = false,
         tweenTimer = 0;
         
     function wake() {
@@ -77,19 +78,27 @@ SLICK.Animation = (function() {
         },
         
         cancel: function(checkCallback) {
-            var ii = 0;
+            if (updating) { return ; }
             
-            // trigger the complete for the tween marking it as cancelled
-            while (ii < tweens.length) {
-                if ((! checkCallback) || checkCallback(tweens[ii])) {
-                    GRUNT.Log.info("CANCELLING ANIMATION");
-                    tweens[ii].triggerComplete(true);
-                    tweens.splice(ii, 1);
-                }
-                else {
-                    ii++;
-                } // if..else
-            } // for
+            updating = true;
+            try {
+                var ii = 0;
+
+                // trigger the complete for the tween marking it as cancelled
+                while (ii < tweens.length) {
+                    if ((! checkCallback) || checkCallback(tweens[ii])) {
+                        GRUNT.Log.info("CANCELLING ANIMATION");
+                        tweens[ii].triggerComplete(true);
+                        tweens.splice(ii, 1);
+                    }
+                    else {
+                        ii++;
+                    } // if..else
+                } // for
+            }
+            finally {
+                updating = false;
+            } // try..finally
         },
         
         isTweening: function() {
@@ -97,20 +106,28 @@ SLICK.Animation = (function() {
         },
         
         update: function(tickCount) {
-            // iterate through the active tweens and update each
-            var ii = 0;
-            while (ii < tweens.length) {
-                if (tweens[ii].isComplete()) {
-                    tweens[ii].triggerComplete(false);
-                    tweens.splice(ii, 1);
+            if (updating) { return tweens.length; }
+            
+            updating = true;
+            try {
+                // iterate through the active tweens and update each
+                var ii = 0;
+                while (ii < tweens.length) {
+                    if (tweens[ii].isComplete()) {
+                        tweens[ii].triggerComplete(false);
+                        tweens.splice(ii, 1);
                     
-                    GRUNT.WaterCooler.say("animation.complete");
-                }
-                else {
-                    tweens[ii].update(tickCount);
-                    ii++;
-                } // if..else
-            } // while
+                        GRUNT.WaterCooler.say("animation.complete");
+                    }
+                    else {
+                        tweens[ii].update(tickCount);
+                        ii++;
+                    } // if..else
+                } // while
+            }
+            finally {
+                updating = false;
+            } // try..finally
             
             return tweens.length;
         },
