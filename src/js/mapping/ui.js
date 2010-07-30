@@ -268,6 +268,7 @@ SLICK.Mapping = (function() {
                         instructions = params.data ? params.data.getInstructions() : [];
                         
                     // TODO: improve the code reuse in the code below
+                    // TODO: improve performance here... look at re-entrant processing in cycle perhaps
 
                     // iterate through the position geometry and determine xy coordinates
                     for (ii = 0; ii < geometry.length; ii++) {

@@ -218,30 +218,36 @@ SLICK.Tiling = (function() {
                     } // if
                 },
                 
-                load: function(callback) {
+                load: function(callback, loadFromCacheOnly) {
+                    
+                    function flagLoaded() {
+                        // if we have a callback method, then call that
+                        if (callback) {
+                            callback();
+                        } // if
+                        
+                        self.loaded = true;
+                        self.changed(self);
+                    } // flagLoaded
+                    
                     if ((! image)  && params.url) {
                         // create the image
-                        image = null; // module.ImageCache.getImage(params.url, params.sessionParamRegex);
+                        image = SLICK.Graphics.ImageCache.getImage(params.url, params.sessionParamRegex);
                         
+                        if (image) {
+                            flagLoaded();
+                        }
                         // if we didn't get an image from the cache, then load it
-                        if (! image) {
+                        else if (! loadFromCacheOnly) {
                             image = new Image();
                             image.src = params.url;
 
                             // watch for the image load
                             image.onload = function() {                                
-                                // module.ImageCache.cacheImage(params.url, params.sessionParamRegex, image);
-                                
-                                // if we have a callback method, then call that
-                                if (callback) {
-                                    callback();
-                                } // if
-                                
-                                self.loaded = true;
-                                self.changed(self);
+                                SLICK.Graphics.ImageCache.cacheImage(params.url, params.sessionParamRegex, image);
+                                flagLoaded();
                             }; // onload
-                            
-                        } // if
+                        } // if..else
                     }
                 }
             }); 
@@ -458,11 +464,11 @@ SLICK.Tiling = (function() {
                 
                 // spiralize the queue
                 spiralizeQueue(tileCols, tileRows);
-                
+
                 // check that the tiles are loaded
                 for (var ii = 0; ii < tileDrawQueue.length; ii++) {
                     tile = tileDrawQueue[ii].tile;
-                    
+
                     if (tile && (! tile.loaded)) {
                         // load the image
                         tile.load(function() {
@@ -471,9 +477,9 @@ SLICK.Tiling = (function() {
 
                             self.wakeParent();
                             notifyListeners("load", tile);
-                        });
+                        }, drawArgs.animatingOffset);
                     } // if
-                } // if
+                } // for
             } // fileTileDrawQueue
             
             function spiralizeQueue(cols, rows) {
@@ -541,7 +547,6 @@ SLICK.Tiling = (function() {
                 
                 // initialise variables
                 var tileShift = tileStore.getTileShift();
-                
                 updateDrawQueue(drawArgs);
                 
                 // set the context stroke style for the border

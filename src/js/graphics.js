@@ -152,12 +152,15 @@ SLICK.Graphics = (function() {
                 canCache: false,
                 validStates: module.ActiveDisplayStates | DISPLAY_STATE.PAN | DISPLAY_STATE.PINCHZOOM,
                 drawIndicator: null,
-                duration: 2000
+                duration: 2000,
+                autoCenter: false
             }, params);
             
             // generate the edge data for the specified path
             var edgeData = SLICK.VectorMath.edges(params.path), 
                 tween,
+                theta,
+                indicatorXY = null,
                 pathOffset = 0;
             
             function drawDefaultIndicator(drawArgs, indicatorXY) {
@@ -199,34 +202,52 @@ SLICK.Graphics = (function() {
             });
             
             // initialise self
-            var self = new module.ViewLayer(GRUNT.extend(params, {
+            var self =  new module.ViewLayer(GRUNT.extend(params, {
                 draw: function(drawArgs) {
-                    var edgeIndex = 0;
-                
-                    // iterate through the edge data and determine the current journey coordinate index
-                    while ((edgeIndex < edgeData.accrued.length) && (edgeData.accrued[edgeIndex] < pathOffset)) {
-                        edgeIndex++;
-                    } // while
-                
-                    // if the edge index is valid, then let's determine the xy coordinate
-                    if (edgeIndex < params.path.length-1) {
-                        var extra = pathOffset - (edgeIndex > 0 ? edgeData.accrued[edgeIndex - 1] : 0),
-                            v1 = params.path[edgeIndex],
-                            v2 = params.path[edgeIndex + 1],
-                            theta = SLICK.VectorMath.theta(v1, v2, edgeData.edges[edgeIndex]),
-                            indicatorXY = SLICK.VectorMath.pointOnEdge(v1, v2, theta, extra);
-                            
+                    if (indicatorXY) {
                         // if the draw indicator method is specified, then draw
                         (params.drawIndicator ? params.drawIndicator : drawDefaultIndicator)(
                             drawArgs, 
                             new SLICK.Vector(indicatorXY.x - drawArgs.offset.x, indicatorXY.y - drawArgs.offset.y),
                             theta
                         );
-                        
-                        drawArgs.changeCount++;
                     } // if
                 }
             }));
+            
+            // override the cycle implementation
+            self.cycle = function(cycleArgs) {
+                GRUNT.Log.watch("cycling animation", function() {
+                    var edgeIndex = 0;
+
+                    // iterate through the edge data and determine the current journey coordinate index
+                    while ((edgeIndex < edgeData.accrued.length) && (edgeData.accrued[edgeIndex] < pathOffset)) {
+                        edgeIndex++;
+                    } // while
+
+                    // reset offset xy
+                    indicatorXY = null;
+
+                    // if the edge index is valid, then let's determine the xy coordinate
+                    if (edgeIndex < params.path.length-1) {
+                        var extra = pathOffset - (edgeIndex > 0 ? edgeData.accrued[edgeIndex - 1] : 0),
+                            v1 = params.path[edgeIndex],
+                            v2 = params.path[edgeIndex + 1];
+                            
+                        theta = SLICK.VectorMath.theta(v1, v2, edgeData.edges[edgeIndex]);
+                        indicatorXY = SLICK.VectorMath.pointOnEdge(v1, v2, theta, extra);
+
+                        if (params.autoCenter) {
+                            var parent = self.getParent();
+                            if (parent) {
+                                parent.centerOn(indicatorXY);
+                            } // if
+                        } // if
+                    } // if
+                    
+                    cycleArgs.changeCount += indicatorXY ? 1 : 0;
+                });
+            };
             
             return self;
         },
@@ -246,7 +267,7 @@ SLICK.Graphics = (function() {
                 displayState: DISPLAY_STATE.NONE,
                 offset: null,
                 offsetChanged: false,
-                animating: false,
+                animatingOffset: false,
                 dimensions: null,
                 dimensionsChanged: false,
                 scaleFactor: 1,
@@ -258,7 +279,7 @@ SLICK.Graphics = (function() {
             var COPY_PARAMS = [
                 'displayState', 
                 'offsetChanged', 
-                'animating', 
+                'animatingOffset', 
                 'dimensions', 
                 'dimensionsChanged',
                 'scaleFactor',
@@ -660,21 +681,6 @@ SLICK.Graphics = (function() {
                     offsetChanged = (!drawArgs.offset) || !drawArgs.offset.matches(cycleArgs.offset),
                     dimensionsChanged = (!drawArgs.dimensions) || !drawArgs.dimensions.matches(cycleArgs.dimensions);
                         
-                // update the draw args
-                drawArgs.update({
-                    context: null,
-                    changeCount: 0,
-                    displayState: self.getDisplayStatus(),
-                    offset: cycleArgs.offset,
-                    offsetChanged: offsetChanged,
-                    animating: cycleArgs.interacting || pannable.isAnimating(),
-                    dimensions: cycleArgs.dimensions,
-                    dimensionsChanged: dimensionsChanged,
-                    scaleFactor: frozen ? lastScaleFactor : self.getScaleFactor(),
-                    scaling: scalable,
-                    ticks: cycleArgs.ticks
-                });
-
                 // if the user is interating, cancel any active animation
                 if (cycleArgs.interacting) {
                     SLICK.Animation.cancel(function(tweenInstance) {
@@ -689,6 +695,21 @@ SLICK.Graphics = (function() {
                 for (var ii = 0; ii < layers.length; ii++) {
                     layers[ii].cycle(cycleArgs);
                 } // for
+                
+                // update the draw args
+                drawArgs.update({
+                    context: null,
+                    changeCount: 0,
+                    displayState: self.getDisplayStatus(),
+                    offset: pannable ? pannable.getOffset() : new SLICK.Vector(),
+                    offsetChanged: offsetChanged,
+                    animatingOffset: pannable.isAnimating(),
+                    dimensions: cycleArgs.dimensions,
+                    dimensionsChanged: dimensionsChanged,
+                    scaleFactor: frozen ? lastScaleFactor : self.getScaleFactor(),
+                    scaling: scalable,
+                    ticks: cycleArgs.ticks
+                });
                 
                 // update the idle status
                 idle = idle && (! cycleArgs.interacting);
@@ -738,8 +759,8 @@ SLICK.Graphics = (function() {
             var self = GRUNT.extend({}, pannable, scalable, {
                 id: params.id,
                 
-                getContext: function() {
-                    return buffer_context;
+                centerOn: function(offset) {
+                    pannable.setOffset(offset.x - (canvas.width * 0.5), offset.y - (canvas.height * 0.5));
                 },
                 
                 getDimensions: function() {
@@ -871,7 +892,8 @@ SLICK.Graphics = (function() {
         // looks like implementing this isn't going to fly without some support from a device-side
         ImageCache: (function() {
             // initialise variables
-            var storageCanvas = null;
+            var storageCanvas = null,
+                memCache = {};
             
             function getStorageContext(image) {
                 if (! storageCanvas) {
@@ -903,7 +925,7 @@ SLICK.Graphics = (function() {
                     // ask the resources module to get the cacheable key for the url
                     var cacheKey = SLICK.Resources.Cache.getUrlCacheKey(url, sessionParamRegex);
                     
-                    return null;
+                    return memCache[cacheKey];
                 },
                 
                 cacheImage: function(url, sessionParamRegex, image) {
@@ -912,7 +934,9 @@ SLICK.Graphics = (function() {
                     
                     // if we have local storage then save it
                     if (image) {
-                        SLICK.Resources.Cache.write(cacheKey, imageToCanvas(image).toDataURL('image/png'));
+                        // for the moment, just save to the mem cache
+                        memCache[cacheKey] = image;
+                        // SLICK.Resources.Cache.write(cacheKey, imageToCanvas(image).toDataURL('image/png'));
                     } // if
                 }
             };
