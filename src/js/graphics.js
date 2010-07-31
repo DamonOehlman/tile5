@@ -261,10 +261,12 @@ SLICK.Graphics = (function() {
                 scaleDamping: false,
                 fillStyle: "rgb(200, 200, 200)",
                 freezeOnScale: false,
+                cacheFPS: 4,
                 bufferRefresh: 100,
                 maxNonCacheDraws: 10,
-                // TODO: padding breaks pinch zoom functionality... need to fix...
-                padding: 100,
+                // TODO: calculate the padding based on screen size
+                // TODO: fix padding - still messes with screen coordinates for animation, etc
+                padding: 0,
                 fps: 40,
                 onPan: null,
                 onPinchZoom: null,
@@ -287,18 +289,21 @@ SLICK.Graphics = (function() {
                 translateDelta = new SLICK.Vector(),
                 nonCacheDraws = 0,
                 dimensions = null,
+                paddedDimensions = null,
                 wakeTriggers = 0,
                 endCenter = null,
                 scalable = null,
                 idle = false,
                 paintInterval = 0,
+                bufferTime = 0,
+                recacheDistance = params.padding * 0.5,
                 zoomCenter = null,
                 frozen = false,
+                tickCount = 0,
+                lastCacheTickCount = 0,
+                cacheDelay = 1000 / (params.cacheFPS ? params.cacheFPS : 1),
                 status = module.DisplayState.ACTIVE;
             
-            // calculate the repaint interval
-            var bufferTime = 0;
-
             GRUNT.Log.info("Creating a new view instance, attached to container: " + params.container + ", canvas = ", canvas);
 
             if (canvas) {
@@ -464,13 +469,11 @@ SLICK.Graphics = (function() {
                 if ((self.getDisplayStatus() & DISPLAY_STATE.PINCHZOOM) !== 0) { return 0; }
                 
                 var shouldRedraw = goingToSleep || (layerChangesSinceCache > 0),
-                    offsetDiff = cachedOffset.diff(offset).getAbsSize();
+                    offsetDiff = 0; // cachedOffset.diff(offset).getAbsSize();
                         
-                if (shouldRedraw || (offsetDiff > 50)) {
-                    // calculate the cached dimensions
-                    var cachedDimensions = dimensions.grow(params.padding, params.padding);
-                    
+                if (shouldRedraw && (lastCacheTickCount + cacheDelay <= tickCount)) {
                     // let the world know
+                    GRUNT.Log.info("RECACHING");
                     GRUNT.WaterCooler.say("view.cache", { id: params.id });
                     
                     // clear the cached context
@@ -483,7 +486,7 @@ SLICK.Graphics = (function() {
                     // the saved context
                     for (var ii = layers.length; ii--; ) {
                         if (layers[ii].shouldDraw(frozen ? DISPLAY_STATE.FROZEN : DISPLAY_STATE.GENCACHE)) {
-                            var layerChangeCount = layers[ii].draw(cachedContext, offset, cachedDimensions, self);
+                            var layerChangeCount = layers[ii].draw(cachedContext, offset, paddedDimensions, self);
                             changeCount += layerChangeCount ? layerChangeCount: 0;
 
                             // calculate the zindex as the zindex of the lowest saved layer
@@ -496,6 +499,7 @@ SLICK.Graphics = (function() {
 
                     // update the saved offset
                     cachedOffset = offset.duplicate();
+                    lastCacheTickCount = tickCount;
                     
                     return changeCount;
                 }
@@ -611,10 +615,10 @@ SLICK.Graphics = (function() {
             function cycle() {
                 // check to see if we are panning
                 var changeCount = 0,
-                    tickCount = SLICK.Clock.getTime(),
                     interacting = (status == module.DisplayState.PINCHZOOM) || (tickCount - lastInteraction < params.bufferRefresh);
                 
                 // get the updated the offset
+                tickCount = SLICK.Clock.getTime();
                 offset = pannable ? pannable.getOffset() : new SLICK.Vector();
                     
                 if (interacting) {
@@ -798,6 +802,7 @@ SLICK.Graphics = (function() {
             
             // get the dimensions
             dimensions = self.getDimensions();
+            paddedDimensions = dimensions.grow(params.padding, params.padding);
             
             // listen for layer removals
             GRUNT.WaterCooler.listen("layer.remove", function(args) {
