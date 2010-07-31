@@ -50,7 +50,6 @@ SLICK.Graphics = (function() {
         ViewLayer: function(params) {
             params = GRUNT.extend({
                 id: "",
-                draw: null,
                 centerOnScale: true,
                 zindex: 0,
                 validStates: module.ActiveDisplayStates | DISPLAY_STATE.PAN | DISPLAY_STATE.PINCHZOOM
@@ -75,22 +74,15 @@ SLICK.Graphics = (function() {
                     return (displayState & params.validStates) !== 0;
                 },
                 
-                checkOK: function(drawArgs) {
-                    return true;
-                },
-                
-                cycle: function(cycleArgs) {
+                cycle: function(tickCount, offset) {
                     return 0;
                 },
                 
-                draw: function(args) {
-                    if (params.draw) {
-                        params.draw(args);
-                    } // if
+                draw: function(context, offset, dimensions, view) {
                 },
                 
                 layerChanged: function() {
-                    for (var ii = 0; ii < changeListeners.length; ii++) {
+                    for (var ii = changeListeners.length; ii--; ) {
                         changeListeners[ii](self);
                     } // for
                 },
@@ -133,13 +125,13 @@ SLICK.Graphics = (function() {
             return new module.ViewLayer({
                 validStates: module.AnyDisplayState,
                 zindex: 5000,
-                draw: function(drawArgs) {
-                    drawArgs.context.fillStyle = "#FF0000";
-                    drawArgs.context.fillRect(10, 10, 50, 50);
+                draw: function(context, offset, dimensions, view) {
+                    context.fillStyle = "#FF0000";
+                    context.fillRect(10, 10, 50, 50);
                     
-                    drawArgs.context.fillStyle = "#FFFFFF";
-                    drawArgs.context.font = "bold 10px sans";
-                    drawArgs.context.fillText(drawArgs.displayState, 20, 20);
+                    context.fillStyle = "#FFFFFF";
+                    context.font = "bold 10px sans";
+                    context.fillText(view.getDisplayState(), 20, 20);
                 }
             });
         },
@@ -163,20 +155,20 @@ SLICK.Graphics = (function() {
                 indicatorXY = null,
                 pathOffset = 0;
             
-            function drawDefaultIndicator(drawArgs, indicatorXY) {
+            function drawDefaultIndicator(context, offset, indicatorXY) {
                 // draw an arc at the specified position
-                drawArgs.context.fillStyle = "#FFFFFF";
-                drawArgs.context.strokeStyle = "#222222";
-                drawArgs.context.beginPath();
-                drawArgs.context.arc(
+                context.fillStyle = "#FFFFFF";
+                context.strokeStyle = "#222222";
+                context.beginPath();
+                context.arc(
                     indicatorXY.x, 
                     indicatorXY.y,
                     4,
                     0,
                     Math.PI * 2,
                     false);             
-                drawArgs.context.stroke();
-                drawArgs.context.fill();
+                context.stroke();
+                context.fill();
             } // drawDefaultIndicator
             
             // calculate the tween
@@ -202,22 +194,8 @@ SLICK.Graphics = (function() {
             });
             
             // initialise self
-            var self =  new module.ViewLayer(GRUNT.extend(params, {
-                draw: function(drawArgs) {
-                    if (indicatorXY) {
-                        // if the draw indicator method is specified, then draw
-                        (params.drawIndicator ? params.drawIndicator : drawDefaultIndicator)(
-                            drawArgs, 
-                            new SLICK.Vector(indicatorXY.x - drawArgs.offset.x, indicatorXY.y - drawArgs.offset.y),
-                            theta
-                        );
-                    } // if
-                }
-            }));
-            
-            // override the cycle implementation
-            self.cycle = function(cycleArgs) {
-                GRUNT.Log.watch("cycling animation", function() {
+            var self =  GRUNT.extend(new module.ViewLayer(params), {
+                cycle: function(tickCount, offset) {
                     var edgeIndex = 0;
 
                     // iterate through the edge data and determine the current journey coordinate index
@@ -233,7 +211,7 @@ SLICK.Graphics = (function() {
                         var extra = pathOffset - (edgeIndex > 0 ? edgeData.accrued[edgeIndex - 1] : 0),
                             v1 = params.path[edgeIndex],
                             v2 = params.path[edgeIndex + 1];
-                            
+
                         theta = SLICK.VectorMath.theta(v1, v2, edgeData.edges[edgeIndex]);
                         indicatorXY = SLICK.VectorMath.pointOnEdge(v1, v2, theta, extra);
 
@@ -244,11 +222,23 @@ SLICK.Graphics = (function() {
                             } // if
                         } // if
                     } // if
-                    
-                    cycleArgs.changeCount += indicatorXY ? 1 : 0;
-                });
-            };
-            
+
+                    return indicatorXY ? 1 : 0;
+                },
+                
+                draw: function(context, offset, dimensions, view) {
+                    if (indicatorXY) {
+                        // if the draw indicator method is specified, then draw
+                        (params.drawIndicator ? params.drawIndicator : drawDefaultIndicator)(
+                            context,
+                            offset,
+                            new SLICK.Vector(indicatorXY.x - offset.x, indicatorXY.y - offset.y),
+                            theta
+                        );
+                    } // if
+                }
+            });
+
             return self;
         },
         
@@ -258,54 +248,6 @@ SLICK.Graphics = (function() {
             }, params);
             
             
-        },
-        
-        DrawArgs: function(params) {
-            params = GRUNT.extend({
-                context: null,
-                changeCount: 0,
-                displayState: DISPLAY_STATE.NONE,
-                offset: null,
-                offsetChanged: false,
-                animatingOffset: false,
-                dimensions: null,
-                dimensionsChanged: false,
-                scaleFactor: 1,
-                scaling: false,
-                ticks: 0,
-                viewId: ""
-            }, params);
-            
-            var COPY_PARAMS = [
-                'displayState', 
-                'offsetChanged', 
-                'animatingOffset', 
-                'dimensions', 
-                'dimensionsChanged',
-                'scaleFactor',
-                'scaling',
-                'ticks'
-            ];
-            
-            var self = GRUNT.extend({
-                update: function(newParams) {
-                    for (var keyId in newParams) {
-                        self[keyId] = newParams[keyId];
-                    } // for
-                },
-                
-                copy: function(srcArgs) {
-                    // copy the simple parameter values
-                    for (var ii = 0; ii < COPY_PARAMS.length; ii++) {
-                        self[COPY_PARAMS[ii]] = srcArgs[COPY_PARAMS[ii]];
-                    } // for
-                    
-                    // copy the offset
-                    self.offset = srcArgs.offset ? srcArgs.offset.duplicate() : null;
-                }
-            }, params);
-            
-            return self;
         },
         
         View: function(params) {
@@ -336,17 +278,18 @@ SLICK.Graphics = (function() {
                 mainContext = null,
                 cachedCanvas = null,
                 cachedContext = null,
+                offset = new SLICK.Vector(),
                 cachedOffset = new SLICK.Vector(),
                 cachedZIndex = 0,
-                drawArgs = null,
-                cachedArgs = null,
                 layerChangesSinceCache = 0,
                 lastInteraction = 0,
                 lastScaleFactor = 1,
+                translateDelta = new SLICK.Vector(),
                 nonCacheDraws = 0,
                 dimensions = null,
                 wakeTriggers = 0,
                 endCenter = null,
+                scalable = null,
                 idle = false,
                 paintInterval = 0,
                 zoomCenter = null,
@@ -398,6 +341,9 @@ SLICK.Graphics = (function() {
                         lastInteraction = SLICK.Clock.getTime(true);
                         wake();
                         
+                        // add the current pan on the vector
+                        translateDelta.add(new SLICK.Vector(x, y));
+                        
                         if (params.onPan) {
                             params.onPan(x, y);
                         } // if
@@ -414,8 +360,6 @@ SLICK.Graphics = (function() {
                 });
             } // if
             
-            var scalable = null;
-            var scaleFactor = 1;
             if (params.scalable) {
                 scalable = new SLICK.Scalable({
                     scaleDamping: params.scaleDamping,
@@ -440,7 +384,7 @@ SLICK.Graphics = (function() {
                         status = module.DisplayState.PINCHZOOM;
                     },
                     
-                    onScale: function(scaleFactor, zoomXY, keepCenter) {
+                    onScale: function(endScaleFactor, zoomXY, keepCenter) {
                         // notify layers that we are adjusting scale
                         notifyLayers("scale");
                         if (params.freezeOnScale) {
@@ -457,7 +401,7 @@ SLICK.Graphics = (function() {
                         } // if
 
                         if (params.onScale) {
-                            params.onScale(scaleFactor, zoomXY);
+                            params.onScale(endScaleFactor, zoomXY);
                         }
                     }
                 });
@@ -481,7 +425,7 @@ SLICK.Graphics = (function() {
                 
                 // sort the layers
                 layers.sort(function(itemA, itemB) {
-                    return itemA.zindex - itemB.zindex;
+                    return itemB.zindex - itemA.zindex;
                 });
 
                 // fire a notify event for adding the layer
@@ -489,7 +433,8 @@ SLICK.Graphics = (function() {
             } // addLayer
             
             function getLayerIndex(id) {
-                for (var ii = 0; ii < layers.length; ii++) {
+                GRUNT.Log.info("getting layer index");
+                for (var ii = layers.length; ii--; ) {
                     if (layers[ii].id == id) {
                         return ii;
                     } // if
@@ -502,7 +447,7 @@ SLICK.Graphics = (function() {
             
             var layerListeners = [];
             function notifyLayers(eventType) {
-                for (var ii = 0; ii < layers.length; ii++) {
+                for (var ii = layers.length; ii--; ) {
                     layers[ii].notify(eventType);
                 } // for
             } // notifyLayers
@@ -518,36 +463,28 @@ SLICK.Graphics = (function() {
                 // if we are pinching and zooming do not recache
                 if ((self.getDisplayStatus() & DISPLAY_STATE.PINCHZOOM) !== 0) { return 0; }
                 
-                var shouldRedraw = goingToSleep || (layerChangesSinceCache > 0) || (! cachedArgs),
-                    offsetDiff = cachedArgs.offset ? cachedArgs.offset.diff(drawArgs.offset).getAbsSize() : 0;
+                var shouldRedraw = goingToSleep || (layerChangesSinceCache > 0),
+                    offsetDiff = cachedOffset.diff(offset).getAbsSize();
                         
                 if (shouldRedraw || (offsetDiff > 50)) {
+                    // calculate the cached dimensions
+                    var cachedDimensions = dimensions.grow(params.padding, params.padding);
+                    
                     // let the world know
                     GRUNT.WaterCooler.say("view.cache", { id: params.id });
                     
-                    // GRUNT.Log.info("cached args vs draw args", cachedArgs, drawArgs);
-
                     // clear the cached context
                     cachedContext.clearRect(0, 0, cachedCanvas.width, cachedCanvas.height);
 
-                    // update the cached args
-                    cachedArgs.copy(drawArgs);
-
-                    // update the draw args to use the saved context rather than the main context
-                    cachedArgs.changeCount = 0;
-                    cachedArgs.context = cachedContext;
-
                     // update the offset to take into account the buffer
-                    cachedArgs.offset = cachedArgs.offset.offset(-params.padding, -params.padding);
+                    cachedOffset = cachedOffset.offset(-params.padding, -params.padding);
 
-                    // grow the dimensions
-                    cachedArgs.dimensions = cachedArgs.dimensions.grow(params.padding, params.padding);
-                    
                     // iterate through the layers, and for any layers that cannot draw on scale, draw them to 
                     // the saved context
-                    for (var ii = 0; ii < layers.length; ii++) {
+                    for (var ii = layers.length; ii--; ) {
                         if (layers[ii].shouldDraw(frozen ? DISPLAY_STATE.FROZEN : DISPLAY_STATE.GENCACHE)) {
-                            layers[ii].draw(cachedArgs);
+                            var layerChangeCount = layers[ii].draw(cachedContext, offset, cachedDimensions, self);
+                            changeCount += layerChangeCount ? layerChangeCount: 0;
 
                             // calculate the zindex as the zindex of the lowest saved layer
                             cachedZIndex = Math.min(cachedZIndex, layers[ii].zindex);
@@ -558,10 +495,9 @@ SLICK.Graphics = (function() {
                     layerChangesSinceCache = 0;
 
                     // update the saved offset
-                    cachedOffset = drawArgs.offset.duplicate();
+                    cachedOffset = offset.duplicate();
                     
-                    
-                    return cachedArgs.changeCount;
+                    return changeCount;
                 }
                 
                 return 0;
@@ -592,37 +528,35 @@ SLICK.Graphics = (function() {
                 } // if..else
             } // calcZoomCenter
             
-            function drawLayer(layer, drawArgs) {
+            function drawLayer(layer, context, offset) {
+                var changeCount = 0;
+                
                 // draw the layer output to the main canvas
                 // but only if we don't have a scale buffer or the layer is a draw on scale layer
                 if (layer.shouldDraw(status)) {
-                    layer.draw(drawArgs);
+                    changeCount = layer.draw(context, offset, dimensions, self);
                 } // if
+                
+                return changeCount ? changeCount : 0;
             } // drawLayer
             
-            function drawView() {
+            function drawView(offset) {
                 if (drawing) { return 0; }
                 
-                // if the dimensions have not been defined, then get them
-                if (! dimensions) {
-                    dimensions = self.getDimensions();
-                } // if
+                var changeCount = 0,
+                    scaleFactor = frozen ? lastScaleFactor : self.getScaleFactor();
                 
                 // update the last scale factor
-                lastScaleFactor = drawArgs.scaleFactor;
+                lastScaleFactor = self.getScaleFactor();
 
                 try {
                     drawing = true;
                     var savedDrawn = false,
                         ii = 0;
-                    
-                    /*
-                    // clear the canvas
-                    // TODO: handle scaling clearing the background correctly...
-                    if (drawArgs.scaleFactor != 1) {
-                        mainContext.clearRect(0, 0, canvas.width, canvas.height);
-                    } // if
-                    */
+                        
+                    // draw the cached canvas
+                    changeCount += cacheContext();
+
                     // initialise composite operations
                     // TODO: investigate dropping this back to copy and implementing source over only when needed
                     mainContext.globalCompositeOperation = "source-over";
@@ -632,127 +566,85 @@ SLICK.Graphics = (function() {
                     } // if
                     
                     // if we are scaling then do some calcs
-                    if (drawArgs.scaleFactor !== 1) {
+                    if (scaleFactor !== 1) {
                         if (! frozen) {
                             calcZoomCenter();
                         } // if
                         
                         // offset the draw args
                         if (zoomCenter) {
-                            drawArgs.offset.add(zoomCenter);
+                            offset.add(zoomCenter);
                         } // if
                     } // if
                     
                     mainContext.save();
                     try {
-                        // add the context to the draw args
-                        drawArgs.context = mainContext;
-
-                        // push past the background layers
-                        while ((ii < layers.length) && (layers[ii].zindex < 0)) { ii++; }
-                        
                         // if we are scaling, then tell the canvas to scale
-                        if (drawArgs.scaleFactor !== 1) {
+                        if (scaleFactor !== 1) {
                             mainContext.translate(endCenter.x, endCenter.y);
-                            mainContext.scale(drawArgs.scaleFactor, drawArgs.scaleFactor);
+                            mainContext.scale(scaleFactor, scaleFactor);
                         } // if
                         
-                        // iterate through the remaining layers
-                        while (ii < layers.length) {
-                            drawLayer(layers[ii], drawArgs);
+                        for (ii = layers.length; ii--; ) {
+                            changeCount += drawLayer(layers[ii], mainContext, offset);
                             
                             // draw the saved context if required and at the appropriate zindex
                             if ((! savedDrawn) && (cachedZIndex >= layers[ii].zindex)) {
-                                var relativeOffset = cachedOffset.diff(drawArgs.offset).offset(-params.padding, -params.padding);
+                                var relativeOffset = cachedOffset.diff(offset).offset(-params.padding, -params.padding);
 
                                 mainContext.drawImage(cachedCanvas, relativeOffset.x, relativeOffset.y);
                                 savedDrawn = true;
                             } // if
-                            
-                            ii++;
-                        } // while
-
-                        // if we have an on draw parameter specified, then draw away
-                        if (params.onDraw) {
-                            params.onDraw(drawArgs);
-                        } // if
+                        } // for
                     }
                     finally {
                         mainContext.restore();
                     } // try..finally
-                    
-                    // now draw the background layers (only where there is still transparency)
-                    mainContext.globalCompositeOperation = "destination-atop";
-                    for (ii = 0; (ii < layers.length) && (layers[ii].zindex < 0); ii++) {
-                        drawLayer(layers[ii], drawArgs);
-                    } // for
                 } 
                 finally {
                     drawing = false;
                 } // try..finally
                 
-                return drawArgs.changeCount;
+                return changeCount;
             } // drawView
             
             function cycle() {
                 // check to see if we are panning
                 var changeCount = 0,
                     tickCount = SLICK.Clock.getTime(),
-                    cycleArgs = {
-                        changeCount: 0,
-                        ticks: tickCount,
-                        interacting: (status == module.DisplayState.PINCHZOOM) || (tickCount - lastInteraction < params.bufferRefresh),
-                        offset: pannable ? pannable.getOffset() : new SLICK.Vector(),
-                        dimensions: dimensions
-                    },
-                    offsetChanged = (!drawArgs.offset) || !drawArgs.offset.matches(cycleArgs.offset),
-                    dimensionsChanged = (!drawArgs.dimensions) || !drawArgs.dimensions.matches(cycleArgs.dimensions);
-                        
-                if (cycleArgs.interacting) {
+                    interacting = (status == module.DisplayState.PINCHZOOM) || (tickCount - lastInteraction < params.bufferRefresh);
+                
+                // get the updated the offset
+                offset = pannable ? pannable.getOffset() : new SLICK.Vector();
+                    
+                if (interacting) {
                     SLICK.Animation.cancel(function(tweenInstance) {
                         return tweenInstance.cancelOnInteract;
                     });
                 }  // if
 
                 // update any active tweens
-                SLICK.Animation.update(cycleArgs.ticks);
+                SLICK.Animation.update(tickCount);
 
                 // check that all is right with each layer
-                for (var ii = 0; ii < layers.length; ii++) {
-                    layers[ii].cycle(cycleArgs);
+                for (var ii = layers.length; ii--; ) {
+                    var cycleChanges = layers[ii].cycle(tickCount, offset);
+                    changeCount += cycleChanges ? cycleChanges : 0;
                 } // for
                 
-                // update the draw args
-                drawArgs.update({
-                    context: null,
-                    changeCount: 0,
-                    displayState: self.getDisplayStatus(),
-                    offset: pannable ? pannable.getOffset() : new SLICK.Vector(),
-                    offsetChanged: offsetChanged,
-                    animatingOffset: pannable.isAnimating(),
-                    dimensions: cycleArgs.dimensions,
-                    dimensionsChanged: dimensionsChanged,
-                    scaleFactor: frozen ? lastScaleFactor : self.getScaleFactor(),
-                    scaling: scalable,
-                    ticks: cycleArgs.ticks
-                });
-                
                 // update the idle status
-                idle = idle && (! cycleArgs.interacting);
+                idle = idle && (! interacting);
                 
-                // cache the context
-                changeCount += cacheContext();
-
                 // draw the view
-                changeCount += drawView(cycleArgs);
+                changeCount += drawView(offset);
 
                 // if the user is not interacting, then save the current context
-                if ((! cycleArgs.interacting) && (! idle)) {
+                if ((! interacting) && (! idle)) {
                     idle = true;
                     GRUNT.WaterCooler.say("view-idle", { id: self.id });
                 } // if
                 
-                return changeCount + cycleArgs.changeCount;
+                return changeCount;
             } // cycle
             
             function wake() {
@@ -920,10 +812,6 @@ SLICK.Graphics = (function() {
                     wake();
                 } // if
             });
-            
-            // initialise the draw args
-            drawArgs = new module.DrawArgs({ viewId: params.id });
-            cachedArgs = new module.DrawArgs({ viewId: params.id });
             
             // add a status view layer for experimentation sake
             // self.setLayer("status", new module.StatusViewLayer());

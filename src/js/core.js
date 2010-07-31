@@ -220,16 +220,16 @@ SLICK = (function () {
         }, // Vector
         
         VectorArray: function(srcArray, copy) {
-            var data = [];
+            var data = new Array(srcArray.length);
             
             // copy the source array
-            for (var ii = 0; ii < srcArray.length; ii++) {
-                data.push(copy ? srcArray[ii].duplicate() : srcArray[ii]);
+            for (var ii = srcArray.length; ii--; ) {
+                data[ii] = copy ? srcArray[ii].duplicate() : srcArray[ii];
             } // for
             
             return {
                 applyOffset: function(offset) {
-                    for (var ii = 0; ii < data.length; ii++) {
+                    for (var ii = data.length; ii--; ) {
                         data[ii].add(offset);
                     } // for
                 },
@@ -245,7 +245,7 @@ SLICK = (function () {
                 
                 toString: function() {
                     var fnresult = "";
-                    for (var ii = 0; ii < data.length; ii++) {
+                    for (var ii = data.length; ii--; ) {
                         fnresult += "[" + data[ii].toString() + "] ";
                     } // for
                     
@@ -267,6 +267,7 @@ SLICK = (function () {
                 };
                 
                 // iterate through the vectors and calculate the edges
+                // OPTMIZE: look for speed up opportunities
                 for (var ii = 0; ii < vectors.length-1; ii++) {
                     var diff = vectors[ii].diff(vectors[ii + 1]);
                     

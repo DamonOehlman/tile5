@@ -112,7 +112,8 @@ SLICK.Mapping = (function() {
         RadarOverlay: function(params) {
             params = GRUNT.extend({
                 radarFill: "rgba(0, 221, 238, 0.1)",
-                radarStroke: "rgba(0, 102, 136, 0.3)"
+                radarStroke: "rgba(0, 102, 136, 0.3)",
+                zindex: 100
             }, params);
             
             // initialise variables
@@ -121,33 +122,23 @@ SLICK.Mapping = (function() {
             var size = 50;
             var increment = 3;
             
-            // create the view layer
-            return new SLICK.Graphics.ViewLayer(GRUNT.extend({
-                zindex: 100,
-                draw: function(drawArgs) {
+            return GRUNT.extend(new SLICK.Graphics.ViewLayer(params), {
+                draw: function(context, offset, dimensions, view) {
                     // calculate the center position
-                    var xPos = drawArgs.dimensions.width >> 1;
-                    var yPos = drawArgs.dimensions.height >> 1;
+                    var xPos = dimensions.width >> 1;
+                    var yPos = dimensions.height >> 1;
 
                     // initialise the drawing style
-                    drawArgs.context.fillStyle = params.radarFill;
-                    drawArgs.context.strokeStyle = params.radarStroke;
+                    context.fillStyle = params.radarFill;
+                    context.strokeStyle = params.radarStroke;
                     
                     // draw the radar circle
-                    drawArgs.context.beginPath();
-                    drawArgs.context.arc(xPos, yPos, size, 0, Math.PI * 2, false);
-                    drawArgs.context.fill();
-                    drawArgs.context.stroke();
-                    
-                    /*
-                    // animation test
-                    size += increment;
-                    if ((size >= MAXSIZE) || (size <= MINSIZE)) {
-                        increment = -increment;
-                    } // if
-                    */
+                    context.beginPath();
+                    context.arc(xPos, yPos, size, 0, Math.PI * 2, false);
+                    context.fill();
+                    context.stroke();
                 }
-            }, params));
+            });
         },
         
         /**
@@ -172,19 +163,18 @@ SLICK.Mapping = (function() {
                 context.stroke();
             } // drawCrosshair
             
-            return new SLICK.Graphics.ViewLayer(GRUNT.extend({
-                zindex: 110,
-                draw: function(drawArgs) {
-                    var centerPos = drawArgs.dimensions.getCenter();
+            return GRUNT.extend(new SLICK.Graphics.ViewLayer(params), {
+                draw: function(context, offset, dimensions, view) {
+                    var centerPos = dimensions.getCenter();
                     
                     // initialise the context line style
-                    drawArgs.context.lineWidth = params.lineWidth;
-                    drawArgs.context.strokeStyle = params.strokeStyle;
+                    context.lineWidth = params.lineWidth;
+                    context.strokeStyle = params.strokeStyle;
                     
                     // draw the cross hair lines
-                    drawCrosshair(drawArgs.context, centerPos, params.size);
+                    drawCrosshair(context, centerPos, params.size);
                 }
-            }, params));
+            });
         },
         
         /** 
@@ -192,9 +182,9 @@ SLICK.Mapping = (function() {
         */
         RouteOverlay: function(params) {
             params = GRUNT.extend({
-                strokeStyles: ["rgba(0, 51, 119, 0.9)"],
+                strokeStyle: "rgba(0, 51, 119, 0.9)",
                 waypointFillStyle: "#FFFFFF",
-                lineWidths: [4],
+                lineWidth: 4,
                 data: null,
                 pixelGeneralization: 8,
                 zindex: 50,
@@ -205,54 +195,51 @@ SLICK.Mapping = (function() {
                 instructionCoords = [];
                 
             // create the view layer the we will draw the view
-            var view = new SLICK.Graphics.ViewLayer(GRUNT.extend({
-                draw: function(drawArgs) {
+            var view = GRUNT.extend(new SLICK.Graphics.ViewLayer(params), {
+                draw: function(context, offset, dimensions, view) {
                     // TODO: see how this can be optimized... 
-                    var ii;
+                    var ii,
+                        coordLength = coordinates.length;
                     
-                    if (coordinates.length > 0) {
-                        for (var strokeIndex = 0; strokeIndex < params.strokeStyles.length; strokeIndex++) {
-                            // update the context stroke style and line width
-                            drawArgs.context.strokeStyle = params.strokeStyles[strokeIndex];
-                            drawArgs.context.lineWidth = params.lineWidths[strokeIndex];
+                    // update the context stroke style and line width
+                    context.strokeStyle = params.strokeStyle;
+                    context.lineWidth = params.lineWidth;
 
-                            // start drawing the path
-                            drawArgs.context.beginPath();
-                            drawArgs.context.moveTo(coordinates[0].x - drawArgs.offset.x, coordinates[0].y - drawArgs.offset.y);
+                    // start drawing the path
+                    context.beginPath();
+                    context.moveTo(coordinates[coordLength-1].x - offset.x, coordinates[coordLength-1].y - offset.y);
 
-                            for (ii = 1; ii < coordinates.length; ii++) {
-                                drawArgs.context.lineTo(coordinates[ii].x - drawArgs.offset.x, coordinates[ii].y - drawArgs.offset.y);
-                            } // for
+                    for (ii = coordLength; ii--; ) {
+                        context.lineTo(coordinates[ii].x - offset.x, coordinates[ii].y - offset.y);
+                    } // for
 
-                            drawArgs.context.stroke();
-                        } // for
-                    }
+                    context.stroke();
                     
-                    drawArgs.context.fillStyle = params.waypointFillStyle;
+                    context.fillStyle = params.waypointFillStyle;
                     
                     // draw the instruction coordinates
-                    for (ii = 0; ii < instructionCoords.length; ii++) {
-                        drawArgs.context.beginPath();
-                        drawArgs.context.arc(
-                            instructionCoords[ii].x - drawArgs.offset.x, 
-                            instructionCoords[ii].y - drawArgs.offset.y,
+                    for (ii = instructionCoords.length; ii--; ) {
+                        context.beginPath();
+                        context.arc(
+                            instructionCoords[ii].x - offset.x, 
+                            instructionCoords[ii].y - offset.y,
                             2,
                             0,
                             Math.PI * 2,
                             false);
                         
-                        drawArgs.context.stroke();
-                        drawArgs.context.fill();
+                        context.stroke();
+                        context.fill();
                     } // for
                 }
-            }, params));
+            });
             
             // define self
             var self = GRUNT.extend(view, {
                 getAnimation: function(easingFn, duration, drawCallback, autoCenter) {
                     // create a new animation layer based on the coordinates
                     return new SLICK.Graphics.AnimatedPathLayer({
-                        path: coordinates,
+                        path: coordinates.reverse(),
                         zindex: params.zindex + 1,
                         easing: easingFn ? easingFn : SLICK.Animation.Easing.Sine.InOut,
                         duration: duration ? duration : 5000,
@@ -273,14 +260,13 @@ SLICK.Mapping = (function() {
                     // TODO: improve performance here... look at re-entrant processing in cycle perhaps
 
                     // iterate through the position geometry and determine xy coordinates
-                    for (ii = 0; ii < geometry.length; ii++) {
+                    for (ii = geometry.length; ii--; ) {
                         // calculate the current position
                         current = grid.getGridXYForPosition(geometry[ii]);
 
                         // determine whether the current point should be included
-                        include = (! last) || (ii == geometry.length-1) || 
+                        include = (! last) || (ii === 0) || 
                             (Math.abs(current.x - last.x) + Math.abs(current.y - last.y) > params.pixelGeneralization);
-                        
                         
                         if (include) {
                             coordinates.push(current);
@@ -292,13 +278,13 @@ SLICK.Mapping = (function() {
                     
                     // iterate throught the instructions and add any points to the instruction coordinates array
                     last = null;
-                    for (ii = 0; ii < instructions.length; ii++) {
+                    for (ii = instructions.length; ii--; ) {
                         if (instructions[ii].position) {
                             // calculate the current position
                             current = grid.getGridXYForPosition(instructions[ii].position);
 
                             // determine whether the current point should be included
-                            include = (! last) || (ii == instructions.length-1) || 
+                            include = (! last) || (ii === 0) || 
                                 (Math.abs(current.x - last.x) + Math.abs(current.y - last.y) > params.pixelGeneralization);
 
                             if (include) {
@@ -339,7 +325,7 @@ SLICK.Mapping = (function() {
                     return animating;
                 },
                 
-                draw: function(drawArgs) {
+                draw: function(context, offset) {
                     if (! self.xy) { return; }
                     
                     if (self.isNew && (params.tweenIn)) {
@@ -347,7 +333,7 @@ SLICK.Mapping = (function() {
                         var endValue = self.xy.y;
 
                         // set the y to offscreen
-                        self.xy.y = drawArgs.offset.y - 20;
+                        self.xy.y = offset.y - 20;
                         
                         // animate the annotation
                         animating = true;
@@ -359,18 +345,18 @@ SLICK.Mapping = (function() {
                     } // if
                     
                     if (params.draw) {
-                        params.draw(drawArgs, new SLICK.Vector(self.xy.x - drawArgs.offset.x, self.xy.y - drawArgs.offset.y));
+                        params.draw(context, offset, new SLICK.Vector(self.xy.x - offset.x, self.xy.y - offset.y));
                     }
                     else {
-                        drawArgs.context.beginPath();
-                        drawArgs.context.arc(
-                            self.xy.x - drawArgs.offset.x, 
-                            self.xy.y - drawArgs.offset.y,
+                        context.beginPath();
+                        context.arc(
+                            self.xy.x - offset.x, 
+                            self.xy.y - offset.y,
                             4,
                             0,
                             Math.PI * 2,
                             false);                    
-                        drawArgs.context.fill();                    
+                        context.fill();                    
                     }
                     
                     self.isNew = false;
@@ -388,14 +374,14 @@ SLICK.Mapping = (function() {
             var image = null,
                 imageOffset = new SLICK.Vector();
             
-            params.draw = function(drawArgs, xy) {
+            params.draw = function(context, offset, xy) {
                 if (! image) { return; }
                 
                 // determine the position to draw the image
                 var imageXY = xy.offset(imageOffset.x, imageOffset.y);
                 
                 // draw the image
-                drawArgs.context.drawImage(image, imageXY.x, imageXY.y, image.width, image.height);
+                context.drawImage(image, imageXY.x, imageXY.y, image.width, image.height);
             }; // draw
             
             // load the image
@@ -420,7 +406,8 @@ SLICK.Mapping = (function() {
                 pois: null,
                 map: null,
                 createAnnotationForPOI: null,
-                validStates: SLICK.Graphics.DisplayState.GENCACHE
+                validStates: SLICK.Graphics.DisplayState.GENCACHE,
+                zindex: 100
             }, params);
             
             var annotations = [],
@@ -481,37 +468,31 @@ SLICK.Mapping = (function() {
             }
 
             // create the view layer the we will draw the view
-            var layer = new SLICK.Graphics.ViewLayer(GRUNT.extend({
-                zindex: 100,
-                
-                draw: function(drawArgs) {
+            var self = GRUNT.extend(new SLICK.Graphics.ViewLayer(params), {
+                draw: function(context, offset, dimensions, view) {
                     // initialise variables
                     var ii;
                     
                     // reset animating to false
                     animating = false;
-                    drawArgs.context.fillStyle = "rgba(255, 0, 0, 0.75)";
+                    context.fillStyle = "rgba(255, 0, 0, 0.75)";
                     
                     // iterate through the annotations and draw them
-                    for (ii = 0; ii < annotations.length; ii++) {
-                        annotations[ii].draw(drawArgs);
+                    for (ii = annotations.length; ii--; ) {
+                        annotations[ii].draw(context, offset);
                         animating = animating || annotations[ii].isAnimating();
                     } // for
-                    
-                    // iterate through the annotations and draw them
-                    for (ii = 0; ii < staticAnnotations.length; ii++) {
-                        staticAnnotations[ii].draw(drawArgs);
+
+                    for (ii = staticAnnotations.length; ii--; ) {
+                        staticAnnotations[ii].draw(context, offset);
                         animating = animating || annotations[ii].isAnimating();
                     } // for
-                    
+
                     if (animating) {
                         self.layerChanged();
                     } // if
-                }
-            }, params));
-
-            // create the view layer the we will draw the view
-            var self = GRUNT.extend(layer, {
+                },
+                
                 /**
                 This method provides that ability for the creation of static annotations (as opposed)
                 to annotations that are kept in sync with the pois that are POIStorage of the map. 
@@ -530,7 +511,7 @@ SLICK.Mapping = (function() {
                     return animating;
                 }
             });
-            
+
             GRUNT.WaterCooler.listen("geo.pois-updated", function(args) {
                 // if the event source id matches our current poi storage, then apply updates
                 if (params.pois && (params.pois.id == args.srcID)) {
@@ -856,14 +837,14 @@ SLICK.Mapping = (function() {
             if (copyrightMessage) {
                 self.setLayer("copyright", new SLICK.Graphics.ViewLayer({
                     zindex: 999,
-                    draw: function(drawArgs) {
-                        drawArgs.context.lineWidth = 2.5;
-                        drawArgs.context.fillStyle = "rgb(50, 50, 50)";
-                        drawArgs.context.strokeStyle = "rgba(255, 255, 255, 0.8)";
-                        drawArgs.context.font = "bold 10px sans";
-                        drawArgs.context.textBaseline = "bottom";
-                        drawArgs.context.strokeText(copyrightMessage, 10, drawArgs.dimensions.height - 10);
-                        drawArgs.context.fillText(copyrightMessage, 10, drawArgs.dimensions.height - 10);
+                    draw: function(context, offset, dimensions, view) {
+                        context.lineWidth = 2.5;
+                        context.fillStyle = "rgb(50, 50, 50)";
+                        context.strokeStyle = "rgba(255, 255, 255, 0.8)";
+                        context.font = "bold 10px sans";
+                        context.textBaseline = "bottom";
+                        context.strokeText(copyrightMessage, 10, dimensions.height - 10);
+                        context.fillText(copyrightMessage, 10, dimensions.height - 10);
                     }
                 }));
             } // if

@@ -67,14 +67,14 @@ SLICK.Pannable = function(params) {
                 });
 
                 // set the tweens to cancel on interact
-                for (var ii = 0; ii < tweens.length; ii++) {
+                for (var ii = tweens.length; ii--; ) {
                     tweens[ii].cancelOnInteract = true;
                     tweens[ii].requestUpdates(function(updatedValue, complete) {
                         if (params.onAnimate) {
                             params.onAnimate(offset.x, offset.y);
                         } // if
                     });
-                } // for            
+                } // for
             }
             else {
                 self.setOffset(x, y);

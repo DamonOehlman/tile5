@@ -152,7 +152,7 @@ SLICK.Animation = (function() {
                 change = 0;
                 
             function notifyListeners(updatedValue, complete) {
-                for (var ii = 0; ii < updateListeners.length; ii++) {
+                for (var ii = updateListeners.length; ii--; ) {
                     updateListeners[ii](updatedValue, complete);
                 } // for
             } // notifyListeners

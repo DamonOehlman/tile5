@@ -232,7 +232,7 @@ SLICK.Tiling = (function() {
                     
                     if ((! image)  && params.url) {
                         // create the image
-                        image = SLICK.Graphics.ImageCache.getImage(params.url, params.sessionParamRegex);
+                        image = null; // SLICK.Graphics.ImageCache.getImage(params.url, params.sessionParamRegex);
                         
                         if (image) {
                             flagLoaded();
@@ -244,7 +244,7 @@ SLICK.Tiling = (function() {
 
                             // watch for the image load
                             image.onload = function() {                                
-                                SLICK.Graphics.ImageCache.cacheImage(params.url, params.sessionParamRegex, image);
+                                // SLICK.Graphics.ImageCache.cacheImage(params.url, params.sessionParamRegex, image);
                                 flagLoaded();
                             }; // onload
                         } // if..else
@@ -331,8 +331,7 @@ SLICK.Tiling = (function() {
                 fillStyle: "rgb(200, 200, 200)",
                 strokeStyle: "rgb(180, 180, 180)",
                 zindex: -1,
-                draw: drawTileBackground,
-                validStates: SLICK.Graphics.ActiveDisplayStates | SLICK.Graphics.DisplayState.PAN
+                validStates: SLICK.Graphics.GENCACHE
             });
             
             var gridSection = document.createElement('canvas');
@@ -347,9 +346,9 @@ SLICK.Tiling = (function() {
             var gridPattern = null,
                 sectionDrawn = false;
                 
-            function drawSection(drawArgs) {
-                var lineX = params.lineDist - Math.abs(drawArgs.offset.x % params.lineDist);
-                var lineY = params.lineDist - Math.abs(drawArgs.offset.y % params.lineDist);
+            function drawSection(context, offset) {
+                var lineX = params.lineDist - Math.abs(offset.x % params.lineDist);
+                var lineY = params.lineDist - Math.abs(offset.y % params.lineDist);
                 
                 // if the grid pattern is not defined, then do that now
                 sectionContext.fillRect(0, 0, gridSection.width, gridSection.height);
@@ -367,19 +366,19 @@ SLICK.Tiling = (function() {
                 sectionDrawn = true;
             } // drawSection
             
-            function drawTileBackground(drawArgs) {
-                // if the section is not drawn, then draw it
-                // TODO: optimize this - currently due to moving we need to draw it every time...
-                drawSection(drawArgs);
+            return GRUNT.extend(new SLICK.Graphics.ViewLayer(params), {
+                draw: function(context, offset, dimensions, view) {
+                    // if the section is not drawn, then draw it
+                    // TODO: optimize this - currently due to moving we need to draw it every time...
+                    drawSection(context, offset);
 
-                // create the grid pattern
-                gridPattern = drawArgs.context.createPattern(gridSection, 'repeat');
-                
-                drawArgs.context.fillStyle = gridPattern;
-                drawArgs.context.fillRect(0, 0, drawArgs.dimensions.width, drawArgs.dimensions.height);
-            } // drawTileBackground
-            
-            return new SLICK.Graphics.ViewLayer(params);
+                    // create the grid pattern
+                    gridPattern = context.createPattern(gridSection, 'repeat');
+
+                    context.fillStyle = gridPattern;
+                    context.fillRect(0, 0, dimensions.width, dimensions.height);
+                }
+            });
         },
         
         TileGrid: function(params) {
@@ -389,7 +388,6 @@ SLICK.Tiling = (function() {
                 tileSize: SLICK.Tiling.Config.TILESIZE,
                 drawGrid: false,
                 center: new SLICK.Vector(),
-                draw: drawTiles,
                 shiftOrigin: null,
                 checkChange: 100,
                 validStates: SLICK.Graphics.DisplayState.GENCACHE
@@ -425,15 +423,17 @@ SLICK.Tiling = (function() {
                 } // for
             } // notifyListeners
             
-            function updateDrawQueue(drawArgs) {
+            function updateDrawQueue(context, offset, dimensions, view) {
+                // OPTIMIZE: shift this functionality to the tile store
                 // find the tile for the specified position
                 var tile, tileShift = tileStore.getTileShift(),
                     tileStart = new SLICK.Vector(
-                                    Math.floor((drawArgs.offset.x + tileShift.x) * invTileSize), 
-                                    Math.floor((drawArgs.offset.y + tileShift.y) * invTileSize)),
-                    tileCols = Math.ceil(drawArgs.dimensions.width * invTileSize) + 1,
-                    tileRows = Math.ceil(drawArgs.dimensions.height * invTileSize) + 1,
-                    tileOffset = new SLICK.Vector((tileStart.x * params.tileSize), (tileStart.y * params.tileSize));
+                                    Math.floor((offset.x + tileShift.x) * invTileSize), 
+                                    Math.floor((offset.y + tileShift.y) * invTileSize)),
+                    tileCols = Math.ceil(dimensions.width * invTileSize) + 1,
+                    tileRows = Math.ceil(dimensions.height * invTileSize) + 1,
+                    tileOffset = new SLICK.Vector((tileStart.x * params.tileSize), (tileStart.y * params.tileSize)),
+                    viewAnimating = view.isAnimating();
                     
                 // reset the tile draw queue
                 tileDrawQueue = [];
@@ -462,11 +462,8 @@ SLICK.Tiling = (function() {
                     } // for
                 } // for
                 
-                // spiralize the queue
-                // spiralizeQueue(tileCols, tileRows);
-
                 // check that the tiles are loaded
-                for (var ii = 0; ii < tileDrawQueue.length; ii++) {
+                for (var ii = tileDrawQueue.length; ii--; ) {
                     tile = tileDrawQueue[ii].tile;
 
                     if (tile && (! tile.loaded)) {
@@ -477,117 +474,13 @@ SLICK.Tiling = (function() {
 
                             self.wakeParent();
                             notifyListeners("load", tile);
-                        }, drawArgs.animatingOffset);
+                        }, viewAnimating);
                     } // if
                 } // for
             } // fileTileDrawQueue
             
-            function spiralizeQueue(cols, rows) {
-                var spiralFns = [{
-                    vector: new SLICK.Vector(1, 0)
-                }, {
-                    vector: new SLICK.Vector(0, 1),
-                    decrementor: new SLICK.Vector(0, -1)
-                }, {
-                    vector: new SLICK.Vector(-1, 0),
-                    decrementor: new SLICK.Vector(-1, 0)
-                }, {
-                    vector: new SLICK.Vector(0, -1),
-                    decrementor: new SLICK.Vector(0, -1)
-                }];
-                
-                var pos = new SLICK.Vector(0, 0);
-                var xyMax = new SLICK.Vector(cols - 1, rows - 1); 
-                var ii = 0;
-                var spiralQueue = [];
-                var fnIndex = 0;
-                var fnIterations = 0;
-                var indexList = [];
-                
-                while (ii < cols * rows) {
-                    var index = pos.y * cols + pos.x; 
-                    spiralQueue.push(tileDrawQueue[index]);
-                    
-                    // get the function vector
-                    var fnVector = spiralFns[fnIndex].vector;
-                    fnIterations++;
-                    
-                    // apply the vector
-                    pos.add(fnVector);
-
-                    // if applying the vector again would push us over, then increment the function index
-                    var testVector = pos.offset(fnVector.x, fnVector.y);
-                    if ((fnVector.x && (fnIterations >= xyMax.x)) || 
-                        (fnVector.y && (fnIterations >= xyMax.y))) {
-                        // apply the decrementor to the xymax values
-                        spiralFns[fnIndex].decrementor ? xyMax.add(spiralFns[fnIndex].decrementor) : null ;
-                        
-                        // increment the function index and autowrap
-                        fnIterations = 0;
-                        fnIndex = (fnIndex + 1) % spiralFns.length;
-                    } // if
-                    
-                    // GRUNT.Log.info("index = " + index + ", pos = " + pos + ", test vector = " + testVector + ", xymax = " + xyMax + ", fnindex = " + fnIndex);
-                    
-                    indexList.push(index);
-                    ii++;
-                } // while
-                
-                // GRUNT.Log.info("spiralized queue (" + cols + " x " + rows + ")", indexList);
-                
-                // update the tile draw queue with the output queue
-                tileDrawQueue = spiralQueue.reverse();
-            } // spiralizeQueue
-            
-            function drawTiles(drawArgs) {
-                // grow the dimensions, and tweak the offset by a centered amount
-                // dimensions.grow(params.bufferSize, params.bufferSize);
-                // offset.x -= halfBuffer;
-                // offset.y -= halfBuffer;
-                
-                // initialise variables
-                var tileShift = tileStore.getTileShift();
-                updateDrawQueue(drawArgs);
-                
-                // set the context stroke style for the border
-                if (params.drawGrid) {
-                    drawArgs.context.strokeStyle = "rgba(50, 50, 50, 0.3)";
-                } // if
-                
-                // begin the path for the tile borders
-                drawArgs.context.beginPath();
-                
-                // iterate through the tiles in the draw queue
-                for (var ii = 0; ii < tileDrawQueue.length; ii++) {
-                    var tile = tileDrawQueue[ii].tile;
-                    var coord = tileDrawQueue[ii].coordinates.duplicate();
-                    
-                    coord.x -= (drawArgs.offset.x + tileShift.x);
-                    coord.y -= (drawArgs.offset.y + tileShift.y);;
-                    
-                    // if the tile is loaded, then draw, otherwise load
-                    if (tile && tile.loaded) {
-                        tile.draw(drawArgs.context, coord.x, coord.y);
-                    } // if
-
-                    // if we are drawing borders, then draw that now
-                    if (params.drawGrid) {
-                        drawArgs.context.rect(coord.x, coord.y, params.tileSize, params.tileSize);
-                    } // if                    
-                } // for
-                
-                // draw the borders if we have them...
-                drawArgs.context.stroke();
-                
-                // flag the grid as not dirty
-                gridDirty = false;
-            } // drawTiles 
-            
             // initialise self
-            var self = new SLICK.Graphics.ViewLayer(params);
-            
-            // add the additional functionality
-            GRUNT.extend(self, {
+            var self = GRUNT.extend(new SLICK.Graphics.ViewLayer(params), {
                 addTile: function(col, row, tile) {
                     // update the tile store 
                     tileStore.setTile(col, row, tile);
@@ -602,8 +495,9 @@ SLICK.Tiling = (function() {
                     }
                 },
                 
-                cycle: function(cycleArgs) {
-                    var needTiles = shiftDelta.x + shiftDelta.y !== 0;
+                cycle: function(tickCount, offset) {
+                    var needTiles = shiftDelta.x + shiftDelta.y !== 0,
+                        changeCount = 0;
 
                     if (needTiles) {
                         tileStore.shift(shiftDelta, params.shiftOrigin);
@@ -612,13 +506,56 @@ SLICK.Tiling = (function() {
                         shiftDelta = new SLICK.Vector();
                         
                         // things need to happen
-                        cycleArgs.changeCount++;
+                        changeCount++;
                     } // if
                     
                     // if the grid is dirty let the calling view know
-                    cycleArgs.changeCount += gridDirty ? 1 : 0;
-                    
-                    // GRUNT.Log.info("cycling TileGrid, change count = " + cycleArgs.changeCount);
+                    return changeCount + gridDirty ? 1 : 0;
+                },
+                
+                draw: function(context, offset, dimensions, view) {
+                    // grow the dimensions, and tweak the offset by a centered amount
+                    // dimensions.grow(params.bufferSize, params.bufferSize);
+                    // offset.x -= halfBuffer;
+                    // offset.y -= halfBuffer;
+
+                    // initialise variables
+                    var tileShift = tileStore.getTileShift(),
+                        xShift = offset.x + tileShift.x,
+                        yShift = offset.y + tileShift.y;
+
+                    updateDrawQueue(context, offset, dimensions, view);
+
+                    // set the context stroke style for the border
+                    if (params.drawGrid) {
+                        context.strokeStyle = "rgba(50, 50, 50, 0.3)";
+                    } // if
+
+                    // begin the path for the tile borders
+                    context.beginPath();
+
+                    // iterate through the tiles in the draw queue
+                    for (var ii = tileDrawQueue.length; ii--; ) {
+                        var tile = tileDrawQueue[ii].tile,
+                            x = tileDrawQueue[ii].coordinates.x - xShift,
+                            y = tileDrawQueue[ii].coordinates.y - yShift;
+
+                        // if the tile is loaded, then draw, otherwise load
+                        if (tile && tile.loaded) {
+                            tile.draw(context, x, y);
+                        } // if
+
+                        // if we are drawing borders, then draw that now
+                        if (params.drawGrid) {
+                            context.rect(x, y, params.tileSize, params.tileSize);
+                        } // if                    
+                    } // for
+
+                    // draw the borders if we have them...
+                    context.stroke();
+
+                    // flag the grid as not dirty
+                    gridDirty = false;
                 },
                 
                 getLoadedTileCount: function() {

@@ -25,7 +25,7 @@ SLICK.Dispatcher = (function() {
         },
         
         findAction: function(actionId) {
-            for (var ii = 0; ii < registeredActions.length; ii++) {
+            for (var ii = registeredActions.length; ii--; ) {
                 if (registeredActions[ii].id == actionId) {
                     return registeredActions[ii];
                 } // if
@@ -42,7 +42,7 @@ SLICK.Dispatcher = (function() {
             var actionIds = [];
             
             // get the action ids
-            for (var ii = 0; ii < registeredActions.length; ii++) {
+            for (var ii = registeredActions.length; ii--; ) {
                 registeredActions[ii].id ? actionIds.push(registeredActions[ii].id) : null;
             } // for
             
