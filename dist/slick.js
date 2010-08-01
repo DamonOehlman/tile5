@@ -3525,10 +3525,7 @@ SLICK.Graphics = (function() {
             var changeListeners = [],
                 parent = null;
 
-            var self = {
-                id: params.id,
-                zindex: params.zindex,
-                
+            var self = GRUNT.extend({
                 isAnimating: function() {
                     return false;
                 },
@@ -3583,7 +3580,7 @@ SLICK.Graphics = (function() {
                 setParent: function(view) {
                     parent = view;
                 }
-            }; // self
+            }, params); // self
             
             return self;
         },
@@ -3728,13 +3725,13 @@ SLICK.Graphics = (function() {
                 scaleDamping: false,
                 fillStyle: "rgb(200, 200, 200)",
                 freezeOnScale: false,
-                cacheFPS: 4,
                 bufferRefresh: 100,
                 maxNonCacheDraws: 10,
                 // TODO: calculate the padding based on screen size
                 // TODO: fix padding - still messes with screen coordinates for animation, etc
-                padding: 0,
-                fps: 40,
+                padding: 200,
+                fps: 25,
+                cacheFPS: 2,
                 onPan: null,
                 onPinchZoom: null,
                 onScale: null,
@@ -3754,7 +3751,6 @@ SLICK.Graphics = (function() {
                 lastInteraction = 0,
                 lastScaleFactor = 1,
                 translateDelta = new SLICK.Vector(),
-                nonCacheDraws = 0,
                 dimensions = null,
                 paddedDimensions = null,
                 wakeTriggers = 0,
@@ -3763,7 +3759,6 @@ SLICK.Graphics = (function() {
                 idle = false,
                 paintInterval = 0,
                 bufferTime = 0,
-                recacheDistance = params.padding * 0.5,
                 zoomCenter = null,
                 frozen = false,
                 tickCount = 0,
@@ -3880,6 +3875,9 @@ SLICK.Graphics = (function() {
             } // if
             
             function addLayer(id, value) {
+                // make some determinations based on the valid display states of the layer
+                
+                
                 // make sure the layer has the correct id
                 value.id = id;
                 
@@ -3926,52 +3924,41 @@ SLICK.Graphics = (function() {
             
             /* saved canvas / context code */
             
-            function cacheContext(goingToSleep) {
+            function cacheContext() {
                 var changeCount = 0;
                 
                 // get the context
                 cachedZIndex = 1000;
                 
-                // if we are pinching and zooming do not recache
-                if ((self.getDisplayStatus() & DISPLAY_STATE.PINCHZOOM) !== 0) { return 0; }
+                // let the world know
+                GRUNT.WaterCooler.say("view.cache", { id: params.id });
                 
-                var shouldRedraw = goingToSleep || (layerChangesSinceCache > 0),
-                    offsetDiff = 0; // cachedOffset.diff(offset).getAbsSize();
-                        
-                if (shouldRedraw && (lastCacheTickCount + cacheDelay <= tickCount)) {
-                    // let the world know
-                    GRUNT.Log.info("RECACHING");
-                    GRUNT.WaterCooler.say("view.cache", { id: params.id });
-                    
-                    // clear the cached context
-                    cachedContext.clearRect(0, 0, cachedCanvas.width, cachedCanvas.height);
+                // clear the cached context
+                cachedContext.clearRect(0, 0, cachedCanvas.width, cachedCanvas.height);
 
-                    // update the offset to take into account the buffer
-                    cachedOffset = cachedOffset.offset(-params.padding, -params.padding);
-
-                    // iterate through the layers, and for any layers that cannot draw on scale, draw them to 
-                    // the saved context
-                    for (var ii = layers.length; ii--; ) {
-                        if (layers[ii].shouldDraw(frozen ? DISPLAY_STATE.FROZEN : DISPLAY_STATE.GENCACHE)) {
-                            var layerChangeCount = layers[ii].draw(cachedContext, offset, paddedDimensions, self);
-                            changeCount += layerChangeCount ? layerChangeCount: 0;
-
-                            // calculate the zindex as the zindex of the lowest saved layer
-                            cachedZIndex = Math.min(cachedZIndex, layers[ii].zindex);
-                        } // if
-                    } // for
-
-                    // reset the layer changes since cache count
-                    layerChangesSinceCache = 0;
-
-                    // update the saved offset
-                    cachedOffset = offset.duplicate();
-                    lastCacheTickCount = tickCount;
-                    
-                    return changeCount;
-                }
+                // update the offset to take into account the buffer
+                var paddedOffset = offset.offset(-params.padding, -params.padding);
                 
-                return 0;
+                // iterate through the layers, and for any layers that cannot draw on scale, draw them to 
+                // the saved context
+                for (var ii = layers.length; ii--; ) {
+                    if (layers[ii].shouldDraw(frozen ? DISPLAY_STATE.FROZEN : DISPLAY_STATE.GENCACHE)) {
+                        var layerChangeCount = layers[ii].draw(cachedContext, paddedOffset, paddedDimensions, self);
+                        changeCount += layerChangeCount ? layerChangeCount: 0;
+
+                        // calculate the zindex as the zindex of the lowest saved layer
+                        cachedZIndex = Math.min(cachedZIndex, layers[ii].zindex);
+                    } // if
+                } // for
+
+                // reset the layer changes since cache count
+                layerChangesSinceCache = 0;
+
+                // update the saved offset
+                cachedOffset = offset.duplicate();
+                lastCacheTickCount = tickCount;
+                
+                return changeCount;
             } // getSavedContext
             
             /* draw code */
@@ -4015,7 +4002,8 @@ SLICK.Graphics = (function() {
                 if (drawing) { return 0; }
                 
                 var changeCount = 0,
-                    scaleFactor = frozen ? lastScaleFactor : self.getScaleFactor();
+                    scaleFactor = frozen ? lastScaleFactor : self.getScaleFactor(),
+                    isPinchZoom = (self.getDisplayStatus() & DISPLAY_STATE.PINCHZOOM) !== 0;
                 
                 // update the last scale factor
                 lastScaleFactor = self.getScaleFactor();
@@ -4026,8 +4014,13 @@ SLICK.Graphics = (function() {
                         ii = 0;
                         
                     // draw the cached canvas
-                    changeCount += cacheContext();
+                    if ((! isPinchZoom) && (layerChangesSinceCache > 0) && (lastCacheTickCount + cacheDelay <= tickCount)) {
+                        changeCount += cacheContext();
+                    } // if
 
+                    // save the context
+                    mainContext.save(); 
+                    
                     // initialise composite operations
                     // TODO: investigate dropping this back to copy and implementing source over only when needed
                     mainContext.globalCompositeOperation = "source-over";
@@ -4037,7 +4030,7 @@ SLICK.Graphics = (function() {
                     } // if
                     
                     // if we are scaling then do some calcs
-                    if (scaleFactor !== 1) {
+                    if (isPinchZoom) {
                         if (! frozen) {
                             calcZoomCenter();
                         } // if
@@ -4051,7 +4044,7 @@ SLICK.Graphics = (function() {
                     mainContext.save();
                     try {
                         // if we are scaling, then tell the canvas to scale
-                        if (scaleFactor !== 1) {
+                        if (isPinchZoom) {
                             mainContext.translate(endCenter.x, endCenter.y);
                             mainContext.scale(scaleFactor, scaleFactor);
                         } // if
@@ -4061,8 +4054,8 @@ SLICK.Graphics = (function() {
                             
                             // draw the saved context if required and at the appropriate zindex
                             if ((! savedDrawn) && (cachedZIndex >= layers[ii].zindex)) {
-                                var relativeOffset = cachedOffset.diff(offset).offset(-params.padding, -params.padding);
-
+                                var relativeOffset = relativeOffset = cachedOffset.diff(offset).offset(-params.padding, -params.padding);
+                                
                                 mainContext.drawImage(cachedCanvas, relativeOffset.x, relativeOffset.y);
                                 savedDrawn = true;
                             } // if
@@ -4073,6 +4066,8 @@ SLICK.Graphics = (function() {
                     } // try..finally
                 } 
                 finally {
+                    // restore the original context
+                    mainContext.restore();
                     drawing = false;
                 } // try..finally
                 
@@ -4131,7 +4126,7 @@ SLICK.Graphics = (function() {
                             paintInterval = 0;
                             
                             // now just cache the context for sanities sake
-                            if (cacheContext(true) > 0) {
+                            if (cacheContext() > 0) {
                                 wake();
                             } // if
                         }
