@@ -4054,7 +4054,7 @@ SLICK.Graphics = (function() {
                             
                             // draw the saved context if required and at the appropriate zindex
                             if ((! savedDrawn) && (cachedZIndex >= layers[ii].zindex)) {
-                                var relativeOffset = relativeOffset = cachedOffset.diff(offset).offset(-params.padding, -params.padding);
+                                var relativeOffset = cachedOffset.diff(offset).offset(-params.padding, -params.padding);
                                 
                                 mainContext.drawImage(cachedCanvas, relativeOffset.x, relativeOffset.y);
                                 savedDrawn = true;
@@ -6405,7 +6405,7 @@ SLICK.Mapping = (function() {
                 getAnimation: function(easingFn, duration, drawCallback, autoCenter) {
                     // create a new animation layer based on the coordinates
                     return new SLICK.Graphics.AnimatedPathLayer({
-                        path: coordinates.reverse(),
+                        path: coordinates,
                         zindex: params.zindex + 1,
                         easing: easingFn ? easingFn : SLICK.Animation.Easing.Sine.InOut,
                         duration: duration ? duration : 5000,
@@ -6435,7 +6435,7 @@ SLICK.Mapping = (function() {
                             (Math.abs(current.x - last.x) + Math.abs(current.y - last.y) > params.pixelGeneralization);
                         
                         if (include) {
-                            coordinates.push(current);
+                            coordinates.unshift(current);
                             
                             // update the last
                             last = current;
