@@ -646,30 +646,32 @@ SLICK.Graphics = (function() {
                 return changeCount;
             } // cycle
             
+            function paintTilDone() {
+                try {
+                    // if nothing happenned in the last cycle, then go to sleep
+                    if (wakeTriggers + cycle() === 0) {
+                        clearInterval(paintInterval);
+                        paintInterval = 0;
+                        
+                        // now just cache the context for sanities sake
+                        if (cacheContext() > 0) {
+                            wake();
+                        } // if
+                    }
+                    
+                    wakeTriggers = 0;
+                }
+                catch (e) {
+                    GRUNT.Log.exception(e);
+                }
+            } // paintTilDone
+            
             function wake() {
                 wakeTriggers++;
                 if (paintInterval !== 0) { return; }
                 
                 // create an interval to do a proper redraw on the layers
-                paintInterval = setInterval(function() {
-                    try {
-                        // if nothing happenned in the last cycle, then go to sleep
-                        if (wakeTriggers + cycle() === 0) {
-                            clearInterval(paintInterval);
-                            paintInterval = 0;
-                            
-                            // now just cache the context for sanities sake
-                            if (cacheContext() > 0) {
-                                wake();
-                            } // if
-                        }
-                        
-                        wakeTriggers = 0;
-                    }
-                    catch (e) {
-                        GRUNT.Log.exception(e);
-                    }
-                }, params.fps ? (1000 / params.fps) : 40);
+                paintInterval = setInterval(paintTilDone, params.fps ? (1000 / params.fps) : 40);
             } // wake
             
             // initialise self

@@ -1448,25 +1448,59 @@ GRUNT.WaterCooler = (function() {
 The top level SLICK namespace.  This module contains core types and functionality for implementing 
 */
 SLICK = (function () {
-    var deviceConfigs = {
-        base: {
-            eventTarget: document,
-            supportsTouch: "createTouch" in document
-        },
-        
-        iphone: {
-            regex: /iphone/i
-        },
-        
-        android: {
-            regex: /android/i,
-            eventTarget: document.body,
-            supportsTouch: true
-        }
-    }; // deviceConfigs
+    var deviceConfigs = null,
+        detectedConfig = null;
+    
+    function loadDeviceConfigs() {
+        deviceConfigs = {
+            base: {
+                eventTarget: document,
+                supportsTouch: "createTouch" in document
+            },
+
+            iphone: {
+                regex: /iphone/i
+            },
+
+            android: {
+                regex: /android/i,
+                eventTarget: document.body,
+                supportsTouch: true
+            }
+        };
+    } // loadDeviceConfigs
     
     var module = {
         /** @lends SLICK */
+        
+        getDeviceConfig: function() {
+            if (! deviceConfigs) {
+                loadDeviceConfigs();
+            } // if
+            
+            // if the device configuration hasn't already been detected do that now
+            if (! detectedConfig) {
+                GRUNT.Log.info("ATTEMPTING TO DETECT PLATFORM: UserAgent = " + navigator.userAgent);
+
+                // iterate through the platforms and run detection on the platform
+                for (var deviceId in deviceConfigs) {
+                    var testPlatform = deviceConfigs[deviceId];
+
+                    if (testPlatform.regex && testPlatform.regex.test(navigator.userAgent)) {
+                        detectedConfig = GRUNT.extend({}, deviceConfigs.base, testPlatform);
+                        GRUNT.Log.info("PLATFORM DETECTED AS: " + deviceId);
+                        break;
+                    } // if
+                } // for
+
+                if (! detectedConfig) {
+                    GRUNT.Log.warn("UNABLE TO DETECT PLATFORM, REVERTING TO BASE CONFIGURATION");
+                    detectedConfig = deviceConfigs.base;
+                }
+            } // if
+            
+            return detectedConfig;
+        },
 
         /** @namespace
         Core SLICK module for setting and retrieving application settings.
@@ -1502,29 +1536,6 @@ SLICK = (function () {
             };
             
             return self;
-        })(),
-        
-        Device: (function() {
-            var deviceConfig = null;
-            GRUNT.Log.info("ATTEMPTING TO DETECT PLATFORM: UserAgent = " + navigator.userAgent);
-            
-            // iterate through the platforms and run detection on the platform
-            for (var deviceId in deviceConfigs) {
-                var testPlatform = deviceConfigs[deviceId];
-                
-                if (testPlatform.regex && testPlatform.regex.test(navigator.userAgent)) {
-                    deviceConfig = GRUNT.extend({}, deviceConfigs.base, testPlatform);
-                    GRUNT.Log.info("PLATFORM DETECTED AS: " + deviceId);
-                    break;
-                } // if
-            } // for
-            
-            if (! deviceConfig) {
-                GRUNT.Log.warn("UNABLE TO DETECT PLATFORM, REVERTING TO BASE CONFIGURATION");
-                deviceConfig = deviceConfigs.base;
-            }
-            
-            return deviceConfig;
         })(),
         
         Clock: (function() {
@@ -2225,7 +2236,7 @@ SLICK.Touch = (function() {
             
             // initialise self
             var self = {
-                supportsTouch: SLICK.Device.supportsTouch,
+                supportsTouch: SLICK.getDeviceConfig().supportsTouch,
 
                 /* define mutable constants (yeah, I know that's a contradiction) */
 
@@ -2499,6 +2510,9 @@ SLICK.Touch = (function() {
                 
                 // if the touch helper has not been created, then create it and attach to events
                 if (! touchHelper) {
+                    // get the event target
+                    var eventTarget = SLICK.getDeviceConfig().eventTarget;
+                    
                     touchHelper = module_types.TouchHelper(GRUNT.extend({ element: element}, params));
                     touchHelpers[element.id] = touchHelper;
                     
@@ -2506,7 +2520,7 @@ SLICK.Touch = (function() {
                     
                     // bind the touch events
                     // TOUCH START
-                    SLICK.Device.eventTarget.addEventListener(
+                    eventTarget.addEventListener(
                         touchHelper.supportsTouch ? 'touchstart' : 'mousedown', 
                         function (evt) {
                             if (evt.target && (evt.target === element)) {
@@ -2515,7 +2529,7 @@ SLICK.Touch = (function() {
                         },
                         false);
 
-                    SLICK.Device.eventTarget.addEventListener(
+                    eventTarget.addEventListener(
                         touchHelper.supportsTouch ? 'touchmove' : 'mousemove', 
                         function (evt) {
                             if (evt.target && (evt.target === element)) {
@@ -2524,7 +2538,7 @@ SLICK.Touch = (function() {
                         }
                         , false);
                         
-                    SLICK.Device.eventTarget.addEventListener(
+                    eventTarget.addEventListener(
                         touchHelper.supportsTouch ? 'touchend' : 'mouseup', 
                         function (evt) {
                             if (evt.target && (evt.target === element)) {
@@ -2533,7 +2547,7 @@ SLICK.Touch = (function() {
                         }, false);
                         
                     // handle mouse wheel events by
-                    SLICK.Device.eventTarget.addEventListener(
+                    eventTarget.addEventListener(
                         "mousewheel",
                         function (evt) {
                             touchHelper.wheelie(evt);
@@ -4113,30 +4127,32 @@ SLICK.Graphics = (function() {
                 return changeCount;
             } // cycle
             
+            function paintTilDone() {
+                try {
+                    // if nothing happenned in the last cycle, then go to sleep
+                    if (wakeTriggers + cycle() === 0) {
+                        clearInterval(paintInterval);
+                        paintInterval = 0;
+                        
+                        // now just cache the context for sanities sake
+                        if (cacheContext() > 0) {
+                            wake();
+                        } // if
+                    }
+                    
+                    wakeTriggers = 0;
+                }
+                catch (e) {
+                    GRUNT.Log.exception(e);
+                }
+            } // paintTilDone
+            
             function wake() {
                 wakeTriggers++;
                 if (paintInterval !== 0) { return; }
                 
                 // create an interval to do a proper redraw on the layers
-                paintInterval = setInterval(function() {
-                    try {
-                        // if nothing happenned in the last cycle, then go to sleep
-                        if (wakeTriggers + cycle() === 0) {
-                            clearInterval(paintInterval);
-                            paintInterval = 0;
-                            
-                            // now just cache the context for sanities sake
-                            if (cacheContext() > 0) {
-                                wake();
-                            } // if
-                        }
-                        
-                        wakeTriggers = 0;
-                    }
-                    catch (e) {
-                        GRUNT.Log.exception(e);
-                    }
-                }, params.fps ? (1000 / params.fps) : 40);
+                paintInterval = setInterval(paintTilDone, params.fps ? (1000 / params.fps) : 40);
             } // wake
             
             // initialise self

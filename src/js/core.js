@@ -4,25 +4,59 @@
 The top level SLICK namespace.  This module contains core types and functionality for implementing 
 */
 SLICK = (function () {
-    var deviceConfigs = {
-        base: {
-            eventTarget: document,
-            supportsTouch: "createTouch" in document
-        },
-        
-        iphone: {
-            regex: /iphone/i
-        },
-        
-        android: {
-            regex: /android/i,
-            eventTarget: document.body,
-            supportsTouch: true
-        }
-    }; // deviceConfigs
+    var deviceConfigs = null,
+        detectedConfig = null;
+    
+    function loadDeviceConfigs() {
+        deviceConfigs = {
+            base: {
+                eventTarget: document,
+                supportsTouch: "createTouch" in document
+            },
+
+            iphone: {
+                regex: /iphone/i
+            },
+
+            android: {
+                regex: /android/i,
+                eventTarget: document.body,
+                supportsTouch: true
+            }
+        };
+    } // loadDeviceConfigs
     
     var module = {
         /** @lends SLICK */
+        
+        getDeviceConfig: function() {
+            if (! deviceConfigs) {
+                loadDeviceConfigs();
+            } // if
+            
+            // if the device configuration hasn't already been detected do that now
+            if (! detectedConfig) {
+                GRUNT.Log.info("ATTEMPTING TO DETECT PLATFORM: UserAgent = " + navigator.userAgent);
+
+                // iterate through the platforms and run detection on the platform
+                for (var deviceId in deviceConfigs) {
+                    var testPlatform = deviceConfigs[deviceId];
+
+                    if (testPlatform.regex && testPlatform.regex.test(navigator.userAgent)) {
+                        detectedConfig = GRUNT.extend({}, deviceConfigs.base, testPlatform);
+                        GRUNT.Log.info("PLATFORM DETECTED AS: " + deviceId);
+                        break;
+                    } // if
+                } // for
+
+                if (! detectedConfig) {
+                    GRUNT.Log.warn("UNABLE TO DETECT PLATFORM, REVERTING TO BASE CONFIGURATION");
+                    detectedConfig = deviceConfigs.base;
+                }
+            } // if
+            
+            return detectedConfig;
+        },
 
         /** @namespace
         Core SLICK module for setting and retrieving application settings.
@@ -58,29 +92,6 @@ SLICK = (function () {
             };
             
             return self;
-        })(),
-        
-        Device: (function() {
-            var deviceConfig = null;
-            GRUNT.Log.info("ATTEMPTING TO DETECT PLATFORM: UserAgent = " + navigator.userAgent);
-            
-            // iterate through the platforms and run detection on the platform
-            for (var deviceId in deviceConfigs) {
-                var testPlatform = deviceConfigs[deviceId];
-                
-                if (testPlatform.regex && testPlatform.regex.test(navigator.userAgent)) {
-                    deviceConfig = GRUNT.extend({}, deviceConfigs.base, testPlatform);
-                    GRUNT.Log.info("PLATFORM DETECTED AS: " + deviceId);
-                    break;
-                } // if
-            } // for
-            
-            if (! deviceConfig) {
-                GRUNT.Log.warn("UNABLE TO DETECT PLATFORM, REVERTING TO BASE CONFIGURATION");
-                deviceConfig = deviceConfigs.base;
-            }
-            
-            return deviceConfig;
         })(),
         
         Clock: (function() {

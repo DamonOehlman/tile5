@@ -89,7 +89,7 @@ SLICK.Touch = (function() {
             
             // initialise self
             var self = {
-                supportsTouch: SLICK.Device.supportsTouch,
+                supportsTouch: SLICK.getDeviceConfig().supportsTouch,
 
                 /* define mutable constants (yeah, I know that's a contradiction) */
 
@@ -363,6 +363,9 @@ SLICK.Touch = (function() {
                 
                 // if the touch helper has not been created, then create it and attach to events
                 if (! touchHelper) {
+                    // get the event target
+                    var eventTarget = SLICK.getDeviceConfig().eventTarget;
+                    
                     touchHelper = module_types.TouchHelper(GRUNT.extend({ element: element}, params));
                     touchHelpers[element.id] = touchHelper;
                     
@@ -370,7 +373,7 @@ SLICK.Touch = (function() {
                     
                     // bind the touch events
                     // TOUCH START
-                    SLICK.Device.eventTarget.addEventListener(
+                    eventTarget.addEventListener(
                         touchHelper.supportsTouch ? 'touchstart' : 'mousedown', 
                         function (evt) {
                             if (evt.target && (evt.target === element)) {
@@ -379,7 +382,7 @@ SLICK.Touch = (function() {
                         },
                         false);
 
-                    SLICK.Device.eventTarget.addEventListener(
+                    eventTarget.addEventListener(
                         touchHelper.supportsTouch ? 'touchmove' : 'mousemove', 
                         function (evt) {
                             if (evt.target && (evt.target === element)) {
@@ -388,7 +391,7 @@ SLICK.Touch = (function() {
                         }
                         , false);
                         
-                    SLICK.Device.eventTarget.addEventListener(
+                    eventTarget.addEventListener(
                         touchHelper.supportsTouch ? 'touchend' : 'mouseup', 
                         function (evt) {
                             if (evt.target && (evt.target === element)) {
@@ -397,7 +400,7 @@ SLICK.Touch = (function() {
                         }, false);
                         
                     // handle mouse wheel events by
-                    SLICK.Device.eventTarget.addEventListener(
+                    eventTarget.addEventListener(
                         "mousewheel",
                         function (evt) {
                             touchHelper.wheelie(evt);
