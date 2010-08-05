@@ -27,7 +27,8 @@ SLICK.Graphics = (function() {
         PAN: 4,
         PINCHZOOM: 8,
         GENCACHE: 32,
-        FROZEN: 64
+        SNAPSHOT: 64,
+        FROZEN: 128
     };
     
     // initialise variables
@@ -51,6 +52,7 @@ SLICK.Graphics = (function() {
             params = GRUNT.extend({
                 id: "",
                 centerOnScale: true,
+                created: new Date().getTime(),
                 zindex: 0,
                 validStates: module.ActiveDisplayStates | DISPLAY_STATE.PAN | DISPLAY_STATE.PINCHZOOM
             }, params);
@@ -247,6 +249,47 @@ SLICK.Graphics = (function() {
             
         },
         
+        SnapshotLayer: function(params) {
+            params = GRUNT.extend({
+                validStates: DISPLAY_STATE.ACTIVE | DISPLAY_STATE.FROZEN,
+                sourceCanvas: null
+            }, params);
+            
+            var buffer = null;
+                
+            var self = GRUNT.extend(new module.ViewLayer(params), {
+                draw: function(context, offset, dimensions, view) {
+                    if (buffer) {
+                        context.save();
+                        try {
+                            context.globalAlpha = 0.5;
+                            context.drawImage(buffer, 0, 0);
+                        }
+                        finally {
+                            context.restore();
+                        }
+                    } // if
+                }
+            });
+            
+            // if the dimensions are defined then create the buffer and initialise the context
+            if (params.sourceCanvas) {
+                buffer = document.createElement("canvas");
+                buffer.width = params.sourceCanvas.width;
+                buffer.height = params.sourceCanvas.height;
+
+                // get the buffer context
+                var bufferCtx = buffer.getContext("2d");
+                
+                // draw the canvas to the image
+                bufferCtx.drawImage(params.sourceCanvas, 0, 0);
+            } // if
+            
+            GRUNT.Log.info("created snapshot, buffer = " + buffer);
+            
+            return self;
+        },
+        
         View: function(params) {
             // initialise defaults
             params = GRUNT.extend({
@@ -283,6 +326,8 @@ SLICK.Graphics = (function() {
                 layerChangesSinceCache = 0,
                 lastInteraction = 0,
                 lastScaleFactor = 1,
+                deviceScaling = 1,
+                drawing = false,
                 translateDelta = new SLICK.Vector(),
                 dimensions = null,
                 paddedDimensions = null,
@@ -355,6 +400,11 @@ SLICK.Graphics = (function() {
                         layerChangesSinceCache++;
                         wake();
                         
+                        var tmpOffset = self.getOffset();
+                        tmpOffset.x = tmpOffset.x % 256;
+                        tmpOffset.y = tmpOffset.y % 256;
+                        GRUNT.Log.info("current guide offset = " + tmpOffset);
+                        
                         status = DISPLAY_STATE.ACTIVE;
                     }
                 });
@@ -388,7 +438,7 @@ SLICK.Graphics = (function() {
                         // notify layers that we are adjusting scale
                         notifyLayers("scale");
                         if (params.freezeOnScale) {
-                            frozen = true;
+                            self.freeze();
                         } // if
                         
                         // reset the status flag
@@ -428,7 +478,12 @@ SLICK.Graphics = (function() {
                 
                 // sort the layers
                 layers.sort(function(itemA, itemB) {
-                    return itemB.zindex - itemA.zindex;
+                    var result = itemB.zindex - itemA.zindex;
+                    if (result === 0) {
+                        result = itemB.created - itemA.created;
+                    } // if
+                    
+                    return result;
                 });
 
                 // fire a notify event for adding the layer
@@ -496,8 +551,6 @@ SLICK.Graphics = (function() {
             
             /* draw code */
             
-            var drawing = false;
-            
             function calcZoomCenter() {
                 var scaleInfo = scalable.getScaleInfo(),
                     displayCenter = self.getDimensions().getCenter(),
@@ -531,8 +584,11 @@ SLICK.Graphics = (function() {
                 return changeCount ? changeCount : 0;
             } // drawLayer
             
-            function drawView(offset) {
-                if (drawing) { return 0; }
+            function drawView(context, offset) {
+                if (drawing || frozen) { 
+                    GRUNT.Log.info("CANNOT DRAW: drawing = " + drawing + ", frozen = " + frozen);
+                    return 0; 
+                }
                 
                 var changeCount = 0,
                     scaleFactor = frozen ? lastScaleFactor : self.getScaleFactor(),
@@ -552,15 +608,12 @@ SLICK.Graphics = (function() {
                     } // if
 
                     // save the context
-                    mainContext.save(); 
+                    context.save(); 
                     
                     // initialise composite operations
                     // TODO: investigate dropping this back to copy and implementing source over only when needed
-                    mainContext.globalCompositeOperation = "source-over";
-                    
-                    if (! frozen) {
-                        mainContext.clearRect(0, 0, canvas.width, canvas.height);
-                    } // if
+                    context.globalCompositeOperation = "source-over";
+                    context.clearRect(0, 0, canvas.width, canvas.height);
                     
                     // if we are scaling then do some calcs
                     if (isPinchZoom) {
@@ -574,33 +627,37 @@ SLICK.Graphics = (function() {
                         } // if
                     } // if
                     
-                    mainContext.save();
+                    context.save();
                     try {
+                        // if the device dpi has scaled, then apply that to the display
+                        if (deviceScaling !== 1) {
+                            context.scale(deviceScaling, deviceScaling);
+                        }
                         // if we are scaling, then tell the canvas to scale
-                        if (isPinchZoom) {
-                            mainContext.translate(endCenter.x, endCenter.y);
-                            mainContext.scale(scaleFactor, scaleFactor);
-                        } // if
+                        else if (isPinchZoom) {
+                            context.translate(endCenter.x, endCenter.y);
+                            context.scale(scaleFactor, scaleFactor);
+                        } // if..else
                         
                         for (ii = layers.length; ii--; ) {
-                            changeCount += drawLayer(layers[ii], mainContext, offset);
+                            changeCount += drawLayer(layers[ii], context, offset);
                             
                             // draw the saved context if required and at the appropriate zindex
-                            if ((! savedDrawn) && (cachedZIndex >= layers[ii].zindex)) {
+                            if ((! savedDrawn) && (cachedZIndex < layers[ii].zindex)) {
                                 var relativeOffset = cachedOffset.diff(offset).offset(-params.padding, -params.padding);
                                 
-                                mainContext.drawImage(cachedCanvas, relativeOffset.x, relativeOffset.y);
+                                context.drawImage(cachedCanvas, relativeOffset.x, relativeOffset.y);
                                 savedDrawn = true;
                             } // if
                         } // for
                     }
                     finally {
-                        mainContext.restore();
+                        context.restore();
                     } // try..finally
                 } 
                 finally {
                     // restore the original context
-                    mainContext.restore();
+                    context.restore();
                     drawing = false;
                 } // try..finally
                 
@@ -635,7 +692,7 @@ SLICK.Graphics = (function() {
                 idle = idle && (! interacting);
                 
                 // draw the view
-                changeCount += drawView(offset);
+                changeCount += drawView(mainContext, offset);
 
                 // if the user is not interacting, then save the current context
                 if ((! interacting) && (! idle)) {
@@ -677,6 +734,7 @@ SLICK.Graphics = (function() {
             // initialise self
             var self = GRUNT.extend({}, pannable, scalable, {
                 id: params.id,
+                deviceScaling: deviceScaling,
                 
                 centerOn: function(offset) {
                     pannable.setOffset(offset.x - (canvas.width * 0.5), offset.y - (canvas.height * 0.5));
@@ -733,6 +791,24 @@ SLICK.Graphics = (function() {
                     for (var ii = 0; ii < layers.length; ii++) {
                         callback(layers[ii]);
                     } // for
+                },
+                
+                snapshot: function(zindex) {
+                    // if the zindex is not defined, then use the zindex of the 0 index layer (which should be the highest)
+                    if ((! zindex) && (layers.count > 0)) {
+                        zindex = layers[0].zindex;
+                    } // if
+                    
+                    GRUNT.Log.info("creating snapshot layer, zindex = " + zindex);
+                    
+                    // create a new snapshot layer
+                    var snapshot = new module.SnapshotLayer({
+                        zindex: zindex ? zindex: 100,
+                        sourceCanvas: canvas
+                    });
+                    
+                    // add the snapshot as a layer
+                    addLayer("snapshot_" + viewCounter++, snapshot);
                 },
                 
                 getDisplayStatus: function() {
@@ -814,6 +890,8 @@ SLICK.Graphics = (function() {
                     wake();
                 } // if
             });
+            
+            deviceScaling = SLICK.getDeviceConfig().getScaling();
             
             // add a status view layer for experimentation sake
             // self.setLayer("status", new module.StatusViewLayer());

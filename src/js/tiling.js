@@ -732,13 +732,15 @@ SLICK.Tiling = (function() {
             // initialise self
             GRUNT.extend(self, {
                 newTileLayer: function() {
-                    /*
-                    // queue the current grid layer for deletion
-                    self.removeLayer("grid" + gridIndex);
+                    var currentTiles = self.getTileLayer();
+                    if (currentTiles) {
+                        // queue the current grid layer for deletion
+                        self.snapshot(currentTiles.zindex);
+                        self.removeLayer("grid" + gridIndex);
+                    } // if
                     
                     // increment the grid index
                     gridIndex++;
-                    */
                 },
                 
                 getTileLayer: function() {
@@ -746,6 +748,7 @@ SLICK.Tiling = (function() {
                 },
 
                 setTileLayer: function(value) {
+                    // watch the layer
                     monitorLayerLoad("grid" + gridIndex, value);
                     self.setLayer("grid" + gridIndex, value);
                     

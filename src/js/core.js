@@ -5,25 +5,50 @@ The top level SLICK namespace.  This module contains core types and functionalit
 */
 SLICK = (function () {
     var deviceConfigs = null,
+        deviceCheckOrder = [],
         detectedConfig = null;
     
     function loadDeviceConfigs() {
         deviceConfigs = {
             base: {
+                name: "Unknown",
                 eventTarget: document,
-                supportsTouch: "createTouch" in document
+                supportsTouch: "createTouch" in document,
+                getScaling: function() {
+                    return 1;
+                }
             },
 
             iphone: {
+                name: "iPhone",
                 regex: /iphone/i
             },
 
             android: {
+                name: "Android OS <= 2.1",
                 regex: /android/i,
+                eventTarget: document.body,
+                supportsTouch: true,
+                getScaling: function() {
+                    // TODO: need to detect what device dpi we have instructed the browser to use in the viewport tag
+                    return 1 / window.devicePixelRatio;
+                }
+            },
+            
+            froyo: {
+                name: "Android OS >= 2.2",
+                regex: /froyo/i,
                 eventTarget: document.body,
                 supportsTouch: true
             }
         };
+        
+        // initilaise the order in which we will check configurations
+        deviceCheckOrder = [
+            deviceConfigs.iphone,
+            deviceConfigs.froyo,
+            deviceConfigs.android
+        ];
     } // loadDeviceConfigs
     
     var module = {
@@ -39,12 +64,12 @@ SLICK = (function () {
                 GRUNT.Log.info("ATTEMPTING TO DETECT PLATFORM: UserAgent = " + navigator.userAgent);
 
                 // iterate through the platforms and run detection on the platform
-                for (var deviceId in deviceConfigs) {
-                    var testPlatform = deviceConfigs[deviceId];
+                for (var ii = 0; ii < deviceCheckOrder.length; ii++) {
+                    var testPlatform = deviceCheckOrder[ii];
 
                     if (testPlatform.regex && testPlatform.regex.test(navigator.userAgent)) {
                         detectedConfig = GRUNT.extend({}, deviceConfigs.base, testPlatform);
-                        GRUNT.Log.info("PLATFORM DETECTED AS: " + deviceId);
+                        GRUNT.Log.info("PLATFORM DETECTED AS: " + detectedConfig.name);
                         break;
                     } // if
                 } // for
@@ -53,6 +78,8 @@ SLICK = (function () {
                     GRUNT.Log.warn("UNABLE TO DETECT PLATFORM, REVERTING TO BASE CONFIGURATION");
                     detectedConfig = deviceConfigs.base;
                 }
+                
+                GRUNT.Log.info("CURRENT DEVICE PIXEL RATIO = " + window.devicePixelRatio);
             } // if
             
             return detectedConfig;

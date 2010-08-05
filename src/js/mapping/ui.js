@@ -14,6 +14,12 @@ SLICK.Mapping = (function() {
         return lastAnnotationTween;
     } // getAnnotationTween
     
+    // TODO: evaluate whether this function can be used for all mapping providers or we need to 
+    // route this call to the provider
+    function radsPerPixelAtZoom(tileSize, gxZoom) {
+        return 2*Math.PI / (tileSize << gxZoom);
+    } // radsPerPixelAtZoom
+    
     var module = {
         // change this value to have the annotations tween in (eg. SLICK.Animation.Easing.Sine.Out)
         AnnotationTween: null,
@@ -60,6 +66,11 @@ SLICK.Mapping = (function() {
                     // GRUNT.Log.info("calcalated pos offset:    " + offset_x + ", " + offset_y);
 
                     return new SLICK.Vector(offset_x, offset_y);
+                },
+                
+                getGuideOffset: function(offset) {
+                    var tileSize = self.getTileSize();
+                    return new SLICK.Vector((offset.x % tileSize), (offset.y % tileSize));
                 },
                 
                 pixelsToPos: function(vector) {
@@ -149,7 +160,7 @@ SLICK.Mapping = (function() {
                 lineWidth: 1.5,
                 strokeStyle: "rgba(0, 0, 0, 0.5)",
                 size: 15,
-                zindex: 50,
+                zindex: 150,
                 validStates: SLICK.Graphics.DisplayState.ACTIVE | SLICK.Graphics.DisplayState.ANIMATING | SLICK.Graphics.DisplayState.PAN
             }, params);
             
@@ -549,6 +560,7 @@ SLICK.Mapping = (function() {
                 copyrightMessage = params.copyright,
                 initialized = false,
                 tappedPOIs = [],
+                guideOffset = null,
                 zoomLevel = params.zoomLevel;
 
             // if the data provider has not been created, then create a default one
@@ -601,7 +613,7 @@ SLICK.Mapping = (function() {
             }; // tapHandler
 
             params.doubleTapHandler = function(absPos, relPos) {
-                self.animate(1.5, self.getDimensions().getCenter(), new SLICK.Vector(relPos.x, relPos.y), SLICK.Animation.Easing.Sine.Out);
+                self.animate(2, self.getDimensions().getCenter(), new SLICK.Vector(relPos.x, relPos.y), SLICK.Animation.Easing.Sine.Out);
             }; // doubleTapHandler
 
             params.onScale = function(scaleAmount, zoomXY) {
@@ -611,7 +623,7 @@ SLICK.Mapping = (function() {
                 scaleAmount = Math.sqrt(scaleAmount);
                 
                 if (scaleAmount < 1) {
-                    zoomChange = -(1 / scaleAmount);
+                    zoomChange = -(0.5 / scaleAmount);
                 }
                 else if (scaleAmount > 1) {
                     zoomChange = scaleAmount;
@@ -624,7 +636,7 @@ SLICK.Mapping = (function() {
                 // GRUNT.Log.info("adjust zoom by: " + zoomChange);
                 self.gotoPosition(self.getXYPosition(zoomXY), zoomLevel + Math.floor(zoomChange));
                 
-                GRUNT.Log.info("zoomchange = " + zoomChange);
+                GRUNT.Log.info("zoom change = " + Math.floor(zoomChange) + ", new zoom level = " + (zoomLevel + Math.floor(zoomChange)));
             }; // zoomHandler
 
             // create the base tiler
@@ -671,6 +683,26 @@ SLICK.Mapping = (function() {
                 }
             });
             
+            function determineGuideOffset(scaling) {
+                // get the current grid
+                var grid = self.getTileLayer();
+                if (grid) {
+                    var fnresult = grid.getGuideOffset(self.getOffset());
+                    
+                    // apply the scaling difference to the offset
+                    // fnresult.x = fnresult.x / scaling;
+                    // fnresult.y = fnresult.y / scaling;
+                    
+                    return fnresult;
+                } // if
+                
+                return null;
+            } // determineGuideOffset
+            
+            function getLayerScaling(oldZoom, newZoom) {
+                return radsPerPixelAtZoom(1, oldZoom) / radsPerPixelAtZoom(1, newZoom);
+            } // getLayerScaling
+            
             // initialise self
             var self = GRUNT.extend({}, parent, {
                 pois: params.pois,
@@ -708,7 +740,8 @@ SLICK.Mapping = (function() {
 
                 gotoPosition: function(position, newZoomLevel, callback) {
                     // save the current zoom level
-                    var currentZoomLevel = zoomLevel;
+                    var currentZoomLevel = zoomLevel,
+                        zoomScaling = getLayerScaling(zoomLevel, newZoomLevel);
 
                     // if a new zoom level is specified, then use it
                     zoomLevel = newZoomLevel ? newZoomLevel : zoomLevel;
@@ -722,16 +755,21 @@ SLICK.Mapping = (function() {
                     if (params.provider) {
                         zoomLevel = params.provider.checkZoomLevel(zoomLevel);
                     } // if
-
+                    
                     // if the zoom level is different from the current zoom level, then update the map tiles
                     if ((! initialized) || (zoomLevel != currentZoomLevel)) {
                         // cancel any animations
                         SLICK.Animation.cancel();
-                        
+
                         // if the map is initialise, then pan to the specified position
                         if (initialized) {
                             // flag the route and poi layers as frozen
                             self.freeze();
+                            self.panToPosition(position);
+
+                            // save the current layer as a guide layer
+                            guideOffset = determineGuideOffset(zoomScaling);
+                            GRUNT.Log.info("guide offset calculated as: " + guideOffset);
 
                             // self.panToPosition(position);
                             self.newTileLayer();
@@ -740,10 +778,17 @@ SLICK.Mapping = (function() {
                         // update the provider zoom level
                         params.provider.zoomLevel = zoomLevel;
                         params.provider.getMapTiles(self, position, function(tileGrid) {
+                            // update the tile layer to the use the new layer
                             self.setTileLayer(tileGrid);
-                            self.panToPosition(position, callback);
                             
-                            self.unfreeze();
+                            // pan to the correct position
+                            self.panToPosition(position, function() {
+                                if (callback) {
+                                    callback();
+                                } // if
+                                
+                                self.unfreeze();
+                            });
                         });
 
                         initialized = true;
@@ -758,17 +803,23 @@ SLICK.Mapping = (function() {
                     var grid = self.getTileLayer();
                     if (grid) {
                         // determine the tile offset for the requested position
-                        var center_xy = grid.getGridXYForPosition(position),
+                        var centerXY = grid.getGridXYForPosition(position),
                             dimensions = self.getDimensions();
 
                         // determine the actual pan amount, by calculating the center of the viewport
-                        center_xy.x -= (dimensions.width >> 1);
-                        center_xy.y -= (dimensions.height >> 1);
+                        centerXY.x -= (dimensions.width >> 1);
+                        centerXY.y -= (dimensions.height >> 1);
+                        
+                        // if we have a guide layer snap to that
+                        if (guideOffset) {
+                            // centerXY.add(guideOffset.invert());
+                            guideOffset = null;
+                        } // if
 
                         // pan the required amount
                         //GRUNT.Log.info(String.format("need to apply pan vector of ({0}) to correctly center", center_xy));
                         //GRUNT.Log.info("offset before pan = " + self.getOffset());
-                        self.updateOffset(center_xy.x, center_xy.y, easingFn);
+                        self.updateOffset(centerXY.x, centerXY.y, easingFn);
                         //GRUNT.Log.info("offset after pan = " + self.getOffset());
 
                         // trigger a bounds change event
@@ -789,12 +840,19 @@ SLICK.Mapping = (function() {
                 },
 
                 zoomIn: function() {
+                    // determine the required scaling
+                    var scalingNeeded = radsPerPixelAtZoom(1, zoomLevel) / radsPerPixelAtZoom(1, zoomLevel + 1);
+                    GRUNT.Log.info("scaling needed is " + scalingNeeded);
+                    
                     if (! self.scale(2, SLICK.Animation.Easing.Sine.Out)) {
                         self.setZoomLevel(zoomLevel + 1);
                     } // if
                 },
 
                 zoomOut: function() {
+                    var scalingNeeded = radsPerPixelAtZoom(1, zoomLevel) / radsPerPixelAtZoom(1, zoomLevel - 1);
+                    GRUNT.Log.info("scaling needed is " + scalingNeeded);
+                    
                     if (! self.scale(0.5, SLICK.Animation.Easing.Sine.Out)) {
                         self.setZoomLevel(zoomLevel - 1);
                     } // if
