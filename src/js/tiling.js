@@ -21,10 +21,6 @@ SLICK.Tiling = (function() {
             return (row * params.gridSize) + col;
         } // getTileIndex
         
-        function shiftOrigin(col, row) {
-            // TODO: move the tiles around
-        } // shiftOrigin
-        
         function copyStorage(dst, src, delta) {
             // set the length of the destination to match the source
             dst.length = src.length;
@@ -67,7 +63,7 @@ SLICK.Tiling = (function() {
             */
             populate: function(tileCreator, notifyListener) {
                 // take a tick count as we want to time this
-                var startTicks = SLICK.Clock.getTime(),
+                var startTicks = GRUNT.Log.getTraceTicks(),
                     tileIndex = 0;
                 
                 GRUNT.Log.info("poulating grid, top left offset = " + topLeftOffset);
@@ -98,7 +94,7 @@ SLICK.Tiling = (function() {
                 lastNotifyListener = notifyListener;
 
                 // log how long it took
-                GRUNT.Log.info("tile grid populated with " + tileIndex + " tiles in " + (SLICK.Clock.getTime() - startTicks) + " ms");
+                GRUNT.Log.trace("tile grid populated", startTicks);
                 
                 // if we have an onpopulate listener defined, let them know
                 if (params.onPopulate) {
@@ -129,7 +125,7 @@ SLICK.Tiling = (function() {
                 // if the shift delta x and the shift delta y are both 0, then return
                 if ((shiftDelta.x === 0) && (shiftDelta.y === 0)) { return; }
                 
-                var ii;
+                var ii, startTicks = GRUNT.Log.getTraceTicks();
                 // GRUNT.Log.info("need to shift tile store grid, " + shiftDelta.x + " cols and " + shiftDelta.y + " rows.");
 
                 // create new storage
@@ -152,7 +148,7 @@ SLICK.Tiling = (function() {
                 // create the tile shift offset
                 tileShift.x += (-shiftDelta.x * params.tileSize);
                 tileShift.y += (-shiftDelta.y * params.tileSize);
-                GRUNT.Log.info("shifting... tile shift = " + tileShift);
+                GRUNT.Log.trace("tile storage shifted", startTicks);
 
                 // populate with the last tile creator (crazy talk)
                 self.populate(lastTileCreator, lastNotifyListener);
@@ -215,7 +211,7 @@ SLICK.Tiling = (function() {
                 draw: function(context, x, y) {
                     if (image && image.complete) {
                         context.drawImage(image, x, y);
-                    } // if
+                    }
                 },
                 
                 load: function(callback, loadFromCacheOnly) {
@@ -232,22 +228,13 @@ SLICK.Tiling = (function() {
                     
                     if ((! image)  && params.url) {
                         // create the image
-                        image = null; // SLICK.Graphics.ImageCache.getImage(params.url, params.sessionParamRegex);
-                        
-                        if (image) {
-                            flagLoaded();
-                        }
-                        // if we didn't get an image from the cache, then load it
-                        else if (! loadFromCacheOnly) {
-                            image = new Image();
-                            image.src = params.url;
-
-                            // watch for the image load
-                            image.onload = function() {                                
-                                // SLICK.Graphics.ImageCache.cacheImage(params.url, params.sessionParamRegex, image);
+                        image = null; 
+                        if (! loadFromCacheOnly) {
+                            SLICK.Resources.loadImage(params.url, function(loadedImage) {
+                                image = loadedImage;
                                 flagLoaded();
-                            }; // onload
-                        } // if..else
+                            });
+                        } // if
                     }
                 }
             }); 
@@ -303,9 +290,7 @@ SLICK.Tiling = (function() {
             
             // initialise self
             var self = GRUNT.extend({}, parent, {
-                draw: function(context, x, y, scale) {
-                    // draw the buffer to the context
-                    // TODO: handle scaling
+                draw: function(context, x, y) {
                     context.drawImage(buffer, x, y);
                 },
                 
@@ -334,49 +319,51 @@ SLICK.Tiling = (function() {
                 validStates: SLICK.Graphics.GENCACHE
             });
             
-            var gridSection = document.createElement('canvas');
+            var gridSection = document.createElement('canvas'),
+                sectionContext = gridSection.getContext("2d"),
+                gridPattern = null;
+            
+
+            // initialise the section size
             gridSection.width = params.lineDist;
             gridSection.height = params.lineDist;
-            
-            var sectionContext = gridSection.getContext("2d");
+
+            // initialise the fill style
             sectionContext.fillStyle = params.fillStyle;
             sectionContext.strokeStyle = params.strokeStyle;
-
-            // initialise the grid pattern
-            var gridPattern = null,
-                sectionDrawn = false;
-                
-            function drawSection(context, offset) {
-                var lineX = params.lineDist - Math.abs(offset.x % params.lineDist);
-                var lineY = params.lineDist - Math.abs(offset.y % params.lineDist);
-                
-                // if the grid pattern is not defined, then do that now
-                sectionContext.fillRect(0, 0, gridSection.width, gridSection.height);
-                
-                // draw the lines
-                sectionContext.lineWidth = params.lineWidth;
-                sectionContext.beginPath();
-                sectionContext.moveTo(lineX, 0);
-                sectionContext.lineTo(lineX, params.lineDist);
-                sectionContext.moveTo(0, lineY);
-                sectionContext.lineTo(params.lineDist, lineY);
-                sectionContext.stroke();
-                
-                // flag the section as drawn
-                sectionDrawn = true;
-            } // drawSection
+            sectionContext.fillRect(0, 0, gridSection.width, gridSection.height);
+            
+            // draw the lines
+            sectionContext.lineWidth = params.lineWidth;
+            sectionContext.beginPath();
+            sectionContext.moveTo(0, 0);
+            sectionContext.lineTo(0, params.lineDist);
+            sectionContext.moveTo(0, 0);
+            sectionContext.lineTo(params.lineDist, 0);
+            sectionContext.stroke();
             
             return GRUNT.extend(new SLICK.Graphics.ViewLayer(params), {
                 draw: function(context, offset, dimensions, view) {
-                    // if the section is not drawn, then draw it
-                    // TODO: optimize this - currently due to moving we need to draw it every time...
-                    drawSection(context, offset);
-
+                    var startTicks = GRUNT.Log.getTraceTicks(),
+                        translateX = Math.abs(offset.x % params.lineDist),
+                        translateY = Math.abs(offset.y % params.lineDist);
+                    
                     // create the grid pattern
-                    gridPattern = context.createPattern(gridSection, 'repeat');
+                    if (! gridPattern) {
+                        gridPattern = context.createPattern(gridSection, 'repeat');
+                    } // if
 
-                    context.fillStyle = gridPattern;
-                    context.fillRect(0, 0, dimensions.width, dimensions.height);
+                    context.save();
+                    try {
+                        context.translate(-translateX, -translateY);
+                        context.fillStyle = gridPattern;
+                        context.fillRect(0, 0, dimensions.width + translateX, dimensions.height + translateY);
+                    }
+                    finally {
+                        context.restore();
+                    } // try..finally
+                    
+                    GRUNT.Log.trace("tile background drawn", startTicks);
                 }
             });
         },
@@ -390,17 +377,19 @@ SLICK.Tiling = (function() {
                 center: new SLICK.Vector(),
                 shiftOrigin: null,
                 checkChange: 100,
-                validStates: SLICK.Graphics.DisplayState.GENCACHE
+                validStates: SLICK.Graphics.DisplayState.GENCACHE | SLICK.Graphics.DisplayState.SNAPSHOT
             }, params);
             
             // initialise varibles
             var halfTileSize = Math.round(params.tileSize >> 1),
                 listeners = [],
+                active = true,
                 invTileSize = params.tileSize ? 1 / params.tileSize : 0,
                 lastOffset = null,
                 gridDirty = false,
                 tileDrawQueue = [],
                 loadedTileCount = 0,
+                empty = new module.EmptyGridTile(),
                 lastCheckOffset = new SLICK.Vector(),
                 shiftDelta = new SLICK.Vector(),
                 reloadTimeout = 0,
@@ -434,6 +423,7 @@ SLICK.Tiling = (function() {
                     tileRows = Math.ceil(dimensions.height * invTileSize) + 1,
                     tileOffset = new SLICK.Vector((tileStart.x * params.tileSize), (tileStart.y * params.tileSize)),
                     viewAnimating = view.isAnimating();
+                    
                     
                 // reset the tile draw queue
                 tileDrawQueue = [];
@@ -469,11 +459,13 @@ SLICK.Tiling = (function() {
                     if (tile && (! tile.loaded)) {
                         // load the image
                         tile.load(function() {
-                            loadedTileCount++;
-                            gridDirty = true;
+                            if (active) {
+                                loadedTileCount++;
+                                gridDirty = true;
 
-                            self.wakeParent();
-                            notifyListeners("load", tile);
+                                self.wakeParent();
+                                notifyListeners("load", tile);
+                            } // if
                         }, viewAnimating);
                     } // if
                 } // for
@@ -514,46 +506,47 @@ SLICK.Tiling = (function() {
                 },
                 
                 draw: function(context, offset, dimensions, view) {
-                    // grow the dimensions, and tweak the offset by a centered amount
-                    // dimensions.grow(params.bufferSize, params.bufferSize);
-                    // offset.x -= halfBuffer;
-                    // offset.y -= halfBuffer;
+                    if (active) {
+                        // initialise variables
+                        var startTicks = GRUNT.Log.getTraceTicks(),
+                            tileShift = tileStore.getTileShift(),
+                            xShift = offset.x + tileShift.x,
+                            yShift = offset.y + tileShift.y;
 
-                    // initialise variables
-                    var tileShift = tileStore.getTileShift(),
-                        xShift = offset.x + tileShift.x,
-                        yShift = offset.y + tileShift.y;
+                        updateDrawQueue(context, offset, dimensions, view);
+                        GRUNT.Log.trace("updated draw queue", startTicks);
 
-                    updateDrawQueue(context, offset, dimensions, view);
-
-                    // set the context stroke style for the border
-                    if (params.drawGrid) {
-                        context.strokeStyle = "rgba(50, 50, 50, 0.3)";
-                    } // if
-
-                    // begin the path for the tile borders
-                    context.beginPath();
-
-                    // iterate through the tiles in the draw queue
-                    for (var ii = tileDrawQueue.length; ii--; ) {
-                        var tile = tileDrawQueue[ii].tile,
-                            x = tileDrawQueue[ii].coordinates.x - xShift,
-                            y = tileDrawQueue[ii].coordinates.y - yShift;
-
-                        // if the tile is loaded, then draw, otherwise load
-                        if (tile && tile.loaded) {
-                            tile.draw(context, x, y);
+                        // set the context stroke style for the border
+                        if (params.drawGrid) {
+                            context.strokeStyle = "rgba(50, 50, 50, 0.3)";
                         } // if
 
-                        // if we are drawing borders, then draw that now
-                        if (params.drawGrid) {
-                            context.rect(x, y, params.tileSize, params.tileSize);
-                        } // if                    
-                    } // for
+                        // begin the path for the tile borders
+                        context.beginPath();
 
-                    // draw the borders if we have them...
-                    context.stroke();
+                        // iterate through the tiles in the draw queue
+                        for (var ii = tileDrawQueue.length; ii--; ) {
+                            var tile = tileDrawQueue[ii].tile,
+                                x = tileDrawQueue[ii].coordinates.x - xShift,
+                                y = tileDrawQueue[ii].coordinates.y - yShift;
 
+                            // if the tile is loaded, then draw, otherwise load
+                            if (tile && tile.loaded) {
+                                tile.draw(context, x, y);
+                            } // if
+
+                            // if we are drawing borders, then draw that now
+                            if (params.drawGrid) {
+                                context.rect(x, y, params.tileSize, params.tileSize);
+                            } // if                    
+                        } // for
+
+                        // draw the borders if we have them...
+                        context.stroke();
+
+                        GRUNT.Log.trace("drawn tiles", startTicks);                        
+                    } // if
+                    
                     // flag the grid as not dirty
                     gridDirty = false;
                 },
@@ -614,6 +607,13 @@ SLICK.Tiling = (function() {
                 requestUpdates: function(callback) {
                     listeners.push(callback);
                 }
+            });
+            
+            // listen for the parent view scaling
+            GRUNT.WaterCooler.listen("view.scale", function(args) {
+                if (args.id == self.getParent().id) {
+                    active = false;
+                } // if
             });
             
             return self;
@@ -731,18 +731,6 @@ SLICK.Tiling = (function() {
             
             // initialise self
             GRUNT.extend(self, {
-                newTileLayer: function() {
-                    var currentTiles = self.getTileLayer();
-                    if (currentTiles) {
-                        // queue the current grid layer for deletion
-                        self.snapshot(currentTiles.zindex);
-                        self.removeLayer("grid" + gridIndex);
-                    } // if
-                    
-                    // increment the grid index
-                    gridIndex++;
-                },
-                
                 getTileLayer: function() {
                     return self.getLayer("grid" + gridIndex);
                 },

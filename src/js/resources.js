@@ -1,8 +1,10 @@
 SLICK.Resources = (function() {
-    var basePath = "";
-    var cachedSnippets = {};
-    var cachedResources = {};
-    var images = {};
+    var basePath = "",
+        cachedSnippets = {},
+        cachedResources = {},
+        images = {},
+        imageLoadingCount = 0,
+        queuedImages = [];
     
     function getImageResource(url) {
         // if the requested image does not exist, then request it
@@ -13,7 +15,17 @@ SLICK.Resources = (function() {
         return images[url];
     } // getImageResource
     
+    function loadNextImage() {
+        // if we have queued images, then load
+        if (queuedImages.length > 0) {
+            queuedImages.shift().load();
+        } // if
+    } // loadNextImage
+    
     var module = {
+        maxImageLoads: 4,
+        loadTimeout: 30,
+        
         Cache: (function() {
             // initailise self
             var self = {
@@ -75,6 +87,9 @@ SLICK.Resources = (function() {
             // get the image url
             var image = getImageResource(module.getPath(url));
             
+            // increment the image hit count
+            image.hitCount++;
+            
             // if the image is loaded, then fire the callback immediated
             if (image.loaded) {
                 if (callback) {
@@ -83,8 +98,13 @@ SLICK.Resources = (function() {
             }
             // otherwise add the callback to the load listeners for the image
             else {
+                image.load();
                 image.loadListeners.push(callback);
             } // if
+        },
+        
+        resetImageLoadQueue: function() {
+            queuedImages = [];
         },
         
         loadResource: function(params) {
@@ -146,33 +166,68 @@ SLICK.Resources = (function() {
                 url: ""
             }, params);
             
-            var image = null;
+            var image = new Image(),
+                loadCheckTimeout = 0;
+                
+            function checkLoad() {
+                if (! self.loaded) {
+                    GRUNT.Log.warn("timed out loading image: " + image.src);
+
+                    // reset the image and decrement loading count
+                    image.src = null;
+                    imageLoadingCount--;
+                    
+                    // load the next image
+                    loadNextImage();
+                } // if
+            } // checkLoad
+            
+            function handleImageLoad() {
+                self.loaded = true;
+                imageLoadingCount--;
+                
+                // clear the check timeout
+                clearTimeout(loadCheckTimeout);
+
+                // iterate through the load listeners and let them know the image is loaded
+                for (var ii = 0; ii < self.loadListeners.length; ii++) {
+                    if (self.loadListeners[ii]) {
+                        self.loadListeners[ii](image);
+                    } // if
+                } // for
+
+                loadNextImage();
+            } // handleImageLoad
             
             var self = {
                 loaded: false,
                 loadListeners: [],
+                hitCount: 0,
                 
                 get: function() {
                     return image;
+                },
+                
+                load: function() {
+                    if (params.url && (image.src != params.url)) {
+                        if ((! module.maxImageLoads) || (imageLoadingCount < module.maxImageLoads)) {
+                            imageLoadingCount++;
+                            
+                            // set the image source and start the loading
+                            image.src = params.url;
+                            
+                            // schedule a timeout to check the image load state
+                            loadCheckTimeout = setTimeout(checkLoad, module.loadTimeout * 1000);
+                        }
+                        else {
+                            queuedImages.push(self);
+                        }
+                    } // if
                 }
             };
-            
-            if (params.url) {
-                image = new Image();
-                image.onload = function() {
-                    self.loaded = true;
-                    
-                    // iterate through the load listeners and let them know the image is loaded
-                    for (var ii = 0; ii < self.loadListeners.length; ii++) {
-                        if (self.loadListeners[ii]) {
-                            self.loadListeners[ii](image);
-                        } // if
-                    } // for
-                }; // onload handler
 
-                // update the image source
-                image.src = params.url;
-            } // if
+            // attach the image load handler
+            image.onload = handleImageLoad;
             
             return self;
         }

@@ -161,6 +161,7 @@ SLICK.Mapping = (function() {
                 strokeStyle: "rgba(0, 0, 0, 0.5)",
                 size: 15,
                 zindex: 150,
+                scalePosition: false,
                 validStates: SLICK.Graphics.DisplayState.ACTIVE | SLICK.Graphics.DisplayState.ANIMATING | SLICK.Graphics.DisplayState.PAN
             }, params);
             
@@ -481,27 +482,35 @@ SLICK.Mapping = (function() {
             // create the view layer the we will draw the view
             var self = GRUNT.extend(new SLICK.Graphics.ViewLayer(params), {
                 draw: function(context, offset, dimensions, view) {
-                    // initialise variables
-                    var ii;
+                    context.save();
+                    try {
+                        // initialise variables
+                        var ii;
                     
-                    // reset animating to false
-                    animating = false;
-                    context.fillStyle = "rgba(255, 0, 0, 0.75)";
+                        // reset animating to false
+                        animating = false;
+                        context.fillStyle = "rgba(255, 0, 0, 0.75)";
+                        context.globalCompositeOperation = "source-over";
                     
-                    // iterate through the annotations and draw them
-                    for (ii = annotations.length; ii--; ) {
-                        annotations[ii].draw(context, offset);
-                        animating = animating || annotations[ii].isAnimating();
-                    } // for
+                        // iterate through the annotations and draw them
+                        for (ii = annotations.length; ii--; ) {
+                            annotations[ii].draw(context, offset);
+                            animating = animating || annotations[ii].isAnimating();
+                        } // for
 
-                    for (ii = staticAnnotations.length; ii--; ) {
-                        staticAnnotations[ii].draw(context, offset);
-                        animating = animating || annotations[ii].isAnimating();
-                    } // for
+                        for (ii = staticAnnotations.length; ii--; ) {
+                            staticAnnotations[ii].draw(context, offset);
+                            animating = animating || annotations[ii].isAnimating();
+                        } // for
 
-                    if (animating) {
-                        self.layerChanged();
-                    } // if
+                        if (animating) {
+                            self.layerChanged();
+                            self.wakeParent();
+                        } // if
+                    }
+                    finally {
+                        context.restore();
+                    } // try..finally
                 },
                 
                 /**
@@ -528,6 +537,7 @@ SLICK.Mapping = (function() {
                 if (params.pois && (params.pois.id == args.srcID)) {
                     updateAnnotations(args.pois);
                     self.layerChanged();
+                    self.wakeParent();
                 } // if
             });
             
@@ -545,7 +555,6 @@ SLICK.Mapping = (function() {
                 tapPOI: null,
                 boundsChangeThreshold: 30,
                 pois: new SLICK.Geo.POIStorage(),
-                freezeOnScale: true,
                 createAnnotationForPOI: null
             }, params);
             
@@ -634,6 +643,7 @@ SLICK.Mapping = (function() {
                 self.removeLayer("grid");
 
                 // GRUNT.Log.info("adjust zoom by: " + zoomChange);
+                SLICK.Resources.resetImageLoadQueue();
                 self.gotoPosition(self.getXYPosition(zoomXY), zoomLevel + Math.floor(zoomChange));
                 
                 GRUNT.Log.info("zoom change = " + Math.floor(zoomChange) + ", new zoom level = " + (zoomLevel + Math.floor(zoomChange)));
@@ -662,12 +672,6 @@ SLICK.Mapping = (function() {
                                 } // if                            
                             });
                         }
-                        // otherwise if the event is load, then recalc position information, and unfreeze the display
-                        else if (eventType == "load") {
-                            if (self.getDisplayStatus() === SLICK.Graphics.DisplayState.FROZEN) {
-                                self.unfreeze();
-                            } // if
-                        } // if
                     } // if
                 } 
                 // looks like we have a global event
@@ -685,9 +689,11 @@ SLICK.Mapping = (function() {
             
             function determineGuideOffset(scaling) {
                 // get the current grid
-                var grid = self.getTileLayer();
+                var grid = self.getTileLayer(),
+                    dimensions = self.getDimensions();
+                    
                 if (grid) {
-                    var fnresult = grid.getGuideOffset(self.getOffset());
+                    var fnresult = grid.getGuideOffset(self.getOffset().offset(dimensions.width >> 1, dimensions.height >> 1));
                     
                     // apply the scaling difference to the offset
                     // fnresult.x = fnresult.x / scaling;
@@ -764,15 +770,11 @@ SLICK.Mapping = (function() {
                         // if the map is initialise, then pan to the specified position
                         if (initialized) {
                             // flag the route and poi layers as frozen
-                            self.freeze();
-                            self.panToPosition(position);
+                            // self.panToPosition(position);
 
                             // save the current layer as a guide layer
                             guideOffset = determineGuideOffset(zoomScaling);
                             GRUNT.Log.info("guide offset calculated as: " + guideOffset);
-
-                            // self.panToPosition(position);
-                            self.newTileLayer();
                         } // if
 
                         // update the provider zoom level
@@ -786,8 +788,6 @@ SLICK.Mapping = (function() {
                                 if (callback) {
                                     callback();
                                 } // if
-                                
-                                self.unfreeze();
                             });
                         });
 
