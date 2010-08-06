@@ -18,12 +18,16 @@ SLICK.Resources = (function() {
     function loadNextImage() {
         // if we have queued images, then load
         if (queuedImages.length > 0) {
-            queuedImages.shift().load();
+            var nextImage = queuedImages.shift();
+            
+            // reset the queued flag and attempt to load the image
+            nextImage.queued = false;
+            nextImage.load();
         } // if
     } // loadNextImage
     
     var module = {
-        maxImageLoads: 4,
+        maxImageLoads: 8,
         loadTimeout: 30,
         
         Cache: (function() {
@@ -105,6 +109,13 @@ SLICK.Resources = (function() {
         
         resetImageLoadQueue: function() {
             queuedImages = [];
+        },
+        
+        getStats: function() {
+            return {
+                imageLoadingCount: imageLoadingCount,
+                queuedImageCount: queuedImages.length
+            };
         },
         
         loadResource: function(params) {
@@ -201,6 +212,7 @@ SLICK.Resources = (function() {
             
             var self = {
                 loaded: false,
+                queued: false,
                 loadListeners: [],
                 hitCount: 0,
                 
@@ -219,8 +231,9 @@ SLICK.Resources = (function() {
                             // schedule a timeout to check the image load state
                             loadCheckTimeout = setTimeout(checkLoad, module.loadTimeout * 1000);
                         }
-                        else {
+                        else if (! self.queued) {
                             queuedImages.push(self);
+                            self.queued = true;
                         }
                     } // if
                 }

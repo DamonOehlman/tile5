@@ -256,12 +256,49 @@ SLICK.Graphics = (function() {
                     try {
                         context.font = "bold 8pt Arial";
                         context.textAlign = "right";
-                        context.fillStyle = "rgb(0, 0, 0, 0.8)";
-                        context.fillText((self.fps ? self.fps : "?") + " fps", 50, 20);
+                        context.fillStyle = "rgba(0, 0, 0, 0.8)";
+                        context.fillText((self.fps ? self.fps : "?") + " fps", dimensions.width - 20, 20);
                     }
                     finally {
                         context.restore();
                     } // try..finally
+                }
+            });
+            
+            return self;
+        },
+        
+        ResourceStatsLayer: function(params) {
+            params = GRUNT.extend({
+                zindex: 500,
+                indicatorSize: 5,
+                scalePosition: false,
+                validStates: DISPLAY_STATE.ACTIVE | DISPLAY_STATE.PAN
+            }, params);
+            
+            // initialise self
+            var self = GRUNT.extend(new module.ViewLayer(params), {
+                fps: null,
+                
+                draw: function(context, offset, dimensions, view) {
+                    // get the stats from the resource loaded
+                    var stats = SLICK.Resources.getStats(),
+                        ledSize = params.indicatorSize,
+                        spacing = 2,
+                        ii,
+                        ypos;
+                    
+                    // draw indicators for the number of images loading
+                    context.fillStyle = "rgba(0, 255, 0, 0.7)";
+                    for (ii = stats.imageLoadingCount; ii--; ) {
+                        context.fillRect(10, 10 + (ii * (ledSize+spacing)), ledSize, ledSize);
+                    } // for
+                    
+                    // draw indicators for the number of images queued
+                    context.fillStyle = "rgba(255, 0, 0, 0.7)";
+                    for (ii = stats.queuedImageCount; ii--; ) {
+                        context.fillRect(10 + ledSize + spacing, 10 + (ii * (ledSize+spacing)), ledSize, ledSize);
+                    } // for
                 }
             });
             
@@ -284,7 +321,9 @@ SLICK.Graphics = (function() {
                 pannable: false,
                 scalable: false,
                 clearOnDraw: false,
+                // TODO: move these into a different option location
                 displayFPS: true,
+                displayResourceStats: true,
                 scaleDamping: false,
                 fillStyle: "rgb(200, 200, 200)",
                 bufferRefresh: 100,
@@ -857,6 +896,10 @@ SLICK.Graphics = (function() {
             if (params.displayFPS) {
                 fpsLayer =  new module.FPSLayer();
                 self.setLayer("fps", fpsLayer);
+            } // if
+            
+            if (params.displayResourceStats) {
+                self.setLayer("resourceStats", new module.ResourceStatsLayer());
             } // if
             
             // add a status view layer for experimentation sake
