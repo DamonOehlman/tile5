@@ -175,7 +175,7 @@ SLICK.Resources = (function() {
             
             // reset queued images count and loading image count
             queuedImages = [];
-            // imageLoadingCount = 0;
+            imageLoadingCount = 0;
         },
         
         getStats: function() {
@@ -254,7 +254,7 @@ SLICK.Resources = (function() {
 
                     // reset the image and decrement loading count
                     image.src = null;
-                    imageLoadingCount--;
+                    imageLoadingCount = Math.min(imageLoadingCount - 1, 0);
                     
                     // load the next image
                     loadNextImage();
@@ -263,7 +263,7 @@ SLICK.Resources = (function() {
             
             function handleImageLoad() {
                 self.loaded = true;
-                imageLoadingCount--;
+                imageLoadingCount = Math.min(imageLoadingCount - 1, 0);
                 
                 // clear the check timeout
                 clearTimeout(loadCheckTimeout);

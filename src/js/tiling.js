@@ -649,21 +649,6 @@ SLICK.Tiling = (function() {
             // handle tap and double tap events
             SLICK.Touch.captureTouch(document.getElementById(params.container), params);
             
-            function monitorLayerLoad(layerId, layer) {
-                // monitor tile loads for the layer
-                layer.requestUpdates(function(eventType, tile) {
-                    if (eventType == "load") {
-                        if ((layerId != lastTileLayerLoaded) && (layer.getLoadedTileCount() >= actualTileLoadThreshold)) {
-                            // remove the previous tile layer
-                            self.notifyLayerListeners("load", layerId, layer);
-
-                            // update the last layer loaded id
-                            lastTileLayerLoaded = layerId;
-                        } // if 
-                    } // if
-                });
-            } // monitorLayerLoad
-            
             function updateTileLoadThreshold(layer) {
                 var tileCount = layer.getVisibleTileCount(self.getDimensions());
 
@@ -722,11 +707,11 @@ SLICK.Tiling = (function() {
 
                 setTileLayer: function(value) {
                     // watch the layer
-                    monitorLayerLoad("grid" + gridIndex, value);
                     self.setLayer("grid" + gridIndex, value);
                     
                     // update the tile load threshold
                     updateTileLoadThreshold(value);
+                    GRUNT.WaterCooler.say("grid.updated", { grid: value });
                 },
 
                 gridPixToViewPix: function(vector) {

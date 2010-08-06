@@ -38,7 +38,8 @@ SLICK.Mapping = (function() {
             
             // calculate the bottom left mercator pix
             // the position of the bottom left mercator pixel is determined by params.subtracting the actual 
-            var blMercatorPix = new SLICK.Vector(centerMercatorPix.x - params.centerXY.x, centerMercatorPix.y - params.centerXY.y);
+            var blMercatorPixX = centerMercatorPix.x - params.centerXY.x,
+                blMercatorPixY = centerMercatorPix.y - params.centerXY.y;
             
             // initialise self
             var self = GRUNT.extend({}, params.grid, {
@@ -54,18 +55,18 @@ SLICK.Mapping = (function() {
                 
                 getGridXYForPosition: function(pos) {
                     // determine the mercator pixels for teh position
-                    var pos_mp = pos.getMercatorPixels(params.radsPerPixel);
+                    var posPixels = pos.getMercatorPixels(params.radsPerPixel);
 
                     // calculate the offsets
                     // GRUNT.Log.info("GETTING OFFSET for position: " + pos);
-                    var offset_x = pos_mp.x - blMercatorPix.x;
-                    var offset_y = self.getDimensions().height - (pos_mp.y - blMercatorPix.y);
+                    var offsetX = posPixels.x - blMercatorPixX;
+                    var offsetY = self.getDimensions().height - (posPixels.y - blMercatorPixY);
 
                     // GRUNT.Log.info("position mercator pixels: " + pos_mp);
                     // GRUNT.Log.info("bottom left mercator pixels: " + blMercatorPix);
                     // GRUNT.Log.info("calcalated pos offset:    " + offset_x + ", " + offset_y);
 
-                    return new SLICK.Vector(offset_x, offset_y);
+                    return new SLICK.Vector(offsetX, offsetY);
                 },
                 
                 getGuideOffset: function(offset) {
@@ -77,8 +78,8 @@ SLICK.Mapping = (function() {
                     // initialise the new position object
                     var fnresult = new SLICK.Geo.Position();
                     
-                    var mercX = blMercatorPix.x + vector.x;
-                    var mercY = (blMercatorPix.y + self.getDimensions().height) - vector.y;
+                    var mercX = blMercatorPixX + vector.x;
+                    var mercY = (blMercatorPixY + self.getDimensions().height) - vector.y;
 
                     // update the position pixels
                     fnresult.setMercatorPixels(mercX, mercY, params.radsPerPixel);
@@ -203,12 +204,93 @@ SLICK.Mapping = (function() {
                 validStates: SLICK.Graphics.DisplayState.GENCACHE
             }, params);
             
-            var coordinates = [],
+            var recalc = true,
+                coordinates = [],
                 instructionCoords = [];
                 
+            function calcCoordinates(grid) {
+                coordinates = [];
+                instructionCoords = [];
+                
+                GRUNT.Log.info("started route calc coordinates");
+
+                var startTicks = GRUNT.Log.getTraceTicks(),
+                    ii, current, last = null, include,
+                    geometry = params.data ? params.data.getGeometry() : [],
+                    geometryLength = geometry.length,
+                    instructions = params.data ? params.data.getInstructions() : [],
+                    instructionsLength = instructions.length;
+                    
+                // TODO: improve the code reuse in the code below
+                // TODO: improve performance here... look at re-entrant processing in cycle perhaps
+
+                // iterate through the position geometry and determine xy coordinates
+                for (ii = geometryLength; ii--; ) {
+                    // calculate the current position
+                    current = grid.getGridXYForPosition(geometry[ii]);
+
+                    // determine whether the current point should be included
+                    include = (! last) || (ii === 0) || 
+                        (Math.abs(current.x - last.x) + Math.abs(current.y - last.y) > params.pixelGeneralization);
+                    
+                    if (include) {
+                        coordinates.unshift(current);
+                        
+                        // update the last
+                        last = current;
+                    } // if
+                } // for
+                
+                GRUNT.Log.trace(geometryLength + " geometry points generalized to " + coordinates.length + " coordinates", startTicks);
+                
+                // iterate throught the instructions and add any points to the instruction coordinates array
+                last = null;
+                for (ii = instructionsLength; ii--; ) {
+                    if (instructions[ii].position) {
+                        // calculate the current position
+                        current = grid.getGridXYForPosition(instructions[ii].position);
+
+                        // determine whether the current point should be included
+                        include = (! last) || (ii === 0) || 
+                            (Math.abs(current.x - last.x) + Math.abs(current.y - last.y) > params.pixelGeneralization);
+
+                        if (include) {
+                            instructionCoords.push(current);
+
+                            // update the last
+                            last = current;
+                        } // if
+                    } // if
+                } // for
+
+                GRUNT.Log.trace(instructionsLength + " instructions generalized to " + instructionCoords.length + " coordinates", startTicks);                
+                GRUNT.Log.info("finished route calc coordinates");
+                recalc = false;
+            } // calcCoordinates
+            
             // create the view layer the we will draw the view
-            var view = GRUNT.extend(new SLICK.Graphics.ViewLayer(params), {
+            var self = GRUNT.extend(new SLICK.Graphics.ViewLayer(params), {
+                getAnimation: function(easingFn, duration, drawCallback, autoCenter) {
+                    if (recalc) {
+                        calcCoordinates(self.getParent().getTileLayer());
+                    } // if
+
+                    // create a new animation layer based on the coordinates
+                    return new SLICK.Graphics.AnimatedPathLayer({
+                        path: coordinates,
+                        zindex: params.zindex + 1,
+                        easing: easingFn ? easingFn : SLICK.Animation.Easing.Sine.InOut,
+                        duration: duration ? duration : 5000,
+                        drawIndicator: drawCallback,
+                        autoCenter: autoCenter ? autoCenter : false
+                    });
+                },
+
                 draw: function(context, offset, dimensions, view) {
+                    if (recalc) {
+                        calcCoordinates(view.getTileLayer());
+                    } // if
+                    
                     // TODO: see how this can be optimized... 
                     var ii,
                         coordLength = coordinates.length;
@@ -246,70 +328,11 @@ SLICK.Mapping = (function() {
                 }
             });
             
-            // define self
-            var self = GRUNT.extend(view, {
-                getAnimation: function(easingFn, duration, drawCallback, autoCenter) {
-                    // create a new animation layer based on the coordinates
-                    return new SLICK.Graphics.AnimatedPathLayer({
-                        path: coordinates,
-                        zindex: params.zindex + 1,
-                        easing: easingFn ? easingFn : SLICK.Animation.Easing.Sine.InOut,
-                        duration: duration ? duration : 5000,
-                        drawIndicator: drawCallback,
-                        autoCenter: autoCenter ? autoCenter : false
-                    });
-                },
+            // listed for grid updates
+            GRUNT.WaterCooler.listen("grid.updated", function(args) {
+                recalc = true;
                 
-                calcCoordinates: function(grid) {
-                    coordinates = [];
-                    instructionCoords = [];
-
-                    var ii, current, last = null, include,
-                        geometry = params.data ? params.data.getGeometry() : [],
-                        instructions = params.data ? params.data.getInstructions() : [];
-                        
-                    // TODO: improve the code reuse in the code below
-                    // TODO: improve performance here... look at re-entrant processing in cycle perhaps
-
-                    // iterate through the position geometry and determine xy coordinates
-                    for (ii = geometry.length; ii--; ) {
-                        // calculate the current position
-                        current = grid.getGridXYForPosition(geometry[ii]);
-
-                        // determine whether the current point should be included
-                        include = (! last) || (ii === 0) || 
-                            (Math.abs(current.x - last.x) + Math.abs(current.y - last.y) > params.pixelGeneralization);
-                        
-                        if (include) {
-                            coordinates.unshift(current);
-                            
-                            // update the last
-                            last = current;
-                        } // if
-                    } // for
-                    
-                    // iterate throught the instructions and add any points to the instruction coordinates array
-                    last = null;
-                    for (ii = instructions.length; ii--; ) {
-                        if (instructions[ii].position) {
-                            // calculate the current position
-                            current = grid.getGridXYForPosition(instructions[ii].position);
-
-                            // determine whether the current point should be included
-                            include = (! last) || (ii === 0) || 
-                                (Math.abs(current.x - last.x) + Math.abs(current.y - last.y) > params.pixelGeneralization);
-
-                            if (include) {
-                                instructionCoords.push(current);
-
-                                // update the last
-                                last = current;
-                            } // if
-                        } // if
-                    } // for
-
-                    GRUNT.Log.info("geometry = " + geometry.length + ", coordinates = " + coordinates.length + ", instructions = " + instructionCoords.length);
-                }
+                self.wakeParent();
             });
             
             return self;
@@ -522,11 +545,6 @@ SLICK.Mapping = (function() {
                     updateAnnotationCoordinates(staticAnnotations);
                 },
                 
-                calcCoordinates: function(grid) {
-                    updateAnnotationCoordinates(annotations);
-                    updateAnnotationCoordinates(staticAnnotations);
-                },
-                
                 isAnimating: function() {
                     return animating;
                 }
@@ -539,6 +557,12 @@ SLICK.Mapping = (function() {
                     self.layerChanged();
                     self.wakeParent();
                 } // if
+            });
+            
+            // list for grid updates
+            GRUNT.WaterCooler.listen("grid.updated", function(args) {
+                updateAnnotationCoordinates(annotations);
+                updateAnnotationCoordinates(staticAnnotations);
             });
             
             return self;
@@ -650,41 +674,6 @@ SLICK.Mapping = (function() {
 
             // create the base tiler
             var parent = new SLICK.Tiling.Tiler(params);
-            
-            // register a layer listener to properly initialise GeoOverlays
-            parent.registerLayerListener(function(eventType, layerId, layer) {
-                if (layer) {
-                    // if the layer is a geo layer and has a handler for the calcposition coordinates method, then call it
-                    // GRUNT.Log.info("layer " + layerId + " " + eventType + " event, has position coordinates event: " + (layer.calcCoordinates ? "true" : "false"));
-                    if (layer.calcCoordinates) {
-                        layer.calcCoordinates(self.getTileLayer());
-                    } // if
-
-                    // handlers for changes to the grid
-                    if (/grid\d+/.test(layerId)) {
-                        // GRUNT.Log.info("CAPTURED NOTIFY EVENT: type = " + eventType + ", layerId = " + layerId);
-                        // if the event type is an add event, then recalculate the necessary coordinates
-                        if ((eventType == "add") || (eventType == "offset-changed")) {
-                            self.eachLayer(function(checkLayer) {
-                                if (checkLayer.calcCoordinates) {
-                                    checkLayer.calcCoordinates(layer);
-                                } // if                            
-                            });
-                        }
-                    } // if
-                } 
-                // looks like we have a global event
-                else {
-                    var grid = self.getTileLayer();
-                    if (grid) {
-                        self.eachLayer(function(checkLayer) {
-                            if (checkLayer.calcCoordinates) {
-                                checkLayer.calcCoordinates(grid);
-                            } // if                            
-                        });
-                    } // if
-                }
-            });
             
             function determineGuideOffset(scaling) {
                 // get the current grid
@@ -922,7 +911,7 @@ SLICK.Mapping = (function() {
                     } // if
                 }
             });
-
+            
             return self;
         }
     };

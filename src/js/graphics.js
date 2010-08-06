@@ -300,17 +300,21 @@ SLICK.Graphics = (function() {
                         indicatorLeft = 30;
                     } // if
                     
-                    // draw indicators for the number of images loading
-                    context.fillStyle = "rgba(0, 255, 0, 0.7)";
-                    for (ii = stats.imageLoadingCount; ii--; ) {
-                        context.fillRect(indicatorLeft + (ii * (ledSize+spacing)), 10, ledSize, ledSize);
-                    } // for
-                    
-                    // draw indicators for the number of images queued
-                    context.fillStyle = "rgba(255, 0, 0, 0.7)";
-                    for (ii = stats.queuedImageCount; ii--; ) {
-                        context.fillRect(indicatorLeft + (ii * (ledSize+spacing)), 10 + ledSize + spacing, ledSize, ledSize);
-                    } // for
+                    if (stats.imageLoadingCount >= 0) {
+                        // draw indicators for the number of images loading
+                        context.fillStyle = "rgba(0, 255, 0, 0.7)";
+                        for (ii = stats.imageLoadingCount; ii--; ) {
+                            context.fillRect(indicatorLeft + (ii * (ledSize+spacing)), 10, ledSize, ledSize);
+                        } // for
+                    } // if
+
+                    if (stats.queuedImageCount >= 0) {
+                        // draw indicators for the number of images queued
+                        context.fillStyle = "rgba(255, 0, 0, 0.7)";
+                        for (ii = stats.queuedImageCount; ii--; ) {
+                            context.fillRect(indicatorLeft + (ii * (ledSize+spacing)), 10 + ledSize + spacing, ledSize, ledSize);
+                        } // for
+                    } // if
                 }
             });
             
@@ -367,14 +371,12 @@ SLICK.Graphics = (function() {
                 lastTickCount = null,
                 lastInteraction = 0,
                 frozen = false,
-                freezeTimeout = 0,
                 deviceScaling = 1,
                 translateDelta = new SLICK.Vector(),
                 dimensions = null,
                 paddedDimensions = null,
                 centerPos = null,
                 wakeTriggers = 0,
-                layerListeners = [],
                 fpsLayer = null,
                 endCenter = null,
                 pannable = null,
@@ -523,9 +525,6 @@ SLICK.Graphics = (function() {
                     
                     return result;
                 });
-
-                // fire a notify event for adding the layer
-                self.notifyLayerListeners("add", id, value);
             } // addLayer
             
             function getLayerIndex(id) {
@@ -751,8 +750,8 @@ SLICK.Graphics = (function() {
             
             function wake() {
                 wakeTriggers++;
-                if (paintTimeout !== 0) { return; }
-                
+                if (frozen || (paintTimeout !== 0)) { return; }
+            
                 wakeTriggers = 0;
                 paintTimeout = setTimeout(cycle, 0);
             } // wake
@@ -807,7 +806,11 @@ SLICK.Graphics = (function() {
                     } // if
                     
                     // iterate through the layer update listeners and fire the callbacks
-                    self.notifyLayerListeners("update", id, value);
+                    GRUNT.WaterCooler.say("layer.update", {
+                        value: value
+                    }); 
+
+                    // wake up
                     layerChangesSinceCache++;
                     wake();
                 },
@@ -825,6 +828,9 @@ SLICK.Graphics = (function() {
                 
                 unfreeze: function() {
                     frozen = false;
+                    
+                    layerChangesSinceCache++;
+                    wake();
                 },
                 
                 snapshot: function(zindex) {
@@ -877,21 +883,11 @@ SLICK.Graphics = (function() {
                     setTimeout(function() {
                         var layerIndex = getLayerIndex(id);
                         if ((layerIndex >= 0) && (layerIndex < layers.length)) {
-                            self.notifyLayerListeners("remove", id, layers[layerIndex]);
+                            GRUNT.WaterCooler.say("layer.remove", { layer: layers[layerIndex] });
 
                             layers.splice(layerIndex, 1);
                         } // if
                     }, timeout ? timeout : 1);
-                },
-                
-                registerLayerListener: function(callback) {
-                    layerListeners.push(callback);
-                },
-                
-                notifyLayerListeners: function(eventType, id, layer) {
-                    for (var ii = 0; ii < layerListeners.length; ii++) {
-                        layerListeners[ii](eventType, id, layer);
-                    } // for
                 }
             });
             
