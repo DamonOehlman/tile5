@@ -1469,6 +1469,7 @@ SLICK = (function () {
                 name: "Unknown",
                 eventTarget: document,
                 supportsTouch: "createTouch" in document,
+                imageCacheMaxSize: null,
                 getScaling: function() {
                     return 1;
                 }
@@ -1476,7 +1477,14 @@ SLICK = (function () {
 
             iphone: {
                 name: "iPhone",
-                regex: /iphone/i
+                regex: /iphone/i,
+                imageCacheMaxSize: 6 * 1024
+            },
+
+            ipad: {
+                name: "iPad",
+                regex: /ipad/i,
+                imageCacheMaxSize: 6 * 1024
             },
 
             android: {
@@ -1502,7 +1510,8 @@ SLICK = (function () {
         deviceCheckOrder = [
             deviceConfigs.iphone,
             deviceConfigs.froyo,
-            deviceConfigs.android
+            deviceConfigs.android,
+            deviceConfigs.ipad
         ];
     } // loadDeviceConfigs
     
@@ -2004,17 +2013,68 @@ SLICK.Resources = (function() {
     var basePath = "",
         cachedSnippets = {},
         cachedResources = {},
+        cachedImages = [],
         images = {},
         imageLoadingCount = 0,
-        queuedImages = [];
+        queuedImages = [],
+        imageCacheFullness = 0;
+        
+    
+    function cleanupImageCache() {
+        cachedImages.sort(function(itemA, itemB) {
+            var compareVal = itemA.hitCount - itemB.hitCount;
+            if (compareVal === 0) {
+                compareVal = itemA.created - itemB.created;
+            } // if
+            
+            return compareVal;
+        });
+
+        // images should now be in hit count / created time order
+        // GRUNT.Log.info("sorted images: first image hit count = " + cachedImages[0].hitCount + ", created = " + cachedImages[0].created);
+        // GRUNT.Log.info("sorted images: last  image hit count = " + cachedImages[cachedImages.length-1].hitCount + ", created = " + cachedImages[cachedImages.length-1].created);
+        
+        // ok super rough - ditch the first half of the image cache
+        images = {};
+        cachedImages.splice(0, Math.floor(cachedImages.length * 0.5));
+        
+        // regenerate the images lookups
+        for (var ii = cachedImages.length; ii--; ) {
+            images[cachedImages[ii].url] = ii;
+        } // for
+    } // cleanupImageCache
     
     function getImageResource(url) {
+        var image = null,
+            config = SLICK.getDeviceConfig();
+        
         // if the requested image does not exist, then request it
-        if (! images[url]) {
-            images[url] = new module.ImageResource({ url: url });
+        if (images[url] === undefined) {
+            image = new module.ImageResource({ url: url });
+            
+            // add the image to the cached images array
+            images[url] = cachedImages.push(image) - 1;
+        }
+        else {
+            var imageIndex = images[url];
+            if (imageIndex < cachedImages.length) {
+                image = cachedImages[imageIndex];
+            } // if
+        } // if..else
+        
+        // if we have a configuration and an image cache max size, then ensure we haven't exceeded it
+        if (config && config.imageCacheMaxSize) {
+            imageCacheFullness = (cachedImages.length * module.avgImageSize) / config.imageCacheMaxSize;
+            if (imageCacheFullness >= 1) {
+                cleanupImageCache();
+            } // if
         } // if
         
-        return images[url];
+        if (! image) {
+            GRUNT.Log.warn("could not return image for: " + url);
+        } // if
+        
+        return image;
     } // getImageResource
     
     function loadNextImage() {
@@ -2030,6 +2090,7 @@ SLICK.Resources = (function() {
     
     var module = {
         maxImageLoads: 8,
+        avgImageSize: 25,
         loadTimeout: 30,
         
         Cache: (function() {
@@ -2088,35 +2149,51 @@ SLICK.Resources = (function() {
         setBasePath: function(path) {
             basePath = path;
         },
-        
-        loadImage: function(url, callback) {
+
+        getImage: function(url, callback) {
             // get the image url
             var image = getImageResource(module.getPath(url));
             
-            // increment the image hit count
-            image.hitCount++;
-            
-            // if the image is loaded, then fire the callback immediated
-            if (image.loaded) {
-                if (callback) {
-                    callback(image.get());
+            if (image) {
+                // increment the image hit count
+                image.hitCount++;
+
+                // if the image is loaded, then fire the callback immediated
+                if (image.loaded && image.get()) {
+                    if (callback) {
+                        callback(image.get(), true);
+                    }
                 }
-            }
-            // otherwise add the callback to the load listeners for the image
-            else {
-                image.load();
-                image.loadListeners.push(callback);
+                // otherwise add the callback to the load listeners for the image
+                else {
+                    image.load();
+                    image.loadListeners.push(callback);
+                } // if
+            } // if
+        },
+        
+        resetImageLoadListeners: function(url) {
+            var image = getImageResource(module.getPath(url));
+            if (image) {
+                image.loadListeners = [];
             } // if
         },
         
         resetImageLoadQueue: function() {
+            for (var ii = queuedImages.length; ii--; ) {
+                queuedImages[ii].reset();
+            } // for
+            
+            // reset queued images count and loading image count
             queuedImages = [];
+            // imageLoadingCount = 0;
         },
         
         getStats: function() {
             return {
                 imageLoadingCount: imageLoadingCount,
-                queuedImageCount: queuedImages.length
+                queuedImageCount: queuedImages.length,
+                imageCacheFullness: imageCacheFullness
             };
         },
         
@@ -2216,15 +2293,18 @@ SLICK.Resources = (function() {
                 loaded: false,
                 queued: false,
                 loadListeners: [],
+                created: new Date().getTime(),
                 hitCount: 0,
+                url: params.url,
                 
                 get: function() {
                     return image;
                 },
                 
                 load: function() {
-                    if (params.url && (image.src != params.url)) {
+                    if (params.url && image && (image.src != params.url)) {
                         if ((! module.maxImageLoads) || (imageLoadingCount < module.maxImageLoads)) {
+                            // increment the image loading count
                             imageLoadingCount++;
                             
                             // set the image source and start the loading
@@ -2237,6 +2317,17 @@ SLICK.Resources = (function() {
                             queuedImages.push(self);
                             self.queued = true;
                         }
+                    } // if
+                },
+                
+                reset: function() {
+                    // release the references
+                    image.src = null;
+                    image.onload = null;
+                    
+                    // clear the load checktimeout
+                    if (loadCheckTimeout !== 0) {
+                        clearTimeout(loadCheckTimeout);
                     } // if
                 }
             };
@@ -3614,7 +3705,8 @@ SLICK.Graphics = (function() {
         PAN: 4,
         PINCHZOOM: 8,
         GENCACHE: 32,
-        SNAPSHOT: 64
+        SNAPSHOT: 64,
+        FREEZE: 128
     };
     
     // initialise variables
@@ -3871,20 +3963,31 @@ SLICK.Graphics = (function() {
                     // get the stats from the resource loaded
                     var stats = SLICK.Resources.getStats(),
                         ledSize = params.indicatorSize,
+                        indicatorLeft = 10,
                         spacing = 2,
                         ii,
                         ypos;
+                        
+                    if (stats.imageCacheFullness) {
+                        context.strokeStyle = "rgba(0, 0, 255, 1)";
+                        
+                        context.beginPath();
+                        context.arc(15, 15, 5, 0, Math.PI * 2 * stats.imageCacheFullness, false);
+                        context.stroke();
+                        
+                        indicatorLeft = 30;
+                    } // if
                     
                     // draw indicators for the number of images loading
                     context.fillStyle = "rgba(0, 255, 0, 0.7)";
                     for (ii = stats.imageLoadingCount; ii--; ) {
-                        context.fillRect(10, 10 + (ii * (ledSize+spacing)), ledSize, ledSize);
+                        context.fillRect(indicatorLeft + (ii * (ledSize+spacing)), 10, ledSize, ledSize);
                     } // for
                     
                     // draw indicators for the number of images queued
                     context.fillStyle = "rgba(255, 0, 0, 0.7)";
                     for (ii = stats.queuedImageCount; ii--; ) {
-                        context.fillRect(10 + ledSize + spacing, 10 + (ii * (ledSize+spacing)), ledSize, ledSize);
+                        context.fillRect(indicatorLeft + (ii * (ledSize+spacing)), 10 + ledSize + spacing, ledSize, ledSize);
                     } // for
                 }
             });
@@ -3914,7 +4017,8 @@ SLICK.Graphics = (function() {
                 scaleDamping: false,
                 fillStyle: "rgb(200, 200, 200)",
                 bufferRefresh: 100,
-                snapshotFreezeTime: 0,
+                defaultFreezeDelay: 500,
+                snapshotFreezeTime: 200,
                 // TODO: calculate the padding based on screen size
                 padding: 100,
                 fps: 25,
@@ -3940,6 +4044,8 @@ SLICK.Graphics = (function() {
                 lastScaleFactor = 1,
                 lastTickCount = null,
                 lastInteraction = 0,
+                frozen = false,
+                freezeTimeout = 0,
                 deviceScaling = 1,
                 translateDelta = new SLICK.Vector(),
                 dimensions = null,
@@ -4120,7 +4226,7 @@ SLICK.Graphics = (function() {
             
             /* saved canvas / context code */
             
-            function cacheContext(overrideStatus) {
+            function cacheContext() {
                 var changeCount = 0,
                     startTicks = GRUNT.Log.getTraceTicks();
                 
@@ -4143,7 +4249,7 @@ SLICK.Graphics = (function() {
                 // iterate through the layers, and for any layers that cannot draw on scale, draw them to 
                 // the saved context
                 for (var ii = layers.length; ii--; ) {
-                    if (layers[ii].shouldDraw(overrideStatus ? overrideStatus : DISPLAY_STATE.GENCACHE)) {
+                    if (layers[ii].shouldDraw(frozen ? DISPLAY_STATE.FROZEN : DISPLAY_STATE.GENCACHE)) {
                         var layerChangeCount = layers[ii].draw(cachedContext, paddedOffset, paddedDimensions, self);
                         changeCount += layerChangeCount ? layerChangeCount: 0;
 
@@ -4187,22 +4293,23 @@ SLICK.Graphics = (function() {
                 } // if..else
             } // calcZoomCenter
             
-            function drawLayer(layer, context, offset, overrideStatus) {
+            function drawLayer(layer, context, offset, drawStatus) {
                 var changeCount = 0;
                 
                 // draw the layer output to the main canvas
                 // but only if we don't have a scale buffer or the layer is a draw on scale layer
-                if (layer.shouldDraw(overrideStatus ? overrideStatus : status)) {
+                if (layer.shouldDraw(drawStatus)) {
                     changeCount = layer.draw(context, offset, dimensions, self);
                 } // if
                 
                 return changeCount ? changeCount : 0;
             } // drawLayer
             
-            function drawView(context, offset, overrideStatus) {
+            function drawView(context, offset) {
                 var changeCount = 0,
                     scaleFactor = self.getScaleFactor(),
-                    isPinchZoom = (self.getDisplayStatus() & DISPLAY_STATE.PINCHZOOM) !== 0,
+                    drawStatus = self.getDisplayStatus(),
+                    isPinchZoom = (drawStatus & DISPLAY_STATE.PINCHZOOM) !== 0,
                     delayDrawLayers = [];
                 
                 // update the last scale factor
@@ -4212,8 +4319,8 @@ SLICK.Graphics = (function() {
                     ii = 0;
                     
                 // draw the cached canvas
-                if (overrideStatus || ((! isPinchZoom) && (layerChangesSinceCache > 0) && (lastCacheTickCount + cacheDelay <= tickCount))) {
-                    changeCount += cacheContext(overrideStatus);
+                if ((! isPinchZoom) && (layerChangesSinceCache > 0) && (lastCacheTickCount + cacheDelay <= tickCount)) {
+                    changeCount += cacheContext();
                 } // if
                 
                 // if we need to clear on every draw then do so
@@ -4245,7 +4352,7 @@ SLICK.Graphics = (function() {
                     
                     for (ii = layers.length; ii--; ) {
                         if ((! isPinchZoom) || layers[ii].scalePosition) {
-                            changeCount += drawLayer(layers[ii], context, offset, overrideStatus);
+                            changeCount += drawLayer(layers[ii], context, offset, drawStatus);
                         }
                         else {
                             delayDrawLayers.unshift(layers[ii]);
@@ -4266,7 +4373,7 @@ SLICK.Graphics = (function() {
                 
                 // iterate through the layers that couldn't be drawn in the main loop and draw them now...
                 for (ii = delayDrawLayers.length; ii--; ) {
-                    changeCount += drawLayer(delayDrawLayers[ii], context, offset, overrideStatus);
+                    changeCount += drawLayer(delayDrawLayers[ii], context, offset, drawStatus);
                 } // for
                 
                 return changeCount;
@@ -4390,6 +4497,14 @@ SLICK.Graphics = (function() {
                     } // for
                 },
                 
+                freeze: function() {
+                    frozen = true;
+                },
+                
+                unfreeze: function() {
+                    frozen = false;
+                },
+                
                 snapshot: function(zindex) {
                     var startTicks = GRUNT.Log.getTraceTicks();
                     
@@ -4409,7 +4524,7 @@ SLICK.Graphics = (function() {
                 },
                 
                 getDisplayStatus: function() {
-                    return status;
+                    return frozen ? DISPLAY_STATE.FROZEN : status;
                 },
                 
                 setDisplayStatus: function(value) {
@@ -4595,7 +4710,8 @@ SLICK.Tiling = (function() {
             populate: function(tileCreator, notifyListener) {
                 // take a tick count as we want to time this
                 var startTicks = GRUNT.Log.getTraceTicks(),
-                    tileIndex = 0;
+                    tileIndex = 0,
+                    centerPos = new SLICK.Vector(params.gridSize * 0.5, params.gridSize * 0.5);
                 
                 GRUNT.Log.info("poulating grid, top left offset = " + topLeftOffset);
 
@@ -4604,7 +4720,7 @@ SLICK.Tiling = (function() {
                         for (var col = 0; col < params.gridSize; col++) {
                             if (! storage[tileIndex]) {
                                 var tile = tileCreator(col, row, topLeftOffset, params.gridSize);
-                        
+
                                 // if the tile was created and we have a notify listener request updates
                                 if (tile && notifyListener) {
                                     tile.requestUpdates(notifyListener);
@@ -4732,41 +4848,27 @@ SLICK.Tiling = (function() {
             }, params);
             
             // initialise parent
-            var parent = new module.Tile(params);
-            var image = null;
+            var parent = new module.Tile(params),
+                loaded = false;
             
             // initialise self
             var self = GRUNT.extend({}, parent, {
-                loaded: false,
-                
                 draw: function(context, x, y) {
-                    if (image && image.complete) {
-                        context.drawImage(image, x, y);
-                    }
-                },
-                
-                load: function(callback, loadFromCacheOnly) {
+                    // clear any existing load listeners
+                    if (! loaded) {
+                        SLICK.Resources.resetImageLoadListeners(params.url);
+                    } // if
                     
-                    function flagLoaded() {
-                        // if we have a callback method, then call that
-                        if (callback) {
-                            callback();
-                        } // if
-                        
-                        self.loaded = true;
-                        self.changed(self);
-                    } // flagLoaded
-                    
-                    if ((! image)  && params.url) {
-                        // create the image
-                        image = null; 
-                        if (! loadFromCacheOnly) {
-                            SLICK.Resources.loadImage(params.url, function(loadedImage) {
-                                image = loadedImage;
-                                flagLoaded();
-                            });
-                        } // if
-                    }
+                    // get the image
+                    SLICK.Resources.getImage(params.url, function(loadedImage, fromCache) {
+                        if (! fromCache) {
+                            loaded = true;
+                            GRUNT.WaterCooler.say("tile.loaded", { tile: self });
+                        }
+                        else {
+                            context.drawImage(loadedImage, x, y);
+                        }
+                    });
                 }
             }); 
             
@@ -4952,6 +5054,7 @@ SLICK.Tiling = (function() {
                                     Math.floor((offset.y + tileShift.y) * invTileSize)),
                     tileCols = Math.ceil(dimensions.width * invTileSize) + 1,
                     tileRows = Math.ceil(dimensions.height * invTileSize) + 1,
+                    centerPos = new SLICK.Vector((tileCols-1) * 0.5, (tileRows-1) * 0.5),
                     tileOffset = new SLICK.Vector((tileStart.x * params.tileSize), (tileStart.y * params.tileSize)),
                     viewAnimating = view.isAnimating();
                     
@@ -4969,7 +5072,8 @@ SLICK.Tiling = (function() {
                     for (var xx = 0; xx < tileCols; xx++) {
                         // get the tile
                         tile = tileStore.getTile(xx + tileStart.x, yy + tileStart.y);
-                        var xPos = xx * params.tileSize + tileOffset.x;
+                        var xPos = xx * params.tileSize + tileOffset.x,
+                            centerDiff = new SLICK.Vector(xx - centerPos.x, yy - centerPos.y);
                         
                         if (! tile) {
                             shiftDelta = tileStore.getShiftDelta(tileStart.x, tileStart.y, tileCols, tileRows);
@@ -4978,28 +5082,16 @@ SLICK.Tiling = (function() {
                         // add the tile and position to the tile draw queue
                         tileDrawQueue.push({
                             tile: tile,
-                            coordinates: new SLICK.Vector(xPos, yPos)
+                            coordinates: new SLICK.Vector(xPos, yPos),
+                            centerness: centerDiff.getAbsSize()
                         });
                     } // for
                 } // for
                 
-                // check that the tiles are loaded
-                for (var ii = tileDrawQueue.length; ii--; ) {
-                    tile = tileDrawQueue[ii].tile;
-
-                    if (tile && (! tile.loaded)) {
-                        // load the image
-                        tile.load(function() {
-                            if (active) {
-                                loadedTileCount++;
-                                gridDirty = true;
-
-                                self.wakeParent();
-                                notifyListeners("load", tile);
-                            } // if
-                        }, viewAnimating);
-                    } // if
-                } // for
+                // sort the tile queue by "centerness"
+                tileDrawQueue.sort(function(itemA, itemB) {
+                    return itemB.centerness - itemA.centerness;
+                });
             } // fileTileDrawQueue
             
             // initialise self
@@ -5062,7 +5154,7 @@ SLICK.Tiling = (function() {
                                 y = tileDrawQueue[ii].coordinates.y - yShift;
 
                             // if the tile is loaded, then draw, otherwise load
-                            if (tile && tile.loaded) {
+                            if (tile) {
                                 tile.draw(context, x, y);
                             } // if
 
@@ -5145,6 +5237,14 @@ SLICK.Tiling = (function() {
                 if (args.id == self.getParent().id) {
                     active = false;
                 } // if
+            });
+            
+            // listen for tiles loading
+            GRUNT.WaterCooler.listen("tile.loaded", function(args) {
+                gridDirty = true;
+
+                self.wakeParent();
+                notifyListeners("load", args.tile);
             });
             
             return self;
@@ -6705,7 +6805,7 @@ SLICK.Mapping = (function() {
             }; // draw
             
             // load the image
-            SLICK.Resources.loadImage(
+            SLICK.Resources.getImage(
                 params.imageUrl,
                 function(loadedImage) {
                     image = loadedImage;
@@ -6872,8 +6972,7 @@ SLICK.Mapping = (function() {
             } // if
 
             // initialise variables
-            var current_position = null,
-                lastBoundsChangeOffset = new SLICK.Vector(),
+            var lastBoundsChangeOffset = new SLICK.Vector(),
                 copyrightMessage = params.copyright,
                 initialized = false,
                 tappedPOIs = [],
@@ -7077,6 +7176,8 @@ SLICK.Mapping = (function() {
 
                         // if the map is initialise, then pan to the specified position
                         if (initialized) {
+                            self.freeze();
+                            
                             // flag the route and poi layers as frozen
                             // self.panToPosition(position);
 
@@ -7093,6 +7194,8 @@ SLICK.Mapping = (function() {
                             
                             // pan to the correct position
                             self.panToPosition(position, function() {
+                                self.unfreeze();
+
                                 if (callback) {
                                     callback();
                                 } // if

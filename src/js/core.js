@@ -14,6 +14,7 @@ SLICK = (function () {
                 name: "Unknown",
                 eventTarget: document,
                 supportsTouch: "createTouch" in document,
+                imageCacheMaxSize: null,
                 getScaling: function() {
                     return 1;
                 }
@@ -21,7 +22,14 @@ SLICK = (function () {
 
             iphone: {
                 name: "iPhone",
-                regex: /iphone/i
+                regex: /iphone/i,
+                imageCacheMaxSize: 6 * 1024
+            },
+
+            ipad: {
+                name: "iPad",
+                regex: /ipad/i,
+                imageCacheMaxSize: 6 * 1024
             },
 
             android: {
@@ -47,7 +55,8 @@ SLICK = (function () {
         deviceCheckOrder = [
             deviceConfigs.iphone,
             deviceConfigs.froyo,
-            deviceConfigs.android
+            deviceConfigs.android,
+            deviceConfigs.ipad
         ];
     } // loadDeviceConfigs
     

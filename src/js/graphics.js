@@ -27,7 +27,8 @@ SLICK.Graphics = (function() {
         PAN: 4,
         PINCHZOOM: 8,
         GENCACHE: 32,
-        SNAPSHOT: 64
+        SNAPSHOT: 64,
+        FREEZE: 128
     };
     
     // initialise variables
@@ -284,20 +285,31 @@ SLICK.Graphics = (function() {
                     // get the stats from the resource loaded
                     var stats = SLICK.Resources.getStats(),
                         ledSize = params.indicatorSize,
+                        indicatorLeft = 10,
                         spacing = 2,
                         ii,
                         ypos;
+                        
+                    if (stats.imageCacheFullness) {
+                        context.strokeStyle = "rgba(0, 0, 255, 1)";
+                        
+                        context.beginPath();
+                        context.arc(15, 15, 5, 0, Math.PI * 2 * stats.imageCacheFullness, false);
+                        context.stroke();
+                        
+                        indicatorLeft = 30;
+                    } // if
                     
                     // draw indicators for the number of images loading
                     context.fillStyle = "rgba(0, 255, 0, 0.7)";
                     for (ii = stats.imageLoadingCount; ii--; ) {
-                        context.fillRect(10, 10 + (ii * (ledSize+spacing)), ledSize, ledSize);
+                        context.fillRect(indicatorLeft + (ii * (ledSize+spacing)), 10, ledSize, ledSize);
                     } // for
                     
                     // draw indicators for the number of images queued
                     context.fillStyle = "rgba(255, 0, 0, 0.7)";
                     for (ii = stats.queuedImageCount; ii--; ) {
-                        context.fillRect(10 + ledSize + spacing, 10 + (ii * (ledSize+spacing)), ledSize, ledSize);
+                        context.fillRect(indicatorLeft + (ii * (ledSize+spacing)), 10 + ledSize + spacing, ledSize, ledSize);
                     } // for
                 }
             });
@@ -327,7 +339,8 @@ SLICK.Graphics = (function() {
                 scaleDamping: false,
                 fillStyle: "rgb(200, 200, 200)",
                 bufferRefresh: 100,
-                snapshotFreezeTime: 0,
+                defaultFreezeDelay: 500,
+                snapshotFreezeTime: 200,
                 // TODO: calculate the padding based on screen size
                 padding: 100,
                 fps: 25,
@@ -353,6 +366,8 @@ SLICK.Graphics = (function() {
                 lastScaleFactor = 1,
                 lastTickCount = null,
                 lastInteraction = 0,
+                frozen = false,
+                freezeTimeout = 0,
                 deviceScaling = 1,
                 translateDelta = new SLICK.Vector(),
                 dimensions = null,
@@ -533,7 +548,7 @@ SLICK.Graphics = (function() {
             
             /* saved canvas / context code */
             
-            function cacheContext(overrideStatus) {
+            function cacheContext() {
                 var changeCount = 0,
                     startTicks = GRUNT.Log.getTraceTicks();
                 
@@ -556,7 +571,7 @@ SLICK.Graphics = (function() {
                 // iterate through the layers, and for any layers that cannot draw on scale, draw them to 
                 // the saved context
                 for (var ii = layers.length; ii--; ) {
-                    if (layers[ii].shouldDraw(overrideStatus ? overrideStatus : DISPLAY_STATE.GENCACHE)) {
+                    if (layers[ii].shouldDraw(frozen ? DISPLAY_STATE.FROZEN : DISPLAY_STATE.GENCACHE)) {
                         var layerChangeCount = layers[ii].draw(cachedContext, paddedOffset, paddedDimensions, self);
                         changeCount += layerChangeCount ? layerChangeCount: 0;
 
@@ -600,22 +615,23 @@ SLICK.Graphics = (function() {
                 } // if..else
             } // calcZoomCenter
             
-            function drawLayer(layer, context, offset, overrideStatus) {
+            function drawLayer(layer, context, offset, drawStatus) {
                 var changeCount = 0;
                 
                 // draw the layer output to the main canvas
                 // but only if we don't have a scale buffer or the layer is a draw on scale layer
-                if (layer.shouldDraw(overrideStatus ? overrideStatus : status)) {
+                if (layer.shouldDraw(drawStatus)) {
                     changeCount = layer.draw(context, offset, dimensions, self);
                 } // if
                 
                 return changeCount ? changeCount : 0;
             } // drawLayer
             
-            function drawView(context, offset, overrideStatus) {
+            function drawView(context, offset) {
                 var changeCount = 0,
                     scaleFactor = self.getScaleFactor(),
-                    isPinchZoom = (self.getDisplayStatus() & DISPLAY_STATE.PINCHZOOM) !== 0,
+                    drawStatus = self.getDisplayStatus(),
+                    isPinchZoom = (drawStatus & DISPLAY_STATE.PINCHZOOM) !== 0,
                     delayDrawLayers = [];
                 
                 // update the last scale factor
@@ -625,8 +641,8 @@ SLICK.Graphics = (function() {
                     ii = 0;
                     
                 // draw the cached canvas
-                if (overrideStatus || ((! isPinchZoom) && (layerChangesSinceCache > 0) && (lastCacheTickCount + cacheDelay <= tickCount))) {
-                    changeCount += cacheContext(overrideStatus);
+                if ((! isPinchZoom) && (layerChangesSinceCache > 0) && (lastCacheTickCount + cacheDelay <= tickCount)) {
+                    changeCount += cacheContext();
                 } // if
                 
                 // if we need to clear on every draw then do so
@@ -658,7 +674,7 @@ SLICK.Graphics = (function() {
                     
                     for (ii = layers.length; ii--; ) {
                         if ((! isPinchZoom) || layers[ii].scalePosition) {
-                            changeCount += drawLayer(layers[ii], context, offset, overrideStatus);
+                            changeCount += drawLayer(layers[ii], context, offset, drawStatus);
                         }
                         else {
                             delayDrawLayers.unshift(layers[ii]);
@@ -679,7 +695,7 @@ SLICK.Graphics = (function() {
                 
                 // iterate through the layers that couldn't be drawn in the main loop and draw them now...
                 for (ii = delayDrawLayers.length; ii--; ) {
-                    changeCount += drawLayer(delayDrawLayers[ii], context, offset, overrideStatus);
+                    changeCount += drawLayer(delayDrawLayers[ii], context, offset, drawStatus);
                 } // for
                 
                 return changeCount;
@@ -803,6 +819,14 @@ SLICK.Graphics = (function() {
                     } // for
                 },
                 
+                freeze: function() {
+                    frozen = true;
+                },
+                
+                unfreeze: function() {
+                    frozen = false;
+                },
+                
                 snapshot: function(zindex) {
                     var startTicks = GRUNT.Log.getTraceTicks();
                     
@@ -822,7 +846,7 @@ SLICK.Graphics = (function() {
                 },
                 
                 getDisplayStatus: function() {
-                    return status;
+                    return frozen ? DISPLAY_STATE.FROZEN : status;
                 },
                 
                 setDisplayStatus: function(value) {

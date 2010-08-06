@@ -64,7 +64,8 @@ SLICK.Tiling = (function() {
             populate: function(tileCreator, notifyListener) {
                 // take a tick count as we want to time this
                 var startTicks = GRUNT.Log.getTraceTicks(),
-                    tileIndex = 0;
+                    tileIndex = 0,
+                    centerPos = new SLICK.Vector(params.gridSize * 0.5, params.gridSize * 0.5);
                 
                 GRUNT.Log.info("poulating grid, top left offset = " + topLeftOffset);
 
@@ -73,7 +74,7 @@ SLICK.Tiling = (function() {
                         for (var col = 0; col < params.gridSize; col++) {
                             if (! storage[tileIndex]) {
                                 var tile = tileCreator(col, row, topLeftOffset, params.gridSize);
-                        
+
                                 // if the tile was created and we have a notify listener request updates
                                 if (tile && notifyListener) {
                                     tile.requestUpdates(notifyListener);
@@ -201,41 +202,27 @@ SLICK.Tiling = (function() {
             }, params);
             
             // initialise parent
-            var parent = new module.Tile(params);
-            var image = null;
+            var parent = new module.Tile(params),
+                loaded = false;
             
             // initialise self
             var self = GRUNT.extend({}, parent, {
-                loaded: false,
-                
                 draw: function(context, x, y) {
-                    if (image && image.complete) {
-                        context.drawImage(image, x, y);
-                    }
-                },
-                
-                load: function(callback, loadFromCacheOnly) {
+                    // clear any existing load listeners
+                    if (! loaded) {
+                        SLICK.Resources.resetImageLoadListeners(params.url);
+                    } // if
                     
-                    function flagLoaded() {
-                        // if we have a callback method, then call that
-                        if (callback) {
-                            callback();
-                        } // if
-                        
-                        self.loaded = true;
-                        self.changed(self);
-                    } // flagLoaded
-                    
-                    if ((! image)  && params.url) {
-                        // create the image
-                        image = null; 
-                        if (! loadFromCacheOnly) {
-                            SLICK.Resources.loadImage(params.url, function(loadedImage) {
-                                image = loadedImage;
-                                flagLoaded();
-                            });
-                        } // if
-                    }
+                    // get the image
+                    SLICK.Resources.getImage(params.url, function(loadedImage, fromCache) {
+                        if (! fromCache) {
+                            loaded = true;
+                            GRUNT.WaterCooler.say("tile.loaded", { tile: self });
+                        }
+                        else {
+                            context.drawImage(loadedImage, x, y);
+                        }
+                    });
                 }
             }); 
             
@@ -421,6 +408,7 @@ SLICK.Tiling = (function() {
                                     Math.floor((offset.y + tileShift.y) * invTileSize)),
                     tileCols = Math.ceil(dimensions.width * invTileSize) + 1,
                     tileRows = Math.ceil(dimensions.height * invTileSize) + 1,
+                    centerPos = new SLICK.Vector((tileCols-1) * 0.5, (tileRows-1) * 0.5),
                     tileOffset = new SLICK.Vector((tileStart.x * params.tileSize), (tileStart.y * params.tileSize)),
                     viewAnimating = view.isAnimating();
                     
@@ -438,7 +426,8 @@ SLICK.Tiling = (function() {
                     for (var xx = 0; xx < tileCols; xx++) {
                         // get the tile
                         tile = tileStore.getTile(xx + tileStart.x, yy + tileStart.y);
-                        var xPos = xx * params.tileSize + tileOffset.x;
+                        var xPos = xx * params.tileSize + tileOffset.x,
+                            centerDiff = new SLICK.Vector(xx - centerPos.x, yy - centerPos.y);
                         
                         if (! tile) {
                             shiftDelta = tileStore.getShiftDelta(tileStart.x, tileStart.y, tileCols, tileRows);
@@ -447,28 +436,16 @@ SLICK.Tiling = (function() {
                         // add the tile and position to the tile draw queue
                         tileDrawQueue.push({
                             tile: tile,
-                            coordinates: new SLICK.Vector(xPos, yPos)
+                            coordinates: new SLICK.Vector(xPos, yPos),
+                            centerness: centerDiff.getAbsSize()
                         });
                     } // for
                 } // for
                 
-                // check that the tiles are loaded
-                for (var ii = tileDrawQueue.length; ii--; ) {
-                    tile = tileDrawQueue[ii].tile;
-
-                    if (tile && (! tile.loaded)) {
-                        // load the image
-                        tile.load(function() {
-                            if (active) {
-                                loadedTileCount++;
-                                gridDirty = true;
-
-                                self.wakeParent();
-                                notifyListeners("load", tile);
-                            } // if
-                        }, viewAnimating);
-                    } // if
-                } // for
+                // sort the tile queue by "centerness"
+                tileDrawQueue.sort(function(itemA, itemB) {
+                    return itemB.centerness - itemA.centerness;
+                });
             } // fileTileDrawQueue
             
             // initialise self
@@ -531,7 +508,7 @@ SLICK.Tiling = (function() {
                                 y = tileDrawQueue[ii].coordinates.y - yShift;
 
                             // if the tile is loaded, then draw, otherwise load
-                            if (tile && tile.loaded) {
+                            if (tile) {
                                 tile.draw(context, x, y);
                             } // if
 
@@ -614,6 +591,14 @@ SLICK.Tiling = (function() {
                 if (args.id == self.getParent().id) {
                     active = false;
                 } // if
+            });
+            
+            // listen for tiles loading
+            GRUNT.WaterCooler.listen("tile.loaded", function(args) {
+                gridDirty = true;
+
+                self.wakeParent();
+                notifyListeners("load", args.tile);
             });
             
             return self;

@@ -397,7 +397,7 @@ SLICK.Mapping = (function() {
             }; // draw
             
             // load the image
-            SLICK.Resources.loadImage(
+            SLICK.Resources.getImage(
                 params.imageUrl,
                 function(loadedImage) {
                     image = loadedImage;
@@ -564,8 +564,7 @@ SLICK.Mapping = (function() {
             } // if
 
             // initialise variables
-            var current_position = null,
-                lastBoundsChangeOffset = new SLICK.Vector(),
+            var lastBoundsChangeOffset = new SLICK.Vector(),
                 copyrightMessage = params.copyright,
                 initialized = false,
                 tappedPOIs = [],
@@ -769,6 +768,8 @@ SLICK.Mapping = (function() {
 
                         // if the map is initialise, then pan to the specified position
                         if (initialized) {
+                            self.freeze();
+                            
                             // flag the route and poi layers as frozen
                             // self.panToPosition(position);
 
@@ -785,6 +786,8 @@ SLICK.Mapping = (function() {
                             
                             // pan to the correct position
                             self.panToPosition(position, function() {
+                                self.unfreeze();
+
                                 if (callback) {
                                     callback();
                                 } // if

@@ -2,17 +2,68 @@ SLICK.Resources = (function() {
     var basePath = "",
         cachedSnippets = {},
         cachedResources = {},
+        cachedImages = [],
         images = {},
         imageLoadingCount = 0,
-        queuedImages = [];
+        queuedImages = [],
+        imageCacheFullness = 0;
+        
+    
+    function cleanupImageCache() {
+        cachedImages.sort(function(itemA, itemB) {
+            var compareVal = itemA.hitCount - itemB.hitCount;
+            if (compareVal === 0) {
+                compareVal = itemA.created - itemB.created;
+            } // if
+            
+            return compareVal;
+        });
+
+        // images should now be in hit count / created time order
+        // GRUNT.Log.info("sorted images: first image hit count = " + cachedImages[0].hitCount + ", created = " + cachedImages[0].created);
+        // GRUNT.Log.info("sorted images: last  image hit count = " + cachedImages[cachedImages.length-1].hitCount + ", created = " + cachedImages[cachedImages.length-1].created);
+        
+        // ok super rough - ditch the first half of the image cache
+        images = {};
+        cachedImages.splice(0, Math.floor(cachedImages.length * 0.5));
+        
+        // regenerate the images lookups
+        for (var ii = cachedImages.length; ii--; ) {
+            images[cachedImages[ii].url] = ii;
+        } // for
+    } // cleanupImageCache
     
     function getImageResource(url) {
+        var image = null,
+            config = SLICK.getDeviceConfig();
+        
         // if the requested image does not exist, then request it
-        if (! images[url]) {
-            images[url] = new module.ImageResource({ url: url });
+        if (images[url] === undefined) {
+            image = new module.ImageResource({ url: url });
+            
+            // add the image to the cached images array
+            images[url] = cachedImages.push(image) - 1;
+        }
+        else {
+            var imageIndex = images[url];
+            if (imageIndex < cachedImages.length) {
+                image = cachedImages[imageIndex];
+            } // if
+        } // if..else
+        
+        // if we have a configuration and an image cache max size, then ensure we haven't exceeded it
+        if (config && config.imageCacheMaxSize) {
+            imageCacheFullness = (cachedImages.length * module.avgImageSize) / config.imageCacheMaxSize;
+            if (imageCacheFullness >= 1) {
+                cleanupImageCache();
+            } // if
         } // if
         
-        return images[url];
+        if (! image) {
+            GRUNT.Log.warn("could not return image for: " + url);
+        } // if
+        
+        return image;
     } // getImageResource
     
     function loadNextImage() {
@@ -28,6 +79,7 @@ SLICK.Resources = (function() {
     
     var module = {
         maxImageLoads: 8,
+        avgImageSize: 25,
         loadTimeout: 30,
         
         Cache: (function() {
@@ -86,35 +138,51 @@ SLICK.Resources = (function() {
         setBasePath: function(path) {
             basePath = path;
         },
-        
-        loadImage: function(url, callback) {
+
+        getImage: function(url, callback) {
             // get the image url
             var image = getImageResource(module.getPath(url));
             
-            // increment the image hit count
-            image.hitCount++;
-            
-            // if the image is loaded, then fire the callback immediated
-            if (image.loaded) {
-                if (callback) {
-                    callback(image.get());
+            if (image) {
+                // increment the image hit count
+                image.hitCount++;
+
+                // if the image is loaded, then fire the callback immediated
+                if (image.loaded && image.get()) {
+                    if (callback) {
+                        callback(image.get(), true);
+                    }
                 }
-            }
-            // otherwise add the callback to the load listeners for the image
-            else {
-                image.load();
-                image.loadListeners.push(callback);
+                // otherwise add the callback to the load listeners for the image
+                else {
+                    image.load();
+                    image.loadListeners.push(callback);
+                } // if
+            } // if
+        },
+        
+        resetImageLoadListeners: function(url) {
+            var image = getImageResource(module.getPath(url));
+            if (image) {
+                image.loadListeners = [];
             } // if
         },
         
         resetImageLoadQueue: function() {
+            for (var ii = queuedImages.length; ii--; ) {
+                queuedImages[ii].reset();
+            } // for
+            
+            // reset queued images count and loading image count
             queuedImages = [];
+            // imageLoadingCount = 0;
         },
         
         getStats: function() {
             return {
                 imageLoadingCount: imageLoadingCount,
-                queuedImageCount: queuedImages.length
+                queuedImageCount: queuedImages.length,
+                imageCacheFullness: imageCacheFullness
             };
         },
         
@@ -214,15 +282,18 @@ SLICK.Resources = (function() {
                 loaded: false,
                 queued: false,
                 loadListeners: [],
+                created: new Date().getTime(),
                 hitCount: 0,
+                url: params.url,
                 
                 get: function() {
                     return image;
                 },
                 
                 load: function() {
-                    if (params.url && (image.src != params.url)) {
+                    if (params.url && image && (image.src != params.url)) {
                         if ((! module.maxImageLoads) || (imageLoadingCount < module.maxImageLoads)) {
+                            // increment the image loading count
                             imageLoadingCount++;
                             
                             // set the image source and start the loading
@@ -235,6 +306,17 @@ SLICK.Resources = (function() {
                             queuedImages.push(self);
                             self.queued = true;
                         }
+                    } // if
+                },
+                
+                reset: function() {
+                    // release the references
+                    image.src = null;
+                    image.onload = null;
+                    
+                    // clear the load checktimeout
+                    if (loadCheckTimeout !== 0) {
+                        clearTimeout(loadCheckTimeout);
                     } // if
                 }
             };
