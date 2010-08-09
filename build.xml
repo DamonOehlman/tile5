@@ -89,6 +89,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/tiling.js" />
 
 			<fileset file="src/js/mapping/geo.js" />
+			<fileset file="src/js/mapping/location.js" />
 			<fileset file="src/js/mapping/search.js" />
 			<fileset file="src/js/mapping/ui.js" />
 			<fileset file="src/js/mapping/routing.js" />

@@ -43,7 +43,7 @@ SLICK.Tiling = (function() {
             },
             
             getTileShift: function() {
-                return tileShift.duplicate();
+                return SLICK.copyVector(tileShift);
             },
             
             getTile: function(col, row) {

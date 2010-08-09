@@ -84,11 +84,9 @@ SLICK.Geo = (function() {
         
         return matchWeight;
     } // plainTextAddressMatch
-    
+   
     // define the module
     var module = {
-        
-        /* module functions */
         
         /* geo engine class */
         
@@ -148,7 +146,7 @@ SLICK.Geo = (function() {
             /* calculate the distance */
 
             // if both position 1 and position 2 are passed and valid
-            if (pos1 && (! pos1.isEmpty()) && pos2 && (! pos2.isEmpty())) {
+            if ((! module.emptyPos(pos1)) && (! module.emptyPos(pos2))) {
                 var halfdelta_lat = (pos2.lat - pos1.lat).toRad() >> 1;
                 var halfdelta_lon = (pos2.lon - pos1.lon).toRad() >> 1;
 
@@ -197,101 +195,20 @@ SLICK.Geo = (function() {
             return self;
         }, // Radius
         
-        Position: function(init_lat, init_lon) {
-            // initialise variables
-
-            // if the init lon is not specified, and the initial lat contains a space then split on space 
-            if ((! init_lon) && init_lat && init_lat.split && (init_lat.indexOf(' ') >= 0)) {
-                var coords = init_lat.split(' ');
-
-                // update the initial lat and lon
-                init_lat = coords[0];
-                init_lon = coords[1];
-            } // if
-
-            // if we don't have an init lat, then set both parameters to 0
-            if (! init_lat) {
-                init_lat = 0;
-                init_lon = 0;
-            } // if
-
+        Position: function(initLat, initLon) {
             // initialise self
-            var self = {
-                lat: parseFloat(init_lat),
-                lon: parseFloat(init_lon),
-                
-                copy: function(src_pos) {
-                    self.lat = src_pos.lat;
-                    self.lon = src_pos.lon;
-                },
-                
-                duplicate: function() {
-                    return new module.Position(self.lat, self.lon);
-                },
-
-                clear: function() {
-                    self.lat = 0;
-                    self.lon = 0;
-
-                },
-                
-                isEmpty: function() {
-                    return (self.lat === 0) && (self.lon === 0);
-                }, 
-
-                getMercatorPixels: function(rads_per_pixel) {
-                    return new SLICK.Vector(SLICK.Geo.Utilities.lon2pix(self.lon, rads_per_pixel), SLICK.Geo.Utilities.lat2pix(self.lat, rads_per_pixel));
-                },
-
-                setMercatorPixels: function(x, y, rads_per_pixel) {
-                    if (! rads_per_pixel) {
-                        throw "Unable to calculate position from mercator pixels without rads_per_pixel value";
-                    } // if
-
-                    self.lat = SLICK.Geo.Utilities.pix2lat(y, rads_per_pixel);
-                    self.lon = SLICK.Geo.Utilities.normalizeLon(SLICK.Geo.Utilities.pix2lon(x, rads_per_pixel));
-                },
-
-                toString: function() {
-                    return self.lat + " " + self.lon;
-                }
-            }; // self
-
-            return self;
+            return {
+                lat: parseFloat(initLat ? initLat : 0),
+                lon: parseFloat(initLon ? initLon : 0)
+            };
         }, // Position
         
-        BoundingBox: function(init_min, init_max) {
-            // if min is a string, then create a new position from it (positions can parsea string)
-            if (! init_min) {
-                init_min = new SLICK.Geo.Position();
-            }
-            else if (init_min.split) {
-                init_min = new SLICK.Geo.Position(init_min);
-            } // if
-
-            // do the same for max
-            if (! init_max) {
-                init_max = new SLICK.Geo.Position();
-            }
-            else if (init_max.split) {
-                init_max = new SLICK.Geo.Position(init_max);
-            } // if
-
+        BoundingBox: function(initMin, initMax) {
             // initialise self
             var self = {
-                min: init_min,
-                max: init_max,
+                min: module.parsePosition(initMin),
+                max: module.parsePosition(initMax),
 
-                copy: function(src_bounds) {
-                    self.min.copy(src_bounds.min);
-                    self.max.copy(src_bounds.max);
-                },
-
-                clear: function() {
-                    self.min.clear();
-                    self.max.clear();
-                },
-                
                 expand: function(amount) {
                     self.min.lat -= amount;
                     self.min.lon -= module.Utilities.normalizeLon(amount);
@@ -311,10 +228,6 @@ SLICK.Geo = (function() {
                     return new SLICK.Geo.Position(self.min.lat + (size.y * 0.5), self.min.lon + (size.x * 0.5));
                 },
 
-                isEmpty: function() {
-                    return self.min.isEmpty() || self.max.isEmpty();
-                },
-                
                 transform: function(transformers) {
                     // create a new instance of the BoundingBox to transform
                     var target = new SLICK.Geo.BoundingBox(self.min, self.max);
@@ -791,6 +704,68 @@ SLICK.Geo = (function() {
         
         /* static functions */
         
+        copyPos: function(src) {
+            return src ? new module.Position(src.lat, src.lon) : null;
+        },
+        
+        emptyPos: function(pos) {
+            return (! pos) || ((pos.lat === 0) && (pos.lon === 0));
+        },
+        
+        posToStr: function(pos) {
+            return pos.lat + " " + pos.lon;
+        },
+        
+        parsePosition: function(pos) {
+            // first case, null value, create a new empty position
+            if (! pos) {
+                return new module.Position();
+            }
+            else if (GRUNT.isPlainObject(pos) && (pos.lat !== 'undefined')) {
+                return pos;
+            }
+            // now attempt the various different types of splits
+            else if (pos.split) {
+                var sepChars = [' ', ','];
+                for (var ii = 0; ii < sepChars.length; ii++) {
+                    var coords = pos.split(sepChars[ii]);
+                    if (coords.length === 2) {
+                        return new module.Position(coords[0], coords[1]);
+                    } // if
+                } // for
+            } // if..else
+            
+            return null;
+        },
+        
+        parsePositionArray: function(sourceData) {
+            var sourceLen = sourceData.length,
+                positions = new Array(sourceLen);
+                
+            for (var ii = sourceLen; ii--; ) {
+                positions[ii] = module.parsePosition(sourceData[ii]);
+            } // for
+            
+            return positions;
+        },
+        
+        posToMercatorPixels: function(pos, radsPerPixel) {
+            return new SLICK.Vector(SLICK.Geo.Utilities.lon2pix(pos.lon, radsPerPixel), SLICK.Geo.Utilities.lat2pix(pos.lat, radsPerPixel));
+        },
+
+        mercatorPixelsToPos: function(x, y, radsPerPixel) {
+            // return the new position
+            return new module.Position(
+                SLICK.Geo.Utilities.pix2lat(y, radsPerPixel),
+                SLICK.Geo.Utilities.normalizeLon(SLICK.Geo.Utilities.pix2lon(x, radsPerPixel))
+            );
+        },
+        
+        emptyBounds: function(bounds) {
+            return (! bounds) || module.emptyPos(bounds.min) || module.emptyPos(bounds.max);
+        },
+        
+        
         /*
         Method: inBounds
         This method is used to determine whether or not the position is
@@ -798,7 +773,7 @@ SLICK.Geo = (function() {
         */
         posInBounds: function(pos, bounds) {
             // initialise variables
-            var fnresult = ! (pos.isEmpty() || bounds.isEmpty());
+            var fnresult = ! (module.emptyPos(pos) || module.emptyBounds(bounds));
 
             // check the pos latitude
             fnresult = fnresult && (pos.lat >= bounds.min.lat) && (pos.lat <= bounds.max.lat);
@@ -858,9 +833,9 @@ SLICK.Geo = (function() {
                 padding = "auto";
             } // if
             
-            for (var ii = 0; ii < positions.length; ii++) {
+            for (var ii = positions.length; ii--; ) {
                 if (! bounds) {
-                    bounds = new SLICK.Geo.BoundingBox(positions[ii].duplicate(), positions[ii].duplicate());
+                    bounds = new SLICK.Geo.BoundingBox(module.copyPos(positions[ii]), module.copyPos(positions[ii]));
                 }
                 else {
                     var minDiff = module.calculateBoundsSize(bounds.min, positions[ii], false),
@@ -975,6 +950,6 @@ SLICK.Geo = (function() {
             return matches;
         }
     }; // module
-    
+
     return module;
 })();

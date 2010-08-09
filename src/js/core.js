@@ -14,7 +14,8 @@ SLICK = (function () {
                 name: "Unknown",
                 eventTarget: document,
                 supportsTouch: "createTouch" in document,
-                imageCacheMaxSize: null,
+                // TODO: remove this (it's just for testing)
+                imageCacheMaxSize: 2 * 1024,
                 getScaling: function() {
                     return 1;
                 }
@@ -93,6 +94,14 @@ SLICK = (function () {
             
             return detectedConfig;
         },
+        
+        copyVector: function(src) {
+            return src ? new module.Vector(src.x, src.y) : null;
+        },
+        
+        copyRect: function(src) {
+            return src ? new module.Rect(src.origin.x, src.origin.y, src.dimensions.width, src.dimensions.height) : null;
+        },
 
         /** @namespace
         Core SLICK module for setting and retrieving application settings.
@@ -150,22 +159,12 @@ SLICK = (function () {
         @class 
         @name SLICK.Vector
         */
-        Vector: function(init_x, init_y) {
-            // if the initialise x is not specified then set to 0
-            if (! init_x) {
-                init_x = 0;
-            } // if
-
-            // repeat for the y
-            if (! init_y) {
-                init_y = 0;
-            } // if
-
+        Vector: function(initX, initY) {
             var self = {
                 /** @lends SLICK.Vector */
                 
-                x: init_x,
-                y: init_y,
+                x: initX ? initX : 0,
+                y: initY ? initY : 0,
 
                 /**
                 Add the value of the specified to the *current* vector and return the updated value of the vector.
@@ -207,16 +206,6 @@ SLICK = (function () {
                 empty: function() {
                     self.x = 0;
                     self.y = 0;
-                },
-                
-                /**
-                Create a copy of the current object
-                
-                @memberOf SLICK.Vector#
-                @returns {SLICK.Vector} a new vector instance with the x, y value of the current vector
-                */
-                duplicate: function() {
-                    return new SLICK.Vector(self.x, self.y);
                 },
                 
                 /**
@@ -271,7 +260,7 @@ SLICK = (function () {
             
             // copy the source array
             for (var ii = srcArray.length; ii--; ) {
-                data[ii] = copy ? srcArray[ii].duplicate() : srcArray[ii];
+                data[ii] = copy ? module.copyVector(srcArray[ii]) : srcArray[ii];
             } // for
             
             return {
@@ -363,10 +352,6 @@ SLICK = (function () {
                 aspect_ratio: init_aspect_ratio,
                 inv_aspect_ratio: 1 / init_aspect_ratio,
 
-                duplicate: function() {
-                    return new SLICK.Dimensions(self.width, self.height);
-                },
-                
                 getAspectRatio: function() {
                     return self.height !== 0 ? self.width / self.height : 1;
                 },
@@ -400,10 +385,6 @@ SLICK = (function () {
                 
                 origin: new SLICK.Vector(x, y),
                 dimensions: new SLICK.Dimensions(width, height),
-                
-                duplicate: function() {
-                    return new SLICK.Rect(self.origin.x, self.origin.y, self.dimensions.width, self.dimensions.height);
-                },
                 
                 getCenter: function() {
                     return new SLICK.Vector(self.origin.x + (self.dimensions.width >> 1), self.origin.y + (self.dimensions.height >> 1));

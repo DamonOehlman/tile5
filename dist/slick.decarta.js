@@ -208,18 +208,11 @@ SLICK.Geo.Decarta = (function() {
             };
         },
         
-        CenterContext: function(json_data) {
-            // initialise variables
-
-            // initialise self
-            var self = {
-                centerPos: new SLICK.Geo.Position(json_data.CenterPoint ? json_data.CenterPoint.pos.content : ""),
-                radius: new SLICK.Geo.Radius(json_data.Radius ? json_data.Radius.content : 0, json_data.Radius ? json_data.Radius.unit : null)
+        CenterContext: function(jsonData) {
+            return {
+                centerPos: SLICK.Geo.parsePosition(jsonData.CenterPoint ? jsonData.CenterPoint.pos.content : ""),
+                radius: new SLICK.Geo.Radius(jsonData.Radius ? jsonData.Radius.content : 0, jsonData.Radius ? jsonData.Radius.unit : null)
             }; // self
-            
-            // GRUNT.Log.info("Center context created, pos = " + self.centerPos + ", radius = " + self.radius);
-
-            return self;
         } // CenterContext
     }; // types
     
@@ -512,7 +505,7 @@ SLICK.Geo.Decarta = (function() {
                 if (match && validMatch(match)) {
                     // if the point is defined, then convert that to a position
                     if (match && match.Point) {
-                        matchPos = new SLICK.Geo.Position(match.Point.pos);
+                        matchPos = SLICK.Geo.parsePosition(match.Point.pos);
                     } // if
 
                     // if we have the address then convert that to an address
@@ -618,7 +611,7 @@ SLICK.Geo.Decarta = (function() {
                 // GRUNT.Log.info("parsing " + instructions.length + " instructions");
                 for (var ii = 0; ii < instructions.length; ii++) {
                     fnresult.push(new SLICK.Geo.Routing.Instruction({
-                        position: new SLICK.Geo.Position(instructions[ii].Point),
+                        position: SLICK.Geo.parsePosition(instructions[ii].Point),
                         description: instructions[ii].Instruction
                     }));
                 } // for
@@ -657,7 +650,7 @@ SLICK.Geo.Decarta = (function() {
                         // as to why this is required, who knows....
                         var tagName = (ii === 0 ? "StartPoint" : (ii === params.waypoints.length-1 ? "EndPoint" : "ViaPoint"));
                         
-                        body += String.format("<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>", tagName, params.waypoints[ii]);
+                        body += String.format("<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>", tagName, SLICK.Geo.posToStr(params.waypoints[ii]));
                     }
                     
                     // close the waypoint list
@@ -690,7 +683,7 @@ SLICK.Geo.Decarta = (function() {
                     
                     // create a new route data object and map items 
                     return new SLICK.Geo.Routing.RouteData({
-                        geometry: response.RouteGeometry.LineString.pos,
+                        geometry: SLICK.Geo.parsePositionArray(response.RouteGeometry.LineString.pos),
                         instructions: parseInstructions(response.RouteInstructionsList)
                     });
                 }
@@ -807,27 +800,19 @@ SLICK.Geo.Decarta = (function() {
                 drawGrid: false
             }, params);
             
-            var last_map_response = null;
-            var tile_grid = null;
-            var image_url = "";
-
-            var loaded_images = {};
-
             // initialise parent
             var parent = new SLICK.Geo.MapProvider();
 
             function buildTileGrid(requestedPosition, response_data, container_dimensions) {
                 // initialise the first tile origin
-                // TODO: think about whether to throw an error if not divisble
-                var half_width = Math.round(response_data.tileSize >> 1);
-                var pos_first = {
-                    x: container_dimensions.getCenter().x - half_width,
-                    y: container_dimensions.getCenter().y - half_width
-                }; 
+                var half_width = Math.round(response_data.tileSize >> 1),
+                    pos_first = {
+                        x: container_dimensions.getCenter().x - half_width,
+                        y: container_dimensions.getCenter().y - half_width
+                    }; 
 
                 // create the tile grid
-                image_url = response_data.imageUrl;
-                tile_grid = new SLICK.Tiling.TileGrid({
+                var tileGrid = new SLICK.Tiling.TileGrid({
                     tileSize: response_data.tileSize,
                     width: container_dimensions.width,
                     height: container_dimensions.height,
@@ -839,35 +824,26 @@ SLICK.Geo.Decarta = (function() {
                 });
                 
                 // set the tile grid origin
-                tile_grid.populate(function(col, row, topLeftOffset, gridSize) {
+                tileGrid.populate(function(col, row, topLeftOffset, gridSize) {
                     return SLICK.Tiling.ImageTile({ 
                         url: response_data.imageUrl.replace("${N}", topLeftOffset.y + (gridSize - row)).replace("${E}", topLeftOffset.x + col),
                         sessionParamRegex: /(SESSIONID)/i 
                     });
                 });
 
-                var gx_zoomlevel = module.Utilities.zoomLevelToGXZoom(self.zoomLevel);
-                
-                // add the pan offset
-                // GRUNT.Log.info("pan offset for current position = " + response_data.panOffset);
-                
                 // get the virtual xy
-                var virtualXY = tile_grid.getTileVirtualXY(response_data.centerTile.E, response_data.centerTile.N, true);
+                var virtualXY = tileGrid.getTileVirtualXY(response_data.centerTile.E, response_data.centerTile.N, true);
                 
                 // apply the pan offset and half tiles
                 virtualXY = virtualXY.offset(response_data.panOffset.x, response_data.panOffset.y);
-                // GRUNT.Log.info("virtualxy of map center = " + virtualXY);
                 
-                // wrap the tile grid in a geo tile grid
-                tile_grid = new SLICK.Mapping.GeoTileGrid({
-                    grid: tile_grid, 
+                return new SLICK.Mapping.GeoTileGrid({
+                    grid: tileGrid, 
                     centerXY:  virtualXY,
                     centerPos: requestedPosition,
-                    offsetAdjustment: new SLICK.Vector(), // response_data.panOffset,
+                    offsetAdjustment: new SLICK.Vector(),
                     radsPerPixel: module.Utilities.radsPerPixelAtZoom(response_data.tileSize, self.zoomLevel)
                 });
-
-                return tile_grid;
             } // buildTileGrid
 
             // initialise self
@@ -880,17 +856,8 @@ SLICK.Geo.Decarta = (function() {
                     makeServerRequest(
                             new requestTypes.PortrayMapRequest(position.lat, position.lon, self.zoomLevel, params.pinPosition),
                             function (response) {
-                                // update the center tile details
-                                last_map_response = response;
-
-                                // TODO: determine the x and y offset given then requested position and returned center context
-
                                 if (callback) {
-                                    // build the tile grid
-                                    var tile_grid = buildTileGrid(position, last_map_response, tiler.getDimensions());
-
-                                    // GRUNT.Log.info("grid center position = " + tile_grid.centerPos);
-                                    callback(tile_grid);
+                                    callback(buildTileGrid(position, response, tiler.getDimensions()));
                                 } // if
                             });
                 }

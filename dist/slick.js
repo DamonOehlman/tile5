@@ -1469,7 +1469,8 @@ SLICK = (function () {
                 name: "Unknown",
                 eventTarget: document,
                 supportsTouch: "createTouch" in document,
-                imageCacheMaxSize: null,
+                // TODO: remove this (it's just for testing)
+                imageCacheMaxSize: 2 * 1024,
                 getScaling: function() {
                     return 1;
                 }
@@ -1548,6 +1549,14 @@ SLICK = (function () {
             
             return detectedConfig;
         },
+        
+        copyVector: function(src) {
+            return src ? new module.Vector(src.x, src.y) : null;
+        },
+        
+        copyRect: function(src) {
+            return src ? new module.Rect(src.origin.x, src.origin.y, src.dimensions.width, src.dimensions.height) : null;
+        },
 
         /** @namespace
         Core SLICK module for setting and retrieving application settings.
@@ -1605,22 +1614,12 @@ SLICK = (function () {
         @class 
         @name SLICK.Vector
         */
-        Vector: function(init_x, init_y) {
-            // if the initialise x is not specified then set to 0
-            if (! init_x) {
-                init_x = 0;
-            } // if
-
-            // repeat for the y
-            if (! init_y) {
-                init_y = 0;
-            } // if
-
+        Vector: function(initX, initY) {
             var self = {
                 /** @lends SLICK.Vector */
                 
-                x: init_x,
-                y: init_y,
+                x: initX ? initX : 0,
+                y: initY ? initY : 0,
 
                 /**
                 Add the value of the specified to the *current* vector and return the updated value of the vector.
@@ -1662,16 +1661,6 @@ SLICK = (function () {
                 empty: function() {
                     self.x = 0;
                     self.y = 0;
-                },
-                
-                /**
-                Create a copy of the current object
-                
-                @memberOf SLICK.Vector#
-                @returns {SLICK.Vector} a new vector instance with the x, y value of the current vector
-                */
-                duplicate: function() {
-                    return new SLICK.Vector(self.x, self.y);
                 },
                 
                 /**
@@ -1726,7 +1715,7 @@ SLICK = (function () {
             
             // copy the source array
             for (var ii = srcArray.length; ii--; ) {
-                data[ii] = copy ? srcArray[ii].duplicate() : srcArray[ii];
+                data[ii] = copy ? module.copyVector(srcArray[ii]) : srcArray[ii];
             } // for
             
             return {
@@ -1818,10 +1807,6 @@ SLICK = (function () {
                 aspect_ratio: init_aspect_ratio,
                 inv_aspect_ratio: 1 / init_aspect_ratio,
 
-                duplicate: function() {
-                    return new SLICK.Dimensions(self.width, self.height);
-                },
-                
                 getAspectRatio: function() {
                     return self.height !== 0 ? self.width / self.height : 1;
                 },
@@ -1855,10 +1840,6 @@ SLICK = (function () {
                 
                 origin: new SLICK.Vector(x, y),
                 dimensions: new SLICK.Dimensions(width, height),
-                
-                duplicate: function() {
-                    return new SLICK.Rect(self.origin.x, self.origin.y, self.dimensions.width, self.dimensions.height);
-                },
                 
                 getCenter: function() {
                     return new SLICK.Vector(self.origin.x + (self.dimensions.width >> 1), self.origin.y + (self.dimensions.height >> 1));
@@ -2021,10 +2002,11 @@ SLICK.Resources = (function() {
         
     
     function cleanupImageCache() {
+        // TODO: make this more selective... currently some images on screen may be removed :/
         cachedImages.sort(function(itemA, itemB) {
-            var compareVal = itemA.hitCount - itemB.hitCount;
+            var compareVal = itemA.created - itemB.created;
             if (compareVal === 0) {
-                compareVal = itemA.created - itemB.created;
+                compareVal = itemA.hitCount - itemB.hitCount;
             } // if
             
             return compareVal;
@@ -2091,7 +2073,7 @@ SLICK.Resources = (function() {
     var module = {
         maxImageLoads: 8,
         avgImageSize: 25,
-        loadTimeout: 30,
+        loadTimeout: 10,
         
         Cache: (function() {
             // initailise self
@@ -2308,6 +2290,7 @@ SLICK.Resources = (function() {
                             imageLoadingCount++;
                             
                             // set the image source and start the loading
+                            image.src = null;
                             image.src = params.url;
                             
                             // schedule a timeout to check the image load state
@@ -2949,8 +2932,8 @@ SLICK.Scalable = function(params) {
             
             // update the zoom center
             scaling = true;
-            startCenter = startXY.duplicate();
-            zoomCenter = targetXY.duplicate();
+            startCenter = SLICK.copyVector(startXY);
+            zoomCenter = SLICK.copyVector(targetXY);
             startRect = null;
             
             // if tweening then update the targetXY
@@ -2981,8 +2964,8 @@ SLICK.Scalable = function(params) {
         getScaleInfo: function() {
             return {
                 factor: scaleFactor,
-                startRect: startRect ? startRect.duplicate() : null,
-                endRect: endRect ? endRect.duplicate() : null,
+                startRect: SLICK.copyRect(startRect),
+                endRect: SLICK.copyRect(endRect),
                 start: startCenter,
                 center: zoomCenter,
                 progress: aniProgress
@@ -3029,7 +3012,7 @@ SLICK.Scalable = function(params) {
                 startRect = endRect = null;
                 
                 // update the xy position
-                zoomCenter = xy.duplicate();
+                zoomCenter = SLICK.copyVector(xy);
             }
         });
     } // if    
@@ -4119,11 +4102,6 @@ SLICK.Graphics = (function() {
                         layerChangesSinceCache++;
                         wake();
                         
-                        var tmpOffset = self.getOffset();
-                        tmpOffset.x = tmpOffset.x % 256;
-                        tmpOffset.y = tmpOffset.y % 256;
-                        GRUNT.Log.info("current guide offset = " + tmpOffset);
-                        
                         status = DISPLAY_STATE.ACTIVE;
                     }
                 });
@@ -4157,7 +4135,12 @@ SLICK.Graphics = (function() {
                         GRUNT.WaterCooler.say("view.scale", { id: self.id });
                         
                         // take a snapshot
-                        self.snapshot();
+                        if (endScaleFactor > 1) {
+                            self.snapshot();
+                        }
+                        else {
+                            self.clearBackground();
+                        } // if..else
                         
                         // notify layers that we are adjusting scale
                         notifyLayers("scale");
@@ -4261,7 +4244,7 @@ SLICK.Graphics = (function() {
                 layerChangesSinceCache = 0;
 
                 // update the saved offset
-                cachedOffset = offset.duplicate();
+                cachedOffset = SLICK.copyVector(offset);
                 lastCacheTickCount = tickCount;
                 
                 GRUNT.Log.trace("cached context", startTicks);
@@ -4500,6 +4483,10 @@ SLICK.Graphics = (function() {
                     } // for
                 },
                 
+                clearBackground: function() {
+                    cachedContext.clearRect(0, 0, cachedCanvas.width, cachedCanvas.height);
+                },
+                
                 freeze: function() {
                     frozen = true;
                 },
@@ -4685,7 +4672,7 @@ SLICK.Tiling = (function() {
             },
             
             getTileShift: function() {
-                return tileShift.duplicate();
+                return SLICK.copyVector(tileShift);
             },
             
             getTile: function(col, row) {
@@ -5463,11 +5450,9 @@ SLICK.Geo = (function() {
         
         return matchWeight;
     } // plainTextAddressMatch
-    
+   
     // define the module
     var module = {
-        
-        /* module functions */
         
         /* geo engine class */
         
@@ -5527,7 +5512,7 @@ SLICK.Geo = (function() {
             /* calculate the distance */
 
             // if both position 1 and position 2 are passed and valid
-            if (pos1 && (! pos1.isEmpty()) && pos2 && (! pos2.isEmpty())) {
+            if ((! module.emptyPos(pos1)) && (! module.emptyPos(pos2))) {
                 var halfdelta_lat = (pos2.lat - pos1.lat).toRad() >> 1;
                 var halfdelta_lon = (pos2.lon - pos1.lon).toRad() >> 1;
 
@@ -5576,101 +5561,20 @@ SLICK.Geo = (function() {
             return self;
         }, // Radius
         
-        Position: function(init_lat, init_lon) {
-            // initialise variables
-
-            // if the init lon is not specified, and the initial lat contains a space then split on space 
-            if ((! init_lon) && init_lat && init_lat.split && (init_lat.indexOf(' ') >= 0)) {
-                var coords = init_lat.split(' ');
-
-                // update the initial lat and lon
-                init_lat = coords[0];
-                init_lon = coords[1];
-            } // if
-
-            // if we don't have an init lat, then set both parameters to 0
-            if (! init_lat) {
-                init_lat = 0;
-                init_lon = 0;
-            } // if
-
+        Position: function(initLat, initLon) {
             // initialise self
-            var self = {
-                lat: parseFloat(init_lat),
-                lon: parseFloat(init_lon),
-                
-                copy: function(src_pos) {
-                    self.lat = src_pos.lat;
-                    self.lon = src_pos.lon;
-                },
-                
-                duplicate: function() {
-                    return new module.Position(self.lat, self.lon);
-                },
-
-                clear: function() {
-                    self.lat = 0;
-                    self.lon = 0;
-
-                },
-                
-                isEmpty: function() {
-                    return (self.lat === 0) && (self.lon === 0);
-                }, 
-
-                getMercatorPixels: function(rads_per_pixel) {
-                    return new SLICK.Vector(SLICK.Geo.Utilities.lon2pix(self.lon, rads_per_pixel), SLICK.Geo.Utilities.lat2pix(self.lat, rads_per_pixel));
-                },
-
-                setMercatorPixels: function(x, y, rads_per_pixel) {
-                    if (! rads_per_pixel) {
-                        throw "Unable to calculate position from mercator pixels without rads_per_pixel value";
-                    } // if
-
-                    self.lat = SLICK.Geo.Utilities.pix2lat(y, rads_per_pixel);
-                    self.lon = SLICK.Geo.Utilities.normalizeLon(SLICK.Geo.Utilities.pix2lon(x, rads_per_pixel));
-                },
-
-                toString: function() {
-                    return self.lat + " " + self.lon;
-                }
-            }; // self
-
-            return self;
+            return {
+                lat: parseFloat(initLat ? initLat : 0),
+                lon: parseFloat(initLon ? initLon : 0)
+            };
         }, // Position
         
-        BoundingBox: function(init_min, init_max) {
-            // if min is a string, then create a new position from it (positions can parsea string)
-            if (! init_min) {
-                init_min = new SLICK.Geo.Position();
-            }
-            else if (init_min.split) {
-                init_min = new SLICK.Geo.Position(init_min);
-            } // if
-
-            // do the same for max
-            if (! init_max) {
-                init_max = new SLICK.Geo.Position();
-            }
-            else if (init_max.split) {
-                init_max = new SLICK.Geo.Position(init_max);
-            } // if
-
+        BoundingBox: function(initMin, initMax) {
             // initialise self
             var self = {
-                min: init_min,
-                max: init_max,
+                min: module.parsePosition(initMin),
+                max: module.parsePosition(initMax),
 
-                copy: function(src_bounds) {
-                    self.min.copy(src_bounds.min);
-                    self.max.copy(src_bounds.max);
-                },
-
-                clear: function() {
-                    self.min.clear();
-                    self.max.clear();
-                },
-                
                 expand: function(amount) {
                     self.min.lat -= amount;
                     self.min.lon -= module.Utilities.normalizeLon(amount);
@@ -5690,10 +5594,6 @@ SLICK.Geo = (function() {
                     return new SLICK.Geo.Position(self.min.lat + (size.y * 0.5), self.min.lon + (size.x * 0.5));
                 },
 
-                isEmpty: function() {
-                    return self.min.isEmpty() || self.max.isEmpty();
-                },
-                
                 transform: function(transformers) {
                     // create a new instance of the BoundingBox to transform
                     var target = new SLICK.Geo.BoundingBox(self.min, self.max);
@@ -6170,6 +6070,68 @@ SLICK.Geo = (function() {
         
         /* static functions */
         
+        copyPos: function(src) {
+            return src ? new module.Position(src.lat, src.lon) : null;
+        },
+        
+        emptyPos: function(pos) {
+            return (! pos) || ((pos.lat === 0) && (pos.lon === 0));
+        },
+        
+        posToStr: function(pos) {
+            return pos.lat + " " + pos.lon;
+        },
+        
+        parsePosition: function(pos) {
+            // first case, null value, create a new empty position
+            if (! pos) {
+                return new module.Position();
+            }
+            else if (GRUNT.isPlainObject(pos) && (pos.lat !== 'undefined')) {
+                return pos;
+            }
+            // now attempt the various different types of splits
+            else if (pos.split) {
+                var sepChars = [' ', ','];
+                for (var ii = 0; ii < sepChars.length; ii++) {
+                    var coords = pos.split(sepChars[ii]);
+                    if (coords.length === 2) {
+                        return new module.Position(coords[0], coords[1]);
+                    } // if
+                } // for
+            } // if..else
+            
+            return null;
+        },
+        
+        parsePositionArray: function(sourceData) {
+            var sourceLen = sourceData.length,
+                positions = new Array(sourceLen);
+                
+            for (var ii = sourceLen; ii--; ) {
+                positions[ii] = module.parsePosition(sourceData[ii]);
+            } // for
+            
+            return positions;
+        },
+        
+        posToMercatorPixels: function(pos, radsPerPixel) {
+            return new SLICK.Vector(SLICK.Geo.Utilities.lon2pix(pos.lon, radsPerPixel), SLICK.Geo.Utilities.lat2pix(pos.lat, radsPerPixel));
+        },
+
+        mercatorPixelsToPos: function(x, y, radsPerPixel) {
+            // return the new position
+            return new module.Position(
+                SLICK.Geo.Utilities.pix2lat(y, radsPerPixel),
+                SLICK.Geo.Utilities.normalizeLon(SLICK.Geo.Utilities.pix2lon(x, radsPerPixel))
+            );
+        },
+        
+        emptyBounds: function(bounds) {
+            return (! bounds) || module.emptyPos(bounds.min) || module.emptyPos(bounds.max);
+        },
+        
+        
         /*
         Method: inBounds
         This method is used to determine whether or not the position is
@@ -6177,7 +6139,7 @@ SLICK.Geo = (function() {
         */
         posInBounds: function(pos, bounds) {
             // initialise variables
-            var fnresult = ! (pos.isEmpty() || bounds.isEmpty());
+            var fnresult = ! (module.emptyPos(pos) || module.emptyBounds(bounds));
 
             // check the pos latitude
             fnresult = fnresult && (pos.lat >= bounds.min.lat) && (pos.lat <= bounds.max.lat);
@@ -6237,9 +6199,9 @@ SLICK.Geo = (function() {
                 padding = "auto";
             } // if
             
-            for (var ii = 0; ii < positions.length; ii++) {
+            for (var ii = positions.length; ii--; ) {
                 if (! bounds) {
-                    bounds = new SLICK.Geo.BoundingBox(positions[ii].duplicate(), positions[ii].duplicate());
+                    bounds = new SLICK.Geo.BoundingBox(module.copyPos(positions[ii]), module.copyPos(positions[ii]));
                 }
                 else {
                     var minDiff = module.calculateBoundsSize(bounds.min, positions[ii], false),
@@ -6354,9 +6316,138 @@ SLICK.Geo = (function() {
             return matches;
         }
     }; // module
+
+    return module;
+})();SLICK.Geo.Location = (function() {
+    // initialise some defaults
+    var DEFAULT_GEOLOCATION_TIMEOUT = 3000,
+        HIGH_ACCURACY_CUTOFF = 10;
+    
+    
+    /* not supported handlers */
+    
+    function notSupported(args) {
+        throw new Error("No geolocation APIs supported.");
+    } // getPositionNotSupported
+    
+    /* geolocation api implementation */
+    
+    /**
+    This function is used to get the current location using the geolocation API.  The default values for
+    args are configured to run through the default position acquision phased process as described in the 
+    documentation (to be completed).   In essence the phases are:
+    
+    0 - look for a cached location of high accuracy, if found, call callback and finish
+    1 - look for a non-cached position of any accuracy, if found, invoke callback and move to phase 2
+    2 - look for a non-cached position of high accuracy, if found, invoke callback and finish
+    */
+    function geolocationAPI(args) {
+        args = GRUNT.extend({
+            autoPhasing: true,
+            maximumAge: 300000,
+            timeout: 0,
+            highAccuracyCutoff: 10,
+            enableHighAccuracy: true,
+            successCallback: null,
+            errorCallback: null
+        }, args);
+        
+        var phase = 0,
+            lastPosition = null,
+            lastAccuracy = 1000000;
+            
+        function fireErrorCallback(error) {
+            if (args.errorCallback) {
+                args.errorCallback(error);
+            } // if
+        } // fireErrorCallback
+        
+        function getAccuracy(coords) {
+            if (GRUNT.isPlainObject(coords.accuracy) && coords.accuracy.horizontal) {
+                return coords.accuracy.horizontal;
+            }
+            else {
+                return coords.accuracy;
+            } // if..else
+        }
+        
+        function positionSuccess(position) {
+            try {
+                var pos = new SLICK.Geo.Position(position.coords.latitude, position.coords.longitude),
+                    accuracy = getAccuracy(position.coords);
+
+                GRUNT.Log.info("got position coordinates: " + pos + ", accuracy = " + accuracy);
+                if (args.successCallback && ((! lastPosition) || (accuracy < lastAccuracy))) {
+                    args.successCallback(pos, phase, position);
+                } // if
+
+                // if the accuracy is greater than the high accuracy cutoff, and we haven't hit phase 2, then 
+                // update
+                if ((accuracy > args.highAccuracyCutoff) && (phase < 2)) {
+                    // update parameters
+                    phase = 2;
+                    args.enableHighAccuracy = true;
+
+                    // relocate
+                    GRUNT.Log.info("Position not at required accuracy, trying again with high accuracy");
+                    locate();
+                } // if
+
+                // save the last position
+                lastPosition = position;
+                lastAccuracy = accuracy;
+            }
+            catch (e) {
+                GRUNT.Log.exception(e); 
+            } // try..catch
+        } // positionSuccess
+        
+        function positionError(error) {
+            if (error.code === error.PERMISSION_DENIED) {
+                fireErrorCallback(error);
+            }
+            else if (error.code === error.POSITION_UNAVAILABLE) {
+                fireErrorCallback(error);
+            }
+            else if (error.code === error.TIMEOUT) {
+                GRUNT.Log.info("had a timeout on cached position, moving to phase 1");
+                
+                // if our arguments specified a 0 timeout, then we were at phase 0 - looking for a cached position
+                // and one doesn't exist, time to move onto phase 1
+                if ((args.timeout === 0) && args.autoPhasing) {
+                    // update args
+                    phase = 1;
+                    args.timeout = DEFAULT_GEOLOCATION_TIMEOUT;
+                    args.enableHighAccuracy = false;
+                    
+                    // locate
+                    locate();
+                } // if
+            }
+        } // positionError
+        
+        function locate() {
+            // first call is to get the rough position
+            navigator.geolocation.getCurrentPosition(positionSuccess, positionError, args);
+        } // locate
+        
+        locate();
+    } // getPosition
+
+    var module = {
+        get: notSupported
+    };
+    
+    // check for a suitable geolocation api
+    if (navigator.geolocation) {
+        module.get = geolocationAPI;
+    } // if
     
     return module;
-})();SLICK.Geo.Search = (function() {
+})();
+
+
+SLICK.Geo.Search = (function() {
     var DEFAULT_MAXDIFF = 20;
     
     var module = {
@@ -6423,7 +6514,7 @@ SLICK.Mapping = (function() {
             }, params);
             
             // determine the mercator 
-            var centerMercatorPix = params.centerPos.getMercatorPixels(params.radsPerPixel);
+            var centerMercatorPix = SLICK.Geo.posToMercatorPixels(params.centerPos, params.radsPerPixel);
             
             // calculate the bottom left mercator pix
             // the position of the bottom left mercator pixel is determined by params.subtracting the actual 
@@ -6444,7 +6535,7 @@ SLICK.Mapping = (function() {
                 
                 getGridXYForPosition: function(pos) {
                     // determine the mercator pixels for teh position
-                    var posPixels = pos.getMercatorPixels(params.radsPerPixel);
+                    var posPixels = SLICK.Geo.posToMercatorPixels(pos, params.radsPerPixel);
 
                     // calculate the offsets
                     // GRUNT.Log.info("GETTING OFFSET for position: " + pos);
@@ -6464,17 +6555,7 @@ SLICK.Mapping = (function() {
                 },
                 
                 pixelsToPos: function(vector) {
-                    // initialise the new position object
-                    var fnresult = new SLICK.Geo.Position();
-                    
-                    var mercX = blMercatorPixX + vector.x;
-                    var mercY = (blMercatorPixY + self.getDimensions().height) - vector.y;
-
-                    // update the position pixels
-                    fnresult.setMercatorPixels(mercX, mercY, params.radsPerPixel);
-
-                    // return the position
-                    return fnresult;
+                    return SLICK.Geo.mercatorPixelsToPos(blMercatorPixX + vector.x, (blMercatorPixY + self.getDimensions().height) - vector.y, params.radsPerPixel);
                 }
             });
             
@@ -6605,9 +6686,9 @@ SLICK.Mapping = (function() {
 
                 var startTicks = GRUNT.Log.getTraceTicks(),
                     ii, current, last = null, include,
-                    geometry = params.data ? params.data.getGeometry() : [],
+                    geometry = params.data ? params.data.geometry : [],
                     geometryLength = geometry.length,
-                    instructions = params.data ? params.data.getInstructions() : [],
+                    instructions = params.data ? params.data.instructions : [],
                     instructionsLength = instructions.length;
                     
                 // TODO: improve the code reuse in the code below
@@ -7120,7 +7201,20 @@ SLICK.Mapping = (function() {
                     GRUNT.Log.info("BOUNDS CHANGE REQUIRED CENTER: " + bounds.getCenter() + ", ZOOM LEVEL: " + zoomLevel);
                     self.gotoPosition(bounds.getCenter(), zoomLevel, callback);
                 },
-
+                
+                gotoCurrentPosition: function(callback) {
+                    // use the geolocation api to get the current position
+                    SLICK.Geo.Location.get({
+                        successCallback: function(position, phase, rawPosition) {
+                            self.clearBackground();
+                            self.gotoPosition(position, 15, callback);
+                        },
+                        
+                        errorCallback: function(error) {
+                        }
+                    });
+                },
+                
                 gotoPosition: function(position, newZoomLevel, callback) {
                     // save the current zoom level
                     var currentZoomLevel = zoomLevel,
@@ -7201,6 +7295,7 @@ SLICK.Mapping = (function() {
                         //GRUNT.Log.info(String.format("need to apply pan vector of ({0}) to correctly center", center_xy));
                         //GRUNT.Log.info("offset before pan = " + self.getOffset());
                         self.updateOffset(centerXY.x, centerXY.y, easingFn);
+                        GRUNT.WaterCooler.say("view.wake", { id: self.id });
                         //GRUNT.Log.info("offset after pan = " + self.getOffset());
 
                         // trigger a bounds change event
@@ -7342,8 +7437,8 @@ SLICK.Geo.Routing = (function() {
                         
                         // if we are to auto fit the map to the bounds, then do that now
                         if (args.autoFit) {
-                            GRUNT.Log.info("AUTOFITTING MAP TO ROUTE: bounds = " + routeData.getBoundingBox());
-                            args.map.gotoBounds(routeData.getBoundingBox());
+                            GRUNT.Log.info("AUTOFITTING MAP TO ROUTE: bounds = " + routeData.boundingBox);
+                            args.map.gotoBounds(routeData.boundingBox);
                         } // if
                     } // if
                     
@@ -7420,35 +7515,12 @@ SLICK.Geo.Routing = (function() {
                 boundingBox: null
             }, params);
             
-            var positions = new Array(params.geometry.length),
-                boundingBox = params.boundingBox;
-            
-            // create position objects for the specified geometry
-            for (var ii = 0; ii < params.geometry.length; ii++) {
-                positions[ii] = new SLICK.Geo.Position(params.geometry[ii]);
-            } // for
-            
             // update the bounding box
-            if (! boundingBox) {
-                boundingBox = SLICK.Geo.getBoundsForPositions(positions);
+            if (! params.boundingBox) {
+                params.boundingBox = SLICK.Geo.getBoundsForPositions(params.geometry);
             } // if
             
-            // initialise self
-            var self = {
-                getGeometry: function() {
-                    return positions;
-                },
-                
-                getBoundingBox: function() {
-                    return boundingBox;
-                },
-                
-                getInstructions: function() {
-                    return params.instructions;
-                }
-            };
-            
-            return self;
+            return params;
         }
     };
     

@@ -10,10 +10,11 @@ SLICK.Resources = (function() {
         
     
     function cleanupImageCache() {
+        // TODO: make this more selective... currently some images on screen may be removed :/
         cachedImages.sort(function(itemA, itemB) {
-            var compareVal = itemA.hitCount - itemB.hitCount;
+            var compareVal = itemA.created - itemB.created;
             if (compareVal === 0) {
-                compareVal = itemA.created - itemB.created;
+                compareVal = itemA.hitCount - itemB.hitCount;
             } // if
             
             return compareVal;
@@ -80,7 +81,7 @@ SLICK.Resources = (function() {
     var module = {
         maxImageLoads: 8,
         avgImageSize: 25,
-        loadTimeout: 30,
+        loadTimeout: 10,
         
         Cache: (function() {
             // initailise self
@@ -297,6 +298,7 @@ SLICK.Resources = (function() {
                             imageLoadingCount++;
                             
                             // set the image source and start the loading
+                            image.src = null;
                             image.src = params.url;
                             
                             // schedule a timeout to check the image load state

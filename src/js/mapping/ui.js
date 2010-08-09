@@ -34,7 +34,7 @@ SLICK.Mapping = (function() {
             }, params);
             
             // determine the mercator 
-            var centerMercatorPix = params.centerPos.getMercatorPixels(params.radsPerPixel);
+            var centerMercatorPix = SLICK.Geo.posToMercatorPixels(params.centerPos, params.radsPerPixel);
             
             // calculate the bottom left mercator pix
             // the position of the bottom left mercator pixel is determined by params.subtracting the actual 
@@ -55,7 +55,7 @@ SLICK.Mapping = (function() {
                 
                 getGridXYForPosition: function(pos) {
                     // determine the mercator pixels for teh position
-                    var posPixels = pos.getMercatorPixels(params.radsPerPixel);
+                    var posPixels = SLICK.Geo.posToMercatorPixels(pos, params.radsPerPixel);
 
                     // calculate the offsets
                     // GRUNT.Log.info("GETTING OFFSET for position: " + pos);
@@ -75,17 +75,7 @@ SLICK.Mapping = (function() {
                 },
                 
                 pixelsToPos: function(vector) {
-                    // initialise the new position object
-                    var fnresult = new SLICK.Geo.Position();
-                    
-                    var mercX = blMercatorPixX + vector.x;
-                    var mercY = (blMercatorPixY + self.getDimensions().height) - vector.y;
-
-                    // update the position pixels
-                    fnresult.setMercatorPixels(mercX, mercY, params.radsPerPixel);
-
-                    // return the position
-                    return fnresult;
+                    return SLICK.Geo.mercatorPixelsToPos(blMercatorPixX + vector.x, (blMercatorPixY + self.getDimensions().height) - vector.y, params.radsPerPixel);
                 }
             });
             
@@ -216,9 +206,9 @@ SLICK.Mapping = (function() {
 
                 var startTicks = GRUNT.Log.getTraceTicks(),
                     ii, current, last = null, include,
-                    geometry = params.data ? params.data.getGeometry() : [],
+                    geometry = params.data ? params.data.geometry : [],
                     geometryLength = geometry.length,
-                    instructions = params.data ? params.data.getInstructions() : [],
+                    instructions = params.data ? params.data.instructions : [],
                     instructionsLength = instructions.length;
                     
                 // TODO: improve the code reuse in the code below
@@ -731,7 +721,20 @@ SLICK.Mapping = (function() {
                     GRUNT.Log.info("BOUNDS CHANGE REQUIRED CENTER: " + bounds.getCenter() + ", ZOOM LEVEL: " + zoomLevel);
                     self.gotoPosition(bounds.getCenter(), zoomLevel, callback);
                 },
-
+                
+                gotoCurrentPosition: function(callback) {
+                    // use the geolocation api to get the current position
+                    SLICK.Geo.Location.get({
+                        successCallback: function(position, phase, rawPosition) {
+                            self.clearBackground();
+                            self.gotoPosition(position, 15, callback);
+                        },
+                        
+                        errorCallback: function(error) {
+                        }
+                    });
+                },
+                
                 gotoPosition: function(position, newZoomLevel, callback) {
                     // save the current zoom level
                     var currentZoomLevel = zoomLevel,
@@ -812,6 +815,7 @@ SLICK.Mapping = (function() {
                         //GRUNT.Log.info(String.format("need to apply pan vector of ({0}) to correctly center", center_xy));
                         //GRUNT.Log.info("offset before pan = " + self.getOffset());
                         self.updateOffset(centerXY.x, centerXY.y, easingFn);
+                        GRUNT.WaterCooler.say("view.wake", { id: self.id });
                         //GRUNT.Log.info("offset after pan = " + self.getOffset());
 
                         // trigger a bounds change event

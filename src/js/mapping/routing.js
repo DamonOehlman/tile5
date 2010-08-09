@@ -32,8 +32,8 @@ SLICK.Geo.Routing = (function() {
                         
                         // if we are to auto fit the map to the bounds, then do that now
                         if (args.autoFit) {
-                            GRUNT.Log.info("AUTOFITTING MAP TO ROUTE: bounds = " + routeData.getBoundingBox());
-                            args.map.gotoBounds(routeData.getBoundingBox());
+                            GRUNT.Log.info("AUTOFITTING MAP TO ROUTE: bounds = " + routeData.boundingBox);
+                            args.map.gotoBounds(routeData.boundingBox);
                         } // if
                     } // if
                     
@@ -110,35 +110,12 @@ SLICK.Geo.Routing = (function() {
                 boundingBox: null
             }, params);
             
-            var positions = new Array(params.geometry.length),
-                boundingBox = params.boundingBox;
-            
-            // create position objects for the specified geometry
-            for (var ii = 0; ii < params.geometry.length; ii++) {
-                positions[ii] = new SLICK.Geo.Position(params.geometry[ii]);
-            } // for
-            
             // update the bounding box
-            if (! boundingBox) {
-                boundingBox = SLICK.Geo.getBoundsForPositions(positions);
+            if (! params.boundingBox) {
+                params.boundingBox = SLICK.Geo.getBoundsForPositions(params.geometry);
             } // if
             
-            // initialise self
-            var self = {
-                getGeometry: function() {
-                    return positions;
-                },
-                
-                getBoundingBox: function() {
-                    return boundingBox;
-                },
-                
-                getInstructions: function() {
-                    return params.instructions;
-                }
-            };
-            
-            return self;
+            return params;
         }
     };
     

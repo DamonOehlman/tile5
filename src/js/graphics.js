@@ -441,11 +441,6 @@ SLICK.Graphics = (function() {
                         layerChangesSinceCache++;
                         wake();
                         
-                        var tmpOffset = self.getOffset();
-                        tmpOffset.x = tmpOffset.x % 256;
-                        tmpOffset.y = tmpOffset.y % 256;
-                        GRUNT.Log.info("current guide offset = " + tmpOffset);
-                        
                         status = DISPLAY_STATE.ACTIVE;
                     }
                 });
@@ -479,7 +474,12 @@ SLICK.Graphics = (function() {
                         GRUNT.WaterCooler.say("view.scale", { id: self.id });
                         
                         // take a snapshot
-                        self.snapshot();
+                        if (endScaleFactor > 1) {
+                            self.snapshot();
+                        }
+                        else {
+                            self.clearBackground();
+                        } // if..else
                         
                         // notify layers that we are adjusting scale
                         notifyLayers("scale");
@@ -583,7 +583,7 @@ SLICK.Graphics = (function() {
                 layerChangesSinceCache = 0;
 
                 // update the saved offset
-                cachedOffset = offset.duplicate();
+                cachedOffset = SLICK.copyVector(offset);
                 lastCacheTickCount = tickCount;
                 
                 GRUNT.Log.trace("cached context", startTicks);
@@ -820,6 +820,10 @@ SLICK.Graphics = (function() {
                     for (var ii = 0; ii < layers.length; ii++) {
                         callback(layers[ii]);
                     } // for
+                },
+                
+                clearBackground: function() {
+                    cachedContext.clearRect(0, 0, cachedCanvas.width, cachedCanvas.height);
                 },
                 
                 freeze: function() {
