@@ -15,16 +15,19 @@ SLICK = (function () {
                 eventTarget: document,
                 supportsTouch: "createTouch" in document,
                 // TODO: remove this (it's just for testing)
-                imageCacheMaxSize: 2 * 1024,
+                imageCacheMaxSize: 4 * 1024,
                 getScaling: function() {
                     return 1;
-                }
+                },
+                // TODO: reset this back to null after testing
+                maxImageLoads: 4
             },
 
             iphone: {
                 name: "iPhone",
                 regex: /iphone/i,
-                imageCacheMaxSize: 6 * 1024
+                imageCacheMaxSize: 6 * 1024,
+                maxImageLoads: 4
             },
 
             ipad: {
@@ -95,10 +98,6 @@ SLICK = (function () {
             return detectedConfig;
         },
         
-        copyVector: function(src) {
-            return src ? new module.Vector(src.x, src.y) : null;
-        },
-        
         copyRect: function(src) {
             return src ? new module.Rect(src.origin.x, src.origin.y, src.dimensions.width, src.dimensions.height) : null;
         },
@@ -160,113 +159,63 @@ SLICK = (function () {
         @name SLICK.Vector
         */
         Vector: function(initX, initY) {
-            var self = {
-                /** @lends SLICK.Vector */
-                
+            return {
                 x: initX ? initX : 0,
-                y: initY ? initY : 0,
-
-                /**
-                Add the value of the specified to the *current* vector and return the updated value of the vector.
-                
-                @memberOf SLICK.Vector#
-                @param {SLICK.Vector} vector the vector to add to the current vector object
-                @returns {SLICK.Vector} itself (chaining style)
-                */
-                add: function(vector) {
-                  self.x += vector.x;
-                  self.y += vector.y;
-                  
-                  return self;
-                },
-                
-                /**
-                Determine the difference between the current vector and a second vector. The result is returned in a new
-                vector
-                
-                @memberOf SLICK.Vector#
-                @param {SLICK.Vector} vector the vector to subtract from the current vector
-                @return {SLICK.Vector} a new vector representing the difference between the current vector and the 2nd vector
-                */
-                diff: function(vector) {
-                    return new SLICK.Vector(self.x - vector.x, self.y - vector.y);
-                },
-
-                /**
-                Copy the specified vector value into the current object
-                
-                @memberOf SLICK.Vector#
-                @param {SLICK.Vector} vector the source vector from which to copy the x, y values
-                */
-                copy: function(vector) {
-                    self.x = vector.x;
-                    self.y = vector.y;
-                },
-                
-                empty: function() {
-                    self.x = 0;
-                    self.y = 0;
-                },
-                
-                /**
-                @memberOf SLICK.Vector#
-                */
-                getAbsSize: function() {
-                    return Math.max(Math.abs(self.x), Math.abs(self.y));
-                },
-
-                /** 
-                Apply an offset to the current vector and return the result as a new vector instance.  The value
-                of the current object is not changed through calling this function.
-                
-                @memberOf SLICK.Vector#
-                @param {Number} x the amount to apply to the x value of the vector
-                @param {Number} y the amount to apply to the y value of the vector
-                @returns {SLICK.Vector} a *new* vector instance offset from the current value by the specified x, y values
-                */
-                offset: function(x, y) {
-                    return new SLICK.Vector(self.x + x, self.y + y);
-                },
-                
-                /** 
-                Return a new vector instance that is the inverted value of the current vector
-                
-                @memberOf SLICK.Vector#
-                @returns {SLICK.Vector} a *new* vector instance that contains the inverted values of the current vector
-                */
-                invert: function() {
-                    return new SLICK.Vector(-self.x, -self.y);
-                },
-                
-                matches: function(test) {
-                    return test && (self.x == test.x) && (self.y == test.y);
-                },
-
-                /** 
-                Return a string representation "x, y" of the current vector
-                
-                @memberOf SLICK.Vector#
-                */
-                toString: function() {
-                    return self.x + ", " + self.y;
-                }
-            }; // self
-
-            return self;
+                y: initY ? initY : 0
+            };
         }, // Vector
+        
+        V: (function() {
+            return {
+                create: function(x, y) {
+                    return new module.Vector(x, y);
+                },
+                
+                add: function() {
+                    var fnresult = new module.Vector();
+                    for (var ii = arguments.length; ii--; ) {
+                        fnresult.x += arguments[ii].x;
+                        fnresult.y += arguments[ii].y;
+                    } // for
+                    
+                    return fnresult;
+                },
+                
+                absSize: function(vector) {
+                    return Math.max(Math.abs(vector.x), Math.abs(vector.y));
+                },
+                
+                diff: function(v1, v2) {
+                    return new module.Vector(v1.x - v2.x, v1.y - v2.y);
+                },
+                
+                copy: function(src) {
+                    return src ? new module.Vector(src.x, src.y) : null;
+                },
+                
+                invert: function(vector) {
+                    return new SLICK.Vector(-vector.x, -vector.y);
+                },
+                
+                offset: function(vector, offsetX, offsetY) {
+                    return new SLICK.Vector(vector.x + offsetX, vector.y + (offsetY ? offsetY : offsetX));
+                }
+            };
+        })(),
         
         VectorArray: function(srcArray, copy) {
             var data = new Array(srcArray.length);
             
             // copy the source array
             for (var ii = srcArray.length; ii--; ) {
-                data[ii] = copy ? module.copyVector(srcArray[ii]) : srcArray[ii];
+                data[ii] = copy ? module.V.copy(srcArray[ii]) : srcArray[ii];
             } // for
             
             return {
                 applyOffset: function(offset) {
                     for (var ii = data.length; ii--; ) {
-                        data[ii].add(offset);
+                        data[ii].x += offset.x;
+                        data[ii].y += offset.y;
                     } // for
                 },
                 
@@ -302,10 +251,12 @@ SLICK = (function () {
                     total: 0
                 };
                 
+                var diffFn = SLICK.V.diff;
+                
                 // iterate through the vectors and calculate the edges
                 // OPTMIZE: look for speed up opportunities
                 for (var ii = 0; ii < vectors.length-1; ii++) {
-                    var diff = vectors[ii].diff(vectors[ii + 1]);
+                    var diff = diffFn(vectors[ii], vectors[ii + 1]);
                     
                     fnresult.edges[ii] = Math.sqrt((diff.x * diff.x) + (diff.y * diff.y));
                     fnresult.accrued[ii] = fnresult.total + fnresult.edges[ii];

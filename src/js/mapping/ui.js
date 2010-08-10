@@ -60,7 +60,7 @@ SLICK.Mapping = (function() {
                     // calculate the offsets
                     // GRUNT.Log.info("GETTING OFFSET for position: " + pos);
                     var offsetX = posPixels.x - blMercatorPixX;
-                    var offsetY = self.getDimensions().height - (posPixels.y - blMercatorPixY);
+                    var offsetY = self.gridDimensions.height - (posPixels.y - blMercatorPixY);
 
                     // GRUNT.Log.info("position mercator pixels: " + pos_mp);
                     // GRUNT.Log.info("bottom left mercator pixels: " + blMercatorPix);
@@ -75,7 +75,7 @@ SLICK.Mapping = (function() {
                 },
                 
                 pixelsToPos: function(vector) {
-                    return SLICK.Geo.mercatorPixelsToPos(blMercatorPixX + vector.x, (blMercatorPixY + self.getDimensions().height) - vector.y, params.radsPerPixel);
+                    return SLICK.Geo.mercatorPixelsToPos(blMercatorPixX + vector.x, (blMercatorPixY + self.gridDimensions.height) - vector.y, params.radsPerPixel);
                 }
             });
             
@@ -125,7 +125,7 @@ SLICK.Mapping = (function() {
             var increment = 3;
             
             return GRUNT.extend(new SLICK.Graphics.ViewLayer(params), {
-                draw: function(context, offset, dimensions, view) {
+                draw: function(context, offset, dimensions, state, view) {
                     // calculate the center position
                     var xPos = dimensions.width >> 1;
                     var yPos = dimensions.height >> 1;
@@ -167,7 +167,7 @@ SLICK.Mapping = (function() {
             } // drawCrosshair
             
             return GRUNT.extend(new SLICK.Graphics.ViewLayer(params), {
-                draw: function(context, offset, dimensions, view) {
+                draw: function(context, offset, dimensions, state, view) {
                     var centerPos = dimensions.getCenter();
                     
                     // initialise the context line style
@@ -191,7 +191,7 @@ SLICK.Mapping = (function() {
                 data: null,
                 pixelGeneralization: 8,
                 zindex: 50,
-                validStates: SLICK.Graphics.DisplayState.GENCACHE
+                validStates: SLICK.Graphics.DisplayState.ACTIVE | SLICK.Graphics.DisplayState.PAN 
             }, params);
             
             var recalc = true,
@@ -276,7 +276,7 @@ SLICK.Mapping = (function() {
                     });
                 },
 
-                draw: function(context, offset, dimensions, view) {
+                draw: function(context, offset, dimensions, state, view) {
                     if (recalc) {
                         calcCoordinates(view.getTileLayer());
                     } // if
@@ -403,7 +403,7 @@ SLICK.Mapping = (function() {
                 if (! image) { return; }
                 
                 // determine the position to draw the image
-                var imageXY = xy.offset(imageOffset.x, imageOffset.y);
+                var imageXY = SLICK.V.offset(xy, imageOffset.x, imageOffset.y);
                 
                 // draw the image
                 context.drawImage(image, imageXY.x, imageXY.y, image.width, image.height);
@@ -431,7 +431,6 @@ SLICK.Mapping = (function() {
                 pois: null,
                 map: null,
                 createAnnotationForPOI: null,
-                validStates: SLICK.Graphics.DisplayState.GENCACHE,
                 zindex: 100
             }, params);
             
@@ -494,7 +493,7 @@ SLICK.Mapping = (function() {
 
             // create the view layer the we will draw the view
             var self = GRUNT.extend(new SLICK.Graphics.ViewLayer(params), {
-                draw: function(context, offset, dimensions, view) {
+                draw: function(context, offset, dimensions, state, view) {
                     context.save();
                     try {
                         // initialise variables
@@ -610,8 +609,8 @@ SLICK.Mapping = (function() {
                     var grid_pos = self.viewPixToGridPix(new SLICK.Vector(relPos.x, relPos.y));
 
                     // create a min xy and a max xy using a tap extent
-                    var min_pos = grid.pixelsToPos(grid_pos.offset(-params.tapExtent, params.tapExtent));
-                    var max_pos = grid.pixelsToPos(grid_pos.offset(params.tapExtent, -params.tapExtent));
+                    var min_pos = grid.pixelsToPos(SLICK.V.offset(grid_pos, -params.tapExtent));
+                    var max_pos = grid.pixelsToPos(SLICK.V.offset(grid_pos, -params.tapExtent));
 
                     // turn that into a bounds object
                     tapBounds = new SLICK.Geo.BoundingBox(min_pos.toString(), max_pos.toString());
@@ -665,24 +664,6 @@ SLICK.Mapping = (function() {
             // create the base tiler
             var parent = new SLICK.Tiling.Tiler(params);
             
-            function determineGuideOffset(scaling) {
-                // get the current grid
-                var grid = self.getTileLayer(),
-                    dimensions = self.getDimensions();
-                    
-                if (grid) {
-                    var fnresult = grid.getGuideOffset(self.getOffset().offset(dimensions.width >> 1, dimensions.height >> 1));
-                    
-                    // apply the scaling difference to the offset
-                    // fnresult.x = fnresult.x / scaling;
-                    // fnresult.y = fnresult.y / scaling;
-                    
-                    return fnresult;
-                } // if
-                
-                return null;
-            } // determineGuideOffset
-            
             function getLayerScaling(oldZoom, newZoom) {
                 return radsPerPixelAtZoom(1, oldZoom) / radsPerPixelAtZoom(1, newZoom);
             } // getLayerScaling
@@ -706,7 +687,7 @@ SLICK.Mapping = (function() {
 
                 getCenterPosition: function() {
                     // get the position for the grid position
-                    return self.getXYPosition(self.getDimensions().getCenter());
+                    return self.getXYPosition(self.gridDimensions.getCenter());
                 },
                 
                 getXYPosition: function(xy) {
@@ -761,13 +742,6 @@ SLICK.Mapping = (function() {
                         // if the map is initialise, then pan to the specified position
                         if (initialized) {
                             self.freeze();
-                            
-                            // flag the route and poi layers as frozen
-                            // self.panToPosition(position);
-
-                            // save the current layer as a guide layer
-                            guideOffset = determineGuideOffset(zoomScaling);
-                            GRUNT.Log.info("guide offset calculated as: " + guideOffset);
                         } // if
 
                         // update the provider zoom level
@@ -807,7 +781,6 @@ SLICK.Mapping = (function() {
                         
                         // if we have a guide layer snap to that
                         if (guideOffset) {
-                            // centerXY.add(guideOffset.invert());
                             guideOffset = null;
                         } // if
 
@@ -891,7 +864,7 @@ SLICK.Mapping = (function() {
             if (copyrightMessage) {
                 self.setLayer("copyright", new SLICK.Graphics.ViewLayer({
                     zindex: 999,
-                    draw: function(context, offset, dimensions, view) {
+                    draw: function(context, offset, dimensions, state, view) {
                         context.lineWidth = 2.5;
                         context.fillStyle = "rgb(50, 50, 50)";
                         context.strokeStyle = "rgba(255, 255, 255, 0.8)";
@@ -907,7 +880,7 @@ SLICK.Mapping = (function() {
             GRUNT.WaterCooler.listen("view-idle", function(args) {
                 if (args.id && (args.id == self.id)) {
                     // compare the last bounds change offset with the current offset
-                    var changeDelta = lastBoundsChangeOffset.diff(self.getOffset()).getAbsSize();
+                    var changeDelta = SLICK.V.absSize(SLICK.V.diff(lastBoundsChangeOffset, self.getOffset()));
                     
                     if ((changeDelta > params.boundsChangeThreshold) && params.boundsChange) {
                         lastBoundsChangeOffset = self.getOffset();

@@ -155,8 +155,8 @@ SLICK.Scalable = function(params) {
             
             // update the zoom center
             scaling = true;
-            startCenter = SLICK.copyVector(startXY);
-            zoomCenter = SLICK.copyVector(targetXY);
+            startCenter = SLICK.V.copy(startXY);
+            zoomCenter = SLICK.V.copy(targetXY);
             startRect = null;
             
             // if tweening then update the targetXY
@@ -235,7 +235,7 @@ SLICK.Scalable = function(params) {
                 startRect = endRect = null;
                 
                 // update the xy position
-                zoomCenter = SLICK.copyVector(xy);
+                zoomCenter = SLICK.V.copy(xy);
             }
         });
     } // if    

@@ -38,7 +38,7 @@ SLICK.Geo.OpenStreetMap = (function() {
                     
                 } // if
 
-                tile_grid = new SLICK.Tiling.TileGrid({
+                tile_grid = new SLICK.Tiling.ImageTileGrid({
                     tileSize: SLICK.Tiling.Config.TILESIZE,
                     width: container_dimensions.width,
                     height: container_dimensions.height,

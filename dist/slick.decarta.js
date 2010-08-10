@@ -802,47 +802,48 @@ SLICK.Geo.Decarta = (function() {
             
             // initialise parent
             var parent = new SLICK.Geo.MapProvider();
-
-            function buildTileGrid(requestedPosition, response_data, container_dimensions) {
+            
+            function buildTileGrid(requestedPosition, responseData, container_dimensions) {
                 // initialise the first tile origin
-                var half_width = Math.round(response_data.tileSize >> 1),
+                var half_width = Math.round(responseData.tileSize >> 1),
                     pos_first = {
                         x: container_dimensions.getCenter().x - half_width,
                         y: container_dimensions.getCenter().y - half_width
                     }; 
 
                 // create the tile grid
-                var tileGrid = new SLICK.Tiling.TileGrid({
-                    tileSize: response_data.tileSize,
+                var tileGrid = new SLICK.Tiling.ImageTileGrid({
+                    tileSize: responseData.tileSize,
                     width: container_dimensions.width,
                     height: container_dimensions.height,
                     drawGrid: params.drawGrid,
                     shiftOrigin: function(topLeftOffset, shiftDelta) {
                         return new SLICK.Vector(topLeftOffset.x + shiftDelta.x, topLeftOffset.y - shiftDelta.y);
                     },
-                    center: new SLICK.Vector(response_data.centerTile.E, response_data.centerTile.N)
+                    center: new SLICK.Vector(responseData.centerTile.E, responseData.centerTile.N)
                 });
                 
                 // set the tile grid origin
                 tileGrid.populate(function(col, row, topLeftOffset, gridSize) {
                     return SLICK.Tiling.ImageTile({ 
-                        url: response_data.imageUrl.replace("${N}", topLeftOffset.y + (gridSize - row)).replace("${E}", topLeftOffset.x + col),
-                        sessionParamRegex: /(SESSIONID)/i 
+                        url: responseData.imageUrl.replace("${N}", topLeftOffset.y + (gridSize - row)).replace("${E}", topLeftOffset.x + col),
+                        sessionParamRegex: /(SESSIONID)/i,
+                        size: responseData.tileSize
                     });
                 });
 
                 // get the virtual xy
-                var virtualXY = tileGrid.getTileVirtualXY(response_data.centerTile.E, response_data.centerTile.N, true);
+                var virtualXY = tileGrid.getTileVirtualXY(responseData.centerTile.E, responseData.centerTile.N, true);
                 
                 // apply the pan offset and half tiles
-                virtualXY = virtualXY.offset(response_data.panOffset.x, response_data.panOffset.y);
+                virtualXY = SLICK.V.offset(virtualXY, responseData.panOffset.x, responseData.panOffset.y);
                 
                 return new SLICK.Mapping.GeoTileGrid({
                     grid: tileGrid, 
                     centerXY:  virtualXY,
                     centerPos: requestedPosition,
                     offsetAdjustment: new SLICK.Vector(),
-                    radsPerPixel: module.Utilities.radsPerPixelAtZoom(response_data.tileSize, self.zoomLevel)
+                    radsPerPixel: module.Utilities.radsPerPixelAtZoom(responseData.tileSize, self.zoomLevel)
                 });
             } // buildTileGrid
 
