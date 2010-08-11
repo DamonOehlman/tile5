@@ -16,7 +16,8 @@ SLICK.Geo.Routing = (function() {
                 map: null,
                 error: null,
                 autoFit: true,
-                success: null
+                success: null,
+                generalize: true
             }, args);
             
             GRUNT.Log.info("attempting to calculate route");
@@ -25,6 +26,10 @@ SLICK.Geo.Routing = (function() {
             var engine = SLICK.Geo.getEngine("route");
             if (engine) {
                 engine.route(args, function(routeData) {
+                    if (args.generalize) {
+                        routeData.geometry = SLICK.Geo.generalizePositions(routeData.geometry, routeData.getInstructionPositions());
+                    } // if
+                    
                     // firstly, if we have a map defined, then let's place the route on the map
                     // you know, just because we are nice like that
                     if (args.map) {
@@ -115,7 +120,21 @@ SLICK.Geo.Routing = (function() {
                 params.boundingBox = SLICK.Geo.getBoundsForPositions(params.geometry);
             } // if
             
-            return params;
+            var self = GRUNT.extend({
+                getInstructionPositions: function() {
+                    var positions = [];
+                        
+                    for (var ii = 0; ii < params.instructions.length; ii++) {
+                        if (params.instructions[ii].position) {
+                            positions.push(params.instructions[ii].position);
+                        } // if
+                    } // for
+                    
+                    return positions;
+                }
+            }, params);
+            
+            return self;
         }
     };
     

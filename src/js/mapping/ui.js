@@ -214,21 +214,20 @@ SLICK.Mapping = (function() {
                     instructions = params.data ? params.data.instructions : [],
                     instructionsLength = instructions.length,
                     calculationsPerCycle = params.calculationsPerCycle,
-                    currentCalculations = 0,
-                    increment = Math.ceil(Math.log(geometryLen) / Math.log(10));
+                    currentCalculations = 0;
                     
                 // TODO: improve the code reuse in the code below
                 // TODO: improve performance here... look at re-entrant processing in cycle perhaps
 
                 // iterate through the position geometry and determine xy coordinates
-                for (ii = geometryCalcIndex; ii < geometryLen; ii += increment) {
+                for (ii = geometryCalcIndex; ii < geometryLen; ii++) {
                     // calculate the current position
                     current = grid.getGridXYForPosition(geometry[ii]);
 
                     // determine whether the current point should be included
-                    include = (! last) || (ii === geometryLen) || 
+                    include = (! last) || (ii === 0) || (ii === geometryLen) || 
                         (Math.abs(current.x - last.x) + Math.abs(current.y - last.y) > params.pixelGeneralization);
-                    
+                        
                     if (include) {
                         coordinates.push(current);
                         
@@ -240,11 +239,6 @@ SLICK.Mapping = (function() {
                     if (currentCalculations >= calculationsPerCycle) {
                         geometryCalcIndex = ii;
                         return;
-                    } // if
-                    
-                    // adjust the increment as required to make sure we capture the last element
-                    if (ii + increment >= geometryLen) {
-                        increment = Math.max(geometryLen - ii - 1, 1);
                     } // if
                 } // for
                 
@@ -324,6 +318,7 @@ SLICK.Mapping = (function() {
                         context.beginPath();
                         context.moveTo(coordinates[coordLength-1].x - offset.x, coordinates[coordLength-1].y - offset.y);
 
+                        
                         for (ii = coordLength; ii--; ) {
                             context.lineTo(coordinates[ii].x - offset.x, coordinates[ii].y - offset.y);
                         } // for
@@ -645,6 +640,8 @@ SLICK.Mapping = (function() {
                     var gridPos = self.viewPixToGridPix(new SLICK.Vector(relPos.x, relPos.y)),
                         minPos = grid.pixelsToPos(SLICK.V.offset(gridPos, -params.tapExtent, params.tapExtent)),
                         maxPos = grid.pixelsToPos(SLICK.V.offset(gridPos, params.tapExtent, -params.tapExtent));
+                        
+                    GRUNT.Log.info("grid tapped @ " + SLICK.Geo.posToStr(grid.pixelsToPos(gridPos)));
 
                     // turn that into a bounds object
                     tapBounds = new SLICK.Geo.BoundingBox(minPos, maxPos);

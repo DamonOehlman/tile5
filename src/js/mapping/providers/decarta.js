@@ -673,8 +673,6 @@ SLICK.Geo.Decarta = (function() {
                     
                     // close the route request tag
                     body += "</xls:DetermineRouteRequest>";
-                    
-                    // GRUNT.Log.info("sending request body: " + body);
                     return body;
                 },
                 

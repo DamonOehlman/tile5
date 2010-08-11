@@ -5038,7 +5038,8 @@ SLICK.Geo = (function() {
             LN: "LANE",
             HWY: "HIGHWAY",
             MWY: "MOTORWAY"
-        };
+        },
+        DEFAULT_GENERALIZATION_DISTANCE = 250;
     
     
     // define the engines array
@@ -5712,6 +5713,66 @@ SLICK.Geo = (function() {
             return self;
         }, // MapProvider
         
+        /* position utilities (TODO: move other functions up here...) */
+        P: (function() {
+            // define some constants
+            var M_PER_KM = 1000,
+                KM_PER_RAD = 6371;
+
+            var subModule = {
+                calcDistance: function(pos1, pos2) {
+                    if (subModule.empty(pos1) || subModule.empty(pos2)) {
+                        return 0;
+                    } // if
+                    
+                    var halfdelta_lat = (pos2.lat - pos1.lat).toRad() * 0.5;
+                    var halfdelta_lon = (pos2.lon - pos1.lon).toRad() * 0.5;
+
+                    // TODO: find out what a stands for, I don't like single char variables in code (same goes for c)
+                    var a = (Math.sin(halfdelta_lat) * Math.sin(halfdelta_lat)) + 
+                            (Math.cos(pos1.lat.toRad()) * Math.cos(pos2.lat.toRad())) * 
+                            (Math.sin(halfdelta_lon) * Math.sin(halfdelta_lon));
+
+                    // calculate c (whatever c is)
+                    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+                    // calculate the distance
+                    return KM_PER_RAD * c;
+                },
+                
+                empty: function(pos) {
+                    return (! pos) || ((pos.lat === 0) && (pos.lon === 0));
+                },
+                
+                equal: function(pos1, pos2) {
+                    return pos1 && pos2 && (pos1.lat == pos2.lat) && (pos1.lon == pos2.lon);
+                },
+                
+                almostEqual: function(pos1, pos2) {
+                    var multiplier = 1000;
+                    
+                    return pos1 && pos2 && 
+                        (Math.floor(pos1.lat * multiplier) === Math.floor(pos2.lat * multiplier)) &&
+                        (Math.floor(pos1.lon * multiplier) === Math.floor(pos2.lon * multiplier));
+                },
+                
+                inArray: function(pos, testArray) {
+                    var arrayLen = testArray.length,
+                        testFn = module.P.equal;
+                        
+                    for (var ii = arrayLen; ii--; ) {
+                        if (testFn(pos, testArray[ii])) {
+                            return true;
+                        } // if
+                    } // for
+                    
+                    return false;
+                }
+            };
+            
+            return subModule;
+        })(),
+        
         /* static functions */
         
         copyPos: function(src) {
@@ -5756,6 +5817,45 @@ SLICK.Geo = (function() {
                 positions[ii] = module.parsePosition(sourceData[ii]);
             } // for
             
+            GRUNT.Log.info("parsed " + positions.length + " positions");
+            return positions;
+        },
+        
+        generalizePositions: function(sourceData, requiredPositions, minDist) {
+            var sourceLen = sourceData.length,
+                positions = [],
+                lastPosition = null;
+
+            if (! minDist) {
+                minDist = DEFAULT_GENERALIZATION_DISTANCE;
+            } // if
+            
+            // convert min distance to km
+            minDist = minDist / 1000;
+            
+            GRUNT.Log.info("generalizing positions, must include " + requiredPositions.length + " positions");
+            
+            // iterate thorugh the source data and add positions the differ by the required amount to 
+            // the result positions
+            for (var ii = sourceLen; ii--; ) {
+                if (ii === 0) {
+                    positions.push(sourceData[ii]);
+                }
+                else {
+                    var include = (! lastPosition) || module.P.inArray(sourceData[ii], requiredPositions),
+                        posDiff = include ? minDist : module.P.calcDistance(lastPosition, sourceData[ii]);
+                        
+                    // if the position difference is suitable then include
+                    if (posDiff >= minDist) {
+                        positions.push(sourceData[ii]);
+                        
+                        // update the last position
+                        lastPosition = sourceData[ii];
+                    } // if
+                } // if..else
+            } // for
+            
+            GRUNT.Log.info("generalized " + sourceLen + " positions into " + positions.length + " positions");
             return positions;
         },
         
@@ -6337,21 +6437,20 @@ SLICK.Mapping = (function() {
                     instructions = params.data ? params.data.instructions : [],
                     instructionsLength = instructions.length,
                     calculationsPerCycle = params.calculationsPerCycle,
-                    currentCalculations = 0,
-                    increment = Math.ceil(Math.log(geometryLen) / Math.log(10));
+                    currentCalculations = 0;
                     
                 // TODO: improve the code reuse in the code below
                 // TODO: improve performance here... look at re-entrant processing in cycle perhaps
 
                 // iterate through the position geometry and determine xy coordinates
-                for (ii = geometryCalcIndex; ii < geometryLen; ii += increment) {
+                for (ii = geometryCalcIndex; ii < geometryLen; ii++) {
                     // calculate the current position
                     current = grid.getGridXYForPosition(geometry[ii]);
 
                     // determine whether the current point should be included
-                    include = (! last) || (ii === geometryLen) || 
+                    include = (! last) || (ii === 0) || (ii === geometryLen) || 
                         (Math.abs(current.x - last.x) + Math.abs(current.y - last.y) > params.pixelGeneralization);
-                    
+                        
                     if (include) {
                         coordinates.push(current);
                         
@@ -6363,11 +6462,6 @@ SLICK.Mapping = (function() {
                     if (currentCalculations >= calculationsPerCycle) {
                         geometryCalcIndex = ii;
                         return;
-                    } // if
-                    
-                    // adjust the increment as required to make sure we capture the last element
-                    if (ii + increment >= geometryLen) {
-                        increment = Math.max(geometryLen - ii - 1, 1);
                     } // if
                 } // for
                 
@@ -6447,6 +6541,7 @@ SLICK.Mapping = (function() {
                         context.beginPath();
                         context.moveTo(coordinates[coordLength-1].x - offset.x, coordinates[coordLength-1].y - offset.y);
 
+                        
                         for (ii = coordLength; ii--; ) {
                             context.lineTo(coordinates[ii].x - offset.x, coordinates[ii].y - offset.y);
                         } // for
@@ -6768,6 +6863,8 @@ SLICK.Mapping = (function() {
                     var gridPos = self.viewPixToGridPix(new SLICK.Vector(relPos.x, relPos.y)),
                         minPos = grid.pixelsToPos(SLICK.V.offset(gridPos, -params.tapExtent, params.tapExtent)),
                         maxPos = grid.pixelsToPos(SLICK.V.offset(gridPos, params.tapExtent, -params.tapExtent));
+                        
+                    GRUNT.Log.info("grid tapped @ " + SLICK.Geo.posToStr(grid.pixelsToPos(gridPos)));
 
                     // turn that into a bounds object
                     tapBounds = new SLICK.Geo.BoundingBox(minPos, maxPos);
@@ -7071,7 +7168,8 @@ SLICK.Geo.Routing = (function() {
                 map: null,
                 error: null,
                 autoFit: true,
-                success: null
+                success: null,
+                generalize: true
             }, args);
             
             GRUNT.Log.info("attempting to calculate route");
@@ -7080,6 +7178,10 @@ SLICK.Geo.Routing = (function() {
             var engine = SLICK.Geo.getEngine("route");
             if (engine) {
                 engine.route(args, function(routeData) {
+                    if (args.generalize) {
+                        routeData.geometry = SLICK.Geo.generalizePositions(routeData.geometry, routeData.getInstructionPositions());
+                    } // if
+                    
                     // firstly, if we have a map defined, then let's place the route on the map
                     // you know, just because we are nice like that
                     if (args.map) {
@@ -7170,7 +7272,21 @@ SLICK.Geo.Routing = (function() {
                 params.boundingBox = SLICK.Geo.getBoundsForPositions(params.geometry);
             } // if
             
-            return params;
+            var self = GRUNT.extend({
+                getInstructionPositions: function() {
+                    var positions = [];
+                        
+                    for (var ii = 0; ii < params.instructions.length; ii++) {
+                        if (params.instructions[ii].position) {
+                            positions.push(params.instructions[ii].position);
+                        } // if
+                    } // for
+                    
+                    return positions;
+                }
+            }, params);
+            
+            return self;
         }
     };
     

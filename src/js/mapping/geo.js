@@ -28,7 +28,8 @@ SLICK.Geo = (function() {
             LN: "LANE",
             HWY: "HIGHWAY",
             MWY: "MOTORWAY"
-        };
+        },
+        DEFAULT_GENERALIZATION_DISTANCE = 250;
     
     
     // define the engines array
@@ -702,6 +703,66 @@ SLICK.Geo = (function() {
             return self;
         }, // MapProvider
         
+        /* position utilities (TODO: move other functions up here...) */
+        P: (function() {
+            // define some constants
+            var M_PER_KM = 1000,
+                KM_PER_RAD = 6371;
+
+            var subModule = {
+                calcDistance: function(pos1, pos2) {
+                    if (subModule.empty(pos1) || subModule.empty(pos2)) {
+                        return 0;
+                    } // if
+                    
+                    var halfdelta_lat = (pos2.lat - pos1.lat).toRad() * 0.5;
+                    var halfdelta_lon = (pos2.lon - pos1.lon).toRad() * 0.5;
+
+                    // TODO: find out what a stands for, I don't like single char variables in code (same goes for c)
+                    var a = (Math.sin(halfdelta_lat) * Math.sin(halfdelta_lat)) + 
+                            (Math.cos(pos1.lat.toRad()) * Math.cos(pos2.lat.toRad())) * 
+                            (Math.sin(halfdelta_lon) * Math.sin(halfdelta_lon));
+
+                    // calculate c (whatever c is)
+                    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+                    // calculate the distance
+                    return KM_PER_RAD * c;
+                },
+                
+                empty: function(pos) {
+                    return (! pos) || ((pos.lat === 0) && (pos.lon === 0));
+                },
+                
+                equal: function(pos1, pos2) {
+                    return pos1 && pos2 && (pos1.lat == pos2.lat) && (pos1.lon == pos2.lon);
+                },
+                
+                almostEqual: function(pos1, pos2) {
+                    var multiplier = 1000;
+                    
+                    return pos1 && pos2 && 
+                        (Math.floor(pos1.lat * multiplier) === Math.floor(pos2.lat * multiplier)) &&
+                        (Math.floor(pos1.lon * multiplier) === Math.floor(pos2.lon * multiplier));
+                },
+                
+                inArray: function(pos, testArray) {
+                    var arrayLen = testArray.length,
+                        testFn = module.P.equal;
+                        
+                    for (var ii = arrayLen; ii--; ) {
+                        if (testFn(pos, testArray[ii])) {
+                            return true;
+                        } // if
+                    } // for
+                    
+                    return false;
+                }
+            };
+            
+            return subModule;
+        })(),
+        
         /* static functions */
         
         copyPos: function(src) {
@@ -746,6 +807,45 @@ SLICK.Geo = (function() {
                 positions[ii] = module.parsePosition(sourceData[ii]);
             } // for
             
+            GRUNT.Log.info("parsed " + positions.length + " positions");
+            return positions;
+        },
+        
+        generalizePositions: function(sourceData, requiredPositions, minDist) {
+            var sourceLen = sourceData.length,
+                positions = [],
+                lastPosition = null;
+
+            if (! minDist) {
+                minDist = DEFAULT_GENERALIZATION_DISTANCE;
+            } // if
+            
+            // convert min distance to km
+            minDist = minDist / 1000;
+            
+            GRUNT.Log.info("generalizing positions, must include " + requiredPositions.length + " positions");
+            
+            // iterate thorugh the source data and add positions the differ by the required amount to 
+            // the result positions
+            for (var ii = sourceLen; ii--; ) {
+                if (ii === 0) {
+                    positions.push(sourceData[ii]);
+                }
+                else {
+                    var include = (! lastPosition) || module.P.inArray(sourceData[ii], requiredPositions),
+                        posDiff = include ? minDist : module.P.calcDistance(lastPosition, sourceData[ii]);
+                        
+                    // if the position difference is suitable then include
+                    if (posDiff >= minDist) {
+                        positions.push(sourceData[ii]);
+                        
+                        // update the last position
+                        lastPosition = sourceData[ii];
+                    } // if
+                } // if..else
+            } // for
+            
+            GRUNT.Log.info("generalized " + sourceLen + " positions into " + positions.length + " positions");
             return positions;
         },
         
