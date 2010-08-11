@@ -4997,6 +4997,10 @@ SLICK.Tiling = (function() {
                 viewPixToGridPix: function(vector) {
                     var offset = self.getOffset();
                     return new SLICK.Vector(vector.x + offset.x, vector.y + offset.y);
+                },
+                
+                cleanup: function() {
+                    self.removeLayer("grid" + gridIndex);
                 }
             }); // self
 
@@ -6870,7 +6874,6 @@ SLICK.Mapping = (function() {
                     // if the zoom level is different from the current zoom level, then update the map tiles
                     if ((! initialized) || (zoomLevel !== currentZoomLevel)) {
                         // remove the grid layer
-                        self.removeLayer("grid");
                         SLICK.Resources.resetImageLoadQueue();
 
                         // cancel any animations

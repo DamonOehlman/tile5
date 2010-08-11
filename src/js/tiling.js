@@ -551,6 +551,10 @@ SLICK.Tiling = (function() {
                 viewPixToGridPix: function(vector) {
                     var offset = self.getOffset();
                     return new SLICK.Vector(vector.x + offset.x, vector.y + offset.y);
+                },
+                
+                cleanup: function() {
+                    self.removeLayer("grid" + gridIndex);
                 }
             }); // self
 

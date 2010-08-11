@@ -748,7 +748,6 @@ SLICK.Mapping = (function() {
                     // if the zoom level is different from the current zoom level, then update the map tiles
                     if ((! initialized) || (zoomLevel !== currentZoomLevel)) {
                         // remove the grid layer
-                        self.removeLayer("grid");
                         SLICK.Resources.resetImageLoadQueue();
 
                         // cancel any animations
