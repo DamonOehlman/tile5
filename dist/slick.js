@@ -1459,99 +1459,8 @@ GRUNT.WaterCooler = (function() {
 The top level SLICK namespace.  This module contains core types and functionality for implementing 
 */
 SLICK = (function () {
-    var deviceConfigs = null,
-        deviceCheckOrder = [],
-        detectedConfig = null;
-    
-    function loadDeviceConfigs() {
-        deviceConfigs = {
-            base: {
-                name: "Unknown",
-                eventTarget: document,
-                supportsTouch: "createTouch" in document,
-                // TODO: remove this (it's just for testing)
-                imageCacheMaxSize: 4 * 1024,
-                getScaling: function() {
-                    return 1;
-                },
-                // TODO: reset this back to null after testing
-                maxImageLoads: 4
-            },
-
-            iphone: {
-                name: "iPhone",
-                regex: /iphone/i,
-                imageCacheMaxSize: 6 * 1024,
-                maxImageLoads: 4
-            },
-
-            ipad: {
-                name: "iPad",
-                regex: /ipad/i,
-                imageCacheMaxSize: 6 * 1024
-            },
-
-            android: {
-                name: "Android OS <= 2.1",
-                regex: /android/i,
-                eventTarget: document.body,
-                supportsTouch: true,
-                getScaling: function() {
-                    // TODO: need to detect what device dpi we have instructed the browser to use in the viewport tag
-                    return 1 / window.devicePixelRatio;
-                }
-            },
-            
-            froyo: {
-                name: "Android OS >= 2.2",
-                regex: /froyo/i,
-                eventTarget: document.body,
-                supportsTouch: true
-            }
-        };
-        
-        // initilaise the order in which we will check configurations
-        deviceCheckOrder = [
-            deviceConfigs.iphone,
-            deviceConfigs.froyo,
-            deviceConfigs.android,
-            deviceConfigs.ipad
-        ];
-    } // loadDeviceConfigs
-    
     var module = {
         /** @lends SLICK */
-        
-        getDeviceConfig: function() {
-            if (! deviceConfigs) {
-                loadDeviceConfigs();
-            } // if
-            
-            // if the device configuration hasn't already been detected do that now
-            if (! detectedConfig) {
-                GRUNT.Log.info("ATTEMPTING TO DETECT PLATFORM: UserAgent = " + navigator.userAgent);
-
-                // iterate through the platforms and run detection on the platform
-                for (var ii = 0; ii < deviceCheckOrder.length; ii++) {
-                    var testPlatform = deviceCheckOrder[ii];
-
-                    if (testPlatform.regex && testPlatform.regex.test(navigator.userAgent)) {
-                        detectedConfig = GRUNT.extend({}, deviceConfigs.base, testPlatform);
-                        GRUNT.Log.info("PLATFORM DETECTED AS: " + detectedConfig.name);
-                        break;
-                    } // if
-                } // for
-
-                if (! detectedConfig) {
-                    GRUNT.Log.warn("UNABLE TO DETECT PLATFORM, REVERTING TO BASE CONFIGURATION");
-                    detectedConfig = deviceConfigs.base;
-                }
-                
-                GRUNT.Log.info("CURRENT DEVICE PIXEL RATIO = " + window.devicePixelRatio);
-            } // if
-            
-            return detectedConfig;
-        },
         
         copyRect: function(src) {
             return src ? new module.Rect(src.origin.x, src.origin.y, src.dimensions.width, src.dimensions.height) : null;
@@ -1941,14 +1850,123 @@ SLICK = (function () {
     return module;
 })();
 
+SLICK.Device = (function() {
+    var deviceConfigs = null,
+        deviceCheckOrder = [],
+        detectedConfig = null;
+    
+    function loadDeviceConfigs() {
+        deviceConfigs = {
+            base: {
+                name: "Unknown",
+                eventTarget: document,
+                supportsTouch: "createTouch" in document,
+                // TODO: remove this (it's just for testing)
+                imageCacheMaxSize: 4 * 1024,
+                getScaling: function() {
+                    return 1;
+                },
+                // TODO: reset this back to null after testing
+                maxImageLoads: 4,
+                requireFastDraw: false
+            },
+            
+            ipod: {
+                name: "iPod Touch",
+                regex: /ipod/i,
+                imageCacheMaxSize: 6 * 1024,
+                maxImageLoads: 4,
+                requireFastDraw: true
+            },
+
+            iphone: {
+                name: "iPhone",
+                regex: /iphone/i,
+                imageCacheMaxSize: 6 * 1024,
+                maxImageLoads: 4
+            },
+
+            ipad: {
+                name: "iPad",
+                regex: /ipad/i,
+                imageCacheMaxSize: 6 * 1024
+            },
+
+            android: {
+                name: "Android OS <= 2.1",
+                regex: /android/i,
+                eventTarget: document.body,
+                supportsTouch: true,
+                getScaling: function() {
+                    // TODO: need to detect what device dpi we have instructed the browser to use in the viewport tag
+                    return 1 / window.devicePixelRatio;
+                }
+            },
+            
+            froyo: {
+                name: "Android OS >= 2.2",
+                regex: /froyo/i,
+                eventTarget: document.body,
+                supportsTouch: true
+            }
+        };
+        
+        // initilaise the order in which we will check configurations
+        deviceCheckOrder = [
+            deviceConfigs.froyo,
+            deviceConfigs.android,
+            deviceConfigs.ipod,
+            deviceConfigs.iphone,
+            deviceConfigs.ipad
+        ];
+    } // loadDeviceConfigs
+    
+    var module = {
+        getConfig: function() {
+            if (! deviceConfigs) {
+                loadDeviceConfigs();
+            } // if
+            
+            // if the device configuration hasn't already been detected do that now
+            if (! detectedConfig) {
+                GRUNT.Log.info("ATTEMPTING TO DETECT PLATFORM: UserAgent = " + navigator.userAgent);
+
+                // iterate through the platforms and run detection on the platform
+                for (var ii = 0; ii < deviceCheckOrder.length; ii++) {
+                    var testPlatform = deviceCheckOrder[ii];
+
+                    if (testPlatform.regex && testPlatform.regex.test(navigator.userAgent)) {
+                        detectedConfig = GRUNT.extend({}, deviceConfigs.base, testPlatform);
+                        GRUNT.Log.info("PLATFORM DETECTED AS: " + detectedConfig.name);
+                        break;
+                    } // if
+                } // for
+
+                if (! detectedConfig) {
+                    GRUNT.Log.warn("UNABLE TO DETECT PLATFORM, REVERTING TO BASE CONFIGURATION");
+                    detectedConfig = deviceConfigs.base;
+                }
+                
+                GRUNT.Log.info("CURRENT DEVICE PIXEL RATIO = " + window.devicePixelRatio);
+            } // if
+            
+            return detectedConfig;
+        }
+    };
+    
+    return module;
+})();
+
 SLICK.Resources = (function() {
     var basePath = "",
         cachedSnippets = {},
         cachedResources = {};
         
-    var imageLoader = (function() {
+    var ImageLoader = (function() {
         // initialise image loader internal variables
         var images = {},
+            loadWatchers = {},
+            imageCounter = 0,
             queuedImages = [],
             loadingImages = [],
             cachedImages = [],
@@ -1957,7 +1975,7 @@ SLICK.Resources = (function() {
             
         function handleImageLoad() {
             // get the image data
-            var imageData = images[this.src];
+            var imageData = loadWatchers[this.id];
             if (imageData) {
                 imageData.loaded = true;
                 imageData.hitCount = 1;
@@ -1981,13 +1999,16 @@ SLICK.Resources = (function() {
                     created: imageData.requested
                 });
                 
+                // remove the item from the load watchers
+                delete loadWatchers[this.id];
+                
                 // load the next image
                 loadNextImage();
             } // if
         } // handleImageLoad
         
         function loadNextImage() {
-            var maxImageLoads = SLICK.getDeviceConfig().maxImageLoads;
+            var maxImageLoads = SLICK.Device.getConfig().maxImageLoads;
 
             // if we have queued images and a loading slot available, then start a load operation
             while ((queuedImages.length > 0) && ((! maxImageLoads) || (loadingImages.length < maxImageLoads))) {
@@ -2032,7 +2053,7 @@ SLICK.Resources = (function() {
         function checkTimeoutsAndCache() {
             var currentTickCount = new Date().getTime(),
                 timedOutLoad = false, ii = 0,
-                config = SLICK.getDeviceConfig();
+                config = SLICK.Device.getConfig();
             
             // iterate through the loading images, and check if any of them have been active too long
             while (ii < loadingImages.length) {
@@ -2086,7 +2107,7 @@ SLICK.Resources = (function() {
                 if (! imageData) {
                     // initialise the image data
                     imageData = {
-                        url: url,
+                        url: module.getPath(url),
                         image: new Image(),
                         loaded: false,
                         created: new Date().getTime(),
@@ -2095,8 +2116,12 @@ SLICK.Resources = (function() {
                         loadCallback: callback
                     };
                     
+                    // initialise the image id
+                    imageData.image.id = "resourceLoaderImage" + (imageCounter++);
+                    
                     // add the image to the images lookup
                     images[url] = imageData;
+                    loadWatchers[imageData.image.id] = imageData;
                     
                     // add the image to the queued images
                     queuedImages.push(imageData);
@@ -2186,22 +2211,22 @@ SLICK.Resources = (function() {
         },
 
         getImage: function(url) {
-            return imageLoader.getImage(url);
+            return ImageLoader.getImage(url);
         },
 
         loadImage: function(url, callback) {
-            imageLoader.loadImage(url, callback);
+            ImageLoader.loadImage(url, callback);
         },
         
         resetImageLoadQueue: function() {
-            imageLoader.resetLoadingQueue();
+            ImageLoader.resetLoadingQueue();
         },
         
         getStats: function() {
             return {
-                imageLoadingCount: imageLoader.loadingImages.length,
-                queuedImageCount: imageLoader.queuedImages.length,
-                imageCacheFullness: imageLoader.getCacheFullness()
+                imageLoadingCount: ImageLoader.loadingImages.length,
+                queuedImageCount: ImageLoader.queuedImages.length,
+                imageCacheFullness: ImageLoader.getCacheFullness()
             };
         },
         
@@ -2288,8 +2313,8 @@ SLICK.Touch = (function() {
     } // calcDistance
     
     function calcChange(first, second) {
-        var srcVector = first.length > 0 ? first[0] : null;
-        if (srcVector && (second.length > 0)) {
+        var srcVector = (first && (first.length > 0)) ? first[0] : null;
+        if (srcVector && second && (second.length > 0)) {
             return SLICK.V.diff(srcVector, second[0]);
         } // if
         
@@ -2369,7 +2394,7 @@ SLICK.Touch = (function() {
                     current: 0,
                     last: 0
                 },
-                config = SLICK.getDeviceConfig(),
+                config = SLICK.Device.getConfig(),
                 BENCHMARK_INTERVAL = 300;
                 
             function relativeTouches(touches) {
@@ -2576,7 +2601,7 @@ SLICK.Touch = (function() {
 
             // initialise self
             var self = {
-                supportsTouch: SLICK.getDeviceConfig().supportsTouch,
+                supportsTouch: SLICK.Device.getConfig().supportsTouch,
 
                 /* define mutable constants (yeah, I know that's a contradiction) */
 
@@ -3596,9 +3621,9 @@ SLICK.Graphics = (function() {
     var DISPLAY_STATE = {
         NONE: 0,
         ACTIVE: 1,
-        ANIMATING: 2,
-        PAN: 4,
-        PINCHZOOM: 8,
+        ANIMATING: 4,
+        PAN: 8,
+        PINCHZOOM: 16,
         FREEZE: 128
     };
     
@@ -3620,11 +3645,11 @@ SLICK.Graphics = (function() {
                 created: new Date().getTime(),
                 scalePosition: true,
                 zindex: 0,
+                supportFastDraw: false,
                 validStates: module.DefaultDisplayStates
             }, params);
             
-            var changeListeners = [],
-                parent = null;
+            var parent = null;
 
             var self = GRUNT.extend({
                 isAnimating: function() {
@@ -3636,7 +3661,10 @@ SLICK.Graphics = (function() {
                 },
                 
                 shouldDraw: function(displayState) {
-                    return (displayState & params.validStates) !== 0;
+                    var stateValid = (displayState & params.validStates) !== 0,
+                        fastDraw = parent ? (parent.fastDraw && (displayState !== DISPLAY_STATE.ACTIVE)) : false;
+
+                    return stateValid && (fastDraw ? params.supportFastDraw : true);
                 },
                 
                 cycle: function(tickCount, offset) {
@@ -3644,12 +3672,6 @@ SLICK.Graphics = (function() {
                 },
                 
                 draw: function(context, offset, dimensions, state, view) {
-                },
-                
-                layerChanged: function() {
-                    for (var ii = changeListeners.length; ii--; ) {
-                        changeListeners[ii](self);
-                    } // for
                 },
                 
                 notify: function(eventType) {
@@ -3663,10 +3685,6 @@ SLICK.Graphics = (function() {
                 */
                 remove: function() {
                     GRUNT.WaterCooler.say("layer.remove", { id: params.id });
-                },
-                
-                registerChangeListener: function(callback) {
-                    changeListeners.push(callback);
                 },
                 
                 wakeParent: function() {
@@ -3918,6 +3936,7 @@ SLICK.Graphics = (function() {
                 displayFPS: true,
                 displayResourceStats: true,
                 scaleDamping: false,
+                fastDraw: false,
                 fillStyle: "rgb(200, 200, 200)",
                 initialDrawMode: "source-over",
                 bufferRefresh: 100,
@@ -3950,6 +3969,7 @@ SLICK.Graphics = (function() {
                 scalable = null,
                 idle = false,
                 paintTimeout = 0,
+                idleTimeout = 0,
                 bufferTime = 0,
                 zoomCenter = null,
                 tickCount = 0,
@@ -4030,6 +4050,7 @@ SLICK.Graphics = (function() {
                     onScale: function(endScaleFactor, zoomXY, keepCenter) {
                         GRUNT.WaterCooler.say("view.scale", { id: self.id });
                         
+                        /*
                         // take a snapshot
                         if (endScaleFactor > 1) {
                             self.snapshot();
@@ -4037,6 +4058,7 @@ SLICK.Graphics = (function() {
                         else {
                             self.clearBackground();
                         } // if..else
+                        */
                         
                         // reset the status flag
                         state = module.DisplayState.ACTIVE;
@@ -4057,11 +4079,6 @@ SLICK.Graphics = (function() {
             function addLayer(id, value) {
                 // make sure the layer has the correct id
                 value.id = id;
-                
-                // attach the change listener
-                value.registerChangeListener(function() {
-                    wake();
-                });
                 
                 // tell the layer that I'm going to take care of it
                 value.setParent(self);
@@ -4112,6 +4129,14 @@ SLICK.Graphics = (function() {
                     zoomCenter = new SLICK.Vector(endCenter.x - offsetDiff.x * shiftFactor, endCenter.y - offsetDiff.y * shiftFactor);
                 } // if..else
             } // calcZoomCenter
+            
+            function triggerIdle() {
+                GRUNT.Log.info("view idle, " + layers.length + " active layers");
+                GRUNT.WaterCooler.say("view-idle", { id: self.id });
+                
+                idle = true;
+                idleTimeout = 0;
+            } // idle
             
             function drawView(context, offset) {
                 var changeCount = 0,
@@ -4175,7 +4200,7 @@ SLICK.Graphics = (function() {
             function cycle() {
                 // check to see if we are panning
                 var changeCount = 0,
-                    interacting = (state == module.DisplayState.PINCHZOOM) || (tickCount - lastInteraction < params.bufferRefresh);
+                    interacting = (state === DISPLAY_STATE.PINCHZOOM) || (state === DISPLAY_STATE.PAN);
                     
                 // get the tickcount
                 tickCount = new Date().getTime();
@@ -4192,6 +4217,12 @@ SLICK.Graphics = (function() {
                     SLICK.Animation.cancel(function(tweenInstance) {
                         return tweenInstance.cancelOnInteract;
                     });
+                    
+                    idle = false;
+                    if (idleTimeout !== 0) {
+                        clearTimeout(idleTimeout);
+                        idleTimeout = 0;
+                    } // if
                 }  // if
 
                 // check that all is right with each layer
@@ -4200,18 +4231,9 @@ SLICK.Graphics = (function() {
                     changeCount += cycleChanges ? cycleChanges : 0;
                 } // for
                 
-                // update the idle status
-                idle = idle && (! interacting);
-                
                 // draw the view
                 changeCount += drawView(mainContext, offset);
 
-                // if the user is not interacting, then save the current context
-                if ((! interacting) && (! idle)) {
-                    idle = true;
-                    GRUNT.WaterCooler.say("view-idle", { id: self.id });
-                } // if
-                
                 // update the last tick count
                 lastTickCount = tickCount;
                 
@@ -4219,7 +4241,12 @@ SLICK.Graphics = (function() {
                 paintTimeout = 0;
                 if (wakeTriggers + changeCount > 0) {
                     wake();
-                } // if
+                } 
+                else {
+                    if ((! idle) && (idleTimeout === 0)) {
+                        idleTimeout = setTimeout(triggerIdle, 500);
+                    } // if
+                } // if..else
                 
                 GRUNT.Log.trace("Completed draw cycle", tickCount);
             } // cycle
@@ -4236,6 +4263,7 @@ SLICK.Graphics = (function() {
             var self = GRUNT.extend({}, params, pannable, scalable, {
                 id: params.id,
                 deviceScaling: deviceScaling,
+                fastDraw: params.fastDraw || SLICK.Device.getConfig().requireFastDraw,
                 
                 centerOn: function(offset) {
                     pannable.setOffset(offset.x - (canvas.width * 0.5), offset.y - (canvas.height * 0.5));
@@ -4367,7 +4395,7 @@ SLICK.Graphics = (function() {
                 } // if
             });
             
-            deviceScaling = SLICK.getDeviceConfig().getScaling();
+            deviceScaling = SLICK.Device.getConfig().getScaling();
             
             // if we need to display the fps for the view, then create a suitable layer
             if (params.displayFPS) {
@@ -4655,6 +4683,7 @@ SLICK.Tiling = (function() {
                 drawGrid: false,
                 center: new SLICK.Vector(),
                 shiftOrigin: null,
+                supportFastDraw: true,
                 checkChange: 100
             }, params);
             
@@ -4787,11 +4816,13 @@ SLICK.Tiling = (function() {
 
                             // if the tile is loaded, then draw, otherwise load
                             if (tile) {
+                                // draw the tile
                                 self.drawTile(context, tile, x, y, state);
-                            }
-                            else {
-                                context.drawImage(getPanningTile(), x,  y);
-                            } // if..else
+                                
+                                // update the tile position
+                                tile.x = x;
+                                tile.y = y;
+                            } // if
 
                             // if we are drawing borders, then draw that now
                             if (params.drawGrid) {
@@ -4801,7 +4832,6 @@ SLICK.Tiling = (function() {
 
                         // draw the borders if we have them...
                         context.stroke();
-
                         GRUNT.Log.trace("drawn tiles", startTicks);                        
                     } // if
                     
@@ -4872,16 +4902,17 @@ SLICK.Tiling = (function() {
                     if (state === SLICK.Graphics.DisplayState.PAN) {
                         context.drawImage(getPanningTile(), x, y);
                     } // if
-                    
+
                     if (image && image.complete) {
                         context.drawImage(image, x, y);
                     }
-                    else if (image) {
-                        context.drawImage(getEmptyTile(), x, y);
-                    }
                     else {
                         context.drawImage(getEmptyTile(), x, y);
-                        SLICK.Resources.loadImage(tile.url, handleImageLoad);
+                        
+                        // load the image if not loaded
+                        if (! image) {
+                            SLICK.Resources.loadImage(tile.url, handleImageLoad);
+                        } // if
                     } // if..else
                 }
             });
@@ -6429,7 +6460,7 @@ SLICK.Mapping = (function() {
                     return animating;
                 },
                 
-                draw: function(context, offset) {
+                draw: function(context, offset, state, overlay) {
                     if (! self.xy) { return; }
                     
                     if (self.isNew && (params.tweenIn)) {
@@ -6449,7 +6480,7 @@ SLICK.Mapping = (function() {
                     } // if
                     
                     if (params.draw) {
-                        params.draw(context, offset, new SLICK.Vector(self.xy.x - offset.x, self.xy.y - offset.y));
+                        params.draw(context, offset, new SLICK.Vector(self.xy.x - offset.x, self.xy.y - offset.y), state, overlay);
                     }
                     else {
                         context.beginPath();
@@ -6475,32 +6506,28 @@ SLICK.Mapping = (function() {
                 imageUrl: null
             }, params);
             
-            var image = null,
-                imageOffset = new SLICK.Vector();
+            var imageOffset = null;
             
-            params.draw = function(context, offset, xy) {
-                if (! image) { return; }
-                
-                // determine the position to draw the image
-                var imageXY = SLICK.V.offset(xy, imageOffset.x, imageOffset.y);
-                
-                // draw the image
-                context.drawImage(image, imageXY.x, imageXY.y, image.width, image.height);
-            }; // draw
-            
-            // load the image
-            SLICK.Resources.getImage(
-                params.imageUrl,
-                function(loadedImage) {
-                    image = loadedImage;
-                    
-                    // calculate the image offset
-                    if (image) {
-                        imageOffset.x = -image.width >> 1;
-                        imageOffset.y = -image.height >> 1;
-                    } // if
+            params.draw = function(context, offset, xy, state, overlay) {
+                // get the image
+                var image = SLICK.Resources.getImage(params.imageUrl);
+                if (! image) {
+                    SLICK.Resources.loadImage(params.imageUrl, function(loadedImage, fromCache) {
+                        overlay.wakeParent();
+                    });
                 }
-            );
+                else if (image.complete) {
+                    if (! imageOffset) {
+                        imageOffset = new SLICK.Vector(-image.width >> 1, -image.height >> 1);
+                    } // if
+                    
+                    // determine the position to draw the image
+                    var imageXY = SLICK.V.offset(xy, imageOffset.x, imageOffset.y);
+
+                    // draw the image
+                    context.drawImage(image, imageXY.x, imageXY.y, image.width, image.height);
+                } // if
+            }; // draw
 
             return new module.Annotation(params);
         },
@@ -6585,17 +6612,16 @@ SLICK.Mapping = (function() {
                     
                         // iterate through the annotations and draw them
                         for (ii = annotations.length; ii--; ) {
-                            annotations[ii].draw(context, offset);
+                            annotations[ii].draw(context, offset, state, self);
                             animating = animating || annotations[ii].isAnimating();
                         } // for
 
                         for (ii = staticAnnotations.length; ii--; ) {
-                            staticAnnotations[ii].draw(context, offset);
+                            staticAnnotations[ii].draw(context, offset, state, self);
                             animating = animating || annotations[ii].isAnimating();
                         } // for
 
                         if (animating) {
-                            self.layerChanged();
                             self.wakeParent();
                         } // if
                     }
@@ -6622,7 +6648,6 @@ SLICK.Mapping = (function() {
                 // if the event source id matches our current poi storage, then apply updates
                 if (params.pois && (params.pois.id == args.srcID)) {
                     updateAnnotations(args.pois);
-                    self.layerChanged();
                     self.wakeParent();
                 } // if
             });
@@ -6685,26 +6710,20 @@ SLICK.Mapping = (function() {
                 var tapBounds = null;
 
                 if (grid) {
-                    var grid_pos = self.viewPixToGridPix(new SLICK.Vector(relPos.x, relPos.y));
-
-                    // create a min xy and a max xy using a tap extent
-                    var min_pos = grid.pixelsToPos(SLICK.V.offset(grid_pos, -params.tapExtent));
-                    var max_pos = grid.pixelsToPos(SLICK.V.offset(grid_pos, -params.tapExtent));
+                    var gridPos = self.viewPixToGridPix(new SLICK.Vector(relPos.x, relPos.y)),
+                        minPos = grid.pixelsToPos(SLICK.V.offset(gridPos, -params.tapExtent, params.tapExtent)),
+                        maxPos = grid.pixelsToPos(SLICK.V.offset(gridPos, params.tapExtent, -params.tapExtent));
 
                     // turn that into a bounds object
-                    tapBounds = new SLICK.Geo.BoundingBox(min_pos.toString(), max_pos.toString());
+                    tapBounds = new SLICK.Geo.BoundingBox(minPos, maxPos);
                     
                     // find the pois in the bounds area
                     tappedPOIs = self.pois.findByBounds(tapBounds);
-                    GRUNT.Log.info("TAPPED POIS = ", tappedPOIs);
+                    // GRUNT.Log.info("TAPPED POIS = ", tappedPOIs);
                     
                     if (params.tapPOI) {
                         params.tapPOI(tappedPOIs);
                     } // if
-
-                    // GRUNT.Log.info("tap position = " + relPos.x + ", " + relPos.y);
-                    // GRUNT.Log.info("grid pos = " + grid_pos);
-                    // GRUNT.Log.info("tap bounds = " + tap_bounds);
                 } // if
 
                 if (caller_tap_handler) {

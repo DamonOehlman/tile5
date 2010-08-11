@@ -23,8 +23,8 @@ SLICK.Touch = (function() {
     } // calcDistance
     
     function calcChange(first, second) {
-        var srcVector = first.length > 0 ? first[0] : null;
-        if (srcVector && (second.length > 0)) {
+        var srcVector = (first && (first.length > 0)) ? first[0] : null;
+        if (srcVector && second && (second.length > 0)) {
             return SLICK.V.diff(srcVector, second[0]);
         } // if
         
@@ -104,7 +104,7 @@ SLICK.Touch = (function() {
                     current: 0,
                     last: 0
                 },
-                config = SLICK.getDeviceConfig(),
+                config = SLICK.Device.getConfig(),
                 BENCHMARK_INTERVAL = 300;
                 
             function relativeTouches(touches) {
@@ -311,7 +311,7 @@ SLICK.Touch = (function() {
 
             // initialise self
             var self = {
-                supportsTouch: SLICK.getDeviceConfig().supportsTouch,
+                supportsTouch: SLICK.Device.getConfig().supportsTouch,
 
                 /* define mutable constants (yeah, I know that's a contradiction) */
 

@@ -263,6 +263,7 @@ SLICK.Tiling = (function() {
                 drawGrid: false,
                 center: new SLICK.Vector(),
                 shiftOrigin: null,
+                supportFastDraw: true,
                 checkChange: 100
             }, params);
             
@@ -395,11 +396,13 @@ SLICK.Tiling = (function() {
 
                             // if the tile is loaded, then draw, otherwise load
                             if (tile) {
+                                // draw the tile
                                 self.drawTile(context, tile, x, y, state);
-                            }
-                            else {
-                                context.drawImage(getPanningTile(), x,  y);
-                            } // if..else
+                                
+                                // update the tile position
+                                tile.x = x;
+                                tile.y = y;
+                            } // if
 
                             // if we are drawing borders, then draw that now
                             if (params.drawGrid) {
@@ -409,7 +412,6 @@ SLICK.Tiling = (function() {
 
                         // draw the borders if we have them...
                         context.stroke();
-
                         GRUNT.Log.trace("drawn tiles", startTicks);                        
                     } // if
                     
@@ -480,16 +482,17 @@ SLICK.Tiling = (function() {
                     if (state === SLICK.Graphics.DisplayState.PAN) {
                         context.drawImage(getPanningTile(), x, y);
                     } // if
-                    
+
                     if (image && image.complete) {
                         context.drawImage(image, x, y);
                     }
-                    else if (image) {
-                        context.drawImage(getEmptyTile(), x, y);
-                    }
                     else {
                         context.drawImage(getEmptyTile(), x, y);
-                        SLICK.Resources.loadImage(tile.url, handleImageLoad);
+                        
+                        // load the image if not loaded
+                        if (! image) {
+                            SLICK.Resources.loadImage(tile.url, handleImageLoad);
+                        } // if
                     } // if..else
                 }
             });

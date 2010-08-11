@@ -3,9 +3,11 @@ SLICK.Resources = (function() {
         cachedSnippets = {},
         cachedResources = {};
         
-    var imageLoader = (function() {
+    var ImageLoader = (function() {
         // initialise image loader internal variables
         var images = {},
+            loadWatchers = {},
+            imageCounter = 0,
             queuedImages = [],
             loadingImages = [],
             cachedImages = [],
@@ -14,7 +16,7 @@ SLICK.Resources = (function() {
             
         function handleImageLoad() {
             // get the image data
-            var imageData = images[this.src];
+            var imageData = loadWatchers[this.id];
             if (imageData) {
                 imageData.loaded = true;
                 imageData.hitCount = 1;
@@ -38,13 +40,16 @@ SLICK.Resources = (function() {
                     created: imageData.requested
                 });
                 
+                // remove the item from the load watchers
+                delete loadWatchers[this.id];
+                
                 // load the next image
                 loadNextImage();
             } // if
         } // handleImageLoad
         
         function loadNextImage() {
-            var maxImageLoads = SLICK.getDeviceConfig().maxImageLoads;
+            var maxImageLoads = SLICK.Device.getConfig().maxImageLoads;
 
             // if we have queued images and a loading slot available, then start a load operation
             while ((queuedImages.length > 0) && ((! maxImageLoads) || (loadingImages.length < maxImageLoads))) {
@@ -89,7 +94,7 @@ SLICK.Resources = (function() {
         function checkTimeoutsAndCache() {
             var currentTickCount = new Date().getTime(),
                 timedOutLoad = false, ii = 0,
-                config = SLICK.getDeviceConfig();
+                config = SLICK.Device.getConfig();
             
             // iterate through the loading images, and check if any of them have been active too long
             while (ii < loadingImages.length) {
@@ -143,7 +148,7 @@ SLICK.Resources = (function() {
                 if (! imageData) {
                     // initialise the image data
                     imageData = {
-                        url: url,
+                        url: module.getPath(url),
                         image: new Image(),
                         loaded: false,
                         created: new Date().getTime(),
@@ -152,8 +157,12 @@ SLICK.Resources = (function() {
                         loadCallback: callback
                     };
                     
+                    // initialise the image id
+                    imageData.image.id = "resourceLoaderImage" + (imageCounter++);
+                    
                     // add the image to the images lookup
                     images[url] = imageData;
+                    loadWatchers[imageData.image.id] = imageData;
                     
                     // add the image to the queued images
                     queuedImages.push(imageData);
@@ -243,22 +252,22 @@ SLICK.Resources = (function() {
         },
 
         getImage: function(url) {
-            return imageLoader.getImage(url);
+            return ImageLoader.getImage(url);
         },
 
         loadImage: function(url, callback) {
-            imageLoader.loadImage(url, callback);
+            ImageLoader.loadImage(url, callback);
         },
         
         resetImageLoadQueue: function() {
-            imageLoader.resetLoadingQueue();
+            ImageLoader.resetLoadingQueue();
         },
         
         getStats: function() {
             return {
-                imageLoadingCount: imageLoader.loadingImages.length,
-                queuedImageCount: imageLoader.queuedImages.length,
-                imageCacheFullness: imageLoader.getCacheFullness()
+                imageLoadingCount: ImageLoader.loadingImages.length,
+                queuedImageCount: ImageLoader.queuedImages.length,
+                imageCacheFullness: ImageLoader.getCacheFullness()
             };
         },
         

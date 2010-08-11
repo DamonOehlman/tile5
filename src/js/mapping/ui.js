@@ -350,7 +350,7 @@ SLICK.Mapping = (function() {
                     return animating;
                 },
                 
-                draw: function(context, offset) {
+                draw: function(context, offset, state, overlay) {
                     if (! self.xy) { return; }
                     
                     if (self.isNew && (params.tweenIn)) {
@@ -370,7 +370,7 @@ SLICK.Mapping = (function() {
                     } // if
                     
                     if (params.draw) {
-                        params.draw(context, offset, new SLICK.Vector(self.xy.x - offset.x, self.xy.y - offset.y));
+                        params.draw(context, offset, new SLICK.Vector(self.xy.x - offset.x, self.xy.y - offset.y), state, overlay);
                     }
                     else {
                         context.beginPath();
@@ -396,32 +396,28 @@ SLICK.Mapping = (function() {
                 imageUrl: null
             }, params);
             
-            var image = null,
-                imageOffset = new SLICK.Vector();
+            var imageOffset = null;
             
-            params.draw = function(context, offset, xy) {
-                if (! image) { return; }
-                
-                // determine the position to draw the image
-                var imageXY = SLICK.V.offset(xy, imageOffset.x, imageOffset.y);
-                
-                // draw the image
-                context.drawImage(image, imageXY.x, imageXY.y, image.width, image.height);
-            }; // draw
-            
-            // load the image
-            SLICK.Resources.getImage(
-                params.imageUrl,
-                function(loadedImage) {
-                    image = loadedImage;
-                    
-                    // calculate the image offset
-                    if (image) {
-                        imageOffset.x = -image.width >> 1;
-                        imageOffset.y = -image.height >> 1;
-                    } // if
+            params.draw = function(context, offset, xy, state, overlay) {
+                // get the image
+                var image = SLICK.Resources.getImage(params.imageUrl);
+                if (! image) {
+                    SLICK.Resources.loadImage(params.imageUrl, function(loadedImage, fromCache) {
+                        overlay.wakeParent();
+                    });
                 }
-            );
+                else if (image.complete) {
+                    if (! imageOffset) {
+                        imageOffset = new SLICK.Vector(-image.width >> 1, -image.height >> 1);
+                    } // if
+                    
+                    // determine the position to draw the image
+                    var imageXY = SLICK.V.offset(xy, imageOffset.x, imageOffset.y);
+
+                    // draw the image
+                    context.drawImage(image, imageXY.x, imageXY.y, image.width, image.height);
+                } // if
+            }; // draw
 
             return new module.Annotation(params);
         },
@@ -506,17 +502,16 @@ SLICK.Mapping = (function() {
                     
                         // iterate through the annotations and draw them
                         for (ii = annotations.length; ii--; ) {
-                            annotations[ii].draw(context, offset);
+                            annotations[ii].draw(context, offset, state, self);
                             animating = animating || annotations[ii].isAnimating();
                         } // for
 
                         for (ii = staticAnnotations.length; ii--; ) {
-                            staticAnnotations[ii].draw(context, offset);
+                            staticAnnotations[ii].draw(context, offset, state, self);
                             animating = animating || annotations[ii].isAnimating();
                         } // for
 
                         if (animating) {
-                            self.layerChanged();
                             self.wakeParent();
                         } // if
                     }
@@ -543,7 +538,6 @@ SLICK.Mapping = (function() {
                 // if the event source id matches our current poi storage, then apply updates
                 if (params.pois && (params.pois.id == args.srcID)) {
                     updateAnnotations(args.pois);
-                    self.layerChanged();
                     self.wakeParent();
                 } // if
             });
@@ -606,26 +600,20 @@ SLICK.Mapping = (function() {
                 var tapBounds = null;
 
                 if (grid) {
-                    var grid_pos = self.viewPixToGridPix(new SLICK.Vector(relPos.x, relPos.y));
-
-                    // create a min xy and a max xy using a tap extent
-                    var min_pos = grid.pixelsToPos(SLICK.V.offset(grid_pos, -params.tapExtent));
-                    var max_pos = grid.pixelsToPos(SLICK.V.offset(grid_pos, -params.tapExtent));
+                    var gridPos = self.viewPixToGridPix(new SLICK.Vector(relPos.x, relPos.y)),
+                        minPos = grid.pixelsToPos(SLICK.V.offset(gridPos, -params.tapExtent, params.tapExtent)),
+                        maxPos = grid.pixelsToPos(SLICK.V.offset(gridPos, params.tapExtent, -params.tapExtent));
 
                     // turn that into a bounds object
-                    tapBounds = new SLICK.Geo.BoundingBox(min_pos.toString(), max_pos.toString());
+                    tapBounds = new SLICK.Geo.BoundingBox(minPos, maxPos);
                     
                     // find the pois in the bounds area
                     tappedPOIs = self.pois.findByBounds(tapBounds);
-                    GRUNT.Log.info("TAPPED POIS = ", tappedPOIs);
+                    // GRUNT.Log.info("TAPPED POIS = ", tappedPOIs);
                     
                     if (params.tapPOI) {
                         params.tapPOI(tappedPOIs);
                     } // if
-
-                    // GRUNT.Log.info("tap position = " + relPos.x + ", " + relPos.y);
-                    // GRUNT.Log.info("grid pos = " + grid_pos);
-                    // GRUNT.Log.info("tap bounds = " + tap_bounds);
                 } // if
 
                 if (caller_tap_handler) {

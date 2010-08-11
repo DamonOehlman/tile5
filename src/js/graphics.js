@@ -23,9 +23,9 @@ SLICK.Graphics = (function() {
     var DISPLAY_STATE = {
         NONE: 0,
         ACTIVE: 1,
-        ANIMATING: 2,
-        PAN: 4,
-        PINCHZOOM: 8,
+        ANIMATING: 4,
+        PAN: 8,
+        PINCHZOOM: 16,
         FREEZE: 128
     };
     
@@ -47,11 +47,11 @@ SLICK.Graphics = (function() {
                 created: new Date().getTime(),
                 scalePosition: true,
                 zindex: 0,
+                supportFastDraw: false,
                 validStates: module.DefaultDisplayStates
             }, params);
             
-            var changeListeners = [],
-                parent = null;
+            var parent = null;
 
             var self = GRUNT.extend({
                 isAnimating: function() {
@@ -63,7 +63,10 @@ SLICK.Graphics = (function() {
                 },
                 
                 shouldDraw: function(displayState) {
-                    return (displayState & params.validStates) !== 0;
+                    var stateValid = (displayState & params.validStates) !== 0,
+                        fastDraw = parent ? (parent.fastDraw && (displayState !== DISPLAY_STATE.ACTIVE)) : false;
+
+                    return stateValid && (fastDraw ? params.supportFastDraw : true);
                 },
                 
                 cycle: function(tickCount, offset) {
@@ -71,12 +74,6 @@ SLICK.Graphics = (function() {
                 },
                 
                 draw: function(context, offset, dimensions, state, view) {
-                },
-                
-                layerChanged: function() {
-                    for (var ii = changeListeners.length; ii--; ) {
-                        changeListeners[ii](self);
-                    } // for
                 },
                 
                 notify: function(eventType) {
@@ -90,10 +87,6 @@ SLICK.Graphics = (function() {
                 */
                 remove: function() {
                     GRUNT.WaterCooler.say("layer.remove", { id: params.id });
-                },
-                
-                registerChangeListener: function(callback) {
-                    changeListeners.push(callback);
                 },
                 
                 wakeParent: function() {
@@ -345,6 +338,7 @@ SLICK.Graphics = (function() {
                 displayFPS: true,
                 displayResourceStats: true,
                 scaleDamping: false,
+                fastDraw: false,
                 fillStyle: "rgb(200, 200, 200)",
                 initialDrawMode: "source-over",
                 bufferRefresh: 100,
@@ -377,6 +371,7 @@ SLICK.Graphics = (function() {
                 scalable = null,
                 idle = false,
                 paintTimeout = 0,
+                idleTimeout = 0,
                 bufferTime = 0,
                 zoomCenter = null,
                 tickCount = 0,
@@ -457,6 +452,7 @@ SLICK.Graphics = (function() {
                     onScale: function(endScaleFactor, zoomXY, keepCenter) {
                         GRUNT.WaterCooler.say("view.scale", { id: self.id });
                         
+                        /*
                         // take a snapshot
                         if (endScaleFactor > 1) {
                             self.snapshot();
@@ -464,6 +460,7 @@ SLICK.Graphics = (function() {
                         else {
                             self.clearBackground();
                         } // if..else
+                        */
                         
                         // reset the status flag
                         state = module.DisplayState.ACTIVE;
@@ -484,11 +481,6 @@ SLICK.Graphics = (function() {
             function addLayer(id, value) {
                 // make sure the layer has the correct id
                 value.id = id;
-                
-                // attach the change listener
-                value.registerChangeListener(function() {
-                    wake();
-                });
                 
                 // tell the layer that I'm going to take care of it
                 value.setParent(self);
@@ -539,6 +531,14 @@ SLICK.Graphics = (function() {
                     zoomCenter = new SLICK.Vector(endCenter.x - offsetDiff.x * shiftFactor, endCenter.y - offsetDiff.y * shiftFactor);
                 } // if..else
             } // calcZoomCenter
+            
+            function triggerIdle() {
+                GRUNT.Log.info("view idle, " + layers.length + " active layers");
+                GRUNT.WaterCooler.say("view-idle", { id: self.id });
+                
+                idle = true;
+                idleTimeout = 0;
+            } // idle
             
             function drawView(context, offset) {
                 var changeCount = 0,
@@ -602,7 +602,7 @@ SLICK.Graphics = (function() {
             function cycle() {
                 // check to see if we are panning
                 var changeCount = 0,
-                    interacting = (state == module.DisplayState.PINCHZOOM) || (tickCount - lastInteraction < params.bufferRefresh);
+                    interacting = (state === DISPLAY_STATE.PINCHZOOM) || (state === DISPLAY_STATE.PAN);
                     
                 // get the tickcount
                 tickCount = new Date().getTime();
@@ -619,6 +619,12 @@ SLICK.Graphics = (function() {
                     SLICK.Animation.cancel(function(tweenInstance) {
                         return tweenInstance.cancelOnInteract;
                     });
+                    
+                    idle = false;
+                    if (idleTimeout !== 0) {
+                        clearTimeout(idleTimeout);
+                        idleTimeout = 0;
+                    } // if
                 }  // if
 
                 // check that all is right with each layer
@@ -627,18 +633,9 @@ SLICK.Graphics = (function() {
                     changeCount += cycleChanges ? cycleChanges : 0;
                 } // for
                 
-                // update the idle status
-                idle = idle && (! interacting);
-                
                 // draw the view
                 changeCount += drawView(mainContext, offset);
 
-                // if the user is not interacting, then save the current context
-                if ((! interacting) && (! idle)) {
-                    idle = true;
-                    GRUNT.WaterCooler.say("view-idle", { id: self.id });
-                } // if
-                
                 // update the last tick count
                 lastTickCount = tickCount;
                 
@@ -646,7 +643,12 @@ SLICK.Graphics = (function() {
                 paintTimeout = 0;
                 if (wakeTriggers + changeCount > 0) {
                     wake();
-                } // if
+                } 
+                else {
+                    if ((! idle) && (idleTimeout === 0)) {
+                        idleTimeout = setTimeout(triggerIdle, 500);
+                    } // if
+                } // if..else
                 
                 GRUNT.Log.trace("Completed draw cycle", tickCount);
             } // cycle
@@ -663,6 +665,7 @@ SLICK.Graphics = (function() {
             var self = GRUNT.extend({}, params, pannable, scalable, {
                 id: params.id,
                 deviceScaling: deviceScaling,
+                fastDraw: params.fastDraw || SLICK.Device.getConfig().requireFastDraw,
                 
                 centerOn: function(offset) {
                     pannable.setOffset(offset.x - (canvas.width * 0.5), offset.y - (canvas.height * 0.5));
@@ -794,7 +797,7 @@ SLICK.Graphics = (function() {
                 } // if
             });
             
-            deviceScaling = SLICK.getDeviceConfig().getScaling();
+            deviceScaling = SLICK.Device.getConfig().getScaling();
             
             // if we need to display the fps for the view, then create a suitable layer
             if (params.displayFPS) {
