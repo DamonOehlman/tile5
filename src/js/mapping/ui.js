@@ -245,7 +245,6 @@ SLICK.Mapping = (function() {
                     // adjust the increment as required to make sure we capture the last element
                     if (ii + increment >= geometryLen) {
                         increment = Math.max(geometryLen - ii - 1, 1);
-                        GRUNT.Log.info("increment adjusted to " + increment);
                     } // if
                 } // for
                 
@@ -273,7 +272,6 @@ SLICK.Mapping = (function() {
                 } // for
 
                 GRUNT.Log.trace(instructionsLength + " instructions generalized to " + instructionCoords.length + " coordinates", startTicks);                
-                GRUNT.Log.info("finished route calc coordinates");
             } // calcCoordinates
             
             // create the view layer the we will draw the view
@@ -289,7 +287,7 @@ SLICK.Mapping = (function() {
 
                     // create a new animation layer based on the coordinates
                     return new SLICK.Graphics.AnimatedPathLayer({
-                        id: "routeAnimation" + routeAnimationCounter++,
+                        id: layerId,
                         path: coordinates,
                         zindex: params.zindex + 1,
                         easing: easingFn ? easingFn : SLICK.Animation.Easing.Sine.InOut,
@@ -307,8 +305,6 @@ SLICK.Mapping = (function() {
                         recalc = false;
                         coordinates = [];
                         geometryCalcIndex = 0;
-                        
-                        GRUNT.Log.info("recalc condition detected, geometry length = " + geometry.length);
                     } // if
                     
                     if (geometry && (geometryCalcIndex < geometry.length)) {
@@ -725,7 +721,6 @@ SLICK.Mapping = (function() {
                     var zoomLevel = SLICK.Geo.getBoundingBoxZoomLevel(bounds, self.getDimensions());
                     
                     // goto the center position of the bounding box with the calculated zoom level
-                    GRUNT.Log.info("BOUNDS CHANGE REQUIRED CENTER: " + bounds.getCenter() + ", ZOOM LEVEL: " + zoomLevel);
                     self.gotoPosition(bounds.getCenter(), zoomLevel, callback);
                 },
                 
@@ -803,9 +798,7 @@ SLICK.Mapping = (function() {
                     }
                     // otherwise, just pan to the correct position
                     else {
-                        GRUNT.Log.info("just panning, tile layer = " + self.getTileLayer() + ", zoom level = " + zoomLevel);
                         self.panToPosition(position, callback);
-                        self.unfreeze();
                     } // if..else
                 },
 
@@ -852,7 +845,6 @@ SLICK.Mapping = (function() {
                 zoomIn: function() {
                     // determine the required scaling
                     var scalingNeeded = radsPerPixelAtZoom(1, zoomLevel) / radsPerPixelAtZoom(1, zoomLevel + 1);
-                    GRUNT.Log.info("scaling needed is " + scalingNeeded);
                     
                     if (! self.scale(2, SLICK.Animation.Easing.Sine.Out)) {
                         self.setZoomLevel(zoomLevel + 1);
@@ -861,7 +853,6 @@ SLICK.Mapping = (function() {
 
                 zoomOut: function() {
                     var scalingNeeded = radsPerPixelAtZoom(1, zoomLevel) / radsPerPixelAtZoom(1, zoomLevel - 1);
-                    GRUNT.Log.info("scaling needed is " + scalingNeeded);
                     
                     if (! self.scale(0.5, SLICK.Animation.Easing.Sine.Out)) {
                         self.setZoomLevel(zoomLevel - 1);

@@ -688,10 +688,6 @@ SLICK.Graphics = (function() {
                     // look for the matching layer, and return when found
                     for (var ii = 0; ii < layers.length; ii++) {
                         if (layers[ii].id == id) {
-                            if (! (/^grid/i).test(id)) {
-                                GRUNT.Log.info("found layer: " + id);
-                            } // if
-                            
                             return layers[ii];
                         } // if
                     } // for
@@ -768,16 +764,13 @@ SLICK.Graphics = (function() {
                     return scalable;
                 },
                 
-                removeLayer: function(id, timeout) {
-                    // if timeout not set, then set to fire instantly
-                    setTimeout(function() {
-                        var layerIndex = getLayerIndex(id);
-                        if ((layerIndex >= 0) && (layerIndex < layers.length)) {
-                            GRUNT.WaterCooler.say("layer.remove", { layer: layers[layerIndex] });
+                removeLayer: function(id) {
+                    var layerIndex = getLayerIndex(id);
+                    if ((layerIndex >= 0) && (layerIndex < layers.length)) {
+                        GRUNT.WaterCooler.say("layer.removed", { layer: layers[layerIndex] });
 
-                            layers.splice(layerIndex, 1);
-                        } // if
-                    }, timeout ? timeout : 1);
+                        layers.splice(layerIndex, 1);
+                    } // if
                 }
             });
             

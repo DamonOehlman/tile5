@@ -816,9 +816,9 @@ SLICK.Geo = (function() {
                 bestZoomH = Math.ceil(Math.log(LAT_VARIABILITIES[3] * displaySize.height / delta.y) / Math.log(2)),
                 bestZoomW = Math.ceil(Math.log(variability * displaySize.width / delta.x) / Math.log(2));
             
-            GRUNT.Log.info("constant index for bbox: " + bounds + " (center = " + boundsCenter + ") is " + variabilityIndex);
-            GRUNT.Log.info("distances  = " + delta);
-            GRUNT.Log.info("optimal zoom levels: height = " + bestZoomH + ", width = " + bestZoomW);
+            // GRUNT.Log.info("constant index for bbox: " + bounds + " (center = " + boundsCenter + ") is " + variabilityIndex);
+            // GRUNT.Log.info("distances  = " + delta);
+            // GRUNT.Log.info("optimal zoom levels: height = " + bestZoomH + ", width = " + bestZoomW);
             
             // return the lower of the two zoom levels
             return Math.min(bestZoomH, bestZoomW);
@@ -860,8 +860,7 @@ SLICK.Geo = (function() {
                 bounds.expand(padding);
             } // if
             
-            GRUNT.Log.info("bounds calculated in " + (SLICK.Clock.getTime() - startTicks) + " ms");
-
+            GRUNT.Log.trace("calculated bounds for " + positions.length + " positions", startTicks);
             return bounds;
         },
         
