@@ -2424,16 +2424,17 @@ SLICK.Touch = (function() {
             } // firePositionEvent
             
             function touchStart(evt) {
-                // debugTouchEvent(evt, 'touch start');
-                touchesStart = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt);
-                touchDelta = new SLICK.Vector();
-                totalDelta = new SLICK.Vector();
-                touchDown = true;
-                doubleTap = false;
-                
                 if (evt.target && (evt.target === params.element)) {
+                    touchesStart = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt);
+                    touchDelta = new SLICK.Vector();
+                    totalDelta = new SLICK.Vector();
+                    touchDown = true;
+                    doubleTap = false;
+
                     // cancel event propogation
-                    preventDefaultTouch(evt);
+                    if (supportsTouch) {
+                        preventDefaultTouch(evt);
+                    } // if
 
                     // clear the inertia interval if it is running
                     // clearInterval(inertiaInterval);
@@ -2471,12 +2472,14 @@ SLICK.Touch = (function() {
             } // touchStart
             
             function touchMove(evt) {
-                if (! touchDown) { return; }
-                
                 if (evt.target && (evt.target === params.element)) {
+                    if (! touchDown) { return; }
+
                     try {
                         // cancel event propogation
-                        preventDefaultTouch(evt);
+                        if (supportsTouch) {
+                            preventDefaultTouch(evt);
+                        } // if
 
                         // get the current touches
                         var touchesCurrent = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt),
@@ -2551,7 +2554,9 @@ SLICK.Touch = (function() {
                 if (evt.target && (evt.target === params.element)) {
                     try {
                         // cancel event propogation
-                        preventDefaultTouch(evt);
+                        if (supportsTouch) {
+                            preventDefaultTouch(evt);
+                        } // if
 
                         // get the end tick
                         var endTick = SLICK.Clock.getTime();
