@@ -6403,7 +6403,7 @@ SLICK.Mapping = (function() {
             // create the view layer the we will draw the view
             var self = GRUNT.extend(new SLICK.Graphics.ViewLayer(params), {
                 getAnimation: function(easingFn, duration, drawCallback, autoCenter) {
-                    if (recalc || (geometryCalcIndex > 0)) {
+                    if (recalc) {
                         return null;
                     } // if
 
