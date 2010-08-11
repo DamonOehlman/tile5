@@ -392,6 +392,7 @@ SLICK.Graphics = (function() {
                 try {
                     mainContext = canvas.getContext('2d');
                     mainContext.globalCompositeOperation = params.initialDrawMode;
+                    mainContext.clearRect(0, 0, canvas.width, canvas.height);
                 } 
                 catch (e) {
                     GRUNT.Log.exception(e);

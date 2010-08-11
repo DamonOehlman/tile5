@@ -469,7 +469,7 @@ SLICK.Tiling = (function() {
                         context.drawImage(getPanningTile(), x, y);
                     } // if
 
-                    if (image && image.complete) {
+                    if (image && image.complete && (image.width > 0)) {
                         context.drawImage(image, x, y);
                     }
                     else {

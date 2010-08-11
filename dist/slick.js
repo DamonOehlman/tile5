@@ -4020,6 +4020,7 @@ SLICK.Graphics = (function() {
                 try {
                     mainContext = canvas.getContext('2d');
                     mainContext.globalCompositeOperation = params.initialDrawMode;
+                    mainContext.clearRect(0, 0, canvas.width, canvas.height);
                 } 
                 catch (e) {
                     GRUNT.Log.exception(e);
@@ -4913,7 +4914,7 @@ SLICK.Tiling = (function() {
                         context.drawImage(getPanningTile(), x, y);
                     } // if
 
-                    if (image && image.complete) {
+                    if (image && image.complete && (image.width > 0)) {
                         context.drawImage(image, x, y);
                     }
                     else {
@@ -6439,16 +6440,13 @@ SLICK.Mapping = (function() {
                     calculationsPerCycle = params.calculationsPerCycle,
                     currentCalculations = 0;
                     
-                // TODO: improve the code reuse in the code below
-                // TODO: improve performance here... look at re-entrant processing in cycle perhaps
-
                 // iterate through the position geometry and determine xy coordinates
                 for (ii = geometryCalcIndex; ii < geometryLen; ii++) {
                     // calculate the current position
                     current = grid.getGridXYForPosition(geometry[ii]);
 
                     // determine whether the current point should be included
-                    include = (! last) || (ii === 0) || (ii === geometryLen) || 
+                    include = (! last) || (ii === 0) || 
                         (Math.abs(current.x - last.x) + Math.abs(current.y - last.y) > params.pixelGeneralization);
                         
                     if (include) {
@@ -6518,6 +6516,7 @@ SLICK.Mapping = (function() {
                     
                     if (recalc) {
                         recalc = false;
+                        last = null;
                         coordinates = [];
                         geometryCalcIndex = 0;
                     } // if
@@ -6537,6 +6536,8 @@ SLICK.Mapping = (function() {
                         
                         // start drawing the path
                         context.beginPath();
+                        context.moveTo(coordinates[coordLength - 1].x - offset.x, coordinates[coordLength - 1].y - offset.y);
+
                         for (ii = coordLength; ii--; ) {
                             context.lineTo(coordinates[ii].x - offset.x, coordinates[ii].y - offset.y);
                         } // for
