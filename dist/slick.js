@@ -2526,8 +2526,10 @@ SLICK.Touch = (function() {
                                 touchDelta = calcChange(touchesCurrent, touchesLast);
 
                                 // update the total delta
-                                totalDelta.x += touchDelta.x; totalDelta.y += touchDelta.y;
-                                panDelta.x += touchDelta.x; panDelta.y += touchDelta.y;
+                                if (touchDelta) {
+                                    totalDelta.x += touchDelta.x; totalDelta.y += touchDelta.y;
+                                    panDelta.x += touchDelta.x; panDelta.y += touchDelta.y;
+                                } // if
 
                                 // if the pan_delta is sufficient to fire an event, then do so
                                 if (SLICK.V.absSize(panDelta) > params.panEventThreshhold) {
@@ -6300,48 +6302,67 @@ SLICK.Mapping = (function() {
                 lineWidth: 4,
                 data: null,
                 pixelGeneralization: 8,
+                calculationsPerCycle: 250,
+                partialDraw: false,
                 zindex: 50,
                 validStates: SLICK.Graphics.DisplayState.ACTIVE | SLICK.Graphics.DisplayState.PAN 
             }, params);
             
             var recalc = true,
+                last = null,
                 coordinates = [],
+                geometryCalcIndex = 0,
                 instructionCoords = [];
                 
             function calcCoordinates(grid) {
-                coordinates = [];
                 instructionCoords = [];
                 
-                GRUNT.Log.info("started route calc coordinates");
+                recalc = false;
 
                 var startTicks = GRUNT.Log.getTraceTicks(),
-                    ii, current, last = null, include,
+                    ii, current, include,
                     geometry = params.data ? params.data.geometry : [],
-                    geometryLength = geometry.length,
+                    geometryLen = geometry.length,
                     instructions = params.data ? params.data.instructions : [],
-                    instructionsLength = instructions.length;
+                    instructionsLength = instructions.length,
+                    calculationsPerCycle = params.calculationsPerCycle,
+                    currentCalculations = 0,
+                    increment = Math.ceil(Math.log(geometryLen) / Math.log(10));
                     
                 // TODO: improve the code reuse in the code below
                 // TODO: improve performance here... look at re-entrant processing in cycle perhaps
 
                 // iterate through the position geometry and determine xy coordinates
-                for (ii = geometryLength; ii--; ) {
+                for (ii = geometryCalcIndex; ii < geometryLen; ii += increment) {
                     // calculate the current position
                     current = grid.getGridXYForPosition(geometry[ii]);
 
                     // determine whether the current point should be included
-                    include = (! last) || (ii === 0) || 
+                    include = (! last) || (ii === geometryLen) || 
                         (Math.abs(current.x - last.x) + Math.abs(current.y - last.y) > params.pixelGeneralization);
                     
                     if (include) {
-                        coordinates.unshift(current);
+                        coordinates.push(current);
                         
                         // update the last
                         last = current;
                     } // if
+                    
+                    currentCalculations++;
+                    if (currentCalculations >= calculationsPerCycle) {
+                        geometryCalcIndex = ii;
+                        return;
+                    } // if
+                    
+                    // adjust the increment as required to make sure we capture the last element
+                    if (ii + increment >= geometryLen) {
+                        increment = Math.max(geometryLen - ii - 1, 1);
+                        GRUNT.Log.info("increment adjusted to " + increment);
+                    } // if
                 } // for
                 
-                GRUNT.Log.trace(geometryLength + " geometry points generalized to " + coordinates.length + " coordinates", startTicks);
+                geometryCalcIndex = geometryLen;
+                GRUNT.Log.trace(geometryLen + " geometry points generalized to " + coordinates.length + " coordinates", startTicks);
                 
                 // iterate throught the instructions and add any points to the instruction coordinates array
                 last = null;
@@ -6365,14 +6386,13 @@ SLICK.Mapping = (function() {
 
                 GRUNT.Log.trace(instructionsLength + " instructions generalized to " + instructionCoords.length + " coordinates", startTicks);                
                 GRUNT.Log.info("finished route calc coordinates");
-                recalc = false;
             } // calcCoordinates
             
             // create the view layer the we will draw the view
             var self = GRUNT.extend(new SLICK.Graphics.ViewLayer(params), {
                 getAnimation: function(easingFn, duration, drawCallback, autoCenter) {
-                    if (recalc) {
-                        calcCoordinates(self.getParent().getTileLayer());
+                    if (recalc || (geometryCalcIndex > 0)) {
+                        return null;
                     } // if
 
                     // create a new animation layer based on the coordinates
@@ -6387,44 +6407,59 @@ SLICK.Mapping = (function() {
                 },
 
                 draw: function(context, offset, dimensions, state, view) {
+                    var changes = 0,
+                        geometry = params.data ? params.data.geometry : null;
+                    
                     if (recalc) {
+                        coordinates = [];
+                        geometryCalcIndex = 0;
+                        
+                        GRUNT.Log.info("recalc condition detected, geometry length = " + geometry.length);
+                    } // if
+                    
+                    if (geometry && (geometryCalcIndex < geometry.length)) {
                         calcCoordinates(view.getTileLayer());
+                        changes++;
                     } // if
                     
                     // TODO: see how this can be optimized... 
                     var ii,
                         coordLength = coordinates.length;
-                    
-                    // update the context stroke style and line width
-                    context.strokeStyle = params.strokeStyle;
-                    context.lineWidth = params.lineWidth;
-
-                    // start drawing the path
-                    context.beginPath();
-                    context.moveTo(coordinates[coordLength-1].x - offset.x, coordinates[coordLength-1].y - offset.y);
-
-                    for (ii = coordLength; ii--; ) {
-                        context.lineTo(coordinates[ii].x - offset.x, coordinates[ii].y - offset.y);
-                    } // for
-
-                    context.stroke();
-                    
-                    context.fillStyle = params.waypointFillStyle;
-                    
-                    // draw the instruction coordinates
-                    for (ii = instructionCoords.length; ii--; ) {
-                        context.beginPath();
-                        context.arc(
-                            instructionCoords[ii].x - offset.x, 
-                            instructionCoords[ii].y - offset.y,
-                            2,
-                            0,
-                            Math.PI * 2,
-                            false);
                         
+                    if ((coordLength > 0) && ((! changes) || params.partialDraw)) {
+                        // update the context stroke style and line width
+                        context.strokeStyle = params.strokeStyle;
+                        context.lineWidth = params.lineWidth;
+
+                        // start drawing the path
+                        context.beginPath();
+                        context.moveTo(coordinates[coordLength-1].x - offset.x, coordinates[coordLength-1].y - offset.y);
+
+                        for (ii = coordLength; ii--; ) {
+                            context.lineTo(coordinates[ii].x - offset.x, coordinates[ii].y - offset.y);
+                        } // for
+
                         context.stroke();
-                        context.fill();
-                    } // for
+
+                        context.fillStyle = params.waypointFillStyle;
+
+                        // draw the instruction coordinates
+                        for (ii = instructionCoords.length; ii--; ) {
+                            context.beginPath();
+                            context.arc(
+                                instructionCoords[ii].x - offset.x, 
+                                instructionCoords[ii].y - offset.y,
+                                2,
+                                0,
+                                Math.PI * 2,
+                                false);
+
+                            context.stroke();
+                            context.fill();
+                        } // for
+                    } // if
+                    
+                    return changes;
                 }
             });
             
@@ -6935,7 +6970,9 @@ SLICK.Mapping = (function() {
                         var animationLayer = routeLayer.getAnimation(easingFn, duration, drawCallback, autoCenter);
                         
                         // add the animation layer
-                        animationLayer.addToView(self);
+                        if (animationLayer) {
+                            animationLayer.addToView(self);
+                        }
                     } // if
                 }
             }, parent);

@@ -236,8 +236,10 @@ SLICK.Touch = (function() {
                                 touchDelta = calcChange(touchesCurrent, touchesLast);
 
                                 // update the total delta
-                                totalDelta.x += touchDelta.x; totalDelta.y += touchDelta.y;
-                                panDelta.x += touchDelta.x; panDelta.y += touchDelta.y;
+                                if (touchDelta) {
+                                    totalDelta.x += touchDelta.x; totalDelta.y += touchDelta.y;
+                                    panDelta.x += touchDelta.x; panDelta.y += touchDelta.y;
+                                } // if
 
                                 // if the pan_delta is sufficient to fire an event, then do so
                                 if (SLICK.V.absSize(panDelta) > params.panEventThreshhold) {
