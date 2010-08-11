@@ -1,6 +1,7 @@
 SLICK.Mapping = (function() {
     var lastAnnotationTween = null,
-        lastAnnotationTweenTicks = null;
+        lastAnnotationTweenTicks = null,
+        routeAnimationCounter = 0;
     
     function getAnnotationTween(tweenType) {
         // get the current tick count
@@ -192,15 +193,16 @@ SLICK.Mapping = (function() {
                 pixelGeneralization: 8,
                 calculationsPerCycle: 250,
                 partialDraw: false,
-                zindex: 50,
-                validStates: SLICK.Graphics.DisplayState.ACTIVE | SLICK.Graphics.DisplayState.PAN 
+                zindex: 50
+                // validStates: SLICK.Graphics.DisplayState.ACTIVE | SLICK.Graphics.DisplayState.PAN | SLICK.Graphics.DisplayState.PINCHZOOM
             }, params);
             
             var recalc = true,
                 last = null,
                 coordinates = [],
                 geometryCalcIndex = 0,
-                instructionCoords = [];
+                instructionCoords = [],
+                spawnedAnimations = [];
                 
             function calcCoordinates(grid) {
                 instructionCoords = [];
@@ -280,9 +282,14 @@ SLICK.Mapping = (function() {
                     if (recalc) {
                         return null;
                     } // if
+                    
+                    // define the layer id
+                    var layerId = "routeAnimation" + routeAnimationCounter++;
+                    spawnedAnimations.push(layerId);
 
                     // create a new animation layer based on the coordinates
                     return new SLICK.Graphics.AnimatedPathLayer({
+                        id: "routeAnimation" + routeAnimationCounter++,
                         path: coordinates,
                         zindex: params.zindex + 1,
                         easing: easingFn ? easingFn : SLICK.Animation.Easing.Sine.InOut,
@@ -350,6 +357,15 @@ SLICK.Mapping = (function() {
             
             // listed for grid updates
             GRUNT.WaterCooler.listen("grid.updated", function(args) {
+                // tell all the spawned animations to remove themselves
+                for (var ii = spawnedAnimations.length; ii--; ) {
+                    GRUNT.WaterCooler.say("layer.remove", { id: spawnedAnimations[ii] });
+                } // for
+                
+                // reset the spawned animations array
+                spawnedAnimations = [];
+                
+                // trigger a recalculation
                 recalc = true;
                 self.wakeParent();
             });
