@@ -829,15 +829,15 @@ SLICK.Geo = (function() {
             // the result positions
             for (var ii = sourceLen; ii--; ) {
                 if (ii === 0) {
-                    positions.push(sourceData[ii]);
+                    positions.unshift(sourceData[ii]);
                 }
                 else {
                     var include = (! lastPosition) || module.P.inArray(sourceData[ii], requiredPositions),
                         posDiff = include ? minDist : module.P.calcDistance(lastPosition, sourceData[ii]);
                         
                     // if the position difference is suitable then include
-                    if (posDiff >= minDist) {
-                        positions.push(sourceData[ii]);
+                    if (sourceData[ii] && (posDiff >= minDist)) {
+                        positions.unshift(sourceData[ii]);
                         
                         // update the last position
                         lastPosition = sourceData[ii];

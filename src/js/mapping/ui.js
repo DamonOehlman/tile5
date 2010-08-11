@@ -264,8 +264,6 @@ SLICK.Mapping = (function() {
                         } // if
                     } // if
                 } // for
-
-                GRUNT.Log.trace(instructionsLength + " instructions generalized to " + instructionCoords.length + " coordinates", startTicks);                
             } // calcCoordinates
             
             // create the view layer the we will draw the view
@@ -313,12 +311,9 @@ SLICK.Mapping = (function() {
                         // update the context stroke style and line width
                         context.strokeStyle = params.strokeStyle;
                         context.lineWidth = params.lineWidth;
-
+                        
                         // start drawing the path
                         context.beginPath();
-                        context.moveTo(coordinates[coordLength-1].x - offset.x, coordinates[coordLength-1].y - offset.y);
-
-                        
                         for (ii = coordLength; ii--; ) {
                             context.lineTo(coordinates[ii].x - offset.x, coordinates[ii].y - offset.y);
                         } // for

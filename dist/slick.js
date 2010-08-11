@@ -5839,15 +5839,15 @@ SLICK.Geo = (function() {
             // the result positions
             for (var ii = sourceLen; ii--; ) {
                 if (ii === 0) {
-                    positions.push(sourceData[ii]);
+                    positions.unshift(sourceData[ii]);
                 }
                 else {
                     var include = (! lastPosition) || module.P.inArray(sourceData[ii], requiredPositions),
                         posDiff = include ? minDist : module.P.calcDistance(lastPosition, sourceData[ii]);
                         
                     // if the position difference is suitable then include
-                    if (posDiff >= minDist) {
-                        positions.push(sourceData[ii]);
+                    if (sourceData[ii] && (posDiff >= minDist)) {
+                        positions.unshift(sourceData[ii]);
                         
                         // update the last position
                         lastPosition = sourceData[ii];
@@ -6487,8 +6487,6 @@ SLICK.Mapping = (function() {
                         } // if
                     } // if
                 } // for
-
-                GRUNT.Log.trace(instructionsLength + " instructions generalized to " + instructionCoords.length + " coordinates", startTicks);                
             } // calcCoordinates
             
             // create the view layer the we will draw the view
@@ -6536,12 +6534,9 @@ SLICK.Mapping = (function() {
                         // update the context stroke style and line width
                         context.strokeStyle = params.strokeStyle;
                         context.lineWidth = params.lineWidth;
-
+                        
                         // start drawing the path
                         context.beginPath();
-                        context.moveTo(coordinates[coordLength-1].x - offset.x, coordinates[coordLength-1].y - offset.y);
-
-                        
                         for (ii = coordLength; ii--; ) {
                             context.lineTo(coordinates[ii].x - offset.x, coordinates[ii].y - offset.y);
                         } // for
