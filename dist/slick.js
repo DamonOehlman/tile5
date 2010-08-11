@@ -2291,12 +2291,6 @@ SLICK.Resources = (function() {
 SLICK.Touch = (function() {
     // initialise constants
     var PANREFRESH = 5;
-    var TOUCH_TYPES = {
-        GLOBAL: 'touches',
-        TARGET: 'targetTouches',
-        CHANGED: 'changedTouches'
-    };
-    var DEFAULT_TOUCHTYPE_PRIORITY = [TOUCH_TYPES.GLOBAL, TOUCH_TYPES.TARGET];
     var TOUCH_MODES = {
         TAP: 0,
         MOVE: 1, 
@@ -2306,7 +2300,8 @@ SLICK.Touch = (function() {
     // TODO: configure the move distance to be screen size sensitive....
     var MIN_MOVEDIST = 7;
 
-    var elementCounter = 0;
+    var elementCounter = 0,
+        listenerCount = 0;
     
     function calcDistance(touches) {
         return SLICK.VectorMath.distance(touches);
@@ -2321,40 +2316,30 @@ SLICK.Touch = (function() {
         return null;
     } // calcChange
     
-    function preventDefaultTouch(touchEvent) {
-        touchEvent.preventDefault();
-        touchEvent.stopPropagation();
+    function preventDefaultTouch(evt) {
+        evt.preventDefault();
+        evt.stopPropagation();
     } // preventDefaultTouch
     
-    function getTouchPoints(touchEvent, typePriority) {
-        if (! typePriority) {
-            typePriority = DEFAULT_TOUCHTYPE_PRIORITY;
-        } // if
+    function getTouchPoints(touches) {
+        var fnresult = new Array(touches.length);
+        for (var ii = touches.length; ii--; ) {
+            fnresult[ii] = new SLICK.Vector(touches[ii].pageX, touches[ii].pageY);
+        } // for
         
-        function getTouches(touches, touchType) {
-            var targetArray = touchEvent[touchType];
-            for (var ii = 0; targetArray && (ii < targetArray.length); ii++) {
-                touches.push(new SLICK.Vector(targetArray[ii].pageX, targetArray[ii].pageY));
-            } // for
-        } // getTouches
-        
-        var fnresult = [];
-        
-        // iterate through the type priorities and get the touches
-        for (var ii = 0; ii < typePriority.length; ii++) {
-            getTouches(fnresult, typePriority[ii]);
-            if (fnresult.length > 0) {
-                break;
-            } // if
-        }
-        
-        // if we have not touches, then just add the page x and page y
-        if (fnresult.length === 0) {
-            fnresult.push(new SLICK.Vector(touchEvent.pageX, touchEvent.pageY));
-        } // if
-
         return fnresult;
     } // getTouchPoints
+    
+    function getMousePos(event) {
+        return [new SLICK.Vector(event.pageX, event.pageY)];
+    } // getMousePos
+    
+    function debugTouchEvent(evt, title) {
+        GRUNT.Log.info("TOUCH EVENT '" + title + "':", evt);
+        GRUNT.Log.info("TOUCH EVENT '" + title + "': touches = ", evt.touches);
+        GRUNT.Log.info("TOUCH EVENT '" + title + "': targetTouches = ", evt.targetTouches);
+        GRUNT.Log.info("TOUCH EVENT '" + title + "': changedTouches = ", evt.changeTouches);
+    } // debugTouchEvent
     
     var module_types = {
         TouchHelper: function(params) {
@@ -2374,14 +2359,17 @@ SLICK.Touch = (function() {
                 wheelZoomHandler: null
             }, params);
 
+            /*
             // determine whether touch is supported
             // nice work to thomas fuchs on this:
             // http://mir.aculo.us/2010/06/04/making-an-ipad-html5-app-making-it-really-fast/
             var touchReady = 'createTouch' in document;
+            */
 
             // initialise private members
             var doubleTap = false,
                 tapTimer = 0,
+                supportsTouch = SLICK.Device.getConfig().supportsTouch,
                 touchesStart = null,
                 touchesLast = null,
                 touchDelta = null,
@@ -2409,18 +2397,18 @@ SLICK.Touch = (function() {
             } // relativeTouches
             
             function fireEvent(eventName) {
-                var eventArgs = [];
+                var eventArgs = new Array(arguments.length - 1);
                 var ii = 0;
                 
                 for (ii = 1; ii < arguments.length; ii++) {
-                    eventArgs.push(arguments[ii]);
+                    eventArgs[ii - 1] = arguments[ii];
                 } // for
                 
-                for (ii = 0; ii < listeners.length; ii++) {
+                for (ii = listeners.length; ii--; ) {
                     if (listeners[ii][eventName]) {
                         listeners[ii][eventName].apply(self, eventArgs);
                     } // if
-                }
+                } // for
             } // fireEvent
             
             function firePositionEvent(eventName, absVector) {
@@ -2435,16 +2423,17 @@ SLICK.Touch = (function() {
                 fireEvent(eventName, absVector, offsetVector);
             } // firePositionEvent
             
-            function touchStart(touchEvent) {
-                touchesStart = getTouchPoints(touchEvent);
+            function touchStart(evt) {
+                // debugTouchEvent(evt, 'touch start');
+                touchesStart = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt);
                 touchDelta = new SLICK.Vector();
                 totalDelta = new SLICK.Vector();
                 touchDown = true;
                 doubleTap = false;
                 
-                if (touchEvent.target && (touchEvent.target === params.element)) {
+                if (evt.target && (evt.target === params.element)) {
                     // cancel event propogation
-                    preventDefaultTouch(touchEvent);
+                    preventDefaultTouch(evt);
 
                     // clear the inertia interval if it is running
                     // clearInterval(inertiaInterval);
@@ -2481,16 +2470,16 @@ SLICK.Touch = (function() {
                 } // if
             } // touchStart
             
-            function touchMove(touchEvent) {
+            function touchMove(evt) {
                 if (! touchDown) { return; }
                 
-                if (touchEvent.target && (touchEvent.target === params.element)) {
+                if (evt.target && (evt.target === params.element)) {
                     try {
                         // cancel event propogation
-                        preventDefaultTouch(touchEvent);
+                        preventDefaultTouch(evt);
 
                         // get the current touches
-                        var touchesCurrent = getTouchPoints(touchEvent),
+                        var touchesCurrent = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt),
                             zoomDistance = 0;
 
                         // check to see if we are pinching or zooming
@@ -2558,11 +2547,11 @@ SLICK.Touch = (function() {
                 } // if
             } // touchMove
             
-            function touchEnd(touchEvent) {
-                if (touchEvent.target && (touchEvent.target === params.element)) {
+            function touchEnd(evt) {
+                if (evt.target && (evt.target === params.element)) {
                     try {
                         // cancel event propogation
-                        preventDefaultTouch(touchEvent);
+                        preventDefaultTouch(evt);
 
                         // get the end tick
                         var endTick = SLICK.Clock.getTime();
@@ -2603,7 +2592,7 @@ SLICK.Touch = (function() {
 
             // initialise self
             var self = {
-                supportsTouch: SLICK.Device.getConfig().supportsTouch,
+                supportsTouch: supportsTouch,
 
                 /* define mutable constants (yeah, I know that's a contradiction) */
 
@@ -2613,6 +2602,24 @@ SLICK.Touch = (function() {
                 
                 addListeners: function(args) {
                     listeners.push(args);
+                },
+                
+                decoupleListeners: function(listenerId) {
+                    // iterate through the listeners and look for the matching listener id
+                    for (var ii = 0; listenerId && (ii < listeners.length); ii++) {
+                        if (listeners[ii].listenerId === listenerId) {
+                            listeners.splice(ii, 1);
+                            GRUNT.Log.info("successfully decoupled touch listener: " + listenerId);
+
+                            break;
+                        } // if
+                    } // for
+                },
+                
+                release: function() {
+                    config.eventTarget.removeEventListener(config.supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
+                    config.eventTarget.removeEventListener(config.supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
+                    config.eventTarget.removeEventListener(config.supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
                 },
                 
                 wheelie: function(evt) {
@@ -2651,6 +2658,7 @@ SLICK.Touch = (function() {
     
     // define the module members
     return {
+        // TODO: add the release touch method
         captureTouch: function(element, params) {
             try {
                 if (! element) {
@@ -2673,12 +2681,27 @@ SLICK.Touch = (function() {
                     GRUNT.Log.info("CREATED TOUCH HELPER. SUPPORTS TOUCH = " + touchHelper.supportsTouch);
                 } // if
                 
+                // if we already have an association with listeners, then remove first
+                if (params.listenerId) {
+                    touchHelper.decoupleListeners(params.listenerId);
+                } // if
+                
+                // flag the parameters with touch listener ids so they can be removed later
+                params.listenerId = (++listenerCount);
+
                 // add the listeners to the helper
                 touchHelper.addListeners(params);
             }
             catch (e) {
                 GRUNT.Log.exception(e);
             }
+        },
+        
+        resetTouch: function(element) {
+            if (element && element.id && touchHelpers[element.id]) {
+                touchHelpers[element.id].release();
+                delete touchHelpers[element.id];
+            } // if
         }
     }; // module
 })();
@@ -3935,8 +3958,8 @@ SLICK.Graphics = (function() {
                 scalable: false,
                 clearOnDraw: false,
                 // TODO: move these into a different option location
-                displayFPS: true,
-                displayResourceStats: true,
+                displayFPS: false,
+                displayResourceStats: false,
                 scaleDamping: false,
                 fastDraw: false,
                 fillStyle: "rgb(200, 200, 200)",
@@ -3976,10 +3999,12 @@ SLICK.Graphics = (function() {
                 zoomCenter = null,
                 tickCount = 0,
                 state = module.DisplayState.ACTIVE;
-            
+                
             GRUNT.Log.info("Creating a new view instance, attached to container: " + params.container + ", canvas = ", canvas);
 
             if (canvas) {
+                SLICK.Touch.resetTouch(canvas);
+                
                 // if we are autosizing the set the size
                 if (params.autoSize) {
                     GRUNT.Log.info("autosizing view: window.height = " + window.innerHeight + ", width = " + window.innerWidth);
@@ -4133,7 +4158,6 @@ SLICK.Graphics = (function() {
             } // calcZoomCenter
             
             function triggerIdle() {
-                GRUNT.Log.info("view idle, " + layers.length + " active layers");
                 GRUNT.WaterCooler.say("view-idle", { id: self.id });
                 
                 idle = true;
@@ -4437,8 +4461,6 @@ SLICK.Tiling = (function() {
             tileShift = new SLICK.Vector(),
             lastNotifyListener = null;
         
-        GRUNT.Log.info("created tile store with tl offset = " + topLeftOffset);
-        
         function getTileIndex(col, row) {
             return (row * params.gridSize) + col;
         } // getTileIndex
@@ -4489,8 +4511,6 @@ SLICK.Tiling = (function() {
                     tileIndex = 0,
                     centerPos = new SLICK.Vector(params.gridSize * 0.5, params.gridSize * 0.5);
                 
-                GRUNT.Log.info("poulating grid, top left offset = " + topLeftOffset);
-
                 if (tileCreator) {
                     for (var row = 0; row < params.gridSize; row++) {
                         for (var col = 0; col < params.gridSize; col++) {
@@ -4699,7 +4719,6 @@ SLICK.Tiling = (function() {
             
             // initialise varibles
             var halfTileSize = Math.round(params.tileSize >> 1),
-                active = true,
                 invTileSize = params.tileSize ? 1 / params.tileSize : 0,
                 lastOffset = null,
                 gridDirty = false,
@@ -4790,52 +4809,50 @@ SLICK.Tiling = (function() {
                 },
                 
                 draw: function(context, offset, dimensions, state, view) {
-                    if (active) {
-                        // initialise variables
-                        var startTicks = GRUNT.Log.getTraceTicks(),
-                            tileShift = tileStore.getTileShift(),
-                            xShift = offset.x + tileShift.x,
-                            yShift = offset.y + tileShift.y;
+                    // initialise variables
+                    var startTicks = GRUNT.Log.getTraceTicks(),
+                        tileShift = tileStore.getTileShift(),
+                        xShift = offset.x + tileShift.x,
+                        yShift = offset.y + tileShift.y;
 
-                        if (state !== SLICK.Graphics.DisplayState.PINCHZOOM) {
-                            updateDrawQueue(context, offset, dimensions, view);
-                            GRUNT.Log.trace("updated draw queue", startTicks);
-                        } // if
-
-                        // set the context stroke style for the border
-                        if (params.drawGrid) {
-                            context.strokeStyle = "rgba(50, 50, 50, 0.3)";
-                        } // if
-
-                        // begin the path for the tile borders
-                        context.beginPath();
-
-                        // iterate through the tiles in the draw queue
-                        for (var ii = tileDrawQueue.length; ii--; ) {
-                            var tile = tileDrawQueue[ii].tile,
-                                x = tileDrawQueue[ii].coordinates.x - xShift,
-                                y = tileDrawQueue[ii].coordinates.y - yShift;
-
-                            // if the tile is loaded, then draw, otherwise load
-                            if (tile) {
-                                // draw the tile
-                                self.drawTile(context, tile, x, y, state);
-                                
-                                // update the tile position
-                                tile.x = x;
-                                tile.y = y;
-                            } // if
-
-                            // if we are drawing borders, then draw that now
-                            if (params.drawGrid) {
-                                context.rect(x, y, params.tileSize, params.tileSize);
-                            } // if
-                        } // for
-
-                        // draw the borders if we have them...
-                        context.stroke();
-                        GRUNT.Log.trace("drawn tiles", startTicks);                        
+                    if (state !== SLICK.Graphics.DisplayState.PINCHZOOM) {
+                        updateDrawQueue(context, offset, dimensions, view);
+                        GRUNT.Log.trace("updated draw queue", startTicks);
                     } // if
+
+                    // set the context stroke style for the border
+                    if (params.drawGrid) {
+                        context.strokeStyle = "rgba(50, 50, 50, 0.3)";
+                    } // if
+
+                    // begin the path for the tile borders
+                    context.beginPath();
+
+                    // iterate through the tiles in the draw queue
+                    for (var ii = tileDrawQueue.length; ii--; ) {
+                        var tile = tileDrawQueue[ii].tile,
+                            x = tileDrawQueue[ii].coordinates.x - xShift,
+                            y = tileDrawQueue[ii].coordinates.y - yShift;
+
+                        // if the tile is loaded, then draw, otherwise load
+                        if (tile) {
+                            // draw the tile
+                            self.drawTile(context, tile, x, y, state);
+                            
+                            // update the tile position
+                            tile.x = x;
+                            tile.y = y;
+                        } // if
+
+                        // if we are drawing borders, then draw that now
+                        if (params.drawGrid) {
+                            context.rect(x, y, params.tileSize, params.tileSize);
+                        } // if
+                    } // for
+
+                    // draw the borders if we have them...
+                    context.stroke();
+                    GRUNT.Log.trace("drawn tiles", startTicks);                        
                     
                     // flag the grid as not dirty
                     gridDirty = false;
@@ -4869,13 +4886,6 @@ SLICK.Tiling = (function() {
                     tileStore.populate(tileCreator, function(tile) {
                     });
                 }
-            });
-            
-            // listen for the parent view scaling
-            GRUNT.WaterCooler.listen("view.scale", function(args) {
-                if (args.id == self.getParent().id) {
-                    active = false;
-                } // if
             });
             
             // listen for tiles loading
@@ -4954,9 +4964,6 @@ SLICK.Tiling = (function() {
                 }
             };
             
-            // handle tap and double tap events
-            SLICK.Touch.captureTouch(document.getElementById(params.container), params);
-            
             // create the parent
             var self = new SLICK.Graphics.View(GRUNT.extend({}, params, {
                 // define panning and scaling properties
@@ -4964,6 +4971,9 @@ SLICK.Tiling = (function() {
                 scalable: true,
                 scaleDamping: true
             }));
+            
+            // handle tap and double tap events
+            SLICK.Touch.captureTouch(document.getElementById(params.container), params);
             
             // initialise self
             GRUNT.extend(self, {
@@ -6317,8 +6327,6 @@ SLICK.Mapping = (function() {
             function calcCoordinates(grid) {
                 instructionCoords = [];
                 
-                recalc = false;
-
                 var startTicks = GRUNT.Log.getTraceTicks(),
                     ii, current, include,
                     geometry = params.data ? params.data.geometry : [],
@@ -6411,6 +6419,7 @@ SLICK.Mapping = (function() {
                         geometry = params.data ? params.data.geometry : null;
                     
                     if (recalc) {
+                        recalc = false;
                         coordinates = [];
                         geometryCalcIndex = 0;
                         
@@ -6422,7 +6431,6 @@ SLICK.Mapping = (function() {
                         changes++;
                     } // if
                     
-                    // TODO: see how this can be optimized... 
                     var ii,
                         coordLength = coordinates.length;
                         
@@ -6440,7 +6448,6 @@ SLICK.Mapping = (function() {
                         } // for
 
                         context.stroke();
-
                         context.fillStyle = params.waypointFillStyle;
 
                         // draw the instruction coordinates
@@ -6466,7 +6473,6 @@ SLICK.Mapping = (function() {
             // listed for grid updates
             GRUNT.WaterCooler.listen("grid.updated", function(args) {
                 recalc = true;
-                
                 self.wakeParent();
             });
             
@@ -6720,6 +6726,7 @@ SLICK.Mapping = (function() {
                 copyrightMessage = params.copyright,
                 initialized = false,
                 tappedPOIs = [],
+                lastRequestTime = 0,
                 guideOffset = null,
                 zoomLevel = params.zoomLevel;
 
@@ -6783,15 +6790,7 @@ SLICK.Mapping = (function() {
                     zoomChange = scaleAmount;
                 } // if..else
 
-                // TODO: check that the new zoom level is acceptable
-                // remove the grid layer
-                self.removeLayer("grid");
-
-                // GRUNT.Log.info("adjust zoom by: " + zoomChange);
-                SLICK.Resources.resetImageLoadQueue();
                 self.gotoPosition(self.getXYPosition(zoomXY), zoomLevel + Math.floor(zoomChange));
-                
-                GRUNT.Log.info("zoom change = " + Math.floor(zoomChange) + ", new zoom level = " + (zoomLevel + Math.floor(zoomChange)));
             }; // zoomHandler
 
             // create the base tiler
@@ -6852,7 +6851,8 @@ SLICK.Mapping = (function() {
                 gotoPosition: function(position, newZoomLevel, callback) {
                     // save the current zoom level
                     var currentZoomLevel = zoomLevel,
-                        zoomScaling = getLayerScaling(zoomLevel, newZoomLevel);
+                        zoomScaling = getLayerScaling(zoomLevel, newZoomLevel),
+                        requestTime = new Date().getTime();
 
                     // if a new zoom level is specified, then use it
                     zoomLevel = newZoomLevel ? newZoomLevel : zoomLevel;
@@ -6868,7 +6868,11 @@ SLICK.Mapping = (function() {
                     } // if
                     
                     // if the zoom level is different from the current zoom level, then update the map tiles
-                    if ((! initialized) || (zoomLevel != currentZoomLevel)) {
+                    if ((! initialized) || (zoomLevel !== currentZoomLevel)) {
+                        // remove the grid layer
+                        self.removeLayer("grid");
+                        SLICK.Resources.resetImageLoadQueue();
+
                         // cancel any animations
                         SLICK.Animation.cancel();
 
@@ -6876,28 +6880,39 @@ SLICK.Mapping = (function() {
                         if (initialized) {
                             self.freeze();
                         } // if
+                        
+                        // update the global request time
+                        lastRequestTime = requestTime;
 
                         // update the provider zoom level
                         params.provider.zoomLevel = zoomLevel;
                         params.provider.getMapTiles(self, position, function(tileGrid) {
-                            // update the tile layer to the use the new layer
-                            self.setTileLayer(tileGrid);
-                            
-                            // pan to the correct position
-                            self.panToPosition(position, function() {
-                                self.unfreeze();
+                            // if the request time equals the last request time process, otherwise ignore
+                            if (requestTime === lastRequestTime) {
+                                // update the tile layer to the use the new layer
+                                self.setTileLayer(tileGrid);
 
-                                if (callback) {
-                                    callback();
-                                } // if
-                            });
+                                // pan to the correct position
+                                self.panToPosition(position, function() {
+                                    self.unfreeze();
+
+                                    if (callback) {
+                                        callback();
+                                    } // if
+                                });
+                            }
+                            else {
+                                GRUNT.Log.info("request time mismatch - ignoring update");
+                            }
                         });
 
                         initialized = true;
                     }
                     // otherwise, just pan to the correct position
                     else {
+                        GRUNT.Log.info("just panning, tile layer = " + self.getTileLayer() + ", zoom level = " + zoomLevel);
                         self.panToPosition(position, callback);
+                        self.unfreeze();
                     } // if..else
                 },
 

@@ -335,8 +335,8 @@ SLICK.Graphics = (function() {
                 scalable: false,
                 clearOnDraw: false,
                 // TODO: move these into a different option location
-                displayFPS: true,
-                displayResourceStats: true,
+                displayFPS: false,
+                displayResourceStats: false,
                 scaleDamping: false,
                 fastDraw: false,
                 fillStyle: "rgb(200, 200, 200)",
@@ -376,10 +376,12 @@ SLICK.Graphics = (function() {
                 zoomCenter = null,
                 tickCount = 0,
                 state = module.DisplayState.ACTIVE;
-            
+                
             GRUNT.Log.info("Creating a new view instance, attached to container: " + params.container + ", canvas = ", canvas);
 
             if (canvas) {
+                SLICK.Touch.resetTouch(canvas);
+                
                 // if we are autosizing the set the size
                 if (params.autoSize) {
                     GRUNT.Log.info("autosizing view: window.height = " + window.innerHeight + ", width = " + window.innerWidth);
@@ -533,7 +535,6 @@ SLICK.Graphics = (function() {
             } // calcZoomCenter
             
             function triggerIdle() {
-                GRUNT.Log.info("view idle, " + layers.length + " active layers");
                 GRUNT.WaterCooler.say("view-idle", { id: self.id });
                 
                 idle = true;

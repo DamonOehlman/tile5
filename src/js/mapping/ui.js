@@ -205,8 +205,6 @@ SLICK.Mapping = (function() {
             function calcCoordinates(grid) {
                 instructionCoords = [];
                 
-                recalc = false;
-
                 var startTicks = GRUNT.Log.getTraceTicks(),
                     ii, current, include,
                     geometry = params.data ? params.data.geometry : [],
@@ -299,6 +297,7 @@ SLICK.Mapping = (function() {
                         geometry = params.data ? params.data.geometry : null;
                     
                     if (recalc) {
+                        recalc = false;
                         coordinates = [];
                         geometryCalcIndex = 0;
                         
@@ -310,7 +309,6 @@ SLICK.Mapping = (function() {
                         changes++;
                     } // if
                     
-                    // TODO: see how this can be optimized... 
                     var ii,
                         coordLength = coordinates.length;
                         
@@ -328,7 +326,6 @@ SLICK.Mapping = (function() {
                         } // for
 
                         context.stroke();
-
                         context.fillStyle = params.waypointFillStyle;
 
                         // draw the instruction coordinates
@@ -354,7 +351,6 @@ SLICK.Mapping = (function() {
             // listed for grid updates
             GRUNT.WaterCooler.listen("grid.updated", function(args) {
                 recalc = true;
-                
                 self.wakeParent();
             });
             
@@ -608,6 +604,7 @@ SLICK.Mapping = (function() {
                 copyrightMessage = params.copyright,
                 initialized = false,
                 tappedPOIs = [],
+                lastRequestTime = 0,
                 guideOffset = null,
                 zoomLevel = params.zoomLevel;
 
@@ -671,15 +668,7 @@ SLICK.Mapping = (function() {
                     zoomChange = scaleAmount;
                 } // if..else
 
-                // TODO: check that the new zoom level is acceptable
-                // remove the grid layer
-                self.removeLayer("grid");
-
-                // GRUNT.Log.info("adjust zoom by: " + zoomChange);
-                SLICK.Resources.resetImageLoadQueue();
                 self.gotoPosition(self.getXYPosition(zoomXY), zoomLevel + Math.floor(zoomChange));
-                
-                GRUNT.Log.info("zoom change = " + Math.floor(zoomChange) + ", new zoom level = " + (zoomLevel + Math.floor(zoomChange)));
             }; // zoomHandler
 
             // create the base tiler
@@ -740,7 +729,8 @@ SLICK.Mapping = (function() {
                 gotoPosition: function(position, newZoomLevel, callback) {
                     // save the current zoom level
                     var currentZoomLevel = zoomLevel,
-                        zoomScaling = getLayerScaling(zoomLevel, newZoomLevel);
+                        zoomScaling = getLayerScaling(zoomLevel, newZoomLevel),
+                        requestTime = new Date().getTime();
 
                     // if a new zoom level is specified, then use it
                     zoomLevel = newZoomLevel ? newZoomLevel : zoomLevel;
@@ -756,7 +746,11 @@ SLICK.Mapping = (function() {
                     } // if
                     
                     // if the zoom level is different from the current zoom level, then update the map tiles
-                    if ((! initialized) || (zoomLevel != currentZoomLevel)) {
+                    if ((! initialized) || (zoomLevel !== currentZoomLevel)) {
+                        // remove the grid layer
+                        self.removeLayer("grid");
+                        SLICK.Resources.resetImageLoadQueue();
+
                         // cancel any animations
                         SLICK.Animation.cancel();
 
@@ -764,28 +758,39 @@ SLICK.Mapping = (function() {
                         if (initialized) {
                             self.freeze();
                         } // if
+                        
+                        // update the global request time
+                        lastRequestTime = requestTime;
 
                         // update the provider zoom level
                         params.provider.zoomLevel = zoomLevel;
                         params.provider.getMapTiles(self, position, function(tileGrid) {
-                            // update the tile layer to the use the new layer
-                            self.setTileLayer(tileGrid);
-                            
-                            // pan to the correct position
-                            self.panToPosition(position, function() {
-                                self.unfreeze();
+                            // if the request time equals the last request time process, otherwise ignore
+                            if (requestTime === lastRequestTime) {
+                                // update the tile layer to the use the new layer
+                                self.setTileLayer(tileGrid);
 
-                                if (callback) {
-                                    callback();
-                                } // if
-                            });
+                                // pan to the correct position
+                                self.panToPosition(position, function() {
+                                    self.unfreeze();
+
+                                    if (callback) {
+                                        callback();
+                                    } // if
+                                });
+                            }
+                            else {
+                                GRUNT.Log.info("request time mismatch - ignoring update");
+                            }
                         });
 
                         initialized = true;
                     }
                     // otherwise, just pan to the correct position
                     else {
+                        GRUNT.Log.info("just panning, tile layer = " + self.getTileLayer() + ", zoom level = " + zoomLevel);
                         self.panToPosition(position, callback);
+                        self.unfreeze();
                     } // if..else
                 },
 

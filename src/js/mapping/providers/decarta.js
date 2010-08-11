@@ -849,6 +849,11 @@ SLICK.Geo.Decarta = (function() {
 
             // initialise self
             var self = GRUNT.extend({}, parent, {
+                checkZoomLevel: function(zoomLevel) {
+                    return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoomLevel));
+                },
+                
+
                 getCopyright: function() {
                     return "Mapping Webservices copyright deCarta, Map Data copyright Navteq";
                 },

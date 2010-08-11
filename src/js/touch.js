@@ -1,12 +1,6 @@
 SLICK.Touch = (function() {
     // initialise constants
     var PANREFRESH = 5;
-    var TOUCH_TYPES = {
-        GLOBAL: 'touches',
-        TARGET: 'targetTouches',
-        CHANGED: 'changedTouches'
-    };
-    var DEFAULT_TOUCHTYPE_PRIORITY = [TOUCH_TYPES.GLOBAL, TOUCH_TYPES.TARGET];
     var TOUCH_MODES = {
         TAP: 0,
         MOVE: 1, 
@@ -16,7 +10,8 @@ SLICK.Touch = (function() {
     // TODO: configure the move distance to be screen size sensitive....
     var MIN_MOVEDIST = 7;
 
-    var elementCounter = 0;
+    var elementCounter = 0,
+        listenerCount = 0;
     
     function calcDistance(touches) {
         return SLICK.VectorMath.distance(touches);
@@ -31,40 +26,30 @@ SLICK.Touch = (function() {
         return null;
     } // calcChange
     
-    function preventDefaultTouch(touchEvent) {
-        touchEvent.preventDefault();
-        touchEvent.stopPropagation();
+    function preventDefaultTouch(evt) {
+        evt.preventDefault();
+        evt.stopPropagation();
     } // preventDefaultTouch
     
-    function getTouchPoints(touchEvent, typePriority) {
-        if (! typePriority) {
-            typePriority = DEFAULT_TOUCHTYPE_PRIORITY;
-        } // if
+    function getTouchPoints(touches) {
+        var fnresult = new Array(touches.length);
+        for (var ii = touches.length; ii--; ) {
+            fnresult[ii] = new SLICK.Vector(touches[ii].pageX, touches[ii].pageY);
+        } // for
         
-        function getTouches(touches, touchType) {
-            var targetArray = touchEvent[touchType];
-            for (var ii = 0; targetArray && (ii < targetArray.length); ii++) {
-                touches.push(new SLICK.Vector(targetArray[ii].pageX, targetArray[ii].pageY));
-            } // for
-        } // getTouches
-        
-        var fnresult = [];
-        
-        // iterate through the type priorities and get the touches
-        for (var ii = 0; ii < typePriority.length; ii++) {
-            getTouches(fnresult, typePriority[ii]);
-            if (fnresult.length > 0) {
-                break;
-            } // if
-        }
-        
-        // if we have not touches, then just add the page x and page y
-        if (fnresult.length === 0) {
-            fnresult.push(new SLICK.Vector(touchEvent.pageX, touchEvent.pageY));
-        } // if
-
         return fnresult;
     } // getTouchPoints
+    
+    function getMousePos(event) {
+        return [new SLICK.Vector(event.pageX, event.pageY)];
+    } // getMousePos
+    
+    function debugTouchEvent(evt, title) {
+        GRUNT.Log.info("TOUCH EVENT '" + title + "':", evt);
+        GRUNT.Log.info("TOUCH EVENT '" + title + "': touches = ", evt.touches);
+        GRUNT.Log.info("TOUCH EVENT '" + title + "': targetTouches = ", evt.targetTouches);
+        GRUNT.Log.info("TOUCH EVENT '" + title + "': changedTouches = ", evt.changeTouches);
+    } // debugTouchEvent
     
     var module_types = {
         TouchHelper: function(params) {
@@ -84,14 +69,17 @@ SLICK.Touch = (function() {
                 wheelZoomHandler: null
             }, params);
 
+            /*
             // determine whether touch is supported
             // nice work to thomas fuchs on this:
             // http://mir.aculo.us/2010/06/04/making-an-ipad-html5-app-making-it-really-fast/
             var touchReady = 'createTouch' in document;
+            */
 
             // initialise private members
             var doubleTap = false,
                 tapTimer = 0,
+                supportsTouch = SLICK.Device.getConfig().supportsTouch,
                 touchesStart = null,
                 touchesLast = null,
                 touchDelta = null,
@@ -119,18 +107,18 @@ SLICK.Touch = (function() {
             } // relativeTouches
             
             function fireEvent(eventName) {
-                var eventArgs = [];
+                var eventArgs = new Array(arguments.length - 1);
                 var ii = 0;
                 
                 for (ii = 1; ii < arguments.length; ii++) {
-                    eventArgs.push(arguments[ii]);
+                    eventArgs[ii - 1] = arguments[ii];
                 } // for
                 
-                for (ii = 0; ii < listeners.length; ii++) {
+                for (ii = listeners.length; ii--; ) {
                     if (listeners[ii][eventName]) {
                         listeners[ii][eventName].apply(self, eventArgs);
                     } // if
-                }
+                } // for
             } // fireEvent
             
             function firePositionEvent(eventName, absVector) {
@@ -145,16 +133,17 @@ SLICK.Touch = (function() {
                 fireEvent(eventName, absVector, offsetVector);
             } // firePositionEvent
             
-            function touchStart(touchEvent) {
-                touchesStart = getTouchPoints(touchEvent);
+            function touchStart(evt) {
+                // debugTouchEvent(evt, 'touch start');
+                touchesStart = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt);
                 touchDelta = new SLICK.Vector();
                 totalDelta = new SLICK.Vector();
                 touchDown = true;
                 doubleTap = false;
                 
-                if (touchEvent.target && (touchEvent.target === params.element)) {
+                if (evt.target && (evt.target === params.element)) {
                     // cancel event propogation
-                    preventDefaultTouch(touchEvent);
+                    preventDefaultTouch(evt);
 
                     // clear the inertia interval if it is running
                     // clearInterval(inertiaInterval);
@@ -191,16 +180,16 @@ SLICK.Touch = (function() {
                 } // if
             } // touchStart
             
-            function touchMove(touchEvent) {
+            function touchMove(evt) {
                 if (! touchDown) { return; }
                 
-                if (touchEvent.target && (touchEvent.target === params.element)) {
+                if (evt.target && (evt.target === params.element)) {
                     try {
                         // cancel event propogation
-                        preventDefaultTouch(touchEvent);
+                        preventDefaultTouch(evt);
 
                         // get the current touches
-                        var touchesCurrent = getTouchPoints(touchEvent),
+                        var touchesCurrent = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt),
                             zoomDistance = 0;
 
                         // check to see if we are pinching or zooming
@@ -268,11 +257,11 @@ SLICK.Touch = (function() {
                 } // if
             } // touchMove
             
-            function touchEnd(touchEvent) {
-                if (touchEvent.target && (touchEvent.target === params.element)) {
+            function touchEnd(evt) {
+                if (evt.target && (evt.target === params.element)) {
                     try {
                         // cancel event propogation
-                        preventDefaultTouch(touchEvent);
+                        preventDefaultTouch(evt);
 
                         // get the end tick
                         var endTick = SLICK.Clock.getTime();
@@ -313,7 +302,7 @@ SLICK.Touch = (function() {
 
             // initialise self
             var self = {
-                supportsTouch: SLICK.Device.getConfig().supportsTouch,
+                supportsTouch: supportsTouch,
 
                 /* define mutable constants (yeah, I know that's a contradiction) */
 
@@ -323,6 +312,24 @@ SLICK.Touch = (function() {
                 
                 addListeners: function(args) {
                     listeners.push(args);
+                },
+                
+                decoupleListeners: function(listenerId) {
+                    // iterate through the listeners and look for the matching listener id
+                    for (var ii = 0; listenerId && (ii < listeners.length); ii++) {
+                        if (listeners[ii].listenerId === listenerId) {
+                            listeners.splice(ii, 1);
+                            GRUNT.Log.info("successfully decoupled touch listener: " + listenerId);
+
+                            break;
+                        } // if
+                    } // for
+                },
+                
+                release: function() {
+                    config.eventTarget.removeEventListener(config.supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
+                    config.eventTarget.removeEventListener(config.supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
+                    config.eventTarget.removeEventListener(config.supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
                 },
                 
                 wheelie: function(evt) {
@@ -361,6 +368,7 @@ SLICK.Touch = (function() {
     
     // define the module members
     return {
+        // TODO: add the release touch method
         captureTouch: function(element, params) {
             try {
                 if (! element) {
@@ -383,12 +391,27 @@ SLICK.Touch = (function() {
                     GRUNT.Log.info("CREATED TOUCH HELPER. SUPPORTS TOUCH = " + touchHelper.supportsTouch);
                 } // if
                 
+                // if we already have an association with listeners, then remove first
+                if (params.listenerId) {
+                    touchHelper.decoupleListeners(params.listenerId);
+                } // if
+                
+                // flag the parameters with touch listener ids so they can be removed later
+                params.listenerId = (++listenerCount);
+
                 // add the listeners to the helper
                 touchHelper.addListeners(params);
             }
             catch (e) {
                 GRUNT.Log.exception(e);
             }
+        },
+        
+        resetTouch: function(element) {
+            if (element && element.id && touchHelpers[element.id]) {
+                touchHelpers[element.id].release();
+                delete touchHelpers[element.id];
+            } // if
         }
     }; // module
 })();
