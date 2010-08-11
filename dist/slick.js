@@ -2586,13 +2586,13 @@ SLICK.Touch = (function() {
                             // TODO: pass the total zoom amount
                             fireEvent('pinchZoomEndHandler', relativeTouches(touchesStart), relativeTouches(touchesLast));
                         } // if..else
-
-                        touchDown = false;
                     }
                     catch (e) {
                         GRUNT.Log.exception(e);
                     } // try..catch
                 } // if
+                
+                touchDown = false;
             } // touchEnd
 
             // initialise self
