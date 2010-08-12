@@ -15,6 +15,12 @@ SLICK.Geo = (function() {
         0.488332580888611
     ];
     
+    // define some constants
+    var M_PER_KM = 1000,
+        KM_PER_RAD = 6371,
+        DEGREES_TO_RADIANS = Math.PI / 180,
+        RADIANS_TO_DEGREES = 180 / Math.PI;
+    
     var REGEX_NUMBERRANGE = /(\d+)\s?\-\s?(\d+)/,
         REGEX_BUILDINGNO = /^(\d+).*$/,
         ROADTYPE_REGEX = null,
@@ -655,10 +661,6 @@ SLICK.Geo = (function() {
         
         /* position utilities (TODO: move other functions up here...) */
         P: (function() {
-            // define some constants
-            var M_PER_KM = 1000,
-                KM_PER_RAD = 6371;
-
             var subModule = {
                 calcDistance: function(pos1, pos2) {
                     if (subModule.empty(pos1) || subModule.empty(pos2)) {
@@ -761,6 +763,61 @@ SLICK.Geo = (function() {
 
                 toString: function(pos) {
                     return pos ? pos.lat + " " + pos.lon : "";
+                }
+            };
+            
+            return subModule;
+        })(),
+        
+        B: (function() {
+            var MIN_LAT = -(Math.PI / 2),
+                MAX_LAT = Math.PI / 2,
+                MIN_LON = -Math.PI * 2,
+                MAX_LON = Math.PI * 2;
+            
+            var subModule = {
+                // adapted from: http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates
+                createBoundsFromCenter: function(centerPos, distance) {
+                    var radDist = distance / KM_PER_RAD,
+                        radLat = centerPos.lat * DEGREES_TO_RADIANS,
+                        radLon = centerPos.lon * DEGREES_TO_RADIANS,
+                        minLat = radLat - radDist,
+                        maxLat = radLat + radDist,
+                        minLon, maxLon;
+                        
+                    GRUNT.Log.info("rad distance = " + radDist);
+                    GRUNT.Log.info("rad lat = " + radLat + ", lon = " + radLon);
+                    GRUNT.Log.info("min lat = " + minLat + ", max lat = " + maxLat);
+                        
+                    if ((minLat > MIN_LAT) && (maxLat < MAX_LAT)) {
+                        var deltaLon = Math.asin(Math.sin(radDist) / Math.cos(radLat));
+                        
+                        // determine the min longitude
+                        minLon = radLon - deltaLon;
+                        if (minLon < MIN_LON) {
+                            minLon += 2 * Math.PI;
+                        } // if
+                        
+                        // determine the max longitude
+                        maxLon = radLon + deltaLon;
+                        if (maxLon > MAX_LON) {
+                            maxLon -= 2 * Math.PI;
+                        } // if
+                    }
+                    else {
+                        minLat = Math.max(minLat, MIN_LAT);
+                        maxLat = Math.min(maxLat, MAX_LAT);
+                        minLon = MIN_LON;
+                        maxLon = MAX_LON;
+                    } // if..else
+                    
+                    return new module.BoundingBox(
+                                    new module.Position(minLat * RADIANS_TO_DEGREES, minLon * RADIANS_TO_DEGREES), 
+                                    new module.Position(maxLat * RADIANS_TO_DEGREES, maxLon * RADIANS_TO_DEGREES));
+                },
+                
+                toString: function(bounds) {
+                    return "min: " + module.P.toString(bounds.min) + ", max: " + module.P.toString(bounds.max);
                 }
             };
             
