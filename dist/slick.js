@@ -3670,7 +3670,6 @@ SLICK.Graphics = (function() {
         
         ViewLayer: function(params) {
             params = GRUNT.extend({
-                id: "",
                 centerOnScale: true,
                 created: new Date().getTime(),
                 scalePosition: true,
@@ -3679,15 +3678,16 @@ SLICK.Graphics = (function() {
                 validStates: module.DefaultDisplayStates
             }, params);
             
-            var parent = null;
-
+            var parent = null,
+                id = "";
+            
             var self = GRUNT.extend({
                 isAnimating: function() {
                     return false;
                 },
                 
                 addToView: function(view) {
-                    view.setLayer(params.id, self);
+                    view.setLayer(id, self);
                 },
                 
                 shouldDraw: function(displayState) {
@@ -3714,7 +3714,7 @@ SLICK.Graphics = (function() {
                 animation layers that should only exist as long as an animation is active.
                 */
                 remove: function() {
-                    GRUNT.WaterCooler.say("layer.remove", { id: params.id });
+                    GRUNT.WaterCooler.say("layer.remove", { id: id });
                 },
                 
                 wakeParent: function() {
@@ -3722,6 +3722,14 @@ SLICK.Graphics = (function() {
                     GRUNT.WaterCooler.say("view.wake", { id: parent ? parent.id : null });
                 },
                 
+                getId: function() {
+                    return id;
+                },
+                
+                setId: function(value) {
+                    id = value;
+                },
+
                 getParent: function() {
                     return parent;
                 },
@@ -4111,7 +4119,7 @@ SLICK.Graphics = (function() {
             
             function addLayer(id, value) {
                 // make sure the layer has the correct id
-                value.id = id;
+                value.setId(id);
                 
                 // tell the layer that I'm going to take care of it
                 value.setParent(self);
@@ -4132,7 +4140,7 @@ SLICK.Graphics = (function() {
             
             function getLayerIndex(id) {
                 for (var ii = layers.length; ii--; ) {
-                    if (layers[ii].id == id) {
+                    if (layers[ii].getId() == id) {
                         return ii;
                     } // if
                 } // for
@@ -4316,7 +4324,7 @@ SLICK.Graphics = (function() {
                 getLayer: function(id) {
                     // look for the matching layer, and return when found
                     for (var ii = 0; ii < layers.length; ii++) {
-                        if (layers[ii].id == id) {
+                        if (layers[ii].getId() == id) {
                             return layers[ii];
                         } // if
                     } // for
@@ -4327,7 +4335,7 @@ SLICK.Graphics = (function() {
                 setLayer: function(id, value) {
                     // if the layer already exists, then remove it
                     for (var ii = 0; ii < layers.length; ii++) {
-                        if (layers[ii].id === id) {
+                        if (layers[ii].getId() === id) {
                             layers.splice(ii, 1);
                             break;
                         } // if
@@ -4724,6 +4732,7 @@ SLICK.Tiling = (function() {
                 active = true,
                 tileDrawQueue = [],
                 loadedTileCount = 0,
+                lastTilesDrawn = false,
                 lastCheckOffset = new SLICK.Vector(),
                 shiftDelta = new SLICK.Vector(),
                 reloadTimeout = 0,
@@ -4810,6 +4819,7 @@ SLICK.Tiling = (function() {
                 },
                 
                 drawTile: function(context, tile, x, y, state) {
+                    return false;
                 },
                 
                 draw: function(context, offset, dimensions, state, view) {
@@ -4819,7 +4829,8 @@ SLICK.Tiling = (function() {
                     var startTicks = GRUNT.Log.getTraceTicks(),
                         tileShift = tileStore.getTileShift(),
                         xShift = offset.x + tileShift.x,
-                        yShift = offset.y + tileShift.y;
+                        yShift = offset.y + tileShift.y,
+                        tilesDrawn = true;
 
                     if (state !== SLICK.Graphics.DisplayState.PINCHZOOM) {
                         updateDrawQueue(context, offset, dimensions, view);
@@ -4843,12 +4854,15 @@ SLICK.Tiling = (function() {
                         // if the tile is loaded, then draw, otherwise load
                         if (tile) {
                             // draw the tile
-                            self.drawTile(context, tile, x, y, state);
+                            tilesDrawn = self.drawTile(context, tile, x, y, state) && tilesDrawn;
                             
                             // update the tile position
                             tile.x = x;
                             tile.y = y;
-                        } // if
+                        } 
+                        else {
+                            tilesDrawn = false;
+                        } // if..else
 
                         // if we are drawing borders, then draw that now
                         if (params.drawGrid) {
@@ -4858,9 +4872,15 @@ SLICK.Tiling = (function() {
 
                     // draw the borders if we have them...
                     context.stroke();
-                    GRUNT.Log.trace("drawn tiles", startTicks);                        
+                    GRUNT.Log.trace("drawn tiles", startTicks);
+                    
+                    // if the tiles have been drawn and previously haven't then fire the tiles drawn event
+                    if (tilesDrawn && (! lastTilesDrawn)) {
+                        GRUNT.WaterCooler.say("tiles.drawn", { id: self.getId() });
+                    } // if
                     
                     // flag the grid as not dirty
+                    lastTilesDrawn = tilesDrawn;
                     gridDirty = false;
                 },
                 
@@ -4914,7 +4934,8 @@ SLICK.Tiling = (function() {
             
             var self = GRUNT.extend(new module.TileGrid(params), {
                 drawTile: function(context, tile, x, y, state) {
-                    var image = SLICK.Resources.getImage(tile.url);
+                    var image = SLICK.Resources.getImage(tile.url),
+                        drawn = false;
                     
                     // TODO: remove this for performance but work out how to make remove problem areas
                     if (state === SLICK.Graphics.DisplayState.PAN) {
@@ -4923,6 +4944,7 @@ SLICK.Tiling = (function() {
 
                     if (image && image.complete && (image.width > 0)) {
                         context.drawImage(image, x, y);
+                        drawn = true;
                     }
                     else {
                         context.drawImage(getEmptyTile(), x, y);
@@ -4932,6 +4954,8 @@ SLICK.Tiling = (function() {
                             SLICK.Resources.loadImage(tile.url, handleImageLoad);
                         } // if
                     } // if..else
+                    
+                    return drawn;
                 }
             });
             
@@ -4988,7 +5012,6 @@ SLICK.Tiling = (function() {
                 },
 
                 setTileLayer: function(value) {
-                    // watch the layer
                     self.setLayer("grid" + gridIndex, value);
                     
                     // update the tile load threshold
@@ -5032,6 +5055,12 @@ SLICK.Geo = (function() {
         0.703119412486786,
         0.488332580888611
     ];
+    
+    // define some constants
+    var M_PER_KM = 1000,
+        KM_PER_RAD = 6371,
+        DEGREES_TO_RADIANS = Math.PI / 180,
+        RADIANS_TO_DEGREES = 180 / Math.PI;
     
     var REGEX_NUMBERRANGE = /(\d+)\s?\-\s?(\d+)/,
         REGEX_BUILDINGNO = /^(\d+).*$/,
@@ -5673,10 +5702,6 @@ SLICK.Geo = (function() {
         
         /* position utilities (TODO: move other functions up here...) */
         P: (function() {
-            // define some constants
-            var M_PER_KM = 1000,
-                KM_PER_RAD = 6371;
-
             var subModule = {
                 calcDistance: function(pos1, pos2) {
                     if (subModule.empty(pos1) || subModule.empty(pos2)) {
@@ -5779,6 +5804,61 @@ SLICK.Geo = (function() {
 
                 toString: function(pos) {
                     return pos ? pos.lat + " " + pos.lon : "";
+                }
+            };
+            
+            return subModule;
+        })(),
+        
+        B: (function() {
+            var MIN_LAT = -(Math.PI / 2),
+                MAX_LAT = Math.PI / 2,
+                MIN_LON = -Math.PI * 2,
+                MAX_LON = Math.PI * 2;
+            
+            var subModule = {
+                // adapted from: http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates
+                createBoundsFromCenter: function(centerPos, distance) {
+                    var radDist = distance / KM_PER_RAD,
+                        radLat = centerPos.lat * DEGREES_TO_RADIANS,
+                        radLon = centerPos.lon * DEGREES_TO_RADIANS,
+                        minLat = radLat - radDist,
+                        maxLat = radLat + radDist,
+                        minLon, maxLon;
+                        
+                    GRUNT.Log.info("rad distance = " + radDist);
+                    GRUNT.Log.info("rad lat = " + radLat + ", lon = " + radLon);
+                    GRUNT.Log.info("min lat = " + minLat + ", max lat = " + maxLat);
+                        
+                    if ((minLat > MIN_LAT) && (maxLat < MAX_LAT)) {
+                        var deltaLon = Math.asin(Math.sin(radDist) / Math.cos(radLat));
+                        
+                        // determine the min longitude
+                        minLon = radLon - deltaLon;
+                        if (minLon < MIN_LON) {
+                            minLon += 2 * Math.PI;
+                        } // if
+                        
+                        // determine the max longitude
+                        maxLon = radLon + deltaLon;
+                        if (maxLon > MAX_LON) {
+                            maxLon -= 2 * Math.PI;
+                        } // if
+                    }
+                    else {
+                        minLat = Math.max(minLat, MIN_LAT);
+                        maxLat = Math.min(maxLat, MAX_LAT);
+                        minLon = MIN_LON;
+                        maxLon = MAX_LON;
+                    } // if..else
+                    
+                    return new module.BoundingBox(
+                                    new module.Position(minLat * RADIANS_TO_DEGREES, minLon * RADIANS_TO_DEGREES), 
+                                    new module.Position(maxLat * RADIANS_TO_DEGREES, maxLon * RADIANS_TO_DEGREES));
+                },
+                
+                toString: function(bounds) {
+                    return "min: " + module.P.toString(bounds.min) + ", max: " + module.P.toString(bounds.max);
                 }
             };
             
@@ -6543,7 +6623,8 @@ SLICK.Mapping = (function() {
                 xy: null,
                 pos: null,
                 draw: null,
-                tweenIn: module.AnnotationTween
+                tweenIn: module.AnnotationTween,
+                animationSpeed: null
             }, params);
             
             // TODO: make this inherit from sprite
@@ -6552,7 +6633,7 @@ SLICK.Mapping = (function() {
             var self = {
                 xy: params.xy,
                 pos: params.pos,
-                isNew: false,
+                isNew: true,
                 
                 isAnimating: function() {
                     return animating;
@@ -6574,7 +6655,7 @@ SLICK.Mapping = (function() {
                         SLICK.Animation.tween(self.xy, "y", endValue, params.tweenIn, function() {
                             self.xy.y = endValue;
                             animating = false;
-                        }, 250 + (Math.random() * 500));
+                        }, params.animationSpeed ? params.animationSpeed : 250 + (Math.random() * 500));
                     } // if
                     
                     if (params.draw) {
@@ -6601,20 +6682,37 @@ SLICK.Mapping = (function() {
         
         ImageAnnotation: function(params) {
             params = GRUNT.extend({
-                imageUrl: null
+                imageUrl: null,
+                animatingImageUrl: null,
+                imageAnchor: null
             }, params);
             
-            var imageOffset = null;
+            var imageOffset = params.imageAnchor ? SLICK.V.invert(params.imageAnchor) : null;
+            
+            function getImageUrl() {
+                if (params.animatingImageUrl && self.isAnimating()) {
+                    // we want a smooth transition, so make sure the end image is loaded
+                    SLICK.Resources.loadImage(params.imageUrl);
+                    
+                    // return the animating image url
+                    return params.animatingImageUrl;
+                }
+                else {
+                    return params.imageUrl;
+                } // if..else
+            }
             
             params.draw = function(context, offset, xy, state, overlay) {
                 // get the image
-                var image = SLICK.Resources.getImage(params.imageUrl);
+                var imageUrl = getImageUrl(),
+                    image = SLICK.Resources.getImage(imageUrl);
+                    
                 if (! image) {
-                    SLICK.Resources.loadImage(params.imageUrl, function(loadedImage, fromCache) {
+                    SLICK.Resources.loadImage(imageUrl, function(loadedImage, fromCache) {
                         overlay.wakeParent();
                     });
                 }
-                else if (image.complete) {
+                else if (image.complete && (image.width > 0)) {
                     if (! imageOffset) {
                         imageOffset = new SLICK.Vector(-image.width >> 1, -image.height >> 1);
                     } // if
@@ -6627,7 +6725,8 @@ SLICK.Mapping = (function() {
                 } // if
             }; // draw
 
-            return new module.Annotation(params);
+            var self = new module.Annotation(params);
+            return self;
         },
         
         AnnotationsOverlay: function(params) {
@@ -6716,7 +6815,7 @@ SLICK.Mapping = (function() {
 
                         for (ii = staticAnnotations.length; ii--; ) {
                             staticAnnotations[ii].draw(context, offset, state, self);
-                            animating = animating || annotations[ii].isAnimating();
+                            animating = animating || staticAnnotations[ii].isAnimating();
                         } // for
 
                         if (animating) {
@@ -6735,6 +6834,21 @@ SLICK.Mapping = (function() {
                 add: function(annotation) {
                     staticAnnotations.push(annotation);
                     updateAnnotationCoordinates(staticAnnotations);
+                    self.wakeParent();
+                },
+                
+                clear: function(includeNonStatic) {
+                    staticAnnotations = [];
+                    updateAnnotationCoordinates(staticAnnotations);
+                    
+                    // if non static annotations should be cleared also, then do it
+                    if (includeNonStatic) {
+                        annotations = [];
+                        updateAnnotationCoordinates(annotations);
+                    } // if
+                    
+                    // wake the parent
+                    self.wakeParent();
                 },
                 
                 isAnimating: function() {
@@ -6754,6 +6868,7 @@ SLICK.Mapping = (function() {
             GRUNT.WaterCooler.listen("grid.updated", function(args) {
                 updateAnnotationCoordinates(annotations);
                 updateAnnotationCoordinates(staticAnnotations);
+                self.wakeParent();
             });
             
             return self;
@@ -6768,9 +6883,11 @@ SLICK.Mapping = (function() {
                 zoomLevel: 0,
                 boundsChange: null,
                 tapPOI: null,
+                tapHandler: null,
                 boundsChangeThreshold: 30,
                 pois: new SLICK.Geo.POIStorage(),
-                createAnnotationForPOI: null
+                createAnnotationForPOI: null,
+                onTilesLoaded: null
             }, params);
             
             // if the copyright message is not defined, then use the provider
@@ -6785,8 +6902,9 @@ SLICK.Mapping = (function() {
                 tappedPOIs = [],
                 lastRequestTime = 0,
                 guideOffset = null,
+                gridLayerId = null,
                 zoomLevel = params.zoomLevel;
-
+                
             // if the data provider has not been created, then create a default one
             if (! params.provider) {
                 params.provider = new SLICK.Geo.MapProvider();
@@ -6810,6 +6928,7 @@ SLICK.Mapping = (function() {
 
                 if (grid) {
                     var gridPos = self.viewPixToGridPix(new SLICK.Vector(relPos.x, relPos.y)),
+                        tapPos = grid.pixelsToPos(gridPos),
                         minPos = grid.pixelsToPos(SLICK.V.offset(gridPos, -params.tapExtent, params.tapExtent)),
                         maxPos = grid.pixelsToPos(SLICK.V.offset(gridPos, params.tapExtent, -params.tapExtent));
                         
@@ -6828,7 +6947,7 @@ SLICK.Mapping = (function() {
                 } // if
 
                 if (caller_tap_handler) {
-                    caller_tap_handler(absPos, relPos, tapBounds); 
+                    caller_tap_handler(absPos, relPos, tapPos, tapBounds); 
                 } // if
             }; // tapHandler
 
@@ -6862,6 +6981,7 @@ SLICK.Mapping = (function() {
             // initialise self
             var self = GRUNT.extend({}, parent, {
                 pois: params.pois,
+                annotations: null,
                 
                 getBoundingBox: function(buffer_size) {
                     var fnresult = new SLICK.Geo.BoundingBox();
@@ -6954,6 +7074,9 @@ SLICK.Mapping = (function() {
                             if (requestTime === lastRequestTime) {
                                 // update the tile layer to the use the new layer
                                 self.setTileLayer(tileGrid);
+                                
+                                // update the grid layer id
+                                gridLayerId = tileGrid.getId();
 
                                 // pan to the correct position
                                 self.panToPosition(position, function() {
@@ -7057,8 +7180,9 @@ SLICK.Mapping = (function() {
                 map: self,
                 createAnnotationForPOI: params.createAnnotationForPOI
             });
-            
+
             // add the annotations layer
+            self.annotations = annotations;
             self.setLayer("annotations", annotations);
             
             // add the radar overlay
@@ -7096,6 +7220,13 @@ SLICK.Mapping = (function() {
                         params.boundsChange(self.getBoundingBox());
                     } // if
                 }
+            });
+
+            // listen for tiles drawn being completed
+            GRUNT.WaterCooler.listen("tiles.drawn", function(args) {
+                if (args.id && (args.id == gridLayerId) && params.onTilesLoaded) {
+                    params.onTilesLoaded();
+                }  // if
             });
             
             return self;

@@ -279,6 +279,7 @@ SLICK.Tiling = (function() {
                 active = true,
                 tileDrawQueue = [],
                 loadedTileCount = 0,
+                lastTilesDrawn = false,
                 lastCheckOffset = new SLICK.Vector(),
                 shiftDelta = new SLICK.Vector(),
                 reloadTimeout = 0,
@@ -365,6 +366,7 @@ SLICK.Tiling = (function() {
                 },
                 
                 drawTile: function(context, tile, x, y, state) {
+                    return false;
                 },
                 
                 draw: function(context, offset, dimensions, state, view) {
@@ -374,7 +376,8 @@ SLICK.Tiling = (function() {
                     var startTicks = GRUNT.Log.getTraceTicks(),
                         tileShift = tileStore.getTileShift(),
                         xShift = offset.x + tileShift.x,
-                        yShift = offset.y + tileShift.y;
+                        yShift = offset.y + tileShift.y,
+                        tilesDrawn = true;
 
                     if (state !== SLICK.Graphics.DisplayState.PINCHZOOM) {
                         updateDrawQueue(context, offset, dimensions, view);
@@ -398,12 +401,15 @@ SLICK.Tiling = (function() {
                         // if the tile is loaded, then draw, otherwise load
                         if (tile) {
                             // draw the tile
-                            self.drawTile(context, tile, x, y, state);
+                            tilesDrawn = self.drawTile(context, tile, x, y, state) && tilesDrawn;
                             
                             // update the tile position
                             tile.x = x;
                             tile.y = y;
-                        } // if
+                        } 
+                        else {
+                            tilesDrawn = false;
+                        } // if..else
 
                         // if we are drawing borders, then draw that now
                         if (params.drawGrid) {
@@ -413,9 +419,15 @@ SLICK.Tiling = (function() {
 
                     // draw the borders if we have them...
                     context.stroke();
-                    GRUNT.Log.trace("drawn tiles", startTicks);                        
+                    GRUNT.Log.trace("drawn tiles", startTicks);
+                    
+                    // if the tiles have been drawn and previously haven't then fire the tiles drawn event
+                    if (tilesDrawn && (! lastTilesDrawn)) {
+                        GRUNT.WaterCooler.say("tiles.drawn", { id: self.getId() });
+                    } // if
                     
                     // flag the grid as not dirty
+                    lastTilesDrawn = tilesDrawn;
                     gridDirty = false;
                 },
                 
@@ -469,7 +481,8 @@ SLICK.Tiling = (function() {
             
             var self = GRUNT.extend(new module.TileGrid(params), {
                 drawTile: function(context, tile, x, y, state) {
-                    var image = SLICK.Resources.getImage(tile.url);
+                    var image = SLICK.Resources.getImage(tile.url),
+                        drawn = false;
                     
                     // TODO: remove this for performance but work out how to make remove problem areas
                     if (state === SLICK.Graphics.DisplayState.PAN) {
@@ -478,6 +491,7 @@ SLICK.Tiling = (function() {
 
                     if (image && image.complete && (image.width > 0)) {
                         context.drawImage(image, x, y);
+                        drawn = true;
                     }
                     else {
                         context.drawImage(getEmptyTile(), x, y);
@@ -487,6 +501,8 @@ SLICK.Tiling = (function() {
                             SLICK.Resources.loadImage(tile.url, handleImageLoad);
                         } // if
                     } // if..else
+                    
+                    return drawn;
                 }
             });
             
@@ -543,7 +559,6 @@ SLICK.Tiling = (function() {
                 },
 
                 setTileLayer: function(value) {
-                    // watch the layer
                     self.setLayer("grid" + gridIndex, value);
                     
                     // update the tile load threshold

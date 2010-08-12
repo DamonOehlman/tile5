@@ -42,7 +42,6 @@ SLICK.Graphics = (function() {
         
         ViewLayer: function(params) {
             params = GRUNT.extend({
-                id: "",
                 centerOnScale: true,
                 created: new Date().getTime(),
                 scalePosition: true,
@@ -51,15 +50,16 @@ SLICK.Graphics = (function() {
                 validStates: module.DefaultDisplayStates
             }, params);
             
-            var parent = null;
-
+            var parent = null,
+                id = "";
+            
             var self = GRUNT.extend({
                 isAnimating: function() {
                     return false;
                 },
                 
                 addToView: function(view) {
-                    view.setLayer(params.id, self);
+                    view.setLayer(id, self);
                 },
                 
                 shouldDraw: function(displayState) {
@@ -86,7 +86,7 @@ SLICK.Graphics = (function() {
                 animation layers that should only exist as long as an animation is active.
                 */
                 remove: function() {
-                    GRUNT.WaterCooler.say("layer.remove", { id: params.id });
+                    GRUNT.WaterCooler.say("layer.remove", { id: id });
                 },
                 
                 wakeParent: function() {
@@ -94,6 +94,14 @@ SLICK.Graphics = (function() {
                     GRUNT.WaterCooler.say("view.wake", { id: parent ? parent.id : null });
                 },
                 
+                getId: function() {
+                    return id;
+                },
+                
+                setId: function(value) {
+                    id = value;
+                },
+
                 getParent: function() {
                     return parent;
                 },
@@ -483,7 +491,7 @@ SLICK.Graphics = (function() {
             
             function addLayer(id, value) {
                 // make sure the layer has the correct id
-                value.id = id;
+                value.setId(id);
                 
                 // tell the layer that I'm going to take care of it
                 value.setParent(self);
@@ -504,7 +512,7 @@ SLICK.Graphics = (function() {
             
             function getLayerIndex(id) {
                 for (var ii = layers.length; ii--; ) {
-                    if (layers[ii].id == id) {
+                    if (layers[ii].getId() == id) {
                         return ii;
                     } // if
                 } // for
@@ -688,7 +696,7 @@ SLICK.Graphics = (function() {
                 getLayer: function(id) {
                     // look for the matching layer, and return when found
                     for (var ii = 0; ii < layers.length; ii++) {
-                        if (layers[ii].id == id) {
+                        if (layers[ii].getId() == id) {
                             return layers[ii];
                         } // if
                     } // for
@@ -699,7 +707,7 @@ SLICK.Graphics = (function() {
                 setLayer: function(id, value) {
                     // if the layer already exists, then remove it
                     for (var ii = 0; ii < layers.length; ii++) {
-                        if (layers[ii].id === id) {
+                        if (layers[ii].getId() === id) {
                             layers.splice(ii, 1);
                             break;
                         } // if

@@ -366,7 +366,8 @@ SLICK.Mapping = (function() {
                 xy: null,
                 pos: null,
                 draw: null,
-                tweenIn: module.AnnotationTween
+                tweenIn: module.AnnotationTween,
+                animationSpeed: null
             }, params);
             
             // TODO: make this inherit from sprite
@@ -375,7 +376,7 @@ SLICK.Mapping = (function() {
             var self = {
                 xy: params.xy,
                 pos: params.pos,
-                isNew: false,
+                isNew: true,
                 
                 isAnimating: function() {
                     return animating;
@@ -397,7 +398,7 @@ SLICK.Mapping = (function() {
                         SLICK.Animation.tween(self.xy, "y", endValue, params.tweenIn, function() {
                             self.xy.y = endValue;
                             animating = false;
-                        }, 250 + (Math.random() * 500));
+                        }, params.animationSpeed ? params.animationSpeed : 250 + (Math.random() * 500));
                     } // if
                     
                     if (params.draw) {
@@ -424,20 +425,37 @@ SLICK.Mapping = (function() {
         
         ImageAnnotation: function(params) {
             params = GRUNT.extend({
-                imageUrl: null
+                imageUrl: null,
+                animatingImageUrl: null,
+                imageAnchor: null
             }, params);
             
-            var imageOffset = null;
+            var imageOffset = params.imageAnchor ? SLICK.V.invert(params.imageAnchor) : null;
+            
+            function getImageUrl() {
+                if (params.animatingImageUrl && self.isAnimating()) {
+                    // we want a smooth transition, so make sure the end image is loaded
+                    SLICK.Resources.loadImage(params.imageUrl);
+                    
+                    // return the animating image url
+                    return params.animatingImageUrl;
+                }
+                else {
+                    return params.imageUrl;
+                } // if..else
+            }
             
             params.draw = function(context, offset, xy, state, overlay) {
                 // get the image
-                var image = SLICK.Resources.getImage(params.imageUrl);
+                var imageUrl = getImageUrl(),
+                    image = SLICK.Resources.getImage(imageUrl);
+                    
                 if (! image) {
-                    SLICK.Resources.loadImage(params.imageUrl, function(loadedImage, fromCache) {
+                    SLICK.Resources.loadImage(imageUrl, function(loadedImage, fromCache) {
                         overlay.wakeParent();
                     });
                 }
-                else if (image.complete) {
+                else if (image.complete && (image.width > 0)) {
                     if (! imageOffset) {
                         imageOffset = new SLICK.Vector(-image.width >> 1, -image.height >> 1);
                     } // if
@@ -450,7 +468,8 @@ SLICK.Mapping = (function() {
                 } // if
             }; // draw
 
-            return new module.Annotation(params);
+            var self = new module.Annotation(params);
+            return self;
         },
         
         AnnotationsOverlay: function(params) {
@@ -539,7 +558,7 @@ SLICK.Mapping = (function() {
 
                         for (ii = staticAnnotations.length; ii--; ) {
                             staticAnnotations[ii].draw(context, offset, state, self);
-                            animating = animating || annotations[ii].isAnimating();
+                            animating = animating || staticAnnotations[ii].isAnimating();
                         } // for
 
                         if (animating) {
@@ -558,6 +577,21 @@ SLICK.Mapping = (function() {
                 add: function(annotation) {
                     staticAnnotations.push(annotation);
                     updateAnnotationCoordinates(staticAnnotations);
+                    self.wakeParent();
+                },
+                
+                clear: function(includeNonStatic) {
+                    staticAnnotations = [];
+                    updateAnnotationCoordinates(staticAnnotations);
+                    
+                    // if non static annotations should be cleared also, then do it
+                    if (includeNonStatic) {
+                        annotations = [];
+                        updateAnnotationCoordinates(annotations);
+                    } // if
+                    
+                    // wake the parent
+                    self.wakeParent();
                 },
                 
                 isAnimating: function() {
@@ -577,6 +611,7 @@ SLICK.Mapping = (function() {
             GRUNT.WaterCooler.listen("grid.updated", function(args) {
                 updateAnnotationCoordinates(annotations);
                 updateAnnotationCoordinates(staticAnnotations);
+                self.wakeParent();
             });
             
             return self;
@@ -591,9 +626,11 @@ SLICK.Mapping = (function() {
                 zoomLevel: 0,
                 boundsChange: null,
                 tapPOI: null,
+                tapHandler: null,
                 boundsChangeThreshold: 30,
                 pois: new SLICK.Geo.POIStorage(),
-                createAnnotationForPOI: null
+                createAnnotationForPOI: null,
+                onTilesLoaded: null
             }, params);
             
             // if the copyright message is not defined, then use the provider
@@ -608,8 +645,9 @@ SLICK.Mapping = (function() {
                 tappedPOIs = [],
                 lastRequestTime = 0,
                 guideOffset = null,
+                gridLayerId = null,
                 zoomLevel = params.zoomLevel;
-
+                
             // if the data provider has not been created, then create a default one
             if (! params.provider) {
                 params.provider = new SLICK.Geo.MapProvider();
@@ -633,6 +671,7 @@ SLICK.Mapping = (function() {
 
                 if (grid) {
                     var gridPos = self.viewPixToGridPix(new SLICK.Vector(relPos.x, relPos.y)),
+                        tapPos = grid.pixelsToPos(gridPos),
                         minPos = grid.pixelsToPos(SLICK.V.offset(gridPos, -params.tapExtent, params.tapExtent)),
                         maxPos = grid.pixelsToPos(SLICK.V.offset(gridPos, params.tapExtent, -params.tapExtent));
                         
@@ -651,7 +690,7 @@ SLICK.Mapping = (function() {
                 } // if
 
                 if (caller_tap_handler) {
-                    caller_tap_handler(absPos, relPos, tapBounds); 
+                    caller_tap_handler(absPos, relPos, tapPos, tapBounds); 
                 } // if
             }; // tapHandler
 
@@ -685,6 +724,7 @@ SLICK.Mapping = (function() {
             // initialise self
             var self = GRUNT.extend({}, parent, {
                 pois: params.pois,
+                annotations: null,
                 
                 getBoundingBox: function(buffer_size) {
                     var fnresult = new SLICK.Geo.BoundingBox();
@@ -777,6 +817,9 @@ SLICK.Mapping = (function() {
                             if (requestTime === lastRequestTime) {
                                 // update the tile layer to the use the new layer
                                 self.setTileLayer(tileGrid);
+                                
+                                // update the grid layer id
+                                gridLayerId = tileGrid.getId();
 
                                 // pan to the correct position
                                 self.panToPosition(position, function() {
@@ -880,8 +923,9 @@ SLICK.Mapping = (function() {
                 map: self,
                 createAnnotationForPOI: params.createAnnotationForPOI
             });
-            
+
             // add the annotations layer
+            self.annotations = annotations;
             self.setLayer("annotations", annotations);
             
             // add the radar overlay
@@ -919,6 +963,13 @@ SLICK.Mapping = (function() {
                         params.boundsChange(self.getBoundingBox());
                     } // if
                 }
+            });
+
+            // listen for tiles drawn being completed
+            GRUNT.WaterCooler.listen("tiles.drawn", function(args) {
+                if (args.id && (args.id == gridLayerId) && params.onTilesLoaded) {
+                    params.onTilesLoaded();
+                }  // if
             });
             
             return self;
