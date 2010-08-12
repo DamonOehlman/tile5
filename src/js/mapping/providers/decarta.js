@@ -88,7 +88,7 @@ SLICK.Geo.Decarta = (function() {
             }, params);
             
             // initialise self (including params in self)
-            var self = {
+            var self = GRUNT.extend({
                 calcMatchPercentage: function(input) {
                     var fnresult = 0;
                     
@@ -158,7 +158,7 @@ SLICK.Geo.Decarta = (function() {
                     
                     return formatter(params);
                 }
-            };
+            }, params);
             
             return self;
         },
@@ -169,12 +169,29 @@ SLICK.Geo.Decarta = (function() {
             }, params);
             
             // initialise variables
-            var street = params.json.Street ? params.json.Street : "";
+            var street = "",
+                building = "";
+                
+            // parse the street
+            if (params.json.Street) {
+                street = params.json.Street.content ? params.json.Street.content : params.json.Street;
+            } // if
             
             // strip any trailing highway specifiers from the street
             street = street.replace(/\/\d+$/, "");
             
+            // parse the building
+            if (params.json.Building) {
+                // TODO: suspect name will be involved here possibly also
+                if (params.json.Building.number) {
+                    building = params.json.Building.number;
+                } // if
+            } // if
+            
             return {
+                building: building,
+                street: street,
+                
                 calcMatchPercentage: function(input) {
                     var fnresult = 0,
                         test1 = SLICK.Geo.normalizeAddress(input), 
@@ -195,13 +212,9 @@ SLICK.Geo.Decarta = (function() {
                 
                 toString: function() {
                     var fnresult = street;
-                    
-                    if (params.json.Building) {
-                        // TODO: suspect name will be involved here possibly also
-                        if (params.json.Building.number) {
-                            fnresult = params.json.Building.number + " " + fnresult;
-                        } // if
-                    }
+                    if (building) {
+                        fnresult = building + " " + fnresult;
+                    } // if
                     
                     return fnresult;
                 }
@@ -287,6 +300,30 @@ SLICK.Geo.Decarta = (function() {
             } // if..else
         });
     } // openlsComms
+    
+    function parseAddress(address, position) {
+        var streetDetails = new types.Street({
+                json: address.StreetAddress
+            });
+            
+        var placeDetails = new types.Place({
+            countryCode: address.countryCode
+        });
+        
+        // parse the place details
+        placeDetails.parse(address.Place);
+        
+        // initialise the address params
+        var addressParams = {
+            streetDetails: streetDetails,
+            location: placeDetails,
+            country: address.countryCode ? address.countryCode : "",
+            postalCode: address.PostalCode ? address.PostalCode : "",
+            pos: position
+        };
+        
+        return new SLICK.Geo.Address(addressParams);
+    } // parseAddress
 
     var requestTypes = {
         Request: function() {
@@ -470,30 +507,6 @@ SLICK.Geo.Decarta = (function() {
                 returnSpatialKeys: false
             }, params);
             
-            function parseAddress(address, position) {
-                var streetDetails = new types.Street({
-                        json: address.StreetAddress
-                    });
-                
-                var placeDetails = new types.Place({
-                    countryCode: address.countryCode
-                });
-                
-                // parse the place details
-                placeDetails.parse(address.Place);
-                
-                // initialise the address params
-                var addressParams = {
-                    streetDetails: streetDetails,
-                    location: placeDetails,
-                    country: address.countryCode ? address.countryCode : "",
-                    postalCode: address.PostalCode ? address.PostalCode : "",
-                    pos: position
-                };
-                
-                return new SLICK.Geo.Address(addressParams);
-            } // placeToAddress
-            
             function validMatch(match) {
                 return match.GeocodeMatchCode && match.GeocodeMatchCode.matchType !== "NO_MATCH";
             } // validMatch
@@ -589,6 +602,48 @@ SLICK.Geo.Decarta = (function() {
             // return self
             return self;
         },
+        
+        ReverseGeocodeRequest: function(params) {
+            params = GRUNT.extend({
+                position: null,
+                geocodePreference: "StreetAddress"
+            }, params);
+            
+            var self = GRUNT.extend(new requestTypes.Request(), {
+                methodName: "ReverseGeocode",
+                
+                getRequestBody: function() {
+                    return "" +
+                        "<xls:ReverseGeocodeRequest>" + 
+                            "<xls:Position>" + 
+                                "<gml:Point>" + 
+                                    "<gml:pos>" + SLICK.Geo.P.toString(params.position) + "</gml:pos>" + 
+                                "</gml:Point>" + 
+                            "</xls:Position>" + 
+                            "<xls:ReverseGeocodePreference>" + params.geocodePreference + "</xls:ReverseGeocodePreference>" + 
+                        "</xls:ReverseGeocodeRequest>";
+                },
+                
+                parseResponse: function(response) {
+                    var matchPos = null;
+                    
+                    // if the point is defined, then convert that to a position
+                    if (response && response.Point) {
+                        matchPos = SLICK.Geo.P.parse(match.Point.pos);
+                    } // if
+
+                    // if we have the address then convert that to an address
+                    if (response && response.ReverseGeocodedLocation && response.ReverseGeocodedLocation.Address) {
+                        return parseAddress(response.ReverseGeocodedLocation.Address, matchPos);
+                    } // if                    
+                    
+                    return null;
+                }
+            });
+            
+            return self;
+        },
+        
         
         RouteRequest: function(params) {
             params = GRUNT.extend({
@@ -767,6 +822,27 @@ SLICK.Geo.Decarta = (function() {
             } // if
         },
         
+        reverseGeocode: function(args) {
+            args = GRUNT.extend({
+                position: null,
+                complete: null
+            }, args);
+            
+            // if the position has not been provided, then throw an exception
+            if (! args.position) {
+                throw new Error("Cannot reverse geocode without a position");
+            } // if
+            
+            // create the geocoding request and execute it
+            var request = new requestTypes.ReverseGeocodeRequest(args);
+        
+            makeServerRequest(request, function(matchingAddress) {
+                if (args.complete) {
+                    args.complete(matchingAddress);
+                }
+            });
+        },
+        
         // define the decarta utilities as per this thread on the decarta forum
         // http://devzone.decarta.com/web/guest/forums?p_p_id=19&p_p_action=0&p_p_state=maximized&p_p_mode=view&_19_struts_action=/message_boards/view_message&_19_messageId=43131
         
@@ -875,6 +951,7 @@ SLICK.Geo.Decarta = (function() {
         id: "decarta",
         route: module.calculateRoute,
         geocode: module.geocode,
+        reverseGeocode: module.reverseGeocode,
         compareFns: (function() {
             return {
                 streetDetails: function(input, fieldVal) {
