@@ -1,4 +1,4 @@
-SLICK.Geo.Location = (function() {
+TILE5.Geo.Location = (function() {
     // initialise some defaults
     var DEFAULT_GEOLOCATION_TIMEOUT = 3000,
         HIGH_ACCURACY_CUTOFF = 10;
@@ -53,7 +53,7 @@ SLICK.Geo.Location = (function() {
         
         function positionSuccess(position) {
             try {
-                var pos = new SLICK.Geo.Position(position.coords.latitude, position.coords.longitude),
+                var pos = new TILE5.Geo.Position(position.coords.latitude, position.coords.longitude),
                     accuracy = getAccuracy(position.coords);
 
                 GRUNT.Log.info("got position coordinates: " + pos + ", accuracy = " + accuracy);

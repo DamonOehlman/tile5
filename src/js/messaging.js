@@ -1,15 +1,15 @@
 /**
 @namespace 
 
-The concept behind SLICK messaging, is to enable client-side javascript to send messages and have
+The concept behind TILE5 messaging, is to enable client-side javascript to send messages and have
 those messages be handled in some way.  In some cases, a message being handled will involve moving
 to another part of the application (which is handled by the native bridge in a mobile application)
 or potentially a message could actually have some action taken on the server side, message data 
 updated and then the creating context could be notified of the change.  Currently, the messaging
-section of SLICK is evolving, and is likely to change over time as the requirements of this module
+section of TILE5 is evolving, and is likely to change over time as the requirements of this module
 become clear.
 */
-SLICK.Messaging = (function() {
+TILE5.Messaging = (function() {
     var handlers = [];
     var messageQueue = [];
     
@@ -51,8 +51,8 @@ SLICK.Messaging = (function() {
     } // updateMessageStatus
     
     var module = GRUNT.newModule({
-        id: "slick.messaging",
-        requires: ["slick.core"],
+        id: "TILE5.messaging",
+        requires: ["TILE5.core"],
 
         // message status updates
         STATUS: {

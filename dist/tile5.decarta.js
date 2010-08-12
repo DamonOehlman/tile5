@@ -1,5 +1,5 @@
 // define the DECARTA library
-SLICK.Geo.Decarta = (function() {
+TILE5.Geo.Decarta = (function() {
     // initialise the default configuration parameters
     var currentConfig = {
         sessionID: new Date().getTime(),
@@ -194,11 +194,11 @@ SLICK.Geo.Decarta = (function() {
                 
                 calcMatchPercentage: function(input) {
                     var fnresult = 0,
-                        test1 = SLICK.Geo.normalizeAddress(input), 
-                        test2 = SLICK.Geo.normalizeAddress(street);
+                        test1 = TILE5.Geo.normalizeAddress(input), 
+                        test2 = TILE5.Geo.normalizeAddress(street);
                         
                     if (params.json.Building) {
-                        if (SLICK.Geo.buildingMatch(input, params.json.Building.number.toString())) {
+                        if (TILE5.Geo.buildingMatch(input, params.json.Building.number.toString())) {
                             fnresult += 0.2;
                         } // if
                     } // if
@@ -223,8 +223,8 @@ SLICK.Geo.Decarta = (function() {
         
         CenterContext: function(jsonData) {
             return {
-                centerPos: SLICK.Geo.P.parse(jsonData.CenterPoint ? jsonData.CenterPoint.pos.content : ""),
-                radius: new SLICK.Geo.Radius(jsonData.Radius ? jsonData.Radius.content : 0, jsonData.Radius ? jsonData.Radius.unit : null)
+                centerPos: TILE5.Geo.P.parse(jsonData.CenterPoint ? jsonData.CenterPoint.pos.content : ""),
+                radius: new TILE5.Geo.Radius(jsonData.Radius ? jsonData.Radius.content : 0, jsonData.Radius ? jsonData.Radius.unit : null)
             }; // self
         } // CenterContext
     }; // types
@@ -322,7 +322,7 @@ SLICK.Geo.Decarta = (function() {
             pos: position
         };
         
-        return new SLICK.Geo.Address(addressParams);
+        return new TILE5.Geo.Address(addressParams);
     } // parseAddress
 
     var requestTypes = {
@@ -436,7 +436,7 @@ SLICK.Geo.Decarta = (function() {
                         "</xls:PortrayMapRequest>",
 
                         // set the variables in the order they were used
-                        SLICK.Tiling.Config.TILESIZE,
+                        TILE5.Tiling.Config.TILESIZE,
                         currentConfig.tileFormat,
                         currentConfig.fixedGrid,
                         currentConfig.useCache,
@@ -473,7 +473,7 @@ SLICK.Geo.Decarta = (function() {
                         // parse out the tile url details
                         var urlData = parseImageUrl(grid.Tile.Map.Content.URL);
                         var tileSize = grid.Tile.Map.Content.height;
-                        var panOffset = new SLICK.Vector();
+                        var panOffset = new TILE5.Vector();
 
                         // GRUNT.Log.info(String.format("parsed image url: {0}, N = {1}, E = {2}", urlData.mask, urlData.N, urlData.E));
                         
@@ -518,7 +518,7 @@ SLICK.Geo.Decarta = (function() {
                 if (match && validMatch(match)) {
                     // if the point is defined, then convert that to a position
                     if (match && match.Point) {
-                        matchPos = SLICK.Geo.P.parse(match.Point.pos);
+                        matchPos = TILE5.Geo.P.parse(match.Point.pos);
                     } // if
 
                     // if we have the address then convert that to an address
@@ -537,7 +537,7 @@ SLICK.Geo.Decarta = (function() {
                 var matchList = [];
                 
                 // NOTE: this code has been implemented to compensate for strangeness in deCarta JSON land...
-                // see https://github.com/sidelab/slick-closed/wikis/geocoder-json-response for more information
+                // see https://github.com/sidelab/TILE5-closed/wikis/geocoder-json-response for more information
                 if (responseCount > 1) {
                     matchList = responseList.GeocodedAddress;
                 }
@@ -617,7 +617,7 @@ SLICK.Geo.Decarta = (function() {
                         "<xls:ReverseGeocodeRequest>" + 
                             "<xls:Position>" + 
                                 "<gml:Point>" + 
-                                    "<gml:pos>" + SLICK.Geo.P.toString(params.position) + "</gml:pos>" + 
+                                    "<gml:pos>" + TILE5.Geo.P.toString(params.position) + "</gml:pos>" + 
                                 "</gml:Point>" + 
                             "</xls:Position>" + 
                             "<xls:ReverseGeocodePreference>" + params.geocodePreference + "</xls:ReverseGeocodePreference>" + 
@@ -629,7 +629,7 @@ SLICK.Geo.Decarta = (function() {
                     
                     // if the point is defined, then convert that to a position
                     if (response && response.Point) {
-                        matchPos = SLICK.Geo.P.parse(match.Point.pos);
+                        matchPos = TILE5.Geo.P.parse(match.Point.pos);
                     } // if
 
                     // if we have the address then convert that to an address
@@ -665,8 +665,8 @@ SLICK.Geo.Decarta = (function() {
 
                 // GRUNT.Log.info("parsing " + instructions.length + " instructions");
                 for (var ii = 0; ii < instructions.length; ii++) {
-                    fnresult.push(new SLICK.Geo.Routing.Instruction({
-                        position: SLICK.Geo.P.parse(instructions[ii].Point),
+                    fnresult.push(new TILE5.Geo.Routing.Instruction({
+                        position: TILE5.Geo.P.parse(instructions[ii].Point),
                         description: instructions[ii].Instruction
                     }));
                 } // for
@@ -705,7 +705,7 @@ SLICK.Geo.Decarta = (function() {
                         // as to why this is required, who knows....
                         var tagName = (ii === 0 ? "StartPoint" : (ii === params.waypoints.length-1 ? "EndPoint" : "ViaPoint"));
                         
-                        body += String.format("<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>", tagName, SLICK.Geo.P.toString(params.waypoints[ii]));
+                        body += String.format("<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>", tagName, TILE5.Geo.P.toString(params.waypoints[ii]));
                     }
                     
                     // close the waypoint list
@@ -735,8 +735,8 @@ SLICK.Geo.Decarta = (function() {
                     // GRUNT.Log.info("received route request response:", response);
                     
                     // create a new route data object and map items 
-                    return new SLICK.Geo.Routing.RouteData({
-                        geometry: SLICK.Geo.P.parseArray(response.RouteGeometry.LineString.pos),
+                    return new TILE5.Geo.Routing.RouteData({
+                        geometry: TILE5.Geo.P.parseArray(response.RouteGeometry.LineString.pos),
                         instructions: parseInstructions(response.RouteInstructionsList)
                     });
                 }
@@ -875,7 +875,7 @@ SLICK.Geo.Decarta = (function() {
             }, params);
             
             // initialise parent
-            var parent = new SLICK.Geo.MapProvider();
+            var parent = new TILE5.Geo.MapProvider();
             
             function buildTileGrid(requestedPosition, responseData, container_dimensions) {
                 // initialise the first tile origin
@@ -886,20 +886,20 @@ SLICK.Geo.Decarta = (function() {
                     }; 
 
                 // create the tile grid
-                var tileGrid = new SLICK.Tiling.ImageTileGrid({
+                var tileGrid = new TILE5.Tiling.ImageTileGrid({
                     tileSize: responseData.tileSize,
                     width: container_dimensions.width,
                     height: container_dimensions.height,
                     drawGrid: params.drawGrid,
                     shiftOrigin: function(topLeftOffset, shiftDelta) {
-                        return new SLICK.Vector(topLeftOffset.x + shiftDelta.x, topLeftOffset.y - shiftDelta.y);
+                        return new TILE5.Vector(topLeftOffset.x + shiftDelta.x, topLeftOffset.y - shiftDelta.y);
                     },
-                    center: new SLICK.Vector(responseData.centerTile.E, responseData.centerTile.N)
+                    center: new TILE5.Vector(responseData.centerTile.E, responseData.centerTile.N)
                 });
                 
                 // set the tile grid origin
                 tileGrid.populate(function(col, row, topLeftOffset, gridSize) {
-                    return SLICK.Tiling.ImageTile({ 
+                    return TILE5.Tiling.ImageTile({ 
                         url: responseData.imageUrl.replace("${N}", topLeftOffset.y + (gridSize - row)).replace("${E}", topLeftOffset.x + col),
                         sessionParamRegex: /(SESSIONID)/i,
                         size: responseData.tileSize
@@ -910,13 +910,13 @@ SLICK.Geo.Decarta = (function() {
                 var virtualXY = tileGrid.getTileVirtualXY(responseData.centerTile.E, responseData.centerTile.N, true);
                 
                 // apply the pan offset and half tiles
-                virtualXY = SLICK.V.offset(virtualXY, responseData.panOffset.x, responseData.panOffset.y);
+                virtualXY = TILE5.V.offset(virtualXY, responseData.panOffset.x, responseData.panOffset.y);
                 
-                return new SLICK.Mapping.GeoTileGrid({
+                return new TILE5.Mapping.GeoTileGrid({
                     grid: tileGrid, 
                     centerXY:  virtualXY,
                     centerPos: requestedPosition,
-                    offsetAdjustment: new SLICK.Vector(),
+                    offsetAdjustment: new TILE5.Vector(),
                     radsPerPixel: module.Utilities.radsPerPixelAtZoom(responseData.tileSize, self.zoomLevel)
                 });
             } // buildTileGrid
@@ -947,7 +947,7 @@ SLICK.Geo.Decarta = (function() {
         } // MapProvider
     };
     
-    new SLICK.Geo.Engine({
+    new TILE5.Geo.Engine({
         id: "decarta",
         route: module.calculateRoute,
         geocode: module.geocode,

@@ -1,4 +1,4 @@
-SLICK.Dispatcher = (function() {
+TILE5.Dispatcher = (function() {
     // initialise variables
     var registeredActions = [];
     
@@ -122,7 +122,7 @@ SLICK.Dispatcher = (function() {
                 run: function(args, callback) {
                     if (params.execute) {
                         // update the last run ticks
-                        lastRunTicks = SLICK.Clock.getTime(true);
+                        lastRunTicks = TILE5.Clock.getTime(true);
                         
                         // save the run instance ticks to a local variable so we can check it in the callback
                         var runInstanceTicks = lastRunTicks,

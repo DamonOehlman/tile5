@@ -1,4 +1,4 @@
-SLICK.Geo.Search = (function() {
+TILE5.Geo.Search = (function() {
     var DEFAULT_MAXDIFF = 20;
     
     var module = {

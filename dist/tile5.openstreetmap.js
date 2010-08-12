@@ -1,14 +1,14 @@
 /**
 @namespace
 */
-SLICK.Geo.OpenStreetMap = (function() {
+TILE5.Geo.OpenStreetMap = (function() {
     // define some constants
     var ZOOMLEVEL_MIN = 3;
     var ZOOMLEVEL_MAX = 17;
     
     // define the module
     var module = {
-        /** @lends SLICK.Geo.Cloudmade */
+        /** @lends TILE5.Geo.Cloudmade */
         
         MapProvider: function(params) {
             params = GRUNT.extend({
@@ -17,14 +17,14 @@ SLICK.Geo.OpenStreetMap = (function() {
                 drawGrid: false,
                 getServerDetails: function() {
                     return {
-                        baseUrl: SLICK.Resource.getPath("tiles/"),
+                        baseUrl: TILE5.Resource.getPath("tiles/"),
                         subDomains: null
                     };
                 }
             }, params);
             
             // initialise parent
-            var parent = new SLICK.Geo.MapProvider();
+            var parent = new TILE5.Geo.MapProvider();
 
             function buildTileGrid(tile_offset, container_dimensions, centerPos) {
                 // initialise the first tile origin
@@ -38,8 +38,8 @@ SLICK.Geo.OpenStreetMap = (function() {
                     
                 } // if
 
-                tile_grid = new SLICK.Tiling.ImageTileGrid({
-                    tileSize: SLICK.Tiling.Config.TILESIZE,
+                tile_grid = new TILE5.Tiling.ImageTileGrid({
+                    tileSize: TILE5.Tiling.Config.TILESIZE,
                     width: container_dimensions.width,
                     height: container_dimensions.height,
                     center: tile_offset,
@@ -61,12 +61,12 @@ SLICK.Geo.OpenStreetMap = (function() {
                             subdomain_idx = 0;
                         } // if                     
 
-                        return SLICK.Tiling.ImageTile({ 
+                        return TILE5.Tiling.ImageTile({ 
                             url: String.format("http://{0}.{1}", subDomains[subdomain_idx++], tileUrl)
                         });
                     }
                     else {
-                        return SLICK.Tiling.ImageTile({ 
+                        return TILE5.Tiling.ImageTile({ 
                             url: "http://" + tileUrl
                         });
                     } // if..else
@@ -75,7 +75,7 @@ SLICK.Geo.OpenStreetMap = (function() {
                 // TODO: calculate the offset adjustment from the tile offset
 
                 // wrap the tile grid in a geo tile grid
-                tile_grid = new SLICK.Mapping.GeoTileGrid({
+                tile_grid = new TILE5.Mapping.GeoTileGrid({
                     grid: tile_grid, 
                     centerXY:  tile_grid.getTileVirtualXY(
                                     tile_offset.x, 
@@ -84,7 +84,7 @@ SLICK.Geo.OpenStreetMap = (function() {
                     centerPos: calculatePositionFromTileOffset(tile_offset.x + 0.5, tile_offset.y - 0.5, self.zoomLevel),
                     // NOTE: zoom level is similar to decarta GX zoom level but 1 less...
                     // TODO: implement some kind of universal zoom level... there probably is one already... 
-                    radsPerPixel: module.radsPerPixelAtZoom(SLICK.Tiling.Config.TILESIZE, self.zoomLevel)
+                    radsPerPixel: module.radsPerPixelAtZoom(TILE5.Tiling.Config.TILESIZE, self.zoomLevel)
                 });
 
                 return tile_grid;
@@ -103,7 +103,7 @@ SLICK.Geo.OpenStreetMap = (function() {
                 function long2tile(lon,zoom) { return (Math.floor((lon+180)/360*Math.pow(2,zoom))); }
                 function lat2tile(lat,zoom)  { return (Math.floor((1-Math.log(Math.tan(lat*Math.PI/180) + 1/Math.cos(lat*Math.PI/180))/Math.PI)/2 *Math.pow(2,zoom))); }
                 
-                return new SLICK.Vector(long2tile(SLICK.Geo.Utilities.normalizeLon(position.lon), zoomLevel), lat2tile(position.lat, zoomLevel));
+                return new TILE5.Vector(long2tile(TILE5.Geo.Utilities.normalizeLon(position.lon), zoomLevel), lat2tile(position.lat, zoomLevel));
             } // calculateTileOffset
             
             function calculatePositionFromTileOffset(x, y, zoomLevel) {
@@ -119,7 +119,7 @@ SLICK.Geo.OpenStreetMap = (function() {
                   return (180/Math.PI*Math.atan(0.5*(Math.exp(n)-Math.exp(-n))));
                 }
                 
-                return new SLICK.Geo.Position(tile2lat(y, zoomLevel), tile2long(x, zoomLevel));
+                return new TILE5.Geo.Position(tile2lat(y, zoomLevel), tile2long(x, zoomLevel));
             } // calculatePositionFromTileOffset
 
             // initialise self
@@ -150,8 +150,8 @@ SLICK.Geo.OpenStreetMap = (function() {
     }; 
     
     // check the tile size, if not valid then correct to a valid tilesize
-    if ((SLICK.Tiling.Config.TILESIZE !== 64) || (SLICK.Tiling.Config.TILESIZE !== 256)) {
-        SLICK.Tiling.Config.TILESIZE = 256;
+    if ((TILE5.Tiling.Config.TILESIZE !== 64) || (TILE5.Tiling.Config.TILESIZE !== 256)) {
+        TILE5.Tiling.Config.TILESIZE = 256;
     } // if    
     
     return module;
@@ -160,19 +160,19 @@ SLICK.Geo.OpenStreetMap = (function() {
 /**
 @namespace
 */
-SLICK.Geo.Cloudmade = (function() {
+TILE5.Geo.Cloudmade = (function() {
     // define some constants
     var ZOOMLEVEL_MIN = 3;
     var ZOOMLEVEL_MAX = 17;
     
     // check the tile size, if not valid then correct to a valid tilesize
-    if ((SLICK.Tiling.Config.TILESIZE !== 64) || (SLICK.Tiling.Config.TILESIZE !== 256)) {
-        SLICK.Tiling.Config.TILESIZE = 256;
+    if ((TILE5.Tiling.Config.TILESIZE !== 64) || (TILE5.Tiling.Config.TILESIZE !== 256)) {
+        TILE5.Tiling.Config.TILESIZE = 256;
     } // if    
     
     // define the module
     var module = {
-        /** @lends SLICK.Geo.Cloudmade */
+        /** @lends TILE5.Geo.Cloudmade */
         
         MapProvider: function(params) {
             params = GRUNT.extend({
@@ -180,10 +180,10 @@ SLICK.Geo.Cloudmade = (function() {
                 styleid: 1
             }, params);
             
-            return new SLICK.Geo.OpenStreetMap.MapProvider(GRUNT.extend({
+            return new TILE5.Geo.OpenStreetMap.MapProvider(GRUNT.extend({
                 getServerDetails: function() {
                     return {
-                        baseUrl: String.format("tile.cloudmade.com/{0}/{1}/{2}/", params.apikey, params.styleid, SLICK.Tiling.Config.TILESIZE),
+                        baseUrl: String.format("tile.cloudmade.com/{0}/{1}/{2}/", params.apikey, params.styleid, TILE5.Tiling.Config.TILESIZE),
                         subDomains: ['a', 'b', 'c']
                     };
                 }

@@ -1,11 +1,11 @@
 /*
-File:   slick.geo.js
+File:   TILE5.geo.js
 File is used to define geo namespace and classes for implementing GIS classes and operations
 */
 
 /* GEO Basic Type definitions */
 
-SLICK.Geo = (function() {
+TILE5.Geo = (function() {
     // define constants
     var LAT_VARIABILITIES = [
         1.406245461070741,
@@ -186,12 +186,12 @@ SLICK.Geo = (function() {
                     var size = module.calculateBoundsSize(self.min, self.max);
                     
                     // create a new position offset from the current min
-                    return new SLICK.Geo.Position(self.min.lat + (size.y * 0.5), self.min.lon + (size.x * 0.5));
+                    return new TILE5.Geo.Position(self.min.lat + (size.y * 0.5), self.min.lon + (size.x * 0.5));
                 },
 
                 transform: function(transformers) {
                     // create a new instance of the BoundingBox to transform
-                    var target = new SLICK.Geo.BoundingBox(self.min, self.max);
+                    var target = new TILE5.Geo.BoundingBox(self.min, self.max);
 
                     GRUNT.Log.info("applying " + transformers.length + " transformers");
                     // iterate through the transformers, and call them
@@ -224,7 +224,7 @@ SLICK.Geo = (function() {
         
         /* addressing and geocoding support */
         
-        // TODO: probably need to include local support for addressing, but really don't want to bulk out slick :/
+        // TODO: probably need to include local support for addressing, but really don't want to bulk out TILE5 :/
         
         Address: function(params) {
             params = GRUNT.extend({
@@ -262,7 +262,7 @@ SLICK.Geo = (function() {
         
         
         /*
-        Module:  SLICK.Geo.Utilities
+        Module:  TILE5.Geo.Utilities
         This module contains GIS utility functions that apply across different mapping platforms.  Credit 
         goes to the awesome team at decarta for providing information on many of the following functions through
         their forums here (http://devzone.decarta.com/web/guest/forums?p_p_id=19&p_p_action=0&p_p_state=maximized&p_p_mode=view&_19_struts_action=/message_boards/view_message&_19_messageId=43131)
@@ -357,7 +357,7 @@ SLICK.Geo = (function() {
             // initialise self
             var self = GRUNT.extend({
                 
-            }, SLICK.Dispatcher.createAgent(params));
+            }, TILE5.Dispatcher.createAgent(params));
             
             return self;
         },
@@ -428,7 +428,7 @@ SLICK.Geo = (function() {
 
             // if the position is not defined, but we have a lat and lon, create a new position
             if ((! params.pos) && params.lat && params.lon) {
-                params.pos = new SLICK.Geo.Position(params.lat, params.lon);
+                params.pos = new TILE5.Geo.Position(params.lat, params.lon);
             } // if
             
             return GRUNT.extend({
@@ -556,7 +556,7 @@ SLICK.Geo = (function() {
                 */
                 findByBounds: function(searchBounds) {
                     return poiGrabber(function(testPOI) {
-                        return SLICK.Geo.posInBounds(testPOI.pos, searchBounds);
+                        return TILE5.Geo.posInBounds(testPOI.pos, searchBounds);
                     });
                 },
 
@@ -568,7 +568,7 @@ SLICK.Geo = (function() {
 
                     // iterate through the new pois and put into storage
                     for (var ii = 0; newPOIs && (ii < newPOIs.length); ii++) {
-                        newPOIs[ii].retrieved = SLICK.Clock.getTime(true);
+                        newPOIs[ii].retrieved = TILE5.Clock.getTime(true);
                         addPOI(newPOIs[ii]);
                     } // for
                 },
@@ -585,7 +585,7 @@ SLICK.Geo = (function() {
                     var newPOIs = [],
                         ii = 0,
                         groupName = refreshedPOIs.length > 0 ? refreshedPOIs[0].group : '',
-                        timeRetrieved = SLICK.Clock.getTime(true);
+                        timeRetrieved = TILE5.Clock.getTime(true);
                         
                     // iterate through the pois and determine state
                     for (ii = 0; ii < refreshedPOIs.length; ii++) {
@@ -752,13 +752,13 @@ SLICK.Geo = (function() {
                 fromMercatorPixels: function(x, y, radsPerPixel) {
                     // return the new position
                     return new module.Position(
-                        SLICK.Geo.Utilities.pix2lat(y, radsPerPixel),
-                        SLICK.Geo.Utilities.normalizeLon(SLICK.Geo.Utilities.pix2lon(x, radsPerPixel))
+                        TILE5.Geo.Utilities.pix2lat(y, radsPerPixel),
+                        TILE5.Geo.Utilities.normalizeLon(TILE5.Geo.Utilities.pix2lon(x, radsPerPixel))
                     );
                 },
 
                 toMercatorPixels: function(pos, radsPerPixel) {
-                    return new SLICK.Vector(SLICK.Geo.Utilities.lon2pix(pos.lon, radsPerPixel), SLICK.Geo.Utilities.lat2pix(pos.lat, radsPerPixel));
+                    return new TILE5.Vector(TILE5.Geo.Utilities.lon2pix(pos.lon, radsPerPixel), TILE5.Geo.Utilities.lat2pix(pos.lat, radsPerPixel));
                 },
 
                 toString: function(pos) {
@@ -888,7 +888,7 @@ SLICK.Geo = (function() {
         },
         
         calculateBoundsSize: function(min, max, normalize) {
-            var size = new SLICK.Vector(0, max.lat - min.lat);
+            var size = new TILE5.Vector(0, max.lat - min.lat);
             if (typeof normalize === 'undefined') {
                 normalize = true;
             } // if
@@ -929,7 +929,7 @@ SLICK.Geo = (function() {
         
         getBoundsForPositions: function(positions, padding) {
             var bounds = null,
-                startTicks = SLICK.Clock.getTime();
+                startTicks = TILE5.Clock.getTime();
                 
             // if padding is not specified, then set to auto
             if (! padding) {
@@ -938,7 +938,7 @@ SLICK.Geo = (function() {
             
             for (var ii = positions.length; ii--; ) {
                 if (! bounds) {
-                    bounds = new SLICK.Geo.BoundingBox(positions[ii], positions[ii]);
+                    bounds = new TILE5.Geo.BoundingBox(positions[ii], positions[ii]);
                 }
                 else {
                     var minDiff = module.calculateBoundsSize(bounds.min, positions[ii], false),

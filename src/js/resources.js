@@ -1,4 +1,4 @@
-SLICK.Resources = (function() {
+TILE5.Resources = (function() {
     var basePath = "",
         cachedSnippets = {},
         cachedResources = {};
@@ -49,7 +49,7 @@ SLICK.Resources = (function() {
         } // handleImageLoad
         
         function loadNextImage() {
-            var maxImageLoads = SLICK.Device.getConfig().maxImageLoads;
+            var maxImageLoads = TILE5.Device.getConfig().maxImageLoads;
 
             // if we have queued images and a loading slot available, then start a load operation
             while ((queuedImages.length > 0) && ((! maxImageLoads) || (loadingImages.length < maxImageLoads))) {
@@ -94,7 +94,7 @@ SLICK.Resources = (function() {
         function checkTimeoutsAndCache() {
             var currentTickCount = new Date().getTime(),
                 timedOutLoad = false, ii = 0,
-                config = SLICK.Device.getConfig();
+                config = TILE5.Device.getConfig();
             
             // iterate through the loading images, and check if any of them have been active too long
             while (ii < loadingImages.length) {

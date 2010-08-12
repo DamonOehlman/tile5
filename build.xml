@@ -9,7 +9,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 	<loadfile property="version" srcfile="version.txt" />
     <property description="Distribution target for slick library" name="dist" value="./dist" />
 
-	<property name="LIBNAME" value="slick" />
+	<property name="LIBNAME" value="tile5" />
     <property name="SLICK" value="${dist}/${LIBNAME}.js" />
     <property name="SLICK_MIN" value="${dist}/${LIBNAME}.min.js" />
 	<property name="JSDOC_HOME" value="/development/tools/jsdoc-toolkit" />

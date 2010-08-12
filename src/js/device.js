@@ -1,4 +1,4 @@
-SLICK.Device = (function() {
+TILE5.Device = (function() {
     var deviceConfigs = null,
         deviceCheckOrder = [],
         detectedConfig = null;

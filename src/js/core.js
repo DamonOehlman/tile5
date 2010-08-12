@@ -1,18 +1,18 @@
 /**
 @namespace 
 
-The top level SLICK namespace.  This module contains core types and functionality for implementing 
+The top level TILE5 namespace.  This module contains core types and functionality for implementing 
 */
-SLICK = (function () {
+TILE5 = (function () {
     var module = {
-        /** @lends SLICK */
+        /** @lends TILE5 */
         
         copyRect: function(src) {
             return src ? new module.Rect(src.origin.x, src.origin.y, src.dimensions.width, src.dimensions.height) : null;
         },
 
         /** @namespace
-        Core SLICK module for setting and retrieving application settings.
+        Core TILE5 module for setting and retrieving application settings.
         - should possibly be moved to GRUNT as it's pretty useful for most applications
         */
         Settings: (function() {
@@ -20,7 +20,7 @@ SLICK = (function () {
             
             // define self
             var self = {
-                /** @lends SLICK.Settings */
+                /** @lends TILE5.Settings */
                 
                 /** 
                 @static
@@ -65,7 +65,7 @@ SLICK = (function () {
         @param {Number} init_y the Initial y value for the Vector
 
         @class 
-        @name SLICK.Vector
+        @name TILE5.Vector
         */
         Vector: function(initX, initY) {
             return {
@@ -103,11 +103,11 @@ SLICK = (function () {
                 },
                 
                 invert: function(vector) {
-                    return new SLICK.Vector(-vector.x, -vector.y);
+                    return new TILE5.Vector(-vector.x, -vector.y);
                 },
                 
                 offset: function(vector, offsetX, offsetY) {
-                    return new SLICK.Vector(vector.x + offsetX, vector.y + (offsetY ? offsetY : offsetX));
+                    return new TILE5.Vector(vector.x + offsetX, vector.y + (offsetY ? offsetY : offsetX));
                 }
             };
         })(),
@@ -129,7 +129,7 @@ SLICK = (function () {
                 },
                 
                 getRect: function() {
-                    return new SLICK.Rect(
+                    return new TILE5.Rect(
                         Math.min(data[0].x, data[1].x),
                         Math.min(data[0].y, data[1].y),
                         Math.abs(data[0].x - data[1].x),
@@ -160,7 +160,7 @@ SLICK = (function () {
                     total: 0
                 };
                 
-                var diffFn = SLICK.V.diff;
+                var diffFn = TILE5.V.diff;
                 
                 // iterate through the vectors and calculate the edges
                 // OPTMIZE: look for speed up opportunities
@@ -187,9 +187,9 @@ SLICK = (function () {
                 },
                 
                 pointOnEdge: function(v1, v2, theta, delta) {
-                    var xyDelta = new SLICK.Vector(Math.cos(theta) * delta, Math.sin(theta) * delta);
+                    var xyDelta = new TILE5.Vector(Math.cos(theta) * delta, Math.sin(theta) * delta);
                     
-                    return new SLICK.Vector(v1.x - xyDelta.x, v1.y - xyDelta.y);
+                    return new TILE5.Vector(v1.x - xyDelta.x, v1.y - xyDelta.y);
                 }
             };
         })(),
@@ -205,7 +205,7 @@ SLICK = (function () {
 
             // intiialise self
             var self = {
-                /** lends SLICK.Dimensions */
+                /** lends TILE5.Dimensions */
                 
                 width: init_width,
                 height: init_height,
@@ -217,11 +217,11 @@ SLICK = (function () {
                 },
 
                 getCenter: function() {
-                    return new SLICK.Vector(self.width >> 1, self.height >> 1);
+                    return new TILE5.Vector(self.width >> 1, self.height >> 1);
                 },
                 
                 grow: function(widthDelta, heightDelta) {
-                    return new SLICK.Dimensions(self.width + widthDelta, self.height + heightDelta);
+                    return new TILE5.Dimensions(self.width + widthDelta, self.height + heightDelta);
                 },
                 
                 matches: function(test) {
@@ -241,13 +241,13 @@ SLICK = (function () {
             // TODO: move dimensions access through setters and getters so half width can be calculated once and only when required
             
             var self = {
-                /** @lends SLICK.Rect */
+                /** @lends TILE5.Rect */
                 
-                origin: new SLICK.Vector(x, y),
-                dimensions: new SLICK.Dimensions(width, height),
+                origin: new TILE5.Vector(x, y),
+                dimensions: new TILE5.Dimensions(width, height),
                 
                 getCenter: function() {
-                    return new SLICK.Vector(self.origin.x + (self.dimensions.width >> 1), self.origin.y + (self.dimensions.height >> 1));
+                    return new TILE5.Vector(self.origin.x + (self.dimensions.width >> 1), self.origin.y + (self.dimensions.height >> 1));
                 },
                 
                 getSize: function() {
@@ -255,7 +255,7 @@ SLICK = (function () {
                 },
                 
                 grow: function(new_width, new_height) {
-                    var growFactor = new SLICK.Dimensions(new_width - self.dimensions.width, new_height - self.dimensions.height);
+                    var growFactor = new TILE5.Dimensions(new_width - self.dimensions.width, new_height - self.dimensions.height);
                     
                     self.dimensions.width = new_width;
                     self.dimensions.height = new_height;
@@ -311,7 +311,7 @@ SLICK = (function () {
                 Apply a delta that was previously calculated using the getRequiredDelta function or one you determined
                 yourself, given you are of course smart enough ;)
                 
-                @memberOf SLICK.Rect#
+                @memberOf TILE5.Rect#
                 @param {Object} delta the delta to apply in the form of a named hash (top, left, bottom, right)
                 @param {Number} scalingFactor a scaling factor to apply to the delta transformation (optional)
                 @param {Number} aspectRatio the aspect ratio to constrain the transformation by - if specified, the height will be automatically calculated (optional)
@@ -319,7 +319,7 @@ SLICK = (function () {
                 applyDelta: function(delta, scalingFactor, aspectRatio) {
                     // check the delta
                     if ((! delta) || (! GRUNT.contains(delta, ["top", "left", "bottom", "right"]))) {
-                        throw new Error("Invalid delta - cannot apply to SLICK.Rect");
+                        throw new Error("Invalid delta - cannot apply to TILE5.Rect");
                     } // if
                     
                     // if the scaling factor is not assigned, then default to 1
@@ -375,7 +375,7 @@ SLICK = (function () {
                 },
                 
                 moveTo: function(x, y) {
-                    var offsetFactor = new SLICK.Vector(x - self.origin.x, y - self.origin.y);
+                    var offsetFactor = new TILE5.Vector(x - self.origin.x, y - self.origin.y);
                     
                     self.origin.x = x;
                     self.origin.y = y;

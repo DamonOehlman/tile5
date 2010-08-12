@@ -1,11 +1,11 @@
 /*!
- * Sidelab Slick Javascript Library v0.4.0
+ * Sidelab TILE5 Javascript Library v0.4.0
 
- * http://sidelab.com/projects/slick/
+ * http://sidelab.com/projects/TILE5/
  *
  * Copyright 2010, Damon Oehlman
  * Licensed under the MIT licence
- * http://sidelab.com/projects/slick/license
+ * http://sidelab.com/projects/TILE5/license
  *
  * Date: ${date}
  */
@@ -1456,18 +1456,18 @@ GRUNT.WaterCooler = (function() {
 /**
 @namespace 
 
-The top level SLICK namespace.  This module contains core types and functionality for implementing 
+The top level TILE5 namespace.  This module contains core types and functionality for implementing 
 */
-SLICK = (function () {
+TILE5 = (function () {
     var module = {
-        /** @lends SLICK */
+        /** @lends TILE5 */
         
         copyRect: function(src) {
             return src ? new module.Rect(src.origin.x, src.origin.y, src.dimensions.width, src.dimensions.height) : null;
         },
 
         /** @namespace
-        Core SLICK module for setting and retrieving application settings.
+        Core TILE5 module for setting and retrieving application settings.
         - should possibly be moved to GRUNT as it's pretty useful for most applications
         */
         Settings: (function() {
@@ -1475,7 +1475,7 @@ SLICK = (function () {
             
             // define self
             var self = {
-                /** @lends SLICK.Settings */
+                /** @lends TILE5.Settings */
                 
                 /** 
                 @static
@@ -1520,7 +1520,7 @@ SLICK = (function () {
         @param {Number} init_y the Initial y value for the Vector
 
         @class 
-        @name SLICK.Vector
+        @name TILE5.Vector
         */
         Vector: function(initX, initY) {
             return {
@@ -1558,11 +1558,11 @@ SLICK = (function () {
                 },
                 
                 invert: function(vector) {
-                    return new SLICK.Vector(-vector.x, -vector.y);
+                    return new TILE5.Vector(-vector.x, -vector.y);
                 },
                 
                 offset: function(vector, offsetX, offsetY) {
-                    return new SLICK.Vector(vector.x + offsetX, vector.y + (offsetY ? offsetY : offsetX));
+                    return new TILE5.Vector(vector.x + offsetX, vector.y + (offsetY ? offsetY : offsetX));
                 }
             };
         })(),
@@ -1584,7 +1584,7 @@ SLICK = (function () {
                 },
                 
                 getRect: function() {
-                    return new SLICK.Rect(
+                    return new TILE5.Rect(
                         Math.min(data[0].x, data[1].x),
                         Math.min(data[0].y, data[1].y),
                         Math.abs(data[0].x - data[1].x),
@@ -1615,7 +1615,7 @@ SLICK = (function () {
                     total: 0
                 };
                 
-                var diffFn = SLICK.V.diff;
+                var diffFn = TILE5.V.diff;
                 
                 // iterate through the vectors and calculate the edges
                 // OPTMIZE: look for speed up opportunities
@@ -1642,9 +1642,9 @@ SLICK = (function () {
                 },
                 
                 pointOnEdge: function(v1, v2, theta, delta) {
-                    var xyDelta = new SLICK.Vector(Math.cos(theta) * delta, Math.sin(theta) * delta);
+                    var xyDelta = new TILE5.Vector(Math.cos(theta) * delta, Math.sin(theta) * delta);
                     
-                    return new SLICK.Vector(v1.x - xyDelta.x, v1.y - xyDelta.y);
+                    return new TILE5.Vector(v1.x - xyDelta.x, v1.y - xyDelta.y);
                 }
             };
         })(),
@@ -1660,7 +1660,7 @@ SLICK = (function () {
 
             // intiialise self
             var self = {
-                /** lends SLICK.Dimensions */
+                /** lends TILE5.Dimensions */
                 
                 width: init_width,
                 height: init_height,
@@ -1672,11 +1672,11 @@ SLICK = (function () {
                 },
 
                 getCenter: function() {
-                    return new SLICK.Vector(self.width >> 1, self.height >> 1);
+                    return new TILE5.Vector(self.width >> 1, self.height >> 1);
                 },
                 
                 grow: function(widthDelta, heightDelta) {
-                    return new SLICK.Dimensions(self.width + widthDelta, self.height + heightDelta);
+                    return new TILE5.Dimensions(self.width + widthDelta, self.height + heightDelta);
                 },
                 
                 matches: function(test) {
@@ -1696,13 +1696,13 @@ SLICK = (function () {
             // TODO: move dimensions access through setters and getters so half width can be calculated once and only when required
             
             var self = {
-                /** @lends SLICK.Rect */
+                /** @lends TILE5.Rect */
                 
-                origin: new SLICK.Vector(x, y),
-                dimensions: new SLICK.Dimensions(width, height),
+                origin: new TILE5.Vector(x, y),
+                dimensions: new TILE5.Dimensions(width, height),
                 
                 getCenter: function() {
-                    return new SLICK.Vector(self.origin.x + (self.dimensions.width >> 1), self.origin.y + (self.dimensions.height >> 1));
+                    return new TILE5.Vector(self.origin.x + (self.dimensions.width >> 1), self.origin.y + (self.dimensions.height >> 1));
                 },
                 
                 getSize: function() {
@@ -1710,7 +1710,7 @@ SLICK = (function () {
                 },
                 
                 grow: function(new_width, new_height) {
-                    var growFactor = new SLICK.Dimensions(new_width - self.dimensions.width, new_height - self.dimensions.height);
+                    var growFactor = new TILE5.Dimensions(new_width - self.dimensions.width, new_height - self.dimensions.height);
                     
                     self.dimensions.width = new_width;
                     self.dimensions.height = new_height;
@@ -1766,7 +1766,7 @@ SLICK = (function () {
                 Apply a delta that was previously calculated using the getRequiredDelta function or one you determined
                 yourself, given you are of course smart enough ;)
                 
-                @memberOf SLICK.Rect#
+                @memberOf TILE5.Rect#
                 @param {Object} delta the delta to apply in the form of a named hash (top, left, bottom, right)
                 @param {Number} scalingFactor a scaling factor to apply to the delta transformation (optional)
                 @param {Number} aspectRatio the aspect ratio to constrain the transformation by - if specified, the height will be automatically calculated (optional)
@@ -1774,7 +1774,7 @@ SLICK = (function () {
                 applyDelta: function(delta, scalingFactor, aspectRatio) {
                     // check the delta
                     if ((! delta) || (! GRUNT.contains(delta, ["top", "left", "bottom", "right"]))) {
-                        throw new Error("Invalid delta - cannot apply to SLICK.Rect");
+                        throw new Error("Invalid delta - cannot apply to TILE5.Rect");
                     } // if
                     
                     // if the scaling factor is not assigned, then default to 1
@@ -1830,7 +1830,7 @@ SLICK = (function () {
                 },
                 
                 moveTo: function(x, y) {
-                    var offsetFactor = new SLICK.Vector(x - self.origin.x, y - self.origin.y);
+                    var offsetFactor = new TILE5.Vector(x - self.origin.x, y - self.origin.y);
                     
                     self.origin.x = x;
                     self.origin.y = y;
@@ -1850,7 +1850,7 @@ SLICK = (function () {
     return module;
 })();
 
-SLICK.Device = (function() {
+TILE5.Device = (function() {
     var deviceConfigs = null,
         deviceCheckOrder = [],
         detectedConfig = null;
@@ -1957,7 +1957,7 @@ SLICK.Device = (function() {
     return module;
 })();
 
-SLICK.Resources = (function() {
+TILE5.Resources = (function() {
     var basePath = "",
         cachedSnippets = {},
         cachedResources = {};
@@ -2008,7 +2008,7 @@ SLICK.Resources = (function() {
         } // handleImageLoad
         
         function loadNextImage() {
-            var maxImageLoads = SLICK.Device.getConfig().maxImageLoads;
+            var maxImageLoads = TILE5.Device.getConfig().maxImageLoads;
 
             // if we have queued images and a loading slot available, then start a load operation
             while ((queuedImages.length > 0) && ((! maxImageLoads) || (loadingImages.length < maxImageLoads))) {
@@ -2053,7 +2053,7 @@ SLICK.Resources = (function() {
         function checkTimeoutsAndCache() {
             var currentTickCount = new Date().getTime(),
                 timedOutLoad = false, ii = 0,
-                config = SLICK.Device.getConfig();
+                config = TILE5.Device.getConfig();
             
             // iterate through the loading images, and check if any of them have been active too long
             while (ii < loadingImages.length) {
@@ -2288,7 +2288,7 @@ SLICK.Resources = (function() {
     return module;
 })();
 
-SLICK.Touch = (function() {
+TILE5.Touch = (function() {
     // initialise constants
     var PANREFRESH = 5;
     var TOUCH_MODES = {
@@ -2304,13 +2304,13 @@ SLICK.Touch = (function() {
         listenerCount = 0;
     
     function calcDistance(touches) {
-        return SLICK.VectorMath.distance(touches);
+        return TILE5.VectorMath.distance(touches);
     } // calcDistance
     
     function calcChange(first, second) {
         var srcVector = (first && (first.length > 0)) ? first[0] : null;
         if (srcVector && second && (second.length > 0)) {
-            return SLICK.V.diff(srcVector, second[0]);
+            return TILE5.V.diff(srcVector, second[0]);
         } // if
         
         return null;
@@ -2324,14 +2324,14 @@ SLICK.Touch = (function() {
     function getTouchPoints(touches) {
         var fnresult = new Array(touches.length);
         for (var ii = touches.length; ii--; ) {
-            fnresult[ii] = new SLICK.Vector(touches[ii].pageX, touches[ii].pageY);
+            fnresult[ii] = new TILE5.Vector(touches[ii].pageX, touches[ii].pageY);
         } // for
         
         return fnresult;
     } // getTouchPoints
     
     function getMousePos(event) {
-        return [new SLICK.Vector(event.pageX, event.pageY)];
+        return [new TILE5.Vector(event.pageX, event.pageY)];
     } // getMousePos
     
     function debugTouchEvent(evt, title) {
@@ -2369,12 +2369,12 @@ SLICK.Touch = (function() {
             // initialise private members
             var doubleTap = false,
                 tapTimer = 0,
-                supportsTouch = SLICK.Device.getConfig().supportsTouch,
+                supportsTouch = TILE5.Device.getConfig().supportsTouch,
                 touchesStart = null,
                 touchesLast = null,
                 touchDelta = null,
                 totalDelta = null,
-                panDelta = new SLICK.Vector(),
+                panDelta = new TILE5.Vector(),
                 touchMode = null,
                 touchDown = false,
                 listeners = [],
@@ -2382,15 +2382,15 @@ SLICK.Touch = (function() {
                     current: 0,
                     last: 0
                 },
-                config = SLICK.Device.getConfig(),
+                config = TILE5.Device.getConfig(),
                 BENCHMARK_INTERVAL = 300;
                 
             function relativeTouches(touches) {
-                var fnresult = new SLICK.VectorArray(touches, true);
+                var fnresult = new TILE5.VectorArray(touches, true);
                 
                 // apply the offset
                 if (params.element) {
-                    fnresult.applyOffset(new SLICK.Vector(-params.element.offsetLeft, -params.element.offsetTop));
+                    fnresult.applyOffset(new TILE5.Vector(-params.element.offsetLeft, -params.element.offsetTop));
                 } // if
                 
                 return fnresult;
@@ -2416,7 +2416,7 @@ SLICK.Touch = (function() {
                 
                 // if an element is defined, then determine the element offset
                 if (params.element) {
-                    offsetVector = SLICK.V.offset(absVector, -params.element.offsetLeft, -params.element.offsetTop);
+                    offsetVector = TILE5.V.offset(absVector, -params.element.offsetLeft, -params.element.offsetTop);
                 } // if
                 
                 // fire the event
@@ -2426,8 +2426,8 @@ SLICK.Touch = (function() {
             function touchStart(evt) {
                 if (evt.target && (evt.target === params.element)) {
                     touchesStart = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt);
-                    touchDelta = new SLICK.Vector();
-                    totalDelta = new SLICK.Vector();
+                    touchDelta = new TILE5.Vector();
+                    totalDelta = new TILE5.Vector();
                     touchDown = true;
                     doubleTap = false;
 
@@ -2440,7 +2440,7 @@ SLICK.Touch = (function() {
                     // clearInterval(inertiaInterval);
             
                     // log the current touch start time
-                    ticks.current = SLICK.Clock.getTime();
+                    ticks.current = TILE5.Clock.getTime();
             
                     // fire the touch start event handler
                     var touchVector = touchesStart.length > 0 ? touchesStart[0] : null;
@@ -2457,7 +2457,7 @@ SLICK.Touch = (function() {
                     // check to see whether this is a double tap (if we are watching for them)
                     if (ticks.current - ticks.last < self.THRESHOLD_DOUBLETAP) {
                         // calculate the difference between this and the last touch point
-                        var touchChange = touchesLast ? SLICK.V.diff(touchesStart[0], touchesLast[0]) : null;
+                        var touchChange = touchesLast ? TILE5.V.diff(touchesStart[0], touchesLast[0]) : null;
                         if (touchChange && (Math.abs(touchChange.x) < params.maxDistDoubleTap) && (Math.abs(touchChange.y) < params.maxDistDoubleTap)) {
                             doubleTap = true;
                         } // if
@@ -2524,9 +2524,9 @@ SLICK.Touch = (function() {
                                 } // if
 
                                 // if the pan_delta is sufficient to fire an event, then do so
-                                if (SLICK.V.absSize(panDelta) > params.panEventThreshhold) {
+                                if (TILE5.V.absSize(panDelta) > params.panEventThreshhold) {
                                     fireEvent('moveHandler', panDelta.x, panDelta.y);
-                                    panDelta = SLICK.V.create();
+                                    panDelta = TILE5.V.create();
                                 } // if
 
                                 // set the touch mode to move
@@ -2559,7 +2559,7 @@ SLICK.Touch = (function() {
                         } // if
 
                         // get the end tick
-                        var endTick = SLICK.Clock.getTime();
+                        var endTick = TILE5.Clock.getTime();
 
                         // save the current ticks to the last ticks
                         ticks.last = ticks.current;
@@ -2628,8 +2628,8 @@ SLICK.Touch = (function() {
                 },
                 
                 wheelie: function(evt) {
-                    var delta = new SLICK.Vector(evt.wheelDeltaX, evt.wheelDeltaY),
-                        xy = new SLICK.Vector(evt.clientX, evt.clientY),
+                    var delta = new TILE5.Vector(evt.wheelDeltaX, evt.wheelDeltaY),
+                        xy = new TILE5.Vector(evt.clientX, evt.clientY),
                         zoomAmount = delta.y !== 0 ? Math.abs(delta.y / 120) : 0;
                         
                     if (zoomAmount !== 0) {
@@ -2716,7 +2716,7 @@ if (typeof(jQuery) !== 'undefined') {
     jQuery.fn.canTouchThis = function(params) {
         // bind the touch events
         return this.each(function() {
-            SLICK.Touch.captureTouch(this, params);
+            TILE5.Touch.captureTouch(this, params);
         });
     }; // canTouchThis
 
@@ -2743,14 +2743,14 @@ if (typeof(jQuery) !== 'undefined') {
 } // if
 
 /*
-File:  slick.behaviours.js
+File:  TILE5.behaviours.js
 This file implements mixins that describe behaviour for a particular display class
 
 Section:  Version History
 2010-06-03 (DJO) - Created File
 */
 
-SLICK.Pannable = function(params) {
+TILE5.Pannable = function(params) {
     params = GRUNT.extend({
         container: null,
         onPan: null,
@@ -2760,14 +2760,14 @@ SLICK.Pannable = function(params) {
     }, params);
     
     var animating = false,
-        offset = new SLICK.Vector();
+        offset = new TILE5.Vector();
     
     // initialise self
     var self = {
         pannable: true,
         
         getOffset: function() {
-            return new SLICK.Vector(offset.x, offset.y);
+            return new TILE5.Vector(offset.x, offset.y);
         },
         
         setOffset: function(x, y) {
@@ -2802,10 +2802,10 @@ SLICK.Pannable = function(params) {
         
         updateOffset: function(x, y, tweenFn) {
             if (tweenFn) {
-                var endPosition = new SLICK.Vector(x, y);
+                var endPosition = new TILE5.Vector(x, y);
 
                 animating = true;
-                var tweens = SLICK.Animation.tweenVector(offset, endPosition.x, endPosition.y, tweenFn, function() {
+                var tweens = TILE5.Animation.tweenVector(offset, endPosition.x, endPosition.y, tweenFn, function() {
                     animating = false;
                     self.panEnd(0, 0);
                 });
@@ -2828,7 +2828,7 @@ SLICK.Pannable = function(params) {
     
     var container = document.getElementById(params.container);
     if (container) {
-        SLICK.Touch.captureTouch(container, {
+        TILE5.Touch.captureTouch(container, {
             moveHandler: function(x, y) {
                 self.pan(-x, -y);
             },
@@ -2840,9 +2840,9 @@ SLICK.Pannable = function(params) {
     } // if
     
     return self;
-}; // SLICK.Pannable
+}; // TILE5.Pannable
 
-SLICK.Scalable = function(params) {
+TILE5.Scalable = function(params) {
     params = GRUNT.extend({
         container: null,
         onAnimate: null,
@@ -2899,15 +2899,15 @@ SLICK.Scalable = function(params) {
             
             // update the zoom center
             scaling = true;
-            startCenter = SLICK.V.copy(startXY);
-            zoomCenter = SLICK.V.copy(targetXY);
+            startCenter = TILE5.V.copy(startXY);
+            zoomCenter = TILE5.V.copy(targetXY);
             startRect = null;
             
             // if tweening then update the targetXY
             if (tweenFn) {
                 tweenStart = scaleFactor;
                 
-                var tween = SLICK.Animation.tweenValue(0, targetScaleFactor - tweenStart, tweenFn, finishAnimation, 1000);
+                var tween = TILE5.Animation.tweenValue(0, targetScaleFactor - tweenStart, tweenFn, finishAnimation, 1000);
                 tween.requestUpdates(function(updatedValue, completed) {
                     // calculate the completion percentage
                     aniProgress = updatedValue / (targetScaleFactor - tweenStart);
@@ -2931,8 +2931,8 @@ SLICK.Scalable = function(params) {
         getScaleInfo: function() {
             return {
                 factor: scaleFactor,
-                startRect: SLICK.copyRect(startRect),
-                endRect: SLICK.copyRect(endRect),
+                startRect: TILE5.copyRect(startRect),
+                endRect: TILE5.copyRect(endRect),
                 start: startCenter,
                 center: zoomCenter,
                 progress: aniProgress
@@ -2950,7 +2950,7 @@ SLICK.Scalable = function(params) {
     
     var container = document.getElementById(params.container);
     if (container) {
-        SLICK.Touch.captureTouch(container, {
+        TILE5.Touch.captureTouch(container, {
             pinchZoomHandler: function(touchesStart, touchesCurrent) {
                 checkTouches(touchesStart, touchesCurrent);
                 
@@ -2979,14 +2979,14 @@ SLICK.Scalable = function(params) {
                 startRect = endRect = null;
                 
                 // update the xy position
-                zoomCenter = SLICK.V.copy(xy);
+                zoomCenter = TILE5.V.copy(xy);
             }
         });
     } // if    
     
     return self;
-}; // SLICK.Scalable
-SLICK.Dispatcher = (function() {
+}; // TILE5.Scalable
+TILE5.Dispatcher = (function() {
     // initialise variables
     var registeredActions = [];
     
@@ -3110,7 +3110,7 @@ SLICK.Dispatcher = (function() {
                 run: function(args, callback) {
                     if (params.execute) {
                         // update the last run ticks
-                        lastRunTicks = SLICK.Clock.getTime(true);
+                        lastRunTicks = TILE5.Clock.getTime(true);
                         
                         // save the run instance ticks to a local variable so we can check it in the callback
                         var runInstanceTicks = lastRunTicks,
@@ -3145,15 +3145,15 @@ SLICK.Dispatcher = (function() {
 /**
 @namespace 
 
-The concept behind SLICK messaging, is to enable client-side javascript to send messages and have
+The concept behind TILE5 messaging, is to enable client-side javascript to send messages and have
 those messages be handled in some way.  In some cases, a message being handled will involve moving
 to another part of the application (which is handled by the native bridge in a mobile application)
 or potentially a message could actually have some action taken on the server side, message data 
 updated and then the creating context could be notified of the change.  Currently, the messaging
-section of SLICK is evolving, and is likely to change over time as the requirements of this module
+section of TILE5 is evolving, and is likely to change over time as the requirements of this module
 become clear.
 */
-SLICK.Messaging = (function() {
+TILE5.Messaging = (function() {
     var handlers = [];
     var messageQueue = [];
     
@@ -3195,8 +3195,8 @@ SLICK.Messaging = (function() {
     } // updateMessageStatus
     
     var module = GRUNT.newModule({
-        id: "slick.messaging",
-        requires: ["slick.core"],
+        id: "TILE5.messaging",
+        requires: ["TILE5.core"],
 
         // message status updates
         STATUS: {
@@ -3262,9 +3262,9 @@ SLICK.Messaging = (function() {
 })();
 
 /**
-SLICK Animation module
+TILE5 Animation module
 */
-SLICK.Animation = (function() {
+TILE5.Animation = (function() {
     // initialise variables
     var tweens = [],
         updating = false,
@@ -3274,7 +3274,7 @@ SLICK.Animation = (function() {
         if (tweenTimer !== 0) { return; }
         
         tweenTimer = setInterval(function() {
-            if (module.update(SLICK.Clock.getTime()) === 0) {
+            if (module.update(TILE5.Clock.getTime()) === 0) {
                 clearInterval(tweenTimer);
                 tweenTimer = 0;
             } // if
@@ -3408,7 +3408,7 @@ SLICK.Animation = (function() {
             }, params);
             
             // get the start ticks
-            var startTicks = SLICK.Clock.getTime(),
+            var startTicks = TILE5.Clock.getTime(),
                 updateListeners = [],
                 complete = false,
                 beginningValue = 0.0,
@@ -3627,7 +3627,7 @@ SLICK.Animation = (function() {
 })();
 
 /*
-File:  slick.tiler.js
+File:  TILE5.tiler.js
 This file is used to define the tiler and supporting classes for creating a scrolling
 tilable grid using the HTML canvas.  At this stage, the Tiler is designed primarily for
 mobile devices, however, if the demand is there it could be tweaked to also support other
@@ -3637,8 +3637,8 @@ Section: Version History
 21/05/2010 (DJO) - Created File
 */
 
-// define the slick tile borders
-SLICK.Border = {
+// define the TILE5 tile borders
+TILE5.Border = {
     NONE: 0,
     TOP: 1,
     RIGHT: 2,
@@ -3646,7 +3646,7 @@ SLICK.Border = {
     LEFT: 4
 }; // Border
 
-SLICK.Graphics = (function() {
+TILE5.Graphics = (function() {
     // initialise display state constants that will be exposed through the module
     var DISPLAY_STATE = {
         NONE: 0,
@@ -3761,7 +3761,7 @@ SLICK.Graphics = (function() {
             params = GRUNT.extend({
                 path: [],
                 id: GRUNT.generateObjectID("pathAnimation"),
-                easing: SLICK.Animation.Easing.Sine.InOut,
+                easing: TILE5.Animation.Easing.Sine.InOut,
                 canCache: false,
                 validStates: module.ActiveDisplayStates | DISPLAY_STATE.PAN | DISPLAY_STATE.PINCHZOOM,
                 drawIndicator: null,
@@ -3770,7 +3770,7 @@ SLICK.Graphics = (function() {
             }, params);
             
             // generate the edge data for the specified path
-            var edgeData = SLICK.VectorMath.edges(params.path), 
+            var edgeData = TILE5.VectorMath.edges(params.path), 
                 tween,
                 theta,
                 indicatorXY = null,
@@ -3793,7 +3793,7 @@ SLICK.Graphics = (function() {
             } // drawDefaultIndicator
             
             // calculate the tween
-            tween = SLICK.Animation.tweenValue(
+            tween = TILE5.Animation.tweenValue(
                 0, 
                 edgeData.total, 
                 params.easing, 
@@ -3833,8 +3833,8 @@ SLICK.Graphics = (function() {
                             v1 = params.path[edgeIndex],
                             v2 = params.path[edgeIndex + 1];
 
-                        theta = SLICK.VectorMath.theta(v1, v2, edgeData.edges[edgeIndex]);
-                        indicatorXY = SLICK.VectorMath.pointOnEdge(v1, v2, theta, extra);
+                        theta = TILE5.VectorMath.theta(v1, v2, edgeData.edges[edgeIndex]);
+                        indicatorXY = TILE5.VectorMath.pointOnEdge(v1, v2, theta, extra);
 
                         if (params.autoCenter) {
                             var parent = self.getParent();
@@ -3853,7 +3853,7 @@ SLICK.Graphics = (function() {
                         (params.drawIndicator ? params.drawIndicator : drawDefaultIndicator)(
                             context,
                             offset,
-                            new SLICK.Vector(indicatorXY.x - offset.x, indicatorXY.y - offset.y),
+                            new TILE5.Vector(indicatorXY.x - offset.x, indicatorXY.y - offset.y),
                             theta
                         );
                     } // if
@@ -3916,7 +3916,7 @@ SLICK.Graphics = (function() {
                 
                 draw: function(context, offset, dimensions, state, view) {
                     // get the stats from the resource loaded
-                    var stats = SLICK.Resources.getStats(),
+                    var stats = TILE5.Resources.getStats(),
                         ledSize = params.indicatorSize,
                         indicatorLeft = 10,
                         spacing = 2,
@@ -3990,14 +3990,14 @@ SLICK.Graphics = (function() {
             var layers = [],
                 canvas = document.getElementById(params.container),
                 mainContext = null,
-                offset = new SLICK.Vector(),
+                offset = new TILE5.Vector(),
                 clearBackground = false,
                 lastScaleFactor = 1,
                 lastTickCount = null,
                 lastInteraction = 0,
                 frozen = false,
                 deviceScaling = 1,
-                translateDelta = new SLICK.Vector(),
+                translateDelta = new TILE5.Vector(),
                 dimensions = null,
                 centerPos = null,
                 wakeTriggers = 0,
@@ -4016,7 +4016,7 @@ SLICK.Graphics = (function() {
             GRUNT.Log.info("Creating a new view instance, attached to container: " + params.container + ", canvas = ", canvas);
 
             if (canvas) {
-                SLICK.Touch.resetTouch(canvas);
+                TILE5.Touch.resetTouch(canvas);
                 
                 // if we are autosizing the set the size
                 if (params.autoSize) {
@@ -4037,17 +4037,17 @@ SLICK.Graphics = (function() {
             } // if
             
             if (params.pannable) {
-                pannable = new SLICK.Pannable({
+                pannable = new TILE5.Pannable({
                     container: params.container,
                     onAnimate: function(x, y) {
                         wake();
                     },
                     onPan: function(x, y) {
-                        lastInteraction = SLICK.Clock.getTime(true);
+                        lastInteraction = TILE5.Clock.getTime(true);
                         wake();
                         
                         // add the current pan on the vector
-                        translateDelta = SLICK.V.offset(translateDelta, x, y);
+                        translateDelta = TILE5.V.offset(translateDelta, x, y);
                         
                         if (params.onPan) {
                             params.onPan(x, y);
@@ -4065,7 +4065,7 @@ SLICK.Graphics = (function() {
             } // if
             
             if (params.scalable) {
-                scalable = new SLICK.Scalable({
+                scalable = new TILE5.Scalable({
                     scaleDamping: params.scaleDamping,
                     container: params.container,
                     
@@ -4077,7 +4077,7 @@ SLICK.Graphics = (function() {
                     },
                     
                     onPinchZoom: function(touchesStart, touchesCurrent) {
-                        lastInteraction = SLICK.Clock.getTime(true);
+                        lastInteraction = TILE5.Clock.getTime(true);
                         wake();
                         
                         if (params.onPinchZoom) {
@@ -4160,14 +4160,14 @@ SLICK.Graphics = (function() {
 
                 if (scaleInfo.startRect) {
                     var startCenter = scaleInfo.startRect.getCenter(),
-                        centerOffset = SLICK.V.diff(startCenter, endCenter);
+                        centerOffset = TILE5.V.diff(startCenter, endCenter);
 
-                    zoomCenter = new SLICK.Vector(endCenter.x + centerOffset.x, endCenter.y + centerOffset.y);
+                    zoomCenter = new TILE5.Vector(endCenter.x + centerOffset.x, endCenter.y + centerOffset.y);
                 } 
                 else {
-                    var offsetDiff = SLICK.V.diff(scaleInfo.start, endCenter);
+                    var offsetDiff = TILE5.V.diff(scaleInfo.start, endCenter);
                         
-                    zoomCenter = new SLICK.Vector(endCenter.x - offsetDiff.x * shiftFactor, endCenter.y - offsetDiff.y * shiftFactor);
+                    zoomCenter = new TILE5.Vector(endCenter.x - offsetDiff.x * shiftFactor, endCenter.y - offsetDiff.y * shiftFactor);
                 } // if..else
             } // calcZoomCenter
             
@@ -4203,7 +4203,7 @@ SLICK.Graphics = (function() {
                     
                     // offset the draw args
                     if (zoomCenter) {
-                        offset = SLICK.V.offset(offset, zoomCenter.x, zoomCenter.y);
+                        offset = TILE5.V.offset(offset, zoomCenter.x, zoomCenter.y);
                     } // if
                 } // if
                 
@@ -4246,7 +4246,7 @@ SLICK.Graphics = (function() {
                 tickCount = new Date().getTime();
                 
                 // get the updated the offset
-                offset = pannable ? pannable.getOffset() : new SLICK.Vector();
+                offset = pannable ? pannable.getOffset() : new TILE5.Vector();
                 
                 // if we have an fps layer, then update the fps
                 if (fpsLayer && lastTickCount) {
@@ -4254,7 +4254,7 @@ SLICK.Graphics = (function() {
                 } // if
                     
                 if (interacting) {
-                    SLICK.Animation.cancel(function(tweenInstance) {
+                    TILE5.Animation.cancel(function(tweenInstance) {
                         return tweenInstance.cancelOnInteract;
                     });
                     
@@ -4303,7 +4303,7 @@ SLICK.Graphics = (function() {
             var self = GRUNT.extend({}, params, pannable, scalable, {
                 id: params.id,
                 deviceScaling: deviceScaling,
-                fastDraw: params.fastDraw || SLICK.Device.getConfig().requireFastDraw,
+                fastDraw: params.fastDraw || TILE5.Device.getConfig().requireFastDraw,
                 
                 centerOn: function(offset) {
                     pannable.setOffset(offset.x - (canvas.width * 0.5), offset.y - (canvas.height * 0.5));
@@ -4311,7 +4311,7 @@ SLICK.Graphics = (function() {
                 
                 getDimensions: function() {
                     if (canvas) {
-                        return new SLICK.Dimensions(canvas.width, canvas.height);
+                        return new TILE5.Dimensions(canvas.width, canvas.height);
                     } // if
                 },
                 
@@ -4428,7 +4428,7 @@ SLICK.Graphics = (function() {
                 } // if
             });
             
-            deviceScaling = SLICK.Device.getConfig().getScaling();
+            deviceScaling = TILE5.Device.getConfig().getScaling();
             
             // if we need to display the fps for the view, then create a suitable layer
             if (params.displayFPS) {
@@ -4451,21 +4451,21 @@ SLICK.Graphics = (function() {
 })();
 
 
-SLICK.Tiling = (function() {
+TILE5.Tiling = (function() {
     TileStore = function(params) {
         // initialise the parameters with the defaults
         params = GRUNT.extend({
             gridSize: 20,
-            center: new SLICK.Vector(),
+            center: new TILE5.Vector(),
             onPopulate: null
         }, params);
         
         // initialise the storage array
         var storage = new Array(Math.pow(params.gridSize, 2)),
             gridHalfWidth = Math.ceil(params.gridSize >> 1),
-            topLeftOffset = SLICK.V.offset(params.center, -gridHalfWidth),
+            topLeftOffset = TILE5.V.offset(params.center, -gridHalfWidth),
             lastTileCreator = null,
-            tileShift = new SLICK.Vector(),
+            tileShift = new TILE5.Vector(),
             lastNotifyListener = null;
         
         function getTileIndex(col, row) {
@@ -4490,11 +4490,11 @@ SLICK.Tiling = (function() {
             },
             
             getNormalizedPos: function(col, row) {
-                return SLICK.V.add(new SLICK.Vector(col, row), SLICK.V.invert(topLeftOffset), tileShift);
+                return TILE5.V.add(new TILE5.Vector(col, row), TILE5.V.invert(topLeftOffset), tileShift);
             },
             
             getTileShift: function() {
-                return SLICK.V.copy(tileShift);
+                return TILE5.V.copy(tileShift);
             },
             
             getTile: function(col, row) {
@@ -4516,7 +4516,7 @@ SLICK.Tiling = (function() {
                 // take a tick count as we want to time this
                 var startTicks = GRUNT.Log.getTraceTicks(),
                     tileIndex = 0,
-                    centerPos = new SLICK.Vector(params.gridSize * 0.5, params.gridSize * 0.5);
+                    centerPos = new TILE5.Vector(params.gridSize * 0.5, params.gridSize * 0.5);
                 
                 if (tileCreator) {
                     for (var row = 0; row < params.gridSize; row++) {
@@ -4550,7 +4550,7 @@ SLICK.Tiling = (function() {
             getShiftDelta: function(topLeftX, topLeftY, cols, rows) {
                 // initialise variables
                 var shiftAmount = Math.floor(params.gridSize * 0.2),
-                    shiftDelta = new SLICK.Vector();
+                    shiftDelta = new TILE5.Vector();
                     
                 // test the x
                 if (topLeftX < 0 || topLeftX + cols > params.gridSize) {
@@ -4587,7 +4587,7 @@ SLICK.Tiling = (function() {
                     topLeftOffset = shiftOriginCallback(topLeftOffset, shiftDelta);
                 }
                 else {
-                    topLeftOffset = SLICK.V.add(topLeftOffset, shiftDelta);
+                    topLeftOffset = TILE5.V.add(topLeftOffset, shiftDelta);
                 } // if..else
 
                 // create the tile shift offset
@@ -4604,7 +4604,7 @@ SLICK.Tiling = (function() {
             */
             setOrigin: function(col, row) {
                 if (! tileOrigin) {
-                    topLeftOffset = SLICK.V.offset(new SLICK.Vector(col, row), -tileHalfWidth);
+                    topLeftOffset = TILE5.V.offset(new TILE5.Vector(col, row), -tileHalfWidth);
                 }
                 else {
                     shiftOrigin(col, row);
@@ -4708,9 +4708,9 @@ SLICK.Tiling = (function() {
         TileGrid: function(params) {
             // extend the params with the defaults
             params = GRUNT.extend({
-                tileSize: SLICK.Tiling.Config.TILESIZE,
+                tileSize: TILE5.Tiling.Config.TILESIZE,
                 drawGrid: false,
-                center: new SLICK.Vector(),
+                center: new TILE5.Vector(),
                 shiftOrigin: null,
                 supportFastDraw: true,
                 checkChange: 100
@@ -4733,25 +4733,25 @@ SLICK.Tiling = (function() {
                 tileDrawQueue = [],
                 loadedTileCount = 0,
                 lastTilesDrawn = false,
-                lastCheckOffset = new SLICK.Vector(),
-                shiftDelta = new SLICK.Vector(),
+                lastCheckOffset = new TILE5.Vector(),
+                shiftDelta = new TILE5.Vector(),
                 reloadTimeout = 0,
                 gridHeightWidth = tileStore.getGridSize() * params.tileSize;
             
             function updateDrawQueue(context, offset, dimensions, view) {
                 // calculate offset change since last draw
-                var offsetChange = lastOffset ? SLICK.V.absSize(SLICK.V.diff(lastOffset, offset)) : halfTileSize;
+                var offsetChange = lastOffset ? TILE5.V.absSize(TILE5.V.diff(lastOffset, offset)) : halfTileSize;
                 
                 // TODO: optimize
                 if (offsetChange >= 20) {
                     var tile, tileShift = tileStore.getTileShift(),
-                        tileStart = new SLICK.Vector(
+                        tileStart = new TILE5.Vector(
                                         Math.floor((offset.x + tileShift.x) * invTileSize), 
                                         Math.floor((offset.y + tileShift.y) * invTileSize)),
                         tileCols = Math.ceil(dimensions.width * invTileSize) + 1,
                         tileRows = Math.ceil(dimensions.height * invTileSize) + 1,
-                        centerPos = new SLICK.Vector((tileCols-1) * 0.5, (tileRows-1) * 0.5),
-                        tileOffset = new SLICK.Vector((tileStart.x * params.tileSize), (tileStart.y * params.tileSize)),
+                        centerPos = new TILE5.Vector((tileCols-1) * 0.5, (tileRows-1) * 0.5),
+                        tileOffset = new TILE5.Vector((tileStart.x * params.tileSize), (tileStart.y * params.tileSize)),
                         viewAnimating = view.isAnimating();
                     
                     // reset the tile draw queue
@@ -4768,7 +4768,7 @@ SLICK.Tiling = (function() {
                             // get the tile
                             tile = tileStore.getTile(xx + tileStart.x, yy + tileStart.y);
                             var xPos = xx * params.tileSize + tileOffset.x,
-                                centerDiff = new SLICK.Vector(xx - centerPos.x, yy - centerPos.y);
+                                centerDiff = new TILE5.Vector(xx - centerPos.x, yy - centerPos.y);
                         
                             if (! tile) {
                                 shiftDelta = tileStore.getShiftDelta(tileStart.x, tileStart.y, tileCols, tileRows);
@@ -4777,8 +4777,8 @@ SLICK.Tiling = (function() {
                             // add the tile and position to the tile draw queue
                             tileDrawQueue.push({
                                 tile: tile,
-                                coordinates: new SLICK.Vector(xPos, yPos),
-                                centerness: SLICK.V.absSize(centerDiff)
+                                coordinates: new TILE5.Vector(xPos, yPos),
+                                centerness: TILE5.V.absSize(centerDiff)
                             });
                         } // for
                     } // for
@@ -4788,13 +4788,13 @@ SLICK.Tiling = (function() {
                         return itemB.centerness - itemA.centerness;
                     });
                     
-                    lastOffset = SLICK.V.copy(offset);
+                    lastOffset = TILE5.V.copy(offset);
                 } // if
             } // updateDrawQueue
             
             // initialise self
-            var self = GRUNT.extend(new SLICK.Graphics.ViewLayer(params), {
-                gridDimensions: new SLICK.Dimensions(gridHeightWidth, gridHeightWidth),
+            var self = GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
+                gridDimensions: new TILE5.Dimensions(gridHeightWidth, gridHeightWidth),
                 
                 cycle: function(tickCount, offset) {
                     var needTiles = shiftDelta.x + shiftDelta.y !== 0,
@@ -4804,7 +4804,7 @@ SLICK.Tiling = (function() {
                         tileStore.shift(shiftDelta, params.shiftOrigin);
 
                         // reset the delta
-                        shiftDelta = new SLICK.Vector();
+                        shiftDelta = new TILE5.Vector();
                         
                         // things need to happen
                         changeCount++;
@@ -4832,7 +4832,7 @@ SLICK.Tiling = (function() {
                         yShift = offset.y + tileShift.y,
                         tilesDrawn = true;
 
-                    if (state !== SLICK.Graphics.DisplayState.PINCHZOOM) {
+                    if (state !== TILE5.Graphics.DisplayState.PINCHZOOM) {
                         updateDrawQueue(context, offset, dimensions, view);
                         GRUNT.Log.trace("updated draw queue", startTicks);
                     } // if
@@ -4891,7 +4891,7 @@ SLICK.Tiling = (function() {
                 getTileVirtualXY: function(col, row, getCenter) {
                     // get the normalized position from the tile store
                     var pos = tileStore.getNormalizedPos(col, row),
-                        fnresult = new SLICK.Vector(pos.x * params.tileSize, pos.y * params.tileSize);
+                        fnresult = new TILE5.Vector(pos.x * params.tileSize, pos.y * params.tileSize);
                     
                     if (getCenter) {
                         fnresult.x += halfTileSize;
@@ -4934,11 +4934,11 @@ SLICK.Tiling = (function() {
             
             var self = GRUNT.extend(new module.TileGrid(params), {
                 drawTile: function(context, tile, x, y, state) {
-                    var image = SLICK.Resources.getImage(tile.url),
+                    var image = TILE5.Resources.getImage(tile.url),
                         drawn = false;
                     
                     // TODO: remove this for performance but work out how to make remove problem areas
-                    if (state === SLICK.Graphics.DisplayState.PAN) {
+                    if (state === TILE5.Graphics.DisplayState.PAN) {
                         context.drawImage(getPanningTile(), x, y);
                     } // if
 
@@ -4951,7 +4951,7 @@ SLICK.Tiling = (function() {
                         
                         // load the image if not loaded
                         if (! image) {
-                            SLICK.Resources.loadImage(tile.url, handleImageLoad);
+                            TILE5.Resources.loadImage(tile.url, handleImageLoad);
                         } // if
                     } // if..else
                     
@@ -4995,7 +4995,7 @@ SLICK.Tiling = (function() {
             };
             
             // create the parent
-            var self = new SLICK.Graphics.View(GRUNT.extend({}, params, {
+            var self = new TILE5.Graphics.View(GRUNT.extend({}, params, {
                 // define panning and scaling properties
                 pannable: true,
                 scalable: true,
@@ -5003,7 +5003,7 @@ SLICK.Tiling = (function() {
             }));
             
             // handle tap and double tap events
-            SLICK.Touch.captureTouch(document.getElementById(params.container), params);
+            TILE5.Touch.captureTouch(document.getElementById(params.container), params);
             
             // initialise self
             GRUNT.extend(self, {
@@ -5020,12 +5020,12 @@ SLICK.Tiling = (function() {
 
                 gridPixToViewPix: function(vector) {
                     var offset = self.getOffset();
-                    return new SLICK.Vector(vector.x - offset.x, vector.y - offset.y);
+                    return new TILE5.Vector(vector.x - offset.x, vector.y - offset.y);
                 },
 
                 viewPixToGridPix: function(vector) {
                     var offset = self.getOffset();
-                    return new SLICK.Vector(vector.x + offset.x, vector.y + offset.y);
+                    return new TILE5.Vector(vector.x + offset.x, vector.y + offset.y);
                 },
                 
                 cleanup: function() {
@@ -5040,13 +5040,13 @@ SLICK.Tiling = (function() {
     return module;
     
 })();/*
-File:   slick.geo.js
+File:   TILE5.geo.js
 File is used to define geo namespace and classes for implementing GIS classes and operations
 */
 
 /* GEO Basic Type definitions */
 
-SLICK.Geo = (function() {
+TILE5.Geo = (function() {
     // define constants
     var LAT_VARIABILITIES = [
         1.406245461070741,
@@ -5227,12 +5227,12 @@ SLICK.Geo = (function() {
                     var size = module.calculateBoundsSize(self.min, self.max);
                     
                     // create a new position offset from the current min
-                    return new SLICK.Geo.Position(self.min.lat + (size.y * 0.5), self.min.lon + (size.x * 0.5));
+                    return new TILE5.Geo.Position(self.min.lat + (size.y * 0.5), self.min.lon + (size.x * 0.5));
                 },
 
                 transform: function(transformers) {
                     // create a new instance of the BoundingBox to transform
-                    var target = new SLICK.Geo.BoundingBox(self.min, self.max);
+                    var target = new TILE5.Geo.BoundingBox(self.min, self.max);
 
                     GRUNT.Log.info("applying " + transformers.length + " transformers");
                     // iterate through the transformers, and call them
@@ -5265,7 +5265,7 @@ SLICK.Geo = (function() {
         
         /* addressing and geocoding support */
         
-        // TODO: probably need to include local support for addressing, but really don't want to bulk out slick :/
+        // TODO: probably need to include local support for addressing, but really don't want to bulk out TILE5 :/
         
         Address: function(params) {
             params = GRUNT.extend({
@@ -5303,7 +5303,7 @@ SLICK.Geo = (function() {
         
         
         /*
-        Module:  SLICK.Geo.Utilities
+        Module:  TILE5.Geo.Utilities
         This module contains GIS utility functions that apply across different mapping platforms.  Credit 
         goes to the awesome team at decarta for providing information on many of the following functions through
         their forums here (http://devzone.decarta.com/web/guest/forums?p_p_id=19&p_p_action=0&p_p_state=maximized&p_p_mode=view&_19_struts_action=/message_boards/view_message&_19_messageId=43131)
@@ -5398,7 +5398,7 @@ SLICK.Geo = (function() {
             // initialise self
             var self = GRUNT.extend({
                 
-            }, SLICK.Dispatcher.createAgent(params));
+            }, TILE5.Dispatcher.createAgent(params));
             
             return self;
         },
@@ -5469,7 +5469,7 @@ SLICK.Geo = (function() {
 
             // if the position is not defined, but we have a lat and lon, create a new position
             if ((! params.pos) && params.lat && params.lon) {
-                params.pos = new SLICK.Geo.Position(params.lat, params.lon);
+                params.pos = new TILE5.Geo.Position(params.lat, params.lon);
             } // if
             
             return GRUNT.extend({
@@ -5597,7 +5597,7 @@ SLICK.Geo = (function() {
                 */
                 findByBounds: function(searchBounds) {
                     return poiGrabber(function(testPOI) {
-                        return SLICK.Geo.posInBounds(testPOI.pos, searchBounds);
+                        return TILE5.Geo.posInBounds(testPOI.pos, searchBounds);
                     });
                 },
 
@@ -5609,7 +5609,7 @@ SLICK.Geo = (function() {
 
                     // iterate through the new pois and put into storage
                     for (var ii = 0; newPOIs && (ii < newPOIs.length); ii++) {
-                        newPOIs[ii].retrieved = SLICK.Clock.getTime(true);
+                        newPOIs[ii].retrieved = TILE5.Clock.getTime(true);
                         addPOI(newPOIs[ii]);
                     } // for
                 },
@@ -5626,7 +5626,7 @@ SLICK.Geo = (function() {
                     var newPOIs = [],
                         ii = 0,
                         groupName = refreshedPOIs.length > 0 ? refreshedPOIs[0].group : '',
-                        timeRetrieved = SLICK.Clock.getTime(true);
+                        timeRetrieved = TILE5.Clock.getTime(true);
                         
                     // iterate through the pois and determine state
                     for (ii = 0; ii < refreshedPOIs.length; ii++) {
@@ -5793,13 +5793,13 @@ SLICK.Geo = (function() {
                 fromMercatorPixels: function(x, y, radsPerPixel) {
                     // return the new position
                     return new module.Position(
-                        SLICK.Geo.Utilities.pix2lat(y, radsPerPixel),
-                        SLICK.Geo.Utilities.normalizeLon(SLICK.Geo.Utilities.pix2lon(x, radsPerPixel))
+                        TILE5.Geo.Utilities.pix2lat(y, radsPerPixel),
+                        TILE5.Geo.Utilities.normalizeLon(TILE5.Geo.Utilities.pix2lon(x, radsPerPixel))
                     );
                 },
 
                 toMercatorPixels: function(pos, radsPerPixel) {
-                    return new SLICK.Vector(SLICK.Geo.Utilities.lon2pix(pos.lon, radsPerPixel), SLICK.Geo.Utilities.lat2pix(pos.lat, radsPerPixel));
+                    return new TILE5.Vector(TILE5.Geo.Utilities.lon2pix(pos.lon, radsPerPixel), TILE5.Geo.Utilities.lat2pix(pos.lat, radsPerPixel));
                 },
 
                 toString: function(pos) {
@@ -5929,7 +5929,7 @@ SLICK.Geo = (function() {
         },
         
         calculateBoundsSize: function(min, max, normalize) {
-            var size = new SLICK.Vector(0, max.lat - min.lat);
+            var size = new TILE5.Vector(0, max.lat - min.lat);
             if (typeof normalize === 'undefined') {
                 normalize = true;
             } // if
@@ -5970,7 +5970,7 @@ SLICK.Geo = (function() {
         
         getBoundsForPositions: function(positions, padding) {
             var bounds = null,
-                startTicks = SLICK.Clock.getTime();
+                startTicks = TILE5.Clock.getTime();
                 
             // if padding is not specified, then set to auto
             if (! padding) {
@@ -5979,7 +5979,7 @@ SLICK.Geo = (function() {
             
             for (var ii = positions.length; ii--; ) {
                 if (! bounds) {
-                    bounds = new SLICK.Geo.BoundingBox(positions[ii], positions[ii]);
+                    bounds = new TILE5.Geo.BoundingBox(positions[ii], positions[ii]);
                 }
                 else {
                     var minDiff = module.calculateBoundsSize(bounds.min, positions[ii], false),
@@ -6095,7 +6095,7 @@ SLICK.Geo = (function() {
     }; // module
 
     return module;
-})();SLICK.Geo.Location = (function() {
+})();TILE5.Geo.Location = (function() {
     // initialise some defaults
     var DEFAULT_GEOLOCATION_TIMEOUT = 3000,
         HIGH_ACCURACY_CUTOFF = 10;
@@ -6150,7 +6150,7 @@ SLICK.Geo = (function() {
         
         function positionSuccess(position) {
             try {
-                var pos = new SLICK.Geo.Position(position.coords.latitude, position.coords.longitude),
+                var pos = new TILE5.Geo.Position(position.coords.latitude, position.coords.longitude),
                     accuracy = getAccuracy(position.coords);
 
                 GRUNT.Log.info("got position coordinates: " + pos + ", accuracy = " + accuracy);
@@ -6224,7 +6224,7 @@ SLICK.Geo = (function() {
 })();
 
 
-SLICK.Geo.Search = (function() {
+TILE5.Geo.Search = (function() {
     var DEFAULT_MAXDIFF = 20;
     
     var module = {
@@ -6255,17 +6255,17 @@ SLICK.Geo.Search = (function() {
     return module;
 })();
 
-SLICK.Mapping = (function() {
+TILE5.Mapping = (function() {
     var lastAnnotationTween = null,
         lastAnnotationTweenTicks = null,
         routeAnimationCounter = 0;
     
     function getAnnotationTween(tweenType) {
         // get the current tick count
-        var tickCount = SLICK.Clock.getTime(true);
+        var tickCount = TILE5.Clock.getTime(true);
 
         if ((! lastAnnotationTween) || (tickCount - lastAnnotationTweenTicks > 100)) {
-            lastAnnotationTween = SLICK.Animation.tweenValue(480, 0, tweenType, null, 250);
+            lastAnnotationTween = TILE5.Animation.tweenValue(480, 0, tweenType, null, 250);
             lastAnnotationTweenTicks = tickCount;
         } // if
         
@@ -6279,20 +6279,20 @@ SLICK.Mapping = (function() {
     } // radsPerPixelAtZoom
     
     var module = {
-        // change this value to have the annotations tween in (eg. SLICK.Animation.Easing.Sine.Out)
+        // change this value to have the annotations tween in (eg. TILE5.Animation.Easing.Sine.Out)
         AnnotationTween: null,
         
         GeoTileGrid: function(params) {
             // extend the params with some defaults
             params = GRUNT.extend({
                 grid: null,
-                centerPos: new SLICK.Geo.Position(),
-                centerXY: new SLICK.Vector(),
+                centerPos: new TILE5.Geo.Position(),
+                centerXY: new TILE5.Vector(),
                 radsPerPixel: 0
             }, params);
             
             // determine the mercator 
-            var centerMercatorPix = SLICK.Geo.P.toMercatorPixels(params.centerPos, params.radsPerPixel);
+            var centerMercatorPix = TILE5.Geo.P.toMercatorPixels(params.centerPos, params.radsPerPixel);
             
             // calculate the bottom left mercator pix
             // the position of the bottom left mercator pixel is determined by params.subtracting the actual 
@@ -6302,9 +6302,9 @@ SLICK.Mapping = (function() {
             // initialise self
             var self = GRUNT.extend({}, params.grid, {
                 getBoundingBox: function(x, y, width, height) {
-                    return new SLICK.Geo.BoundingBox(
-                        self.pixelsToPos(new SLICK.Vector(x, y + height)),
-                        self.pixelsToPos(new SLICK.Vector(x + width, y)));
+                    return new TILE5.Geo.BoundingBox(
+                        self.pixelsToPos(new TILE5.Vector(x, y + height)),
+                        self.pixelsToPos(new TILE5.Vector(x + width, y)));
                 },
                 
                 getCenterOffset: function() {
@@ -6313,7 +6313,7 @@ SLICK.Mapping = (function() {
                 
                 getGridXYForPosition: function(pos) {
                     // determine the mercator pixels for teh position
-                    var posPixels = SLICK.Geo.P.toMercatorPixels(pos, params.radsPerPixel);
+                    var posPixels = TILE5.Geo.P.toMercatorPixels(pos, params.radsPerPixel);
 
                     // calculate the offsets
                     // GRUNT.Log.info("GETTING OFFSET for position: " + pos);
@@ -6324,16 +6324,16 @@ SLICK.Mapping = (function() {
                     // GRUNT.Log.info("bottom left mercator pixels: " + blMercatorPix);
                     // GRUNT.Log.info("calcalated pos offset:    " + offset_x + ", " + offset_y);
 
-                    return new SLICK.Vector(offsetX, offsetY);
+                    return new TILE5.Vector(offsetX, offsetY);
                 },
                 
                 getGuideOffset: function(offset) {
                     var tileSize = self.getTileSize();
-                    return new SLICK.Vector((offset.x % tileSize), (offset.y % tileSize));
+                    return new TILE5.Vector((offset.x % tileSize), (offset.y % tileSize));
                 },
                 
                 pixelsToPos: function(vector) {
-                    return SLICK.Geo.P.fromMercatorPixels(blMercatorPixX + vector.x, (blMercatorPixY + self.gridDimensions.height) - vector.y, params.radsPerPixel);
+                    return TILE5.Geo.P.fromMercatorPixels(blMercatorPixX + vector.x, (blMercatorPixY + self.gridDimensions.height) - vector.y, params.radsPerPixel);
                 }
             });
             
@@ -6382,7 +6382,7 @@ SLICK.Mapping = (function() {
             var size = 50;
             var increment = 3;
             
-            return GRUNT.extend(new SLICK.Graphics.ViewLayer(params), {
+            return GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
                 draw: function(context, offset, dimensions, state, view) {
                     // calculate the center position
                     var xPos = dimensions.width >> 1;
@@ -6411,7 +6411,7 @@ SLICK.Mapping = (function() {
                 size: 15,
                 zindex: 150,
                 scalePosition: false,
-                validStates: SLICK.Graphics.DisplayState.ACTIVE | SLICK.Graphics.DisplayState.ANIMATING | SLICK.Graphics.DisplayState.PAN
+                validStates: TILE5.Graphics.DisplayState.ACTIVE | TILE5.Graphics.DisplayState.ANIMATING | TILE5.Graphics.DisplayState.PAN
             }, params);
             
             function drawCrosshair(context, centerPos, size) {
@@ -6424,7 +6424,7 @@ SLICK.Mapping = (function() {
                 context.stroke();
             } // drawCrosshair
             
-            return GRUNT.extend(new SLICK.Graphics.ViewLayer(params), {
+            return GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
                 draw: function(context, offset, dimensions, state, view) {
                     var centerPos = dimensions.getCenter();
                     
@@ -6451,7 +6451,7 @@ SLICK.Mapping = (function() {
                 calculationsPerCycle: 250,
                 partialDraw: false,
                 zindex: 50
-                // validStates: SLICK.Graphics.DisplayState.ACTIVE | SLICK.Graphics.DisplayState.PAN | SLICK.Graphics.DisplayState.PINCHZOOM
+                // validStates: TILE5.Graphics.DisplayState.ACTIVE | TILE5.Graphics.DisplayState.PAN | TILE5.Graphics.DisplayState.PINCHZOOM
             }, params);
             
             var recalc = true,
@@ -6521,7 +6521,7 @@ SLICK.Mapping = (function() {
             } // calcCoordinates
             
             // create the view layer the we will draw the view
-            var self = GRUNT.extend(new SLICK.Graphics.ViewLayer(params), {
+            var self = GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
                 getAnimation: function(easingFn, duration, drawCallback, autoCenter) {
                     if (recalc) {
                         return null;
@@ -6532,11 +6532,11 @@ SLICK.Mapping = (function() {
                     spawnedAnimations.push(layerId);
 
                     // create a new animation layer based on the coordinates
-                    return new SLICK.Graphics.AnimatedPathLayer({
+                    return new TILE5.Graphics.AnimatedPathLayer({
                         id: layerId,
                         path: coordinates,
                         zindex: params.zindex + 1,
-                        easing: easingFn ? easingFn : SLICK.Animation.Easing.Sine.InOut,
+                        easing: easingFn ? easingFn : TILE5.Animation.Easing.Sine.InOut,
                         duration: duration ? duration : 5000,
                         drawIndicator: drawCallback,
                         autoCenter: autoCenter ? autoCenter : false
@@ -6652,14 +6652,14 @@ SLICK.Mapping = (function() {
                         // animate the annotation
                         animating = true;
                         
-                        SLICK.Animation.tween(self.xy, "y", endValue, params.tweenIn, function() {
+                        TILE5.Animation.tween(self.xy, "y", endValue, params.tweenIn, function() {
                             self.xy.y = endValue;
                             animating = false;
                         }, params.animationSpeed ? params.animationSpeed : 250 + (Math.random() * 500));
                     } // if
                     
                     if (params.draw) {
-                        params.draw(context, offset, new SLICK.Vector(self.xy.x - offset.x, self.xy.y - offset.y), state, overlay);
+                        params.draw(context, offset, new TILE5.Vector(self.xy.x - offset.x, self.xy.y - offset.y), state, overlay);
                     }
                     else {
                         context.beginPath();
@@ -6687,12 +6687,12 @@ SLICK.Mapping = (function() {
                 imageAnchor: null
             }, params);
             
-            var imageOffset = params.imageAnchor ? SLICK.V.invert(params.imageAnchor) : null;
+            var imageOffset = params.imageAnchor ? TILE5.V.invert(params.imageAnchor) : null;
             
             function getImageUrl() {
                 if (params.animatingImageUrl && self.isAnimating()) {
                     // we want a smooth transition, so make sure the end image is loaded
-                    SLICK.Resources.loadImage(params.imageUrl);
+                    TILE5.Resources.loadImage(params.imageUrl);
                     
                     // return the animating image url
                     return params.animatingImageUrl;
@@ -6705,20 +6705,20 @@ SLICK.Mapping = (function() {
             params.draw = function(context, offset, xy, state, overlay) {
                 // get the image
                 var imageUrl = getImageUrl(),
-                    image = SLICK.Resources.getImage(imageUrl);
+                    image = TILE5.Resources.getImage(imageUrl);
                     
                 if (! image) {
-                    SLICK.Resources.loadImage(imageUrl, function(loadedImage, fromCache) {
+                    TILE5.Resources.loadImage(imageUrl, function(loadedImage, fromCache) {
                         overlay.wakeParent();
                     });
                 }
                 else if (image.complete && (image.width > 0)) {
                     if (! imageOffset) {
-                        imageOffset = new SLICK.Vector(-image.width >> 1, -image.height >> 1);
+                        imageOffset = new TILE5.Vector(-image.width >> 1, -image.height >> 1);
                     } // if
                     
                     // determine the position to draw the image
-                    var imageXY = SLICK.V.offset(xy, imageOffset.x, imageOffset.y);
+                    var imageXY = TILE5.V.offset(xy, imageOffset.x, imageOffset.y);
 
                     // draw the image
                     context.drawImage(image, imageXY.x, imageXY.y, image.width, image.height);
@@ -6795,7 +6795,7 @@ SLICK.Mapping = (function() {
             }
 
             // create the view layer the we will draw the view
-            var self = GRUNT.extend(new SLICK.Graphics.ViewLayer(params), {
+            var self = GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
                 draw: function(context, offset, dimensions, state, view) {
                     context.save();
                     try {
@@ -6885,7 +6885,7 @@ SLICK.Mapping = (function() {
                 tapPOI: null,
                 tapHandler: null,
                 boundsChangeThreshold: 30,
-                pois: new SLICK.Geo.POIStorage(),
+                pois: new TILE5.Geo.POIStorage(),
                 createAnnotationForPOI: null,
                 onTilesLoaded: null
             }, params);
@@ -6896,83 +6896,72 @@ SLICK.Mapping = (function() {
             } // if
 
             // initialise variables
-            var lastBoundsChangeOffset = new SLICK.Vector(),
+            var lastBoundsChangeOffset = new TILE5.Vector(),
                 copyrightMessage = params.copyright,
                 initialized = false,
                 tappedPOIs = [],
                 lastRequestTime = 0,
                 guideOffset = null,
                 gridLayerId = null,
-                zoomLevel = params.zoomLevel;
+                zoomLevel = params.zoomLevel,
+                callerTapHandler = params.tapHandler;
                 
             // if the data provider has not been created, then create a default one
             if (! params.provider) {
-                params.provider = new SLICK.Geo.MapProvider();
+                params.provider = new TILE5.Geo.MapProvider();
             } // if
 
-            // if we have a pan handler in the args, then save it as we are going to insert our own
-            var caller_pan_handler = params.panHandler,
-                caller_tap_handler = params.tapHandler;
-
-            // initialise our own pan handler
-            params.onPan = function(x, y) {
-                if (caller_pan_handler) {
-                    caller_pan_handler(x, y);
-                } // if
-            }; // 
-
-            // initialise our own tap handler
-            params.tapHandler = function(absPos, relPos) {
-                var grid = self.getTileLayer();
-                var tapBounds = null;
-
-                if (grid) {
-                    var gridPos = self.viewPixToGridPix(new SLICK.Vector(relPos.x, relPos.y)),
-                        tapPos = grid.pixelsToPos(gridPos),
-                        minPos = grid.pixelsToPos(SLICK.V.offset(gridPos, -params.tapExtent, params.tapExtent)),
-                        maxPos = grid.pixelsToPos(SLICK.V.offset(gridPos, params.tapExtent, -params.tapExtent));
-                        
-                    GRUNT.Log.info("grid tapped @ " + SLICK.Geo.P.toString(grid.pixelsToPos(gridPos)));
-
-                    // turn that into a bounds object
-                    tapBounds = new SLICK.Geo.BoundingBox(minPos, maxPos);
-                    
-                    // find the pois in the bounds area
-                    tappedPOIs = self.pois.findByBounds(tapBounds);
-                    // GRUNT.Log.info("TAPPED POIS = ", tappedPOIs);
-                    
-                    if (params.tapPOI) {
-                        params.tapPOI(tappedPOIs);
-                    } // if
-                } // if
-
-                if (caller_tap_handler) {
-                    caller_tap_handler(absPos, relPos, tapPos, tapBounds); 
-                } // if
-            }; // tapHandler
-
-            params.doubleTapHandler = function(absPos, relPos) {
-                self.animate(2, self.getDimensions().getCenter(), new SLICK.Vector(relPos.x, relPos.y), SLICK.Animation.Easing.Sine.Out);
-            }; // doubleTapHandler
-
-            params.onScale = function(scaleAmount, zoomXY) {
-                var zoomChange = 0;
-
-                // damp the scale amount
-                scaleAmount = Math.sqrt(scaleAmount);
-                
-                if (scaleAmount < 1) {
-                    zoomChange = -(0.5 / scaleAmount);
-                }
-                else if (scaleAmount > 1) {
-                    zoomChange = scaleAmount;
-                } // if..else
-
-                self.gotoPosition(self.getXYPosition(zoomXY), zoomLevel + Math.floor(zoomChange));
-            }; // zoomHandler
-
             // create the base tiler
-            var parent = new SLICK.Tiling.Tiler(params);
+            var parent = new TILE5.Tiling.Tiler(GRUNT.extend({}, params, {
+                tapHandler: function(absXY, relXY) {
+                    var grid = self.getTileLayer();
+                    var tapBounds = null;
+
+                    if (grid) {
+                        var gridPos = self.viewPixToGridPix(new TILE5.Vector(relXY.x, relXY.y)),
+                            tapPos = grid.pixelsToPos(gridPos),
+                            minPos = grid.pixelsToPos(TILE5.V.offset(gridPos, -params.tapExtent, params.tapExtent)),
+                            maxPos = grid.pixelsToPos(TILE5.V.offset(gridPos, params.tapExtent, -params.tapExtent));
+
+                        GRUNT.Log.info("grid tapped @ " + TILE5.Geo.P.toString(grid.pixelsToPos(gridPos)));
+
+                        // turn that into a bounds object
+                        tapBounds = new TILE5.Geo.BoundingBox(minPos, maxPos);
+
+                        // find the pois in the bounds area
+                        tappedPOIs = self.pois.findByBounds(tapBounds);
+                        // GRUNT.Log.info("TAPPED POIS = ", tappedPOIs);
+
+                        if (params.tapPOI) {
+                            params.tapPOI(tappedPOIs);
+                        } // if
+                    } // if
+
+                    if (callerTapHandler) {
+                        callerTapHandler(absXY, relXY, tapPos, tapBounds); 
+                    } // if
+                },
+                
+                doubleTapHandler: function(absPos, relPos) {
+                    self.animate(2, self.getDimensions().getCenter(), new TILE5.Vector(relPos.x, relPos.y), TILE5.Animation.Easing.Sine.Out);
+                },
+                
+                onScale: function(scaleAmount, zoomXY) {
+                    var zoomChange = 0;
+
+                    // damp the scale amount
+                    scaleAmount = Math.sqrt(scaleAmount);
+
+                    if (scaleAmount < 1) {
+                        zoomChange = -(0.5 / scaleAmount);
+                    }
+                    else if (scaleAmount > 1) {
+                        zoomChange = scaleAmount;
+                    } // if..else
+
+                    self.gotoPosition(self.getXYPosition(zoomXY), zoomLevel + Math.floor(zoomChange));
+                }
+            }));
             
             function getLayerScaling(oldZoom, newZoom) {
                 return radsPerPixelAtZoom(1, oldZoom) / radsPerPixelAtZoom(1, newZoom);
@@ -6984,7 +6973,7 @@ SLICK.Mapping = (function() {
                 annotations: null,
                 
                 getBoundingBox: function(buffer_size) {
-                    var fnresult = new SLICK.Geo.BoundingBox();
+                    var fnresult = new TILE5.Geo.BoundingBox();
                     var grid = self.getTileLayer();
                     var offset = self.getOffset();
                     var dimensions = self.getDimensions();
@@ -7007,7 +6996,7 @@ SLICK.Mapping = (function() {
                 
                 gotoBounds: function(bounds, callback) {
                     // calculate the zoom level required for the specified bounds
-                    var zoomLevel = SLICK.Geo.getBoundingBoxZoomLevel(bounds, self.getDimensions());
+                    var zoomLevel = TILE5.Geo.getBoundingBoxZoomLevel(bounds, self.getDimensions());
                     
                     // goto the center position of the bounding box with the calculated zoom level
                     self.gotoPosition(bounds.getCenter(), zoomLevel, callback);
@@ -7015,7 +7004,7 @@ SLICK.Mapping = (function() {
                 
                 gotoCurrentPosition: function(callback) {
                     // use the geolocation api to get the current position
-                    SLICK.Geo.Location.get({
+                    TILE5.Geo.Location.get({
                         successCallback: function(position, phase, rawPosition) {
                             self.clearBackground();
                             self.gotoPosition(position, 15, callback);
@@ -7048,7 +7037,7 @@ SLICK.Mapping = (function() {
                     // if the zoom level is different from the current zoom level, then update the map tiles
                     if ((! initialized) || (zoomLevel !== currentZoomLevel)) {
                         // remove the grid layer
-                        SLICK.Resources.resetImageLoadQueue();
+                        TILE5.Resources.resetImageLoadQueue();
                         
                         // get the grid and if available, then deactivate to prevent further image draws
                         var grid = self.getTileLayer();
@@ -7057,7 +7046,7 @@ SLICK.Mapping = (function() {
                         } // if
 
                         // cancel any animations
-                        SLICK.Animation.cancel();
+                        TILE5.Animation.cancel();
 
                         // if the map is initialise, then pan to the specified position
                         if (initialized) {
@@ -7144,7 +7133,7 @@ SLICK.Mapping = (function() {
                     // determine the required scaling
                     var scalingNeeded = radsPerPixelAtZoom(1, zoomLevel) / radsPerPixelAtZoom(1, zoomLevel + 1);
                     
-                    if (! self.scale(2, SLICK.Animation.Easing.Sine.Out)) {
+                    if (! self.scale(2, TILE5.Animation.Easing.Sine.Out)) {
                         self.setZoomLevel(zoomLevel + 1);
                     } // if
                 },
@@ -7152,7 +7141,7 @@ SLICK.Mapping = (function() {
                 zoomOut: function() {
                     var scalingNeeded = radsPerPixelAtZoom(1, zoomLevel) / radsPerPixelAtZoom(1, zoomLevel - 1);
                     
-                    if (! self.scale(0.5, SLICK.Animation.Easing.Sine.Out)) {
+                    if (! self.scale(0.5, TILE5.Animation.Easing.Sine.Out)) {
                         self.setZoomLevel(zoomLevel - 1);
                     } // if
                 },
@@ -7175,7 +7164,7 @@ SLICK.Mapping = (function() {
             }, parent);
 
             // create an annotations layer
-            var annotations = new SLICK.Mapping.AnnotationsOverlay({
+            var annotations = new TILE5.Mapping.AnnotationsOverlay({
                 pois: self.pois,
                 map: self,
                 createAnnotationForPOI: params.createAnnotationForPOI
@@ -7186,16 +7175,16 @@ SLICK.Mapping = (function() {
             self.setLayer("annotations", annotations);
             
             // add the radar overlay
-            // self.setLayer("radar", new SLICK.Mapping.RadarOverlay());
+            // self.setLayer("radar", new TILE5.Mapping.RadarOverlay());
             
             // if we are drawing the cross hair, then add a cross hair overlay
             if (params.crosshair) {
-                self.setLayer("crosshair", new SLICK.Mapping.CrosshairOverlay());
+                self.setLayer("crosshair", new TILE5.Mapping.CrosshairOverlay());
             } // if
 
             // if we have a copyright message, then add the message
             if (copyrightMessage) {
-                self.setLayer("copyright", new SLICK.Graphics.ViewLayer({
+                self.setLayer("copyright", new TILE5.Graphics.ViewLayer({
                     zindex: 999,
                     draw: function(context, offset, dimensions, state, view) {
                         context.lineWidth = 2.5;
@@ -7213,7 +7202,7 @@ SLICK.Mapping = (function() {
             GRUNT.WaterCooler.listen("view-idle", function(args) {
                 if (args.id && (args.id == self.id)) {
                     // compare the last bounds change offset with the current offset
-                    var changeDelta = SLICK.V.absSize(SLICK.V.diff(lastBoundsChangeOffset, self.getOffset()));
+                    var changeDelta = TILE5.V.absSize(TILE5.V.diff(lastBoundsChangeOffset, self.getOffset()));
                     
                     if ((changeDelta > params.boundsChangeThreshold) && params.boundsChange) {
                         lastBoundsChangeOffset = self.getOffset();
@@ -7241,7 +7230,7 @@ SLICK.Mapping = (function() {
 
 Define functionality to enable routing for mapping
 */
-SLICK.Geo.Routing = (function() {
+TILE5.Geo.Routing = (function() {
     
     // define the module
     var module = {
@@ -7261,11 +7250,11 @@ SLICK.Geo.Routing = (function() {
             GRUNT.Log.info("attempting to calculate route");
             
             // find an available routing engine
-            var engine = SLICK.Geo.getEngine("route");
+            var engine = TILE5.Geo.getEngine("route");
             if (engine) {
                 engine.route(args, function(routeData) {
                     if (args.generalize) {
-                        routeData.geometry = SLICK.Geo.generalizePositions(routeData.geometry, routeData.getInstructionPositions());
+                        routeData.geometry = TILE5.Geo.generalizePositions(routeData.geometry, routeData.getInstructionPositions());
                     } // if
                     
                     // firstly, if we have a map defined, then let's place the route on the map
@@ -7295,7 +7284,7 @@ SLICK.Geo.Routing = (function() {
             // GRUNT.Log.info("creating route overlay with route data: ", routeData);
 
             // create a new route overlay for the specified data
-            var overlay = new SLICK.Mapping.RouteOverlay({
+            var overlay = new TILE5.Mapping.RouteOverlay({
                 data: routeData,
                 width: dimensions.width,
                 height: dimensions.height
@@ -7355,7 +7344,7 @@ SLICK.Geo.Routing = (function() {
             
             // update the bounding box
             if (! params.boundingBox) {
-                params.boundingBox = SLICK.Geo.getBoundsForPositions(params.geometry);
+                params.boundingBox = TILE5.Geo.getBoundsForPositions(params.geometry);
             } // if
             
             var self = GRUNT.extend({

@@ -3,7 +3,7 @@
 
 Define functionality to enable routing for mapping
 */
-SLICK.Geo.Routing = (function() {
+TILE5.Geo.Routing = (function() {
     
     // define the module
     var module = {
@@ -23,11 +23,11 @@ SLICK.Geo.Routing = (function() {
             GRUNT.Log.info("attempting to calculate route");
             
             // find an available routing engine
-            var engine = SLICK.Geo.getEngine("route");
+            var engine = TILE5.Geo.getEngine("route");
             if (engine) {
                 engine.route(args, function(routeData) {
                     if (args.generalize) {
-                        routeData.geometry = SLICK.Geo.generalizePositions(routeData.geometry, routeData.getInstructionPositions());
+                        routeData.geometry = TILE5.Geo.generalizePositions(routeData.geometry, routeData.getInstructionPositions());
                     } // if
                     
                     // firstly, if we have a map defined, then let's place the route on the map
@@ -57,7 +57,7 @@ SLICK.Geo.Routing = (function() {
             // GRUNT.Log.info("creating route overlay with route data: ", routeData);
 
             // create a new route overlay for the specified data
-            var overlay = new SLICK.Mapping.RouteOverlay({
+            var overlay = new TILE5.Mapping.RouteOverlay({
                 data: routeData,
                 width: dimensions.width,
                 height: dimensions.height
@@ -117,7 +117,7 @@ SLICK.Geo.Routing = (function() {
             
             // update the bounding box
             if (! params.boundingBox) {
-                params.boundingBox = SLICK.Geo.getBoundsForPositions(params.geometry);
+                params.boundingBox = TILE5.Geo.getBoundsForPositions(params.geometry);
             } // if
             
             var self = GRUNT.extend({

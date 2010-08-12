@@ -1,4 +1,4 @@
-SLICK.Touch = (function() {
+TILE5.Touch = (function() {
     // initialise constants
     var PANREFRESH = 5;
     var TOUCH_MODES = {
@@ -14,13 +14,13 @@ SLICK.Touch = (function() {
         listenerCount = 0;
     
     function calcDistance(touches) {
-        return SLICK.VectorMath.distance(touches);
+        return TILE5.VectorMath.distance(touches);
     } // calcDistance
     
     function calcChange(first, second) {
         var srcVector = (first && (first.length > 0)) ? first[0] : null;
         if (srcVector && second && (second.length > 0)) {
-            return SLICK.V.diff(srcVector, second[0]);
+            return TILE5.V.diff(srcVector, second[0]);
         } // if
         
         return null;
@@ -34,14 +34,14 @@ SLICK.Touch = (function() {
     function getTouchPoints(touches) {
         var fnresult = new Array(touches.length);
         for (var ii = touches.length; ii--; ) {
-            fnresult[ii] = new SLICK.Vector(touches[ii].pageX, touches[ii].pageY);
+            fnresult[ii] = new TILE5.Vector(touches[ii].pageX, touches[ii].pageY);
         } // for
         
         return fnresult;
     } // getTouchPoints
     
     function getMousePos(event) {
-        return [new SLICK.Vector(event.pageX, event.pageY)];
+        return [new TILE5.Vector(event.pageX, event.pageY)];
     } // getMousePos
     
     function debugTouchEvent(evt, title) {
@@ -79,12 +79,12 @@ SLICK.Touch = (function() {
             // initialise private members
             var doubleTap = false,
                 tapTimer = 0,
-                supportsTouch = SLICK.Device.getConfig().supportsTouch,
+                supportsTouch = TILE5.Device.getConfig().supportsTouch,
                 touchesStart = null,
                 touchesLast = null,
                 touchDelta = null,
                 totalDelta = null,
-                panDelta = new SLICK.Vector(),
+                panDelta = new TILE5.Vector(),
                 touchMode = null,
                 touchDown = false,
                 listeners = [],
@@ -92,15 +92,15 @@ SLICK.Touch = (function() {
                     current: 0,
                     last: 0
                 },
-                config = SLICK.Device.getConfig(),
+                config = TILE5.Device.getConfig(),
                 BENCHMARK_INTERVAL = 300;
                 
             function relativeTouches(touches) {
-                var fnresult = new SLICK.VectorArray(touches, true);
+                var fnresult = new TILE5.VectorArray(touches, true);
                 
                 // apply the offset
                 if (params.element) {
-                    fnresult.applyOffset(new SLICK.Vector(-params.element.offsetLeft, -params.element.offsetTop));
+                    fnresult.applyOffset(new TILE5.Vector(-params.element.offsetLeft, -params.element.offsetTop));
                 } // if
                 
                 return fnresult;
@@ -126,7 +126,7 @@ SLICK.Touch = (function() {
                 
                 // if an element is defined, then determine the element offset
                 if (params.element) {
-                    offsetVector = SLICK.V.offset(absVector, -params.element.offsetLeft, -params.element.offsetTop);
+                    offsetVector = TILE5.V.offset(absVector, -params.element.offsetLeft, -params.element.offsetTop);
                 } // if
                 
                 // fire the event
@@ -136,8 +136,8 @@ SLICK.Touch = (function() {
             function touchStart(evt) {
                 if (evt.target && (evt.target === params.element)) {
                     touchesStart = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt);
-                    touchDelta = new SLICK.Vector();
-                    totalDelta = new SLICK.Vector();
+                    touchDelta = new TILE5.Vector();
+                    totalDelta = new TILE5.Vector();
                     touchDown = true;
                     doubleTap = false;
 
@@ -150,7 +150,7 @@ SLICK.Touch = (function() {
                     // clearInterval(inertiaInterval);
             
                     // log the current touch start time
-                    ticks.current = SLICK.Clock.getTime();
+                    ticks.current = TILE5.Clock.getTime();
             
                     // fire the touch start event handler
                     var touchVector = touchesStart.length > 0 ? touchesStart[0] : null;
@@ -167,7 +167,7 @@ SLICK.Touch = (function() {
                     // check to see whether this is a double tap (if we are watching for them)
                     if (ticks.current - ticks.last < self.THRESHOLD_DOUBLETAP) {
                         // calculate the difference between this and the last touch point
-                        var touchChange = touchesLast ? SLICK.V.diff(touchesStart[0], touchesLast[0]) : null;
+                        var touchChange = touchesLast ? TILE5.V.diff(touchesStart[0], touchesLast[0]) : null;
                         if (touchChange && (Math.abs(touchChange.x) < params.maxDistDoubleTap) && (Math.abs(touchChange.y) < params.maxDistDoubleTap)) {
                             doubleTap = true;
                         } // if
@@ -234,9 +234,9 @@ SLICK.Touch = (function() {
                                 } // if
 
                                 // if the pan_delta is sufficient to fire an event, then do so
-                                if (SLICK.V.absSize(panDelta) > params.panEventThreshhold) {
+                                if (TILE5.V.absSize(panDelta) > params.panEventThreshhold) {
                                     fireEvent('moveHandler', panDelta.x, panDelta.y);
-                                    panDelta = SLICK.V.create();
+                                    panDelta = TILE5.V.create();
                                 } // if
 
                                 // set the touch mode to move
@@ -269,7 +269,7 @@ SLICK.Touch = (function() {
                         } // if
 
                         // get the end tick
-                        var endTick = SLICK.Clock.getTime();
+                        var endTick = TILE5.Clock.getTime();
 
                         // save the current ticks to the last ticks
                         ticks.last = ticks.current;
@@ -338,8 +338,8 @@ SLICK.Touch = (function() {
                 },
                 
                 wheelie: function(evt) {
-                    var delta = new SLICK.Vector(evt.wheelDeltaX, evt.wheelDeltaY),
-                        xy = new SLICK.Vector(evt.clientX, evt.clientY),
+                    var delta = new TILE5.Vector(evt.wheelDeltaX, evt.wheelDeltaY),
+                        xy = new TILE5.Vector(evt.clientX, evt.clientY),
                         zoomAmount = delta.y !== 0 ? Math.abs(delta.y / 120) : 0;
                         
                     if (zoomAmount !== 0) {
@@ -426,7 +426,7 @@ if (typeof(jQuery) !== 'undefined') {
     jQuery.fn.canTouchThis = function(params) {
         // bind the touch events
         return this.each(function() {
-            SLICK.Touch.captureTouch(this, params);
+            TILE5.Touch.captureTouch(this, params);
         });
     }; // canTouchThis
 

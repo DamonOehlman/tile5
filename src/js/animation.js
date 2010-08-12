@@ -1,7 +1,7 @@
 /**
-SLICK Animation module
+TILE5 Animation module
 */
-SLICK.Animation = (function() {
+TILE5.Animation = (function() {
     // initialise variables
     var tweens = [],
         updating = false,
@@ -11,7 +11,7 @@ SLICK.Animation = (function() {
         if (tweenTimer !== 0) { return; }
         
         tweenTimer = setInterval(function() {
-            if (module.update(SLICK.Clock.getTime()) === 0) {
+            if (module.update(TILE5.Clock.getTime()) === 0) {
                 clearInterval(tweenTimer);
                 tweenTimer = 0;
             } // if
@@ -145,7 +145,7 @@ SLICK.Animation = (function() {
             }, params);
             
             // get the start ticks
-            var startTicks = SLICK.Clock.getTime(),
+            var startTicks = TILE5.Clock.getTime(),
                 updateListeners = [],
                 complete = false,
                 beginningValue = 0.0,

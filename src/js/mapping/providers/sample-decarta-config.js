@@ -1,6 +1,6 @@
 // initialise the decarta options
-if (SLICK.Geo.Decarta) {
-    SLICK.Geo.Decarta.applyConfig({
+if (TILE5.Geo.Decarta) {
+    TILE5.Geo.Decarta.applyConfig({
         server: "http://ws.decarta.com/openls",
         clientName: "clientname",
         clientPassword: "password",

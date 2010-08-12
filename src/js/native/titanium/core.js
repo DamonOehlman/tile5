@@ -1,4 +1,4 @@
-SLICK.Titanium = (function() {
+TILE5.Titanium = (function() {
     // initialise the module
     var module = {
         platformExec: function(fnCall, params) {
@@ -16,7 +16,7 @@ SLICK.Titanium = (function() {
         });    
 
         // add a new message handler that will route messages through titanium
-        var nativeMessaging = new SLICK.Messaging.Handler({
+        var nativeMessaging = new TILE5.Messaging.Handler({
             id: "messagebus.titanium",
             processUpdate: function(message) {
                 if (message) {
@@ -27,8 +27,8 @@ SLICK.Titanium = (function() {
     } // if
     
     // register the module with the native modules
-    if (typeof SLICK.Native !== 'undefined') {
-        SLICK.Native.registerPlatformModule("titanium", module);
+    if (typeof TILE5.Native !== 'undefined') {
+        TILE5.Native.registerPlatformModule("titanium", module);
     } // if 
     
     return module;

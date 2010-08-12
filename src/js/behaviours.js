@@ -1,12 +1,12 @@
 /*
-File:  slick.behaviours.js
+File:  TILE5.behaviours.js
 This file implements mixins that describe behaviour for a particular display class
 
 Section:  Version History
 2010-06-03 (DJO) - Created File
 */
 
-SLICK.Pannable = function(params) {
+TILE5.Pannable = function(params) {
     params = GRUNT.extend({
         container: null,
         onPan: null,
@@ -16,14 +16,14 @@ SLICK.Pannable = function(params) {
     }, params);
     
     var animating = false,
-        offset = new SLICK.Vector();
+        offset = new TILE5.Vector();
     
     // initialise self
     var self = {
         pannable: true,
         
         getOffset: function() {
-            return new SLICK.Vector(offset.x, offset.y);
+            return new TILE5.Vector(offset.x, offset.y);
         },
         
         setOffset: function(x, y) {
@@ -58,10 +58,10 @@ SLICK.Pannable = function(params) {
         
         updateOffset: function(x, y, tweenFn) {
             if (tweenFn) {
-                var endPosition = new SLICK.Vector(x, y);
+                var endPosition = new TILE5.Vector(x, y);
 
                 animating = true;
-                var tweens = SLICK.Animation.tweenVector(offset, endPosition.x, endPosition.y, tweenFn, function() {
+                var tweens = TILE5.Animation.tweenVector(offset, endPosition.x, endPosition.y, tweenFn, function() {
                     animating = false;
                     self.panEnd(0, 0);
                 });
@@ -84,7 +84,7 @@ SLICK.Pannable = function(params) {
     
     var container = document.getElementById(params.container);
     if (container) {
-        SLICK.Touch.captureTouch(container, {
+        TILE5.Touch.captureTouch(container, {
             moveHandler: function(x, y) {
                 self.pan(-x, -y);
             },
@@ -96,9 +96,9 @@ SLICK.Pannable = function(params) {
     } // if
     
     return self;
-}; // SLICK.Pannable
+}; // TILE5.Pannable
 
-SLICK.Scalable = function(params) {
+TILE5.Scalable = function(params) {
     params = GRUNT.extend({
         container: null,
         onAnimate: null,
@@ -155,15 +155,15 @@ SLICK.Scalable = function(params) {
             
             // update the zoom center
             scaling = true;
-            startCenter = SLICK.V.copy(startXY);
-            zoomCenter = SLICK.V.copy(targetXY);
+            startCenter = TILE5.V.copy(startXY);
+            zoomCenter = TILE5.V.copy(targetXY);
             startRect = null;
             
             // if tweening then update the targetXY
             if (tweenFn) {
                 tweenStart = scaleFactor;
                 
-                var tween = SLICK.Animation.tweenValue(0, targetScaleFactor - tweenStart, tweenFn, finishAnimation, 1000);
+                var tween = TILE5.Animation.tweenValue(0, targetScaleFactor - tweenStart, tweenFn, finishAnimation, 1000);
                 tween.requestUpdates(function(updatedValue, completed) {
                     // calculate the completion percentage
                     aniProgress = updatedValue / (targetScaleFactor - tweenStart);
@@ -187,8 +187,8 @@ SLICK.Scalable = function(params) {
         getScaleInfo: function() {
             return {
                 factor: scaleFactor,
-                startRect: SLICK.copyRect(startRect),
-                endRect: SLICK.copyRect(endRect),
+                startRect: TILE5.copyRect(startRect),
+                endRect: TILE5.copyRect(endRect),
                 start: startCenter,
                 center: zoomCenter,
                 progress: aniProgress
@@ -206,7 +206,7 @@ SLICK.Scalable = function(params) {
     
     var container = document.getElementById(params.container);
     if (container) {
-        SLICK.Touch.captureTouch(container, {
+        TILE5.Touch.captureTouch(container, {
             pinchZoomHandler: function(touchesStart, touchesCurrent) {
                 checkTouches(touchesStart, touchesCurrent);
                 
@@ -235,10 +235,10 @@ SLICK.Scalable = function(params) {
                 startRect = endRect = null;
                 
                 // update the xy position
-                zoomCenter = SLICK.V.copy(xy);
+                zoomCenter = TILE5.V.copy(xy);
             }
         });
     } // if    
     
     return self;
-}; // SLICK.Scalable
+}; // TILE5.Scalable
