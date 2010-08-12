@@ -15,5 +15,5 @@ window.addEventListener("load", function() {
     });
 
     GRUNT.Log.info("MAP initialised");
-    map.gotoPosition(SLICK.Geo.parsePosition("-27.468 153.028"), 10);
+    map.gotoPosition(SLICK.Geo.P.parse("-27.468 153.028"), 10);
 }, false);

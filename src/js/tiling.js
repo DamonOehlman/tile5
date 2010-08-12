@@ -276,6 +276,7 @@ SLICK.Tiling = (function() {
                 invTileSize = params.tileSize ? 1 / params.tileSize : 0,
                 lastOffset = null,
                 gridDirty = false,
+                active = true,
                 tileDrawQueue = [],
                 loadedTileCount = 0,
                 lastCheckOffset = new SLICK.Vector(),
@@ -359,10 +360,16 @@ SLICK.Tiling = (function() {
                     return changeCount + gridDirty ? 1 : 0;
                 },
                 
+                deactivate: function() {
+                    active = false;
+                },
+                
                 drawTile: function(context, tile, x, y, state) {
                 },
                 
                 draw: function(context, offset, dimensions, state, view) {
+                    if (! active) { return; }
+                    
                     // initialise variables
                     var startTicks = GRUNT.Log.getTraceTicks(),
                         tileShift = tileStore.getTileShift(),

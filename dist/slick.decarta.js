@@ -210,7 +210,7 @@ SLICK.Geo.Decarta = (function() {
         
         CenterContext: function(jsonData) {
             return {
-                centerPos: SLICK.Geo.parsePosition(jsonData.CenterPoint ? jsonData.CenterPoint.pos.content : ""),
+                centerPos: SLICK.Geo.P.parse(jsonData.CenterPoint ? jsonData.CenterPoint.pos.content : ""),
                 radius: new SLICK.Geo.Radius(jsonData.Radius ? jsonData.Radius.content : 0, jsonData.Radius ? jsonData.Radius.unit : null)
             }; // self
         } // CenterContext
@@ -505,7 +505,7 @@ SLICK.Geo.Decarta = (function() {
                 if (match && validMatch(match)) {
                     // if the point is defined, then convert that to a position
                     if (match && match.Point) {
-                        matchPos = SLICK.Geo.parsePosition(match.Point.pos);
+                        matchPos = SLICK.Geo.P.parse(match.Point.pos);
                     } // if
 
                     // if we have the address then convert that to an address
@@ -611,7 +611,7 @@ SLICK.Geo.Decarta = (function() {
                 // GRUNT.Log.info("parsing " + instructions.length + " instructions");
                 for (var ii = 0; ii < instructions.length; ii++) {
                     fnresult.push(new SLICK.Geo.Routing.Instruction({
-                        position: SLICK.Geo.parsePosition(instructions[ii].Point),
+                        position: SLICK.Geo.P.parse(instructions[ii].Point),
                         description: instructions[ii].Instruction
                     }));
                 } // for
@@ -650,7 +650,7 @@ SLICK.Geo.Decarta = (function() {
                         // as to why this is required, who knows....
                         var tagName = (ii === 0 ? "StartPoint" : (ii === params.waypoints.length-1 ? "EndPoint" : "ViaPoint"));
                         
-                        body += String.format("<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>", tagName, SLICK.Geo.posToStr(params.waypoints[ii]));
+                        body += String.format("<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>", tagName, SLICK.Geo.P.toString(params.waypoints[ii]));
                     }
                     
                     // close the waypoint list
@@ -681,7 +681,7 @@ SLICK.Geo.Decarta = (function() {
                     
                     // create a new route data object and map items 
                     return new SLICK.Geo.Routing.RouteData({
-                        geometry: SLICK.Geo.parsePositionArray(response.RouteGeometry.LineString.pos),
+                        geometry: SLICK.Geo.P.parseArray(response.RouteGeometry.LineString.pos),
                         instructions: parseInstructions(response.RouteInstructionsList)
                     });
                 }

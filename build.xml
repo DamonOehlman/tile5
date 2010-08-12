@@ -130,6 +130,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		<concat destfile="${dist}/tests.${LIBNAME}.js">
 			<fileset file="lib/grunt/dist/grunt.test.js" />
 			<fileset file="test/unit/core.js" />
+			<fileset file="test/unit/geo.js" />
 			<fileset file="test/unit/mapping.js" />
 			<fileset file="test/unit/cloudmade.js" />
 		</concat>

@@ -35,7 +35,7 @@ SLICK.Mapping = (function() {
             }, params);
             
             // determine the mercator 
-            var centerMercatorPix = SLICK.Geo.posToMercatorPixels(params.centerPos, params.radsPerPixel);
+            var centerMercatorPix = SLICK.Geo.P.toMercatorPixels(params.centerPos, params.radsPerPixel);
             
             // calculate the bottom left mercator pix
             // the position of the bottom left mercator pixel is determined by params.subtracting the actual 
@@ -56,7 +56,7 @@ SLICK.Mapping = (function() {
                 
                 getGridXYForPosition: function(pos) {
                     // determine the mercator pixels for teh position
-                    var posPixels = SLICK.Geo.posToMercatorPixels(pos, params.radsPerPixel);
+                    var posPixels = SLICK.Geo.P.toMercatorPixels(pos, params.radsPerPixel);
 
                     // calculate the offsets
                     // GRUNT.Log.info("GETTING OFFSET for position: " + pos);
@@ -76,7 +76,7 @@ SLICK.Mapping = (function() {
                 },
                 
                 pixelsToPos: function(vector) {
-                    return SLICK.Geo.mercatorPixelsToPos(blMercatorPixX + vector.x, (blMercatorPixY + self.gridDimensions.height) - vector.y, params.radsPerPixel);
+                    return SLICK.Geo.P.fromMercatorPixels(blMercatorPixX + vector.x, (blMercatorPixY + self.gridDimensions.height) - vector.y, params.radsPerPixel);
                 }
             });
             
@@ -636,7 +636,7 @@ SLICK.Mapping = (function() {
                         minPos = grid.pixelsToPos(SLICK.V.offset(gridPos, -params.tapExtent, params.tapExtent)),
                         maxPos = grid.pixelsToPos(SLICK.V.offset(gridPos, params.tapExtent, -params.tapExtent));
                         
-                    GRUNT.Log.info("grid tapped @ " + SLICK.Geo.posToStr(grid.pixelsToPos(gridPos)));
+                    GRUNT.Log.info("grid tapped @ " + SLICK.Geo.P.toString(grid.pixelsToPos(gridPos)));
 
                     // turn that into a bounds object
                     tapBounds = new SLICK.Geo.BoundingBox(minPos, maxPos);
@@ -752,6 +752,12 @@ SLICK.Mapping = (function() {
                     if ((! initialized) || (zoomLevel !== currentZoomLevel)) {
                         // remove the grid layer
                         SLICK.Resources.resetImageLoadQueue();
+                        
+                        // get the grid and if available, then deactivate to prevent further image draws
+                        var grid = self.getTileLayer();
+                        if (grid) {
+                            grid.deactivate();
+                        } // if
 
                         // cancel any animations
                         SLICK.Animation.cancel();

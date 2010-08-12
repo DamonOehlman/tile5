@@ -62,6 +62,7 @@
         
         tests: [{
             title: "Display Map",
+            autoReady: false,
             runner: function(test, testData) {
                 map.gotoPosition(testData.positions.goldcoast, testData.zoomLevel, function() {
                     test.ready();
@@ -77,6 +78,7 @@
         
         tests: [{
             title: "Route from Brisbane to Sydney",
+            autoReady: false,
             runner: function(test, testData) {
                 GRUNT.Log.info("requesting the route from brisbane to sydney");
                 
@@ -106,6 +108,7 @@
         
         tests: [{
             title: "Geocoding Test",
+            autoReady: false,
             runner: function(test, testData) {
                 // get a mapping engine for geocoding
                 var engine = SLICK.Geo.getEngine("geocode");
