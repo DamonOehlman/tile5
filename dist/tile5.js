@@ -1426,6 +1426,9 @@ GRUNT.WaterCooler = (function() {
         addPipe: function(callback) {
             // test the pipe because if it is broke it will break everything
             callback("pipe.test", {});
+            
+            // given that didn't throw an exception and we got here, we can now add the pipe
+            pipes.push(callback);
         },
         
         listen: function(message, callback) {
