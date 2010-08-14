@@ -4021,7 +4021,7 @@ TILE5.Graphics = (function() {
                 // if we are autosizing the set the size
                 if (params.autoSize) {
                     GRUNT.Log.info("autosizing view: window.height = " + window.innerHeight + ", width = " + window.innerWidth);
-                    canvas.height = window.innerHeight - canvas.offsetTop - 49;
+                    canvas.height = window.innerHeight - canvas.offsetTop;
                     canvas.width = window.innerWidth - canvas.offsetLeft;
                 } // if
                 
