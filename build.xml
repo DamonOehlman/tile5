@@ -106,27 +106,6 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/mapping/providers/decarta.js" />
 		</concat>
 		
-		<!-- construct the native libraries -->
-		<concat destfile="${dist}/${LIBNAME}.native.js">
-			<fileset file="src/js/native/core.js" />
-			<fileset file="src/js/native/ui.js" />
-		</concat>
-		
-		<concat destfile="${dist}/${LIBNAME}.rhodes.js">
-			<fileset file="src/js/native/rhodes/core.js" />
-			<fileset file="src/js/native/rhodes/ajax.js" />
-		</concat>
-		
-		<!-- concatenate the phonegap file set -->
-		<concat destfile="${dist}/${LIBNAME}.phonegap.js">
-			<fileset file="src/js/native/phonegap/core.js" />
-		</concat>
-		
-		<concat destfile="${dist}/${LIBNAME}.titanium.js">
-			<fileset file="src/js/native/titanium/core.js" />
-			<fileset file="src/js/native/titanium/ajax.js" />
-		</concat>
-		
 		<concat destfile="${dist}/tests.${LIBNAME}.js">
 			<fileset file="lib/grunt/dist/grunt.test.js" />
 			<fileset file="test/unit/core.js" />
