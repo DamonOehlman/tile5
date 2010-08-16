@@ -14,6 +14,15 @@ http://github.com/jquery/jquery/blob/master/build.xml
     <property name="SLICK_MIN" value="${dist}/${LIBNAME}.min.js" />
 	<property name="JSDOC_HOME" value="/development/tools/jsdoc-toolkit" />
 	
+	<!-- jodoc configuration properties -->
+	<property name="PATH_PERL" value="/opt/local/bin" />
+	<property name="JODOC_PATH" value="/development/projects/github/joDoc" />
+	<property name="JODOC_PATH_DEPS" value="/development/tools/perl" />
+	
+	<!-- yuidoc configuration properties -->
+	<property name="PATH_PYTHON" value="/opt/local/bin" />
+	<property name="PATH_YUIDOC" value="/development/tools/javascript/yuidoc" />
+	
 	<!-- properties for configuring the test runner -->
 	<property name="PATH.LIGHTTPD" value="/opt/local/sbin/lighttpd" />
 	<property name="TESTRUNNER.HOST" value="10.1.1.100" />
@@ -41,28 +50,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		<ant dir="lib/grunt" />
 	</target>
 	
-	<!-- sylvester cloning code -->
-	
-	<available property="sylvester" file="lib/sylvester" />
-	
-	<target name="sylvester-clone" unless="sylvester">
-		<exec executable="git" outputproperty="git-sylvester" >  
-			<arg line="clone http://github.com/jcoglan/sylvester.git lib/sylvester"/>  
-		</exec>
-		<echo message="git clone sylvester: ${git-sylvester}" />
-	</target>
-
-	<target name="sylvester-pull" if="sylvester">
-		<exec executable="git" outputproperty="git-sylvester" dir="lib/sylvester" >  
-			<arg line="pull origin master"/>  
-		</exec> 
-		<echo message="git pull sylvester: ${git-sylvester}" />
-	</target>
-	
-	<target name="sylvester-get" depends="sylvester-clone,sylvester-pull">
-	</target>
-		
-	<target name="build-slick" depends="grunt-build, sylvester-get" description="Slick library core build, concatenates core files and updates @VERSION">
+	<target name="build-slick" depends="grunt-build" description="Slick library core build, concatenates core files and updates @VERSION">
 		<echo message="BUILDING SLICK CORE" />
 		<mkdir dir="${dist}" />
 		
@@ -159,6 +147,24 @@ http://github.com/jquery/jquery/blob/master/build.xml
 	<target name="jsdoc">
 		<exec executable="java">
 			<arg line="-jar ${JSDOC_HOME}/jsrun.jar ${JSDOC_HOME}/app/run.js -v -t=${JSDOC_HOME}/templates/jsdoc/ --recurse=10 -d=apidoc src/js"/>
+		</exec>
+	</target>
+	
+	<target name="jodoc">
+		<delete dir="${dist}/docs" />
+		<exec executable="${PATH_PERL}/perl">
+			<arg value="${JODOC_PATH}/jodoc" />
+			<arg value="--output" />
+			<arg value="${dist}/docs" />
+			<arg value="--toc" />
+			<arg value="TOC.mdown" />
+			<arg value="--markdown" />
+			<arg value="${JODOC_PATH_DEPS}/Markdown.pl" />
+			<arg value="--smartypants" />
+			<arg value="${JODOC_PATH_DEPS}/SmartyPants.pl" />
+			<arg value="--title" />
+			<arg value="Tile5 API Documentation" />
+			<arg line="README.mdown LICENSE.mdown docs/" />
 		</exec>
 	</target>
 	
