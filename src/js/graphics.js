@@ -54,10 +54,6 @@ TILE5.Graphics = (function() {
                 id = "";
             
             var self = GRUNT.extend({
-                isAnimating: function() {
-                    return false;
-                },
-                
                 addToView: function(view) {
                     view.setLayer(id, self);
                 },
@@ -74,10 +70,6 @@ TILE5.Graphics = (function() {
                 },
                 
                 draw: function(context, offset, dimensions, state, view) {
-                },
-                
-                notify: function(eventType) {
-                    
                 },
                 
                 /**
@@ -112,21 +104,6 @@ TILE5.Graphics = (function() {
             }, params); // self
             
             return self;
-        },
-        
-        StatusViewLayer: function(params) {
-            return new module.ViewLayer({
-                validStates: module.AnyDisplayState,
-                zindex: 5000,
-                draw: function(context, offset, dimensions, state, view) {
-                    context.fillStyle = "#FF0000";
-                    context.fillRect(10, 10, 50, 50);
-                    
-                    context.fillStyle = "#FFFFFF";
-                    context.font = "bold 10px sans";
-                    context.fillText(view.getDisplayState(), 20, 20);
-                }
-            });
         },
         
         AnimatedPathLayer: function(params) {

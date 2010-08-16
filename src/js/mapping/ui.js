@@ -560,14 +560,12 @@ TILE5.Mapping = (function() {
                             staticAnnotations[ii].draw(context, offset, state, self);
                             animating = animating || staticAnnotations[ii].isAnimating();
                         } // for
-
-                        if (animating) {
-                            self.wakeParent();
-                        } // if
                     }
                     finally {
                         context.restore();
                     } // try..finally
+                    
+                    return animating ? 1 : 0;
                 },
                 
                 /**
@@ -592,10 +590,6 @@ TILE5.Mapping = (function() {
                     
                     // wake the parent
                     self.wakeParent();
-                },
-                
-                isAnimating: function() {
-                    return animating;
                 }
             });
 
