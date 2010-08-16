@@ -1469,11 +1469,6 @@ GRUNT.WaterCooler = (function() {
 })();
 
 /* GRUNTJS END */
-/**
-@namespace 
-
-The top level TILE5 namespace.  This module contains core types and functionality for implementing 
-*/
 TILE5 = (function () {
     var module = {
         /** @lends TILE5 */
@@ -1666,7 +1661,8 @@ TILE5 = (function () {
         })(),
         
         /**
-        @class
+        Dimensions Class
+        ===============
         */
         Dimensions: function(init_width, init_height) {
             // initialise variables
@@ -1869,7 +1865,56 @@ TILE5 = (function () {
 TILE5.Device = (function() {
     var deviceConfigs = null,
         deviceCheckOrder = [],
-        detectedConfig = null;
+        detectedConfig = null,
+        urlBridgeTimeout = 0,
+        queuedBridgeUrls = [],
+        bridgeIgnoreMessages = ['view.wake', 'tile.loaded'];
+        
+    function processUrlBridgeNotifications() {
+        while (queuedBridgeUrls.length > 0) {
+            var notificationUrl = queuedBridgeUrls.shift();
+            document.location = notificationUrl;
+        } // while
+        
+        urlBridgeTimeout = 0;
+    } // processUrlBridgeNotifications
+    
+    function shouldBridgeMessage(message) {
+        var shouldBridge = true;
+        for (var ii = bridgeIgnoreMessages.length; ii--; ) {
+            shouldBridge = shouldBridge && (message != bridgeIgnoreMessages[ii]);
+        } // for
+        
+        return shouldBridge;
+    } // shouldBridgeMessage
+    
+    function messageToUrl(message, args) {
+        var params = [];
+        
+        for (var key in args) {
+            if (key) {
+                params.push(key + "=" + escape(args[key]));
+            }
+        } // for
+        
+        return "tile5://" + message + "/" + (params.length > 0 ? "?" + params.join("&") : "");
+    } // messageToUrl
+        
+    function bridgeNotifyLog(message, args) {
+        if (shouldBridgeMessage(message)) {
+            GRUNT.Log.info("would push url: " + messageToUrl(message, args));
+        } // if
+    } // bridgeCommandEmpty
+    
+    function bridgeNotifyUrl(message, args) {
+        if (shouldBridgeMessage(message)) {
+            queuedBridgeUrls.push(messageToUrl(message, args));
+        
+            if (! urlBridgeTimeout) {
+                setTimeout(processUrlBridgeNotifications, 100);
+            } // if
+        } // if
+    } // bridgeNotifyUrlScheme
     
     function loadDeviceConfigs() {
         deviceConfigs = {
@@ -1884,7 +1929,8 @@ TILE5.Device = (function() {
                 },
                 // TODO: reset this back to null after testing
                 maxImageLoads: 4,
-                requireFastDraw: false
+                requireFastDraw: false,
+                bridgeNotify: bridgeNotifyLog
             },
             
             ipod: {
@@ -1892,20 +1938,23 @@ TILE5.Device = (function() {
                 regex: /ipod/i,
                 imageCacheMaxSize: 6 * 1024,
                 maxImageLoads: 4,
-                requireFastDraw: true
+                requireFastDraw: true,
+                bridgeNotify: bridgeNotifyUrl
             },
 
             iphone: {
                 name: "iPhone",
                 regex: /iphone/i,
                 imageCacheMaxSize: 6 * 1024,
-                maxImageLoads: 4
+                maxImageLoads: 4,
+                bridgeNotify: bridgeNotifyUrl
             },
 
             ipad: {
                 name: "iPad",
                 regex: /ipad/i,
-                imageCacheMaxSize: 6 * 1024
+                imageCacheMaxSize: 6 * 1024,
+                bridgeNotify: bridgeNotifyUrl
             },
 
             android: {
@@ -1916,14 +1965,16 @@ TILE5.Device = (function() {
                 getScaling: function() {
                     // TODO: need to detect what device dpi we have instructed the browser to use in the viewport tag
                     return 1 / window.devicePixelRatio;
-                }
+                },
+                bridgeNotify: bridgeNotifyUrl
             },
             
             froyo: {
                 name: "Android OS >= 2.2",
                 regex: /froyo/i,
                 eventTarget: document.body,
-                supportsTouch: true
+                supportsTouch: true,
+                bridgeNotify: bridgeNotifyUrl
             }
         };
         
@@ -4188,7 +4239,7 @@ TILE5.Graphics = (function() {
             } // calcZoomCenter
             
             function triggerIdle() {
-                GRUNT.WaterCooler.say("view-idle", { id: self.id });
+                GRUNT.WaterCooler.say("view.idle", { id: self.id });
                 
                 idle = true;
                 idleTimeout = 0;
@@ -4361,12 +4412,7 @@ TILE5.Graphics = (function() {
                         addLayer(id, value);
                     } // if
                     
-                    // iterate through the layer update listeners and fire the callbacks
-                    GRUNT.WaterCooler.say("layer.update", {
-                        value: value
-                    }); 
-
-                    // wake up
+                    GRUNT.WaterCooler.say("layer.update", { id: id });
                     wake();
                 },
                 
@@ -5031,7 +5077,7 @@ TILE5.Tiling = (function() {
                     self.setLayer("grid" + gridIndex, value);
                     
                     // update the tile load threshold
-                    GRUNT.WaterCooler.say("grid.updated", { grid: value });
+                    GRUNT.WaterCooler.say("grid.updated", { id: "grid" + gridIndex });
                 },
 
                 gridPixToViewPix: function(vector) {
@@ -7215,7 +7261,7 @@ TILE5.Mapping = (function() {
             } // if
             
             // listen for the view idling
-            GRUNT.WaterCooler.listen("view-idle", function(args) {
+            GRUNT.WaterCooler.listen("view.idle", function(args) {
                 if (args.id && (args.id == self.id)) {
                     // compare the last bounds change offset with the current offset
                     var changeDelta = TILE5.V.absSize(TILE5.V.diff(lastBoundsChangeOffset, self.getOffset()));

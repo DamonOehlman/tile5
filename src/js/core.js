@@ -1,8 +1,3 @@
-/**
-@namespace 
-
-The top level TILE5 namespace.  This module contains core types and functionality for implementing 
-*/
 TILE5 = (function () {
     var module = {
         /** @lends TILE5 */
@@ -195,7 +190,8 @@ TILE5 = (function () {
         })(),
         
         /**
-        @class
+        Dimensions Class
+        ===============
         */
         Dimensions: function(init_width, init_height) {
             // initialise variables

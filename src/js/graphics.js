@@ -544,7 +544,7 @@ TILE5.Graphics = (function() {
             } // calcZoomCenter
             
             function triggerIdle() {
-                GRUNT.WaterCooler.say("view-idle", { id: self.id });
+                GRUNT.WaterCooler.say("view.idle", { id: self.id });
                 
                 idle = true;
                 idleTimeout = 0;
@@ -717,12 +717,7 @@ TILE5.Graphics = (function() {
                         addLayer(id, value);
                     } // if
                     
-                    // iterate through the layer update listeners and fire the callbacks
-                    GRUNT.WaterCooler.say("layer.update", {
-                        value: value
-                    }); 
-
-                    // wake up
+                    GRUNT.WaterCooler.say("layer.update", { id: id });
                     wake();
                 },
                 

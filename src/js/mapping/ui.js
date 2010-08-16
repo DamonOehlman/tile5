@@ -942,7 +942,7 @@ TILE5.Mapping = (function() {
             } // if
             
             // listen for the view idling
-            GRUNT.WaterCooler.listen("view-idle", function(args) {
+            GRUNT.WaterCooler.listen("view.idle", function(args) {
                 if (args.id && (args.id == self.id)) {
                     // compare the last bounds change offset with the current offset
                     var changeDelta = TILE5.V.absSize(TILE5.V.diff(lastBoundsChangeOffset, self.getOffset()));

@@ -562,7 +562,7 @@ TILE5.Tiling = (function() {
                     self.setLayer("grid" + gridIndex, value);
                     
                     // update the tile load threshold
-                    GRUNT.WaterCooler.say("grid.updated", { grid: value });
+                    GRUNT.WaterCooler.say("grid.updated", { id: "grid" + gridIndex });
                 },
 
                 gridPixToViewPix: function(vector) {
