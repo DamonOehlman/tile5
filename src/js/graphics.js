@@ -598,6 +598,12 @@ TILE5.Graphics = (function() {
                 // get the updated the offset
                 offset = pannable ? pannable.getOffset() : new TILE5.Vector();
                 
+                // conver the offset x and y to integer values
+                // while canvas implementations work fine with real numbers, the actual drawing of images
+                // will not look crisp when a real number is used rather than an integer (or so I've found)
+                offset.x = Math.floor(offset.x);
+                offset.y = Math.floor(offset.y);
+                
                 // if we have an fps layer, then update the fps
                 if (fpsLayer && lastTickCount) {
                     fpsLayer.delays.push(tickCount - lastTickCount);

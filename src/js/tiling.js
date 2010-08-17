@@ -183,7 +183,7 @@ TILE5.Tiling = (function() {
             
             var tileContext = emptyTile.getContext('2d');
             
-            tileContext.fillStyle = "rgba(150, 150, 150, 0.05)";
+            tileContext.fillStyle = "rgba(150, 150, 150, 0.025)";
             tileContext.fillRect(0, 0, emptyTile.width, emptyTile.height);
         } // if
         
@@ -197,7 +197,7 @@ TILE5.Tiling = (function() {
             panningTile.height = module.Config.TILESIZE;
             
             var tileContext = panningTile.getContext('2d'),
-                lineDiff = Math.sqrt(module.Config.TILESIZE);
+                lineDiff = Math.floor(Math.sqrt(module.Config.TILESIZE));
             
             tileContext.fillStyle = "rgba(200, 200, 200, 1)";
             tileContext.strokeStyle = "rgb(190, 190, 190)";
@@ -271,7 +271,7 @@ TILE5.Tiling = (function() {
             }, params));
             
             // initialise varibles
-            var halfTileSize = Math.round(params.tileSize >> 1),
+            var halfTileSize = Math.round(params.tileSize / 2),
                 invTileSize = params.tileSize ? 1 / params.tileSize : 0,
                 lastOffset = null,
                 gridDirty = false,
@@ -296,7 +296,7 @@ TILE5.Tiling = (function() {
                                         Math.floor((offset.y + tileShift.y) * invTileSize)),
                         tileCols = Math.ceil(dimensions.width * invTileSize) + 1,
                         tileRows = Math.ceil(dimensions.height * invTileSize) + 1,
-                        centerPos = new TILE5.Vector((tileCols-1) / 2, (tileRows-1) / 2),
+                        centerPos = new TILE5.Vector(Math.floor((tileCols-1) / 2), Math.floor((tileRows-1) / 2)),
                         tileOffset = new TILE5.Vector((tileStart.x * params.tileSize), (tileStart.y * params.tileSize)),
                         viewAnimating = view.isAnimating();
                     
@@ -377,7 +377,7 @@ TILE5.Tiling = (function() {
                         xShift = offset.x + tileShift.x,
                         yShift = offset.y + tileShift.y,
                         tilesDrawn = true;
-
+                        
                     if (state !== TILE5.Graphics.DisplayState.PINCHZOOM) {
                         updateDrawQueue(context, offset, dimensions, view);
                         GRUNT.Log.trace("updated draw queue", startTicks);
@@ -401,10 +401,6 @@ TILE5.Tiling = (function() {
                         if (tile) {
                             // draw the tile
                             tilesDrawn = self.drawTile(context, tile, x, y, state) && tilesDrawn;
-                            
-                            // update the tile position
-                            tile.x = x;
-                            tile.y = y;
                         } 
                         else {
                             tilesDrawn = false;
