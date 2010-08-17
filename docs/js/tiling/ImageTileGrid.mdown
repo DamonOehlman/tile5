@@ -1,5 +1,5 @@
-Tiling.ImageTileGrid
-====================
+TILE5.Tiling.ImageTileGrid
+==========================
 
 Extends: Tiling.TileGrid
 

@@ -21,6 +21,89 @@ TILE5.Geo.UI = (function() {
         return 2*Math.PI / (tileSize << gxZoom);
     } // radsPerPixelAtZoom
     
+    function CrosshairOverlay(params) {
+        params = GRUNT.extend({
+            lineWidth: 1.5,
+            strokeStyle: "rgba(0, 0, 0, 0.5)",
+            size: 15,
+            zindex: 150,
+            scalePosition: false,
+            validStates: TILE5.Graphics.DisplayState.ACTIVE | TILE5.Graphics.DisplayState.ANIMATING | TILE5.Graphics.DisplayState.PAN
+        }, params);
+        
+        function drawCrosshair(context, centerPos, size) {
+            // initialise the context line style
+            context.lineWidth = params.lineWidth;
+            context.strokeStyle = params.strokeStyle;
+            
+            context.beginPath();
+            context.moveTo(centerPos.x, centerPos.y - size);
+            context.lineTo(centerPos.x, centerPos.y + size);
+            context.moveTo(centerPos.x - size, centerPos.y);
+            context.lineTo(centerPos.x + size, centerPos.y);
+            context.arc(centerPos.x, centerPos.y, size * 0.6666, 0, 2 * Math.PI, false);
+            context.stroke();
+        } // drawCrosshair
+        
+        function createCrosshair() { 
+            var newCanvas = document.createElement('canvas');
+            newCanvas.width = params.size * 2;
+            newCanvas.height = params.size * 2;
+
+            // draw the cross hair
+            drawCrosshair(newCanvas.getContext("2d"), new TILE5.Vector(params.size, params.size), params.size);
+            
+            // return the cross hair canvas
+            return newCanvas;
+        }
+        
+        var centerPos = null,
+            crosshair = createCrosshair();
+        
+        return GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
+            draw: function(context, offset, dimensions, state, view) {
+                if (! centerPos) {
+                    centerPos = TILE5.D.getCenter(dimensions);
+                } // if
+
+                // draw the cross hair
+                context.drawImage(crosshair, centerPos.x - params.size, centerPos.y - params.size);
+            }
+        });
+    } // CrosshairOverlay
+    
+    function RadarOverlay(params) {
+        params = GRUNT.extend({
+            radarFill: "rgba(0, 221, 238, 0.1)",
+            radarStroke: "rgba(0, 102, 136, 0.3)",
+            zindex: 100
+        }, params);
+        
+        // initialise variables
+        var MAXSIZE = 100;
+        var MINSIZE = 20;
+        var size = 50;
+        var increment = 3;
+        
+        return GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
+            draw: function(context, offset, dimensions, state, view) {
+                // calculate the center position
+                var xPos = dimensions.width >> 1;
+                var yPos = dimensions.height >> 1;
+
+                // initialise the drawing style
+                context.fillStyle = params.radarFill;
+                context.strokeStyle = params.radarStroke;
+                
+                // draw the radar circle
+                context.beginPath();
+                context.arc(xPos, yPos, size, 0, Math.PI * 2, false);
+                context.fill();
+                context.stroke();
+            }
+        });        
+    } // RadarOverlay
+    
     var module = {
         // change this value to have the annotations tween in (eg. TILE5.Animation.Easing.Sine.Out)
         AnnotationTween: null,
@@ -50,29 +133,15 @@ TILE5.Geo.UI = (function() {
                         self.pixelsToPos(new TILE5.Vector(x + width, y)));
                 },
                 
-                getCenterOffset: function() {
-                    return params.centerXY;
-                },
-                
                 getGridXYForPosition: function(pos) {
                     // determine the mercator pixels for teh position
                     var posPixels = TILE5.Geo.P.toMercatorPixels(pos, params.radsPerPixel);
 
                     // calculate the offsets
-                    // GRUNT.Log.info("GETTING OFFSET for position: " + pos);
                     var offsetX = posPixels.x - blMercatorPixX;
                     var offsetY = self.gridDimensions.height - (posPixels.y - blMercatorPixY);
 
-                    // GRUNT.Log.info("position mercator pixels: " + pos_mp);
-                    // GRUNT.Log.info("bottom left mercator pixels: " + blMercatorPix);
-                    // GRUNT.Log.info("calcalated pos offset:    " + offset_x + ", " + offset_y);
-
                     return new TILE5.Vector(offsetX, offsetY);
-                },
-                
-                getGuideOffset: function(offset) {
-                    var tileSize = self.tileSize;
-                    return new TILE5.Vector((offset.x % tileSize), (offset.y % tileSize));
                 },
                 
                 pixelsToPos: function(vector) {
@@ -83,109 +152,18 @@ TILE5.Geo.UI = (function() {
             return self;
         },
         
-        /**
-        The Radar Overlay is used to draw a translucent radar image over the map which can be used
-        to indicate the accuracy of the geolocation detection, or possibly distance that has been 
-        used to determine points of interest in the nearby area.
-        */
-        RadarOverlay: function(params) {
-            params = GRUNT.extend({
-                radarFill: "rgba(0, 221, 238, 0.1)",
-                radarStroke: "rgba(0, 102, 136, 0.3)",
-                zindex: 100
-            }, params);
-            
-            // initialise variables
-            var MAXSIZE = 100;
-            var MINSIZE = 20;
-            var size = 50;
-            var increment = 3;
-            
-            return GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
-                draw: function(context, offset, dimensions, state, view) {
-                    // calculate the center position
-                    var xPos = dimensions.width >> 1;
-                    var yPos = dimensions.height >> 1;
-
-                    // initialise the drawing style
-                    context.fillStyle = params.radarFill;
-                    context.strokeStyle = params.radarStroke;
-                    
-                    // draw the radar circle
-                    context.beginPath();
-                    context.arc(xPos, yPos, size, 0, Math.PI * 2, false);
-                    context.fill();
-                    context.stroke();
-                }
-            });
-        },
-        
-        /**
-        The crosshair overlay is used to draw a crosshair at the center of the map.
-        */
-        CrosshairOverlay: function(params) {
-            params = GRUNT.extend({
-                lineWidth: 1.5,
-                strokeStyle: "rgba(0, 0, 0, 0.5)",
-                size: 15,
-                zindex: 150,
-                scalePosition: false,
-                validStates: TILE5.Graphics.DisplayState.ACTIVE | TILE5.Graphics.DisplayState.ANIMATING | TILE5.Graphics.DisplayState.PAN
-            }, params);
-            
-            function drawCrosshair(context, centerPos, size) {
-                // initialise the context line style
-                context.lineWidth = params.lineWidth;
-                context.strokeStyle = params.strokeStyle;
-                
-                context.beginPath();
-                context.moveTo(centerPos.x, centerPos.y - size);
-                context.lineTo(centerPos.x, centerPos.y + size);
-                context.moveTo(centerPos.x - size, centerPos.y);
-                context.lineTo(centerPos.x + size, centerPos.y);
-                context.arc(centerPos.x, centerPos.y, size * 0.6666, 0, 2 * Math.PI, false);
-                context.stroke();
-            } // drawCrosshair
-            
-            function createCrosshair() { 
-                var newCanvas = document.createElement('canvas');
-                newCanvas.width = params.size * 2;
-                newCanvas.height = params.size * 2;
-
-                // draw the cross hair
-                drawCrosshair(newCanvas.getContext("2d"), new TILE5.Vector(params.size, params.size), params.size);
-                
-                // return the cross hair canvas
-                return newCanvas;
-            }
-            
-            var centerPos = null,
-                crosshair = createCrosshair();
-            
-            return GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
-                draw: function(context, offset, dimensions, state, view) {
-                    if (! centerPos) {
-                        centerPos = TILE5.D.getCenter(dimensions);
-                    } // if
-
-                    // draw the cross hair
-                    context.drawImage(crosshair, centerPos.x - params.size, centerPos.y - params.size);
-                }
-            });
-        },
-        
         /** 
         Route Overlay
         */
         RouteOverlay: function(params) {
             params = GRUNT.extend({
-                strokeStyle: "rgba(0, 51, 119, 0.9)",
-                waypointFillStyle: "#FFFFFF",
-                lineWidth: 4,
                 data: null,
                 pixelGeneralization: 8,
                 calculationsPerCycle: 250,
                 partialDraw: false,
+                strokeStyle: "rgba(0, 51, 119, 0.9)",
+                waypointFillStyle: "#FFFFFF",
+                lineWidth: 4,
                 zindex: 50
                 // validStates: TILE5.Graphics.DisplayState.ACTIVE | TILE5.Graphics.DisplayState.PAN | TILE5.Graphics.DisplayState.PINCHZOOM
             }, params);
@@ -905,11 +883,11 @@ TILE5.Geo.UI = (function() {
             self.setLayer("annotations", annotations);
             
             // add the radar overlay
-            // self.setLayer("radar", new TILE5.Geo.UI.RadarOverlay());
+            // self.setLayer("radar", new RadarOverlay());
             
             // if we are drawing the cross hair, then add a cross hair overlay
             if (params.crosshair) {
-                self.setLayer("crosshair", new TILE5.Geo.UI.CrosshairOverlay());
+                self.setLayer("crosshair", new CrosshairOverlay());
             } // if
 
             // if we have a copyright message, then add the message

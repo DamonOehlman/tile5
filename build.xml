@@ -162,6 +162,8 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<arg value="${JODOC_PATH_DEPS}/SmartyPants.pl" />
 			<arg value="--title" />
 			<arg value="Tile5 API Documentation" />
+			<arg value="--template" />
+			<arg value="docs/html/template.html" />
 			<arg line="README.mdown LICENSE.mdown docs/" />
 		</exec>
 		

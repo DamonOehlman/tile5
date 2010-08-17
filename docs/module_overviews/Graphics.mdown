@@ -6,13 +6,13 @@ The TILE5.Graphics module defines the following:
 Types
 -----
 
-- Graphics.DisplayState
+- TILE5.Graphics.DisplayState
 
 Classes
 -------
 
-- Graphics.View
-- Graphics.ViewLayer
-- Graphics.AnimatedPathLayer
-- Graphics.FPSLayer
-- Graphics.ResourceStatsLayer
+- TILE5.Graphics.View
+- TILE5.Graphics.ViewLayer
+- TILE5.Graphics.AnimatedPathLayer
+- TILE5.Graphics.FPSLayer
+- TILE5.Graphics.ResourceStatsLayer

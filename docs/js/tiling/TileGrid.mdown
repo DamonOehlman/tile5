@@ -1,7 +1,7 @@
-Tiling.TileGrid
-===============
+TILE5.Tiling.TileGrid
+=====================
 
-Extends: Graphics.ViewLayer
+Extends: TILE5.Graphics.ViewLayer
 
 The TileGrid class (together with the Tiling.TileStore) extends the Graphics.ViewLayer and implements functionality required to manage a virtual grid of tiles and draw them to the parent view's canvas.
 

@@ -112,7 +112,6 @@ TILE5.Graphics = (function() {
                 path: [],
                 id: GRUNT.generateObjectID("pathAnimation"),
                 easing: TILE5.Animation.Easing.Sine.InOut,
-                canCache: false,
                 validStates: module.ActiveDisplayStates | DISPLAY_STATE.PAN | DISPLAY_STATE.PINCHZOOM,
                 drawIndicator: null,
                 duration: 2000,

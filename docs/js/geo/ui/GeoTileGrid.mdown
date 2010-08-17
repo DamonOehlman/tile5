@@ -1,0 +1,39 @@
+TILE5.Geo.UI.GeoTileGrid
+========================
+
+Extends: TILE5.Tiling.TileGrid
+
+The GeoTileGrid class is used to __wrap__ and extend a standard TILE5.Tiling.TileGrid and make it "Geospatial aware".  Essentially a GeoTileGrid is initialized by passing an existing TileGrid and a center position (TILE5.Geo.Position) and center xy coordinate (TILE5.Vector) and this allows it to translate screen coordinates into latitude / longitude pairs.
+
+Constructor Parameters
+----------------------
+
+- __grid__ (TILE5.Tiling.TileGrid)
+
+	the grid to wrap and make Geospatial aware
+- __centerPos__ (TILE5.Geo.Position)
+
+	the latitude and longitude of the center of the grid
+	
+- __centerXY__ (TILE5.Vector)
+
+	the center xy coordinate of the grid (relative to the top left tile, xy coordinate = 0,0)
+
+- __radsPerPixel__ (float) 
+
+	the number of radians per pixel.  This value is used in the calculation of screen coordinates to real world positions.  While for both the current map provider implementations this value is the same, I expect it could vary from provider to provider.
+	
+Methods
+-------
+
+- `getBoundingBox(x, y, width, height)`
+
+	Returns a new TILE5.Geo.BoundingBox that relates to the specified area on the tile grid.
+	
+- `getGridXYForPosition(pos)`
+
+	Returns a TILE5.Vector that relates to the grid position of the TILE5.Geo.Position value passed in the pos parameter to the method.  This method is used extensively to calculate the position that shapes / points should be drawn to the grid based on their geospatial position.
+	
+- `pixelsToPos(vector)`
+
+	Basically the opposite of the above.  Returns a TILE5.Geo.Position based on the xy value of the TILE5.Vector that is passed to the method.  Very useful when you need to translate screen / grid coordinates into a latitude longitude.  For instance, in the case where the user clicks on the map and you need to know the latitude and longitude of that click / touch.

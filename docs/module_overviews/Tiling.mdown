@@ -6,13 +6,13 @@ The TILE5.Tiling module defines classes and functionality required to take the g
 Classes
 -------
 
-- Tiling.Tile
-- Tiling.ImageTile
-- Tiling.TileGrid
-- Tiling.ImageTileGrid
-- Tiling.Tiler
+- TILE5.Tiling.Tile
+- TILE5.Tiling.ImageTile
+- TILE5.Tiling.TileGrid
+- TILE5.Tiling.ImageTileGrid
+- TILE5.Tiling.Tiler
 
 Internal Classes
 ----------------
 
-- Tiling.TileStore
+- TILE5.Tiling.TileStore

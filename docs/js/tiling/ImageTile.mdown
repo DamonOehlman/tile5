@@ -1,5 +1,5 @@
-Tiling.ImageTile
-================
+TILE5.Tiling.ImageTile
+======================
 
 Extends: Tiling.Tile
 

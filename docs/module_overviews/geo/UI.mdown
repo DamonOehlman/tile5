@@ -8,7 +8,6 @@ Classes
 
 - TILE5.Geo.UI.GeoTileGrid
 - TILE5.Geo.UI.RadarOverlay
-- TILE5.Geo.UI.CrosshairOverlay
 - TILE5.Geo.UI.RouteOverlay
 - TILE5.Geo.UI.Annotation
 - TILE5.Geo.UI.ImageAnnotation

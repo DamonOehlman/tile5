@@ -1,5 +1,5 @@
-Tiling.Tile
-===========
+TILE5.Tiling.Tile
+=================
 
 A very simple lightweight class that stores information relevant to a tile.
 

@@ -1,0 +1,69 @@
+TILE5.Geo.UI.RouteOverlay
+=========================
+
+Extends: TILE5.Graphics.ViewLayer
+
+The RouteOverlay class is used to render the route geometry to the map.  
+
+Constructor Parameters
+----------------------
+
+- __data__ (TILE5.Geo.Routing.RouteData)
+
+	The route data that will be rendered in the ViewLayer.  
+	
+- pixelGeneralization (int, default = 8)
+
+	This parameter refers to the minimum distance that must occur between two screen coordinates at a particular zoom level before a point is considered worth drawing.  This is the 2nd phase of generalization that is applied to the route data.  For more information see: Understanding Route Generalization.
+	
+- calculationsPerCycle (int, default = 250)
+
+	This parameter is used to specify how many TILE5.Geo.Position values from the TILE5.Geo.Routing.RouteData geometry should be converted to a screen coordinate per draw cycle (see TILE5.Graphics.View).  The conversion of positions into screen coordinates is done in a re-entrant fashion to ensure that the application UI is not blocked while long routes are converted to screen positions.  When HTML5 web workers become common place, this will be revisited :)
+	
+- partialDraw (boolean, default = false)
+
+	Given the re-entrant nature of the position -> screen coordinate calculations it is possible to draw partial routes quite early once a route has been retrieved.  If it is desirable to do this (you actually get quite a nice effect with it enabled) then simply mark this option as true in the constructor.
+	
+- strokeStyle (HTML5 Canvas strokeStyle, default = rgba(0, 51, 119, 0.9))
+
+	The stroke color that is used to draw the route line.
+	
+- waypointFillStyle (HTML5 Canvas fillStyle, default = #FFFFFF)
+
+	The color that is used to fill the waypoint circles on the route.  Waypoints are drawn to correspond to instructions that are passed through in the TILE5.Geo.Routing.RouteData
+
+- lineWidth (int, default = 4)
+
+	The default line width that is used when drawing the route line.
+	
+- zindex (int, default = 50)
+
+	The TILE5.Graphics.ViewLayer zindex for the RouteOverlay.
+	
+Methods
+-------
+
+- `getAnimation(easingFn, duration, drawCallback, autoCenter)`
+
+	This method is used to create a new TILE5.Graphics.AnimatedPathLayer from the current route information.  Rather than animating the path in this overlay it was a design decision to have a new TILE5.Graphics.ViewLayer spawned to manage drawing any route animation.  So far this has proven to be pretty effective.  The method takes the following parameters:
+	
+	- easingFn - the TILE5.Animation.Easing function that will be used when animating the path.
+	
+	- duration - the duration of the animation
+	
+	- drawCallback - a callback function that will be used to draw the indicator for the animation.  Providing a value for this callback will allow you to do nifty things like draw images as the animation indicator.  See the TILE5.Graphics.AnimatedPathLayer doco for details on the drawCallback format.
+	
+	- autoCenter - whether or not the view should autocenter on the animation indicator while the animation is completing.  If this is set as true, the user will be taken along the route.
+	
+Usage
+-----
+
+	// create a new route overlay
+	var routeLayer = new TILE5.Geo.UI.RouteOverlay({
+		data: myRouteData,
+		partialDraw: true,
+		lineWidth: 6
+	});
+	
+	// add / replace the route overlay on the map
+	map.setLayer("route", routeLayer);
