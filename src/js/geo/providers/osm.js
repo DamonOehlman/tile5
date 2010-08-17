@@ -75,7 +75,7 @@ TILE5.Geo.OpenStreetMap = (function() {
                 // TODO: calculate the offset adjustment from the tile offset
 
                 // wrap the tile grid in a geo tile grid
-                tile_grid = new TILE5.Mapping.GeoTileGrid({
+                tile_grid = new TILE5.Geo.UI.GeoTileGrid({
                     grid: tile_grid, 
                     centerXY:  tile_grid.getTileVirtualXY(
                                     tile_offset.x, 

@@ -57,7 +57,7 @@ TILE5.Geo.Routing = (function() {
             // GRUNT.Log.info("creating route overlay with route data: ", routeData);
 
             // create a new route overlay for the specified data
-            var overlay = new TILE5.Mapping.RouteOverlay({
+            var overlay = new TILE5.Geo.UI.RouteOverlay({
                 data: routeData,
                 width: dimensions.width,
                 height: dimensions.height

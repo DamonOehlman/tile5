@@ -913,7 +913,7 @@ TILE5.Geo.Decarta = (function() {
                 // apply the pan offset and half tiles
                 virtualXY = TILE5.V.offset(virtualXY, responseData.panOffset.x, responseData.panOffset.y);
                 
-                return new TILE5.Mapping.GeoTileGrid({
+                return new TILE5.Geo.UI.GeoTileGrid({
                     grid: tileGrid, 
                     centerXY:  virtualXY,
                     centerPos: requestedPosition,

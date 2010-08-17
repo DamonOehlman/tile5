@@ -1,4 +1,4 @@
-TILE5.Mapping = (function() {
+TILE5.Geo.UI = (function() {
     var lastAnnotationTween = null,
         lastAnnotationTweenTicks = null,
         routeAnimationCounter = 0;
@@ -918,7 +918,7 @@ TILE5.Mapping = (function() {
             }, parent);
 
             // create an annotations layer
-            var annotations = new TILE5.Mapping.AnnotationsOverlay({
+            var annotations = new TILE5.Geo.UI.AnnotationsOverlay({
                 pois: self.pois,
                 map: self,
                 createAnnotationForPOI: params.createAnnotationForPOI
@@ -929,11 +929,11 @@ TILE5.Mapping = (function() {
             self.setLayer("annotations", annotations);
             
             // add the radar overlay
-            // self.setLayer("radar", new TILE5.Mapping.RadarOverlay());
+            // self.setLayer("radar", new TILE5.Geo.UI.RadarOverlay());
             
             // if we are drawing the cross hair, then add a cross hair overlay
             if (params.crosshair) {
-                self.setLayer("crosshair", new TILE5.Mapping.CrosshairOverlay());
+                self.setLayer("crosshair", new TILE5.Geo.UI.CrosshairOverlay());
             } // if
 
             // if we have a copyright message, then add the message
@@ -978,4 +978,3 @@ TILE5.Mapping = (function() {
     
     return module;
 })();
-

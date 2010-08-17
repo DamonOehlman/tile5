@@ -75,21 +75,21 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/graphics.js" />
 			<fileset file="src/js/tiling.js" />
 
-			<fileset file="src/js/mapping/geo.js" />
-			<fileset file="src/js/mapping/location.js" />
-			<fileset file="src/js/mapping/search.js" />
-			<fileset file="src/js/mapping/ui.js" />
-			<fileset file="src/js/mapping/routing.js" />
+			<fileset file="src/js/geo/core.js" />
+			<fileset file="src/js/geo/location.js" />
+			<fileset file="src/js/geo/search.js" />
+			<fileset file="src/js/geo/routing.js" />
+			<fileset file="src/js/geo/ui.js" />
 		</concat>
 		
 		<!-- construct the core providers -->
 		<concat destfile="${dist}/${LIBNAME}.openstreetmap.js">
-			<fileset file="src/js/mapping/providers/osm.js" />
-			<fileset file="src/js/mapping/providers/cloudmade.js" />
+			<fileset file="src/js/geo/providers/osm.js" />
+			<fileset file="src/js/geo/providers/cloudmade.js" />
 		</concat>
 		
 		<concat destfile="${dist}/${LIBNAME}.decarta.js">
-			<fileset file="src/js/mapping/providers/decarta.js" />
+			<fileset file="src/js/geo/providers/decarta.js" />
 		</concat>
 		
 		<concat destfile="${dist}/tests.${LIBNAME}.js">
