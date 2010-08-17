@@ -42,6 +42,7 @@ TILE5.Graphics = (function() {
         
         ViewLayer: function(params) {
             params = GRUNT.extend({
+                id: "",
                 centerOnScale: true,
                 created: new Date().getTime(),
                 scalePosition: true,
@@ -51,7 +52,7 @@ TILE5.Graphics = (function() {
             }, params);
             
             var parent = null,
-                id = "";
+                id = params.id;
             
             var self = GRUNT.extend({
                 addToView: function(view) {
@@ -119,7 +120,7 @@ TILE5.Graphics = (function() {
             }, params);
             
             // generate the edge data for the specified path
-            var edgeData = TILE5.VectorMath.edges(params.path), 
+            var edgeData = TILE5.V.edges(params.path), 
                 tween,
                 theta,
                 indicatorXY = null,
@@ -182,8 +183,8 @@ TILE5.Graphics = (function() {
                             v1 = params.path[edgeIndex],
                             v2 = params.path[edgeIndex + 1];
 
-                        theta = TILE5.VectorMath.theta(v1, v2, edgeData.edges[edgeIndex]);
-                        indicatorXY = TILE5.VectorMath.pointOnEdge(v1, v2, theta, extra);
+                        theta = TILE5.V.theta(v1, v2, edgeData.edges[edgeIndex]);
+                        indicatorXY = TILE5.V.pointOnEdge(v1, v2, theta, extra);
 
                         if (params.autoCenter) {
                             var parent = self.getParent();
@@ -386,7 +387,7 @@ TILE5.Graphics = (function() {
             } // if
             
             if (params.pannable) {
-                pannable = new TILE5.Pannable({
+                pannable = new TILE5.Touch.Pannable({
                     container: params.container,
                     onAnimate: function(x, y) {
                         wake();
@@ -414,7 +415,7 @@ TILE5.Graphics = (function() {
             } // if
             
             if (params.scalable) {
-                scalable = new TILE5.Scalable({
+                scalable = new TILE5.Touch.Scalable({
                     scaleDamping: params.scaleDamping,
                     container: params.container,
                     
@@ -501,14 +502,14 @@ TILE5.Graphics = (function() {
             
             function calcZoomCenter() {
                 var scaleInfo = scalable.getScaleInfo(),
-                    displayCenter = self.getDimensions().getCenter(),
-                    shiftFactor = (scaleInfo.progress ? scaleInfo.progress : 1) * 0.5;
+                    displayCenter = TILE5.D.getCenter(dimensions),
+                    shiftFactor = (scaleInfo.progress ? scaleInfo.progress : 1) / 2;
                     
                 // update the end center
                 endCenter = scaleInfo.center;
 
                 if (scaleInfo.startRect) {
-                    var startCenter = scaleInfo.startRect.getCenter(),
+                    var startCenter = TILE5.R.getCenter(scaleInfo.startRect),
                         centerOffset = TILE5.V.diff(startCenter, endCenter);
 
                     zoomCenter = new TILE5.Vector(endCenter.x + centerOffset.x, endCenter.y + centerOffset.y);
@@ -655,7 +656,7 @@ TILE5.Graphics = (function() {
                 fastDraw: params.fastDraw || TILE5.Device.getConfig().requireFastDraw,
                 
                 centerOn: function(offset) {
-                    pannable.setOffset(offset.x - (canvas.width * 0.5), offset.y - (canvas.height * 0.5));
+                    pannable.setOffset(offset.x - (canvas.width / 2), offset.y - (canvas.height / 2));
                 },
                 
                 getDimensions: function() {
@@ -729,12 +730,12 @@ TILE5.Graphics = (function() {
                 scale: function(targetScaling, tweenFn, callback, startXY, targetXY) {
                     // if the start XY is not defined, used the center
                     if (! startXY) {
-                        startXY = self.getDimensions().getCenter();
+                        startXY = TILE5.D.getCenter(dimensions);
                     } // if
                     
                     // if the target xy is not defined, then use the canvas center
                     if (! targetXY) {
-                        targetXY = self.getDimensions().getCenter();
+                        targetXY = TILE5.D.getCenter(dimensions);
                     } // if
                     
                     // if the view is scalable then go for it
@@ -757,7 +758,7 @@ TILE5.Graphics = (function() {
             
             // get the dimensions
             dimensions = self.getDimensions();
-            centerPos = dimensions.getCenter();
+            centerPos = TILE5.D.getCenter(dimensions);
             
             // listen for layer removals
             GRUNT.WaterCooler.listen("layer.remove", function(args) {

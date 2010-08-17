@@ -21,9 +21,7 @@ TILE5.Geo = (function() {
         DEGREES_TO_RADIANS = Math.PI / 180,
         RADIANS_TO_DEGREES = 180 / Math.PI;
     
-    var REGEX_NUMBERRANGE = /(\d+)\s?\-\s?(\d+)/,
-        REGEX_BUILDINGNO = /^(\d+).*$/,
-        ROADTYPE_REGEX = null,
+    var ROADTYPE_REGEX = null,
         // TODO: I think these need to move to the provider level..
         ROADTYPE_REPLACEMENTS = {
             RD: "ROAD",
@@ -116,44 +114,13 @@ TILE5.Geo = (function() {
             return self;
         },
         
-        /**
-        Returns the engine that provides the required functionality.  If preferred engines are supplied
-        as additional arguments, then those are looked for first
-        */
-        getEngine: function(requiredCapability) {
-            // initialise variables
-            var fnresult = null;
-            
-            // iterate through the arguments beyond the capabililty for the preferred engine
-            for (var ii = 1; (! fnresult) && (ii < arguments.length); ii++) {
-                fnresult = findEngine(requiredCapability, arguments[ii]);
-            } // for
-            
-            // if we found an engine using preferences, return that otherwise return an alternative
-            fnresult = fnresult ? fnresult : findEngine(requiredCapability);
-            
-            // if no engine was found, then throw an exception
-            if (! fnresult) {
-                throw new Error("Unable to find GEO engine with " + requiredCapability + " capability");
-            }
-            
-            return fnresult;
-        },
-        
         /* geo type definitions */
         
         Radius: function(init_dist, init_uom) {
-            // initialise variables
-
-            // TODO: actually make this class useful
-
-            // initialise self
-            var self = {
+            return {
                 distance: parseInt(init_dist, 10),
                 uom: init_uom
             }; 
-
-            return self;
         }, // Radius
         
         Position: function(initLat, initLon) {
@@ -165,62 +132,11 @@ TILE5.Geo = (function() {
         }, // Position
         
         BoundingBox: function(initMin, initMax) {
-            // initialise self
-            var self = {
-                min: module.P.parse(initMin),
-                max: module.P.parse(initMax),
-
-                expand: function(amount) {
-                    self.min.lat -= amount;
-                    self.min.lon -= module.Utilities.normalizeLon(amount);
-                    self.max.lat += amount;
-                    self.max.lon += module.Utilities.normalizeLon(amount);
-                },
-                
-                getDistance: function() {
-                    return module.P.calcDistance(self.min, self.max);
-                },
-                
-                getCenter: function() {
-                    // calculate the bounds size
-                    var size = module.calculateBoundsSize(self.min, self.max);
-                    
-                    // create a new position offset from the current min
-                    return new TILE5.Geo.Position(self.min.lat + (size.y * 0.5), self.min.lon + (size.x * 0.5));
-                },
-
-                transform: function(transformers) {
-                    // create a new instance of the BoundingBox to transform
-                    var target = new TILE5.Geo.BoundingBox(self.min, self.max);
-
-                    GRUNT.Log.info("applying " + transformers.length + " transformers");
-                    // iterate through the transformers, and call them
-                    for (var ii = 0; transformers && (ii < transformers.length); ii++) {
-                        transformers[ii].apply(target);
-                    } // for
-
-                    return target;
-                }
-            }; // self
-
-            return self;
-        }, // BoundingBox
-        
-        Transforms: (function() {
             return {
-                Shrink: function(new_width, new_height) {
-                    return function() {
-                        //GRUNT.Log.info(String.format("SHRINKING {2} to {0} x {1}", new_width, new_height, this));
-                    };
-                },
-
-                Offset: function(x_offset, y_offset) {
-                    return function() {
-                        //GRUNT.Log.info(String.format("OFFSETING {2} by {0}, {1}", x_offset, y_offset, this));
-                    };
-                }
+                min: module.P.parse(initMin),
+                max: module.P.parse(initMax)
             };
-        })(),
+        }, // BoundingBox
         
         /* addressing and geocoding support */
         
@@ -236,18 +152,7 @@ TILE5.Geo = (function() {
                 boundingBox: null
             }, params);
             
-            // define self
-            var self = GRUNT.extend(params, {
-                getPos: function() {
-                    return params.pos;
-                },
-                
-                toString: function() {
-                    return params.streetDetails + " " + params.location;
-                }
-            });
-            
-            return self;
+            return params;
         },
         
         GeocodeFieldWeights: {
@@ -556,7 +461,7 @@ TILE5.Geo = (function() {
                 */
                 findByBounds: function(searchBounds) {
                     return poiGrabber(function(testPOI) {
-                        return TILE5.Geo.posInBounds(testPOI.pos, searchBounds);
+                        return TILE5.Geo.P.inBounds(testPOI.pos, searchBounds);
                     });
                 },
 
@@ -659,7 +564,7 @@ TILE5.Geo = (function() {
             return self;
         }, // MapProvider
         
-        /* position utilities (TODO: move other functions up here...) */
+        /* Position utility functions */
         P: (function() {
             var subModule = {
                 calcDistance: function(pos1, pos2) {
@@ -667,8 +572,8 @@ TILE5.Geo = (function() {
                         return 0;
                     } // if
                     
-                    var halfdelta_lat = (pos2.lat - pos1.lat).toRad() * 0.5;
-                    var halfdelta_lon = (pos2.lon - pos1.lon).toRad() * 0.5;
+                    var halfdelta_lat = (pos2.lat - pos1.lat).toRad() / 2;
+                    var halfdelta_lon = (pos2.lon - pos1.lon).toRad() / 2;
 
                     // TODO: find out what a stands for, I don't like single char variables in code (same goes for c)
                     var a = (Math.sin(halfdelta_lat) * Math.sin(halfdelta_lat)) + 
@@ -713,6 +618,19 @@ TILE5.Geo = (function() {
                     } // for
                     
                     return false;
+                },
+                
+                inBounds: function(pos, bounds) {
+                    // initialise variables
+                    var fnresult = ! (module.P.empty(pos) || module.P.empty(bounds));
+
+                    // check the pos latitude
+                    fnresult = fnresult && (pos.lat >= bounds.min.lat) && (pos.lat <= bounds.max.lat);
+
+                    // check the pos longitude
+                    fnresult = fnresult && (pos.lon >= bounds.min.lon) && (pos.lon <= bounds.max.lon);
+
+                    return fnresult;
                 },
                 
                 parse: function(pos) {
@@ -760,6 +678,44 @@ TILE5.Geo = (function() {
                 toMercatorPixels: function(pos, radsPerPixel) {
                     return new TILE5.Vector(TILE5.Geo.Utilities.lon2pix(pos.lon, radsPerPixel), TILE5.Geo.Utilities.lat2pix(pos.lat, radsPerPixel));
                 },
+                
+                generalize: function(sourceData, requiredPositions, minDist) {
+                    var sourceLen = sourceData.length,
+                        positions = [],
+                        lastPosition = null;
+
+                    if (! minDist) {
+                        minDist = DEFAULT_GENERALIZATION_DISTANCE;
+                    } // if
+
+                    // convert min distance to km
+                    minDist = minDist / 1000;
+
+                    GRUNT.Log.info("generalizing positions, must include " + requiredPositions.length + " positions");
+
+                    // iterate thorugh the source data and add positions the differ by the required amount to 
+                    // the result positions
+                    for (var ii = sourceLen; ii--; ) {
+                        if (ii === 0) {
+                            positions.unshift(sourceData[ii]);
+                        }
+                        else {
+                            var include = (! lastPosition) || module.P.inArray(sourceData[ii], requiredPositions),
+                                posDiff = include ? minDist : module.P.calcDistance(lastPosition, sourceData[ii]);
+
+                            // if the position difference is suitable then include
+                            if (sourceData[ii] && (posDiff >= minDist)) {
+                                positions.unshift(sourceData[ii]);
+
+                                // update the last position
+                                lastPosition = sourceData[ii];
+                            } // if
+                        } // if..else
+                    } // for
+
+                    GRUNT.Log.info("generalized " + sourceLen + " positions into " + positions.length + " positions");
+                    return positions;
+                },                
 
                 toString: function(pos) {
                     return pos ? pos.lat + " " + pos.lon : "";
@@ -769,6 +725,7 @@ TILE5.Geo = (function() {
             return subModule;
         })(),
         
+        /* BoundingBox utility functions */
         B: (function() {
             var MIN_LAT = -(Math.PI / 2),
                 MAX_LAT = Math.PI / 2,
@@ -776,6 +733,22 @@ TILE5.Geo = (function() {
                 MAX_LON = Math.PI * 2;
             
             var subModule = {
+                calcSize: function(min, max, normalize) {
+                    var size = new TILE5.Vector(0, max.lat - min.lat);
+                    if (typeof normalize === 'undefined') {
+                        normalize = true;
+                    } // if
+
+                    if (normalize && (min.lon > max.lon)) {
+                        size.x = 360 - min.lon + max.lon;
+                    }
+                    else {
+                        size.x = max.lon - min.lon;
+                    } // if..else
+
+                    return size;
+                },
+
                 // adapted from: http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates
                 createBoundsFromCenter: function(centerPos, distance) {
                     var radDist = distance / KM_PER_RAD,
@@ -816,8 +789,162 @@ TILE5.Geo = (function() {
                                     new module.Position(maxLat * RADIANS_TO_DEGREES, maxLon * RADIANS_TO_DEGREES));
                 },
                 
+                expand: function(bounds, amount) {
+                    return new module.BoundingBox(
+                        new module.Position(bounds.min.lat - amount, bounds.min.lon - module.Utilities.normalizeLon(amount)),
+                        new module.Position(bounds.max.lat + amount, bounds.max.lon + module.Utilities.normalizeLon(amount)));
+                },
+                
+                forPositions: function(positions, padding) {
+                    var bounds = null,
+                        startTicks = TILE5.Clock.getTime();
+
+                    // if padding is not specified, then set to auto
+                    if (! padding) {
+                        padding = "auto";
+                    } // if
+
+                    for (var ii = positions.length; ii--; ) {
+                        if (! bounds) {
+                            bounds = new TILE5.Geo.BoundingBox(positions[ii], positions[ii]);
+                        }
+                        else {
+                            var minDiff = subModule.calcSize(bounds.min, positions[ii], false),
+                                maxDiff = subModule.calcSize(positions[ii], bounds.max, false);
+
+                            if (minDiff.x < 0) { bounds.min.lon = positions[ii].lon; }
+                            if (minDiff.y < 0) { bounds.min.lat = positions[ii].lat; }
+                            if (maxDiff.x < 0) { bounds.max.lon = positions[ii].lon; }
+                            if (maxDiff.y < 0) { bounds.max.lat = positions[ii].lat; }
+                        } // if..else
+                    } // for
+
+                    // expand the bounds to give us some padding
+                    if (padding) {
+                        if (padding == "auto") {
+                            var size = subModule.calcSize(bounds.min, bounds.max);
+
+                            // update padding to be a third of the max size
+                            padding = Math.max(size.x, size.y) * 0.3;
+                        } // if
+
+                        bounds = subModule.expand(bounds, padding);
+                    } // if
+
+                    GRUNT.Log.trace("calculated bounds for " + positions.length + " positions", startTicks);
+                    return bounds;
+                },
+                
+                getCenter: function(bounds) {
+                    // calculate the bounds size
+                    var size = module.B.calcSize(bounds.min, bounds.max);
+                    
+                    // create a new position offset from the current min
+                    return new TILE5.Geo.Position(bounds.min.lat + (size.y / 2), bounds.min.lon + (size.x / 2));
+                },
+
+                /** 
+                Function adapted from the following code:
+                http://groups.google.com/group/google-maps-js-api-v3/browse_thread/thread/43958790eafe037f/66e889029c555bee
+                */
+                getZoomLevel: function(bounds, displaySize) {
+                    // get the constant index for the center of the bounds
+                    var boundsCenter = subModule.getCenter(bounds),
+                        variabilityIndex = Math.min(Math.round(Math.abs(boundsCenter.lat) * 0.05), LAT_VARIABILITIES.length),
+                        variability = LAT_VARIABILITIES[variabilityIndex],
+                        delta = subModule.calcSize(bounds.min, bounds.max),
+                        // interestingly, the original article had the variability included, when in actual reality it isn't, 
+                        // however a constant value is required. must find out exactly what it is.  At present, though this
+                        // works fine.
+                        bestZoomH = Math.ceil(Math.log(LAT_VARIABILITIES[3] * displaySize.height / delta.y) / Math.log(2)),
+                        bestZoomW = Math.ceil(Math.log(variability * displaySize.width / delta.x) / Math.log(2));
+
+                    // GRUNT.Log.info("constant index for bbox: " + bounds + " (center = " + boundsCenter + ") is " + variabilityIndex);
+                    // GRUNT.Log.info("distances  = " + delta);
+                    // GRUNT.Log.info("optimal zoom levels: height = " + bestZoomH + ", width = " + bestZoomW);
+
+                    // return the lower of the two zoom levels
+                    return Math.min(bestZoomH, bestZoomW);
+                },
+
+                isEmpty: function(bounds) {
+                    return (! bounds) || module.P.empty(bounds.min) || module.P.empty(bounds.max);
+                },
+                
                 toString: function(bounds) {
                     return "min: " + module.P.toString(bounds.min) + ", max: " + module.P.toString(bounds.max);
+                }
+            };
+            
+            return subModule;
+        })(),
+       
+        /* Addressing utility functions */
+        A: (function() {
+            var REGEX_BUILDINGNO = /^(\d+).*$/,
+                REGEX_NUMBERRANGE = /(\d+)\s?\-\s?(\d+)/;
+            
+            var subModule = {
+                buildingMatch: function(freeform, numberRange, name) {
+                    // from the freeform address extract the building number
+                    REGEX_BUILDINGNO.lastIndex = -1;
+                    if (REGEX_BUILDINGNO.test(freeform)) {
+                        var buildingNo = freeform.replace(REGEX_BUILDINGNO, "$1");
+
+                        // split up the number range
+                        var numberRanges = numberRange.split(",");
+                        for (var ii = 0; ii < numberRanges.length; ii++) {
+                            REGEX_NUMBERRANGE.lastIndex = -1;
+                            if (REGEX_NUMBERRANGE.test(numberRanges[ii])) {
+                                var matches = REGEX_NUMBERRANGE.exec(numberRanges[ii]);
+                                if ((buildingNo >= parseInt(matches[1], 10)) && (buildingNo <= parseInt(matches[2], 10))) {
+                                    return true;
+                                } // if
+                            }
+                            else if (buildingNo == numberRanges[ii]) {
+                                return true;
+                            } // if..else
+                        } // for
+                    } // if
+
+                    return false;
+                },
+                
+                /**
+                The normalizeAddress function is used to take an address that could be in a variety of formats
+                and normalize as many details as possible.  Text is uppercased, road types are replaced, etc.
+                */
+                normalize: function(addressText) {
+                    if (! addressText) { return ""; }
+
+                    addressText = addressText.toUpperCase();
+
+                    // if the road type regular expression has not been initialised, then do that now
+                    if (! ROADTYPE_REGEX) {
+                        var abbreviations = [];
+                        for (var roadTypes in ROADTYPE_REPLACEMENTS) {
+                            abbreviations.push(roadTypes);
+                        } // for
+
+                        ROADTYPE_REGEX = new RegExp("(\\s)(" + abbreviations.join("|") + ")(\\s|$)", "i");
+                    } // if
+
+                    // run the road type normalizations
+                    ROADTYPE_REGEX.lastIndex = -1;
+
+                    // get the matches for the regex
+                    var matches = ROADTYPE_REGEX.exec(addressText);
+                    if (matches) {
+                        // get the replacement road type
+                        var normalizedRoadType = ROADTYPE_REPLACEMENTS[matches[2]];
+                        addressText = addressText.replace(ROADTYPE_REGEX, "$1" + normalizedRoadType);
+                    } // if
+
+                    return addressText;
+                },
+                
+                toString: function(address) {
+                    return address.streetDetails + " " + address.location;
                 }
             };
             
@@ -826,203 +953,28 @@ TILE5.Geo = (function() {
         
         /* static functions */
         
-        generalizePositions: function(sourceData, requiredPositions, minDist) {
-            var sourceLen = sourceData.length,
-                positions = [],
-                lastPosition = null;
-
-            if (! minDist) {
-                minDist = DEFAULT_GENERALIZATION_DISTANCE;
-            } // if
-            
-            // convert min distance to km
-            minDist = minDist / 1000;
-            
-            GRUNT.Log.info("generalizing positions, must include " + requiredPositions.length + " positions");
-            
-            // iterate thorugh the source data and add positions the differ by the required amount to 
-            // the result positions
-            for (var ii = sourceLen; ii--; ) {
-                if (ii === 0) {
-                    positions.unshift(sourceData[ii]);
-                }
-                else {
-                    var include = (! lastPosition) || module.P.inArray(sourceData[ii], requiredPositions),
-                        posDiff = include ? minDist : module.P.calcDistance(lastPosition, sourceData[ii]);
-                        
-                    // if the position difference is suitable then include
-                    if (sourceData[ii] && (posDiff >= minDist)) {
-                        positions.unshift(sourceData[ii]);
-                        
-                        // update the last position
-                        lastPosition = sourceData[ii];
-                    } // if
-                } // if..else
-            } // for
-            
-            GRUNT.Log.info("generalized " + sourceLen + " positions into " + positions.length + " positions");
-            return positions;
-        },
-        
-        emptyBounds: function(bounds) {
-            return (! bounds) || module.P.empty(bounds.min) || module.P.empty(bounds.max);
-        },
-        
-        
-        /*
-        Method: inBounds
-        This method is used to determine whether or not the position is
-        within the bounds rect supplied. 
-        */
-        posInBounds: function(pos, bounds) {
-            // initialise variables
-            var fnresult = ! (module.P.empty(pos) || module.P.empty(bounds));
-
-            // check the pos latitude
-            fnresult = fnresult && (pos.lat >= bounds.min.lat) && (pos.lat <= bounds.max.lat);
-
-            // check the pos longitude
-            fnresult = fnresult && (pos.lon >= bounds.min.lon) && (pos.lon <= bounds.max.lon);
-
-            return fnresult;
-        },
-        
-        calculateBoundsSize: function(min, max, normalize) {
-            var size = new TILE5.Vector(0, max.lat - min.lat);
-            if (typeof normalize === 'undefined') {
-                normalize = true;
-            } // if
-            
-            if (normalize && (min.lon > max.lon)) {
-                size.x = 360 - min.lon + max.lon;
-            }
-            else {
-                size.x = max.lon - min.lon;
-            } // if..else
-            
-            return size;
-        },
-        
-        /** 
-        Function adapted from the following code:
-        http://groups.google.com/group/google-maps-js-api-v3/browse_thread/thread/43958790eafe037f/66e889029c555bee
-        */
-        getBoundingBoxZoomLevel: function(bounds, displaySize) {
-            // get the constant index for the center of the bounds
-            var boundsCenter = bounds.getCenter(),
-                variabilityIndex = Math.min(Math.round(Math.abs(boundsCenter.lat) * 0.05), LAT_VARIABILITIES.length),
-                variability = LAT_VARIABILITIES[variabilityIndex],
-                delta = module.calculateBoundsSize(bounds.min, bounds.max),
-                // interestingly, the original article had the variability included, when in actual reality it isn't, 
-                // however a constant value is required. must find out exactly what it is.  At present, though this
-                // works fine.
-                bestZoomH = Math.ceil(Math.log(LAT_VARIABILITIES[3] * displaySize.height / delta.y) / Math.log(2)),
-                bestZoomW = Math.ceil(Math.log(variability * displaySize.width / delta.x) / Math.log(2));
-            
-            // GRUNT.Log.info("constant index for bbox: " + bounds + " (center = " + boundsCenter + ") is " + variabilityIndex);
-            // GRUNT.Log.info("distances  = " + delta);
-            // GRUNT.Log.info("optimal zoom levels: height = " + bestZoomH + ", width = " + bestZoomW);
-            
-            // return the lower of the two zoom levels
-            return Math.min(bestZoomH, bestZoomW);
-        },
-        
-        getBoundsForPositions: function(positions, padding) {
-            var bounds = null,
-                startTicks = TILE5.Clock.getTime();
-                
-            // if padding is not specified, then set to auto
-            if (! padding) {
-                padding = "auto";
-            } // if
-            
-            for (var ii = positions.length; ii--; ) {
-                if (! bounds) {
-                    bounds = new TILE5.Geo.BoundingBox(positions[ii], positions[ii]);
-                }
-                else {
-                    var minDiff = module.calculateBoundsSize(bounds.min, positions[ii], false),
-                        maxDiff = module.calculateBoundsSize(positions[ii], bounds.max, false);
-
-                    if (minDiff.x < 0) { bounds.min.lon = positions[ii].lon; }
-                    if (minDiff.y < 0) { bounds.min.lat = positions[ii].lat; }
-                    if (maxDiff.x < 0) { bounds.max.lon = positions[ii].lon; }
-                    if (maxDiff.y < 0) { bounds.max.lat = positions[ii].lat; }
-                } // if..else
-            } // for
-            
-            // expand the bounds to give us some padding
-            if (padding) {
-                if (padding == "auto") {
-                    var size = module.calculateBoundsSize(bounds.min, bounds.max);
-                    
-                    // update padding to be a third of the max size
-                    padding = Math.max(size.x, size.y) * 0.3;
-                } // if
-                
-                bounds.expand(padding);
-            } // if
-            
-            GRUNT.Log.trace("calculated bounds for " + positions.length + " positions", startTicks);
-            return bounds;
-        },
-        
         /**
-        The normalizeAddress function is used to take an address that could be in a variety of formats
-        and normalize as many details as possible.  Text is uppercased, road types are replaced, etc.
+        Returns the engine that provides the required functionality.  If preferred engines are supplied
+        as additional arguments, then those are looked for first
         */
-        normalizeAddress: function(addressText) {
-            if (! addressText) { return ""; }
+        getEngine: function(requiredCapability) {
+            // initialise variables
+            var fnresult = null;
             
-            addressText = addressText.toUpperCase();
+            // iterate through the arguments beyond the capabililty for the preferred engine
+            for (var ii = 1; (! fnresult) && (ii < arguments.length); ii++) {
+                fnresult = findEngine(requiredCapability, arguments[ii]);
+            } // for
             
-            // if the road type regular expression has not been initialised, then do that now
-            if (! ROADTYPE_REGEX) {
-                var abbreviations = [];
-                for (var roadTypes in ROADTYPE_REPLACEMENTS) {
-                    abbreviations.push(roadTypes);
-                } // for
-                
-                ROADTYPE_REGEX = new RegExp("(\\s)(" + abbreviations.join("|") + ")(\\s|$)", "i");
-            } // if
+            // if we found an engine using preferences, return that otherwise return an alternative
+            fnresult = fnresult ? fnresult : findEngine(requiredCapability);
             
-            // run the road type normalizations
-            ROADTYPE_REGEX.lastIndex = -1;
+            // if no engine was found, then throw an exception
+            if (! fnresult) {
+                throw new Error("Unable to find GEO engine with " + requiredCapability + " capability");
+            }
             
-            // get the matches for the regex
-            var matches = ROADTYPE_REGEX.exec(addressText);
-            if (matches) {
-                // get the replacement road type
-                var normalizedRoadType = ROADTYPE_REPLACEMENTS[matches[2]];
-                addressText = addressText.replace(ROADTYPE_REGEX, "$1" + normalizedRoadType);
-            } // if
-
-            return addressText;
-        },
-        
-        buildingMatch: function(freeform, numberRange, name) {
-            // from the freeform address extract the building number
-            REGEX_BUILDINGNO.lastIndex = -1;
-            if (REGEX_BUILDINGNO.test(freeform)) {
-                var buildingNo = freeform.replace(REGEX_BUILDINGNO, "$1");
-                
-                // split up the number range
-                var numberRanges = numberRange.split(",");
-                for (var ii = 0; ii < numberRanges.length; ii++) {
-                    REGEX_NUMBERRANGE.lastIndex = -1;
-                    if (REGEX_NUMBERRANGE.test(numberRanges[ii])) {
-                        var matches = REGEX_NUMBERRANGE.exec(numberRanges[ii]);
-                        if ((buildingNo >= parseInt(matches[1], 10)) && (buildingNo <= parseInt(matches[2], 10))) {
-                            return true;
-                        } // if
-                    }
-                    else if (buildingNo == numberRanges[ii]) {
-                        return true;
-                    } // if..else
-                } // for
-            } // if
-            
-            return false;
+            return fnresult;
         },
         
         rankGeocodeResponses: function(requestAddress, responseAddresses, engine) {

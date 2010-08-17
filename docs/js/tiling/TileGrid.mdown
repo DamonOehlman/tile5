@@ -1,0 +1,32 @@
+Tiling.TileGrid
+===============
+
+Extends: Graphics.ViewLayer
+
+The TileGrid class (together with the Tiling.TileStore) extends the Graphics.ViewLayer and implements functionality required to manage a virtual grid of tiles and draw them to the parent view's canvas.
+
+Mutable Properties
+------------------
+
+- tileSize (default: 256) - the pixel size (both width and height) of the tile images.
+
+- drawGrid (default: false) - whether a grid should be drawn in addition to the actual tile images.  Very useful when debugging.
+
+Methods
+-------
+
+- `deactivate()`
+
+	This method is used to instruct the grid to stop drawing (and more importantly) loading tiles in the background.  This is useful when one grid is no longer required and has been replaced by another (for example in the case in mapping, where one layer has replaced another).
+	
+- `drawTile(context, tile, x, y, state)`
+
+	This method is called in the overridden implementation of the Graphics.ViewLayer draw method.  This is called once for each tile to instruct the tile to draw itself to the specified canvas context.
+	
+- `getTileVirtualXY(col, row, getCenter)`
+
+	Returns a new Vector that specifies the virtual X and Y coordinate of the tile as denoted by the col and row parameters.  If the getCenter parameter is passed through and set to true, then the X and Y coordinates are offset by half a tile to represent the center of the tile rather than the top left corner.
+	
+- `populate(tileCreator)`
+
+	The populate method is a passthrough to the grid's Tiling.TileStore that is managing the tiles.

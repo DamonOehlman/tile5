@@ -63,7 +63,7 @@ TILE5.Tiling = (function() {
                 // take a tick count as we want to time this
                 var startTicks = GRUNT.Log.getTraceTicks(),
                     tileIndex = 0,
-                    centerPos = new TILE5.Vector(params.gridSize * 0.5, params.gridSize * 0.5);
+                    centerPos = new TILE5.Vector(params.gridSize / 2, params.gridSize / 2);
                 
                 if (tileCreator) {
                     for (var row = 0; row < params.gridSize; row++) {
@@ -259,8 +259,7 @@ TILE5.Tiling = (function() {
                 drawGrid: false,
                 center: new TILE5.Vector(),
                 shiftOrigin: null,
-                supportFastDraw: true,
-                checkChange: 100
+                supportFastDraw: true
             }, params);
             
             // create the tile store
@@ -297,7 +296,7 @@ TILE5.Tiling = (function() {
                                         Math.floor((offset.y + tileShift.y) * invTileSize)),
                         tileCols = Math.ceil(dimensions.width * invTileSize) + 1,
                         tileRows = Math.ceil(dimensions.height * invTileSize) + 1,
-                        centerPos = new TILE5.Vector((tileCols-1) * 0.5, (tileRows-1) * 0.5),
+                        centerPos = new TILE5.Vector((tileCols-1) / 2, (tileRows-1) / 2),
                         tileOffset = new TILE5.Vector((tileStart.x * params.tileSize), (tileStart.y * params.tileSize)),
                         viewAnimating = view.isAnimating();
                     
@@ -431,10 +430,6 @@ TILE5.Tiling = (function() {
                     gridDirty = false;
                 },
                 
-                getTileSize: function() {
-                    return params.tileSize;
-                },
-                
                 getTileVirtualXY: function(col, row, getCenter) {
                     // get the normalized position from the tile store
                     var pos = tileStore.getNormalizedPos(col, row),
@@ -446,13 +441,6 @@ TILE5.Tiling = (function() {
                     } // if
                     
                     return fnresult;
-                },
-                
-                getCenterXY: function() {
-                    // get the center column and row index
-                    var midIndex = Math.ceil(tileStore.getGridSize() >> 1);
-                    
-                    return self.getTileVirtualXY(midIndex, midIndex, true);
                 },
                 
                 populate: function(tileCreator) {
@@ -528,19 +516,6 @@ TILE5.Tiling = (function() {
             var lastTileLayerLoaded = "";
             var actualTileLoadThreshold = 0;
             
-            var tileCountLoaderFns = {
-                first: function(tileCount) {
-                    return 1;
-                },
-                auto: function(tileCount) {
-                    return tileCount >> 1;
-                },
-                
-                all: function(tileCount) {
-                    return tileCount;
-                }
-            };
-            
             // create the parent
             var self = new TILE5.Graphics.View(GRUNT.extend({}, params, {
                 // define panning and scaling properties
@@ -563,11 +538,6 @@ TILE5.Tiling = (function() {
                     
                     // update the tile load threshold
                     GRUNT.WaterCooler.say("grid.updated", { id: "grid" + gridIndex });
-                },
-
-                gridPixToViewPix: function(vector) {
-                    var offset = self.getOffset();
-                    return new TILE5.Vector(vector.x - offset.x, vector.y - offset.y);
                 },
 
                 viewPixToGridPix: function(vector) {

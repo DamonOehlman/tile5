@@ -276,8 +276,8 @@ TILE5.Animation = (function() {
                     },
                     
                     InOut: function(t, b, c, d) {
-                        if (t < d/2) return module.Easing.Bounce.In(t*2, 0, c, d) * 0.5 + b;
-                        else return module.Easing.Bounce.Out(t*2-d, 0, c, d) * 0.5 + c*0.5 + b;
+                        if (t < d/2) return module.Easing.Bounce.In(t*2, 0, c, d) / 2 + b;
+                        else return module.Easing.Bounce.Out(t*2-d, 0, c, d) / 2 + c/2 + b;
                     }
                 },
                 

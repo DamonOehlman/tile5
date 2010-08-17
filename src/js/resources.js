@@ -68,7 +68,7 @@ TILE5.Resources = (function() {
         function cleanupImageCache() {
             clearingCache = true;
             try {
-                var halfLen = Math.floor(cachedImages.length * 0.5);
+                var halfLen = Math.floor(cachedImages.length / 2);
                 if (halfLen > 0) {
                     // TODO: make this more selective... currently some images on screen may be removed :/
                     cachedImages.sort(function(itemA, itemB) {

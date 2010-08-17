@@ -1,0 +1,26 @@
+Tiling.Tile
+===========
+
+A very simple lightweight class that stores information relevant to a tile.
+
+Properties
+----------
+
+- x (default: 0) - the current x screen coordinate of the tile
+- y (default: 0) - the current y screen coordinate of the tile
+- size (default: 256) - the size of the tile
+
+Usage 
+-----
+
+A new tile is created using the following code:
+
+	new TILE5.Tiling.Tile();
+	
+or with specific initial property values
+
+	new TILE5.Tiling.Tile({
+		x: 10,
+		y: 10,
+		size: 128
+	});

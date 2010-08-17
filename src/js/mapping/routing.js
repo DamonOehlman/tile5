@@ -27,7 +27,7 @@ TILE5.Geo.Routing = (function() {
             if (engine) {
                 engine.route(args, function(routeData) {
                     if (args.generalize) {
-                        routeData.geometry = TILE5.Geo.generalizePositions(routeData.geometry, routeData.getInstructionPositions());
+                        routeData.geometry = TILE5.Geo.P.generalize(routeData.geometry, routeData.getInstructionPositions());
                     } // if
                     
                     // firstly, if we have a map defined, then let's place the route on the map
@@ -117,7 +117,7 @@ TILE5.Geo.Routing = (function() {
             
             // update the bounding box
             if (! params.boundingBox) {
-                params.boundingBox = TILE5.Geo.getBoundsForPositions(params.geometry);
+                params.boundingBox = TILE5.Geo.B.forPositions(params.geometry);
             } // if
             
             var self = GRUNT.extend({

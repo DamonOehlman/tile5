@@ -68,9 +68,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/device.js" />
 			<fileset file="src/js/resources.js" />
 			<fileset file="src/js/touch.js" />
-			<fileset file="src/js/behaviours.js" />
 			<fileset file="src/js/dispatcher.js" />
-			<fileset file="src/js/messaging.js" />
 			<fileset file="src/js/animation.js" />
 			
 			<!-- include graphics and tiling -->
@@ -166,6 +164,10 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<arg value="Tile5 API Documentation" />
 			<arg line="README.mdown LICENSE.mdown docs/" />
 		</exec>
+		
+		<copy todir="${dist}/docs" overwrite="true">
+			<fileset dir="docs/html" />
+		</copy>
 	</target>
 	
 	<!-- lighttpd search and destroy functions -->

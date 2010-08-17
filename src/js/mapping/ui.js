@@ -71,7 +71,7 @@ TILE5.Mapping = (function() {
                 },
                 
                 getGuideOffset: function(offset) {
-                    var tileSize = self.getTileSize();
+                    var tileSize = self.tileSize;
                     return new TILE5.Vector((offset.x % tileSize), (offset.y % tileSize));
                 },
                 
@@ -158,6 +158,10 @@ TILE5.Mapping = (function() {
             }, params);
             
             function drawCrosshair(context, centerPos, size) {
+                // initialise the context line style
+                context.lineWidth = params.lineWidth;
+                context.strokeStyle = params.strokeStyle;
+                
                 context.beginPath();
                 context.moveTo(centerPos.x, centerPos.y - size);
                 context.lineTo(centerPos.x, centerPos.y + size);
@@ -167,16 +171,29 @@ TILE5.Mapping = (function() {
                 context.stroke();
             } // drawCrosshair
             
+            function createCrosshair() { 
+                var newCanvas = document.createElement('canvas');
+                newCanvas.width = params.size * 2;
+                newCanvas.height = params.size * 2;
+
+                // draw the cross hair
+                drawCrosshair(newCanvas.getContext("2d"), new TILE5.Vector(params.size, params.size), params.size);
+                
+                // return the cross hair canvas
+                return newCanvas;
+            }
+            
+            var centerPos = null,
+                crosshair = createCrosshair();
+            
             return GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
                 draw: function(context, offset, dimensions, state, view) {
-                    var centerPos = dimensions.getCenter();
-                    
-                    // initialise the context line style
-                    context.lineWidth = params.lineWidth;
-                    context.strokeStyle = params.strokeStyle;
-                    
-                    // draw the cross hair lines
-                    drawCrosshair(context, centerPos, params.size);
+                    if (! centerPos) {
+                        centerPos = TILE5.D.getCenter(dimensions);
+                    } // if
+
+                    // draw the cross hair
+                    context.drawImage(crosshair, centerPos.x - params.size, centerPos.y - params.size);
                 }
             });
         },
@@ -680,7 +697,7 @@ TILE5.Mapping = (function() {
                 },
                 
                 doubleTapHandler: function(absPos, relPos) {
-                    self.animate(2, self.getDimensions().getCenter(), new TILE5.Vector(relPos.x, relPos.y), TILE5.Animation.Easing.Sine.Out);
+                    self.animate(2, TILE5.D.getCenter(self.getDimensions()), new TILE5.Vector(relPos.x, relPos.y), TILE5.Animation.Easing.Sine.Out);
                 },
                 
                 onScale: function(scaleAmount, zoomXY) {
@@ -709,7 +726,7 @@ TILE5.Mapping = (function() {
                 pois: params.pois,
                 annotations: null,
                 
-                getBoundingBox: function(buffer_size) {
+                getBoundingBox: function() {
                     var fnresult = new TILE5.Geo.BoundingBox();
                     var grid = self.getTileLayer();
                     var offset = self.getOffset();
@@ -724,7 +741,7 @@ TILE5.Mapping = (function() {
 
                 getCenterPosition: function() {
                     // get the position for the grid position
-                    return self.getXYPosition(self.gridDimensions.getCenter());
+                    return self.getXYPosition(TILE5.D.getCenter(self.gridDimensions));
                 },
                 
                 getXYPosition: function(xy) {
@@ -733,10 +750,10 @@ TILE5.Mapping = (function() {
                 
                 gotoBounds: function(bounds, callback) {
                     // calculate the zoom level required for the specified bounds
-                    var zoomLevel = TILE5.Geo.getBoundingBoxZoomLevel(bounds, self.getDimensions());
+                    var zoomLevel = TILE5.Geo.B.getZoomLevel(bounds, self.getDimensions());
                     
                     // goto the center position of the bounding box with the calculated zoom level
-                    self.gotoPosition(bounds.getCenter(), zoomLevel, callback);
+                    self.gotoPosition(TILE5.Geo.B.getCenter(bounds), zoomLevel, callback);
                 },
                 
                 gotoCurrentPosition: function(callback) {
@@ -834,8 +851,8 @@ TILE5.Mapping = (function() {
                             dimensions = self.getDimensions();
 
                         // determine the actual pan amount, by calculating the center of the viewport
-                        centerXY.x -= (dimensions.width >> 1);
-                        centerXY.y -= (dimensions.height >> 1);
+                        centerXY.x -= (dimensions.width / 2);
+                        centerXY.y -= (dimensions.height / 2);
                         
                         // if we have a guide layer snap to that
                         if (guideOffset) {

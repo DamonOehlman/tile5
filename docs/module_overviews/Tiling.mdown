@@ -1,0 +1,18 @@
+TILE5.Tiling
+============
+
+The TILE5.Tiling module defines classes and functionality required to take the graphical functionality implemented by Graphics.View and Graphics.ViewLayer and turn those into useful tiling displays.
+
+Classes
+-------
+
+- Tiling.Tile
+- Tiling.ImageTile
+- Tiling.TileGrid
+- Tiling.ImageTileGrid
+- Tiling.Tiler
+
+Internal Classes
+----------------
+
+- Tiling.TileStore

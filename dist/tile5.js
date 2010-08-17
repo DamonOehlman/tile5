@@ -1471,16 +1471,6 @@ GRUNT.WaterCooler = (function() {
 /* GRUNTJS END */
 TILE5 = (function () {
     var module = {
-        /** @lends TILE5 */
-        
-        copyRect: function(src) {
-            return src ? new module.Rect(src.origin.x, src.origin.y, src.dimensions.width, src.dimensions.height) : null;
-        },
-
-        /** @namespace
-        Core TILE5 module for setting and retrieving application settings.
-        - should possibly be moved to GRUNT as it's pretty useful for most applications
-        */
         Settings: (function() {
             var currentSettings = {};
             
@@ -1541,6 +1531,33 @@ TILE5 = (function () {
         }, // Vector
         
         V: (function() {
+
+            function edges(vectors) {
+                if ((! vectors) || (vectors.length <= 1)) {
+                    throw new Error("Cannot determine edge distances for a vector array of only one vector");
+                } // if
+                
+                var fnresult = {
+                    edges: new Array(vectors.length - 1),
+                    accrued: new Array(vectors.length - 1),
+                    total: 0
+                };
+                
+                var diffFn = TILE5.V.diff;
+                
+                // iterate through the vectors and calculate the edges
+                // OPTMIZE: look for speed up opportunities
+                for (var ii = 0; ii < vectors.length-1; ii++) {
+                    var diff = diffFn(vectors[ii], vectors[ii + 1]);
+                    
+                    fnresult.edges[ii] = Math.sqrt((diff.x * diff.x) + (diff.y * diff.y));
+                    fnresult.accrued[ii] = fnresult.total + fnresult.edges[ii];
+                    fnresult.total += fnresult.edges[ii];
+                } // for
+                
+                return fnresult;
+            } // edges
+
             return {
                 create: function(x, y) {
                     return new module.Vector(x, y);
@@ -1574,74 +1591,8 @@ TILE5 = (function () {
                 
                 offset: function(vector, offsetX, offsetY) {
                     return new TILE5.Vector(vector.x + offsetX, vector.y + (offsetY ? offsetY : offsetX));
-                }
-            };
-        })(),
-        
-        VectorArray: function(srcArray, copy) {
-            var data = new Array(srcArray.length);
-            
-            // copy the source array
-            for (var ii = srcArray.length; ii--; ) {
-                data[ii] = copy ? module.V.copy(srcArray[ii]) : srcArray[ii];
-            } // for
-            
-            return {
-                applyOffset: function(offset) {
-                    for (var ii = data.length; ii--; ) {
-                        data[ii].x += offset.x;
-                        data[ii].y += offset.y;
-                    } // for
                 },
                 
-                getRect: function() {
-                    return new TILE5.Rect(
-                        Math.min(data[0].x, data[1].x),
-                        Math.min(data[0].y, data[1].y),
-                        Math.abs(data[0].x - data[1].x),
-                        Math.abs(data[0].y - data[1].y)
-                    );
-                },
-                
-                toString: function() {
-                    var fnresult = "";
-                    for (var ii = data.length; ii--; ) {
-                        fnresult += "[" + data[ii].toString() + "] ";
-                    } // for
-                    
-                    return fnresult;
-                }
-            };
-        },
-        
-        VectorMath: (function() {
-            function edges(vectors) {
-                if ((! vectors) || (vectors.length <= 1)) {
-                    throw new Error("Cannot determine edge distances for a vector array of only one vector");
-                } // if
-                
-                var fnresult = {
-                    edges: new Array(vectors.length - 1),
-                    accrued: new Array(vectors.length - 1),
-                    total: 0
-                };
-                
-                var diffFn = TILE5.V.diff;
-                
-                // iterate through the vectors and calculate the edges
-                // OPTMIZE: look for speed up opportunities
-                for (var ii = 0; ii < vectors.length-1; ii++) {
-                    var diff = diffFn(vectors[ii], vectors[ii + 1]);
-                    
-                    fnresult.edges[ii] = Math.sqrt((diff.x * diff.x) + (diff.y * diff.y));
-                    fnresult.accrued[ii] = fnresult.total + fnresult.edges[ii];
-                    fnresult.total += fnresult.edges[ii];
-                } // for
-                
-                return fnresult;
-            } // edges
-            
-            return {
                 edges: edges,
                 distance: function(vectors) {
                     return edges(vectors).total;
@@ -1656,207 +1607,67 @@ TILE5 = (function () {
                     var xyDelta = new TILE5.Vector(Math.cos(theta) * delta, Math.sin(theta) * delta);
                     
                     return new TILE5.Vector(v1.x - xyDelta.x, v1.y - xyDelta.y);
+                },
+                
+                getRect: function(vectorArray) {
+                    var arrayLen = vectorArray.length;
+                    if (arrayLen > 1) {
+                        return new TILE5.Rect(
+                            Math.min(vectorArray[0].x, vectorArray[arrayLen - 1].x),
+                            Math.min(vectorArray[0].y, vectorArray[arrayLen - 1].y),
+                            Math.abs(vectorArray[0].x - vectorArray[arrayLen - 1].x),
+                            Math.abs(vectorArray[0].y - vectorArray[arrayLen - 1].y)
+                        );
+                    }
                 }
             };
         })(),
         
-        /**
-        Dimensions Class
-        ===============
-        */
-        Dimensions: function(init_width, init_height) {
-            // initialise variables
-
-            // calculate the aspect ratio
-            var init_aspect_ratio = init_height ? (init_width / init_height) : 1;
-
-            // intiialise self
-            var self = {
-                /** lends TILE5.Dimensions */
-                
-                width: init_width,
-                height: init_height,
-                aspect_ratio: init_aspect_ratio,
-                inv_aspect_ratio: 1 / init_aspect_ratio,
-
-                getAspectRatio: function() {
-                    return self.height !== 0 ? self.width / self.height : 1;
-                },
-
-                getCenter: function() {
-                    return new TILE5.Vector(self.width >> 1, self.height >> 1);
-                },
-                
-                grow: function(widthDelta, heightDelta) {
-                    return new TILE5.Dimensions(self.width + widthDelta, self.height + heightDelta);
-                },
-                
-                matches: function(test) {
-                    return test && (self.width == test.width) && (self.height == test.height);
-                },
-                
-                toString: function() {
-                    return self.width + " x " + self.height;
-                }
-            }; // self
-
-            return self;
+        Dimensions: function(initWidth, initHeight) {
+            return {
+                width: initWidth ? initWidth : 0,
+                height: initHeight ? initHeight : 0
+            }; 
         }, // Dimensions
         
-        /** @class */
-        Rect: function(x, y, width, height) {
-            // TODO: move dimensions access through setters and getters so half width can be calculated once and only when required
-            
-            var self = {
-                /** @lends TILE5.Rect */
-                
-                origin: new TILE5.Vector(x, y),
-                dimensions: new TILE5.Dimensions(width, height),
-                
-                getCenter: function() {
-                    return new TILE5.Vector(self.origin.x + (self.dimensions.width >> 1), self.origin.y + (self.dimensions.height >> 1));
+        D: (function() {
+            var subModule = {
+                getAspectRatio: function(dimensions) {
+                    return dimensions.height !== 0 ? dimensions.width / dimensions.height : 1;
                 },
-                
-                getSize: function() {
-                    return Math.sqrt(Math.pow(self.dimensions.width, 2) + Math.pow(self.dimensions.height, 2));
-                },
-                
-                grow: function(new_width, new_height) {
-                    var growFactor = new TILE5.Dimensions(new_width - self.dimensions.width, new_height - self.dimensions.height);
-                    
-                    self.dimensions.width = new_width;
-                    self.dimensions.height = new_height;
-                    
-                    return growFactor;
-                },
-                
-                expand: function(amountX, amountY) {
-                    self.origin.x -= amountX;
-                    self.origin.y -= amountY;
-                    self.dimensions.width += amountX;
-                    self.dimensions.height += amountY;
-                },
-                
-                offset: function(offsetVector) {
-                    return new module.Rect(
-                                    self.origin.x + offsetVector.x, 
-                                    self.origin.y + offsetVector.y,
-                                    self.dimensions.width,
-                                    self.dimensions.height);
-                },
-                
-                /**
-                The alignTo function is used to determine the 
-                delta amounts required to adjust the rect to the specified target rect.  
-                
-                @returns a hash object containing the following parameters
-                 - top: the delta change to adjust the top to the target rect,
-                 - left: the delta change to adjust the left
-                 - bottom: the delta bottom change
-                 - right: the delta right change
-                */
-                getRequiredDelta: function(targetRect, offset) {
-                    var delta = {
-                        top: 0,
-                        left: 0,
-                        bottom: 0,
-                        right: 0
-                    }; // delta
-                    
-                    // calculate the top left delta
-                    delta.top = targetRect.origin.y - self.origin.y + (offset ? offset.y : 0);
-                    delta.left = targetRect.origin.x - self.origin.x + (offset ? offset.x : 0);
-                    
-                    // calculate the bottom right delta
-                    delta.right = (targetRect.origin.x + targetRect.dimensions.width) - (self.origin.x + self.dimensions.width) - delta.left;
-                    delta.bottom = (targetRect.origin.y + targetRect.dimensions.height) - (self.origin.y + self.dimensions.height) - delta.top;
 
-                    return delta;
+                getCenter: function(dimensions) {
+                    return new module.Vector(dimensions.width / 2, dimensions.height / 2);
                 },
                 
-                /**
-                Apply a delta that was previously calculated using the getRequiredDelta function or one you determined
-                yourself, given you are of course smart enough ;)
-                
-                @memberOf TILE5.Rect#
-                @param {Object} delta the delta to apply in the form of a named hash (top, left, bottom, right)
-                @param {Number} scalingFactor a scaling factor to apply to the delta transformation (optional)
-                @param {Number} aspectRatio the aspect ratio to constrain the transformation by - if specified, the height will be automatically calculated (optional)
-                */
-                applyDelta: function(delta, scalingFactor, aspectRatio) {
-                    // check the delta
-                    if ((! delta) || (! GRUNT.contains(delta, ["top", "left", "bottom", "right"]))) {
-                        throw new Error("Invalid delta - cannot apply to TILE5.Rect");
-                    } // if
-                    
-                    // if the scaling factor is not assigned, then default to 1
-                    if (! scalingFactor) {
-                        scalingFactor = 1;
-                    } // if
-                    
-                    // adjust the top left
-                    self.origin.x += (delta.left * scalingFactor);
-                    self.origin.y += (delta.top * scalingFactor);
-                    
-                    // adjust the width and height
-                    self.dimensions.width += (delta.right * scalingFactor);
-                    self.dimensions.height += (delta.bottom * scalingFactor);
-                    
-                    // if the aspect ratio is specified, then calculate the difference required to match the aspect ratio
-                    // and apply a subsequent delta
-                    if (aspectRatio) {
-                        self.constrainAspectRatio(aspectRatio);
-                    } // if
-                },
-                
-                /**
-                Calculate and apply a delta to keep the rect at the specified aspect ratio.  In all cases, the size 
-                of the rect is increased to match the aspect ratio and not reduced.
-                
-                // TODO: update this function to keep the rect centered...
-                */
-                constrainAspectRatio: function(aspectRatio) {
-                    // get the current aspect ratio
-                    var adjustment = 0;
-                    var currentAspect = self.dimensions.getAspectRatio();
-                    var delta = {top: 0, left: 0, bottom: 0, right: 0};
-                    
-                    // if the current aspect ratio is less than the desired, then increase the width
-                    if (currentAspect < aspectRatio) {
-                        adjustment = Math.abs(self.dimensions.width - (self.dimensions.height * aspectRatio));
-                        
-                        // apply the adjustments
-                        delta.left = -adjustment;
-                        delta.right = adjustment;
-                    }
-                    // otherwise, increase the height
-                    else {
-                        adjustment = Math.abs(self.dimensions.height - (self.dimensions.width / aspectRatio));
-                        
-                        delta.top = -adjustment;
-                        delta.bottom = adjustment;
-                    } // if..else
-                    
-                    // apply the delta
-                    self.applyDelta(delta);
-                },
-                
-                moveTo: function(x, y) {
-                    var offsetFactor = new TILE5.Vector(x - self.origin.x, y - self.origin.y);
-                    
-                    self.origin.x = x;
-                    self.origin.y = y;
-                    
-                    return offsetFactor;
-                },
-                
-                toString: function() {
-                    return String.format("(origin: {0}, dimensions: {1})", self.origin, self.dimensions);
+                getSize: function(dimensions) {
+                    return Math.sqrt(Math.pow(dimensions.width, 2) + Math.pow(dimensions.height, 2));
                 }
             };
             
-            return self;
-        }
+            return subModule;
+        })(),
+        
+        Rect: function(x, y, width, height) {
+            return {
+                origin: new module.Vector(x, y),
+                dimensions: new module.Dimensions(width, height)
+            };
+        },
+        
+        R: (function() {
+            var subModule = {
+                copy: function(src) {
+                    return src ? new module.Rect(src.origin.x, src.origin.y, src.dimensions.width, src.dimensions.height) : null;
+                },
+                
+                getCenter: function(rect) {
+                    return new TILE5.Vector(rect.origin.x + (rect.dimensions.width / 2), rect.origin.y + (rect.dimensions.height / 2));
+                }
+            };
+            
+            return subModule;
+        })()
     };
     
     return module;
@@ -2094,7 +1905,7 @@ TILE5.Resources = (function() {
         function cleanupImageCache() {
             clearingCache = true;
             try {
-                var halfLen = Math.floor(cachedImages.length * 0.5);
+                var halfLen = Math.floor(cachedImages.length / 2);
                 if (halfLen > 0) {
                     // TODO: make this more selective... currently some images on screen may be removed :/
                     cachedImages.sort(function(itemA, itemB) {
@@ -2371,7 +2182,7 @@ TILE5.Touch = (function() {
         listenerCount = 0;
     
     function calcDistance(touches) {
-        return TILE5.VectorMath.distance(touches);
+        return TILE5.V.distance(touches);
     } // calcDistance
     
     function calcChange(first, second) {
@@ -2453,12 +2264,14 @@ TILE5.Touch = (function() {
                 BENCHMARK_INTERVAL = 300;
                 
             function relativeTouches(touches) {
-                var fnresult = new TILE5.VectorArray(touches, true);
+                var fnresult = [],
+                    offsetX = params.element ? -params.element.offsetLeft : 0,
+                    offsetY = params.element ? -params.element.offsetTop : 0;
                 
                 // apply the offset
-                if (params.element) {
-                    fnresult.applyOffset(new TILE5.Vector(-params.element.offsetLeft, -params.element.offsetTop));
-                } // if
+                for (var ii = touches.length; ii--; ) {
+                    fnresult.push(TILE5.V.offset(touches[ii], offsetX, offsetY));
+                } // for
                 
                 return fnresult;
             } // relativeTouches
@@ -2774,6 +2587,243 @@ TILE5.Touch = (function() {
                 touchHelpers[element.id].release();
                 delete touchHelpers[element.id];
             } // if
+        },
+        
+        Pannable: function(params) {
+            params = GRUNT.extend({
+                container: null,
+                onPan: null,
+                onPanEnd: null,
+                onAnimate: null,
+                checkOffset: null
+            }, params);
+
+            var animating = false,
+                offset = new TILE5.Vector();
+
+            // initialise self
+            var self = {
+                pannable: true,
+
+                getOffset: function() {
+                    return new TILE5.Vector(offset.x, offset.y);
+                },
+
+                setOffset: function(x, y) {
+                    offset.x = x; offset.y = y;
+                },
+
+                pan: function(x, y, tweenFn) {
+                    // if no tween function is defined, then go ahead
+                    if (! tweenFn) {
+                        self.updateOffset(offset.x + x, offset.y + y);
+
+                        // if the on pan event is defined, then hook into it
+                        if (params.onPan) {
+                            params.onPan(x, y);
+                        } // if
+                    }
+                    // otherwise, apply the tween function to the offset
+                    else {
+                        self.updateOffset(offset.x + x, offset.y + y, tweenFn);
+                    } // if..else
+                },
+
+                isAnimating: function() {
+                    return animating;
+                },
+
+                panEnd: function(x, y) {
+                    if (params.onPanEnd) {
+                        params.onPanEnd(x, y);
+                    } // if
+                },
+
+                updateOffset: function(x, y, tweenFn) {
+                    if (tweenFn) {
+                        var endPosition = new TILE5.Vector(x, y);
+
+                        animating = true;
+                        var tweens = TILE5.Animation.tweenVector(offset, endPosition.x, endPosition.y, tweenFn, function() {
+                            animating = false;
+                            self.panEnd(0, 0);
+                        });
+
+                        // set the tweens to cancel on interact
+                        for (var ii = tweens.length; ii--; ) {
+                            tweens[ii].cancelOnInteract = true;
+                            tweens[ii].requestUpdates(function(updatedValue, complete) {
+                                if (params.onAnimate) {
+                                    params.onAnimate(offset.x, offset.y);
+                                } // if
+                            });
+                        } // for
+                    }
+                    else {
+                        self.setOffset(x, y);
+                    } // if..else
+                }
+            };
+
+            var container = document.getElementById(params.container);
+            if (container) {
+                TILE5.Touch.captureTouch(container, {
+                    moveHandler: function(x, y) {
+                        self.pan(-x, -y);
+                    },
+
+                    moveEndHandler: function(x, y) {
+                        self.panEnd(x, y);
+                    }
+                });
+            } // if
+
+            return self;
+        },
+        
+        Scalable: function(params) {
+            params = GRUNT.extend({
+                container: null,
+                onAnimate: null,
+                onPinchZoom: null,
+                onScale: null,
+                scaleDamping: false
+            }, params);
+
+            var scaling = false,
+                startRect = null,
+                endRect = null,
+                scaleFactor = 1,
+                aniProgress = null,
+                tweenStart = null,
+                startCenter = null,
+                zoomCenter = null;
+
+            function checkTouches(start, end) {
+                startRect = TILE5.V.getRect(start);
+                endRect = TILE5.V.getRect(end);
+
+                // get the sizes of the rects
+                var startSize = TILE5.D.getSize(startRect.dimensions),
+                    endSize = TILE5.D.getSize(endRect.dimensions);
+
+                // update the zoom center
+                zoomCenter = TILE5.R.getCenter(endRect);
+
+                // determine the ratio between the start rect and the end rect
+                scaleFactor = (startRect && (startSize !== 0)) ? (endSize / startSize) : 1;
+            } // checkTouches
+
+            // initialise self
+            var self = {
+                scalable: true,
+
+                animate: function(targetScaleFactor, startXY, targetXY, tweenFn, callback) {
+
+                    function finishAnimation() {
+                        // if we have a callback to complete, then call it
+                        if (callback) {
+                            callback();
+                        } // if
+
+                        scaling = false;
+                        if (params.onScale) {
+                            params.onScale(scaleFactor, zoomCenter);
+                        } // if
+
+                        // reset the scale factor
+                        scaleFactor = 1;
+                        aniProgress = null;
+                    } // finishAnimation
+
+                    // update the zoom center
+                    scaling = true;
+                    startCenter = TILE5.V.copy(startXY);
+                    zoomCenter = TILE5.V.copy(targetXY);
+                    startRect = null;
+
+                    // if tweening then update the targetXY
+                    if (tweenFn) {
+                        tweenStart = scaleFactor;
+
+                        var tween = TILE5.Animation.tweenValue(0, targetScaleFactor - tweenStart, tweenFn, finishAnimation, 1000);
+                        tween.requestUpdates(function(updatedValue, completed) {
+                            // calculate the completion percentage
+                            aniProgress = updatedValue / (targetScaleFactor - tweenStart);
+
+                            // update the scale factor
+                            scaleFactor = tweenStart + updatedValue;
+
+                            // trigger the on animate handler
+                            if (params.onAnimate) {
+                                params.onAnimate();
+                            } // if
+                        });
+                    }
+                    // otherwise, update the scale factor and fire the callback
+                    else {
+                        scaleFactor = targetScaleFactor;
+                        finishAnimation();
+                    }  // if..else
+                },
+
+                getScaleInfo: function() {
+                    return {
+                        factor: scaleFactor,
+                        startRect: TILE5.R.copy(startRect),
+                        endRect: TILE5.R.copy(endRect),
+                        start: startCenter,
+                        center: zoomCenter,
+                        progress: aniProgress
+                    };
+                },
+
+                getScaling: function() {
+                    return scaling;
+                },
+
+                getScaleFactor: function() {
+                    return scaleFactor;
+                }
+            };
+
+            var container = document.getElementById(params.container);
+            if (container) {
+                TILE5.Touch.captureTouch(container, {
+                    pinchZoomHandler: function(touchesStart, touchesCurrent) {
+                        checkTouches(touchesStart, touchesCurrent);
+
+                        scaling = scaleFactor !== 1;
+                        if (scaling && params.onPinchZoom) {
+                            params.onPinchZoom(touchesStart, touchesCurrent);
+                        } // if
+                    },
+
+                    pinchZoomEndHandler: function(touchesStart, touchesEnd) {
+                        checkTouches(touchesStart, touchesEnd);
+
+                        scaling = false;
+                        if (params.onScale) {
+                            params.onScale(scaleFactor, zoomCenter, true);
+                        } // if
+
+                        // restore the scale amount to 1
+                        scaleFactor = 1;
+                    },
+
+                    wheelZoomHandler: function(xy, scaleFactor) {
+                        scaleFactor = scaleFactor;
+
+                        // nullify the start rect
+                        startRect = endRect = null;
+
+                        // update the xy position
+                        zoomCenter = TILE5.V.copy(xy);
+                    }
+                });
+            } // if    
+
+            return self;
         }
     }; // module
 })();
@@ -2809,250 +2859,6 @@ if (typeof(jQuery) !== 'undefined') {
     }; // untouchable
 } // if
 
-/*
-File:  TILE5.behaviours.js
-This file implements mixins that describe behaviour for a particular display class
-
-Section:  Version History
-2010-06-03 (DJO) - Created File
-*/
-
-TILE5.Pannable = function(params) {
-    params = GRUNT.extend({
-        container: null,
-        onPan: null,
-        onPanEnd: null,
-        onAnimate: null,
-        checkOffset: null
-    }, params);
-    
-    var animating = false,
-        offset = new TILE5.Vector();
-    
-    // initialise self
-    var self = {
-        pannable: true,
-        
-        getOffset: function() {
-            return new TILE5.Vector(offset.x, offset.y);
-        },
-        
-        setOffset: function(x, y) {
-            offset.x = x; offset.y = y;
-        },
-        
-        pan: function(x, y, tweenFn) {
-            // if no tween function is defined, then go ahead
-            if (! tweenFn) {
-                self.updateOffset(offset.x + x, offset.y + y);
-
-                // if the on pan event is defined, then hook into it
-                if (params.onPan) {
-                    params.onPan(x, y);
-                } // if
-            }
-            // otherwise, apply the tween function to the offset
-            else {
-                self.updateOffset(offset.x + x, offset.y + y, tweenFn);
-            } // if..else
-        },
-        
-        isAnimating: function() {
-            return animating;
-        },
-        
-        panEnd: function(x, y) {
-            if (params.onPanEnd) {
-                params.onPanEnd(x, y);
-            } // if
-        },
-        
-        updateOffset: function(x, y, tweenFn) {
-            if (tweenFn) {
-                var endPosition = new TILE5.Vector(x, y);
-
-                animating = true;
-                var tweens = TILE5.Animation.tweenVector(offset, endPosition.x, endPosition.y, tweenFn, function() {
-                    animating = false;
-                    self.panEnd(0, 0);
-                });
-
-                // set the tweens to cancel on interact
-                for (var ii = tweens.length; ii--; ) {
-                    tweens[ii].cancelOnInteract = true;
-                    tweens[ii].requestUpdates(function(updatedValue, complete) {
-                        if (params.onAnimate) {
-                            params.onAnimate(offset.x, offset.y);
-                        } // if
-                    });
-                } // for
-            }
-            else {
-                self.setOffset(x, y);
-            } // if..else
-        }
-    };
-    
-    var container = document.getElementById(params.container);
-    if (container) {
-        TILE5.Touch.captureTouch(container, {
-            moveHandler: function(x, y) {
-                self.pan(-x, -y);
-            },
-            
-            moveEndHandler: function(x, y) {
-                self.panEnd(x, y);
-            }
-        });
-    } // if
-    
-    return self;
-}; // TILE5.Pannable
-
-TILE5.Scalable = function(params) {
-    params = GRUNT.extend({
-        container: null,
-        onAnimate: null,
-        onPinchZoom: null,
-        onScale: null,
-        scaleDamping: false
-    }, params);
-
-    var scaling = false,
-        startRect = null,
-        endRect = null,
-        scaleFactor = 1,
-        aniProgress = null,
-        tweenStart = null,
-        startCenter = null,
-        zoomCenter = null;
-    
-    function checkTouches(start, end) {
-        startRect = start.getRect();
-        endRect = end.getRect();
-        
-        // get the sizes of the rects
-        var startSize = startRect.getSize(),
-            endSize = endRect.getSize();
-            
-        // update the zoom center
-        zoomCenter = endRect.getCenter();
-        
-        // determine the ratio between the start rect and the end rect
-        scaleFactor = (startRect && (startSize !== 0)) ? (endSize / startSize) : 1;
-    } // checkTouches
-    
-    // initialise self
-    var self = {
-        scalable: true,
-        
-        animate: function(targetScaleFactor, startXY, targetXY, tweenFn, callback) {
-            
-            function finishAnimation() {
-                // if we have a callback to complete, then call it
-                if (callback) {
-                    callback();
-                } // if
-                
-                scaling = false;
-                if (params.onScale) {
-                    params.onScale(scaleFactor, zoomCenter);
-                } // if
-                
-                // reset the scale factor
-                scaleFactor = 1;
-                aniProgress = null;
-            } // finishAnimation
-            
-            // update the zoom center
-            scaling = true;
-            startCenter = TILE5.V.copy(startXY);
-            zoomCenter = TILE5.V.copy(targetXY);
-            startRect = null;
-            
-            // if tweening then update the targetXY
-            if (tweenFn) {
-                tweenStart = scaleFactor;
-                
-                var tween = TILE5.Animation.tweenValue(0, targetScaleFactor - tweenStart, tweenFn, finishAnimation, 1000);
-                tween.requestUpdates(function(updatedValue, completed) {
-                    // calculate the completion percentage
-                    aniProgress = updatedValue / (targetScaleFactor - tweenStart);
-                    
-                    // update the scale factor
-                    scaleFactor = tweenStart + updatedValue;
-                    
-                    // trigger the on animate handler
-                    if (params.onAnimate) {
-                        params.onAnimate();
-                    } // if
-                });
-            }
-            // otherwise, update the scale factor and fire the callback
-            else {
-                scaleFactor = targetScaleFactor;
-                finishAnimation();
-            }  // if..else
-        },
-
-        getScaleInfo: function() {
-            return {
-                factor: scaleFactor,
-                startRect: TILE5.copyRect(startRect),
-                endRect: TILE5.copyRect(endRect),
-                start: startCenter,
-                center: zoomCenter,
-                progress: aniProgress
-            };
-        },
-        
-        getScaling: function() {
-            return scaling;
-        },
-        
-        getScaleFactor: function() {
-            return scaleFactor;
-        }
-    };
-    
-    var container = document.getElementById(params.container);
-    if (container) {
-        TILE5.Touch.captureTouch(container, {
-            pinchZoomHandler: function(touchesStart, touchesCurrent) {
-                checkTouches(touchesStart, touchesCurrent);
-                
-                scaling = scaleFactor !== 1;
-                if (scaling && params.onPinchZoom) {
-                    params.onPinchZoom(touchesStart, touchesCurrent);
-                } // if
-            },
-            
-            pinchZoomEndHandler: function(touchesStart, touchesEnd) {
-                checkTouches(touchesStart, touchesEnd);
-                
-                scaling = false;
-                if (params.onScale) {
-                    params.onScale(scaleFactor, zoomCenter, true);
-                } // if
-                
-                // restore the scale amount to 1
-                scaleFactor = 1;
-            },
-            
-            wheelZoomHandler: function(xy, scaleFactor) {
-                scaleFactor = scaleFactor;
-             
-                // nullify the start rect
-                startRect = endRect = null;
-                
-                // update the xy position
-                zoomCenter = TILE5.V.copy(xy);
-            }
-        });
-    } // if    
-    
-    return self;
-}; // TILE5.Scalable
 TILE5.Dispatcher = (function() {
     // initialise variables
     var registeredActions = [];
@@ -3205,125 +3011,6 @@ TILE5.Dispatcher = (function() {
             } // for
         }
     };
-    
-    return module;
-})();
-
-/**
-@namespace 
-
-The concept behind TILE5 messaging, is to enable client-side javascript to send messages and have
-those messages be handled in some way.  In some cases, a message being handled will involve moving
-to another part of the application (which is handled by the native bridge in a mobile application)
-or potentially a message could actually have some action taken on the server side, message data 
-updated and then the creating context could be notified of the change.  Currently, the messaging
-section of TILE5 is evolving, and is likely to change over time as the requirements of this module
-become clear.
-*/
-TILE5.Messaging = (function() {
-    var handlers = [];
-    var messageQueue = [];
-    
-    function getMessage(index) {
-        return (index >= 0) && (index < messageQueue.length) ? messageQueue[index] : null;
-    }
-    
-    function fireMessageUpdate(index, updateSource) {
-        // get the message instance
-        var message = getMessage(index);
-        GRUNT.Log.info("firing message update, index = " + index + ", message = " + message);
-        
-        // iterate through the handlers, and allow them to action the message
-        var ii = 0;
-        while (message && (ii < handlers.length) && (message.status !== module.STATUS.handled)) {
-            // TODO: check that the current handler is not the update source
-            
-            var statusChange = handlers[ii].processUpdate(messageQueue[index]);
-            if (statusChange) {
-                updateMessageStatus(index, statusChange, handlers[ii].getId());
-            } // if
-            
-            ii++;
-        } // while
-    } // fireMessageUpdate
-    
-    function updateMessageStatus(index, newStatus, updateSource) {
-        var message = getMessage(index);
-        
-        if (message) {
-            // update the message status
-            message.status = newStatus;
-            
-            // if the message has an status changed event handler, then trigger that now
-            if (message.statusChange) {
-                message.statusChange(message);
-            } // if
-        } // if
-    } // updateMessageStatus
-    
-    var module = GRUNT.newModule({
-        id: "TILE5.messaging",
-        requires: ["TILE5.core"],
-
-        // message status updates
-        STATUS: {
-            none: 0,
-            created: 1,
-            updated: 2,
-            handled: 3
-        },
-        
-        /**
-        The send function is used to push a new message onto the message queue.  Registered
-        message listeners will be passed the message details and will have the opportunity
-        to respond to the message, if they have handled the message they can update the message
-        status and add message log entries.  
-        
-        @param {Hash} params a hashed array containing message details
-        */
-        send: function(params) {
-            params = GRUNT.extend({
-                type: "",
-                payload: {},
-                index: 0,
-                status: module.STATUS.created,
-                statusChange: null
-            }, params);
-            
-            // add the message to the message queue
-            params.index = messageQueue.push(params) - 1;
-            
-            // trigger a message update
-            fireMessageUpdate(params.index);
-        },
-        
-        Handler: function(params) {
-            params = GRUNT.extend({
-                id: "",
-                processUpdate: null
-            }, params);
-            
-            // define self
-            var self = {
-                getId: function() {
-                    return params.id;
-                },
-                
-                processUpdate: function(message) {
-                    if (params.processUpdate) {
-                        return params.processUpdate(message);
-                    } // if
-                    
-                    return module.STATUS.none;
-                }
-            };
-            
-            // add the handler to the list of handlers
-            handlers.push(self);
-            
-            return self;
-        }
-    });
     
     return module;
 })();
@@ -3606,8 +3293,8 @@ TILE5.Animation = (function() {
                     },
                     
                     InOut: function(t, b, c, d) {
-                        if (t < d/2) return module.Easing.Bounce.In(t*2, 0, c, d) * 0.5 + b;
-                        else return module.Easing.Bounce.Out(t*2-d, 0, c, d) * 0.5 + c*0.5 + b;
+                        if (t < d/2) return module.Easing.Bounce.In(t*2, 0, c, d) / 2 + b;
+                        else return module.Easing.Bounce.Out(t*2-d, 0, c, d) / 2 + c/2 + b;
                     }
                 },
                 
@@ -3737,6 +3424,7 @@ TILE5.Graphics = (function() {
         
         ViewLayer: function(params) {
             params = GRUNT.extend({
+                id: "",
                 centerOnScale: true,
                 created: new Date().getTime(),
                 scalePosition: true,
@@ -3746,13 +3434,9 @@ TILE5.Graphics = (function() {
             }, params);
             
             var parent = null,
-                id = "";
+                id = params.id;
             
             var self = GRUNT.extend({
-                isAnimating: function() {
-                    return false;
-                },
-                
                 addToView: function(view) {
                     view.setLayer(id, self);
                 },
@@ -3769,10 +3453,6 @@ TILE5.Graphics = (function() {
                 },
                 
                 draw: function(context, offset, dimensions, state, view) {
-                },
-                
-                notify: function(eventType) {
-                    
                 },
                 
                 /**
@@ -3809,21 +3489,6 @@ TILE5.Graphics = (function() {
             return self;
         },
         
-        StatusViewLayer: function(params) {
-            return new module.ViewLayer({
-                validStates: module.AnyDisplayState,
-                zindex: 5000,
-                draw: function(context, offset, dimensions, state, view) {
-                    context.fillStyle = "#FF0000";
-                    context.fillRect(10, 10, 50, 50);
-                    
-                    context.fillStyle = "#FFFFFF";
-                    context.font = "bold 10px sans";
-                    context.fillText(view.getDisplayState(), 20, 20);
-                }
-            });
-        },
-        
         AnimatedPathLayer: function(params) {
             params = GRUNT.extend({
                 path: [],
@@ -3837,7 +3502,7 @@ TILE5.Graphics = (function() {
             }, params);
             
             // generate the edge data for the specified path
-            var edgeData = TILE5.VectorMath.edges(params.path), 
+            var edgeData = TILE5.V.edges(params.path), 
                 tween,
                 theta,
                 indicatorXY = null,
@@ -3900,8 +3565,8 @@ TILE5.Graphics = (function() {
                             v1 = params.path[edgeIndex],
                             v2 = params.path[edgeIndex + 1];
 
-                        theta = TILE5.VectorMath.theta(v1, v2, edgeData.edges[edgeIndex]);
-                        indicatorXY = TILE5.VectorMath.pointOnEdge(v1, v2, theta, extra);
+                        theta = TILE5.V.theta(v1, v2, edgeData.edges[edgeIndex]);
+                        indicatorXY = TILE5.V.pointOnEdge(v1, v2, theta, extra);
 
                         if (params.autoCenter) {
                             var parent = self.getParent();
@@ -4104,7 +3769,7 @@ TILE5.Graphics = (function() {
             } // if
             
             if (params.pannable) {
-                pannable = new TILE5.Pannable({
+                pannable = new TILE5.Touch.Pannable({
                     container: params.container,
                     onAnimate: function(x, y) {
                         wake();
@@ -4132,7 +3797,7 @@ TILE5.Graphics = (function() {
             } // if
             
             if (params.scalable) {
-                scalable = new TILE5.Scalable({
+                scalable = new TILE5.Touch.Scalable({
                     scaleDamping: params.scaleDamping,
                     container: params.container,
                     
@@ -4219,14 +3884,14 @@ TILE5.Graphics = (function() {
             
             function calcZoomCenter() {
                 var scaleInfo = scalable.getScaleInfo(),
-                    displayCenter = self.getDimensions().getCenter(),
-                    shiftFactor = (scaleInfo.progress ? scaleInfo.progress : 1) * 0.5;
+                    displayCenter = TILE5.D.getCenter(dimensions),
+                    shiftFactor = (scaleInfo.progress ? scaleInfo.progress : 1) / 2;
                     
                 // update the end center
                 endCenter = scaleInfo.center;
 
                 if (scaleInfo.startRect) {
-                    var startCenter = scaleInfo.startRect.getCenter(),
+                    var startCenter = TILE5.R.getCenter(scaleInfo.startRect),
                         centerOffset = TILE5.V.diff(startCenter, endCenter);
 
                     zoomCenter = new TILE5.Vector(endCenter.x + centerOffset.x, endCenter.y + centerOffset.y);
@@ -4373,7 +4038,7 @@ TILE5.Graphics = (function() {
                 fastDraw: params.fastDraw || TILE5.Device.getConfig().requireFastDraw,
                 
                 centerOn: function(offset) {
-                    pannable.setOffset(offset.x - (canvas.width * 0.5), offset.y - (canvas.height * 0.5));
+                    pannable.setOffset(offset.x - (canvas.width / 2), offset.y - (canvas.height / 2));
                 },
                 
                 getDimensions: function() {
@@ -4447,12 +4112,12 @@ TILE5.Graphics = (function() {
                 scale: function(targetScaling, tweenFn, callback, startXY, targetXY) {
                     // if the start XY is not defined, used the center
                     if (! startXY) {
-                        startXY = self.getDimensions().getCenter();
+                        startXY = TILE5.D.getCenter(dimensions);
                     } // if
                     
                     // if the target xy is not defined, then use the canvas center
                     if (! targetXY) {
-                        targetXY = self.getDimensions().getCenter();
+                        targetXY = TILE5.D.getCenter(dimensions);
                     } // if
                     
                     // if the view is scalable then go for it
@@ -4475,7 +4140,7 @@ TILE5.Graphics = (function() {
             
             // get the dimensions
             dimensions = self.getDimensions();
-            centerPos = dimensions.getCenter();
+            centerPos = TILE5.D.getCenter(dimensions);
             
             // listen for layer removals
             GRUNT.WaterCooler.listen("layer.remove", function(args) {
@@ -4578,7 +4243,7 @@ TILE5.Tiling = (function() {
                 // take a tick count as we want to time this
                 var startTicks = GRUNT.Log.getTraceTicks(),
                     tileIndex = 0,
-                    centerPos = new TILE5.Vector(params.gridSize * 0.5, params.gridSize * 0.5);
+                    centerPos = new TILE5.Vector(params.gridSize / 2, params.gridSize / 2);
                 
                 if (tileCreator) {
                     for (var row = 0; row < params.gridSize; row++) {
@@ -4774,8 +4439,7 @@ TILE5.Tiling = (function() {
                 drawGrid: false,
                 center: new TILE5.Vector(),
                 shiftOrigin: null,
-                supportFastDraw: true,
-                checkChange: 100
+                supportFastDraw: true
             }, params);
             
             // create the tile store
@@ -4812,7 +4476,7 @@ TILE5.Tiling = (function() {
                                         Math.floor((offset.y + tileShift.y) * invTileSize)),
                         tileCols = Math.ceil(dimensions.width * invTileSize) + 1,
                         tileRows = Math.ceil(dimensions.height * invTileSize) + 1,
-                        centerPos = new TILE5.Vector((tileCols-1) * 0.5, (tileRows-1) * 0.5),
+                        centerPos = new TILE5.Vector((tileCols-1) / 2, (tileRows-1) / 2),
                         tileOffset = new TILE5.Vector((tileStart.x * params.tileSize), (tileStart.y * params.tileSize)),
                         viewAnimating = view.isAnimating();
                     
@@ -4946,10 +4610,6 @@ TILE5.Tiling = (function() {
                     gridDirty = false;
                 },
                 
-                getTileSize: function() {
-                    return params.tileSize;
-                },
-                
                 getTileVirtualXY: function(col, row, getCenter) {
                     // get the normalized position from the tile store
                     var pos = tileStore.getNormalizedPos(col, row),
@@ -4961,13 +4621,6 @@ TILE5.Tiling = (function() {
                     } // if
                     
                     return fnresult;
-                },
-                
-                getCenterXY: function() {
-                    // get the center column and row index
-                    var midIndex = Math.ceil(tileStore.getGridSize() >> 1);
-                    
-                    return self.getTileVirtualXY(midIndex, midIndex, true);
                 },
                 
                 populate: function(tileCreator) {
@@ -5043,19 +4696,6 @@ TILE5.Tiling = (function() {
             var lastTileLayerLoaded = "";
             var actualTileLoadThreshold = 0;
             
-            var tileCountLoaderFns = {
-                first: function(tileCount) {
-                    return 1;
-                },
-                auto: function(tileCount) {
-                    return tileCount >> 1;
-                },
-                
-                all: function(tileCount) {
-                    return tileCount;
-                }
-            };
-            
             // create the parent
             var self = new TILE5.Graphics.View(GRUNT.extend({}, params, {
                 // define panning and scaling properties
@@ -5078,11 +4718,6 @@ TILE5.Tiling = (function() {
                     
                     // update the tile load threshold
                     GRUNT.WaterCooler.say("grid.updated", { id: "grid" + gridIndex });
-                },
-
-                gridPixToViewPix: function(vector) {
-                    var offset = self.getOffset();
-                    return new TILE5.Vector(vector.x - offset.x, vector.y - offset.y);
                 },
 
                 viewPixToGridPix: function(vector) {
@@ -5124,9 +4759,7 @@ TILE5.Geo = (function() {
         DEGREES_TO_RADIANS = Math.PI / 180,
         RADIANS_TO_DEGREES = 180 / Math.PI;
     
-    var REGEX_NUMBERRANGE = /(\d+)\s?\-\s?(\d+)/,
-        REGEX_BUILDINGNO = /^(\d+).*$/,
-        ROADTYPE_REGEX = null,
+    var ROADTYPE_REGEX = null,
         // TODO: I think these need to move to the provider level..
         ROADTYPE_REPLACEMENTS = {
             RD: "ROAD",
@@ -5219,44 +4852,13 @@ TILE5.Geo = (function() {
             return self;
         },
         
-        /**
-        Returns the engine that provides the required functionality.  If preferred engines are supplied
-        as additional arguments, then those are looked for first
-        */
-        getEngine: function(requiredCapability) {
-            // initialise variables
-            var fnresult = null;
-            
-            // iterate through the arguments beyond the capabililty for the preferred engine
-            for (var ii = 1; (! fnresult) && (ii < arguments.length); ii++) {
-                fnresult = findEngine(requiredCapability, arguments[ii]);
-            } // for
-            
-            // if we found an engine using preferences, return that otherwise return an alternative
-            fnresult = fnresult ? fnresult : findEngine(requiredCapability);
-            
-            // if no engine was found, then throw an exception
-            if (! fnresult) {
-                throw new Error("Unable to find GEO engine with " + requiredCapability + " capability");
-            }
-            
-            return fnresult;
-        },
-        
         /* geo type definitions */
         
         Radius: function(init_dist, init_uom) {
-            // initialise variables
-
-            // TODO: actually make this class useful
-
-            // initialise self
-            var self = {
+            return {
                 distance: parseInt(init_dist, 10),
                 uom: init_uom
             }; 
-
-            return self;
         }, // Radius
         
         Position: function(initLat, initLon) {
@@ -5268,62 +4870,11 @@ TILE5.Geo = (function() {
         }, // Position
         
         BoundingBox: function(initMin, initMax) {
-            // initialise self
-            var self = {
-                min: module.P.parse(initMin),
-                max: module.P.parse(initMax),
-
-                expand: function(amount) {
-                    self.min.lat -= amount;
-                    self.min.lon -= module.Utilities.normalizeLon(amount);
-                    self.max.lat += amount;
-                    self.max.lon += module.Utilities.normalizeLon(amount);
-                },
-                
-                getDistance: function() {
-                    return module.P.calcDistance(self.min, self.max);
-                },
-                
-                getCenter: function() {
-                    // calculate the bounds size
-                    var size = module.calculateBoundsSize(self.min, self.max);
-                    
-                    // create a new position offset from the current min
-                    return new TILE5.Geo.Position(self.min.lat + (size.y * 0.5), self.min.lon + (size.x * 0.5));
-                },
-
-                transform: function(transformers) {
-                    // create a new instance of the BoundingBox to transform
-                    var target = new TILE5.Geo.BoundingBox(self.min, self.max);
-
-                    GRUNT.Log.info("applying " + transformers.length + " transformers");
-                    // iterate through the transformers, and call them
-                    for (var ii = 0; transformers && (ii < transformers.length); ii++) {
-                        transformers[ii].apply(target);
-                    } // for
-
-                    return target;
-                }
-            }; // self
-
-            return self;
-        }, // BoundingBox
-        
-        Transforms: (function() {
             return {
-                Shrink: function(new_width, new_height) {
-                    return function() {
-                        //GRUNT.Log.info(String.format("SHRINKING {2} to {0} x {1}", new_width, new_height, this));
-                    };
-                },
-
-                Offset: function(x_offset, y_offset) {
-                    return function() {
-                        //GRUNT.Log.info(String.format("OFFSETING {2} by {0}, {1}", x_offset, y_offset, this));
-                    };
-                }
+                min: module.P.parse(initMin),
+                max: module.P.parse(initMax)
             };
-        })(),
+        }, // BoundingBox
         
         /* addressing and geocoding support */
         
@@ -5339,18 +4890,7 @@ TILE5.Geo = (function() {
                 boundingBox: null
             }, params);
             
-            // define self
-            var self = GRUNT.extend(params, {
-                getPos: function() {
-                    return params.pos;
-                },
-                
-                toString: function() {
-                    return params.streetDetails + " " + params.location;
-                }
-            });
-            
-            return self;
+            return params;
         },
         
         GeocodeFieldWeights: {
@@ -5659,7 +5199,7 @@ TILE5.Geo = (function() {
                 */
                 findByBounds: function(searchBounds) {
                     return poiGrabber(function(testPOI) {
-                        return TILE5.Geo.posInBounds(testPOI.pos, searchBounds);
+                        return TILE5.Geo.P.inBounds(testPOI.pos, searchBounds);
                     });
                 },
 
@@ -5762,7 +5302,7 @@ TILE5.Geo = (function() {
             return self;
         }, // MapProvider
         
-        /* position utilities (TODO: move other functions up here...) */
+        /* Position utility functions */
         P: (function() {
             var subModule = {
                 calcDistance: function(pos1, pos2) {
@@ -5770,8 +5310,8 @@ TILE5.Geo = (function() {
                         return 0;
                     } // if
                     
-                    var halfdelta_lat = (pos2.lat - pos1.lat).toRad() * 0.5;
-                    var halfdelta_lon = (pos2.lon - pos1.lon).toRad() * 0.5;
+                    var halfdelta_lat = (pos2.lat - pos1.lat).toRad() / 2;
+                    var halfdelta_lon = (pos2.lon - pos1.lon).toRad() / 2;
 
                     // TODO: find out what a stands for, I don't like single char variables in code (same goes for c)
                     var a = (Math.sin(halfdelta_lat) * Math.sin(halfdelta_lat)) + 
@@ -5816,6 +5356,19 @@ TILE5.Geo = (function() {
                     } // for
                     
                     return false;
+                },
+                
+                inBounds: function(pos, bounds) {
+                    // initialise variables
+                    var fnresult = ! (module.P.empty(pos) || module.P.empty(bounds));
+
+                    // check the pos latitude
+                    fnresult = fnresult && (pos.lat >= bounds.min.lat) && (pos.lat <= bounds.max.lat);
+
+                    // check the pos longitude
+                    fnresult = fnresult && (pos.lon >= bounds.min.lon) && (pos.lon <= bounds.max.lon);
+
+                    return fnresult;
                 },
                 
                 parse: function(pos) {
@@ -5863,6 +5416,44 @@ TILE5.Geo = (function() {
                 toMercatorPixels: function(pos, radsPerPixel) {
                     return new TILE5.Vector(TILE5.Geo.Utilities.lon2pix(pos.lon, radsPerPixel), TILE5.Geo.Utilities.lat2pix(pos.lat, radsPerPixel));
                 },
+                
+                generalize: function(sourceData, requiredPositions, minDist) {
+                    var sourceLen = sourceData.length,
+                        positions = [],
+                        lastPosition = null;
+
+                    if (! minDist) {
+                        minDist = DEFAULT_GENERALIZATION_DISTANCE;
+                    } // if
+
+                    // convert min distance to km
+                    minDist = minDist / 1000;
+
+                    GRUNT.Log.info("generalizing positions, must include " + requiredPositions.length + " positions");
+
+                    // iterate thorugh the source data and add positions the differ by the required amount to 
+                    // the result positions
+                    for (var ii = sourceLen; ii--; ) {
+                        if (ii === 0) {
+                            positions.unshift(sourceData[ii]);
+                        }
+                        else {
+                            var include = (! lastPosition) || module.P.inArray(sourceData[ii], requiredPositions),
+                                posDiff = include ? minDist : module.P.calcDistance(lastPosition, sourceData[ii]);
+
+                            // if the position difference is suitable then include
+                            if (sourceData[ii] && (posDiff >= minDist)) {
+                                positions.unshift(sourceData[ii]);
+
+                                // update the last position
+                                lastPosition = sourceData[ii];
+                            } // if
+                        } // if..else
+                    } // for
+
+                    GRUNT.Log.info("generalized " + sourceLen + " positions into " + positions.length + " positions");
+                    return positions;
+                },                
 
                 toString: function(pos) {
                     return pos ? pos.lat + " " + pos.lon : "";
@@ -5872,6 +5463,7 @@ TILE5.Geo = (function() {
             return subModule;
         })(),
         
+        /* BoundingBox utility functions */
         B: (function() {
             var MIN_LAT = -(Math.PI / 2),
                 MAX_LAT = Math.PI / 2,
@@ -5879,6 +5471,22 @@ TILE5.Geo = (function() {
                 MAX_LON = Math.PI * 2;
             
             var subModule = {
+                calcSize: function(min, max, normalize) {
+                    var size = new TILE5.Vector(0, max.lat - min.lat);
+                    if (typeof normalize === 'undefined') {
+                        normalize = true;
+                    } // if
+
+                    if (normalize && (min.lon > max.lon)) {
+                        size.x = 360 - min.lon + max.lon;
+                    }
+                    else {
+                        size.x = max.lon - min.lon;
+                    } // if..else
+
+                    return size;
+                },
+
                 // adapted from: http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates
                 createBoundsFromCenter: function(centerPos, distance) {
                     var radDist = distance / KM_PER_RAD,
@@ -5919,8 +5527,162 @@ TILE5.Geo = (function() {
                                     new module.Position(maxLat * RADIANS_TO_DEGREES, maxLon * RADIANS_TO_DEGREES));
                 },
                 
+                expand: function(bounds, amount) {
+                    return new module.BoundingBox(
+                        new module.Position(bounds.min.lat - amount, bounds.min.lon - module.Utilities.normalizeLon(amount)),
+                        new module.Position(bounds.max.lat + amount, bounds.max.lon + module.Utilities.normalizeLon(amount)));
+                },
+                
+                forPositions: function(positions, padding) {
+                    var bounds = null,
+                        startTicks = TILE5.Clock.getTime();
+
+                    // if padding is not specified, then set to auto
+                    if (! padding) {
+                        padding = "auto";
+                    } // if
+
+                    for (var ii = positions.length; ii--; ) {
+                        if (! bounds) {
+                            bounds = new TILE5.Geo.BoundingBox(positions[ii], positions[ii]);
+                        }
+                        else {
+                            var minDiff = subModule.calcSize(bounds.min, positions[ii], false),
+                                maxDiff = subModule.calcSize(positions[ii], bounds.max, false);
+
+                            if (minDiff.x < 0) { bounds.min.lon = positions[ii].lon; }
+                            if (minDiff.y < 0) { bounds.min.lat = positions[ii].lat; }
+                            if (maxDiff.x < 0) { bounds.max.lon = positions[ii].lon; }
+                            if (maxDiff.y < 0) { bounds.max.lat = positions[ii].lat; }
+                        } // if..else
+                    } // for
+
+                    // expand the bounds to give us some padding
+                    if (padding) {
+                        if (padding == "auto") {
+                            var size = subModule.calcSize(bounds.min, bounds.max);
+
+                            // update padding to be a third of the max size
+                            padding = Math.max(size.x, size.y) * 0.3;
+                        } // if
+
+                        bounds = subModule.expand(bounds, padding);
+                    } // if
+
+                    GRUNT.Log.trace("calculated bounds for " + positions.length + " positions", startTicks);
+                    return bounds;
+                },
+                
+                getCenter: function(bounds) {
+                    // calculate the bounds size
+                    var size = module.B.calcSize(bounds.min, bounds.max);
+                    
+                    // create a new position offset from the current min
+                    return new TILE5.Geo.Position(bounds.min.lat + (size.y / 2), bounds.min.lon + (size.x / 2));
+                },
+
+                /** 
+                Function adapted from the following code:
+                http://groups.google.com/group/google-maps-js-api-v3/browse_thread/thread/43958790eafe037f/66e889029c555bee
+                */
+                getZoomLevel: function(bounds, displaySize) {
+                    // get the constant index for the center of the bounds
+                    var boundsCenter = subModule.getCenter(bounds),
+                        variabilityIndex = Math.min(Math.round(Math.abs(boundsCenter.lat) * 0.05), LAT_VARIABILITIES.length),
+                        variability = LAT_VARIABILITIES[variabilityIndex],
+                        delta = subModule.calcSize(bounds.min, bounds.max),
+                        // interestingly, the original article had the variability included, when in actual reality it isn't, 
+                        // however a constant value is required. must find out exactly what it is.  At present, though this
+                        // works fine.
+                        bestZoomH = Math.ceil(Math.log(LAT_VARIABILITIES[3] * displaySize.height / delta.y) / Math.log(2)),
+                        bestZoomW = Math.ceil(Math.log(variability * displaySize.width / delta.x) / Math.log(2));
+
+                    // GRUNT.Log.info("constant index for bbox: " + bounds + " (center = " + boundsCenter + ") is " + variabilityIndex);
+                    // GRUNT.Log.info("distances  = " + delta);
+                    // GRUNT.Log.info("optimal zoom levels: height = " + bestZoomH + ", width = " + bestZoomW);
+
+                    // return the lower of the two zoom levels
+                    return Math.min(bestZoomH, bestZoomW);
+                },
+
+                isEmpty: function(bounds) {
+                    return (! bounds) || module.P.empty(bounds.min) || module.P.empty(bounds.max);
+                },
+                
                 toString: function(bounds) {
                     return "min: " + module.P.toString(bounds.min) + ", max: " + module.P.toString(bounds.max);
+                }
+            };
+            
+            return subModule;
+        })(),
+       
+        /* Addressing utility functions */
+        A: (function() {
+            var REGEX_BUILDINGNO = /^(\d+).*$/,
+                REGEX_NUMBERRANGE = /(\d+)\s?\-\s?(\d+)/;
+            
+            var subModule = {
+                buildingMatch: function(freeform, numberRange, name) {
+                    // from the freeform address extract the building number
+                    REGEX_BUILDINGNO.lastIndex = -1;
+                    if (REGEX_BUILDINGNO.test(freeform)) {
+                        var buildingNo = freeform.replace(REGEX_BUILDINGNO, "$1");
+
+                        // split up the number range
+                        var numberRanges = numberRange.split(",");
+                        for (var ii = 0; ii < numberRanges.length; ii++) {
+                            REGEX_NUMBERRANGE.lastIndex = -1;
+                            if (REGEX_NUMBERRANGE.test(numberRanges[ii])) {
+                                var matches = REGEX_NUMBERRANGE.exec(numberRanges[ii]);
+                                if ((buildingNo >= parseInt(matches[1], 10)) && (buildingNo <= parseInt(matches[2], 10))) {
+                                    return true;
+                                } // if
+                            }
+                            else if (buildingNo == numberRanges[ii]) {
+                                return true;
+                            } // if..else
+                        } // for
+                    } // if
+
+                    return false;
+                },
+                
+                /**
+                The normalizeAddress function is used to take an address that could be in a variety of formats
+                and normalize as many details as possible.  Text is uppercased, road types are replaced, etc.
+                */
+                normalize: function(addressText) {
+                    if (! addressText) { return ""; }
+
+                    addressText = addressText.toUpperCase();
+
+                    // if the road type regular expression has not been initialised, then do that now
+                    if (! ROADTYPE_REGEX) {
+                        var abbreviations = [];
+                        for (var roadTypes in ROADTYPE_REPLACEMENTS) {
+                            abbreviations.push(roadTypes);
+                        } // for
+
+                        ROADTYPE_REGEX = new RegExp("(\\s)(" + abbreviations.join("|") + ")(\\s|$)", "i");
+                    } // if
+
+                    // run the road type normalizations
+                    ROADTYPE_REGEX.lastIndex = -1;
+
+                    // get the matches for the regex
+                    var matches = ROADTYPE_REGEX.exec(addressText);
+                    if (matches) {
+                        // get the replacement road type
+                        var normalizedRoadType = ROADTYPE_REPLACEMENTS[matches[2]];
+                        addressText = addressText.replace(ROADTYPE_REGEX, "$1" + normalizedRoadType);
+                    } // if
+
+                    return addressText;
+                },
+                
+                toString: function(address) {
+                    return address.streetDetails + " " + address.location;
                 }
             };
             
@@ -5929,203 +5691,28 @@ TILE5.Geo = (function() {
         
         /* static functions */
         
-        generalizePositions: function(sourceData, requiredPositions, minDist) {
-            var sourceLen = sourceData.length,
-                positions = [],
-                lastPosition = null;
-
-            if (! minDist) {
-                minDist = DEFAULT_GENERALIZATION_DISTANCE;
-            } // if
-            
-            // convert min distance to km
-            minDist = minDist / 1000;
-            
-            GRUNT.Log.info("generalizing positions, must include " + requiredPositions.length + " positions");
-            
-            // iterate thorugh the source data and add positions the differ by the required amount to 
-            // the result positions
-            for (var ii = sourceLen; ii--; ) {
-                if (ii === 0) {
-                    positions.unshift(sourceData[ii]);
-                }
-                else {
-                    var include = (! lastPosition) || module.P.inArray(sourceData[ii], requiredPositions),
-                        posDiff = include ? minDist : module.P.calcDistance(lastPosition, sourceData[ii]);
-                        
-                    // if the position difference is suitable then include
-                    if (sourceData[ii] && (posDiff >= minDist)) {
-                        positions.unshift(sourceData[ii]);
-                        
-                        // update the last position
-                        lastPosition = sourceData[ii];
-                    } // if
-                } // if..else
-            } // for
-            
-            GRUNT.Log.info("generalized " + sourceLen + " positions into " + positions.length + " positions");
-            return positions;
-        },
-        
-        emptyBounds: function(bounds) {
-            return (! bounds) || module.P.empty(bounds.min) || module.P.empty(bounds.max);
-        },
-        
-        
-        /*
-        Method: inBounds
-        This method is used to determine whether or not the position is
-        within the bounds rect supplied. 
-        */
-        posInBounds: function(pos, bounds) {
-            // initialise variables
-            var fnresult = ! (module.P.empty(pos) || module.P.empty(bounds));
-
-            // check the pos latitude
-            fnresult = fnresult && (pos.lat >= bounds.min.lat) && (pos.lat <= bounds.max.lat);
-
-            // check the pos longitude
-            fnresult = fnresult && (pos.lon >= bounds.min.lon) && (pos.lon <= bounds.max.lon);
-
-            return fnresult;
-        },
-        
-        calculateBoundsSize: function(min, max, normalize) {
-            var size = new TILE5.Vector(0, max.lat - min.lat);
-            if (typeof normalize === 'undefined') {
-                normalize = true;
-            } // if
-            
-            if (normalize && (min.lon > max.lon)) {
-                size.x = 360 - min.lon + max.lon;
-            }
-            else {
-                size.x = max.lon - min.lon;
-            } // if..else
-            
-            return size;
-        },
-        
-        /** 
-        Function adapted from the following code:
-        http://groups.google.com/group/google-maps-js-api-v3/browse_thread/thread/43958790eafe037f/66e889029c555bee
-        */
-        getBoundingBoxZoomLevel: function(bounds, displaySize) {
-            // get the constant index for the center of the bounds
-            var boundsCenter = bounds.getCenter(),
-                variabilityIndex = Math.min(Math.round(Math.abs(boundsCenter.lat) * 0.05), LAT_VARIABILITIES.length),
-                variability = LAT_VARIABILITIES[variabilityIndex],
-                delta = module.calculateBoundsSize(bounds.min, bounds.max),
-                // interestingly, the original article had the variability included, when in actual reality it isn't, 
-                // however a constant value is required. must find out exactly what it is.  At present, though this
-                // works fine.
-                bestZoomH = Math.ceil(Math.log(LAT_VARIABILITIES[3] * displaySize.height / delta.y) / Math.log(2)),
-                bestZoomW = Math.ceil(Math.log(variability * displaySize.width / delta.x) / Math.log(2));
-            
-            // GRUNT.Log.info("constant index for bbox: " + bounds + " (center = " + boundsCenter + ") is " + variabilityIndex);
-            // GRUNT.Log.info("distances  = " + delta);
-            // GRUNT.Log.info("optimal zoom levels: height = " + bestZoomH + ", width = " + bestZoomW);
-            
-            // return the lower of the two zoom levels
-            return Math.min(bestZoomH, bestZoomW);
-        },
-        
-        getBoundsForPositions: function(positions, padding) {
-            var bounds = null,
-                startTicks = TILE5.Clock.getTime();
-                
-            // if padding is not specified, then set to auto
-            if (! padding) {
-                padding = "auto";
-            } // if
-            
-            for (var ii = positions.length; ii--; ) {
-                if (! bounds) {
-                    bounds = new TILE5.Geo.BoundingBox(positions[ii], positions[ii]);
-                }
-                else {
-                    var minDiff = module.calculateBoundsSize(bounds.min, positions[ii], false),
-                        maxDiff = module.calculateBoundsSize(positions[ii], bounds.max, false);
-
-                    if (minDiff.x < 0) { bounds.min.lon = positions[ii].lon; }
-                    if (minDiff.y < 0) { bounds.min.lat = positions[ii].lat; }
-                    if (maxDiff.x < 0) { bounds.max.lon = positions[ii].lon; }
-                    if (maxDiff.y < 0) { bounds.max.lat = positions[ii].lat; }
-                } // if..else
-            } // for
-            
-            // expand the bounds to give us some padding
-            if (padding) {
-                if (padding == "auto") {
-                    var size = module.calculateBoundsSize(bounds.min, bounds.max);
-                    
-                    // update padding to be a third of the max size
-                    padding = Math.max(size.x, size.y) * 0.3;
-                } // if
-                
-                bounds.expand(padding);
-            } // if
-            
-            GRUNT.Log.trace("calculated bounds for " + positions.length + " positions", startTicks);
-            return bounds;
-        },
-        
         /**
-        The normalizeAddress function is used to take an address that could be in a variety of formats
-        and normalize as many details as possible.  Text is uppercased, road types are replaced, etc.
+        Returns the engine that provides the required functionality.  If preferred engines are supplied
+        as additional arguments, then those are looked for first
         */
-        normalizeAddress: function(addressText) {
-            if (! addressText) { return ""; }
+        getEngine: function(requiredCapability) {
+            // initialise variables
+            var fnresult = null;
             
-            addressText = addressText.toUpperCase();
+            // iterate through the arguments beyond the capabililty for the preferred engine
+            for (var ii = 1; (! fnresult) && (ii < arguments.length); ii++) {
+                fnresult = findEngine(requiredCapability, arguments[ii]);
+            } // for
             
-            // if the road type regular expression has not been initialised, then do that now
-            if (! ROADTYPE_REGEX) {
-                var abbreviations = [];
-                for (var roadTypes in ROADTYPE_REPLACEMENTS) {
-                    abbreviations.push(roadTypes);
-                } // for
-                
-                ROADTYPE_REGEX = new RegExp("(\\s)(" + abbreviations.join("|") + ")(\\s|$)", "i");
-            } // if
+            // if we found an engine using preferences, return that otherwise return an alternative
+            fnresult = fnresult ? fnresult : findEngine(requiredCapability);
             
-            // run the road type normalizations
-            ROADTYPE_REGEX.lastIndex = -1;
+            // if no engine was found, then throw an exception
+            if (! fnresult) {
+                throw new Error("Unable to find GEO engine with " + requiredCapability + " capability");
+            }
             
-            // get the matches for the regex
-            var matches = ROADTYPE_REGEX.exec(addressText);
-            if (matches) {
-                // get the replacement road type
-                var normalizedRoadType = ROADTYPE_REPLACEMENTS[matches[2]];
-                addressText = addressText.replace(ROADTYPE_REGEX, "$1" + normalizedRoadType);
-            } // if
-
-            return addressText;
-        },
-        
-        buildingMatch: function(freeform, numberRange, name) {
-            // from the freeform address extract the building number
-            REGEX_BUILDINGNO.lastIndex = -1;
-            if (REGEX_BUILDINGNO.test(freeform)) {
-                var buildingNo = freeform.replace(REGEX_BUILDINGNO, "$1");
-                
-                // split up the number range
-                var numberRanges = numberRange.split(",");
-                for (var ii = 0; ii < numberRanges.length; ii++) {
-                    REGEX_NUMBERRANGE.lastIndex = -1;
-                    if (REGEX_NUMBERRANGE.test(numberRanges[ii])) {
-                        var matches = REGEX_NUMBERRANGE.exec(numberRanges[ii]);
-                        if ((buildingNo >= parseInt(matches[1], 10)) && (buildingNo <= parseInt(matches[2], 10))) {
-                            return true;
-                        } // if
-                    }
-                    else if (buildingNo == numberRanges[ii]) {
-                        return true;
-                    } // if..else
-                } // for
-            } // if
-            
-            return false;
+            return fnresult;
         },
         
         rankGeocodeResponses: function(requestAddress, responseAddresses, engine) {
@@ -6390,7 +5977,7 @@ TILE5.Mapping = (function() {
                 },
                 
                 getGuideOffset: function(offset) {
-                    var tileSize = self.getTileSize();
+                    var tileSize = self.tileSize;
                     return new TILE5.Vector((offset.x % tileSize), (offset.y % tileSize));
                 },
                 
@@ -6477,6 +6064,10 @@ TILE5.Mapping = (function() {
             }, params);
             
             function drawCrosshair(context, centerPos, size) {
+                // initialise the context line style
+                context.lineWidth = params.lineWidth;
+                context.strokeStyle = params.strokeStyle;
+                
                 context.beginPath();
                 context.moveTo(centerPos.x, centerPos.y - size);
                 context.lineTo(centerPos.x, centerPos.y + size);
@@ -6486,16 +6077,29 @@ TILE5.Mapping = (function() {
                 context.stroke();
             } // drawCrosshair
             
+            function createCrosshair() { 
+                var newCanvas = document.createElement('canvas');
+                newCanvas.width = params.size * 2;
+                newCanvas.height = params.size * 2;
+
+                // draw the cross hair
+                drawCrosshair(newCanvas.getContext("2d"), new TILE5.Vector(params.size, params.size), params.size);
+                
+                // return the cross hair canvas
+                return newCanvas;
+            }
+            
+            var centerPos = null,
+                crosshair = createCrosshair();
+            
             return GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
                 draw: function(context, offset, dimensions, state, view) {
-                    var centerPos = dimensions.getCenter();
-                    
-                    // initialise the context line style
-                    context.lineWidth = params.lineWidth;
-                    context.strokeStyle = params.strokeStyle;
-                    
-                    // draw the cross hair lines
-                    drawCrosshair(context, centerPos, params.size);
+                    if (! centerPos) {
+                        centerPos = TILE5.D.getCenter(dimensions);
+                    } // if
+
+                    // draw the cross hair
+                    context.drawImage(crosshair, centerPos.x - params.size, centerPos.y - params.size);
                 }
             });
         },
@@ -6879,14 +6483,12 @@ TILE5.Mapping = (function() {
                             staticAnnotations[ii].draw(context, offset, state, self);
                             animating = animating || staticAnnotations[ii].isAnimating();
                         } // for
-
-                        if (animating) {
-                            self.wakeParent();
-                        } // if
                     }
                     finally {
                         context.restore();
                     } // try..finally
+                    
+                    return animating ? 1 : 0;
                 },
                 
                 /**
@@ -6911,10 +6513,6 @@ TILE5.Mapping = (function() {
                     
                     // wake the parent
                     self.wakeParent();
-                },
-                
-                isAnimating: function() {
-                    return animating;
                 }
             });
 
@@ -7005,7 +6603,7 @@ TILE5.Mapping = (function() {
                 },
                 
                 doubleTapHandler: function(absPos, relPos) {
-                    self.animate(2, self.getDimensions().getCenter(), new TILE5.Vector(relPos.x, relPos.y), TILE5.Animation.Easing.Sine.Out);
+                    self.animate(2, TILE5.D.getCenter(self.getDimensions()), new TILE5.Vector(relPos.x, relPos.y), TILE5.Animation.Easing.Sine.Out);
                 },
                 
                 onScale: function(scaleAmount, zoomXY) {
@@ -7034,7 +6632,7 @@ TILE5.Mapping = (function() {
                 pois: params.pois,
                 annotations: null,
                 
-                getBoundingBox: function(buffer_size) {
+                getBoundingBox: function() {
                     var fnresult = new TILE5.Geo.BoundingBox();
                     var grid = self.getTileLayer();
                     var offset = self.getOffset();
@@ -7049,7 +6647,7 @@ TILE5.Mapping = (function() {
 
                 getCenterPosition: function() {
                     // get the position for the grid position
-                    return self.getXYPosition(self.gridDimensions.getCenter());
+                    return self.getXYPosition(TILE5.D.getCenter(self.gridDimensions));
                 },
                 
                 getXYPosition: function(xy) {
@@ -7058,10 +6656,10 @@ TILE5.Mapping = (function() {
                 
                 gotoBounds: function(bounds, callback) {
                     // calculate the zoom level required for the specified bounds
-                    var zoomLevel = TILE5.Geo.getBoundingBoxZoomLevel(bounds, self.getDimensions());
+                    var zoomLevel = TILE5.Geo.B.getZoomLevel(bounds, self.getDimensions());
                     
                     // goto the center position of the bounding box with the calculated zoom level
-                    self.gotoPosition(bounds.getCenter(), zoomLevel, callback);
+                    self.gotoPosition(TILE5.Geo.B.getCenter(bounds), zoomLevel, callback);
                 },
                 
                 gotoCurrentPosition: function(callback) {
@@ -7159,8 +6757,8 @@ TILE5.Mapping = (function() {
                             dimensions = self.getDimensions();
 
                         // determine the actual pan amount, by calculating the center of the viewport
-                        centerXY.x -= (dimensions.width >> 1);
-                        centerXY.y -= (dimensions.height >> 1);
+                        centerXY.x -= (dimensions.width / 2);
+                        centerXY.y -= (dimensions.height / 2);
                         
                         // if we have a guide layer snap to that
                         if (guideOffset) {
@@ -7316,7 +6914,7 @@ TILE5.Geo.Routing = (function() {
             if (engine) {
                 engine.route(args, function(routeData) {
                     if (args.generalize) {
-                        routeData.geometry = TILE5.Geo.generalizePositions(routeData.geometry, routeData.getInstructionPositions());
+                        routeData.geometry = TILE5.Geo.P.generalize(routeData.geometry, routeData.getInstructionPositions());
                     } // if
                     
                     // firstly, if we have a map defined, then let's place the route on the map
@@ -7406,7 +7004,7 @@ TILE5.Geo.Routing = (function() {
             
             // update the bounding box
             if (! params.boundingBox) {
-                params.boundingBox = TILE5.Geo.getBoundsForPositions(params.geometry);
+                params.boundingBox = TILE5.Geo.B.forPositions(params.geometry);
             } // if
             
             var self = GRUNT.extend({

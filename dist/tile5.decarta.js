@@ -194,11 +194,11 @@ TILE5.Geo.Decarta = (function() {
                 
                 calcMatchPercentage: function(input) {
                     var fnresult = 0,
-                        test1 = TILE5.Geo.normalizeAddress(input), 
-                        test2 = TILE5.Geo.normalizeAddress(street);
+                        test1 = TILE5.Geo.A.normalize(input), 
+                        test2 = TILE5.Geo.A.normalize(street);
                         
                     if (params.json.Building) {
-                        if (TILE5.Geo.buildingMatch(input, params.json.Building.number.toString())) {
+                        if (TILE5.Geo.A.buildingMatch(input, params.json.Building.number.toString())) {
                             fnresult += 0.2;
                         } // if
                     } // if
@@ -877,19 +877,20 @@ TILE5.Geo.Decarta = (function() {
             // initialise parent
             var parent = new TILE5.Geo.MapProvider();
             
-            function buildTileGrid(requestedPosition, responseData, container_dimensions) {
+            function buildTileGrid(requestedPosition, responseData, containerDimensions) {
                 // initialise the first tile origin
-                var half_width = Math.round(responseData.tileSize >> 1),
+                var halfWidth = Math.round(responseData.tileSize / 2),
+                    centerXY = TILE5.D.getCenter(containerDimensions),
                     pos_first = {
-                        x: container_dimensions.getCenter().x - half_width,
-                        y: container_dimensions.getCenter().y - half_width
+                        x: centerXY.x - halfWidth,
+                        y: centerXY.y - halfWidth
                     }; 
 
                 // create the tile grid
                 var tileGrid = new TILE5.Tiling.ImageTileGrid({
                     tileSize: responseData.tileSize,
-                    width: container_dimensions.width,
-                    height: container_dimensions.height,
+                    width: containerDimensions.width,
+                    height: containerDimensions.height,
                     drawGrid: params.drawGrid,
                     shiftOrigin: function(topLeftOffset, shiftDelta) {
                         return new TILE5.Vector(topLeftOffset.x + shiftDelta.x, topLeftOffset.y - shiftDelta.y);
