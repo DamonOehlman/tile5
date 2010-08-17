@@ -1,0 +1,101 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Tile5 API Documentation</title>
+<meta name="generator" content="joDoc">
+<link rel="stylesheet" type="text/css" href="docbody.css">
+<link rel="stylesheet" type="text/css" href="doc.css">
+<meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no, width=device-width">
+<meta name="format-detection" content="false">
+</head>
+<body>
+<h1><a name="TILE5.Graphics.ViewLayer">TILE5.Graphics.ViewLayer</a></h1>
+
+<p>In and of itself, a Graphics.View does nothing.  Not without a ViewLayer at least.  A view is made up of one or more of these layers and they are drawn in order of <em>zindex</em>.</p>
+
+<h2>Mutable Properties</h2>
+
+<ul>
+<li><p><code>zindex</code></p>
+
+<p>The zindex parameter specifies where the layer should be drawn in relation to other layers.  The zindex can be any integer value with higher zindexed layer being drawn above lower values (as per HTML elements).</p></li>
+<li><p><code>validStates</code></p>
+
+<p>A bitmask of Graphics.DisplayState that specifies what states a layer should be drawn in. While the supportsFastDraw parameter is used only on slower devices, the validStates parameter is examined in all cases.</p></li>
+</ul>
+
+<h2>Property Accessor Methods</h2>
+
+<ul>
+<li><p><code>getId()</code></p>
+
+<p>Get the current layer id.</p></li>
+<li><p><code>setId(value)</code></p>
+
+<p>Set the layer id.</p></li>
+<li><p><code>getParent()</code></p>
+
+<p>Get the layer parent</p></li>
+<li><p><code>setParent(value)</code></p>
+
+<p>Set the layer parent</p></li>
+</ul>
+
+<h2>Methods</h2>
+
+<ul>
+<li><p><code>addToView(view)</code></p>
+
+<p>Adds the layer to the specified view.</p></li>
+<li><p><code>shouldDraw(displayState)</code></p>
+
+<p>Called by a Graphics.View that contains the layer to determine whether or not the layer should be drawn for the current display state.  The default implementation of this method first checks the fastDraw status, and then continues to do a bitmask operation against the validStates property to see if the current display state is acceptable.</p></li>
+<li><p><code>cycle(tickCount, offset)</code></p>
+
+<p>Called in the Graphics.View method of the same name, each layer has an opportunity to update itself in the current animation cycle before it is drawn.</p></li>
+<li><p><code>draw(context, offset, dimensions, state, view)</code></p>
+
+<p>The business end of layer drawing.  This method is called when a layer needs to be drawn and the following parameters are passed to the method:</p>
+
+<ul>
+<li>context - the canvas context that we are drawing to</li>
+<li>offset - a Vector object containing the current virtual canvas offset</li>
+<li>dimensions - a Dimensions object specifying the actual size of the drawing surface</li>
+<li>state - the current Graphics.DisplayState of the view</li>
+<li>view - a reference to the Graphics.View</li>
+</ul></li>
+<li><p><code>remove()</code></p>
+
+<p>The remove method is used to fire an event through the WaterCooler to request that this layer is removed by the containing view.</p></li>
+<li><p><code>wakeParent()</code></p>
+
+<p>Another method that uses the WaterCooler event system to tell the containing view that it needs to wake up and redraw itself.  This method is often called when a ViewLayer knows it needs to redraw but it isn't able to communicate this another way.</p></li>
+</ul>
+
+<h2>Initialization Parameters</h2>
+
+<ul>
+<li><p>zindex (default: 0)</p>
+
+<p>Maps to the zindex property</p></li>
+<li><p>supportsFastDraw (default = false)</p>
+
+<p>The supportsFastDraw parameter specifies whether a layer will be drawn on in particular graphic states on devices that require fastDraw mode to perform at an optimal level.  For instance, if a layer does not support fastDraw and the View is panning or scaling, the layer will not be drawn so it's important when defining new layer classes to set this parameter to true if you want the layer visible during these operations.  Be aware though that layers that require some time to render will impact performance on slower devices.</p></li>
+<li><p>validStates (default = "DefaultDisplayStates")</p>
+
+<p>Maps to the validStates property</p></li>
+</ul>
+
+<script> 
+ var _gaq = [['_setAccount', 'UA-8447893-8'], ['_trackPageview']];
+ (function(d, t) {
+  var g = d.createElement(t),
+      s = d.getElementsByTagName(t)[0];
+  g.async = true;
+  g.src = '//www.google-analytics.com/ga.js';
+  s.parentNode.insertBefore(g, s);
+ })(document, 'script');
+</script>
+</body>
+</html>
