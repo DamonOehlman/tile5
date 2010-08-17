@@ -7,15 +7,27 @@
 - {README.mdown}
 - {LICENSE.mdown}
 
-## Modules
+## Modules 
 
-TILE5.Mapping
-
-- To be completed
+### Geo
 
 TILE5.Geo
 
-- To be completed
+- {js/geo/core}
+
+TILE5.Geo.UI
+
+- {js/geo/ui}
+
+TILE5.Geo.Location
+
+- {js/geo/location}
+
+TILE5.Geo.Routing
+
+- {js/geo/routing}
+
+### Tiling and Graphics
 
 TILE5.Tiling
 
@@ -27,24 +39,26 @@ TILE5.Graphics
 
 TILE5.Animation
 
-- To be completed
+- {js/animation}
+
+### Support
 
 TILE5.Touch
 
-- To be completed
+- {js/touch}
 
 TILE5.Resources
 
-- To be completed
+- {js/resouces}
 
 TILE5.Device
 
-- To be completed
+- {js/device}
 
 TILE5.Dispatcher
 
-- To be completed
+- {js/dispatcher}
 
 TILE5.Core
 
-- To be completed
+- {js/core}

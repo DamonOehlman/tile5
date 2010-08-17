@@ -84,30 +84,6 @@ TILE5.Geo.UI = (function() {
         },
         
         /**
-        A view layer that is designed to display points of interest in an effective way.
-        */
-        POIViewLayer: function(params) {
-            params = GRUNT.extend({
-                
-            }, params);
-        },
-        
-        /** 
-        */
-        Overlay: function(params) {
-            params = GRUNT.extend({
-                
-            }, params);
-            
-            // initialise self
-            var self = {
-                
-            };
-            
-            return self;
-        },
-        
-        /**
         The Radar Overlay is used to draw a translucent radar image over the map which can be used
         to indicate the accuracy of the geolocation detection, or possibly distance that has been 
         used to determine points of interest in the nearby area.

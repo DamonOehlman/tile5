@@ -231,11 +231,6 @@ TILE5.Resources = (function() {
             return self;
         })(),
         
-        // TODO: if we have something like phonegap available, maybe look at using it to get the resource and save it locally
-        getCachedUrl: function(url, sessionParams) {
-           return url;
-        },
-        
         getPath: function(path) {
             // if the path is an absolute url, then just return that
             if (/^(https?|\/)/.test(path)) {

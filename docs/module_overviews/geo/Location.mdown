@@ -1,0 +1,10 @@
+TILE5.Geo.Location
+==================
+
+The primary purpose of the TILE5.Geo.Location module is to wrap the [W3C Geolocation API](http://dev.w3.org/geo/api/spec-source.html) and have it integrate nicely the Tile5 mapping implementations.  The module has been built to support additional GPS implementations as well, however, the standard geolocation is the only one implemented at present.
+
+Module Functions
+----------------
+
+- TILE5.Geo.Location.get
+

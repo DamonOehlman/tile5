@@ -1,0 +1,21 @@
+TILE5.Geo.Routing
+=================
+
+The TILE5.Geo.Routing module contains classes and functionality that are used to describe a route and effectively allow that data to be moved around and implemented regardless of the mapping provider.
+
+Module Functions
+----------------
+
+- TILE5.Geo.Routing.calculate
+- TILE5.Geo.Routing.createMapOverlay
+
+Module Types
+------------
+
+- TILE5.Geo.Routing.Maneuver
+
+Classes
+-------
+
+- TILE5.Geo.Routing.Instruction
+- TILE5.Geo.Routing.RouteData

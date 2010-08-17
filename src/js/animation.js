@@ -11,12 +11,39 @@ TILE5.Animation = (function() {
         if (tweenTimer !== 0) { return; }
         
         tweenTimer = setInterval(function() {
-            if (module.update(TILE5.Clock.getTime()) === 0) {
+            if (update(TILE5.Clock.getTime()) === 0) {
                 clearInterval(tweenTimer);
                 tweenTimer = 0;
             } // if
         }, 20);
     } // wake
+    
+    function update(tickCount) {
+        if (updating) { return tweens.length; }
+        
+        updating = true;
+        try {
+            // iterate through the active tweens and update each
+            var ii = 0;
+            while (ii < tweens.length) {
+                if (tweens[ii].isComplete()) {
+                    tweens[ii].triggerComplete(false);
+                    tweens.splice(ii, 1);
+                
+                    GRUNT.WaterCooler.say("animation.complete");
+                }
+                else {
+                    tweens[ii].update(tickCount);
+                    ii++;
+                } // if..else
+            } // while
+        }
+        finally {
+            updating = false;
+        } // try..finally
+        
+        return tweens.length;
+    } // update
     
     // define the module
     var module = {
@@ -103,33 +130,6 @@ TILE5.Animation = (function() {
         
         isTweening: function() {
             return tweens.length > 0;
-        },
-        
-        update: function(tickCount) {
-            if (updating) { return tweens.length; }
-            
-            updating = true;
-            try {
-                // iterate through the active tweens and update each
-                var ii = 0;
-                while (ii < tweens.length) {
-                    if (tweens[ii].isComplete()) {
-                        tweens[ii].triggerComplete(false);
-                        tweens.splice(ii, 1);
-                    
-                        GRUNT.WaterCooler.say("animation.complete");
-                    }
-                    else {
-                        tweens[ii].update(tickCount);
-                        ii++;
-                    } // if..else
-                } // while
-            }
-            finally {
-                updating = false;
-            } // try..finally
-            
-            return tweens.length;
         },
         
         Tween: function(params) {

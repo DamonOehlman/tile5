@@ -1,0 +1,21 @@
+TILE5.Resources
+===============
+
+The TILE5.Resources module is used to load external resources (such as images, scripts, external HTML files) into Tile5 available for use as efficiently as possible.  Additionally, given some of the memory limitations of some the target devices (Mobile safari on iOS) the resources module also manages how many images are maintained in memory for efficiency purposes.
+
+Module Functions
+----------------
+
+- TILE5.Resources.getPath
+- TILE5.Resources.setBasePath
+- TILE5.Resources.getImage
+- TILE5.Resources.loadImage
+- TILE5.Resources.resetImageLoadQueue
+- TILE5.Resources.getStats
+- TILE5.Resources.loadResource
+- TILE5.Resources.loadSnippet
+
+Internal Modules
+----------------
+
+- TILE5.Resources.ImageLoader

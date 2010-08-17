@@ -1,0 +1,27 @@
+TILE5.Geo
+=========
+
+The TILE5.Geo module contains classes and functionality to support geospatial operations and calculations that are required when drawing maps, routes, etc.
+
+Classes
+-------
+
+- TILE5.Geo.Engine
+- TILE5.Geo.Radius
+- TILE5.Geo.Position
+- TILE5.Geo.BoundingBox
+- TILE5.Geo.Address
+- TILE5.Geo.GeoSearchResult
+- TILE5.Geo.GeoSearchAgent
+- TILE5.Geo.GeocodingAgent
+- TILE5.Geo.PointOfInterest
+- TILE5.Geo.POIStorage
+- TILE5.Geo.MapProvider
+
+Submodules
+----------
+
+- TILE5.Geo.Utilities
+- TILE5.Geo.P
+- TILE5.Geo.B
+- TILE5.Geo.A
