@@ -375,7 +375,7 @@ TILE5.Geo.Decarta = (function() {
 
                     // update the fnresult with the appropriate parameter
                     fnresult[matches[2]] = matches[3];
-                    fnresult.mask = fnresult.mask.replace(regexes[ii], "$1$2=${$2}");
+                    fnresult.mask = fnresult.mask.replace(regexes[ii], "$1$2=${" + matches[2] + "}");
                 } // for
 
                 return fnresult;
