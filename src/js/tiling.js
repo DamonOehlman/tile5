@@ -168,6 +168,15 @@ TILE5.Tiling = (function() {
             } // for
         });
         
+        GRUNT.WaterCooler.listen("tiler.repaint", function(args) {
+            for (var ii = storage.length; ii--; ) {
+                if (storage[ii]) {
+                    storage[ii].x = null;
+                    storage[ii].y = null;
+                } // if
+            } // for
+        });
+        
         return self;
     };
 
@@ -548,6 +557,10 @@ TILE5.Tiling = (function() {
                 
                 cleanup: function() {
                     self.removeLayer("grid" + gridIndex);
+                },
+                
+                repaint: function() {
+                    GRUNT.WaterCooler.say("tiler.repaint");
                 }
             }); // self
 
