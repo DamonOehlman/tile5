@@ -23,51 +23,70 @@ TILE5.Geo.UI = (function() {
     
     function CrosshairOverlay(params) {
         params = GRUNT.extend({
-            lineWidth: 1.5,
-            strokeStyle: "rgba(0, 0, 0, 0.5)",
-            size: 15,
+            size: 12,
             zindex: 150,
             scalePosition: false,
             validStates: TILE5.Graphics.DisplayState.ACTIVE | TILE5.Graphics.DisplayState.ANIMATING | TILE5.Graphics.DisplayState.PAN
         }, params);
         
         function drawCrosshair(context, centerPos, size) {
-            // initialise the context line style
-            context.lineWidth = params.lineWidth;
-            context.strokeStyle = params.strokeStyle;
-            
-            context.beginPath();
-            context.moveTo(centerPos.x, centerPos.y - size);
-            context.lineTo(centerPos.x, centerPos.y + size);
-            context.moveTo(centerPos.x - size, centerPos.y);
-            context.lineTo(centerPos.x + size, centerPos.y);
-            context.arc(centerPos.x, centerPos.y, size * 0.6666, 0, 2 * Math.PI, false);
-            context.stroke();
+            var strokeStyles = ["#FFFFFF", "#333333"],
+                lineWidths = [3, 1.5];
+                
+            context.shadowBlur = 2;
+            context.shadowColor = "rgba(50, 50, 50, 0.5)";
+            context.lineCap = "round";
+                
+            for (var ii = 0; ii < strokeStyles.length; ii++) {
+                var lineSize = size; //  - (ii*2);
+                
+                // initialise the context line style
+                context.lineWidth = lineWidths[ii];
+                context.strokeStyle = strokeStyles[ii];
+
+                context.beginPath();
+                context.moveTo(centerPos.x, centerPos.y - lineSize);
+                context.lineTo(centerPos.x, centerPos.y + lineSize);
+                context.moveTo(centerPos.x - lineSize, centerPos.y);
+                context.lineTo(centerPos.x + lineSize, centerPos.y);
+                context.arc(centerPos.x, centerPos.y, size * 0.6666, 0, 2 * Math.PI, false);
+                context.stroke();
+                
+                context.shadowBlur = 0;
+                context.shadowColor = "rgba(0,0,0,0)";
+            } // for
         } // drawCrosshair
         
         function createCrosshair() { 
             var newCanvas = document.createElement('canvas');
-            newCanvas.width = params.size * 2;
-            newCanvas.height = params.size * 2;
+            newCanvas.width = params.size * 4;
+            newCanvas.height = params.size * 4;
 
             // draw the cross hair
-            drawCrosshair(newCanvas.getContext("2d"), new TILE5.Vector(params.size, params.size), params.size);
+            drawCrosshair(newCanvas.getContext("2d"), new TILE5.Vector(newCanvas.width / 2, newCanvas.height / 2), params.size);
             
             // return the cross hair canvas
             return newCanvas;
         }
         
-        var centerPos = null,
+        var drawPos = null,
             crosshair = createCrosshair();
         
         return GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
             draw: function(context, offset, dimensions, state, view) {
-                if (! centerPos) {
-                    centerPos = TILE5.D.getCenter(dimensions);
+                if (! drawPos) {
+                    drawPos = TILE5.D.getCenter(dimensions);
+                    drawPos = new TILE5.Vector(Math.round(drawPos.x - crosshair.width/2), Math.round(drawPos.y - crosshair.height/2));
                 } // if
 
+                /*
                 // draw the cross hair
-                context.drawImage(crosshair, centerPos.x - params.size, centerPos.y - params.size);
+                context.beginPath();
+                context.arc(Math.floor(dimensions.width / 2), Math.floor(dimensions.height / 2), 20, 0, 2 * Math.PI, false);
+                context.fill();
+                */
+                
+                context.drawImage(crosshair, drawPos.x, drawPos.y);
             }
         });
     } // CrosshairOverlay
@@ -681,16 +700,15 @@ TILE5.Geo.UI = (function() {
                 annotations: null,
                 
                 getBoundingBox: function() {
-                    var fnresult = new TILE5.Geo.BoundingBox();
-                    var grid = self.getTileLayer();
-                    var offset = self.getOffset();
-                    var dimensions = self.getDimensions();
+                    var grid = self.getTileLayer(),
+                        offset = self.getOffset(),
+                        dimensions = self.getDimensions();
 
                     if (grid) {
-                        fnresult = grid.getBoundingBox(offset.x, offset.y, dimensions.width, dimensions.height);
+                        return grid.getBoundingBox(offset.x, offset.y, dimensions.width, dimensions.height);
                     } // if
-
-                    return fnresult;
+                    
+                    return null;
                 },
 
                 getCenterPosition: function() {
@@ -727,7 +745,22 @@ TILE5.Geo.UI = (function() {
                     // save the current zoom level
                     var currentZoomLevel = zoomLevel,
                         zoomScaling = getLayerScaling(zoomLevel, newZoomLevel),
-                        requestTime = new Date().getTime();
+                        requestTime = new Date().getTime(),
+                        reset = false,
+                        currentBounds = self.getBoundingBox();
+
+                    if (currentBounds) {
+                        var currentCenter = TILE5.Geo.B.getCenter(currentBounds),
+                            distance = TILE5.Geo.P.calcDistance(currentCenter, position);
+
+                        GRUNT.Log.info("distance between current position and new position = " + distance);
+                        // TODO: fix this it's hacky...  it actually needs to test whether the position is inside
+                        // or outside the grid bounding box
+                        if (distance > 100) { 
+                            reset = true;
+                            self.clearBackground();
+                        } // if
+                    } // if                        
 
                     // if a new zoom level is specified, then use it
                     zoomLevel = newZoomLevel ? newZoomLevel : zoomLevel;
@@ -743,7 +776,7 @@ TILE5.Geo.UI = (function() {
                     } // if
                     
                     // if the zoom level is different from the current zoom level, then update the map tiles
-                    if ((! initialized) || (zoomLevel !== currentZoomLevel)) {
+                    if (reset || (! initialized) || (zoomLevel !== currentZoomLevel)) {
                         // remove the grid layer
                         TILE5.Resources.resetImageLoadQueue();
                         
