@@ -386,7 +386,7 @@ TILE5.Tiling = (function() {
                         xShift = offset.x + tileShift.x,
                         yShift = offset.y + tileShift.y,
                         tilesDrawn = true,
-                        zooming = state === TILE5.Graphics.DisplayState.PINCHZOOM;
+                        redraw = (state === TILE5.Graphics.DisplayState.PINCHZOOM) || TILE5.Animation.isTweening();
                         
                     if (state !== TILE5.Graphics.DisplayState.PINCHZOOM) {
                         updateDrawQueue(context, offset, dimensions, view);
@@ -409,7 +409,7 @@ TILE5.Tiling = (function() {
 
                         // if the tile is loaded, then draw, otherwise load
                         if (tile) {
-                            var drawn = zooming ? false : (tile.x === x) && (tile.y === y);
+                            var drawn = redraw ? false : (tile.x === x) && (tile.y === y);
 
                             // draw the tile
                             tilesDrawn = (drawn ? false : self.drawTile(context, tile, x, y, state)) && tilesDrawn;
