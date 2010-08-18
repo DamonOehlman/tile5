@@ -560,7 +560,11 @@ TILE5.Tiling = (function() {
                 },
                 
                 repaint: function() {
+                    // flag to the tile store to reset the image positions
                     GRUNT.WaterCooler.say("tiler.repaint");
+                    
+                    // tell the view to repaint itself 
+                    GRUNT.WaterCooler.say("view.wake", { id: self.id });
                 }
             }); // self
 

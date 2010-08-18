@@ -191,6 +191,7 @@ TILE5.Geo.UI = (function() {
                 
             function calcCoordinates(grid) {
                 instructionCoords = [];
+                if (! grid) { return; }
                 
                 var startTicks = GRUNT.Log.getTraceTicks(),
                     ii, current, include,

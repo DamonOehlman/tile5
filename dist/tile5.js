@@ -4740,7 +4740,11 @@ TILE5.Tiling = (function() {
                 },
                 
                 repaint: function() {
+                    // flag to the tile store to reset the image positions
                     GRUNT.WaterCooler.say("tiler.repaint");
+                    
+                    // tell the view to repaint itself 
+                    GRUNT.WaterCooler.say("view.wake", { id: self.id });
                 }
             }); // self
 
@@ -6252,6 +6256,7 @@ TILE5.Geo.Routing = (function() {
                 
             function calcCoordinates(grid) {
                 instructionCoords = [];
+                if (! grid) { return; }
                 
                 var startTicks = GRUNT.Log.getTraceTicks(),
                     ii, current, include,
