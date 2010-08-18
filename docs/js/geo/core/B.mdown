@@ -1,0 +1,39 @@
+TILE5.Geo.B
+===========
+
+The TILE5.Geo.B submodule is a collection of utilities that are primarily designed to help with working with TILE5.Geo.BoundingBox objects.  The functions are implemented here rather than with the actual object itself to ensure that the object remains lightweight.
+
+Module Functions
+----------------
+
+- `calcSize(min, max, normalize)`
+
+	The calcSize function is used to determine the size of a TILE5.Geo.BoundingBox given a minimum position (relates to the bottom-left / south-western corner) and maximum position (top-right / north-eastern corner) of the bounding box.  The 3rd parameter specifies whether the size calculations should normalize the calculation in cases where the bounding box crosses the 360 degree boundary.
+	
+- `createBoundsFromCenter(centerPos, distance)`
+
+	This function is very useful for creating a TILE5.Geo.BoundingBox given a center position and a radial distance (specified in KM) from the center position.  Basically, imagine a circle is drawn around the center position with a radius of distance from the center position, and then a box is drawn to surround that circle.  Adapted from the [functions written in Java by Jan Philip Matuschek](http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates)
+	
+- `expand(bounds, amount)`
+
+	A simple function that is used to expand a TILE5.Geo.BoundingBox by the specified amount (in degrees).
+	
+- `forPositions(positions, padding)`
+
+	This function is very useful when you need to create a TILE5.Geo.BoundingBox to contain an array of TILE5.Geo.Position.  The optional second parameter allows you to specify an amount of padding (in degrees) to apply to the bounding box that is created.
+	
+- `getCenter(bounds)`
+
+	Returns a TILE5.Geo.Position for the center position of the bounding box.
+	
+- `getZoomLevel(bounds, displaySize)`
+
+	This function is used to return the zoom level (seems consistent across mapping providers at this stage) that is required to properly display the specified TILE5.Geo.BoundingBox given the screen dimensions (specified as a TILE5.Dimensions object) of the map display.
+	
+- `isEmpty(bounds)`
+
+	Returns true if the specified TILE5.Geo.BoundingBox is empty.
+	
+- `toString(bounds)`
+
+	Returns a string representation of a TILE5.Geo.BoundingBox

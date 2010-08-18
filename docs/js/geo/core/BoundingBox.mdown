@@ -1,0 +1,30 @@
+TILE5.Geo.BoundingBox
+=====================
+
+The BoundingBox class is used to store the min and max TILE5.Geo.Position that represents a bounding box.  For support functions for manipulating a bounding box, see the TILE5.Geo.B submodule.
+
+Properties
+----------
+
+- min
+
+	The TILE5.Geo.Position object representing the minimum of the bounding box.  The minimum position of the bounding box is the south-western (or bottom-left) corner of the bounding box.
+	
+- max
+
+	The TILE5.Geo.Position object representing the maximum position of the bounding box.  The maximum position is the north-eastern (or top-right) corner of the bounding box.
+	
+Usage
+-----
+
+Creating a new TILE5.Geo.BoundingBox is done by specifying either a TILE5.Geo.Position objects or parsable strings to the constructor:
+
+Created position objects example:
+
+	var minPos = TILE5.Geo.P.parse("-27.587 152.876"),
+		maxPos = TILE5.Geo.P.parse("-27.468 153.028"),
+		bounds = new TILE5.Geo.BoundingBox(minPos, maxPos);
+		
+Creating from latlon string pairs example (constructor arguments automatically passed through the TILE5.Geo.P.parse function):
+
+	var bounds = new TILE5.Geo.BoundingBox("-27.587 152.876", "-27.468 153.028");

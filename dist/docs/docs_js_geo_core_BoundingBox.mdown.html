@@ -1,0 +1,55 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+<title>Tile5 API Documentation</title>
+<meta name="generator" content="joDoc">
+<link rel="stylesheet" type="text/css" href="docbody.css">
+<link rel="stylesheet" type="text/css" href="doc.css">
+<meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no, width=device-width">
+<meta name="format-detection" content="false">
+</head>
+<body>
+<h1><a name="TILE5.Geo.BoundingBox">TILE5.Geo.BoundingBox</a></h1>
+
+<p>The BoundingBox class is used to store the min and max <a href="docs_js_geo_core_Position.mdown.html#TILE5.Geo.Position">TILE5.Geo.Position</a> that represents a bounding box.  For support functions for manipulating a bounding box, see the <a href="docs_js_geo_core_B.mdown.html#TILE5.Geo.B">TILE5.Geo.B</a> submodule.</p>
+
+<h2>Properties</h2>
+
+<ul>
+<li><p>min</p>
+
+<p>The <a href="docs_js_geo_core_Position.mdown.html#TILE5.Geo.Position">TILE5.Geo.Position</a> object representing the minimum of the bounding box.  The minimum position of the bounding box is the south-western (or bottom-left) corner of the bounding box.</p></li>
+<li><p>max</p>
+
+<p>The <a href="docs_js_geo_core_Position.mdown.html#TILE5.Geo.Position">TILE5.Geo.Position</a> object representing the maximum position of the bounding box.  The maximum position is the north-eastern (or top-right) corner of the bounding box.</p></li>
+</ul>
+
+<h2>Usage</h2>
+
+<p>Creating a new <a href="docs_js_geo_core_BoundingBox.mdown.html#TILE5.Geo.BoundingBox">TILE5.Geo.BoundingBox</a> is done by specifying either a <a href="docs_js_geo_core_Position.mdown.html#TILE5.Geo.Position">TILE5.Geo.Position</a> objects or parsable strings to the constructor:</p>
+
+<p>Created position objects example:</p>
+
+<pre><code>var minPos = <a href="docs_module_overviews_geo_Core.mdown.html#TILE5.Geo">TILE5.Geo</a>.P.parse("-27.587 152.876"),
+    maxPos = <a href="docs_module_overviews_geo_Core.mdown.html#TILE5.Geo">TILE5.Geo</a>.P.parse("-27.468 153.028"),
+    bounds = new <a href="docs_js_geo_core_BoundingBox.mdown.html#TILE5.Geo.BoundingBox">TILE5.Geo.BoundingBox</a>(minPos, maxPos);
+</code></pre>
+
+<p>Creating from latlon string pairs example (constructor arguments automatically passed through the <a href="docs_module_overviews_geo_Core.mdown.html#TILE5.Geo">TILE5.Geo</a>.P.parse function):</p>
+
+<pre><code>var bounds = new <a href="docs_js_geo_core_BoundingBox.mdown.html#TILE5.Geo.BoundingBox">TILE5.Geo.BoundingBox</a>("-27.587 152.876", "-27.468 153.028");
+</code></pre>
+
+<script> 
+ var _gaq = [['_setAccount', 'UA-8447893-8'], ['_trackPageview']];
+ (function(d, t) {
+  var g = d.createElement(t),
+      s = d.getElementsByTagName(t)[0];
+  g.async = true;
+  g.src = '//www.google-analytics.com/ga.js';
+  s.parentNode.insertBefore(g, s);
+ })(document, 'script');
+</script>
+</body>
+</html>

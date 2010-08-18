@@ -758,9 +758,9 @@ TILE5.Geo = (function() {
                         maxLat = radLat + radDist,
                         minLon, maxLon;
                         
-                    GRUNT.Log.info("rad distance = " + radDist);
-                    GRUNT.Log.info("rad lat = " + radLat + ", lon = " + radLon);
-                    GRUNT.Log.info("min lat = " + minLat + ", max lat = " + maxLat);
+                    // GRUNT.Log.info("rad distance = " + radDist);
+                    // GRUNT.Log.info("rad lat = " + radLat + ", lon = " + radLon);
+                    // GRUNT.Log.info("min lat = " + minLat + ", max lat = " + maxLat);
                         
                     if ((minLat > MIN_LAT) && (maxLat < MAX_LAT)) {
                         var deltaLon = Math.asin(Math.sin(radDist) / Math.cos(radLat));
