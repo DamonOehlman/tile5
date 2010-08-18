@@ -4380,31 +4380,41 @@ TILE5.Tiling = (function() {
     } // getEmptyTile
     
     function getPanningTile() {
+        
+        function getPattern() {
+            var patternSize = 32,
+                halfSize = patternSize / 2,
+                patternCanvas = document.createElement('canvas');
+                
+            // initialise the canvas size
+            patternCanvas.width = patternSize;
+            patternCanvas.height = patternSize;
+            
+            // get the canvas context
+            var context = patternCanvas.getContext("2d");
+            
+            // fill the canvas
+            context.fillStyle = "#BBBBBB";
+            context.fillRect(0, 0, patternSize, patternSize);
+            
+            // now draw two smaller rectangles
+            context.fillStyle = "#C3C3C3";
+            context.fillRect(0, 0, halfSize, halfSize);
+            context.fillRect(halfSize, halfSize, halfSize, halfSize);
+
+            return patternCanvas;
+        } // getPattern
+        
         if (! panningTile) {
             panningTile = document.createElement('canvas');
             panningTile.width = module.Config.TILESIZE;
             panningTile.height = module.Config.TILESIZE;
             
-            var tileContext = panningTile.getContext('2d'),
-                lineDiff = Math.floor(Math.sqrt(module.Config.TILESIZE));
-            
-            tileContext.fillStyle = "rgba(200, 200, 200, 1)";
-            tileContext.strokeStyle = "rgb(190, 190, 190)";
-            tileContext.lineWidth = 0.5;
+            var tileContext = panningTile.getContext('2d');
+
+            // fill the panning tile with the pattern
+            tileContext.fillStyle = tileContext.createPattern(getPattern(), "repeat");
             tileContext.fillRect(0, 0, panningTile.width, panningTile.height);
-            
-            // draw the tile background
-            tileContext.beginPath();
-            for (var xx = 0; xx < panningTile.width; xx += lineDiff) {
-                tileContext.moveTo(xx, 0);
-                tileContext.lineTo(xx, panningTile.height);
-                
-                for (var yy = 0; yy < panningTile.height; yy += lineDiff) {
-                    tileContext.moveTo(0, yy);
-                    tileContext.lineTo(panningTile.width, yy);
-                }
-            } // for
-            tileContext.stroke();
         } // if
         
         return panningTile;
