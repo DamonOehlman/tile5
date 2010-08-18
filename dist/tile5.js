@@ -4579,8 +4579,10 @@ TILE5.Tiling = (function() {
 
                         // if the tile is loaded, then draw, otherwise load
                         if (tile) {
+                            var drawn = (tile.x === x) && (tile.y === y);
+
                             // draw the tile
-                            tilesDrawn = self.drawTile(context, tile, x, y, state) && tilesDrawn;
+                            tilesDrawn = (drawn ? false : self.drawTile(context, tile, x, y, state)) && tilesDrawn;
                         } 
                         else {
                             tilesDrawn = false;
@@ -4656,6 +4658,9 @@ TILE5.Tiling = (function() {
                     if (image && image.complete && (image.width > 0)) {
                         context.drawImage(image, x, y);
                         drawn = true;
+                        
+                        tile.x = x;
+                        tile.y = y;
                     }
                     else {
                         context.drawImage(getEmptyTile(), x, y);
@@ -6076,8 +6081,6 @@ TILE5.Geo.Routing = (function() {
             var strokeStyles = ["#FFFFFF", "#333333"],
                 lineWidths = [3, 1.5];
                 
-            context.shadowBlur = 2;
-            context.shadowColor = "rgba(50, 50, 50, 0.5)";
             context.lineCap = "round";
                 
             for (var ii = 0; ii < strokeStyles.length; ii++) {
@@ -6094,9 +6097,6 @@ TILE5.Geo.Routing = (function() {
                 context.lineTo(centerPos.x + lineSize, centerPos.y);
                 context.arc(centerPos.x, centerPos.y, size * 0.6666, 0, 2 * Math.PI, false);
                 context.stroke();
-                
-                context.shadowBlur = 0;
-                context.shadowColor = "rgba(0,0,0,0)";
             } // for
         } // drawCrosshair
         

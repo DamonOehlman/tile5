@@ -399,8 +399,10 @@ TILE5.Tiling = (function() {
 
                         // if the tile is loaded, then draw, otherwise load
                         if (tile) {
+                            var drawn = (tile.x === x) && (tile.y === y);
+
                             // draw the tile
-                            tilesDrawn = self.drawTile(context, tile, x, y, state) && tilesDrawn;
+                            tilesDrawn = (drawn ? false : self.drawTile(context, tile, x, y, state)) && tilesDrawn;
                         } 
                         else {
                             tilesDrawn = false;
@@ -476,6 +478,9 @@ TILE5.Tiling = (function() {
                     if (image && image.complete && (image.width > 0)) {
                         context.drawImage(image, x, y);
                         drawn = true;
+                        
+                        tile.x = x;
+                        tile.y = y;
                     }
                     else {
                         context.drawImage(getEmptyTile(), x, y);

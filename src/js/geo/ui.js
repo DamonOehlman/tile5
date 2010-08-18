@@ -33,8 +33,6 @@ TILE5.Geo.UI = (function() {
             var strokeStyles = ["#FFFFFF", "#333333"],
                 lineWidths = [3, 1.5];
                 
-            context.shadowBlur = 2;
-            context.shadowColor = "rgba(50, 50, 50, 0.5)";
             context.lineCap = "round";
                 
             for (var ii = 0; ii < strokeStyles.length; ii++) {
@@ -51,9 +49,6 @@ TILE5.Geo.UI = (function() {
                 context.lineTo(centerPos.x + lineSize, centerPos.y);
                 context.arc(centerPos.x, centerPos.y, size * 0.6666, 0, 2 * Math.PI, false);
                 context.stroke();
-                
-                context.shadowBlur = 0;
-                context.shadowColor = "rgba(0,0,0,0)";
             } // for
         } // drawCrosshair
         
