@@ -2,10 +2,15 @@ TILE5.Tiling = (function() {
     TileStore = function(params) {
         // initialise the parameters with the defaults
         params = GRUNT.extend({
-            gridSize: 20,
+            tileSize: null,
+            gridSize: 12,
             center: new TILE5.Vector(),
             onPopulate: null
         }, params);
+        
+        if (! params.tileSize) {
+            throw new Error("Cannot create TileStore with an empty tile size");
+        } // if
         
         // initialise the storage array
         var storage = new Array(Math.pow(params.gridSize, 2)),
@@ -63,13 +68,21 @@ TILE5.Tiling = (function() {
                 // take a tick count as we want to time this
                 var startTicks = GRUNT.Log.getTraceTicks(),
                     tileIndex = 0,
-                    centerPos = new TILE5.Vector(params.gridSize / 2, params.gridSize / 2);
+                    gridSize = params.gridSize,
+                    tileSize = params.tileSize,
+                    centerPos = new TILE5.Vector(gridSize / 2, gridSize / 2);
                 
                 if (tileCreator) {
-                    for (var row = 0; row < params.gridSize; row++) {
-                        for (var col = 0; col < params.gridSize; col++) {
+                    GRUNT.Log.info("populating grid, x shift = " + tileShift.x + ", y shift = " + tileShift.y);
+                    
+                    for (var row = 0; row < gridSize; row++) {
+                        for (var col = 0; col < gridSize; col++) {
                             if (! storage[tileIndex]) {
-                                var tile = tileCreator(col, row, topLeftOffset, params.gridSize);
+                                var tile = tileCreator(col, row, topLeftOffset, gridSize);
+                                
+                                // set the tile grid x and grid y position
+                                tile.gridX = (col * tileSize) - tileShift.x;
+                                tile.gridY = (row * tileSize) - tileShift.y;
 
                                 // add the tile to storage
                                 storage[tileIndex] = tile;
@@ -118,7 +131,7 @@ TILE5.Tiling = (function() {
                 if ((shiftDelta.x === 0) && (shiftDelta.y === 0)) { return; }
                 
                 var ii, startTicks = GRUNT.Log.getTraceTicks();
-                // GRUNT.Log.info("need to shift tile store grid, " + shiftDelta.x + " cols and " + shiftDelta.y + " rows.");
+                GRUNT.Log.info("need to shift tile store grid, " + shiftDelta.x + " cols and " + shiftDelta.y + " rows.");
 
                 // create new storage
                 var newStorage = Array(storage.length);
@@ -254,6 +267,8 @@ TILE5.Tiling = (function() {
             params = GRUNT.extend({
                 x: 0,
                 y: 0,
+                gridX: 0,
+                gridY: 0,
                 size: 256
             }, params);
             
@@ -283,6 +298,7 @@ TILE5.Tiling = (function() {
             
             // create the tile store
             var tileStore = new TileStore(GRUNT.extend({
+                tileSize: params.tileSize,
                 onPopulate: function() {
                     gridDirty = true;
                     self.wakeParent();
@@ -292,87 +308,87 @@ TILE5.Tiling = (function() {
             // initialise varibles
             var halfTileSize = Math.round(params.tileSize / 2),
                 invTileSize = params.tileSize ? 1 / params.tileSize : 0,
-                lastOffset = null,
                 gridDirty = false,
                 active = true,
-                tileDrawQueue = [],
+                tileDrawQueue = null,
                 loadedTileCount = 0,
                 lastTilesDrawn = false,
                 lastCheckOffset = new TILE5.Vector(),
                 shiftDelta = new TILE5.Vector(),
+                tileShift = new TILE5.Vector(),
+                repaintDistance = TILE5.Device.getConfig().repaintDistance,
                 reloadTimeout = 0,
-                gridHeightWidth = tileStore.getGridSize() * params.tileSize;
+                gridHeightWidth = tileStore.getGridSize() * params.tileSize,
+                tileCols, tileRows, centerPos;
             
-            function updateDrawQueue(context, offset, dimensions, view) {
-                // calculate offset change since last draw
-                var offsetChange = lastOffset ? TILE5.V.absSize(TILE5.V.diff(lastOffset, offset)) : halfTileSize;
+            function updateDrawQueue(offset) {
+                if (! centerPos) { return; }
                 
-                // TODO: optimize
-                if (offsetChange >= 20) {
-                    var tile, tileShift = tileStore.getTileShift(),
-                        tileStart = new TILE5.Vector(
-                                        Math.floor((offset.x + tileShift.x) * invTileSize), 
-                                        Math.floor((offset.y + tileShift.y) * invTileSize)),
-                        tileCols = Math.ceil(dimensions.width * invTileSize) + 1,
-                        tileRows = Math.ceil(dimensions.height * invTileSize) + 1,
-                        centerPos = new TILE5.Vector(Math.floor((tileCols-1) / 2), Math.floor((tileRows-1) / 2)),
-                        tileOffset = new TILE5.Vector((tileStart.x * params.tileSize), (tileStart.y * params.tileSize)),
-                        viewAnimating = view.isAnimating();
-                    
-                    // reset the tile draw queue
-                    tileDrawQueue = [];
-                    tilesNeeded = false;
-                
-                    // right, let's draw some tiles (draw rows first)
-                    for (var yy = tileRows; yy--; ) {
-                        // initialise the y position
-                        var yPos = yy * params.tileSize + tileOffset.y;
+                var tile, tmpQueue = [],
+                    tileStart = new TILE5.Vector(
+                                    Math.floor((offset.x + tileShift.x) * invTileSize), 
+                                    Math.floor((offset.y + tileShift.y) * invTileSize));
 
-                        // iterate through the columns and draw the tiles
-                        for (var xx = tileCols; xx--; ) {
-                            // get the tile
-                            tile = tileStore.getTile(xx + tileStart.x, yy + tileStart.y);
-                            var xPos = xx * params.tileSize + tileOffset.x,
-                                centerDiff = new TILE5.Vector(xx - centerPos.x, yy - centerPos.y);
-                        
-                            if (! tile) {
-                                shiftDelta = tileStore.getShiftDelta(tileStart.x, tileStart.y, tileCols, tileRows);
-                            } // if
-                        
-                            // add the tile and position to the tile draw queue
-                            tileDrawQueue.push({
-                                tile: tile,
-                                coordinates: new TILE5.Vector(xPos, yPos),
-                                centerness: TILE5.V.absSize(centerDiff)
-                            });
-                        } // for
+                // reset the tile draw queue
+                tilesNeeded = false;
+
+                // right, let's draw some tiles (draw rows first)
+                for (var yy = tileRows; yy--; ) {
+                    // iterate through the columns and draw the tiles
+                    for (var xx = tileCols; xx--; ) {
+                        // get the tile
+                        tile = tileStore.getTile(xx + tileStart.x, yy + tileStart.y);
+                        var centerDiff = new TILE5.Vector(xx - centerPos.x, yy - centerPos.y);
+
+                        if (! tile) {
+                            shiftDelta = tileStore.getShiftDelta(tileStart.x, tileStart.y, tileCols, tileRows);
+                        } // if
+
+                        // add the tile and position to the tile draw queue
+                        tmpQueue.push({
+                            tile: tile,
+                            centerness: TILE5.V.absSize(centerDiff)
+                        });
                     } // for
+                } // for
+
+                // sort the tile queue by "centerness"
+                tmpQueue.sort(function(itemA, itemB) {
+                    return itemB.centerness - itemA.centerness;
+                });
                 
-                    // sort the tile queue by "centerness"
-                    tileDrawQueue.sort(function(itemA, itemB) {
-                        return itemB.centerness - itemA.centerness;
-                    });
-                    
-                    lastOffset = TILE5.V.copy(offset);
+                if (! tileDrawQueue) {
+                    tileDrawQueue = new Array(tmpQueue.length);
                 } // if
+                
+                // copy the temporary queue item to the draw queue
+                for (var ii = tmpQueue.length; ii--; ) {
+                    tileDrawQueue[ii] = tmpQueue[ii].tile;
+                    self.prepTile(tileDrawQueue[ii]);
+                } // for
             } // updateDrawQueue
             
             // initialise self
             var self = GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
                 gridDimensions: new TILE5.Dimensions(gridHeightWidth, gridHeightWidth),
                 
-                cycle: function(tickCount, offset) {
+                cycle: function(tickCount, offset, state) {
                     var needTiles = shiftDelta.x + shiftDelta.y !== 0,
                         changeCount = 0;
 
                     if (needTiles) {
                         tileStore.shift(shiftDelta, params.shiftOrigin);
+                        tileShift = tileStore.getTileShift();
 
                         // reset the delta
                         shiftDelta = new TILE5.Vector();
                         
                         // things need to happen
                         changeCount++;
+                    } // if
+                    
+                    if (state !== TILE5.Graphics.DisplayState.PINCHZOOM) {
+                        updateDrawQueue(offset);
                     } // if
                     
                     // if the grid is dirty let the calling view know
@@ -383,6 +399,9 @@ TILE5.Tiling = (function() {
                     active = false;
                 },
                 
+                prepTile: function(tile) {
+                },
+                
                 drawTile: function(context, tile, x, y, state) {
                     return false;
                 },
@@ -391,18 +410,21 @@ TILE5.Tiling = (function() {
                     if (! active) { return; }
                     
                     // initialise variables
-                    var startTicks = GRUNT.Log.getTraceTicks(),
-                        tileShift = tileStore.getTileShift(),
-                        xShift = offset.x + tileShift.x,
-                        yShift = offset.y + tileShift.y,
+                    var startTicks = new Date().getTime(),
+                        xShift = offset.x,
+                        yShift = offset.y,
                         tilesDrawn = true,
                         redraw = (state === TILE5.Graphics.DisplayState.PINCHZOOM) || TILE5.Animation.isTweening();
                         
-                    if (state !== TILE5.Graphics.DisplayState.PINCHZOOM) {
-                        updateDrawQueue(context, offset, dimensions, view);
-                        GRUNT.Log.trace("updated draw queue", startTicks);
+                    if (! centerPos) {
+                        tileCols = Math.ceil(dimensions.width * invTileSize) + 1;
+                        tileRows = Math.ceil(dimensions.height * invTileSize) + 1;
+                        centerPos = new TILE5.Vector(Math.floor((tileCols-1) / 2), Math.floor((tileRows-1) / 2));
                     } // if
-
+                        
+                    // if we don't have a draq queue return
+                    if (! tileDrawQueue) { return; }
+                    
                     // set the context stroke style for the border
                     if (params.drawGrid) {
                         context.strokeStyle = "rgba(50, 50, 50, 0.3)";
@@ -413,13 +435,13 @@ TILE5.Tiling = (function() {
 
                     // iterate through the tiles in the draw queue
                     for (var ii = tileDrawQueue.length; ii--; ) {
-                        var tile = tileDrawQueue[ii].tile,
-                            x = tileDrawQueue[ii].coordinates.x - xShift,
-                            y = tileDrawQueue[ii].coordinates.y - yShift;
+                        var tile = tileDrawQueue[ii];
 
                         // if the tile is loaded, then draw, otherwise load
                         if (tile) {
-                            var drawn = redraw ? false : (tile.x === x) && (tile.y === y);
+                            var x = tile.gridX - xShift,
+                                y = tile.gridY - yShift,
+                                drawn = redraw ? false : (tile.x === x) && (tile.y === y);
 
                             // draw the tile
                             tilesDrawn = (drawn ? false : self.drawTile(context, tile, x, y, state)) && tilesDrawn;
@@ -485,16 +507,15 @@ TILE5.Tiling = (function() {
                 GRUNT.WaterCooler.say("tile.loaded");
             } // handleImageLoad
             
+            // initialise variables
+            var emptyTile = getEmptyTile(),
+                panningTile = getPanningTile();
+                
             var self = GRUNT.extend(new module.TileGrid(params), {
                 drawTile: function(context, tile, x, y, state) {
                     var image = TILE5.Resources.getImage(tile.url),
                         drawn = false;
-                    
-                    // TODO: remove this for performance but work out how to make remove problem areas
-                    if (state === TILE5.Graphics.DisplayState.PAN) {
-                        context.drawImage(getPanningTile(), x, y);
-                    } // if
-
+                        
                     if (image && image.complete && (image.width > 0)) {
                         context.drawImage(image, x, y);
                         drawn = true;
@@ -502,16 +523,23 @@ TILE5.Tiling = (function() {
                         tile.x = x;
                         tile.y = y;
                     }
+                    else if (state === TILE5.Graphics.DisplayState.PAN) {
+                        context.drawImage(panningTile, x, y);
+                    }
                     else {
-                        context.drawImage(getEmptyTile(), x, y);
-                        
-                        // load the image if not loaded
-                        if (! image) {
-                            TILE5.Resources.loadImage(tile.url, handleImageLoad);
-                        } // if
+                        context.drawImage(emptyTile, x, y);
                     } // if..else
                     
                     return drawn;
+                },
+                
+                prepTile: function(tile) {
+                    if (tile) {
+                        var image = TILE5.Resources.getImage(tile.url);
+                        if (! image) {
+                            TILE5.Resources.loadImage(tile.url, handleImageLoad);
+                        } // if
+                    } // if
                 }
             });
             

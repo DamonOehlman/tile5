@@ -11,6 +11,7 @@ TILE5.Resources = (function() {
             queuedImages = [],
             loadingImages = [],
             cachedImages = [],
+            interceptors = [],
             imageCacheFullness = 0,
             clearingCache = false;
             
@@ -55,15 +56,32 @@ TILE5.Resources = (function() {
             while ((queuedImages.length > 0) && ((! maxImageLoads) || (loadingImages.length < maxImageLoads))) {
                 var imageData = queuedImages.shift();
                 
-                // add the image data to the loading images
-                loadingImages.push(imageData);
-
-                // reset the queued flag and attempt to load the image
-                imageData.image.onload = handleImageLoad;
-                imageData.image.src = imageData.url;
-                imageData.requested = new Date().getTime();
+                if (imageData.imageLoader) {
+                    // add the image data to the loading images
+                    loadingImages.push(imageData);
+                    
+                    // run the image loader
+                    imageData.imageLoader(imageData, handleImageLoad);
+                } // if
             } // if
         } // loadNextImage
+        
+        function getImageLoader(url) {
+            var loaderFn = null;
+            
+            // iterate through the interceptors and see if any of them want it
+            for (var ii = interceptors.length; ii-- && (! loaderFn); ) {
+                loaderFn = interceptors[ii](url);
+            } // for
+            
+            // if one of the interceptors provided an image loader, then use that otherwise provide the default
+            return loaderFn ? loaderFn : function(imageData, onLoadCallback) {
+                // reset the queued flag and attempt to load the image
+                imageData.image.onload = onLoadCallback;
+                imageData.image.src = module.getPath(imageData.url);
+                imageData.requested = new Date().getTime();
+            };
+        } // getImageLoader
         
         function cleanupImageCache() {
             clearingCache = true;
@@ -126,6 +144,10 @@ TILE5.Resources = (function() {
             loadingImages: loadingImages,
             queuedImages: queuedImages,
             
+            addInterceptor: function(callback) {
+                interceptors.push(callback);
+            },
+            
             getCacheFullness: function() {
                 return imageCacheFullness;
             },
@@ -148,9 +170,10 @@ TILE5.Resources = (function() {
                 if (! imageData) {
                     // initialise the image data
                     imageData = {
-                        url: module.getPath(url),
+                        url: url,
                         image: new Image(),
                         loaded: false,
+                        imageLoader: getImageLoader(url),
                         created: new Date().getTime(),
                         requested: null,
                         hitCount: 0,
@@ -231,9 +254,11 @@ TILE5.Resources = (function() {
             return self;
         })(),
         
+        addInterceptor: ImageLoader.addInterceptor,
+        
         getPath: function(path) {
             // if the path is an absolute url, then just return that
-            if (/^(https?|\/)/.test(path)) {
+            if (/^(file|https?|\/)/.test(path)) {
                 return path;
             }
             // otherwise prepend the base path

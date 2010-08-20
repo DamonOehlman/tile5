@@ -47,7 +47,7 @@ TILE5.Device = (function() {
             queuedBridgeUrls.push(messageToUrl(message, args));
         
             if (! urlBridgeTimeout) {
-                setTimeout(processUrlBridgeNotifications, 100);
+                urlBridgeTimeout = setTimeout(processUrlBridgeNotifications, 100);
             } // if
         } // if
     } // bridgeNotifyUrlScheme
@@ -66,7 +66,8 @@ TILE5.Device = (function() {
                 // TODO: reset this back to null after testing
                 maxImageLoads: 4,
                 requireFastDraw: false,
-                bridgeNotify: bridgeNotifyLog
+                bridgeNotify: bridgeNotifyLog,
+                targetFps: 25
             },
             
             ipod: {
@@ -75,9 +76,11 @@ TILE5.Device = (function() {
                 imageCacheMaxSize: 6 * 1024,
                 maxImageLoads: 4,
                 requireFastDraw: true,
-                bridgeNotify: bridgeNotifyUrl
+                bridgeNotify: bridgeNotifyUrl,
+                targetFps: 10
             },
 
+            // TODO: can we detect the 3G ???
             iphone: {
                 name: "iPhone",
                 regex: /iphone/i,

@@ -66,7 +66,7 @@ TILE5.Graphics = (function() {
                     return stateValid && (fastDraw ? params.supportFastDraw : true);
                 },
                 
-                cycle: function(tickCount, offset) {
+                cycle: function(tickCount, offset, state) {
                     return 0;
                 },
                 
@@ -165,7 +165,7 @@ TILE5.Graphics = (function() {
             
             // initialise self
             var self =  GRUNT.extend(new module.ViewLayer(params), {
-                cycle: function(tickCount, offset) {
+                cycle: function(tickCount, offset, state) {
                     var edgeIndex = 0;
 
                     // iterate through the edge data and determine the current journey coordinate index
@@ -360,6 +360,8 @@ TILE5.Graphics = (function() {
                 bufferTime = 0,
                 zoomCenter = null,
                 tickCount = 0,
+                deviceFps = TILE5.Device.getConfig().targetFps,
+                redrawInterval = 0,
                 state = module.DisplayState.ACTIVE;
                 
             GRUNT.Log.info("Creating a new view instance, attached to container: " + params.container + ", canvas = ", canvas);
@@ -622,16 +624,18 @@ TILE5.Graphics = (function() {
 
                 // check that all is right with each layer
                 for (var ii = layers.length; ii--; ) {
-                    var cycleChanges = layers[ii].cycle(tickCount, offset);
+                    var cycleChanges = layers[ii].cycle(tickCount, offset, state);
                     changeCount += cycleChanges ? cycleChanges : 0;
                 } // for
                 
                 // draw the view
-                changeCount += drawView(mainContext, offset);
+                if (lastTickCount + redrawInterval < tickCount) {
+                    changeCount += drawView(mainContext, offset);
 
-                // update the last tick count
-                lastTickCount = tickCount;
-                
+                    // update the last tick count
+                    lastTickCount = tickCount;
+                } // if
+
                 // include wake triggers in the change count
                 paintTimeout = 0;
                 if (wakeTriggers + changeCount > 0) {
@@ -764,6 +768,13 @@ TILE5.Graphics = (function() {
             // get the dimensions
             dimensions = self.getDimensions();
             centerPos = TILE5.D.getCenter(dimensions);
+            
+            // calculate the redaw interval based on the device fps
+            if (deviceFps) {
+                redrawInterval = Math.ceil(1000 / deviceFps);
+            } // if
+            
+            GRUNT.Log.info("redraw interval calaculated @ " + redrawInterval);
             
             // listen for layer removals
             GRUNT.WaterCooler.listen("layer.remove", function(args) {

@@ -754,7 +754,7 @@ TILE5.Geo.UI = (function() {
                         // or outside the grid bounding box
                         if (distance > 100) { 
                             reset = true;
-                            self.clearBackground();
+                            // self.clearBackground();
                         } // if
                     } // if                        
 

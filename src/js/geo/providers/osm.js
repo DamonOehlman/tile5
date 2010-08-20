@@ -12,8 +12,6 @@ TILE5.Geo.OpenStreetMap = (function() {
         
         MapProvider: function(params) {
             params = GRUNT.extend({
-                apikey: "",
-                styleid: 1,
                 drawGrid: false,
                 getServerDetails: function() {
                     return {
@@ -54,6 +52,9 @@ TILE5.Geo.OpenStreetMap = (function() {
                             self.zoomLevel,
                             topLeftOffset.x + col,
                             topLeftOffset.y + row);
+                            
+                    // check to see if the url scheme has been provided
+                    var schemeProvided = /^.*?\:\/\//.test(tileUrl);
                         
                     if (subDomains) {
                         // if the subdomain index, has extended beyond the bounds of the available subdomains, reset to 0
@@ -62,12 +63,12 @@ TILE5.Geo.OpenStreetMap = (function() {
                         } // if                     
 
                         return TILE5.Tiling.ImageTile({ 
-                            url: String.format("http://{0}.{1}", subDomains[subdomain_idx++], tileUrl)
+                            url: String.format(tileUrl, subDomains[subdomain_idx++])
                         });
                     }
                     else {
                         return TILE5.Tiling.ImageTile({ 
-                            url: "http://" + tileUrl
+                            url: tileUrl
                         });
                     } // if..else
                 });
