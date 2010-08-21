@@ -1,6 +1,6 @@
 window.addEventListener("load", function() {
     // create the application 
-    map = new SLICK.Mapping.Tiler({
+    map = new TILE5.Geo.UI.Tiler({
         container: "tiler",
         crosshair: true,
         autoSize: false,
@@ -9,11 +9,11 @@ window.addEventListener("load", function() {
         // provider: new SLICK.Geo.Decarta.MapProvider()
 
         // CLOUDMADE CONFIG
-        provider: new SLICK.Geo.Cloudmade.MapProvider({
+        provider: new TILE5.Geo.Cloudmade.MapProvider({
             apikey: "7960daaf55f84bfdb166014d0b9f8d41"
         })
     });
 
     GRUNT.Log.info("MAP initialised");
-    map.gotoPosition(SLICK.Geo.P.parse("-27.468 153.028"), 10);
+    map.gotoPosition(TILE5.Geo.P.parse("-27.468 153.028"), 10);
 }, false);
