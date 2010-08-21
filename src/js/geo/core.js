@@ -842,6 +842,13 @@ TILE5.Geo = (function() {
                     // create a new position offset from the current min
                     return new TILE5.Geo.Position(bounds.min.lat + (size.y / 2), bounds.min.lon + (size.x / 2));
                 },
+                
+                getGeoHash: function(bounds) {
+                    var minHash = TILE5.Geo.GeoHash.encode(bounds.min.lat, bounds.min.lon),
+                        maxHash = TILE5.Geo.GeoHash.encode(bounds.max.lat, bounds.max.lon);
+                        
+                    GRUNT.Log.info("min hash = " + minHash + ", max hash = " + maxHash);
+                },
 
                 /** 
                 Function adapted from the following code:

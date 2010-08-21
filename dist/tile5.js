@@ -4540,7 +4540,7 @@ TILE5.Tiling = (function() {
                 gridHeightWidth = tileStore.getGridSize() * params.tileSize,
                 tileCols, tileRows, centerPos;
             
-            function updateDrawQueue(offset) {
+            function updateDrawQueue(offset, state) {
                 if (! centerPos) { return; }
                 
                 var tile, tmpQueue = [],
@@ -4583,7 +4583,7 @@ TILE5.Tiling = (function() {
                 // copy the temporary queue item to the draw queue
                 for (var ii = tmpQueue.length; ii--; ) {
                     tileDrawQueue[ii] = tmpQueue[ii].tile;
-                    self.prepTile(tileDrawQueue[ii]);
+                    self.prepTile(tileDrawQueue[ii], state);
                 } // for
             } // updateDrawQueue
             
@@ -4607,7 +4607,7 @@ TILE5.Tiling = (function() {
                     } // if
                     
                     if (state !== TILE5.Graphics.DisplayState.PINCHZOOM) {
-                        updateDrawQueue(offset);
+                        updateDrawQueue(offset, state);
                     } // if
                     
                     // if the grid is dirty let the calling view know
@@ -4618,7 +4618,7 @@ TILE5.Tiling = (function() {
                     active = false;
                 },
                 
-                prepTile: function(tile) {
+                prepTile: function(tile, state) {
                 },
                 
                 drawTile: function(context, tile, x, y, state) {
@@ -4728,7 +4728,9 @@ TILE5.Tiling = (function() {
             
             // initialise variables
             var emptyTile = getEmptyTile(),
-                panningTile = getPanningTile();
+                panningTile = getPanningTile(),
+                panState = TILE5.Graphics.DisplayState.PAN,
+                fastDraw = TILE5.Device.getConfig().requireFastDraw;
                 
             var self = GRUNT.extend(new module.TileGrid(params), {
                 drawTile: function(context, tile, x, y, state) {
@@ -4742,7 +4744,7 @@ TILE5.Tiling = (function() {
                         tile.x = x;
                         tile.y = y;
                     }
-                    else if (state === TILE5.Graphics.DisplayState.PAN) {
+                    else if (state === panState) {
                         context.drawImage(panningTile, x, y);
                     }
                     else {
@@ -4752,8 +4754,8 @@ TILE5.Tiling = (function() {
                     return drawn;
                 },
                 
-                prepTile: function(tile) {
-                    if (tile) {
+                prepTile: function(tile, state) {
+                    if (tile && ((! fastDraw) || (state !== panState))) {
                         var image = TILE5.Resources.getImage(tile.url);
                         if (! image) {
                             TILE5.Resources.loadImage(tile.url, handleImageLoad);
@@ -5676,6 +5678,13 @@ TILE5.Geo = (function() {
                     // create a new position offset from the current min
                     return new TILE5.Geo.Position(bounds.min.lat + (size.y / 2), bounds.min.lon + (size.x / 2));
                 },
+                
+                getGeoHash: function(bounds) {
+                    var minHash = TILE5.Geo.GeoHash.encode(bounds.min.lat, bounds.min.lon),
+                        maxHash = TILE5.Geo.GeoHash.encode(bounds.max.lat, bounds.max.lon);
+                        
+                    GRUNT.Log.info("min hash = " + minHash + ", max hash = " + maxHash);
+                },
 
                 /** 
                 Function adapted from the following code:
@@ -5968,6 +5977,136 @@ TILE5.Geo = (function() {
     return module;
 })();
 
+
+/**
+Geohash module c/o and copyright David Troy 2008 (http://davetroy.com/)
+Original codebase available on github @ http://github.com/davetroy/geohash-js/
+*/
+
+TILE5.Geo.GeoHash = (function() {
+    /* Start Dave's original code */
+    
+    // geohash.js
+    // Geohash library for Javascript
+    // (c) 2008 David Troy
+    // Distributed under the MIT License
+    
+    BITS = [16, 8, 4, 2, 1];
+
+    BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz";
+    NEIGHBORS = { right  : { even :  "bc01fg45238967deuvhjyznpkmstqrwx" },
+                  left   : { even :  "238967debc01fg45kmstqrwxuvhjyznp" },
+                  top    : { even :  "p0r21436x8zb9dcf5h7kjnmqesgutwvy" },
+                  bottom : { even :  "14365h7k9dcfesgujnmqp0r2twvyx8zb" } };
+    BORDERS   = { right  : { even : "bcfguvyz" },
+                  left   : { even : "0145hjnp" },
+                  top    : { even : "prxz" },
+                  bottom : { even : "028b" } };
+
+    NEIGHBORS.bottom.odd = NEIGHBORS.left.even;
+    NEIGHBORS.top.odd = NEIGHBORS.right.even;
+    NEIGHBORS.left.odd = NEIGHBORS.bottom.even;
+    NEIGHBORS.right.odd = NEIGHBORS.top.even;
+
+    BORDERS.bottom.odd = BORDERS.left.even;
+    BORDERS.top.odd = BORDERS.right.even;
+    BORDERS.left.odd = BORDERS.bottom.even;
+    BORDERS.right.odd = BORDERS.top.even;
+
+    function refine_interval(interval, cd, mask) {
+        if (cd&mask)
+            interval[0] = (interval[0] + interval[1])/2;
+      else
+            interval[1] = (interval[0] + interval[1])/2;
+    }
+
+    function calculateAdjacent(srcHash, dir) {
+        srcHash = srcHash.toLowerCase();
+        var lastChr = srcHash.charAt(srcHash.length-1);
+        var type = (srcHash.length % 2) ? 'odd' : 'even';
+        var base = srcHash.substring(0,srcHash.length-1);
+        if (BORDERS[dir][type].indexOf(lastChr)!=-1)
+            base = calculateAdjacent(base, dir);
+        return base + BASE32[NEIGHBORS[dir][type].indexOf(lastChr)];
+    }
+
+    function decodeGeoHash(geohash) {
+        var is_even = 1;
+        var lat = []; var lon = [];
+        lat[0] = -90.0;  lat[1] = 90.0;
+        lon[0] = -180.0; lon[1] = 180.0;
+        lat_err = 90.0;  lon_err = 180.0;
+
+        for (i=0; i<geohash.length; i++) {
+            c = geohash[i];
+            cd = BASE32.indexOf(c);
+            for (j=0; j<5; j++) {
+                mask = BITS[j];
+                if (is_even) {
+                    lon_err /= 2;
+                    refine_interval(lon, cd, mask);
+                } else {
+                    lat_err /= 2;
+                    refine_interval(lat, cd, mask);
+                }
+                is_even = !is_even;
+            }
+        }
+        lat[2] = (lat[0] + lat[1])/2;
+        lon[2] = (lon[0] + lon[1])/2;
+
+        return { latitude: lat, longitude: lon};
+    }
+
+    // DJO: added requestedPrecision as an optional parameter
+    function encodeGeoHash(latitude, longitude, requestedPrecision) {
+        var is_even=1;
+        var i=0;
+        var lat = []; var lon = [];
+        var bit=0;
+        var ch=0;
+        var precision = requestedPrecision ? requestedPrecision : 12;
+        geohash = "";
+
+        lat[0] = -90.0;  lat[1] = 90.0;
+        lon[0] = -180.0; lon[1] = 180.0;
+
+        while (geohash.length < precision) {
+          if (is_even) {
+                mid = (lon[0] + lon[1]) / 2;
+            if (longitude > mid) {
+                    ch |= BITS[bit];
+                    lon[0] = mid;
+            } else
+                    lon[1] = mid;
+          } else {
+                mid = (lat[0] + lat[1]) / 2;
+            if (latitude > mid) {
+                    ch |= BITS[bit];
+                    lat[0] = mid;
+            } else
+                    lat[1] = mid;
+          }
+
+            is_even = !is_even;
+          if (bit < 4)
+                bit++;
+          else {
+                geohash += BASE32[ch];
+                bit = 0;
+                ch = 0;
+          }
+        }
+        return geohash;
+    }
+    
+    /* end Dave's code */
+    
+    return {
+        decode: decodeGeoHash,
+        encode: encodeGeoHash
+    };
+})();
 
 TILE5.Geo.Search = (function() {
     var DEFAULT_MAXDIFF = 20;

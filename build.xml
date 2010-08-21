@@ -5,13 +5,13 @@ is adapted from the jQuery build file which can be found at the following locati
 
 http://github.com/jquery/jquery/blob/master/build.xml
 -->
-<project name="slick" default="build-slick" basedir=".">
+<project name="tile5" default="build" basedir=".">
 	<loadfile property="version" srcfile="version.txt" />
     <property description="Distribution target for slick library" name="dist" value="./dist" />
 
 	<property name="LIBNAME" value="tile5" />
-    <property name="SLICK" value="${dist}/${LIBNAME}.js" />
-    <property name="SLICK_MIN" value="${dist}/${LIBNAME}.min.js" />
+    <property name="TILE5" value="${dist}/${LIBNAME}.js" />
+    <property name="TILE5_MIN" value="${dist}/${LIBNAME}.min.js" />
 	<property name="JSDOC_HOME" value="/development/tools/jsdoc-toolkit" />
 	
 	<!-- jodoc configuration properties -->
@@ -50,13 +50,13 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		<ant dir="lib/grunt" />
 	</target>
 	
-	<target name="build-slick" depends="grunt-build" description="Slick library core build, concatenates core files and updates @VERSION">
-		<echo message="BUILDING SLICK CORE" />
+	<target name="build" depends="grunt-build" description="Slick library core build, concatenates core files and updates @VERSION">
+		<echo message="BUILDING TILE5 CORE" />
 		<mkdir dir="${dist}" />
 		
 		<!-- concatenate the core file set -->
 		<!-- TODO: create more logical separation in the core library -->
-		<concat destfile="${SLICK}">
+		<concat destfile="${TILE5}">
 			<!-- include the header -->
 			<fileset file="src/js/template/header.js" />
 			
@@ -77,17 +77,23 @@ http://github.com/jquery/jquery/blob/master/build.xml
 
 			<fileset file="src/js/geo/core.js" />
 			<fileset file="src/js/geo/location.js" />
+			<fileset file="src/js/geo/geohash.js" />
 			<fileset file="src/js/geo/search.js" />
 			<fileset file="src/js/geo/routing.js" />
 			<fileset file="src/js/geo/ui.js" />
 		</concat>
 		
 		<!-- construct the core providers -->
-		<concat destfile="${dist}/${LIBNAME}.openstreetmap.js">
+		<concat destfile="${dist}/${LIBNAME}.osm.js">
 			<fileset file="src/js/geo/providers/osm.js" />
 			<fileset file="src/js/geo/providers/cloudmade.js" />
 		</concat>
 		
+		<concat destfile="${dist}/${LIBNAME}.cloudmade.js">
+			<fileset file="src/js/geo/providers/osm.js" />
+			<fileset file="src/js/geo/providers/cloudmade.js" />
+		</concat>
+
 		<concat destfile="${dist}/${LIBNAME}.decarta.js">
 			<fileset file="src/js/geo/providers/decarta.js" />
 		</concat>
@@ -102,18 +108,18 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		
 		<!-- TODO: if the strip logging property is set, then strip it -->
 		<!-- 
-		<replaceregexp match="GRUNT.Log\.(log|info|warn).*?\;" replace="" flags="g" byline="false" file="${SLICK}" />
+		<replaceregexp match="GRUNT.Log\.(log|info|warn).*?\;" replace="" flags="g" byline="false" file="${TILE5}" />
 		-->
 		
 		<!-- TODO: call the targets to concatenate the required modules -->
 		
-		<replaceregexp match="@VERSION" replace="${version}" flags="g" byline="true" file="${SLICK}" />
-		<replaceregexp match="Date: " replace="Date: ${date}" file="${SLICK}" />
-        <echo message="${SLICK} (and associated libraries) built." />
+		<replaceregexp match="@VERSION" replace="${version}" flags="g" byline="true" file="${TILE5}" />
+		<replaceregexp match="Date: " replace="Date: ${date}" file="${TILE5}" />
+        <echo message="${TILE5} (and associated libraries) built." />
 	</target>
 	
-    <target name="min" depends="build-slick" description="Remove all comments and whitespace, no compression, great in combination with GZip">
-        <echo message="Building ${SLICK_MIN}" />
+    <target name="min" depends="build" description="Remove all comments and whitespace, no compression, great in combination with GZip">
+        <echo message="Building ${TILE5_MIN}" />
 
 		<apply executable="java" parallel="false" verbose="true" dest="${dist}">
 			<fileset dir="${dist}">
@@ -130,12 +136,12 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<mapper type="glob" from="${LIBNAME}.js" to="tmpmin" />
 		</apply>
 		
-		<concat destfile="${SLICK_MIN}">
+		<concat destfile="${TILE5_MIN}">
 			<filelist files="dist/tmpmin"/>
 		</concat>
 		
 		<delete file="dist/tmpmin"/>
-        <echo message="${SLICK_MIN} built." />
+        <echo message="${TILE5_MIN} built." />
     </target>
 
     <target name="clean">
