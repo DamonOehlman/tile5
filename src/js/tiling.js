@@ -321,7 +321,7 @@ TILE5.Tiling = (function() {
                 gridHeightWidth = tileStore.getGridSize() * params.tileSize,
                 tileCols, tileRows, centerPos;
             
-            function updateDrawQueue(offset) {
+            function updateDrawQueue(offset, state) {
                 if (! centerPos) { return; }
                 
                 var tile, tmpQueue = [],
@@ -364,7 +364,7 @@ TILE5.Tiling = (function() {
                 // copy the temporary queue item to the draw queue
                 for (var ii = tmpQueue.length; ii--; ) {
                     tileDrawQueue[ii] = tmpQueue[ii].tile;
-                    self.prepTile(tileDrawQueue[ii]);
+                    self.prepTile(tileDrawQueue[ii], state);
                 } // for
             } // updateDrawQueue
             
@@ -388,7 +388,7 @@ TILE5.Tiling = (function() {
                     } // if
                     
                     if (state !== TILE5.Graphics.DisplayState.PINCHZOOM) {
-                        updateDrawQueue(offset);
+                        updateDrawQueue(offset, state);
                     } // if
                     
                     // if the grid is dirty let the calling view know
@@ -399,7 +399,7 @@ TILE5.Tiling = (function() {
                     active = false;
                 },
                 
-                prepTile: function(tile) {
+                prepTile: function(tile, state) {
                 },
                 
                 drawTile: function(context, tile, x, y, state) {
@@ -509,7 +509,9 @@ TILE5.Tiling = (function() {
             
             // initialise variables
             var emptyTile = getEmptyTile(),
-                panningTile = getPanningTile();
+                panningTile = getPanningTile(),
+                panState = TILE5.Graphics.DisplayState.PAN,
+                fastDraw = TILE5.Device.getConfig().requireFastDraw;
                 
             var self = GRUNT.extend(new module.TileGrid(params), {
                 drawTile: function(context, tile, x, y, state) {
@@ -523,7 +525,7 @@ TILE5.Tiling = (function() {
                         tile.x = x;
                         tile.y = y;
                     }
-                    else if (state === TILE5.Graphics.DisplayState.PAN) {
+                    else if (state === panState) {
                         context.drawImage(panningTile, x, y);
                     }
                     else {
@@ -533,8 +535,8 @@ TILE5.Tiling = (function() {
                     return drawn;
                 },
                 
-                prepTile: function(tile) {
-                    if (tile) {
+                prepTile: function(tile, state) {
+                    if (tile && ((! fastDraw) || (state !== panState))) {
                         var image = TILE5.Resources.getImage(tile.url);
                         if (! image) {
                             TILE5.Resources.loadImage(tile.url, handleImageLoad);
