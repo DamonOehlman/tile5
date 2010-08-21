@@ -525,31 +525,29 @@ TILE5.Geo.UI = (function() {
 
             // create the view layer the we will draw the view
             var self = GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
+                cycle: function(tickCount, offset, state) {
+                    return animating ? 1: 0;
+                },
+                
                 draw: function(context, offset, dimensions, state, view) {
-                    context.save();
-                    try {
-                        // initialise variables
-                        var ii;
-                    
-                        // reset animating to false
-                        animating = false;
-                        context.fillStyle = "rgba(255, 0, 0, 0.75)";
-                        context.globalCompositeOperation = "source-over";
-                    
-                        // iterate through the annotations and draw them
-                        for (ii = annotations.length; ii--; ) {
-                            annotations[ii].draw(context, offset, state, self);
-                            animating = animating || annotations[ii].isAnimating();
-                        } // for
+                    // initialise variables
+                    var ii;
+                
+                    // reset animating to false
+                    animating = false;
+                    context.fillStyle = "rgba(255, 0, 0, 0.75)";
+                    context.globalCompositeOperation = "source-over";
+                
+                    // iterate through the annotations and draw them
+                    for (ii = annotations.length; ii--; ) {
+                        annotations[ii].draw(context, offset, state, self);
+                        animating = animating || annotations[ii].isAnimating();
+                    } // for
 
-                        for (ii = staticAnnotations.length; ii--; ) {
-                            staticAnnotations[ii].draw(context, offset, state, self);
-                            animating = animating || staticAnnotations[ii].isAnimating();
-                        } // for
-                    }
-                    finally {
-                        context.restore();
-                    } // try..finally
+                    for (ii = staticAnnotations.length; ii--; ) {
+                        staticAnnotations[ii].draw(context, offset, state, self);
+                        animating = animating || staticAnnotations[ii].isAnimating();
+                    } // for
                     
                     return animating ? 1 : 0;
                 },

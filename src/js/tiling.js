@@ -3,7 +3,7 @@ TILE5.Tiling = (function() {
         // initialise the parameters with the defaults
         params = GRUNT.extend({
             tileSize: null,
-            gridSize: 12,
+            gridSize: 25,
             center: new TILE5.Vector(),
             onPopulate: null
         }, params);
