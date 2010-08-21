@@ -24,7 +24,7 @@ TILE5.Geo.Cloudmade = (function() {
             return new TILE5.Geo.OpenStreetMap.MapProvider(GRUNT.extend({
                 getServerDetails: function() {
                     return {
-                        baseUrl: String.format("tile.cloudmade.com/{0}/{1}/{2}/", params.apikey, params.styleid, TILE5.Tiling.Config.TILESIZE),
+                        baseUrl: String.format("http://{3}.tile.cloudmade.com/{0}/{1}/{2}/", params.apikey, params.styleid, TILE5.Tiling.Config.TILESIZE, "{0}"),
                         subDomains: ['a', 'b', 'c']
                     };
                 }
