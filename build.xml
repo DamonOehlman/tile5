@@ -80,6 +80,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/geo/geohash.js" />
 			<fileset file="src/js/geo/search.js" />
 			<fileset file="src/js/geo/routing.js" />
+			<fileset file="src/js/geo/localization/turntype-rules.en.js" />
 			<fileset file="src/js/geo/ui.js" />
 		</concat>
 		
@@ -104,6 +105,26 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="test/unit/geo.js" />
 			<fileset file="test/unit/mapping.js" />
 			<fileset file="test/unit/cloudmade.js" />
+		</concat>
+		
+		<!-- build the lite version of tile5 -->
+		<concat destfile="${dist}/${LIBNAME}.lite.js">
+			<!-- include the header -->
+			<fileset file="src/js/template/header.js" />
+			
+			<!-- include dependencies -->
+			<fileset file="lib/grunt/src/core.js" />
+			
+			<!-- include core functionality -->
+			<fileset file="src/js/core.js" />
+			<fileset file="src/js/device.js" />
+			<fileset file="src/js/resources.js" />
+			<fileset file="src/js/touch.js" />
+			<fileset file="src/js/animation.js" />
+			
+			<!-- include graphics and tiling -->
+			<fileset file="src/js/graphics.js" />
+			<fileset file="src/js/tiling.js" />
 		</concat>
 		
 		<!-- TODO: if the strip logging property is set, then strip it -->
@@ -142,6 +163,32 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		
 		<delete file="dist/tmpmin"/>
         <echo message="${TILE5_MIN} built." />
+    </target>
+
+    <target name="min-lite" depends="build" description="Remove all comments and whitespace, no compression, great in combination with GZip">
+        <echo message="Building ${TILE5_MIN} 'lite'" />
+
+		<apply executable="java" parallel="false" verbose="true" dest="${dist}">
+			<fileset dir="${dist}">
+				<include name="${LIBNAME}.lite.js" />
+			</fileset>
+			<arg line="-jar" />
+			<arg path="build/google-compiler-20100629.jar" />
+			<!-- go hard with advanced optimizations -->
+			<arg value="--compilation_level" />
+			<arg value="SIMPLE_OPTIMIZATIONS" />
+			<arg value="--js_output_file" />
+			<targetfile />
+			<arg value="--js" />
+			<mapper type="glob" from="${LIBNAME}.lite.js" to="tmpmin" />
+		</apply>
+		
+		<concat destfile="${dist}/${LIBNAME}.lite.min.js">
+			<filelist files="dist/tmpmin"/>
+		</concat>
+		
+		<delete file="dist/tmpmin"/>
+        <echo message="${dist}/${LIBNAME}.lite.min.js built." />
     </target>
 
     <target name="clean">

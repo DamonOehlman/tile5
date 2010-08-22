@@ -9,7 +9,8 @@
  *
  * Date: ${date}
  */
- /* GRUNTJS START */
+ 
+/*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true *//* GRUNTJS START */
 /*
     http://www.JSON.org/json2.js
     2010-03-20
@@ -6145,7 +6146,6 @@ TILE5.Geo.Search = (function() {
 Define functionality to enable routing for mapping
 */
 TILE5.Geo.Routing = (function() {
-    
     // define the module
     var module = {
         /* module functions */
@@ -6208,46 +6208,81 @@ TILE5.Geo.Routing = (function() {
             map.setLayer("route", overlay);
         },
         
-        Maneuver: {
-            None: 0,
+        parseTurnType: function(text) {
+            var turnType = module.TurnType.Unknown,
+                rules = TILE5.Geo.Routing.TurnTypeRules;
+            
+            // run the text through the manuever rules
+            for (var ii = 0; ii < rules.length; ii++) {
+                rules[ii].regex.lastIndex = -1;
+                
+                var matches = rules[ii].regex.exec(text);
+                if (matches) {
+                    // if we have a custom check defined for the rule, then pass the text in 
+                    // for the manuever result
+                    if (rules[ii].customCheck) {
+                        turnType = rules[ii].customCheck(text, matches);
+                    }
+                    // otherwise, take the manuever provided by the rule
+                    else {
+                        turnType = rules[ii].turnType;
+                    } // if..else
+                    
+                    break;
+                } // if
+            } // for
+            
+            return turnType;
+        },
+        
+        TurnType: {
+            Unknown: "turn-unknown",
             
             // continue maneuver
-            Continue: 1,
+            Start: "turn-none-start",
+            Continue: "turn-none",
+            Arrive: "turn-none-arrive",
             
             // turn left maneuvers
-            TurnLeft: 100,
-            TurnLeftSlight: 101,
-            TurnLeftSharp: 102,
+            TurnLeft: "turn-left",
+            TurnLeftSlight: "turn-left-slight",
+            TurnLeftSharp: "turn-left-sharp",
             
             // turn right maneuvers
-            TurnRight: 110,
-            TurnRightSlight: 111,
-            TurnRightSharp: 112,
+            TurnRight: "turn-right",
+            TurnRightSlight: "turn-right-slight",
+            TurnRightSharp: "turn-right-sharp",
+            
+            // merge maneuvers
+            Merge: "merge",
             
             // uturn
-            TurnAround: 190,
+            UTurnLeft:  "uturn-left",
+            UTurnRight: "uturn-right",
             
             // enter roundabout maneuver
-            EnterRoundabout: 200,
+            EnterRoundabout: "roundabout-enter",
             
-            // exit ramp
-            ExitRamp: 300
+            // ramp maneuvers
+            Ramp: "ramp",
+            RampExit: "ramp-exit"
         },
         
         Instruction: function(params) {
             params = GRUNT.extend({
                 position: null,
                 description: "",
-                manuever: module.Maneuver.None
+                turnType: null
             }, params);
             
-            // initialise self
-            var self = GRUNT.extend(params, {
-                
-            });
+            // if the manuever has not been defined, then attempt to parse the description
+            if (! params.turnType) {
+                params.turnType = module.parseTurnType(params.description);
+            } // if
             
-            return self;
+            return params;
         },
+        
         
         RouteData: function(params) {
             params = GRUNT.extend({
@@ -6280,7 +6315,78 @@ TILE5.Geo.Routing = (function() {
     };
     
     return module;
-})();TILE5.Geo.UI = (function() {
+})();
+
+// EN-* manuever text matching rules 
+TILE5.Geo.Routing.TurnTypeRules = (function() {
+    var m = TILE5.Geo.Routing.TurnType,
+        rules = [];
+        
+    rules.push({
+        regex: /continue/i,
+        turnType: m.Continue
+    });
+    
+    rules.push({
+        regex: /(take|bear|turn)(.*?)left/i,
+        customCheck: function(text, matches) {
+            var isSlight = (/bear/i).test(matches[1]);
+            
+            return isSlight ? m.TurnLeftSlight : m.TurnLeft;
+        }
+    });
+    
+    rules.push({
+        regex: /(take|bear|turn)(.*?)right/i,
+        customCheck: function(text, matches) {
+            var isSlight = (/bear/i).test(matches[1]);
+            
+            return isSlight ? m.TurnRightSlight : m.TurnRight;
+        }
+    });
+    
+    rules.push({
+        regex: /enter\s(roundabout|rotaty)/i,
+        turnType: m.EnterRoundabout
+    });
+    
+    rules.push({
+        regex: /take.*?ramp/i,
+        turnType: m.Ramp
+    });
+    
+    rules.push({
+        regex: /take.*?exit/i,
+        turnType: m.RampExit
+    });
+    
+    rules.push({
+        regex: /make(.*?)u\-turn/i,
+        customCheck: function(text, matches) {
+            return (/right/i).test(matches[1]) ? m.UTurnRight : m.UTurnLeft;
+        }
+    });
+    
+    rules.push({
+        regex: /proceed/i,
+        turnType: m.Start
+    });
+    
+    rules.push({
+        regex: /arrive/i,
+        turnType: m.Arrive
+    });
+    
+    // "FELL THROUGH" - WTF!
+    rules.push({
+        regex: /fell\sthrough/i,
+        turnType: m.Merge
+    });
+    
+    return rules;
+})();
+
+TILE5.Geo.UI = (function() {
     var lastAnnotationTween = null,
         lastAnnotationTweenTicks = null,
         routeAnimationCounter = 0;
