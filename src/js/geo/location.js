@@ -27,6 +27,7 @@ TILE5.Geo.Location = (function() {
             maximumAge: 300000,
             timeout: 0,
             highAccuracyCutoff: 10,
+            watch: false,
             enableHighAccuracy: true,
             successCallback: null,
             errorCallback: null
@@ -56,9 +57,9 @@ TILE5.Geo.Location = (function() {
                 var pos = new TILE5.Geo.Position(position.coords.latitude, position.coords.longitude),
                     accuracy = getAccuracy(position.coords);
 
-                GRUNT.Log.info("got position coordinates: " + pos + ", accuracy = " + accuracy);
+                GRUNT.Log.info("position success, accuracy = " + accuracy);
                 if (args.successCallback && ((! lastPosition) || (accuracy < lastAccuracy))) {
-                    args.successCallback(pos, phase, position);
+                    args.successCallback(pos, accuracy, phase, position);
                 } // if
 
                 // if the accuracy is greater than the high accuracy cutoff, and we haven't hit phase 2, then 
@@ -70,7 +71,9 @@ TILE5.Geo.Location = (function() {
 
                     // relocate
                     GRUNT.Log.info("Position not at required accuracy, trying again with high accuracy");
-                    locate();
+                    if (! args.watch) { 
+                        locate();
+                    } // if
                 } // if
 
                 // save the last position
@@ -108,10 +111,20 @@ TILE5.Geo.Location = (function() {
         
         function locate() {
             // first call is to get the rough position
-            navigator.geolocation.getCurrentPosition(positionSuccess, positionError, args);
+            navigator.geolocation.getCurrentPosition(
+                positionSuccess, 
+                positionError, 
+                GRUNT.extend({}, args, {
+                    enableHighAccuracy: false
+                }));
         } // locate
         
-        locate();
+        function watch() {
+            navigator.geolocation.watchPosition(positionSuccess, positionError, args);
+        } // watch
+        
+        // if watching then watch, otherwise locate, um, self-explanatory really...
+        return args.watch ? watch() : locate();
     } // getPosition
 
     var module = {

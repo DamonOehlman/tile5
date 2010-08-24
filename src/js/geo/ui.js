@@ -618,6 +618,7 @@ TILE5.Geo.UI = (function() {
 
             // initialise variables
             var lastBoundsChangeOffset = new TILE5.Vector(),
+                locationWatchId = 0,
                 copyrightMessage = params.copyright,
                 initialized = false,
                 tappedPOIs = [],
@@ -631,6 +632,8 @@ TILE5.Geo.UI = (function() {
             if (! params.provider) {
                 params.provider = new TILE5.Geo.MapProvider();
             } // if
+            
+            // TODO: on pan clear the watch handler
 
             // create the base tiler
             var parent = new TILE5.Tiling.Tiler(GRUNT.extend({}, params, {
@@ -724,13 +727,25 @@ TILE5.Geo.UI = (function() {
                 
                 gotoCurrentPosition: function(callback) {
                     // use the geolocation api to get the current position
-                    TILE5.Geo.Location.get({
-                        successCallback: function(position, phase, rawPosition) {
+                    locationWatchId = TILE5.Geo.Location.get({
+                        watch: true,
+                        successCallback: function(position, accuracy, phase, rawPosition) {
+                            // get the bounds for the center position and specified accuracy
+                            var targetBounds = TILE5.Geo.B.createBoundsFromCenter(position, accuracy / 1000);
+                            
+                            GRUNT.Log.info("detected position: " + TILE5.Geo.P.toString(position) + ", accuracy = " + accuracy);
                             self.clearBackground();
-                            self.gotoPosition(position, 15, callback);
+                            self.gotoBounds(targetBounds, callback);
+                            
+                            // TODO: make this pretty
+                            self.annotations.clear();
+                            self.annotations.add(new module.Annotation({
+                                pos: position
+                            }));
                         },
                         
                         errorCallback: function(error) {
+                            GRUNT.Log.info("got position error");
                         }
                     });
                 },

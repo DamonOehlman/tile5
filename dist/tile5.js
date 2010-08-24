@@ -5694,6 +5694,7 @@ TILE5.Geo = (function() {
                 getZoomLevel: function(bounds, displaySize) {
                     // get the constant index for the center of the bounds
                     var boundsCenter = subModule.getCenter(bounds),
+                        maxZoom = 1000,
                         variabilityIndex = Math.min(Math.round(Math.abs(boundsCenter.lat) * 0.05), LAT_VARIABILITIES.length),
                         variability = LAT_VARIABILITIES[variabilityIndex],
                         delta = subModule.calcSize(bounds.min, bounds.max),
@@ -5708,7 +5709,7 @@ TILE5.Geo = (function() {
                     // GRUNT.Log.info("optimal zoom levels: height = " + bestZoomH + ", width = " + bestZoomW);
 
                     // return the lower of the two zoom levels
-                    return Math.min(bestZoomH, bestZoomW);
+                    return Math.min(isNaN(bestZoomH) ? maxZoom : bestZoomH, isNaN(bestZoomW) ? maxZoom : bestZoomW);
                 },
 
                 isEmpty: function(bounds) {
@@ -5833,7 +5834,7 @@ TILE5.Geo = (function() {
             // iterate through the response addresses and compare against the request address
             for (var ii = 0; ii < responseAddresses.length; ii++) {
                 matches.push(new module.GeoSearchResult({
-                    caption: responseAddresses[ii].toString(),
+                    caption: module.A.toString(responseAddresses[ii]),
                     data: responseAddresses[ii],
                     pos: responseAddresses[ii].pos,
                     matchWeight: plainTextAddressMatch(requestAddress, responseAddresses[ii], compareFns, module.GeocodeFieldWeights)
@@ -5879,6 +5880,7 @@ TILE5.Geo = (function() {
             maximumAge: 300000,
             timeout: 0,
             highAccuracyCutoff: 10,
+            watch: false,
             enableHighAccuracy: true,
             successCallback: null,
             errorCallback: null
@@ -5908,9 +5910,9 @@ TILE5.Geo = (function() {
                 var pos = new TILE5.Geo.Position(position.coords.latitude, position.coords.longitude),
                     accuracy = getAccuracy(position.coords);
 
-                GRUNT.Log.info("got position coordinates: " + pos + ", accuracy = " + accuracy);
+                GRUNT.Log.info("position success, accuracy = " + accuracy);
                 if (args.successCallback && ((! lastPosition) || (accuracy < lastAccuracy))) {
-                    args.successCallback(pos, phase, position);
+                    args.successCallback(pos, accuracy, phase, position);
                 } // if
 
                 // if the accuracy is greater than the high accuracy cutoff, and we haven't hit phase 2, then 
@@ -5922,7 +5924,9 @@ TILE5.Geo = (function() {
 
                     // relocate
                     GRUNT.Log.info("Position not at required accuracy, trying again with high accuracy");
-                    locate();
+                    if (! args.watch) { 
+                        locate();
+                    } // if
                 } // if
 
                 // save the last position
@@ -5960,10 +5964,20 @@ TILE5.Geo = (function() {
         
         function locate() {
             // first call is to get the rough position
-            navigator.geolocation.getCurrentPosition(positionSuccess, positionError, args);
+            navigator.geolocation.getCurrentPosition(
+                positionSuccess, 
+                positionError, 
+                GRUNT.extend({}, args, {
+                    enableHighAccuracy: false
+                }));
         } // locate
         
-        locate();
+        function watch() {
+            navigator.geolocation.watchPosition(positionSuccess, positionError, args);
+        } // watch
+        
+        // if watching then watch, otherwise locate, um, self-explanatory really...
+        return args.watch ? watch() : locate();
     } // getPosition
 
     var module = {
@@ -7006,6 +7020,7 @@ TILE5.Geo.UI = (function() {
 
             // initialise variables
             var lastBoundsChangeOffset = new TILE5.Vector(),
+                locationWatchId = 0,
                 copyrightMessage = params.copyright,
                 initialized = false,
                 tappedPOIs = [],
@@ -7019,6 +7034,8 @@ TILE5.Geo.UI = (function() {
             if (! params.provider) {
                 params.provider = new TILE5.Geo.MapProvider();
             } // if
+            
+            // TODO: on pan clear the watch handler
 
             // create the base tiler
             var parent = new TILE5.Tiling.Tiler(GRUNT.extend({}, params, {
@@ -7112,13 +7129,25 @@ TILE5.Geo.UI = (function() {
                 
                 gotoCurrentPosition: function(callback) {
                     // use the geolocation api to get the current position
-                    TILE5.Geo.Location.get({
-                        successCallback: function(position, phase, rawPosition) {
+                    locationWatchId = TILE5.Geo.Location.get({
+                        watch: true,
+                        successCallback: function(position, accuracy, phase, rawPosition) {
+                            // get the bounds for the center position and specified accuracy
+                            var targetBounds = TILE5.Geo.B.createBoundsFromCenter(position, accuracy / 1000);
+                            
+                            GRUNT.Log.info("detected position: " + TILE5.Geo.P.toString(position) + ", accuracy = " + accuracy);
                             self.clearBackground();
-                            self.gotoPosition(position, 15, callback);
+                            self.gotoBounds(targetBounds, callback);
+                            
+                            // TODO: make this pretty
+                            self.annotations.clear();
+                            self.annotations.add(new module.Annotation({
+                                pos: position
+                            }));
                         },
                         
                         errorCallback: function(error) {
+                            GRUNT.Log.info("got position error");
                         }
                     });
                 },

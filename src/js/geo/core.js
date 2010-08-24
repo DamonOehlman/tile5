@@ -857,6 +857,7 @@ TILE5.Geo = (function() {
                 getZoomLevel: function(bounds, displaySize) {
                     // get the constant index for the center of the bounds
                     var boundsCenter = subModule.getCenter(bounds),
+                        maxZoom = 1000,
                         variabilityIndex = Math.min(Math.round(Math.abs(boundsCenter.lat) * 0.05), LAT_VARIABILITIES.length),
                         variability = LAT_VARIABILITIES[variabilityIndex],
                         delta = subModule.calcSize(bounds.min, bounds.max),
@@ -871,7 +872,7 @@ TILE5.Geo = (function() {
                     // GRUNT.Log.info("optimal zoom levels: height = " + bestZoomH + ", width = " + bestZoomW);
 
                     // return the lower of the two zoom levels
-                    return Math.min(bestZoomH, bestZoomW);
+                    return Math.min(isNaN(bestZoomH) ? maxZoom : bestZoomH, isNaN(bestZoomW) ? maxZoom : bestZoomW);
                 },
 
                 isEmpty: function(bounds) {
@@ -996,7 +997,7 @@ TILE5.Geo = (function() {
             // iterate through the response addresses and compare against the request address
             for (var ii = 0; ii < responseAddresses.length; ii++) {
                 matches.push(new module.GeoSearchResult({
-                    caption: responseAddresses[ii].toString(),
+                    caption: module.A.toString(responseAddresses[ii]),
                     data: responseAddresses[ii],
                     pos: responseAddresses[ii].pos,
                     matchWeight: plainTextAddressMatch(requestAddress, responseAddresses[ii], compareFns, module.GeocodeFieldWeights)
