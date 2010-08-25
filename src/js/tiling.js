@@ -312,6 +312,7 @@ TILE5.Tiling = (function() {
                 active = true,
                 tileDrawQueue = null,
                 loadedTileCount = 0,
+                fullRedraw = false,
                 lastTilesDrawn = false,
                 lastCheckOffset = new TILE5.Vector(),
                 shiftDelta = new TILE5.Vector(),
@@ -414,7 +415,7 @@ TILE5.Tiling = (function() {
                         xShift = offset.x,
                         yShift = offset.y,
                         tilesDrawn = true,
-                        redraw = (state === TILE5.Graphics.DisplayState.PINCHZOOM) || TILE5.Animation.isTweening();
+                        redraw = fullRedraw || (state === TILE5.Graphics.DisplayState.PINCHZOOM) || TILE5.Animation.isTweening();
                         
                     if (! centerPos) {
                         tileCols = Math.ceil(dimensions.width * invTileSize) + 1;
@@ -468,6 +469,7 @@ TILE5.Tiling = (function() {
                     // flag the grid as not dirty
                     lastTilesDrawn = tilesDrawn;
                     gridDirty = false;
+                    fullRedraw = false;
                 },
                 
                 getTileVirtualXY: function(col, row, getCenter) {
@@ -495,6 +497,11 @@ TILE5.Tiling = (function() {
                 self.wakeParent();
             });
             
+            // listen for other layers requesting a full redraw
+            GRUNT.WaterCooler.listen("grid.invalidate", function(args) {
+                fullRedraw = true;
+            });
+            
             return self;
         },
         
@@ -510,7 +517,8 @@ TILE5.Tiling = (function() {
             // initialise variables
             var emptyTile = getEmptyTile(),
                 panningTile = getPanningTile(),
-                panState = TILE5.Graphics.DisplayState.PAN,
+                stateActive = TILE5.Graphics.DisplayState.ACTIVE,
+                statePan = TILE5.Graphics.DisplayState.PAN,
                 fastDraw = TILE5.Device.getConfig().requireFastDraw;
                 
             var self = GRUNT.extend(new module.TileGrid(params), {
@@ -525,7 +533,7 @@ TILE5.Tiling = (function() {
                         tile.x = x;
                         tile.y = y;
                     }
-                    else if (state === panState) {
+                    else if (state === statePan) {
                         context.drawImage(panningTile, x, y);
                     }
                     else {
@@ -536,7 +544,7 @@ TILE5.Tiling = (function() {
                 },
                 
                 prepTile: function(tile, state) {
-                    if (tile && ((! fastDraw) || (state !== panState))) {
+                    if (tile && ((! fastDraw) || (state === stateActive))) {
                         var image = TILE5.Resources.getImage(tile.url);
                         if (! image) {
                             TILE5.Resources.loadImage(tile.url, handleImageLoad);
@@ -552,12 +560,6 @@ TILE5.Tiling = (function() {
             params = GRUNT.extend({
                 container: "",
                 drawCenter: false,
-                onPan: null,
-                onPanEnd: null,
-                tapHandler: null,
-                doubleTapHandler: null,
-                zoomHandler: null,
-                onDraw: null,
                 datasources: {},
                 tileLoadThreshold: "first"
             }, params);
@@ -574,9 +576,6 @@ TILE5.Tiling = (function() {
                 scalable: true,
                 scaleDamping: true
             }));
-            
-            // handle tap and double tap events
-            TILE5.Touch.captureTouch(document.getElementById(params.container), params);
             
             // initialise self
             GRUNT.extend(self, {

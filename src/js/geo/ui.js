@@ -104,16 +104,24 @@ TILE5.Geo.UI = (function() {
                 // calculate the center position
                 var xPos = dimensions.width >> 1;
                 var yPos = dimensions.height >> 1;
-
-                // initialise the drawing style
-                context.fillStyle = params.radarFill;
-                context.strokeStyle = params.radarStroke;
                 
-                // draw the radar circle
-                context.beginPath();
-                context.arc(xPos, yPos, size, 0, Math.PI * 2, false);
-                context.fill();
-                context.stroke();
+                context.save();
+                try {
+                    context.globalCompositeOperation = "lighter";
+                    
+                    // initialise the drawing style
+                    context.fillStyle = params.radarFill;
+                    context.strokeStyle = params.radarStroke;
+
+                    // draw the radar circle
+                    context.beginPath();
+                    context.arc(xPos, yPos, size, 0, Math.PI * 2, false);
+                    context.fill();
+                    context.stroke();
+                }
+                finally {
+                    context.restore();
+                }
             }
         });        
     } // RadarOverlay
@@ -156,6 +164,11 @@ TILE5.Geo.UI = (function() {
                     var offsetY = self.gridDimensions.height - (posPixels.y - blMercatorPixY);
 
                     return new TILE5.Vector(offsetX, offsetY);
+                },
+                
+                getPixelDistance: function(distance) {
+                    var radians = TILE5.Geo.Utilities.dist2rad(distance);
+                    return Math.floor(radians / params.radsPerPixel);
                 },
                 
                 pixelsToPos: function(vector) {
@@ -595,6 +608,109 @@ TILE5.Geo.UI = (function() {
             return self;
         },
         
+        GeoLocationOverlay: function(params) {
+            params = GRUNT.extend({
+                fillStyle: "rgba(0, 221, 238, 0.1)",
+                strokeStyle: "rgba(0, 102, 136, 0.3)",
+                originFillStyle: "rgba(0, 102, 136, 0.7)",
+                zindex: 100,
+                map: null,
+                watch: true,
+                onUpdate: null
+            }, params);
+            
+            var watchId = 0,
+                currentXY = null,
+                currentRadius = 0,
+                currentPosition = null,
+                currentAccuracy = 0;
+            
+            function locate() {
+                // use the geolocation api to get the current position
+                watchId = TILE5.Geo.Location.get({
+                    watch: params.watch,
+                    successCallback: function(position, accuracy, phase, rawPosition) {
+                        if (params.onUpdate) {
+                            params.onUpdate(position, accuracy);
+                        } // if
+                        
+                        // update the current position and accuracy
+                        currentPosition = TILE5.Geo.P.copy(position);
+                        currentAccuracy = accuracy;
+                        
+                        // update the coordinates
+                        updateCoordinates();
+                    },
+
+                    errorCallback: function(error) {
+                        GRUNT.Log.info("got position error");
+                    }
+                });
+            } // locate
+            
+            function updateCoordinates() {
+                var grid = params.map ? params.map.getTileLayer() : null;
+                
+                currentXY = null;
+                if (currentPosition && grid) {
+                    currentXY = grid.getGridXYForPosition(currentPosition);
+                } // if
+                
+                currentRadius = 0;
+                if (currentAccuracy && grid) {
+                    currentRadius = grid.getPixelDistance(currentAccuracy / 1000);
+                } // if
+            } // updateCoordinates
+            
+            var self = GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
+                cycle: function(tickCount, offset, state) {
+                },
+                
+                draw: function(context, offset, dimensions, state, view) {
+                    if (currentXY && currentRadius) {
+                        var x = currentXY.x - offset.x,
+                            y = currentXY.y - offset.y;
+                        
+                        context.fillStyle = params.fillStyle;
+                        context.lineWidth = 1;
+                        context.strokeStyle = params.strokeStyle;
+
+                        // draw the radar circle
+                        context.beginPath();
+                        context.arc(x, y, currentRadius, 0, Math.PI * 2, false);
+                        context.fill();
+                        context.stroke();
+                        
+                        context.fillStyle = params.originFillStyle;
+                        context.beginPath();
+                        context.arc(x, y, 3, 0, Math.PI * 2, false);
+                        context.fill();
+                        
+                        // indicate that a grid redraw will need to be redrawn on next drawn
+                        GRUNT.WaterCooler.say("grid.invalidate");
+                    } // if
+                },
+                
+                getPosition: function() {
+                    return currentPosition;
+                },
+                
+                getAccuracy: function() {
+                    return currentAccuracy;
+                }
+            });
+            
+            // list for grid updates
+            GRUNT.WaterCooler.listen("grid.updated", function(args) {
+                updateCoordinates();
+                self.wakeParent();
+            });
+            
+            locate();
+            
+            return self;
+        },
+        
         Tiler: function(params) {
             params = GRUNT.extend({
                 tapExtent: 10,
@@ -625,8 +741,7 @@ TILE5.Geo.UI = (function() {
                 lastRequestTime = 0,
                 guideOffset = null,
                 gridLayerId = null,
-                zoomLevel = params.zoomLevel,
-                callerTapHandler = params.tapHandler;
+                zoomLevel = params.zoomLevel;
                 
             // if the data provider has not been created, then create a default one
             if (! params.provider) {
@@ -635,64 +750,12 @@ TILE5.Geo.UI = (function() {
             
             // TODO: on pan clear the watch handler
 
-            // create the base tiler
-            var parent = new TILE5.Tiling.Tiler(GRUNT.extend({}, params, {
-                tapHandler: function(absXY, relXY) {
-                    var grid = self.getTileLayer();
-                    var tapBounds = null;
-
-                    if (grid) {
-                        var gridPos = self.viewPixToGridPix(new TILE5.Vector(relXY.x, relXY.y)),
-                            tapPos = grid.pixelsToPos(gridPos),
-                            minPos = grid.pixelsToPos(TILE5.V.offset(gridPos, -params.tapExtent, params.tapExtent)),
-                            maxPos = grid.pixelsToPos(TILE5.V.offset(gridPos, params.tapExtent, -params.tapExtent));
-
-                        GRUNT.Log.info("grid tapped @ " + TILE5.Geo.P.toString(grid.pixelsToPos(gridPos)));
-
-                        // turn that into a bounds object
-                        tapBounds = new TILE5.Geo.BoundingBox(minPos, maxPos);
-
-                        // find the pois in the bounds area
-                        tappedPOIs = self.pois.findByBounds(tapBounds);
-                        // GRUNT.Log.info("TAPPED POIS = ", tappedPOIs);
-
-                        if (params.tapPOI) {
-                            params.tapPOI(tappedPOIs);
-                        } // if
-                    } // if
-
-                    if (callerTapHandler) {
-                        callerTapHandler(absXY, relXY, tapPos, tapBounds); 
-                    } // if
-                },
-                
-                doubleTapHandler: function(absPos, relPos) {
-                    self.animate(2, TILE5.D.getCenter(self.getDimensions()), new TILE5.Vector(relPos.x, relPos.y), TILE5.Animation.Easing.Sine.Out);
-                },
-                
-                onScale: function(scaleAmount, zoomXY) {
-                    var zoomChange = 0;
-
-                    // damp the scale amount
-                    scaleAmount = Math.sqrt(scaleAmount);
-
-                    if (scaleAmount < 1) {
-                        zoomChange = -(0.5 / scaleAmount);
-                    }
-                    else if (scaleAmount > 1) {
-                        zoomChange = scaleAmount;
-                    } // if..else
-
-                    self.gotoPosition(self.getXYPosition(zoomXY), zoomLevel + Math.floor(zoomChange));
-                }
-            }));
-            
             function getLayerScaling(oldZoom, newZoom) {
                 return radsPerPixelAtZoom(1, oldZoom) / radsPerPixelAtZoom(1, newZoom);
             } // getLayerScaling
             
             // initialise self
-            var self = GRUNT.extend({}, parent, {
+            var self = GRUNT.extend({}, new TILE5.Tiling.Tiler(params), {
                 pois: params.pois,
                 annotations: null,
                 
@@ -726,28 +789,38 @@ TILE5.Geo.UI = (function() {
                 },
                 
                 gotoCurrentPosition: function(callback) {
-                    // use the geolocation api to get the current position
-                    locationWatchId = TILE5.Geo.Location.get({
-                        watch: true,
-                        successCallback: function(position, accuracy, phase, rawPosition) {
-                            // get the bounds for the center position and specified accuracy
-                            var targetBounds = TILE5.Geo.B.createBoundsFromCenter(position, accuracy / 1000);
-                            
-                            GRUNT.Log.info("detected position: " + TILE5.Geo.P.toString(position) + ", accuracy = " + accuracy);
-                            self.clearBackground();
-                            self.gotoBounds(targetBounds, callback);
-                            
-                            // TODO: make this pretty
-                            self.annotations.clear();
-                            self.annotations.add(new module.Annotation({
-                                pos: position
-                            }));
-                        },
+                    
+                    function centerMapAtPos(position, accuracy) {
+                        // TODO: compare the position with the last position...
+                        // if within range animate movement
                         
-                        errorCallback: function(error) {
-                            GRUNT.Log.info("got position error");
-                        }
-                    });
+                        // get the bounds for the center position and specified accuracy
+                        var targetBounds = TILE5.Geo.B.createBoundsFromCenter(position, accuracy / 1000);
+
+                        GRUNT.Log.info("detected position: " + TILE5.Geo.P.toString(position) + ", accuracy = " + accuracy);
+                        self.clearBackground();
+                        self.gotoBounds(targetBounds, callback);
+                    } // centerMapAtPos
+                    
+                    // get the location layer
+                    var locationLayer = self.getLayer("geolocation"),
+                        lastPositionUpdate = null;
+                        
+                    if (! locationLayer) {
+                        locationLayer = new module.GeoLocationOverlay({
+                            map: self,
+                            onUpdate: function(position, accuracy) {
+                                centerMapAtPos(position, accuracy);
+                            }
+                        });
+                        
+                        GRUNT.Log.info("created geolocation layer");
+                        
+                        self.setLayer("geolocation", locationLayer);
+                    }
+                    else {
+                        centerMapAtPos(locationLayer.getPosition(), locationLayer.getAccuracy());
+                    }
                 },
                 
                 gotoPosition: function(position, newZoomLevel, callback) {
@@ -911,7 +984,53 @@ TILE5.Geo.UI = (function() {
                         }
                     } // if
                 }
-            }, parent);
+            });
+            
+            // bind some event handlers
+            self.bind("tap", function(absXY, relXY) {
+                var grid = self.getTileLayer();
+                var tapBounds = null;
+
+                if (grid) {
+                    var gridPos = self.viewPixToGridPix(new TILE5.Vector(relXY.x, relXY.y)),
+                        tapPos = grid.pixelsToPos(gridPos),
+                        minPos = grid.pixelsToPos(TILE5.V.offset(gridPos, -params.tapExtent, params.tapExtent)),
+                        maxPos = grid.pixelsToPos(TILE5.V.offset(gridPos, params.tapExtent, -params.tapExtent));
+
+                    GRUNT.Log.info("grid tapped @ " + TILE5.Geo.P.toString(grid.pixelsToPos(gridPos)));
+
+                    // turn that into a bounds object
+                    tapBounds = new TILE5.Geo.BoundingBox(minPos, maxPos);
+
+                    // find the pois in the bounds area
+                    tappedPOIs = self.pois.findByBounds(tapBounds);
+                    // GRUNT.Log.info("TAPPED POIS = ", tappedPOIs);
+
+                    if (params.tapPOI) {
+                        params.tapPOI(tappedPOIs);
+                    } // if
+                } // if
+            });
+            
+            self.bind("doubleTap", function(absXY, relXY) {
+                self.animate(2, TILE5.D.getCenter(self.getDimensions()), new TILE5.Vector(relXY.x, relXY.y), TILE5.Animation.Easing.Sine.Out);
+            });
+            
+            self.bind("scale", function(scaleAmount, zoomXY) {
+                var zoomChange = 0;
+
+                // damp the scale amount
+                scaleAmount = Math.sqrt(scaleAmount);
+
+                if (scaleAmount < 1) {
+                    zoomChange = -(0.5 / scaleAmount);
+                }
+                else if (scaleAmount > 1) {
+                    zoomChange = scaleAmount;
+                } // if..else
+
+                self.gotoPosition(self.getXYPosition(zoomXY), zoomLevel + Math.floor(zoomChange));
+            });
 
             // create an annotations layer
             var annotations = new TILE5.Geo.UI.AnnotationsOverlay({

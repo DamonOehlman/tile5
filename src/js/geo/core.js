@@ -92,7 +92,6 @@ TILE5.Geo = (function() {
    
     // define the module
     var module = {
-        
         /* geo engine class */
         
         Engine: function(params) {
@@ -177,6 +176,10 @@ TILE5.Geo = (function() {
             var ECC = 0.08181919084262157;
 
             var self = {
+                dist2rad: function(distance) {
+                    return distance / KM_PER_RAD;
+                },
+                
                 lat2pix: function(lat, scale) {
                     var radLat = (parseFloat(lat)*(2*Math.PI))/360;
                     var sinPhi = Math.sin(radLat);

@@ -316,8 +316,6 @@ TILE5.Graphics = (function() {
             params = GRUNT.extend({
                 id: "view_" + viewCounter++,
                 container: "",
-                pannable: false,
-                scalable: false,
                 clearOnDraw: false,
                 // TODO: move these into a different option location
                 displayFPS: false,
@@ -328,10 +326,6 @@ TILE5.Graphics = (function() {
                 initialDrawMode: "source-over",
                 bufferRefresh: 100,
                 defaultFreezeDelay: 500,
-                onPan: null,
-                onPinchZoom: null,
-                onScale: null,
-                onDraw: null,
                 autoSize: false
             }, params);
             
@@ -341,12 +335,10 @@ TILE5.Graphics = (function() {
                 mainContext = null,
                 offset = new TILE5.Vector(),
                 clearBackground = false,
-                lastScaleFactor = 1,
                 lastTickCount = null,
                 lastInteraction = 0,
                 frozen = false,
                 deviceScaling = 1,
-                translateDelta = new TILE5.Vector(),
                 dimensions = null,
                 centerPos = null,
                 wakeTriggers = 0,
@@ -362,10 +354,97 @@ TILE5.Graphics = (function() {
                 tickCount = 0,
                 deviceFps = TILE5.Device.getConfig().targetFps,
                 redrawInterval = 0,
+                scaling = false,
+                startRect = null,
+                endRect = null,
+                scaleFactor = 1,
+                aniProgress = null,
+                tweenStart = null,
+                startCenter = null,
                 state = module.DisplayState.ACTIVE;
                 
             GRUNT.Log.info("Creating a new view instance, attached to container: " + params.container + ", canvas = ", canvas);
+            
+            /* panning functions */
+            
+            function pan(x, y, tweenFn) {
+                // GRUNT.Log.info("captured pan event: x = " + x + ", y = " + y);
+                
+                // update the offset by the specified amount
+                self.updateOffset(offset.x + x, offset.y + y, tweenFn);
+                
+                lastInteraction = TILE5.Clock.getTime(true);
+                wake();
+                
+                state = DISPLAY_STATE.PAN;                
+            } // pan
+            
+            function panEnd(x, y) {
+                state = DISPLAY_STATE.ACTIVE;
+                setTimeout(wake, 50);
+            } // panEnd
+            
+            /* scaling functions */
+            
+            function animateZoom() {
+                // flag that we are scaling
+                state = module.DisplayState.PINCHZOOM;
+                wake();
+                
+                self.trigger("animate");
+            } // animateZoom
+            
+            function checkTouches(start, end) {
+                startRect = TILE5.V.getRect(start);
+                endRect = TILE5.V.getRect(end);
 
+                // get the sizes of the rects
+                var startSize = TILE5.D.getSize(startRect.dimensions),
+                    endSize = TILE5.D.getSize(endRect.dimensions);
+
+                // update the zoom center
+                startCenter = TILE5.R.getCenter(startRect);
+                endCenter = TILE5.R.getCenter(endRect);
+
+                // determine the ratio between the start rect and the end rect
+                scaleFactor = (startRect && (startSize !== 0)) ? (endSize / startSize) : 1;
+            } // checkTouches            
+            
+            function pinchZoom(touchesStart, touchesCurrent) {
+                checkTouches(touchesStart, touchesCurrent);
+                scaling = scaleFactor !== 1;
+                
+                if (scaling) {
+                    lastInteraction = TILE5.Clock.getTime(true);
+                    state = module.DisplayState.PINCHZOOM;
+
+                    wake();
+                } // if
+            } // pinchZoom
+            
+            function pinchZoomEnd(touchesStart, touchesEnd) {
+                checkTouches(touchesStart, touchesEnd);
+
+                scaleView(true);
+                
+                // restore the scale amount to 1
+                scaleFactor = 1;
+            } // pinchZoomEnd
+            
+            function scaleView(keepCenter) {
+                // TODO: can this be removed
+                GRUNT.WaterCooler.say("view.scale", { id: self.id });
+                
+                scaling = false;
+                self.trigger("scale", scaleFactor, endCenter, keepCenter);
+
+                // reset the status flag
+                state = module.DisplayState.ACTIVE;
+                wake();
+            } // scaleView
+            
+            /* view initialization */
+            
             if (canvas) {
                 TILE5.Touch.resetTouch(canvas);
                 
@@ -386,88 +465,7 @@ TILE5.Graphics = (function() {
                     throw new Error("Could not initialise canvas on specified view element");
                 }
             } // if
-            
-            if (params.pannable) {
-                pannable = new TILE5.Touch.Pannable({
-                    container: params.container,
-                    onAnimate: function(x, y) {
-                        wake();
-                    },
-                    onPan: function(x, y) {
-                        lastInteraction = TILE5.Clock.getTime(true);
-                        wake();
-                        
-                        // add the current pan on the vector
-                        translateDelta = TILE5.V.offset(translateDelta, x, y);
-                        
-                        if (params.onPan) {
-                            params.onPan(x, y);
-                        } // if
-                        
-                        state = DISPLAY_STATE.PAN;
-                    },
-                    
-                    onPanEnd: function(x, y) {
-                        wake();
-                        
-                        state = DISPLAY_STATE.ACTIVE;
-                    }
-                });
-            } // if
-            
-            if (params.scalable) {
-                scalable = new TILE5.Touch.Scalable({
-                    scaleDamping: params.scaleDamping,
-                    container: params.container,
-                    
-                    onAnimate: function() {
-                        // flag that we are scaling
-                        state = module.DisplayState.PINCHZOOM;
-                        
-                        wake();
-                    },
-                    
-                    onPinchZoom: function(touchesStart, touchesCurrent) {
-                        lastInteraction = TILE5.Clock.getTime(true);
-                        wake();
-                        
-                        if (params.onPinchZoom) {
-                            params.onPinchZoom(touchesStart, touchesCurrent);
-                        } // if
-                        
-                        // flag that we are scaling
-                        state = module.DisplayState.PINCHZOOM;
-                    },
-                    
-                    onScale: function(endScaleFactor, zoomXY, keepCenter) {
-                        GRUNT.WaterCooler.say("view.scale", { id: self.id });
-                        
-                        /*
-                        // take a snapshot
-                        if (endScaleFactor > 1) {
-                            self.snapshot();
-                        }
-                        else {
-                            self.clearBackground();
-                        } // if..else
-                        */
-                        
-                        // reset the status flag
-                        state = module.DisplayState.ACTIVE;
-                        wake();
-                        
-                        // if we are attempting to keep the center of the control
-                        // FIXME: GET THIS RIGHT!!!!
-                        if (keepCenter) {
-                        } // if
 
-                        if (params.onScale) {
-                            params.onScale(endScaleFactor, zoomXY);
-                        }
-                    }
-                });
-            } // if
-            
             function addLayer(id, value) {
                 // make sure the layer has the correct id
                 value.setId(id);
@@ -502,23 +500,15 @@ TILE5.Graphics = (function() {
             /* draw code */
             
             function calcZoomCenter() {
-                var scaleInfo = scalable.getScaleInfo(),
-                    displayCenter = TILE5.D.getCenter(dimensions),
-                    shiftFactor = (scaleInfo.progress ? scaleInfo.progress : 1) / 2;
-                    
-                // update the end center
-                endCenter = scaleInfo.center;
+                var displayCenter = TILE5.D.getCenter(dimensions),
+                    shiftFactor = (aniProgress ? aniProgress : 1) / 2,
+                    centerOffset = TILE5.V.diff(startCenter, endCenter);
 
-                if (scaleInfo.startRect) {
-                    var startCenter = TILE5.R.getCenter(scaleInfo.startRect),
-                        centerOffset = TILE5.V.diff(startCenter, endCenter);
-
+                if (startRect) {
                     zoomCenter = new TILE5.Vector(endCenter.x + centerOffset.x, endCenter.y + centerOffset.y);
                 } 
                 else {
-                    var offsetDiff = TILE5.V.diff(scaleInfo.start, endCenter);
-                        
-                    zoomCenter = new TILE5.Vector(endCenter.x - offsetDiff.x * shiftFactor, endCenter.y - offsetDiff.y * shiftFactor);
+                    zoomCenter = new TILE5.Vector(endCenter.x - centerOffset.x * shiftFactor, endCenter.y - centerOffset.y * shiftFactor);
                 } // if..else
             } // calcZoomCenter
             
@@ -531,15 +521,11 @@ TILE5.Graphics = (function() {
             
             function drawView(context, offset) {
                 var changeCount = 0,
-                    scaleFactor = self.getScaleFactor(),
                     drawState = self.getDisplayState(),
                     startTicks = new Date().getTime(),
                     isPinchZoom = (drawState & DISPLAY_STATE.PINCHZOOM) !== 0,
                     delayDrawLayers = [];
                 
-                // update the last scale factor
-                lastScaleFactor = self.getScaleFactor();
-
                 var savedDrawn = false,
                     ii = 0;
                     
@@ -597,7 +583,7 @@ TILE5.Graphics = (function() {
                 tickCount = new Date().getTime();
                 
                 // get the updated the offset
-                offset = pannable ? pannable.getOffset() : new TILE5.Vector();
+                // offset = pannable ? pannable.getOffset() : new TILE5.Vector();
                 
                 // conver the offset x and y to integer values
                 // while canvas implementations work fine with real numbers, the actual drawing of images
@@ -659,10 +645,55 @@ TILE5.Graphics = (function() {
             } // wake
             
             // initialise self
-            var self = GRUNT.extend({}, params, pannable, scalable, {
+            var self = GRUNT.extend({}, params, new GRUNT.Observable(), {
                 id: params.id,
                 deviceScaling: deviceScaling,
                 fastDraw: params.fastDraw || TILE5.Device.getConfig().requireFastDraw,
+                
+                // TODO: change name to be scaling related
+                animate: function(targetScaleFactor, startXY, targetXY, tweenFn, callback) {
+
+                    function finishAnimation() {
+                        // if we have a callback to complete, then call it
+                        if (callback) {
+                            callback();
+                        } // if
+
+                        scaleView();
+
+                        // reset the scale factor
+                        scaleFactor = 1;
+                        aniProgress = null;
+                    } // finishAnimation
+
+                    // update the zoom center
+                    scaling = true;
+                    startCenter = TILE5.V.copy(startXY);
+                    endCenter = TILE5.V.copy(targetXY);
+                    startRect = null;
+
+                    // if tweening then update the targetXY
+                    if (tweenFn) {
+                        tweenStart = scaleFactor;
+
+                        var tween = TILE5.Animation.tweenValue(0, targetScaleFactor - tweenStart, tweenFn, finishAnimation, 1000);
+                        tween.requestUpdates(function(updatedValue, completed) {
+                            // calculate the completion percentage
+                            aniProgress = updatedValue / (targetScaleFactor - tweenStart);
+
+                            // update the scale factor
+                            scaleFactor = tweenStart + updatedValue;
+
+                            // trigger the on animate handler
+                            animateZoom();
+                        });
+                    }
+                    // otherwise, update the scale factor and fire the callback
+                    else {
+                        scaleFactor = targetScaleFactor;
+                        finishAnimation();
+                    }  // if..else
+                },
                 
                 centerOn: function(offset) {
                     pannable.setOffset(offset.x - (canvas.width / 2), offset.y - (canvas.height / 2));
@@ -762,6 +793,42 @@ TILE5.Graphics = (function() {
 
                         layers.splice(layerIndex, 1);
                     } // if
+                },
+                
+                /* offset methods */
+                
+                getOffset: function() {
+                    return TILE5.V.copy(offset);
+                },
+                
+                setOffset: function(x, y) {
+                    offset.x = x; 
+                    offset.y = y;
+                },
+                
+                updateOffset: function(x, y, tweenFn) {
+                    if (tweenFn) {
+                        var endPosition = new TILE5.Vector(x, y);
+
+                        animating = true;
+                        var tweens = TILE5.Animation.tweenVector(offset, endPosition.x, endPosition.y, tweenFn, function() {
+                            animating = false;
+                            self.panEnd(0, 0);
+                        });
+
+                        // set the tweens to cancel on interact
+                        for (var ii = tweens.length; ii--; ) {
+                            tweens[ii].cancelOnInteract = true;
+                            tweens[ii].requestUpdates(function(updatedValue, complete) {
+                                if (params.onAnimate) {
+                                    params.onAnimate(offset.x, offset.y);
+                                } // if
+                            });
+                        } // for
+                    }
+                    else {
+                        self.setOffset(x, y);
+                    } // if..else
                 }
             });
             
@@ -800,6 +867,16 @@ TILE5.Graphics = (function() {
             if (params.displayResourceStats) {
                 self.setLayer("resourceStats", new module.ResourceStatsLayer());
             } // if
+            
+            // capture touch events
+            TILE5.Touch.captureTouch(canvas, {
+                observable: self
+            });
+
+            self.bind("move", pan);
+            self.bind("moveEnd", panEnd);
+            self.bind("pinchZoom", pinchZoom);
+            self.bind("pinchZoomEnd", pinchZoomEnd);
             
             // add a status view layer for experimentation sake
             // self.setLayer("status", new module.StatusViewLayer());
