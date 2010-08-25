@@ -445,7 +445,7 @@ TILE5.Tiling = (function() {
                                 drawn = redraw ? false : (tile.x === x) && (tile.y === y);
 
                             // draw the tile
-                            tilesDrawn = (drawn ? false : self.drawTile(context, tile, x, y, state)) && tilesDrawn;
+                            tilesDrawn = (drawn ? true : self.drawTile(context, tile, x, y, state)) && tilesDrawn;
                         } 
                         else {
                             tilesDrawn = false;
@@ -463,7 +463,7 @@ TILE5.Tiling = (function() {
                     
                     // if the tiles have been drawn and previously haven't then fire the tiles drawn event
                     if (tilesDrawn && (! lastTilesDrawn)) {
-                        GRUNT.WaterCooler.say("tiles.drawn", { id: self.getId() });
+                        view.trigger("tileDrawComplete");
                     } // if
                     
                     // flag the grid as not dirty

@@ -4547,7 +4547,7 @@ TILE5.Tiling = (function() {
                                 drawn = redraw ? false : (tile.x === x) && (tile.y === y);
 
                             // draw the tile
-                            tilesDrawn = (drawn ? false : self.drawTile(context, tile, x, y, state)) && tilesDrawn;
+                            tilesDrawn = (drawn ? true : self.drawTile(context, tile, x, y, state)) && tilesDrawn;
                         } 
                         else {
                             tilesDrawn = false;
@@ -4565,7 +4565,7 @@ TILE5.Tiling = (function() {
                     
                     // if the tiles have been drawn and previously haven't then fire the tiles drawn event
                     if (tilesDrawn && (! lastTilesDrawn)) {
-                        GRUNT.WaterCooler.say("tiles.drawn", { id: self.getId() });
+                        view.trigger("tileDrawComplete");
                     } // if
                     
                     // flag the grid as not dirty
@@ -4977,15 +4977,7 @@ TILE5.Geo = (function() {
         },
         
         GeoSearchAgent: function(params) {
-            params = GRUNT.extend({
-            }, params);
-
-            // initialise self
-            var self = GRUNT.extend({
-                
-            }, TILE5.Dispatcher.createAgent(params));
-            
-            return self;
+            return TILE5.Dispatcher.createAgent(params);
         },
         
         GeocodingAgent: function(params) {
@@ -7118,16 +7110,10 @@ TILE5.Geo.UI = (function() {
                         currentBounds = self.getBoundingBox();
 
                     if (currentBounds) {
-                        var currentCenter = TILE5.Geo.B.getCenter(currentBounds),
-                            distance = TILE5.Geo.P.calcDistance(currentCenter, position);
-
-                        GRUNT.Log.info("distance between current position and new position = " + distance);
-                        // TODO: fix this it's hacky...  it actually needs to test whether the position is inside
-                        // or outside the grid bounding box
-                        if (distance > 100) { 
-                            reset = true;
-                            // self.clearBackground();
-                        } // if
+                        reset = !TILE5.Geo.P.inBounds(position, currentBounds);
+                        if (reset) {
+                            self.clearBackground();
+                        }
                     } // if                        
 
                     // if a new zoom level is specified, then use it
@@ -7232,6 +7218,10 @@ TILE5.Geo.UI = (function() {
                         } // if
                     } // if
                 },
+                
+                getZoomLevel: function() {
+                    return zoomLevel;
+                },
 
                 setZoomLevel: function(value) {
                     // if the current position is set, then goto the updated position
@@ -7291,6 +7281,8 @@ TILE5.Geo.UI = (function() {
                     // find the pois in the bounds area
                     tappedPOIs = self.pois.findByBounds(tapBounds);
                     // GRUNT.Log.info("TAPPED POIS = ", tappedPOIs);
+                    
+                    self.trigger("geotap", absXY, relXY, tapPos, tapBounds);
 
                     if (params.tapPOI) {
                         params.tapPOI(tappedPOIs);
@@ -7366,13 +7358,6 @@ TILE5.Geo.UI = (function() {
                 }
             });
 
-            // listen for tiles drawn being completed
-            GRUNT.WaterCooler.listen("tiles.drawn", function(args) {
-                if (args.id && (args.id == gridLayerId) && params.onTilesLoaded) {
-                    params.onTilesLoaded();
-                }  // if
-            });
-            
             return self;
         }
     };

@@ -178,7 +178,7 @@ TILE5.Geo.Decarta = (function() {
             } // if
             
             // strip any trailing highway specifiers from the street
-            street = street.replace(/\/\d+$/, "");
+            street = street ? street.replace(/\/\d+$/, "") : "";
             
             // parse the building
             if (params.json.Building) {

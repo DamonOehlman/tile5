@@ -259,15 +259,7 @@ TILE5.Geo = (function() {
         },
         
         GeoSearchAgent: function(params) {
-            params = GRUNT.extend({
-            }, params);
-
-            // initialise self
-            var self = GRUNT.extend({
-                
-            }, TILE5.Dispatcher.createAgent(params));
-            
-            return self;
+            return TILE5.Dispatcher.createAgent(params);
         },
         
         GeocodingAgent: function(params) {
