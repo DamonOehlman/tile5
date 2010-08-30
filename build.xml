@@ -112,6 +112,10 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		<concat destfile="${dist}/${LIBNAME}.decarta.js">
 			<fileset file="src/js/geo/providers/decarta.js" />
 		</concat>
+		
+		<concat destfile="${dist}/${LIBNAME}.bing.js">
+			<fileset file="src/js/geo/providers/bing.js" />
+		</concat>
 	</target>
 	
 	<target name="build-lite" description="Build the lite version of the library">

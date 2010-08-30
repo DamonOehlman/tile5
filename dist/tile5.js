@@ -989,7 +989,7 @@ GRUNT.JSONP = (function(){
         head.appendChild( script );
     } // load
     
-    function prepAndLoad(url, callback) {
+    function prepAndLoad(url, callback, callbackParam) {
         // apply either a ? or & to the url depending on whether we already have query params
         url += url.indexOf("?") >= 0 ? "&" : "?";
 
@@ -1002,7 +1002,7 @@ GRUNT.JSONP = (function(){
             } catch (e) {}
         };
  
-        load(url + "callback=" + jsonp);
+        load(url + (callbackParam ? callbackParam : "callback") + "=" + jsonp);
         return jsonp;
     } // jsonp
     
