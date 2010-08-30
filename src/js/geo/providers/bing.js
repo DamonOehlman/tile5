@@ -53,7 +53,8 @@ TILE5.Geo.Bing = (function() {
 
             function buildTileGrid(tileOffset, containerDimensions, centerPos) {
                 
-                /** Returns the given coordinate formatted as a 'quadkey'. */
+                // quad function from example @ polymaps.org
+                // http://polymaps.org/ex/bing.html
                 function quad(column, row, zoom) {
                   var key = "";
                   for (var i = 1; i <= zoom; i++) {
@@ -74,8 +75,6 @@ TILE5.Geo.Bing = (function() {
                     drawGrid: params.drawGrid
                 });
                 
-                GRUNT.Log.info("building tile grid");
-
                 // set the tile grid origin
                 tileGrid.populate(function(col, row, topLeftOffset, gridSize) {
                     // initialise the image url
@@ -102,8 +101,6 @@ TILE5.Geo.Bing = (function() {
                                     tileOffset.y,
                                     true),
                     centerPos: calculatePositionFromTileOffset(tileOffset.x + 0.5, tileOffset.y + 0.5, self.zoomLevel),
-                    // NOTE: zoom level is similar to decarta GX zoom level but 1 less...
-                    // TODO: implement some kind of universal zoom level... there probably is one already... 
                     radsPerPixel: module.radsPerPixelAtZoom(TILE5.Tiling.Config.TILESIZE, self.zoomLevel)
                 });
 
