@@ -1,7 +1,4 @@
-/**
-@namespace
-*/
-TILE5.Geo.Cloudmade = (function() {
+TILE5.Geo.NearMap = (function() {
     // define some constants
     var ZOOMLEVEL_MIN = 3;
     var ZOOMLEVEL_MAX = 17;
@@ -17,22 +14,18 @@ TILE5.Geo.Cloudmade = (function() {
         
         MapProvider: function(params) {
             params = GRUNT.extend({
-                apikey: "",
-                styleid: 1
+                dataset: 20091031
             }, params);
             
             var base = new TILE5.Geo.OpenStreetMap.MapProvider(GRUNT.extend({
-                getServerDetails: function() {
-                    return {
-                        baseUrl: String.format("http://{3}.tile.cloudmade.com/{0}/{1}/{2}/", params.apikey, params.styleid, TILE5.Tiling.Config.TILESIZE, "{0}"),
-                        subDomains: ['a', 'b', 'c']
-                    };
+                urlFiller: function(z, x, y) {
+                    return String.format("http://www.nearmap.com/maps/nml=Vert&zxy={0},{1},{2}&nmd={3}", z, x, y, params.dataset);
                 }
             }, params));
             
             return GRUNT.extend(base, {
                 getCopyright: function() {
-                    return "This product uses the CloudMade APIs, but is not endorsed or certified by CloudMade.";
+                    return "&copy; <a href='http://nearmap.com/' target='_blank'>nearmap</a> 2010";
                 }
             });
         }

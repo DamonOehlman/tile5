@@ -13,9 +13,10 @@ TILE5.Geo.OpenStreetMap = (function() {
         MapProvider: function(params) {
             params = GRUNT.extend({
                 drawGrid: false,
+                urlFiller: null,
                 getServerDetails: function() {
                     return {
-                        baseUrl: TILE5.Resource.getPath("tiles/"),
+                        baseUrl: TILE5.Resources.getPath("tiles/"),
                         subDomains: null
                     };
                 }
@@ -46,12 +47,19 @@ TILE5.Geo.OpenStreetMap = (function() {
 
                 // set the tile grid origin
                 tile_grid.populate(function(col, row, topLeftOffset, gridSize) {
+                    var tileUrl = "";
+                    
                     // initialise the image url
-                    var tileUrl = (serverDetails ? serverDetails.baseUrl : "") + 
-                        String.format("{0}/{1}/{2}.png",
-                            self.zoomLevel,
-                            topLeftOffset.x + col,
-                            topLeftOffset.y + row);
+                    if (! params.urlFiller) {
+                        tileUrl = (serverDetails ? serverDetails.baseUrl : "") + 
+                            String.format("{0}/{1}/{2}.png",
+                                self.zoomLevel,
+                                topLeftOffset.x + col,
+                                topLeftOffset.y + row);
+                    }
+                    else {
+                        tileUrl = params.urlFiller(self.zoomLevel, topLeftOffset.x + col, topLeftOffset.y + row);
+                    } // if..else
                             
                     // check to see if the url scheme has been provided
                     var schemeProvided = /^.*?\:\/\//.test(tileUrl);

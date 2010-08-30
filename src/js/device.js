@@ -63,8 +63,7 @@ TILE5.Device = (function() {
                 getScaling: function() {
                     return 1;
                 },
-                // TODO: reset this back to null after testing
-                maxImageLoads: 4,
+                maxImageLoads: null,
                 requireFastDraw: false,
                 bridgeNotify: bridgeNotifyLog,
                 targetFps: null

@@ -101,12 +101,14 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		<!-- construct the core providers -->
 		<concat destfile="${dist}/${LIBNAME}.osm.js">
 			<fileset file="src/js/geo/providers/osm.js" />
-			<fileset file="src/js/geo/providers/cloudmade.js" />
 		</concat>
 		
 		<concat destfile="${dist}/${LIBNAME}.cloudmade.js">
-			<fileset file="src/js/geo/providers/osm.js" />
 			<fileset file="src/js/geo/providers/cloudmade.js" />
+		</concat>
+
+		<concat destfile="${dist}/${LIBNAME}.nearmap.js">
+			<fileset file="src/js/geo/providers/nearmap.js" />
 		</concat>
 
 		<concat destfile="${dist}/${LIBNAME}.decarta.js">
