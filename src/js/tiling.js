@@ -73,7 +73,7 @@ TILE5.Tiling = (function() {
                     centerPos = new TILE5.Vector(gridSize / 2, gridSize / 2);
                 
                 if (tileCreator) {
-                    GRUNT.Log.info("populating grid, x shift = " + tileShift.x + ", y shift = " + tileShift.y);
+                    // GRUNT.Log.info("populating grid, x shift = " + tileShift.x + ", y shift = " + tileShift.y);
                     
                     for (var row = 0; row < gridSize; row++) {
                         for (var col = 0; col < gridSize; col++) {

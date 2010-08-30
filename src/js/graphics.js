@@ -347,7 +347,7 @@ TILE5.Graphics = (function() {
                 idle = false,
                 paintTimeout = 0,
                 idleTimeout = 0,
-                wheelTimeout = 0,
+                rescaleTimeout = 0,
                 bufferTime = 0,
                 zoomCenter = null,
                 tickCount = 0,
@@ -431,25 +431,7 @@ TILE5.Graphics = (function() {
             } // pinchZoomEnd
             
             function wheelZoom(relXY, zoom) {
-                scaleFactor = Math.min(Math.max(zoom, 0.25), 4);
-                scaling = scaleFactor !== 1;
-                
-                startCenter = TILE5.D.getCenter(self.getDimensions());
-                endCenter = TILE5.D.getCenter(self.getDimensions());
-                startRect = null;
-                
-                clearTimeout(wheelTimeout);
-                
-                if (scaling) {
-                    lastInteraction = TILE5.Clock.getTime(true);
-                    state = module.DisplayState.PINCHZOOM;
-
-                    wake();
-                    
-                    wheelTimeout = setTimeout(scaleView, 500);
-                } // if
-                
-                // GRUNT.Log.info("wheel zoom: " + TILE5.V.toString(relXY) + " amount = " + zoom);
+                self.zoom(Math.min(Math.max(zoom, 0.25), 4), 500);
             } // wheelZoom
             
             function scaleView(keepCenter) {
@@ -844,6 +826,27 @@ TILE5.Graphics = (function() {
                     else {
                         self.setOffset(x, y);
                     } // if..else
+                },
+                
+                zoom: function(newScaleFactor, rescaleAfter) {
+                    scaleFactor = newScaleFactor;
+                    scaling = scaleFactor !== 1;
+
+                    startCenter = TILE5.D.getCenter(self.getDimensions());
+                    endCenter = TILE5.D.getCenter(self.getDimensions());
+                    startRect = null;
+
+                    clearTimeout(rescaleTimeout);
+
+                    if (scaling) {
+                        lastInteraction = TILE5.Clock.getTime(true);
+                        state = module.DisplayState.PINCHZOOM;
+
+                        wake();
+                        if (rescaleAfter) {
+                            rescaleTimeout = setTimeout(scaleView, parseInt(rescaleAfter, 10));
+                        } // if
+                    } // if
                 }
             });
             

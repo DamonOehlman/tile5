@@ -930,7 +930,7 @@ TILE5.Geo.Decarta = (function() {
                 
 
                 getCopyright: function() {
-                    return "Mapping Webservices copyright deCarta, Map Data copyright Navteq";
+                    return "Mapping Webservices &copy; deCarta, Map Data &copy; Navteq";
                 },
                 
                 getMapTiles: function(tiler, position, callback) {

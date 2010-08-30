@@ -181,7 +181,7 @@ TILE5.Geo.Cloudmade = (function() {
                 styleid: 1
             }, params);
             
-            return new TILE5.Geo.OpenStreetMap.MapProvider(GRUNT.extend({
+            var base = new TILE5.Geo.OpenStreetMap.MapProvider(GRUNT.extend({
                 getServerDetails: function() {
                     return {
                         baseUrl: String.format("http://{3}.tile.cloudmade.com/{0}/{1}/{2}/", params.apikey, params.styleid, TILE5.Tiling.Config.TILESIZE, "{0}"),
@@ -189,6 +189,12 @@ TILE5.Geo.Cloudmade = (function() {
                     };
                 }
             }, params));
+            
+            return GRUNT.extend(base, {
+                getCopyright: function() {
+                    return "This product uses the CloudMade APIs, but is not endorsed or certified by CloudMade.";
+                }
+            });
         }
     };
     

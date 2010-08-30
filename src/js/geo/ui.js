@@ -721,7 +721,8 @@ TILE5.Geo.UI = (function() {
                 boundsChangeThreshold: 30,
                 pois: new TILE5.Geo.POIStorage(),
                 createAnnotationForPOI: null,
-                onTilesLoaded: null
+                onTilesLoaded: null,
+                zoomAnimation: TILE5.Animation.Easing.Quad.Out
             }, params);
             
             // initialise variables
@@ -1004,7 +1005,7 @@ TILE5.Geo.UI = (function() {
             });
             
             self.bind("doubleTap", function(absXY, relXY) {
-                self.animate(2, TILE5.D.getCenter(self.getDimensions()), new TILE5.Vector(relXY.x, relXY.y), TILE5.Animation.Easing.Sine.Out);
+                self.animate(2, TILE5.D.getCenter(self.getDimensions()), new TILE5.Vector(relXY.x, relXY.y), params.zoomAnimation);
             });
             
             self.bind("scale", function(scaleAmount, zoomXY) {

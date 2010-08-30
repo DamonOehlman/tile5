@@ -2,7 +2,9 @@
 TILE5.Geo.Bing = (function() {
     var zoomMin = 3,
         zoomMax = 20,
-        imageUrl = "",
+        imageUrls = {},
+        logoUrl, 
+        copyrightText,
         subDomains = [];
     
     // define the module
@@ -26,8 +28,11 @@ TILE5.Geo.Bing = (function() {
                     // FIXME: very hacky...
                     var resourceData = data.resourceSets[0].resources[0];
                     
-                    imageUrl = resourceData.imageUrl;
+                    imageUrls[params.style] = resourceData.imageUrl;
                     subDomains = resourceData.imageUrlSubdomains;
+                    
+                    logoUrl = data.brandLogoUri;
+                    copyrightText = data.copyright;
                     
                     zoomMin = resourceData.zoomMin;
                     zoomMax = resourceData.zoomMax;
@@ -79,7 +84,7 @@ TILE5.Geo.Bing = (function() {
                 tileGrid.populate(function(col, row, topLeftOffset, gridSize) {
                     // initialise the image url
                     var quadKey = quad(topLeftOffset.x + col, topLeftOffset.y + row, self.zoomLevel),
-                        tileUrl = imageUrl.replace("{quadkey}", quadKey);
+                        tileUrl = imageUrls[params.style].replace("{quadkey}", quadKey);
                         
                     // if the subdomain index, has extended beyond the bounds of the available subdomains, reset to 0
                     if (subdomainIdx >= subDomains.length) {
@@ -148,7 +153,7 @@ TILE5.Geo.Bing = (function() {
                 
                 getMapTiles: function(tiler, position, callback) {
                     // if the image url is empty, then get it
-                    if (! imageUrl) {
+                    if (! imageUrls[params.style]) {
                         authenticate(function() {
                             buildGrid(tiler, position, callback);
                         });
@@ -156,6 +161,14 @@ TILE5.Geo.Bing = (function() {
                     else {
                         buildGrid(tiler, position, callback);
                     } // if..else
+                },
+                
+                getCopyright: function() {
+                    return copyrightText;
+                },
+                
+                getLogoUrl: function() {
+                    return logoUrl;
                 }
             });
 

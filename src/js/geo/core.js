@@ -546,6 +546,9 @@ TILE5.Geo = (function() {
                 
                 getCopyright: function() {
                 },
+                
+                getLogoUrl: function() {
+                },
 
                 getMapTiles: function(tiler, position, zoom_level, callback) {
 

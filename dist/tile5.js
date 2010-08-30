@@ -2568,13 +2568,12 @@ TILE5.Touch = (function() {
             
             function wheelie(evt) {
                 var delta = new TILE5.Vector(evt.wheelDeltaX, evt.wheelDeltaY),
-                    zoomAmount = delta.y !== 0 ? Math.abs(delta.y / 120) : 0;
+                    zoomAmount = delta.y !== 0 ? Math.max(Math.abs(delta.y / 360), 1) : 0;
                     
                 if (lastXY && (zoomAmount !== 0)) {
                     // apply the offset to the xy
-                    GRUNT.Log.info("last xy = " + TILE5.V.toString(lastXY));
                     var xy = TILE5.V.offset(lastXY, -params.element.offsetLeft, -params.element.offsetTop);
-                    triggerEvent("wheelZoom", xy, delta.y > 0 ? zoomAmount + 0.75 : 0.75 / zoomAmount);
+                    triggerEvent("wheelZoom", xy, delta.y > 0 ? zoomAmount + 0.5 : 0.5 / zoomAmount);
                 } // if
             } // wheelie
 
@@ -3584,7 +3583,7 @@ TILE5.Graphics = (function() {
                 idle = false,
                 paintTimeout = 0,
                 idleTimeout = 0,
-                wheelTimeout = 0,
+                rescaleTimeout = 0,
                 bufferTime = 0,
                 zoomCenter = null,
                 tickCount = 0,
@@ -3668,25 +3667,7 @@ TILE5.Graphics = (function() {
             } // pinchZoomEnd
             
             function wheelZoom(relXY, zoom) {
-                scaleFactor = Math.min(Math.max(zoom, 0.25), 4);
-                scaling = scaleFactor !== 1;
-                
-                startCenter = TILE5.D.getCenter(self.getDimensions());
-                endCenter = TILE5.D.getCenter(self.getDimensions());
-                startRect = null;
-                
-                clearTimeout(wheelTimeout);
-                
-                if (scaling) {
-                    lastInteraction = TILE5.Clock.getTime(true);
-                    state = module.DisplayState.PINCHZOOM;
-
-                    wake();
-                    
-                    wheelTimeout = setTimeout(scaleView, 500);
-                } // if
-                
-                // GRUNT.Log.info("wheel zoom: " + TILE5.V.toString(relXY) + " amount = " + zoom);
+                self.zoom(Math.min(Math.max(zoom, 0.25), 4), 500);
             } // wheelZoom
             
             function scaleView(keepCenter) {
@@ -4081,6 +4062,27 @@ TILE5.Graphics = (function() {
                     else {
                         self.setOffset(x, y);
                     } // if..else
+                },
+                
+                zoom: function(newScaleFactor, rescaleAfter) {
+                    scaleFactor = newScaleFactor;
+                    scaling = scaleFactor !== 1;
+
+                    startCenter = TILE5.D.getCenter(self.getDimensions());
+                    endCenter = TILE5.D.getCenter(self.getDimensions());
+                    startRect = null;
+
+                    clearTimeout(rescaleTimeout);
+
+                    if (scaling) {
+                        lastInteraction = TILE5.Clock.getTime(true);
+                        state = module.DisplayState.PINCHZOOM;
+
+                        wake();
+                        if (rescaleAfter) {
+                            rescaleTimeout = setTimeout(scaleView, parseInt(rescaleAfter, 10));
+                        } // if
+                    } // if
                 }
             });
             
@@ -4217,7 +4219,7 @@ TILE5.Tiling = (function() {
                     centerPos = new TILE5.Vector(gridSize / 2, gridSize / 2);
                 
                 if (tileCreator) {
-                    GRUNT.Log.info("populating grid, x shift = " + tileShift.x + ", y shift = " + tileShift.y);
+                    // GRUNT.Log.info("populating grid, x shift = " + tileShift.x + ", y shift = " + tileShift.y);
                     
                     for (var row = 0; row < gridSize; row++) {
                         for (var col = 0; col < gridSize; col++) {
@@ -5297,6 +5299,9 @@ TILE5.Geo = (function() {
                 },
                 
                 getCopyright: function() {
+                },
+                
+                getLogoUrl: function() {
                 },
 
                 getMapTiles: function(tiler, position, zoom_level, callback) {
@@ -7033,7 +7038,8 @@ TILE5.Geo.UI = (function() {
                 boundsChangeThreshold: 30,
                 pois: new TILE5.Geo.POIStorage(),
                 createAnnotationForPOI: null,
-                onTilesLoaded: null
+                onTilesLoaded: null,
+                zoomAnimation: TILE5.Animation.Easing.Quad.Out
             }, params);
             
             // initialise variables
@@ -7316,7 +7322,7 @@ TILE5.Geo.UI = (function() {
             });
             
             self.bind("doubleTap", function(absXY, relXY) {
-                self.animate(2, TILE5.D.getCenter(self.getDimensions()), new TILE5.Vector(relXY.x, relXY.y), TILE5.Animation.Easing.Sine.Out);
+                self.animate(2, TILE5.D.getCenter(self.getDimensions()), new TILE5.Vector(relXY.x, relXY.y), params.zoomAnimation);
             });
             
             self.bind("scale", function(scaleAmount, zoomXY) {
