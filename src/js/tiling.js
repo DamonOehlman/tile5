@@ -199,9 +199,7 @@ TILE5.Tiling = (function() {
     
     function getEmptyTile() {
         if (! emptyTile) {
-            emptyTile = document.createElement('canvas');
-            emptyTile.width = module.Config.TILESIZE;
-            emptyTile.height = module.Config.TILESIZE;
+            emptyTile = TILE5.newCanvas(module.Config.TILESIZE, module.Config.TILESIZE);
             
             var tileContext = emptyTile.getContext('2d');
             
@@ -217,11 +215,7 @@ TILE5.Tiling = (function() {
         function getPattern() {
             var patternSize = 32,
                 halfSize = patternSize / 2,
-                patternCanvas = document.createElement('canvas');
-                
-            // initialise the canvas size
-            patternCanvas.width = patternSize;
-            patternCanvas.height = patternSize;
+                patternCanvas = TILE5.newCanvas(patternSize, patternSize);
             
             // get the canvas context
             var context = patternCanvas.getContext("2d");
@@ -239,9 +233,7 @@ TILE5.Tiling = (function() {
         } // getPattern
         
         if (! panningTile) {
-            panningTile = document.createElement('canvas');
-            panningTile.width = module.Config.TILESIZE;
-            panningTile.height = module.Config.TILESIZE;
+            panningTile = TILE5.newCanvas(module.Config.TILESIZE, module.Config.TILESIZE);
             
             var tileContext = panningTile.getContext('2d');
 

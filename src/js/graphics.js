@@ -344,8 +344,6 @@ TILE5.Graphics = (function() {
                 wakeTriggers = 0,
                 fpsLayer = null,
                 endCenter = null,
-                pannable = null,
-                scalable = null,
                 idle = false,
                 paintTimeout = 0,
                 idleTimeout = 0,
@@ -582,9 +580,6 @@ TILE5.Graphics = (function() {
                 // get the tickcount
                 tickCount = new Date().getTime();
                 
-                // get the updated the offset
-                // offset = pannable ? pannable.getOffset() : new TILE5.Vector();
-                
                 // conver the offset x and y to integer values
                 // while canvas implementations work fine with real numbers, the actual drawing of images
                 // will not look crisp when a real number is used rather than an integer (or so I've found)
@@ -696,7 +691,7 @@ TILE5.Graphics = (function() {
                 },
                 
                 centerOn: function(offset) {
-                    pannable.setOffset(offset.x - (canvas.width / 2), offset.y - (canvas.height / 2));
+                    self.setOffset(offset.x - (canvas.width / 2), offset.y - (canvas.height / 2));
                 },
                 
                 getDimensions: function() {
@@ -778,12 +773,8 @@ TILE5.Graphics = (function() {
                         targetXY = TILE5.D.getCenter(dimensions);
                     } // if
                     
-                    // if the view is scalable then go for it
-                    if (scalable) {
-                        scalable.animate(targetScaling, startXY, targetXY, tweenFn, callback);
-                    }
-                    
-                    return scalable;
+                    self.animate(targetScaling, startXY, targetXY, tweenFn, callback);
+                    return self;
                 },
                 
                 removeLayer: function(id) {

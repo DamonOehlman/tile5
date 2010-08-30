@@ -1,5 +1,20 @@
 TILE5 = (function () {
     var module = {
+        newCanvas: function(width, height) {
+            var tmpCanvas = document.createElement('canvas');
+            
+            // initialise the canvas element if using explorercanvas
+            if (typeof(G_vmlCanvasManager) !== undefined) {
+                G_vmlCanvasManager.initElement(tmpCanvas);
+            } // if
+
+            // set the size of the canvas if specified
+            tmpCanvas.width = width ? width : 0;
+            tmpCanvas.height = height ? height : 0;
+            
+            return tmpCanvas;
+        },
+        
         Settings: (function() {
             var currentSettings = {};
             

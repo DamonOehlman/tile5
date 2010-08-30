@@ -53,9 +53,7 @@ TILE5.Geo.UI = (function() {
         } // drawCrosshair
         
         function createCrosshair() { 
-            var newCanvas = document.createElement('canvas');
-            newCanvas.width = params.size * 4;
-            newCanvas.height = params.size * 4;
+            var newCanvas = TILE5.newCanvas(params.size * 4, params.size * 4);
 
             // draw the cross hair
             drawCrosshair(newCanvas.getContext("2d"), new TILE5.Vector(newCanvas.width / 2, newCanvas.height / 2), params.size);
@@ -716,7 +714,6 @@ TILE5.Geo.UI = (function() {
                 tapExtent: 10,
                 provider: null,
                 crosshair: true,
-                copyright: undefined,
                 zoomLevel: 0,
                 boundsChange: null,
                 tapPOI: null,
@@ -727,15 +724,9 @@ TILE5.Geo.UI = (function() {
                 onTilesLoaded: null
             }, params);
             
-            // if the copyright message is not defined, then use the provider
-            if (typeof(params.copyright) === 'undefined') {
-                params.copyright = params.provider ? params.provider.getCopyright() : "";
-            } // if
-
             // initialise variables
             var lastBoundsChangeOffset = new TILE5.Vector(),
                 locationWatchId = 0,
-                copyrightMessage = params.copyright,
                 initialized = false,
                 tappedPOIs = [],
                 lastRequestTime = 0,
@@ -1051,22 +1042,6 @@ TILE5.Geo.UI = (function() {
                 self.setLayer("crosshair", new CrosshairOverlay());
             } // if
 
-            // if we have a copyright message, then add the message
-            if (copyrightMessage) {
-                self.setLayer("copyright", new TILE5.Graphics.ViewLayer({
-                    zindex: 999,
-                    draw: function(context, offset, dimensions, state, view) {
-                        context.lineWidth = 2.5;
-                        context.fillStyle = "rgb(50, 50, 50)";
-                        context.strokeStyle = "rgba(255, 255, 255, 0.8)";
-                        context.font = "bold 10px sans";
-                        context.textBaseline = "bottom";
-                        context.strokeText(copyrightMessage, 10, dimensions.height - 10);
-                        context.fillText(copyrightMessage, 10, dimensions.height - 10);
-                    }
-                }));
-            } // if
-            
             // listen for the view idling
             GRUNT.WaterCooler.listen("view.idle", function(args) {
                 if (args.id && (args.id == self.id)) {

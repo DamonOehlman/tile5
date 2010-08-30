@@ -50,7 +50,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		<ant dir="lib/grunt" />
 	</target>
 	
-	<target name="build" depends="grunt-build" description="Slick library core build, concatenates core files and updates @VERSION">
+	<target name="build-core" depends="grunt-build" description="Core JS File build">
 		<echo message="BUILDING TILE5 CORE" />
 		<mkdir dir="${dist}" />
 		
@@ -84,6 +84,20 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/geo/ui.js" />
 		</concat>
 		
+		<!-- TODO: if the strip logging property is set, then strip it -->
+		<!-- 
+		<replaceregexp match="GRUNT.Log\.(log|info|warn).*?\;" replace="" flags="g" byline="false" file="${TILE5}" />
+		-->
+		
+		<!-- TODO: call the targets to concatenate the required modules -->
+		
+		<replaceregexp match="@VERSION" replace="${version}" flags="g" byline="true" file="${TILE5}" />
+		<replaceregexp match="Date: " replace="Date: ${date}" file="${TILE5}" />
+	</target>
+	
+	<target name="build-providers" description="Build the Mapping providers for Tile5">
+		<echo message="BUILDING TILE5 MAP PROVIDERS" />
+		
 		<!-- construct the core providers -->
 		<concat destfile="${dist}/${LIBNAME}.osm.js">
 			<fileset file="src/js/geo/providers/osm.js" />
@@ -98,14 +112,10 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		<concat destfile="${dist}/${LIBNAME}.decarta.js">
 			<fileset file="src/js/geo/providers/decarta.js" />
 		</concat>
-		
-		<concat destfile="${dist}/tests.${LIBNAME}.js">
-			<fileset file="lib/grunt/dist/grunt.test.js" />
-			<fileset file="test/unit/core.js" />
-			<fileset file="test/unit/geo.js" />
-			<fileset file="test/unit/mapping.js" />
-			<fileset file="test/unit/cloudmade.js" />
-		</concat>
+	</target>
+	
+	<target name="build-lite" description="Build the lite version of the library">
+		<echo message="BUILDING TILE5 LITE" />
 		
 		<!-- build the lite version of tile5 -->
 		<concat destfile="${dist}/${LIBNAME}.lite.js">
@@ -114,6 +124,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			
 			<!-- include dependencies -->
 			<fileset file="lib/grunt/src/core.js" />
+			<fileset file="lib/grunt/src/event.js" />
 			
 			<!-- include core functionality -->
 			<fileset file="src/js/core.js" />
@@ -126,16 +137,19 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/graphics.js" />
 			<fileset file="src/js/tiling.js" />
 		</concat>
-		
-		<!-- TODO: if the strip logging property is set, then strip it -->
-		<!-- 
-		<replaceregexp match="GRUNT.Log\.(log|info|warn).*?\;" replace="" flags="g" byline="false" file="${TILE5}" />
-		-->
-		
-		<!-- TODO: call the targets to concatenate the required modules -->
-		
-		<replaceregexp match="@VERSION" replace="${version}" flags="g" byline="true" file="${TILE5}" />
-		<replaceregexp match="Date: " replace="Date: ${date}" file="${TILE5}" />
+	</target>
+	
+	<target name="build-tests" description="Build the tests">
+		<concat destfile="${dist}/tests.${LIBNAME}.js">
+			<fileset file="lib/grunt/dist/grunt.test.js" />
+			<fileset file="test/unit/core.js" />
+			<fileset file="test/unit/geo.js" />
+			<fileset file="test/unit/mapping.js" />
+			<fileset file="test/unit/cloudmade.js" />
+		</concat>
+	</target>
+	
+	<target name="build" depends="build-core,build-providers,build-lite,build-tests" description="Slick library core build, concatenates core files and updates @VERSION">
         <echo message="${TILE5} (and associated libraries) built." />
 	</target>
 	

@@ -1522,6 +1522,21 @@ GRUNT.WaterCooler = (function() {
 /* GRUNTJS END */
 TILE5 = (function () {
     var module = {
+        newCanvas: function(width, height) {
+            var tmpCanvas = document.createElement('canvas');
+            
+            // initialise the canvas element if using explorercanvas
+            if (typeof(G_vmlCanvasManager) !== undefined) {
+                G_vmlCanvasManager.initElement(tmpCanvas);
+            } // if
+
+            // set the size of the canvas if specified
+            tmpCanvas.width = width ? width : 0;
+            tmpCanvas.height = height ? height : 0;
+            
+            return tmpCanvas;
+        },
+        
         Settings: (function() {
             var currentSettings = {};
             
@@ -1911,6 +1926,7 @@ TILE5.Resources = (function() {
             var imageData = loadWatchers[this.id];
             if (imageData) {
                 imageData.loaded = true;
+                // TODO: check the image width to ensure the image is loaded properly
                 imageData.hitCount = 1;
                 
                 // remove the image data from the loading images array
@@ -3555,8 +3571,6 @@ TILE5.Graphics = (function() {
                 wakeTriggers = 0,
                 fpsLayer = null,
                 endCenter = null,
-                pannable = null,
-                scalable = null,
                 idle = false,
                 paintTimeout = 0,
                 idleTimeout = 0,
@@ -3793,9 +3807,6 @@ TILE5.Graphics = (function() {
                 // get the tickcount
                 tickCount = new Date().getTime();
                 
-                // get the updated the offset
-                // offset = pannable ? pannable.getOffset() : new TILE5.Vector();
-                
                 // conver the offset x and y to integer values
                 // while canvas implementations work fine with real numbers, the actual drawing of images
                 // will not look crisp when a real number is used rather than an integer (or so I've found)
@@ -3907,7 +3918,7 @@ TILE5.Graphics = (function() {
                 },
                 
                 centerOn: function(offset) {
-                    pannable.setOffset(offset.x - (canvas.width / 2), offset.y - (canvas.height / 2));
+                    self.setOffset(offset.x - (canvas.width / 2), offset.y - (canvas.height / 2));
                 },
                 
                 getDimensions: function() {
@@ -3989,12 +4000,8 @@ TILE5.Graphics = (function() {
                         targetXY = TILE5.D.getCenter(dimensions);
                     } // if
                     
-                    // if the view is scalable then go for it
-                    if (scalable) {
-                        scalable.animate(targetScaling, startXY, targetXY, tweenFn, callback);
-                    }
-                    
-                    return scalable;
+                    self.animate(targetScaling, startXY, targetXY, tweenFn, callback);
+                    return self;
                 },
                 
                 removeLayer: function(id) {
@@ -4301,9 +4308,7 @@ TILE5.Tiling = (function() {
     
     function getEmptyTile() {
         if (! emptyTile) {
-            emptyTile = document.createElement('canvas');
-            emptyTile.width = module.Config.TILESIZE;
-            emptyTile.height = module.Config.TILESIZE;
+            emptyTile = TILE5.newCanvas(module.Config.TILESIZE, module.Config.TILESIZE);
             
             var tileContext = emptyTile.getContext('2d');
             
@@ -4319,11 +4324,7 @@ TILE5.Tiling = (function() {
         function getPattern() {
             var patternSize = 32,
                 halfSize = patternSize / 2,
-                patternCanvas = document.createElement('canvas');
-                
-            // initialise the canvas size
-            patternCanvas.width = patternSize;
-            patternCanvas.height = patternSize;
+                patternCanvas = TILE5.newCanvas(patternSize, patternSize);
             
             // get the canvas context
             var context = patternCanvas.getContext("2d");
@@ -4341,9 +4342,7 @@ TILE5.Tiling = (function() {
         } // getPattern
         
         if (! panningTile) {
-            panningTile = document.createElement('canvas');
-            panningTile.width = module.Config.TILESIZE;
-            panningTile.height = module.Config.TILESIZE;
+            panningTile = TILE5.newCanvas(module.Config.TILESIZE, module.Config.TILESIZE);
             
             var tileContext = panningTile.getContext('2d');
 
@@ -6331,9 +6330,7 @@ TILE5.Geo.UI = (function() {
         } // drawCrosshair
         
         function createCrosshair() { 
-            var newCanvas = document.createElement('canvas');
-            newCanvas.width = params.size * 4;
-            newCanvas.height = params.size * 4;
+            var newCanvas = TILE5.newCanvas(params.size * 4, params.size * 4);
 
             // draw the cross hair
             drawCrosshair(newCanvas.getContext("2d"), new TILE5.Vector(newCanvas.width / 2, newCanvas.height / 2), params.size);
@@ -6994,7 +6991,6 @@ TILE5.Geo.UI = (function() {
                 tapExtent: 10,
                 provider: null,
                 crosshair: true,
-                copyright: undefined,
                 zoomLevel: 0,
                 boundsChange: null,
                 tapPOI: null,
@@ -7005,15 +7001,9 @@ TILE5.Geo.UI = (function() {
                 onTilesLoaded: null
             }, params);
             
-            // if the copyright message is not defined, then use the provider
-            if (typeof(params.copyright) === 'undefined') {
-                params.copyright = params.provider ? params.provider.getCopyright() : "";
-            } // if
-
             // initialise variables
             var lastBoundsChangeOffset = new TILE5.Vector(),
                 locationWatchId = 0,
-                copyrightMessage = params.copyright,
                 initialized = false,
                 tappedPOIs = [],
                 lastRequestTime = 0,
@@ -7329,22 +7319,6 @@ TILE5.Geo.UI = (function() {
                 self.setLayer("crosshair", new CrosshairOverlay());
             } // if
 
-            // if we have a copyright message, then add the message
-            if (copyrightMessage) {
-                self.setLayer("copyright", new TILE5.Graphics.ViewLayer({
-                    zindex: 999,
-                    draw: function(context, offset, dimensions, state, view) {
-                        context.lineWidth = 2.5;
-                        context.fillStyle = "rgb(50, 50, 50)";
-                        context.strokeStyle = "rgba(255, 255, 255, 0.8)";
-                        context.font = "bold 10px sans";
-                        context.textBaseline = "bottom";
-                        context.strokeText(copyrightMessage, 10, dimensions.height - 10);
-                        context.fillText(copyrightMessage, 10, dimensions.height - 10);
-                    }
-                }));
-            } // if
-            
             // listen for the view idling
             GRUNT.WaterCooler.listen("view.idle", function(args) {
                 if (args.id && (args.id == self.id)) {
