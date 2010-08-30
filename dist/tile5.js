@@ -1685,6 +1685,10 @@ TILE5 = (function () {
                             Math.abs(vectorArray[0].y - vectorArray[arrayLen - 1].y)
                         );
                     }
+                },
+                
+                toString: function(vector) {
+                    return vector.x + ", " + vector.y;
                 }
             };
         })(),
@@ -1808,7 +1812,7 @@ TILE5.Device = (function() {
                 maxImageLoads: 4,
                 requireFastDraw: false,
                 bridgeNotify: bridgeNotifyLog,
-                targetFps: 25
+                targetFps: null
             },
             
             ipod: {
@@ -1924,7 +1928,7 @@ TILE5.Resources = (function() {
         function handleImageLoad() {
             // get the image data
             var imageData = loadWatchers[this.id];
-            if (imageData) {
+            if (imageData && imageData.image.complete && (imageData.image.width > 0)) {
                 imageData.loaded = true;
                 // TODO: check the image width to ensure the image is loaded properly
                 imageData.hitCount = 1;
@@ -2298,8 +2302,8 @@ TILE5.Touch = (function() {
         return fnresult;
     } // getTouchPoints
     
-    function getMousePos(event) {
-        return [new TILE5.Vector(event.pageX, event.pageY)];
+    function getMousePos(evt) {
+        return [new TILE5.Vector(evt.pageX, evt.pageY)];
     } // getMousePos
     
     function debugTouchEvent(evt, title) {
@@ -2347,6 +2351,7 @@ TILE5.Touch = (function() {
                 touchMode = null,
                 touchDown = false,
                 listeners = [],
+                lastXY = null,
                 ticks = {
                     current: 0,
                     last: 0
@@ -2435,6 +2440,10 @@ TILE5.Touch = (function() {
             
             function touchMove(evt) {
                 if (evt.target && (evt.target === params.element)) {
+                    if (! supportsTouch) {
+                        lastXY = getMousePos(evt)[0];
+                    } // if
+
                     if (! touchDown) { return; }
 
                     try {
@@ -2556,6 +2565,18 @@ TILE5.Touch = (function() {
                 
                 touchDown = false;
             } // touchEnd
+            
+            function wheelie(evt) {
+                var delta = new TILE5.Vector(evt.wheelDeltaX, evt.wheelDeltaY),
+                    zoomAmount = delta.y !== 0 ? Math.abs(delta.y / 120) : 0;
+                    
+                if (lastXY && (zoomAmount !== 0)) {
+                    // apply the offset to the xy
+                    GRUNT.Log.info("last xy = " + TILE5.V.toString(lastXY));
+                    var xy = TILE5.V.offset(lastXY, -params.element.offsetLeft, -params.element.offsetTop);
+                    triggerEvent("wheelZoom", xy, delta.y > 0 ? zoomAmount + 0.75 : 0.75 / zoomAmount);
+                } // if
+            } // wheelie
 
             // initialise self
             var self = {
@@ -2587,18 +2608,11 @@ TILE5.Touch = (function() {
                     config.eventTarget.removeEventListener(config.supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
                     config.eventTarget.removeEventListener(config.supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
                     config.eventTarget.removeEventListener(config.supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
-                },
-                
-                wheelie: function(evt) {
-                    var delta = new TILE5.Vector(evt.wheelDeltaX, evt.wheelDeltaY),
-                        xy = new TILE5.Vector(evt.clientX, evt.clientY),
-                        zoomAmount = delta.y !== 0 ? Math.abs(delta.y / 120) : 0;
-                        
-                    if (zoomAmount !== 0) {
-                        // triggerEvent("wheelZoom", xy, delta.y > 0 ? zoomAmount + 0.5 : 0.5 / zoomAmount);
-                    } // if
                     
-                    GRUNT.Log.info("capture mouse wheel event, delta = " + delta + ", position = " + xy);
+                    // handle mouse wheel events by
+                    if (! config.supportsTouch) {
+                        config.eventTarget.removeEventListener("mousewheel", wheelie, false);
+                    } // if
                 }
             };
             
@@ -2607,14 +2621,10 @@ TILE5.Touch = (function() {
             config.eventTarget.addEventListener(config.supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
             config.eventTarget.addEventListener(config.supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
             
-            /*
             // handle mouse wheel events by
-            eventTarget.addEventListener(
-                "mousewheel",
-                function (evt) {
-                    touchHelper.wheelie(evt);
-                }, false);
-            */
+            if (! config.supportsTouch) {
+                config.eventTarget.addEventListener("mousewheel", wheelie, false);
+            } // if
 
             return self;
         } // TouchHelper
@@ -3574,6 +3584,7 @@ TILE5.Graphics = (function() {
                 idle = false,
                 paintTimeout = 0,
                 idleTimeout = 0,
+                wheelTimeout = 0,
                 bufferTime = 0,
                 zoomCenter = null,
                 tickCount = 0,
@@ -3656,6 +3667,28 @@ TILE5.Graphics = (function() {
                 scaleFactor = 1;
             } // pinchZoomEnd
             
+            function wheelZoom(relXY, zoom) {
+                scaleFactor = Math.min(Math.max(zoom, 0.25), 4);
+                scaling = scaleFactor !== 1;
+                
+                startCenter = TILE5.D.getCenter(self.getDimensions());
+                endCenter = TILE5.D.getCenter(self.getDimensions());
+                startRect = null;
+                
+                clearTimeout(wheelTimeout);
+                
+                if (scaling) {
+                    lastInteraction = TILE5.Clock.getTime(true);
+                    state = module.DisplayState.PINCHZOOM;
+
+                    wake();
+                    
+                    wheelTimeout = setTimeout(scaleView, 500);
+                } // if
+                
+                // GRUNT.Log.info("wheel zoom: " + TILE5.V.toString(relXY) + " amount = " + zoom);
+            } // wheelZoom
+            
             function scaleView(keepCenter) {
                 // TODO: can this be removed
                 GRUNT.WaterCooler.say("view.scale", { id: self.id });
@@ -3665,6 +3698,7 @@ TILE5.Graphics = (function() {
 
                 // reset the status flag
                 state = module.DisplayState.ACTIVE;
+                scaleFactor = 1;
                 wake();
             } // scaleView
             
@@ -4095,6 +4129,7 @@ TILE5.Graphics = (function() {
             self.bind("moveEnd", panEnd);
             self.bind("pinchZoom", pinchZoom);
             self.bind("pinchZoomEnd", pinchZoomEnd);
+            self.bind("wheelZoom", wheelZoom);
             
             // add a status view layer for experimentation sake
             // self.setLayer("status", new module.StatusViewLayer());

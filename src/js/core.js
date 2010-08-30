@@ -163,6 +163,10 @@ TILE5 = (function () {
                             Math.abs(vectorArray[0].y - vectorArray[arrayLen - 1].y)
                         );
                     }
+                },
+                
+                toString: function(vector) {
+                    return vector.x + ", " + vector.y;
                 }
             };
         })(),

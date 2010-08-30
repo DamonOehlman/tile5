@@ -347,6 +347,7 @@ TILE5.Graphics = (function() {
                 idle = false,
                 paintTimeout = 0,
                 idleTimeout = 0,
+                wheelTimeout = 0,
                 bufferTime = 0,
                 zoomCenter = null,
                 tickCount = 0,
@@ -429,6 +430,28 @@ TILE5.Graphics = (function() {
                 scaleFactor = 1;
             } // pinchZoomEnd
             
+            function wheelZoom(relXY, zoom) {
+                scaleFactor = Math.min(Math.max(zoom, 0.25), 4);
+                scaling = scaleFactor !== 1;
+                
+                startCenter = TILE5.D.getCenter(self.getDimensions());
+                endCenter = TILE5.D.getCenter(self.getDimensions());
+                startRect = null;
+                
+                clearTimeout(wheelTimeout);
+                
+                if (scaling) {
+                    lastInteraction = TILE5.Clock.getTime(true);
+                    state = module.DisplayState.PINCHZOOM;
+
+                    wake();
+                    
+                    wheelTimeout = setTimeout(scaleView, 500);
+                } // if
+                
+                // GRUNT.Log.info("wheel zoom: " + TILE5.V.toString(relXY) + " amount = " + zoom);
+            } // wheelZoom
+            
             function scaleView(keepCenter) {
                 // TODO: can this be removed
                 GRUNT.WaterCooler.say("view.scale", { id: self.id });
@@ -438,6 +461,7 @@ TILE5.Graphics = (function() {
 
                 // reset the status flag
                 state = module.DisplayState.ACTIVE;
+                scaleFactor = 1;
                 wake();
             } // scaleView
             
@@ -868,6 +892,7 @@ TILE5.Graphics = (function() {
             self.bind("moveEnd", panEnd);
             self.bind("pinchZoom", pinchZoom);
             self.bind("pinchZoomEnd", pinchZoomEnd);
+            self.bind("wheelZoom", wheelZoom);
             
             // add a status view layer for experimentation sake
             // self.setLayer("status", new module.StatusViewLayer());

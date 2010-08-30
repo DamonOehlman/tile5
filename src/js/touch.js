@@ -40,8 +40,8 @@ TILE5.Touch = (function() {
         return fnresult;
     } // getTouchPoints
     
-    function getMousePos(event) {
-        return [new TILE5.Vector(event.pageX, event.pageY)];
+    function getMousePos(evt) {
+        return [new TILE5.Vector(evt.pageX, evt.pageY)];
     } // getMousePos
     
     function debugTouchEvent(evt, title) {
@@ -89,6 +89,7 @@ TILE5.Touch = (function() {
                 touchMode = null,
                 touchDown = false,
                 listeners = [],
+                lastXY = null,
                 ticks = {
                     current: 0,
                     last: 0
@@ -177,6 +178,10 @@ TILE5.Touch = (function() {
             
             function touchMove(evt) {
                 if (evt.target && (evt.target === params.element)) {
+                    if (! supportsTouch) {
+                        lastXY = getMousePos(evt)[0];
+                    } // if
+
                     if (! touchDown) { return; }
 
                     try {
@@ -298,6 +303,18 @@ TILE5.Touch = (function() {
                 
                 touchDown = false;
             } // touchEnd
+            
+            function wheelie(evt) {
+                var delta = new TILE5.Vector(evt.wheelDeltaX, evt.wheelDeltaY),
+                    zoomAmount = delta.y !== 0 ? Math.abs(delta.y / 120) : 0;
+                    
+                if (lastXY && (zoomAmount !== 0)) {
+                    // apply the offset to the xy
+                    GRUNT.Log.info("last xy = " + TILE5.V.toString(lastXY));
+                    var xy = TILE5.V.offset(lastXY, -params.element.offsetLeft, -params.element.offsetTop);
+                    triggerEvent("wheelZoom", xy, delta.y > 0 ? zoomAmount + 0.75 : 0.75 / zoomAmount);
+                } // if
+            } // wheelie
 
             // initialise self
             var self = {
@@ -329,18 +346,11 @@ TILE5.Touch = (function() {
                     config.eventTarget.removeEventListener(config.supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
                     config.eventTarget.removeEventListener(config.supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
                     config.eventTarget.removeEventListener(config.supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
-                },
-                
-                wheelie: function(evt) {
-                    var delta = new TILE5.Vector(evt.wheelDeltaX, evt.wheelDeltaY),
-                        xy = new TILE5.Vector(evt.clientX, evt.clientY),
-                        zoomAmount = delta.y !== 0 ? Math.abs(delta.y / 120) : 0;
-                        
-                    if (zoomAmount !== 0) {
-                        // triggerEvent("wheelZoom", xy, delta.y > 0 ? zoomAmount + 0.5 : 0.5 / zoomAmount);
-                    } // if
                     
-                    GRUNT.Log.info("capture mouse wheel event, delta = " + delta + ", position = " + xy);
+                    // handle mouse wheel events by
+                    if (! config.supportsTouch) {
+                        config.eventTarget.removeEventListener("mousewheel", wheelie, false);
+                    } // if
                 }
             };
             
@@ -349,14 +359,10 @@ TILE5.Touch = (function() {
             config.eventTarget.addEventListener(config.supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
             config.eventTarget.addEventListener(config.supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
             
-            /*
             // handle mouse wheel events by
-            eventTarget.addEventListener(
-                "mousewheel",
-                function (evt) {
-                    touchHelper.wheelie(evt);
-                }, false);
-            */
+            if (! config.supportsTouch) {
+                config.eventTarget.addEventListener("mousewheel", wheelie, false);
+            } // if
 
             return self;
         } // TouchHelper

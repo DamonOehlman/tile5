@@ -67,7 +67,7 @@ TILE5.Device = (function() {
                 maxImageLoads: 4,
                 requireFastDraw: false,
                 bridgeNotify: bridgeNotifyLog,
-                targetFps: 25
+                targetFps: null
             },
             
             ipod: {

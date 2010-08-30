@@ -18,7 +18,7 @@ TILE5.Resources = (function() {
         function handleImageLoad() {
             // get the image data
             var imageData = loadWatchers[this.id];
-            if (imageData) {
+            if (imageData && imageData.image.complete && (imageData.image.width > 0)) {
                 imageData.loaded = true;
                 // TODO: check the image width to ensure the image is loaded properly
                 imageData.hitCount = 1;
