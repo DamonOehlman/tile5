@@ -4,7 +4,7 @@ TILE5 = (function () {
             var tmpCanvas = document.createElement('canvas');
             
             // initialise the canvas element if using explorercanvas
-            if (typeof(G_vmlCanvasManager) !== undefined) {
+            if (typeof(G_vmlCanvasManager) !== "undefined") {
                 G_vmlCanvasManager.initElement(tmpCanvas);
             } // if
 
