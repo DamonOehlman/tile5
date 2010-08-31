@@ -825,9 +825,12 @@ TILE5.Geo.UI = (function() {
 
                     if (currentBounds) {
                         reset = !TILE5.Geo.P.inBounds(position, currentBounds);
+                        /*
+                        // TODO: get this right...
                         if (reset) {
                             self.clearBackground();
                         }
+                        */
                     } // if                        
 
                     // if a new zoom level is specified, then use it

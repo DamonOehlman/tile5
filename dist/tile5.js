@@ -2462,7 +2462,7 @@ TILE5.Touch = (function() {
                                 touchesStart = [].concat(touchesCurrent);
                             } // if
 
-                            zoomDistance = calcDistance(touchesStart) - calcDistance(touchesLast);
+                            zoomDistance = calcDistance(touchesStart) - calcDistance(touchesCurrent);
                         } // if
 
                         // if the touch mode is tap, then check to see if we have gone beyond a move threshhold
@@ -3659,7 +3659,7 @@ TILE5.Graphics = (function() {
             function pinchZoomEnd(touchesStart, touchesEnd) {
                 checkTouches(touchesStart, touchesEnd);
 
-                scaleView(true);
+                scaleView();
                 
                 // restore the scale amount to 1
                 scaleFactor = 1;
@@ -3669,12 +3669,12 @@ TILE5.Graphics = (function() {
                 self.zoom(Math.min(Math.max(zoom, 0.25), 4), 500);
             } // wheelZoom
             
-            function scaleView(keepCenter) {
+            function scaleView() {
                 // TODO: can this be removed
                 GRUNT.WaterCooler.say("view.scale", { id: self.id });
                 
                 scaling = false;
-                self.trigger("scale", scaleFactor, endCenter, keepCenter);
+                self.trigger("scale", scaleFactor, startRect ? calcPinchZoomCenter() : endCenter);
 
                 // reset the status flag
                 state = module.DisplayState.ACTIVE;
@@ -3737,6 +3737,18 @@ TILE5.Graphics = (function() {
             } // getLayerIndex
             
             /* draw code */
+            
+            function calcPinchZoomCenter() {
+                var center = TILE5.D.getCenter(dimensions),
+                    endDist = TILE5.V.distance([endCenter, center]),
+                    endTheta = TILE5.V.theta(endCenter, center, endDist),
+                    changeDist = TILE5.V.distance([startCenter, endCenter]);
+                    
+                center = TILE5.V.pointOnEdge(endCenter, center, endTheta, endDist / scaleFactor);
+                center = TILE5.V.add(center, TILE5.V.diff(startCenter, endCenter));
+                
+                return center;
+            } // calcPinchZoomCenter
             
             function calcZoomCenter() {
                 var displayCenter = TILE5.D.getCenter(dimensions),
@@ -7141,9 +7153,12 @@ TILE5.Geo.UI = (function() {
 
                     if (currentBounds) {
                         reset = !TILE5.Geo.P.inBounds(position, currentBounds);
+                        /*
+                        // TODO: get this right...
                         if (reset) {
                             self.clearBackground();
                         }
+                        */
                     } // if                        
 
                     // if a new zoom level is specified, then use it

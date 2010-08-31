@@ -201,7 +201,7 @@ TILE5.Touch = (function() {
                                 touchesStart = [].concat(touchesCurrent);
                             } // if
 
-                            zoomDistance = calcDistance(touchesStart) - calcDistance(touchesLast);
+                            zoomDistance = calcDistance(touchesStart) - calcDistance(touchesCurrent);
                         } // if
 
                         // if the touch mode is tap, then check to see if we have gone beyond a move threshhold
