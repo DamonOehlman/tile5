@@ -751,6 +751,15 @@ TILE5.Geo.UI = (function() {
                 pois: params.pois,
                 annotations: null,
                 
+                getProvider: function() {
+                    return params.provider;
+                },
+                
+                setProvider: function(value) {
+                    params.provider = value;
+                    initialized = false;
+                },
+                
                 getBoundingBox: function() {
                     var grid = self.getTileLayer(),
                         offset = self.getOffset(),
@@ -845,8 +854,6 @@ TILE5.Geo.UI = (function() {
                     if (params.provider) {
                         zoomLevel = params.provider.checkZoomLevel(zoomLevel);
                     } // if
-                    
-                    GRUNT.Log.info("new zoom level = " + zoomLevel + ", current zoom level = " + currentZoomLevel);
                     
                     // if the zoom level is different from the current zoom level, then update the map tiles
                     if (reset || (! initialized) || (zoomLevel !== currentZoomLevel)) {
