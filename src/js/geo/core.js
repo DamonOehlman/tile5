@@ -536,12 +536,15 @@ TILE5.Geo = (function() {
         },
           
         MapProvider: function() {
+            var zoomMin = 1,
+                zoomMax = 20;
+            
             // initailise self
             var self = {
                 zoomLevel: 0,
                 
                 checkZoomLevel: function(zoomLevel) {
-                    return zoomLevel;
+                    return Math.min(Math.max(zoomLevel, zoomMin), zoomMax);
                 },
                 
                 getCopyright: function() {
@@ -556,6 +559,18 @@ TILE5.Geo = (function() {
 
                 getPositionForXY: function(x, y) {
                     return null;
+                },
+                
+                getZoomRange: function() {
+                    return {
+                        min: zoomMin,
+                        max: zoomMax
+                    };
+                },
+                
+                setZoomRange: function(min, max) {
+                    zoomMin = min;
+                    zoomMax = max;
                 }
             };
 

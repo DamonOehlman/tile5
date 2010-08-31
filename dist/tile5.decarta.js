@@ -24,7 +24,7 @@ TILE5.Geo.Decarta = (function() {
     };
     
     var ZOOM_MAX = 19;
-    var ZOOM_MIN = 3;
+    var ZOOM_MIN = 2;
     
     var placeFormatters = {
         DEFAULT: function(params) {
@@ -924,13 +924,8 @@ TILE5.Geo.Decarta = (function() {
 
             // initialise self
             var self = GRUNT.extend({}, parent, {
-                checkZoomLevel: function(zoomLevel) {
-                    return Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoomLevel));
-                },
-                
-
                 getCopyright: function() {
-                    return "Mapping Webservices &copy; deCarta, Map Data &copy; Navteq";
+                    return "Mapping Webservices &copy; deCarta, Map Data &copy;Navteq";
                 },
                 
                 getMapTiles: function(tiler, position, callback) {
@@ -943,6 +938,8 @@ TILE5.Geo.Decarta = (function() {
                             });
                 }
             });
+            
+            self.setZoomRange(ZOOM_MIN, ZOOM_MAX);
 
             return self;
         } // MapProvider

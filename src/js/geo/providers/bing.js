@@ -1,8 +1,6 @@
 // BING Tiles: http://msdn.microsoft.com/en-us/library/bb259689.aspx
 TILE5.Geo.Bing = (function() {
-    var zoomMin = 3,
-        zoomMax = 20,
-        imageUrls = {},
+    var imageUrls = {},
         logoUrl, 
         copyrightText,
         subDomains = [];
@@ -34,8 +32,8 @@ TILE5.Geo.Bing = (function() {
                     logoUrl = data.brandLogoUri;
                     copyrightText = data.copyright;
                     
-                    zoomMin = resourceData.zoomMin;
-                    zoomMax = resourceData.zoomMax;
+                    self.setZoomRange(resourceData.zoomMin + 1, resourceData.zoomMax);
+
                     TILE5.Tiling.Config.TILESIZE = resourceData.imageHeight;
                     
                     if (callback) {
@@ -147,10 +145,6 @@ TILE5.Geo.Bing = (function() {
 
             // initialise self
             var self = GRUNT.extend({}, parent, {
-                checkZoomLevel: function(zoomLevel) {
-                    return Math.max(zoomMin, Math.min(zoomMax, zoomLevel));
-                },
-                
                 getMapTiles: function(tiler, position, callback) {
                     // if the image url is empty, then get it
                     if (! imageUrls[params.style]) {

@@ -2567,12 +2567,12 @@ TILE5.Touch = (function() {
             
             function wheelie(evt) {
                 var delta = new TILE5.Vector(evt.wheelDeltaX, evt.wheelDeltaY),
-                    zoomAmount = delta.y !== 0 ? Math.max(Math.abs(delta.y / 360), 1) : 0;
+                    zoomAmount = delta.y !== 0 ? Math.abs(delta.y / 120) : 0;
                     
                 if (lastXY && (zoomAmount !== 0)) {
                     // apply the offset to the xy
                     var xy = TILE5.V.offset(lastXY, -params.element.offsetLeft, -params.element.offsetTop);
-                    triggerEvent("wheelZoom", xy, delta.y > 0 ? zoomAmount + 0.5 : 0.5 / zoomAmount);
+                    triggerEvent("wheelZoom", xy, Math.pow(2, delta.y > 0 ? zoomAmount : -zoomAmount));
                 } // if
             } // wheelie
 
@@ -3666,7 +3666,7 @@ TILE5.Graphics = (function() {
             } // pinchZoomEnd
             
             function wheelZoom(relXY, zoom) {
-                self.zoom(Math.min(Math.max(zoom, 0.25), 4), 500);
+                self.zoom(relXY, Math.min(Math.pow(2, Math.round(Math.log(zoom))), 8), 500);
             } // wheelZoom
             
             function scaleView() {
@@ -3742,10 +3742,12 @@ TILE5.Graphics = (function() {
                 var center = TILE5.D.getCenter(dimensions),
                     endDist = TILE5.V.distance([endCenter, center]),
                     endTheta = TILE5.V.theta(endCenter, center, endDist),
-                    changeDist = TILE5.V.distance([startCenter, endCenter]);
+                    shiftDelta = TILE5.V.diff(startCenter, endCenter);
                     
                 center = TILE5.V.pointOnEdge(endCenter, center, endTheta, endDist / scaleFactor);
-                center = TILE5.V.add(center, TILE5.V.diff(startCenter, endCenter));
+
+                center.x = center.x + shiftDelta.x;
+                center.y = center.y + shiftDelta.y; 
                 
                 return center;
             } // calcPinchZoomCenter
@@ -4075,13 +4077,15 @@ TILE5.Graphics = (function() {
                     } // if..else
                 },
                 
-                zoom: function(newScaleFactor, rescaleAfter) {
+                zoom: function(targetXY, newScaleFactor, rescaleAfter) {
                     scaleFactor = newScaleFactor;
                     scaling = scaleFactor !== 1;
 
                     startCenter = TILE5.D.getCenter(self.getDimensions());
-                    endCenter = TILE5.D.getCenter(self.getDimensions());
+                    endCenter = scaleFactor > 1 ? TILE5.V.copy(targetXY) : TILE5.D.getCenter(self.getDimensions());
                     startRect = null;
+                    
+                    // GRUNT.Log.info("target xy = " + TILE5.V.toString(targetXY) + ", start center = " + TILE5.V.toString(startCenter) + ", end center = " + TILE5.V.toString(endCenter));
 
                     clearTimeout(rescaleTimeout);
 
@@ -5301,12 +5305,15 @@ TILE5.Geo = (function() {
         },
           
         MapProvider: function() {
+            var zoomMin = 1,
+                zoomMax = 20;
+            
             // initailise self
             var self = {
                 zoomLevel: 0,
                 
                 checkZoomLevel: function(zoomLevel) {
-                    return zoomLevel;
+                    return Math.min(Math.max(zoomLevel, zoomMin), zoomMax);
                 },
                 
                 getCopyright: function() {
@@ -5321,6 +5328,18 @@ TILE5.Geo = (function() {
 
                 getPositionForXY: function(x, y) {
                     return null;
+                },
+                
+                getZoomRange: function() {
+                    return {
+                        min: zoomMin,
+                        max: zoomMax
+                    };
+                },
+                
+                setZoomRange: function(min, max) {
+                    zoomMin = min;
+                    zoomMax = max;
                 }
             };
 
@@ -7093,7 +7112,7 @@ TILE5.Geo.UI = (function() {
 
                 getCenterPosition: function() {
                     // get the position for the grid position
-                    return self.getXYPosition(TILE5.D.getCenter(self.gridDimensions));
+                    return self.getXYPosition(TILE5.D.getCenter(self.getDimensions()));
                 },
                 
                 getXYPosition: function(xy) {
@@ -7166,13 +7185,15 @@ TILE5.Geo.UI = (function() {
 
                     // if the zoom level is not defined, then raise an exception
                     if (! zoomLevel) {
-                        throw "Zoom level required to goto a position.";
+                        throw new Error("Zoom level required to goto a position.");
                     } // if
 
                     // check the zoom level is ok
                     if (params.provider) {
                         zoomLevel = params.provider.checkZoomLevel(zoomLevel);
                     } // if
+                    
+                    GRUNT.Log.info("new zoom level = " + zoomLevel + ", current zoom level = " + currentZoomLevel);
                     
                     // if the zoom level is different from the current zoom level, then update the map tiles
                     if (reset || (! initialized) || (zoomLevel !== currentZoomLevel)) {
@@ -7210,6 +7231,9 @@ TILE5.Geo.UI = (function() {
                                 // pan to the correct position
                                 self.panToPosition(position, function() {
                                     self.unfreeze();
+                                    
+                                    // trigger the zoom level change event
+                                    self.trigger("zoomLevelChange", zoomLevel);
 
                                     if (callback) {
                                         callback();
@@ -7270,7 +7294,12 @@ TILE5.Geo.UI = (function() {
 
                 setZoomLevel: function(value) {
                     // if the current position is set, then goto the updated position
-                    self.gotoPosition(self.getCenterPosition(), value);
+                    try {
+                        self.gotoPosition(self.getCenterPosition(), value);
+                    }
+                    catch (e) {
+                        GRUNT.Log.exception(e);
+                    }
                 },
 
                 zoomIn: function() {

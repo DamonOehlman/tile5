@@ -3,7 +3,7 @@
 */
 TILE5.Geo.OpenStreetMap = (function() {
     // define some constants
-    var ZOOMLEVEL_MIN = 3;
+    var ZOOMLEVEL_MIN = 2;
     var ZOOMLEVEL_MAX = 17;
     
     // define the module
@@ -133,10 +133,6 @@ TILE5.Geo.OpenStreetMap = (function() {
 
             // initialise self
             var self = GRUNT.extend({}, parent, {
-                checkZoomLevel: function(zoomLevel) {
-                    return Math.max(ZOOMLEVEL_MIN, Math.min(ZOOMLEVEL_MAX, zoomLevel));
-                },
-                
                 getMapTiles: function(tiler, position, callback) {
                     // check and update the tiler tile size if required
 
@@ -149,6 +145,14 @@ TILE5.Geo.OpenStreetMap = (function() {
                     } // if
                 }
             });
+            
+            // set the default zoom range
+            self.setZoomRange(ZOOMLEVEL_MIN, ZOOMLEVEL_MAX);
+            
+            // check the tile size, if not valid then correct to a valid tilesize
+            if (TILE5.Tiling.Config.TILESIZE !== 256) {
+                TILE5.Tiling.Config.TILESIZE = 256;
+            } // if    
 
             return self;
         },
@@ -157,11 +161,6 @@ TILE5.Geo.OpenStreetMap = (function() {
             return 2*Math.PI / (tileSize << zoomLevel);
         }
     }; 
-    
-    // check the tile size, if not valid then correct to a valid tilesize
-    if ((TILE5.Tiling.Config.TILESIZE !== 64) || (TILE5.Tiling.Config.TILESIZE !== 256)) {
-        TILE5.Tiling.Config.TILESIZE = 256;
-    } // if    
     
     return module;
 })();

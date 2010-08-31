@@ -306,12 +306,12 @@ TILE5.Touch = (function() {
             
             function wheelie(evt) {
                 var delta = new TILE5.Vector(evt.wheelDeltaX, evt.wheelDeltaY),
-                    zoomAmount = delta.y !== 0 ? Math.max(Math.abs(delta.y / 360), 1) : 0;
+                    zoomAmount = delta.y !== 0 ? Math.abs(delta.y / 120) : 0;
                     
                 if (lastXY && (zoomAmount !== 0)) {
                     // apply the offset to the xy
                     var xy = TILE5.V.offset(lastXY, -params.element.offsetLeft, -params.element.offsetTop);
-                    triggerEvent("wheelZoom", xy, delta.y > 0 ? zoomAmount + 0.5 : 0.5 / zoomAmount);
+                    triggerEvent("wheelZoom", xy, Math.pow(2, delta.y > 0 ? zoomAmount : -zoomAmount));
                 } // if
             } // wheelie
 

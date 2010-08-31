@@ -765,7 +765,7 @@ TILE5.Geo.UI = (function() {
 
                 getCenterPosition: function() {
                     // get the position for the grid position
-                    return self.getXYPosition(TILE5.D.getCenter(self.gridDimensions));
+                    return self.getXYPosition(TILE5.D.getCenter(self.getDimensions()));
                 },
                 
                 getXYPosition: function(xy) {
@@ -838,13 +838,15 @@ TILE5.Geo.UI = (function() {
 
                     // if the zoom level is not defined, then raise an exception
                     if (! zoomLevel) {
-                        throw "Zoom level required to goto a position.";
+                        throw new Error("Zoom level required to goto a position.");
                     } // if
 
                     // check the zoom level is ok
                     if (params.provider) {
                         zoomLevel = params.provider.checkZoomLevel(zoomLevel);
                     } // if
+                    
+                    GRUNT.Log.info("new zoom level = " + zoomLevel + ", current zoom level = " + currentZoomLevel);
                     
                     // if the zoom level is different from the current zoom level, then update the map tiles
                     if (reset || (! initialized) || (zoomLevel !== currentZoomLevel)) {
@@ -882,6 +884,9 @@ TILE5.Geo.UI = (function() {
                                 // pan to the correct position
                                 self.panToPosition(position, function() {
                                     self.unfreeze();
+                                    
+                                    // trigger the zoom level change event
+                                    self.trigger("zoomLevelChange", zoomLevel);
 
                                     if (callback) {
                                         callback();
@@ -942,7 +947,12 @@ TILE5.Geo.UI = (function() {
 
                 setZoomLevel: function(value) {
                     // if the current position is set, then goto the updated position
-                    self.gotoPosition(self.getCenterPosition(), value);
+                    try {
+                        self.gotoPosition(self.getCenterPosition(), value);
+                    }
+                    catch (e) {
+                        GRUNT.Log.exception(e);
+                    }
                 },
 
                 zoomIn: function() {

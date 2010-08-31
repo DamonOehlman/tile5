@@ -431,7 +431,7 @@ TILE5.Graphics = (function() {
             } // pinchZoomEnd
             
             function wheelZoom(relXY, zoom) {
-                self.zoom(Math.min(Math.max(zoom, 0.25), 4), 500);
+                self.zoom(relXY, Math.min(Math.pow(2, Math.round(Math.log(zoom))), 8), 500);
             } // wheelZoom
             
             function scaleView() {
@@ -507,10 +507,12 @@ TILE5.Graphics = (function() {
                 var center = TILE5.D.getCenter(dimensions),
                     endDist = TILE5.V.distance([endCenter, center]),
                     endTheta = TILE5.V.theta(endCenter, center, endDist),
-                    changeDist = TILE5.V.distance([startCenter, endCenter]);
+                    shiftDelta = TILE5.V.diff(startCenter, endCenter);
                     
                 center = TILE5.V.pointOnEdge(endCenter, center, endTheta, endDist / scaleFactor);
-                center = TILE5.V.add(center, TILE5.V.diff(startCenter, endCenter));
+
+                center.x = center.x + shiftDelta.x;
+                center.y = center.y + shiftDelta.y; 
                 
                 return center;
             } // calcPinchZoomCenter
@@ -840,13 +842,15 @@ TILE5.Graphics = (function() {
                     } // if..else
                 },
                 
-                zoom: function(newScaleFactor, rescaleAfter) {
+                zoom: function(targetXY, newScaleFactor, rescaleAfter) {
                     scaleFactor = newScaleFactor;
                     scaling = scaleFactor !== 1;
 
                     startCenter = TILE5.D.getCenter(self.getDimensions());
-                    endCenter = TILE5.D.getCenter(self.getDimensions());
+                    endCenter = scaleFactor > 1 ? TILE5.V.copy(targetXY) : TILE5.D.getCenter(self.getDimensions());
                     startRect = null;
+                    
+                    // GRUNT.Log.info("target xy = " + TILE5.V.toString(targetXY) + ", start center = " + TILE5.V.toString(startCenter) + ", end center = " + TILE5.V.toString(endCenter));
 
                     clearTimeout(rescaleTimeout);
 
