@@ -144,7 +144,7 @@ TILE5 = (function () {
                 
                 theta: function(v1, v2, distance) {
                     var theta = Math.asin((v1.y - v2.y) / distance);
-                    return v1.x > v2.x ? theta : Math.PI -theta;
+                    return v1.x > v2.x ? theta : Math.PI - theta;
                 },
                 
                 pointOnEdge: function(v1, v2, theta, delta) {

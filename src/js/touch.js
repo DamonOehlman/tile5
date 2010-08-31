@@ -1,6 +1,7 @@
 TILE5.Touch = (function() {
     // initialise constants
-    var PANREFRESH = 5;
+    var PANREFRESH = 5,
+        INERTIA_TIMEOUT = 500;
     var TOUCH_MODES = {
         TAP: 0,
         MOVE: 1, 
@@ -88,6 +89,7 @@ TILE5.Touch = (function() {
                 panDelta = new TILE5.Vector(),
                 touchMode = null,
                 touchDown = false,
+                touchStartTick = 0,
                 listeners = [],
                 lastXY = null,
                 ticks = {
@@ -96,6 +98,17 @@ TILE5.Touch = (function() {
                 },
                 config = TILE5.Device.getConfig(),
                 BENCHMARK_INTERVAL = 300;
+                
+            function calculateInertia(upXY, currentXY, distance, tickDiff) {
+                var theta = Math.asin((upXY.y - currentXY.y) / distance),
+                    extraDistance = Math.min(Math.floor(distance * (1000 / tickDiff)), 500),
+                    distanceVector;
+                    
+                theta = currentXY.x > upXY.x ? theta : Math.PI - theta;
+                distanceVector = new TILE5.Vector(Math.cos(theta) * -extraDistance, Math.sin(theta) * extraDistance);
+                    
+                triggerEvent("moveInertia", distanceVector.x, distanceVector.y);
+            } // calculateInertia
                 
             function relativeTouches(touches) {
                 var fnresult = [],
@@ -135,17 +148,17 @@ TILE5.Touch = (function() {
                     totalDelta = new TILE5.Vector();
                     touchDown = true;
                     doubleTap = false;
+                    touchStartTick = TILE5.Clock.getTime();
 
                     // cancel event propogation
                     if (supportsTouch) {
                         preventDefaultTouch(evt);
                     } // if
+                    
+                    triggerEvent("cancelInertia");
 
-                    // clear the inertia interval if it is running
-                    // clearInterval(inertiaInterval);
-            
                     // log the current touch start time
-                    ticks.current = TILE5.Clock.getTime();
+                    ticks.current = touchStartTick;
             
                     // fire the touch start event handler
                     var touchVector = touchesStart.length > 0 ? touchesStart[0] : null;
@@ -178,10 +191,8 @@ TILE5.Touch = (function() {
             
             function touchMove(evt) {
                 if (evt.target && (evt.target === params.element)) {
-                    if (! supportsTouch) {
-                        lastXY = getMousePos(evt)[0];
-                    } // if
-
+                    lastXY = (supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt))[0];
+                    
                     if (! touchDown) { return; }
 
                     try {
@@ -289,6 +300,38 @@ TILE5.Touch = (function() {
                         // if moving, then fire the move end
                         else if (touchMode == TOUCH_MODES.MOVE) {
                             triggerEvent('moveEnd', totalDelta.x, totalDelta.y);
+                            
+                            var tickDiff, distance,
+                                touchUpXY = (supportsTouch ? getTouchPoints(evt.changedTouches) : getMousePos(evt))[0];
+                            
+                            if (! supportsTouch) {
+                                lastXY = touchUpXY;
+                                
+                                var checkInertiaInterval = setInterval(function() {
+                                    tickDiff = (new Date().getTime()) - endTick;
+                                    distance = TILE5.V.distance([touchUpXY, lastXY]);
+
+                                    // calculate the inertia
+                                    if ((tickDiff < INERTIA_TIMEOUT) && (distance > params.inertiaTrigger)) {
+                                        clearInterval(checkInertiaInterval);
+                                        calculateInertia(touchUpXY, lastXY, distance, tickDiff);
+                                    }
+                                    else if (tickDiff > INERTIA_TIMEOUT) {
+                                        clearInterval(checkInertiaInterval);
+                                    } // if..else
+                                }, 5);
+                            }
+                            else {
+                                tickDiff = endTick - touchStartTick;
+                                
+                                if ((tickDiff < INERTIA_TIMEOUT)) {
+                                    distance = TILE5.V.distance([touchesStart[0], touchUpXY]);
+                                    
+                                    if (distance > params.inertiaTrigger) {
+                                        calculateInertia(touchesStart[0], touchUpXY, distance, tickDiff);
+                                    } // if
+                                } // if
+                            } // if..else
                         }
                         // if pinchzooming, then fire the pinch zoom end
                         else if (touchMode == TOUCH_MODES.PINCHZOOM) {

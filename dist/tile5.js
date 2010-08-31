@@ -1666,7 +1666,7 @@ TILE5 = (function () {
                 
                 theta: function(v1, v2, distance) {
                     var theta = Math.asin((v1.y - v2.y) / distance);
-                    return v1.x > v2.x ? theta : Math.PI -theta;
+                    return v1.x > v2.x ? theta : Math.PI - theta;
                 },
                 
                 pointOnEdge: function(v1, v2, theta, delta) {
@@ -2261,7 +2261,8 @@ TILE5.Resources = (function() {
 
 TILE5.Touch = (function() {
     // initialise constants
-    var PANREFRESH = 5;
+    var PANREFRESH = 5,
+        INERTIA_TIMEOUT = 500;
     var TOUCH_MODES = {
         TAP: 0,
         MOVE: 1, 
@@ -2349,6 +2350,7 @@ TILE5.Touch = (function() {
                 panDelta = new TILE5.Vector(),
                 touchMode = null,
                 touchDown = false,
+                touchStartTick = 0,
                 listeners = [],
                 lastXY = null,
                 ticks = {
@@ -2357,6 +2359,17 @@ TILE5.Touch = (function() {
                 },
                 config = TILE5.Device.getConfig(),
                 BENCHMARK_INTERVAL = 300;
+                
+            function calculateInertia(upXY, currentXY, distance, tickDiff) {
+                var theta = Math.asin((upXY.y - currentXY.y) / distance),
+                    extraDistance = Math.min(Math.floor(distance * (1000 / tickDiff)), 500),
+                    distanceVector;
+                    
+                theta = currentXY.x > upXY.x ? theta : Math.PI - theta;
+                distanceVector = new TILE5.Vector(Math.cos(theta) * -extraDistance, Math.sin(theta) * extraDistance);
+                    
+                triggerEvent("moveInertia", distanceVector.x, distanceVector.y);
+            } // calculateInertia
                 
             function relativeTouches(touches) {
                 var fnresult = [],
@@ -2396,17 +2409,17 @@ TILE5.Touch = (function() {
                     totalDelta = new TILE5.Vector();
                     touchDown = true;
                     doubleTap = false;
+                    touchStartTick = TILE5.Clock.getTime();
 
                     // cancel event propogation
                     if (supportsTouch) {
                         preventDefaultTouch(evt);
                     } // if
+                    
+                    triggerEvent("cancelInertia");
 
-                    // clear the inertia interval if it is running
-                    // clearInterval(inertiaInterval);
-            
                     // log the current touch start time
-                    ticks.current = TILE5.Clock.getTime();
+                    ticks.current = touchStartTick;
             
                     // fire the touch start event handler
                     var touchVector = touchesStart.length > 0 ? touchesStart[0] : null;
@@ -2439,10 +2452,8 @@ TILE5.Touch = (function() {
             
             function touchMove(evt) {
                 if (evt.target && (evt.target === params.element)) {
-                    if (! supportsTouch) {
-                        lastXY = getMousePos(evt)[0];
-                    } // if
-
+                    lastXY = (supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt))[0];
+                    
                     if (! touchDown) { return; }
 
                     try {
@@ -2550,6 +2561,38 @@ TILE5.Touch = (function() {
                         // if moving, then fire the move end
                         else if (touchMode == TOUCH_MODES.MOVE) {
                             triggerEvent('moveEnd', totalDelta.x, totalDelta.y);
+                            
+                            var tickDiff, distance,
+                                touchUpXY = (supportsTouch ? getTouchPoints(evt.changedTouches) : getMousePos(evt))[0];
+                            
+                            if (! supportsTouch) {
+                                lastXY = touchUpXY;
+                                
+                                var checkInertiaInterval = setInterval(function() {
+                                    tickDiff = (new Date().getTime()) - endTick;
+                                    distance = TILE5.V.distance([touchUpXY, lastXY]);
+
+                                    // calculate the inertia
+                                    if ((tickDiff < INERTIA_TIMEOUT) && (distance > params.inertiaTrigger)) {
+                                        clearInterval(checkInertiaInterval);
+                                        calculateInertia(touchUpXY, lastXY, distance, tickDiff);
+                                    }
+                                    else if (tickDiff > INERTIA_TIMEOUT) {
+                                        clearInterval(checkInertiaInterval);
+                                    } // if..else
+                                }, 5);
+                            }
+                            else {
+                                tickDiff = endTick - touchStartTick;
+                                
+                                if ((tickDiff < INERTIA_TIMEOUT)) {
+                                    distance = TILE5.V.distance([touchesStart[0], touchUpXY]);
+                                    
+                                    if (distance > params.inertiaTrigger) {
+                                        calculateInertia(touchesStart[0], touchUpXY, distance, tickDiff);
+                                    } // if
+                                } // if
+                            } // if..else
                         }
                         // if pinchzooming, then fire the pinch zoom end
                         else if (touchMode == TOUCH_MODES.PINCHZOOM) {
@@ -2984,7 +3027,6 @@ TILE5.Animation = (function() {
                 // trigger the complete for the tween marking it as cancelled
                 while (ii < tweens.length) {
                     if ((! checkCallback) || checkCallback(tweens[ii])) {
-                        GRUNT.Log.info("CANCELLING ANIMATION");
                         tweens[ii].triggerComplete(true);
                         tweens.splice(ii, 1);
                     }
@@ -3571,7 +3613,6 @@ TILE5.Graphics = (function() {
                 offset = new TILE5.Vector(),
                 clearBackground = false,
                 lastTickCount = null,
-                lastInteraction = 0,
                 frozen = false,
                 deviceScaling = 1,
                 dimensions = null,
@@ -3580,6 +3621,7 @@ TILE5.Graphics = (function() {
                 fpsLayer = null,
                 endCenter = null,
                 idle = false,
+                panimating = false,
                 paintTimeout = 0,
                 idleTimeout = 0,
                 rescaleTimeout = 0,
@@ -3597,24 +3639,24 @@ TILE5.Graphics = (function() {
                 startCenter = null,
                 state = module.DisplayState.ACTIVE;
                 
-            GRUNT.Log.info("Creating a new view instance, attached to container: " + params.container + ", canvas = ", canvas);
-            
             /* panning functions */
             
             function pan(x, y, tweenFn) {
-                // GRUNT.Log.info("captured pan event: x = " + x + ", y = " + y);
-                
                 // update the offset by the specified amount
+                panimating = typeof(tweenFn) !== "undefined";
                 self.updateOffset(offset.x + x, offset.y + y, tweenFn);
                 
-                lastInteraction = TILE5.Clock.getTime(true);
                 wake();
-                
                 state = DISPLAY_STATE.PAN;                
             } // pan
             
+            function panInertia(x, y) {
+                pan(x, y, TILE5.Animation.Easing.Sine.Out);
+            } // panIntertia
+            
             function panEnd(x, y) {
                 state = DISPLAY_STATE.ACTIVE;
+                panimating = false;
                 setTimeout(wake, 50);
             } // panEnd
             
@@ -3649,7 +3691,6 @@ TILE5.Graphics = (function() {
                 scaling = scaleFactor !== 1;
                 
                 if (scaling) {
-                    lastInteraction = TILE5.Clock.getTime(true);
                     state = module.DisplayState.PINCHZOOM;
 
                     wake();
@@ -3689,7 +3730,6 @@ TILE5.Graphics = (function() {
                 
                 // if we are autosizing the set the size
                 if (params.autoSize) {
-                    GRUNT.Log.info("autosizing view: window.height = " + window.innerHeight + ", width = " + window.innerWidth);
                     canvas.height = window.innerHeight - canvas.offsetTop;
                     canvas.width = window.innerWidth - canvas.offsetLeft;
                 } // if
@@ -3830,7 +3870,7 @@ TILE5.Graphics = (function() {
             function cycle() {
                 // check to see if we are panning
                 var changeCount = 0,
-                    interacting = (state === DISPLAY_STATE.PINCHZOOM) || (state === DISPLAY_STATE.PAN);
+                    interacting = (! panimating) && ((state === DISPLAY_STATE.PINCHZOOM) || (state === DISPLAY_STATE.PAN));
                     
                 // get the tickcount
                 tickCount = new Date().getTime();
@@ -4059,13 +4099,15 @@ TILE5.Graphics = (function() {
                         animating = true;
                         var tweens = TILE5.Animation.tweenVector(offset, endPosition.x, endPosition.y, tweenFn, function() {
                             animating = false;
-                            self.panEnd(0, 0);
+                            panEnd(0, 0);
                         });
 
                         // set the tweens to cancel on interact
                         for (var ii = tweens.length; ii--; ) {
                             tweens[ii].cancelOnInteract = true;
                             tweens[ii].requestUpdates(function(updatedValue, complete) {
+                                wake();
+                                
                                 if (params.onAnimate) {
                                     params.onAnimate(offset.x, offset.y);
                                 } // if
@@ -4078,6 +4120,7 @@ TILE5.Graphics = (function() {
                 },
                 
                 zoom: function(targetXY, newScaleFactor, rescaleAfter) {
+                    panimating = false;
                     scaleFactor = newScaleFactor;
                     scaling = scaleFactor !== 1;
 
@@ -4085,12 +4128,9 @@ TILE5.Graphics = (function() {
                     endCenter = scaleFactor > 1 ? TILE5.V.copy(targetXY) : TILE5.D.getCenter(self.getDimensions());
                     startRect = null;
                     
-                    // GRUNT.Log.info("target xy = " + TILE5.V.toString(targetXY) + ", start center = " + TILE5.V.toString(startCenter) + ", end center = " + TILE5.V.toString(endCenter));
-
                     clearTimeout(rescaleTimeout);
 
                     if (scaling) {
-                        lastInteraction = TILE5.Clock.getTime(true);
                         state = module.DisplayState.PINCHZOOM;
 
                         wake();
@@ -4109,8 +4149,6 @@ TILE5.Graphics = (function() {
             if (deviceFps) {
                 redrawInterval = Math.ceil(1000 / deviceFps);
             } // if
-            
-            GRUNT.Log.info("redraw interval calaculated @ " + redrawInterval);
             
             // listen for layer removals
             GRUNT.WaterCooler.listen("layer.remove", function(args) {
@@ -4147,6 +4185,13 @@ TILE5.Graphics = (function() {
             self.bind("pinchZoom", pinchZoom);
             self.bind("pinchZoomEnd", pinchZoomEnd);
             self.bind("wheelZoom", wheelZoom);
+            
+            // handle intertia events
+            self.bind("moveInertia", panInertia);
+            self.bind("cancelInertia", function() {
+                panimating = false;
+                wake();
+            });
             
             // add a status view layer for experimentation sake
             // self.setLayer("status", new module.StatusViewLayer());

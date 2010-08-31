@@ -114,7 +114,6 @@ TILE5.Animation = (function() {
                 // trigger the complete for the tween marking it as cancelled
                 while (ii < tweens.length) {
                     if ((! checkCallback) || checkCallback(tweens[ii])) {
-                        GRUNT.Log.info("CANCELLING ANIMATION");
                         tweens[ii].triggerComplete(true);
                         tweens.splice(ii, 1);
                     }
