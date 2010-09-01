@@ -524,7 +524,9 @@ TILE5.Tiling = (function() {
                 },
                 
                 prepTile: function(tile, state) {
-                    tile.dirty = true;
+                    if (tile) {
+                        tile.dirty = true;
+                    } // if
                     
                     if (tile && ((! fastDraw) || (state === stateActive))) {
                         var image = TILE5.Resources.getImage(tile.url);

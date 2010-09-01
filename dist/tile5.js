@@ -4661,7 +4661,9 @@ TILE5.Tiling = (function() {
                 },
                 
                 prepTile: function(tile, state) {
-                    tile.dirty = true;
+                    if (tile) {
+                        tile.dirty = true;
+                    } // if
                     
                     if (tile && ((! fastDraw) || (state === stateActive))) {
                         var image = TILE5.Resources.getImage(tile.url);
@@ -6880,52 +6882,49 @@ TILE5.Geo.UI = (function() {
 
             /* tracking functions */
             
-            function getAccuracy(coords) {
-                if (GRUNT.isPlainObject(coords.accuracy) && coords.accuracy.horizontal) {
-                    return coords.accuracy.horizontal;
-                }
-                else {
-                    return coords.accuracy;
-                } // if..else
-            } // getAccuracy
-            
             function trackingUpdate(position) {
-                var currentPos = new TILE5.Geo.Position(position.coords.latitude, position.coords.longitude),
-                    accuracy = Math.floor(getAccuracy(position.coords) / 1000);
-                
-                // if this is the initial tracking update then create the overlay
-                if (initialTrackingUpdate) {
-                    // if the geolocation annotation has not been created then do that now
-                    if (! locationAnnotation) {
-                        locationAnnotation = new module.LocationAnnotation({
-                            pos: currentPos,
-                            accuracy: accuracy
-                        });
-                        
-                        self.bind("tileDrawComplete", function() {
-                            locationAnnotation.drawAccuracyIndicator = true;
-                        });
-                        
+                try {
+                    var currentPos = new TILE5.Geo.Position(position.coords.latitude, position.coords.longitude),
+                        accuracy = position.coords.accuracy / 1000;
+
+                    // if this is the initial tracking update then create the overlay
+                    if (initialTrackingUpdate) {
+                        // if the geolocation annotation has not been created then do that now
+                        if (! locationAnnotation) {
+                            locationAnnotation = new module.LocationAnnotation({
+                                pos: currentPos,
+                                accuracy: accuracy
+                            });
+
+                            self.bind("tileDrawComplete", function() {
+                                locationAnnotation.drawAccuracyIndicator = true;
+                            });
+                        } // if
+
                         annotations.add(locationAnnotation);
-                    } // if
-                    
-                    var targetBounds = TILE5.Geo.B.createBoundsFromCenter(currentPos, accuracy * 2);
-                    self.gotoBounds(targetBounds);
+
+                        // TODO: fix the magic number
+                        var targetBounds = TILE5.Geo.B.createBoundsFromCenter(currentPos, Math.max(accuracy, 1));
+                        self.gotoBounds(targetBounds);
+                    }
+                    // otherwise, animate to the new position
+                    else {
+                        // update location annotation details
+                        locationAnnotation.pos = currentPos;
+                        locationAnnotation.accuracy = accuracy;
+
+                        self.panToPosition(currentPos, null, TILE5.Animation.Easing.Sine.Out);
+                    } // if..else
+
+                    initialTrackingUpdate = false;
                 }
-                // otherwise, animate to the new position
-                else {
-                    // update location annotation details
-                    locationAnnotation.pos = currentPos;
-                    locationAnnotation.accuracy = accuracy;
-                    
-                    self.panToPosition(currentPos, null, TILE5.Animation.Easing.Sine.Out);
-                } // if..else
-                
-                initialTrackingUpdate = false;
+                catch (e) {
+                    GRUNT.Log.exception(e);
+                }
             } // trackingUpdate
             
             function trackingError(error) {
-                
+                GRUNT.Log.info("caught location tracking error:", error);
             } // trackingError
 
             function getLayerScaling(oldZoom, newZoom) {
@@ -7126,6 +7125,9 @@ TILE5.Geo.UI = (function() {
                     if (geoWatchId && navigator.geolocation) {
                         navigator.geolocation.clearWatch(geoWatchId);
                     } // if
+                    
+                    // TODO: fix this to only remove the location annotation
+                    annotations.clear();
                     
                     // reset the watch
                     geoWatchId = 0;
