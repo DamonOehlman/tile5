@@ -203,7 +203,7 @@ TILE5.Tiling = (function() {
             
             var tileContext = emptyTile.getContext('2d');
             
-            tileContext.fillStyle = "rgba(150, 150, 150, 0.025)";
+            tileContext.fillStyle = "rgba(150, 150, 150, 0.01)";
             tileContext.fillRect(0, 0, emptyTile.width, emptyTile.height);
         } // if
         
@@ -257,11 +257,10 @@ TILE5.Tiling = (function() {
         
         Tile: function(params) {
             params = GRUNT.extend({
-                x: 0,
-                y: 0,
                 gridX: 0,
                 gridY: 0,
-                size: 256
+                size: 256,
+                dirty: false
             }, params);
             
             return params;
@@ -292,7 +291,7 @@ TILE5.Tiling = (function() {
             var tileStore = new TileStore(GRUNT.extend({
                 tileSize: params.tileSize,
                 onPopulate: function() {
-                    gridDirty = true;
+                    self.dirty = true;
                     self.wakeParent();
                 }
             }, params));
@@ -300,11 +299,9 @@ TILE5.Tiling = (function() {
             // initialise varibles
             var halfTileSize = Math.round(params.tileSize / 2),
                 invTileSize = params.tileSize ? 1 / params.tileSize : 0,
-                gridDirty = false,
                 active = true,
                 tileDrawQueue = null,
                 loadedTileCount = 0,
-                fullRedraw = false,
                 lastTilesDrawn = false,
                 lastCheckOffset = new TILE5.Vector(),
                 shiftDelta = new TILE5.Vector(),
@@ -364,6 +361,7 @@ TILE5.Tiling = (function() {
             // initialise self
             var self = GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
                 gridDimensions: new TILE5.Dimensions(gridHeightWidth, gridHeightWidth),
+                dirty: false,
                 
                 cycle: function(tickCount, offset, state) {
                     var needTiles = shiftDelta.x + shiftDelta.y !== 0,
@@ -385,7 +383,7 @@ TILE5.Tiling = (function() {
                     } // if
                     
                     // if the grid is dirty let the calling view know
-                    return changeCount + gridDirty ? 1 : 0;
+                    return changeCount + self.dirty ? 1 : 0;
                 },
                 
                 deactivate: function() {
@@ -407,14 +405,14 @@ TILE5.Tiling = (function() {
                         xShift = offset.x,
                         yShift = offset.y,
                         tilesDrawn = true,
-                        redraw = fullRedraw || (state === TILE5.Graphics.DisplayState.PINCHZOOM) || TILE5.Animation.isTweening();
+                        redraw = view.needRepaint() || (state === TILE5.Graphics.DisplayState.PANNING) || (state === TILE5.Graphics.DisplayState.PINCHZOOM) || TILE5.Animation.isTweening();
                         
                     if (! centerPos) {
                         tileCols = Math.ceil(dimensions.width * invTileSize) + 1;
                         tileRows = Math.ceil(dimensions.height * invTileSize) + 1;
                         centerPos = new TILE5.Vector(Math.floor((tileCols-1) / 2), Math.floor((tileRows-1) / 2));
                     } // if
-                        
+                    
                     // if we don't have a draq queue return
                     if (! tileDrawQueue) { return; }
                     
@@ -434,7 +432,7 @@ TILE5.Tiling = (function() {
                         if (tile) {
                             var x = tile.gridX - xShift,
                                 y = tile.gridY - yShift,
-                                drawn = redraw ? false : (tile.x === x) && (tile.y === y);
+                                drawn = redraw ? false : (! tile.dirty);
                                 
                             // draw the tile
                             tilesDrawn = (drawn ? true : self.drawTile(context, tile, x, y, state)) && tilesDrawn;
@@ -460,8 +458,7 @@ TILE5.Tiling = (function() {
                     
                     // flag the grid as not dirty
                     lastTilesDrawn = tilesDrawn;
-                    gridDirty = false;
-                    fullRedraw = false;
+                    self.dirty = false;
                 },
                 
                 getTileVirtualXY: function(col, row, getCenter) {
@@ -482,18 +479,7 @@ TILE5.Tiling = (function() {
                     });
                 }
             });
-            
-            // listen for tiles loading
-            GRUNT.WaterCooler.listen("tile.loaded", function(args) {
-                gridDirty = true;
-                self.wakeParent();
-            });
-            
-            // listen for other layers requesting a full redraw
-            GRUNT.WaterCooler.listen("grid.invalidate", function(args) {
-                fullRedraw = true;
-            });
-            
+
             return self;
         },
         
@@ -503,7 +489,10 @@ TILE5.Tiling = (function() {
             }, params);
             
             function handleImageLoad(loadedImage, fromCache) {
-                GRUNT.WaterCooler.say("tile.loaded");
+                self.getParent().trigger("invalidate");
+
+                self.dirty = true;
+                self.wakeParent();
             } // handleImageLoad
             
             // initialise variables
@@ -520,10 +509,9 @@ TILE5.Tiling = (function() {
                         
                     if (image && image.complete && (image.width > 0)) {
                         context.drawImage(image, x, y);
-                        drawn = true;
+                        tile.dirty = false;
                         
-                        tile.x = x;
-                        tile.y = y;
+                        drawn = true;
                     }
                     else if (state === statePan) {
                         context.drawImage(panningTile, x, y);
@@ -536,6 +524,8 @@ TILE5.Tiling = (function() {
                 },
                 
                 prepTile: function(tile, state) {
+                    tile.dirty = true;
+                    
                     if (tile && ((! fastDraw) || (state === stateActive))) {
                         var image = TILE5.Resources.getImage(tile.url);
                         if (! image) {

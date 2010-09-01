@@ -74,9 +74,9 @@ TILE5.Device = (function() {
                 regex: /ipod/i,
                 imageCacheMaxSize: 6 * 1024,
                 maxImageLoads: 4,
-                requireFastDraw: true,
+                requireFastDraw: false,
                 bridgeNotify: bridgeNotifyUrl,
-                targetFps: 10
+                targetFps: 25
             },
 
             // TODO: can we detect the 3G ???

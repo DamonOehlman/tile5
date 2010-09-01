@@ -212,120 +212,19 @@ TILE5.Graphics = (function() {
             return self;
         },
         
-        FPSLayer: function(params) {
-            params = GRUNT.extend({
-                zindex: 1000,
-                scalePosition: false
-            }, params);
-            
-            // initialise variables
-            var fps = null;
-            
-            function determineFPS() {
-                var sumFPS = 0,
-                    delaysLen = self.delays.length;
-                    
-                for (var ii = delaysLen; ii--; ) {
-                    sumFPS += self.delays[ii];
-                } // for
-                
-                if (delaysLen !== 0) {
-                    fps = Math.floor(1000 / (sumFPS / delaysLen));
-                } // if
-            } // determineFPS
-            
-            // initialise self
-            var self = GRUNT.extend(new module.ViewLayer(params), {
-                delays: [],
-                
-                draw: function(context, offset, dimensions, state, view) {
-                    context.font = "bold 8pt Arial";
-                    context.textAlign = "right";
-                    context.fillStyle = "rgba(0, 0, 0, 0.8)";
-                    context.fillText((fps ? fps : "?") + " fps", dimensions.width - 20, 20);
-                }
-            });
-            
-            setInterval(determineFPS, 1000);
-            
-            return self;
-        },
-        
-        ResourceStatsLayer: function(params) {
-            params = GRUNT.extend({
-                zindex: 500,
-                indicatorSize: 5,
-                scalePosition: false,
-                validStates: DISPLAY_STATE.ACTIVE | DISPLAY_STATE.PAN
-            }, params);
-            
-            // initialise self
-            var self = GRUNT.extend(new module.ViewLayer(params), {
-                fps: null,
-                
-                draw: function(context, offset, dimensions, state, view) {
-                    // get the stats from the resource loaded
-                    var stats = TILE5.Resources.getStats(),
-                        ledSize = params.indicatorSize,
-                        indicatorLeft = 10,
-                        spacing = 2,
-                        ii,
-                        ypos;
-                        
-                    if (stats.imageCacheFullness) {
-                        context.strokeStyle = "rgba(0, 0, 255, 1)";
-                        
-                        context.beginPath();
-                        context.arc(15, 15, 5, 0, Math.PI * 2 * stats.imageCacheFullness, false);
-                        context.stroke();
-                        
-                        indicatorLeft = 30;
-                    } // if
-                    
-                    if (stats.imageLoadingCount >= 0) {
-                        // draw indicators for the number of images loading
-                        context.fillStyle = "rgba(0, 255, 0, 0.7)";
-                        for (ii = stats.imageLoadingCount; ii--; ) {
-                            context.fillRect(indicatorLeft + (ii * (ledSize+spacing)), 10, ledSize, ledSize);
-                        } // for
-                    } // if
-
-                    if (stats.queuedImageCount >= 0) {
-                        // draw indicators for the number of images queued
-                        context.fillStyle = "rgba(255, 0, 0, 0.7)";
-                        for (ii = stats.queuedImageCount; ii--; ) {
-                            context.fillRect(indicatorLeft + (ii * (ledSize+spacing)), 10 + ledSize + spacing, ledSize, ledSize);
-                        } // for
-                    } // if
-                }
-            });
-            
-            return self;
-        },
-        
-        LoadingLayer: function(params) {
-            params = GRUNT.extend({
-                
-            }, params);
-            
-            
-        },
-        
         View: function(params) {
             // initialise defaults
             params = GRUNT.extend({
                 id: "view_" + viewCounter++,
                 container: "",
                 clearOnDraw: false,
-                // TODO: move these into a different option location
-                displayFPS: false,
-                displayResourceStats: false,
                 scaleDamping: false,
                 fastDraw: false,
                 fillStyle: "rgb(200, 200, 200)",
                 initialDrawMode: "source-over",
                 bufferRefresh: 100,
                 defaultFreezeDelay: 500,
+                inertialScroll: true,
                 panAnimationEasing: TILE5.Animation.Easing.Sine.Out,
                 panAnimationDuration: 750,
                 autoSize: false
@@ -348,6 +247,7 @@ TILE5.Graphics = (function() {
                 idle = false,
                 panimating = false,
                 paintTimeout = 0,
+                repaint = false,
                 idleTimeout = 0,
                 rescaleTimeout = 0,
                 bufferTime = 0,
@@ -362,6 +262,7 @@ TILE5.Graphics = (function() {
                 aniProgress = null,
                 tweenStart = null,
                 startCenter = null,
+                touchHelper = null,
                 state = module.DisplayState.ACTIVE;
                 
             /* panning functions */
@@ -376,7 +277,9 @@ TILE5.Graphics = (function() {
             } // pan
             
             function panInertia(x, y) {
-                pan(x, y, params.panAnimationEasing, params.panAnimationDuration);
+                if (params.inertialScroll) {
+                    pan(x, y, params.panAnimationEasing, params.panAnimationDuration);
+                } // if
             } // panIntertia
             
             function panEnd(x, y) {
@@ -589,6 +492,7 @@ TILE5.Graphics = (function() {
                 
                 GRUNT.Log.trace("draw complete", startTicks);
                 
+                repaint = false;
                 return changeCount;
             } // drawView
             
@@ -658,6 +562,10 @@ TILE5.Graphics = (function() {
                 wakeTriggers = 0;
                 paintTimeout = setTimeout(cycle, 0);
             } // wake
+            
+            function invalidate() {
+                repaint = true;
+            } // invalidate
             
             // initialise self
             var self = GRUNT.extend({}, params, new GRUNT.Observable(), {
@@ -775,6 +683,10 @@ TILE5.Graphics = (function() {
                     wake();
                 },
                 
+                needRepaint: function() {
+                    return repaint;
+                },
+                
                 snapshot: function(zindex) {
                 },
                 
@@ -890,26 +802,24 @@ TILE5.Graphics = (function() {
             
             deviceScaling = TILE5.Device.getConfig().getScaling();
             
-            // if we need to display the fps for the view, then create a suitable layer
-            if (params.displayFPS) {
-                fpsLayer =  new module.FPSLayer();
-                self.setLayer("fps", fpsLayer);
-            } // if
-            
-            if (params.displayResourceStats) {
-                self.setLayer("resourceStats", new module.ResourceStatsLayer());
-            } // if
+            // handle invalidation
+            self.bind("invalidate", invalidate);
             
             // capture touch events
-            TILE5.Touch.captureTouch(canvas, {
+            touchHelper = TILE5.Touch.captureTouch(canvas, {
                 observable: self
             });
-
+            
             self.bind("move", pan);
             self.bind("moveEnd", panEnd);
             self.bind("pinchZoom", pinchZoom);
             self.bind("pinchZoomEnd", pinchZoomEnd);
             self.bind("wheelZoom", wheelZoom);
+            
+            // enable inertia if configured
+            if (params.inertialScroll) {
+                touchHelper.inertiaEnable(params.panAnimationDuration, dimensions);
+            } // if
             
             // handle intertia events
             self.bind("moveInertia", panInertia);

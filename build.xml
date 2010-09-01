@@ -76,7 +76,6 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/tiling.js" />
 
 			<fileset file="src/js/geo/core.js" />
-			<fileset file="src/js/geo/location.js" />
 			<fileset file="src/js/geo/geohash.js" />
 			<fileset file="src/js/geo/search.js" />
 			<fileset file="src/js/geo/routing.js" />

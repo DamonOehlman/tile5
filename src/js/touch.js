@@ -1,8 +1,9 @@
 TILE5.Touch = (function() {
     // initialise constants
     var PANREFRESH = 5,
+        DEFAULT_INERTIA_MAX = 500,
         INERTIA_TIMEOUT_MOUSE = 100,
-        INERTIA_TIMEOUT_TOUCH = 500;
+        INERTIA_TIMEOUT_TOUCH = 250;
     var TOUCH_MODES = {
         TAP: 0,
         MOVE: 1, 
@@ -93,6 +94,7 @@ TILE5.Touch = (function() {
                 touchStartTick = 0,
                 listeners = [],
                 lastXY = null,
+                inertiaSettings = null,
                 ticks = {
                     current: 0,
                     last: 0
@@ -102,7 +104,8 @@ TILE5.Touch = (function() {
                 
             function calculateInertia(upXY, currentXY, distance, tickDiff) {
                 var theta = Math.asin((upXY.y - currentXY.y) / distance),
-                    extraDistance = Math.min(Math.floor(distance * (1000 / tickDiff)), 600),
+                    // TODO: remove the magic numbers from here (pass through animation time from view, and determine max from dimensions)
+                    extraDistance = Math.min(Math.floor(distance * (inertiaSettings.duration / tickDiff)), inertiaSettings.max),
                     distanceVector;
                     
                 theta = currentXY.x > upXY.x ? theta : Math.PI - theta;
@@ -110,6 +113,39 @@ TILE5.Touch = (function() {
                     
                 triggerEvent("moveInertia", distanceVector.x, distanceVector.y);
             } // calculateInertia
+            
+            function checkInertia(upXY, currentTick) {
+                var tickDiff, distance;
+                
+                if (! supportsTouch) {
+                    lastXY = upXY;
+                    
+                    var checkInertiaInterval = setInterval(function() {
+                        tickDiff = (new Date().getTime()) - currentTick;
+                        distance = TILE5.V.distance([upXY, lastXY]);
+
+                        // calculate the inertia
+                        if ((tickDiff < INERTIA_TIMEOUT_MOUSE) && (distance > params.inertiaTrigger)) {
+                            clearInterval(checkInertiaInterval);
+                            calculateInertia(upXY, lastXY, distance, tickDiff);
+                        }
+                        else if (tickDiff > INERTIA_TIMEOUT_MOUSE) {
+                            clearInterval(checkInertiaInterval);
+                        } // if..else
+                    }, 5);
+                }
+                else {
+                    tickDiff = currentTick - touchStartTick;
+                    
+                    if ((tickDiff < INERTIA_TIMEOUT_TOUCH)) {
+                        distance = TILE5.V.distance([touchesStart[0], upXY]);
+                        
+                        if (distance > params.inertiaTrigger) {
+                            calculateInertia(touchesStart[0], upXY, distance, tickDiff);
+                        } // if
+                    } // if
+                } // if..else                
+            } // checkInertia
                 
             function relativeTouches(touches) {
                 var fnresult = [],
@@ -273,8 +309,7 @@ TILE5.Touch = (function() {
             
             function touchEnd(evt) {
                 if (evt.target && (evt.target === params.element)) {
-                    var tickDiff, distance,
-                        touchUpXY = (supportsTouch ? getTouchPoints(evt.changedTouches) : getMousePos(evt))[0];
+                    var touchUpXY = (supportsTouch ? getTouchPoints(evt.changedTouches) : getMousePos(evt))[0];
                     
                     try {
                         // cancel event propogation
@@ -305,34 +340,9 @@ TILE5.Touch = (function() {
                         else if (touchMode == TOUCH_MODES.MOVE) {
                             triggerEvent('moveEnd', totalDelta.x, totalDelta.y);
                             
-                            if (! supportsTouch) {
-                                lastXY = touchUpXY;
-                                
-                                var checkInertiaInterval = setInterval(function() {
-                                    tickDiff = (new Date().getTime()) - endTick;
-                                    distance = TILE5.V.distance([touchUpXY, lastXY]);
-
-                                    // calculate the inertia
-                                    if ((tickDiff < INERTIA_TIMEOUT_MOUSE) && (distance > params.inertiaTrigger)) {
-                                        clearInterval(checkInertiaInterval);
-                                        calculateInertia(touchUpXY, lastXY, distance, tickDiff);
-                                    }
-                                    else if (tickDiff > INERTIA_TIMEOUT_MOUSE) {
-                                        clearInterval(checkInertiaInterval);
-                                    } // if..else
-                                }, 5);
-                            }
-                            else {
-                                tickDiff = endTick - touchStartTick;
-                                
-                                if ((tickDiff < INERTIA_TIMEOUT_TOUCH)) {
-                                    distance = TILE5.V.distance([touchesStart[0], touchUpXY]);
-                                    
-                                    if (distance > params.inertiaTrigger) {
-                                        calculateInertia(touchesStart[0], touchUpXY, distance, tickDiff);
-                                    } // if
-                                } // if
-                            } // if..else
+                            if (inertiaSettings) {
+                                checkInertia(touchUpXY, endTick);
+                            } // if
                         }
                         // if pinchzooming, then fire the pinch zoom end
                         else if (touchMode == TOUCH_MODES.PINCHZOOM) {
@@ -394,6 +404,17 @@ TILE5.Touch = (function() {
                     if (! config.supportsTouch) {
                         config.eventTarget.removeEventListener("mousewheel", wheelie, false);
                     } // if
+                },
+
+                inertiaEnable: function(animationTime, dimensions) {
+                    inertiaSettings = {
+                        duration: animationTime,
+                        max: dimensions ? Math.min(dimensions.width, dimensions.height) : DEFAULT_INERTIA_MAX
+                    };
+                },
+                
+                inertiaDisable: function() {
+                    inertiaSettings = null;
                 }
             };
             
@@ -418,41 +439,38 @@ TILE5.Touch = (function() {
     return {
         // TODO: add the release touch method
         captureTouch: function(element, params) {
-            try {
-                if (! element) {
-                    throw new Error("Unable to capture touch of null element");
-                } // if
-                
-                // if the element does not have an id, then generate on
-                if (! element.id) {
-                    element.id = "touchable_" + elementCounter++;
-                } // if
+            if (! element) {
+                throw new Error("Unable to capture touch of null element");
+            } // if
             
-                // create the touch helper
-                var touchHelper = touchHelpers[element.id];
+            // if the element does not have an id, then generate on
+            if (! element.id) {
+                element.id = "touchable_" + elementCounter++;
+            } // if
+        
+            // create the touch helper
+            var touchHelper = touchHelpers[element.id];
+            
+            // if the touch helper has not been created, then create it and attach to events
+            if (! touchHelper) {
+                touchHelper = module_types.TouchHelper(GRUNT.extend({ element: element}, params));
+                touchHelpers[element.id] = touchHelper;
                 
-                // if the touch helper has not been created, then create it and attach to events
-                if (! touchHelper) {
-                    touchHelper = module_types.TouchHelper(GRUNT.extend({ element: element}, params));
-                    touchHelpers[element.id] = touchHelper;
-                    
-                    GRUNT.Log.info("CREATED TOUCH HELPER. SUPPORTS TOUCH = " + touchHelper.supportsTouch);
-                } // if
-                
-                // if we already have an association with listeners, then remove first
-                if (params.listenerId) {
-                    touchHelper.decoupleListeners(params.listenerId);
-                } // if
-                
-                // flag the parameters with touch listener ids so they can be removed later
-                params.listenerId = (++listenerCount);
+                GRUNT.Log.info("CREATED TOUCH HELPER. SUPPORTS TOUCH = " + touchHelper.supportsTouch);
+            } // if
+            
+            // if we already have an association with listeners, then remove first
+            if (params.listenerId) {
+                touchHelper.decoupleListeners(params.listenerId);
+            } // if
+            
+            // flag the parameters with touch listener ids so they can be removed later
+            params.listenerId = (++listenerCount);
 
-                // add the listeners to the helper
-                touchHelper.addListeners(params);
-            }
-            catch (e) {
-                GRUNT.Log.exception(e);
-            }
+            // add the listeners to the helper
+            touchHelper.addListeners(params);
+            
+            return touchHelper;
         },
         
         resetTouch: function(element) {

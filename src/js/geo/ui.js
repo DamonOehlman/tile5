@@ -3,6 +3,9 @@ TILE5.Geo.UI = (function() {
         lastAnnotationTweenTicks = null,
         routeAnimationCounter = 0;
     
+    // some base64 images
+    var LOCATOR_IMAGE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAACIQAAAiEBPhEQkwAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAG+SURBVCiRlZHNahNRAIW/O7mTTJPahLZBA1YUyriINRAE3bQIKm40m8K8gLj0CRQkO32ELHUlKbgoIu4EqeJPgtCaoBuNtjXt5LeTMZk0mbmuWiuuPLsD3+HAOUIpxf9IHjWmaUbEyWv5ROrsVULhcHP761rUfnN3Y2Otc8CIg4YT85lzuVsPP+Qupw1vpPjRCvhS9ymvV0e77x7nNj+uvADQAIQQ+uLyvdfLV9JGZi7EdEwQlqBpEJ019f0z1mo2u5Q8DMydv25lshemmj1FueZTawbs7inarqLbV7Qjab1upB9YlhWSAHLavLHZCvg1VEhN0PMU9W7At4bPVidg7CtkLLXkut+lBPD6/Ub155jJiADAHSpaLmx3ApyBQoYEUd0PBoOBkAC6+3llvda/YxgGgYL+UNHf/zN3KiExGlsvTdP0NYDkhPdWrz35ZDsBzV5wCMuQwEyFmXFeeadjzfuFQmGkAZRKpdGC/n7x+M6jqvA9Zo6FWDhlcHE+wqT93J1tP7vpOE7rrx8ALMuasPf8S12St4WmJ6bYWTUC52k8Hm8Vi0X/nwBAPp/XKpWKdF1X2LYdlMvlsToC/QYTls7DLFr/PAAAAABJRU5ErkJggg%3D%3D";
+    
     function getAnnotationTween(tweenType) {
         // get the current tick count
         var tickCount = TILE5.Clock.getTime(true);
@@ -363,11 +366,11 @@ TILE5.Geo.UI = (function() {
                 xy: null,
                 pos: null,
                 draw: null,
+                calcXY: null,
                 tweenIn: module.AnnotationTween,
                 animationSpeed: null
             }, params);
             
-            // TODO: make this inherit from sprite
             var animating = false;
             
             var self = {
@@ -379,7 +382,14 @@ TILE5.Geo.UI = (function() {
                     return animating;
                 },
                 
-                draw: function(context, offset, state, overlay) {
+                calcXY: function(grid) {
+                    self.xy = grid.getGridXYForPosition(self.pos);
+                    if (params.calcXY) {
+                        params.calcXY(grid);
+                    } // if
+                },
+                
+                draw: function(context, offset, state, overlay, view) {
                     if (! self.xy) { return; }
                     
                     if (self.isNew && (params.tweenIn)) {
@@ -399,7 +409,7 @@ TILE5.Geo.UI = (function() {
                     } // if
                     
                     if (params.draw) {
-                        params.draw(context, offset, new TILE5.Vector(self.xy.x - offset.x, self.xy.y - offset.y), state, overlay);
+                        params.draw(context, offset, new TILE5.Vector(self.xy.x - offset.x, self.xy.y - offset.y), state, overlay, view);
                     }
                     else {
                         context.beginPath();
@@ -442,7 +452,7 @@ TILE5.Geo.UI = (function() {
                 } // if..else
             }
             
-            params.draw = function(context, offset, xy, state, overlay) {
+            params.draw = function(context, offset, xy, state, overlay, view) {
                 // get the image
                 var imageUrl = getImageUrl(),
                     image = TILE5.Resources.getImage(imageUrl);
@@ -466,6 +476,51 @@ TILE5.Geo.UI = (function() {
             }; // draw
 
             var self = new module.Annotation(params);
+            return self;
+        },
+        
+        LocationAnnotation: function(params) {
+            params = GRUNT.extend({
+                accuracy: null
+            }, params);
+            
+            // initialise the locator icon image
+            var iconImage = new Image(),
+                iconOffset = new TILE5.Vector(),
+                indicatorRadius = null;
+                
+            // load the image
+            iconImage.src = LOCATOR_IMAGE;
+            iconImage.onload = function() {
+                iconOffset = new TILE5.Vector(iconImage.width / 2, iconImage.height / 2);
+            };
+            
+            var self = new module.Annotation(GRUNT.extend({
+                calcXY: function(grid) {
+                    indicatorRadius = Math.floor(grid.getPixelDistance(self.accuracy) * 0.5);
+                },
+                
+                draw: function(context, offset, xy, state, overlay, view) {
+                    var centerX = xy.x - iconOffset.x,
+                        centerY = xy.y - iconOffset.y;
+
+                    if (indicatorRadius && self.drawAccuracyIndicator) {
+                        context.fillStyle = "rgba(30, 30, 30, 0.2)";
+                        
+                        context.beginPath();
+                        context.arc(xy.x, xy.y, indicatorRadius, 0, Math.PI * 2, false);
+                        context.fill();
+                    } // if
+
+                    context.drawImage(iconImage, centerX, centerY, iconImage.width, iconImage.height);
+                    view.trigger("invalidate");
+                }
+            }, params));
+            
+            // initialise the indicator radius
+            self.accuracy = params.accuracy;
+            self.drawAccuracyIndicator = false;
+            
             return self;
         },
         
@@ -525,13 +580,16 @@ TILE5.Geo.UI = (function() {
             } // updateAnnotations
             
             function updateAnnotationCoordinates(annotationsArray) {
-                var grid = params.map ? params.map.getTileLayer() : null;
+                var grid = params.map ? params.map.getTileLayer() : null,
+                    annotationsCount = annotationsArray.length;
                 
                 // iterate through the annotations and calculate the xy coordinates
-                for (var ii = 0; grid && (ii < annotationsArray.length); ii++) {
-                    // update the annotation xy coordinates
-                    annotationsArray[ii].xy = grid.getGridXYForPosition(annotationsArray[ii].pos);
-                } // for
+                if (grid) {
+                    for (var ii = annotationsCount; ii--; ) {
+                        // update the annotation xy coordinates
+                        annotationsArray[ii].calcXY(grid);
+                    } // for
+                } // if
                 
                 // sort the array in the appropriate order
                 annotationsArray.sort(function(itemA, itemB) {
@@ -561,12 +619,12 @@ TILE5.Geo.UI = (function() {
                 
                     // iterate through the annotations and draw them
                     for (ii = annotations.length; ii--; ) {
-                        annotations[ii].draw(context, offset, state, self);
+                        annotations[ii].draw(context, offset, state, self, view);
                         animating = animating || annotations[ii].isAnimating();
                     } // for
 
                     for (ii = staticAnnotations.length; ii--; ) {
-                        staticAnnotations[ii].draw(context, offset, state, self);
+                        staticAnnotations[ii].draw(context, offset, state, self, view);
                         animating = animating || staticAnnotations[ii].isAnimating();
                     } // for
                     
@@ -616,114 +674,11 @@ TILE5.Geo.UI = (function() {
             return self;
         },
         
-        GeoLocationOverlay: function(params) {
-            params = GRUNT.extend({
-                fillStyle: "rgba(0, 221, 238, 0.1)",
-                strokeStyle: "rgba(0, 102, 136, 0.3)",
-                originFillStyle: "rgba(0, 102, 136, 0.7)",
-                zindex: 100,
-                map: null,
-                watch: true,
-                onUpdate: null
-            }, params);
-            
-            var watchId = 0,
-                currentXY = null,
-                currentRadius = 0,
-                currentPosition = null,
-                currentAccuracy = 0;
-            
-            function locate() {
-                // use the geolocation api to get the current position
-                watchId = TILE5.Geo.Location.get({
-                    watch: params.watch,
-                    successCallback: function(position, accuracy, phase, rawPosition) {
-                        if (params.onUpdate) {
-                            params.onUpdate(position, accuracy);
-                        } // if
-                        
-                        // update the current position and accuracy
-                        currentPosition = TILE5.Geo.P.copy(position);
-                        currentAccuracy = accuracy;
-                        
-                        // update the coordinates
-                        updateCoordinates();
-                    },
-
-                    errorCallback: function(error) {
-                        GRUNT.Log.info("got position error");
-                    }
-                });
-            } // locate
-            
-            function updateCoordinates() {
-                var grid = params.map ? params.map.getTileLayer() : null;
-                
-                currentXY = null;
-                if (currentPosition && grid) {
-                    currentXY = grid.getGridXYForPosition(currentPosition);
-                } // if
-                
-                currentRadius = 0;
-                if (currentAccuracy && grid) {
-                    currentRadius = grid.getPixelDistance(currentAccuracy / 1000);
-                } // if
-            } // updateCoordinates
-            
-            var self = GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
-                cycle: function(tickCount, offset, state) {
-                },
-                
-                draw: function(context, offset, dimensions, state, view) {
-                    if (currentXY && currentRadius) {
-                        var x = currentXY.x - offset.x,
-                            y = currentXY.y - offset.y;
-                        
-                        context.fillStyle = params.fillStyle;
-                        context.lineWidth = 1;
-                        context.strokeStyle = params.strokeStyle;
-
-                        // draw the radar circle
-                        context.beginPath();
-                        context.arc(x, y, currentRadius, 0, Math.PI * 2, false);
-                        context.fill();
-                        context.stroke();
-                        
-                        context.fillStyle = params.originFillStyle;
-                        context.beginPath();
-                        context.arc(x, y, 3, 0, Math.PI * 2, false);
-                        context.fill();
-                        
-                        // indicate that a grid redraw will need to be redrawn on next drawn
-                        GRUNT.WaterCooler.say("grid.invalidate");
-                    } // if
-                },
-                
-                getPosition: function() {
-                    return currentPosition;
-                },
-                
-                getAccuracy: function() {
-                    return currentAccuracy;
-                }
-            });
-            
-            // list for grid updates
-            GRUNT.WaterCooler.listen("grid.updated", function(args) {
-                updateCoordinates();
-                self.wakeParent();
-            });
-            
-            locate();
-            
-            return self;
-        },
-        
         Tiler: function(params) {
             params = GRUNT.extend({
                 tapExtent: 10,
                 provider: null,
-                crosshair: true,
+                crosshair: false,
                 zoomLevel: 0,
                 boundsChange: null,
                 tapPOI: null,
@@ -738,17 +693,69 @@ TILE5.Geo.UI = (function() {
                 locationWatchId = 0,
                 initialized = false,
                 tappedPOIs = [],
+                annotations = null, // annotations layer
                 lastRequestTime = 0,
                 guideOffset = null,
                 gridLayerId = null,
+                locationAnnotation = null,
+                geoWatchId = 0,
+                initialTrackingUpdate = true,
                 zoomLevel = params.zoomLevel;
                 
             // if the data provider has not been created, then create a default one
             if (! params.provider) {
                 params.provider = new TILE5.Geo.MapProvider();
             } // if
+
+            /* tracking functions */
             
-            // TODO: on pan clear the watch handler
+            function getAccuracy(coords) {
+                if (GRUNT.isPlainObject(coords.accuracy) && coords.accuracy.horizontal) {
+                    return coords.accuracy.horizontal;
+                }
+                else {
+                    return coords.accuracy;
+                } // if..else
+            } // getAccuracy
+            
+            function trackingUpdate(position) {
+                var currentPos = new TILE5.Geo.Position(position.coords.latitude, position.coords.longitude),
+                    accuracy = Math.floor(getAccuracy(position.coords) / 1000);
+                
+                // if this is the initial tracking update then create the overlay
+                if (initialTrackingUpdate) {
+                    // if the geolocation annotation has not been created then do that now
+                    if (! locationAnnotation) {
+                        locationAnnotation = new module.LocationAnnotation({
+                            pos: currentPos,
+                            accuracy: accuracy
+                        });
+                        
+                        self.bind("tileDrawComplete", function() {
+                            locationAnnotation.drawAccuracyIndicator = true;
+                        });
+                        
+                        annotations.add(locationAnnotation);
+                    } // if
+                    
+                    var targetBounds = TILE5.Geo.B.createBoundsFromCenter(currentPos, accuracy * 2);
+                    self.gotoBounds(targetBounds);
+                }
+                // otherwise, animate to the new position
+                else {
+                    // update location annotation details
+                    locationAnnotation.pos = currentPos;
+                    locationAnnotation.accuracy = accuracy;
+                    
+                    self.panToPosition(currentPos, null, TILE5.Animation.Easing.Sine.Out);
+                } // if..else
+                
+                initialTrackingUpdate = false;
+            } // trackingUpdate
+            
+            function trackingError(error) {
+                
+            } // trackingError
 
             function getLayerScaling(oldZoom, newZoom) {
                 return radsPerPixelAtZoom(1, oldZoom) / radsPerPixelAtZoom(1, newZoom);
@@ -797,41 +804,6 @@ TILE5.Geo.UI = (function() {
                     self.gotoPosition(TILE5.Geo.B.getCenter(bounds), zoomLevel, callback);
                 },
                 
-                gotoCurrentPosition: function(callback) {
-                    
-                    function centerMapAtPos(position, accuracy) {
-                        // TODO: compare the position with the last position...
-                        // if within range animate movement
-                        
-                        // get the bounds for the center position and specified accuracy
-                        var targetBounds = TILE5.Geo.B.createBoundsFromCenter(position, accuracy / 1000);
-
-                        GRUNT.Log.info("detected position: " + TILE5.Geo.P.toString(position) + ", accuracy = " + accuracy);
-                        self.clearBackground();
-                        self.gotoBounds(targetBounds, callback);
-                    } // centerMapAtPos
-                    
-                    // get the location layer
-                    var locationLayer = self.getLayer("geolocation"),
-                        lastPositionUpdate = null;
-                        
-                    if (! locationLayer) {
-                        locationLayer = new module.GeoLocationOverlay({
-                            map: self,
-                            onUpdate: function(position, accuracy) {
-                                centerMapAtPos(position, accuracy);
-                            }
-                        });
-                        
-                        GRUNT.Log.info("created geolocation layer");
-                        
-                        self.setLayer("geolocation", locationLayer);
-                    }
-                    else {
-                        centerMapAtPos(locationLayer.getPosition(), locationLayer.getAccuracy());
-                    }
-                },
-                
                 gotoPosition: function(position, newZoomLevel, callback) {
                     // save the current zoom level
                     var currentZoomLevel = zoomLevel,
@@ -867,6 +839,11 @@ TILE5.Geo.UI = (function() {
                     if (reset || (! initialized) || (zoomLevel !== currentZoomLevel)) {
                         // remove the grid layer
                         TILE5.Resources.resetImageLoadQueue();
+                        
+                        // if we have a location annotation tell it not to draw the accuracy ring
+                        if (locationAnnotation) {
+                            locationAnnotation.drawAccuracyIndicator = false;
+                        } // if
                         
                         // get the grid and if available, then deactivate to prevent further image draws
                         var grid = self.getTileLayer();
@@ -954,6 +931,33 @@ TILE5.Geo.UI = (function() {
                             callback(self);
                         } // if
                     } // if
+                },
+                
+                locate: function() {
+                    // run a track start, but only allow it to run for a maximum of 30s 
+                    self.trackStart();
+                    setTimeout(self.trackCancel, 30000);
+                },
+                
+                trackStart: function() {
+                    if (navigator.geolocation) {
+                        
+                        initialTrackingUpdate = true;
+                        geoWatchId = navigator.geolocation.watchPosition(trackingUpdate, trackingError, {
+                            enableHighAccuracy: true,
+                            timeout: 10000,
+                            maximumAge: 5000
+                        });
+                    } // if
+                },
+                
+                trackCancel: function() {
+                    if (geoWatchId && navigator.geolocation) {
+                        navigator.geolocation.clearWatch(geoWatchId);
+                    } // if
+                    
+                    // reset the watch
+                    geoWatchId = 0;
                 },
                 
                 getZoomLevel: function() {
@@ -1053,7 +1057,7 @@ TILE5.Geo.UI = (function() {
             });
 
             // create an annotations layer
-            var annotations = new TILE5.Geo.UI.AnnotationsOverlay({
+            annotations = new TILE5.Geo.UI.AnnotationsOverlay({
                 pois: self.pois,
                 map: self,
                 createAnnotationForPOI: params.createAnnotationForPOI
