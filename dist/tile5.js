@@ -6913,6 +6913,10 @@ TILE5.Geo.UI = (function() {
                         locationAnnotation.pos = currentPos;
                         locationAnnotation.accuracy = accuracy;
 
+                        // tell the location annotation to update it's xy coordinate
+                        locationAnnotation.calcXY(self.getTileLayer());
+
+                        // pan to the position
                         self.panToPosition(currentPos, null, TILE5.Animation.Easing.Sine.Out);
                     } // if..else
 
