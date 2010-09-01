@@ -1,7 +1,8 @@
 TILE5.Touch = (function() {
     // initialise constants
     var PANREFRESH = 5,
-        INERTIA_TIMEOUT = 500;
+        INERTIA_TIMEOUT_MOUSE = 100,
+        INERTIA_TIMEOUT_TOUCH = 500;
     var TOUCH_MODES = {
         TAP: 0,
         MOVE: 1, 
@@ -101,7 +102,7 @@ TILE5.Touch = (function() {
                 
             function calculateInertia(upXY, currentXY, distance, tickDiff) {
                 var theta = Math.asin((upXY.y - currentXY.y) / distance),
-                    extraDistance = Math.min(Math.floor(distance * (1000 / tickDiff)), 500),
+                    extraDistance = Math.min(Math.floor(distance * (1000 / tickDiff)), 600),
                     distanceVector;
                     
                 theta = currentXY.x > upXY.x ? theta : Math.PI - theta;
@@ -272,6 +273,9 @@ TILE5.Touch = (function() {
             
             function touchEnd(evt) {
                 if (evt.target && (evt.target === params.element)) {
+                    var tickDiff, distance,
+                        touchUpXY = (supportsTouch ? getTouchPoints(evt.changedTouches) : getMousePos(evt))[0];
+                    
                     try {
                         // cancel event propogation
                         if (supportsTouch) {
@@ -301,9 +305,6 @@ TILE5.Touch = (function() {
                         else if (touchMode == TOUCH_MODES.MOVE) {
                             triggerEvent('moveEnd', totalDelta.x, totalDelta.y);
                             
-                            var tickDiff, distance,
-                                touchUpXY = (supportsTouch ? getTouchPoints(evt.changedTouches) : getMousePos(evt))[0];
-                            
                             if (! supportsTouch) {
                                 lastXY = touchUpXY;
                                 
@@ -312,11 +313,11 @@ TILE5.Touch = (function() {
                                     distance = TILE5.V.distance([touchUpXY, lastXY]);
 
                                     // calculate the inertia
-                                    if ((tickDiff < INERTIA_TIMEOUT) && (distance > params.inertiaTrigger)) {
+                                    if ((tickDiff < INERTIA_TIMEOUT_MOUSE) && (distance > params.inertiaTrigger)) {
                                         clearInterval(checkInertiaInterval);
                                         calculateInertia(touchUpXY, lastXY, distance, tickDiff);
                                     }
-                                    else if (tickDiff > INERTIA_TIMEOUT) {
+                                    else if (tickDiff > INERTIA_TIMEOUT_MOUSE) {
                                         clearInterval(checkInertiaInterval);
                                     } // if..else
                                 }, 5);
@@ -324,7 +325,7 @@ TILE5.Touch = (function() {
                             else {
                                 tickDiff = endTick - touchStartTick;
                                 
-                                if ((tickDiff < INERTIA_TIMEOUT)) {
+                                if ((tickDiff < INERTIA_TIMEOUT_TOUCH)) {
                                     distance = TILE5.V.distance([touchesStart[0], touchUpXY]);
                                     
                                     if (distance > params.inertiaTrigger) {

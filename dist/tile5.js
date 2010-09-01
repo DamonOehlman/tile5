@@ -2262,7 +2262,8 @@ TILE5.Resources = (function() {
 TILE5.Touch = (function() {
     // initialise constants
     var PANREFRESH = 5,
-        INERTIA_TIMEOUT = 500;
+        INERTIA_TIMEOUT_MOUSE = 100,
+        INERTIA_TIMEOUT_TOUCH = 500;
     var TOUCH_MODES = {
         TAP: 0,
         MOVE: 1, 
@@ -2362,7 +2363,7 @@ TILE5.Touch = (function() {
                 
             function calculateInertia(upXY, currentXY, distance, tickDiff) {
                 var theta = Math.asin((upXY.y - currentXY.y) / distance),
-                    extraDistance = Math.min(Math.floor(distance * (1000 / tickDiff)), 500),
+                    extraDistance = Math.min(Math.floor(distance * (1000 / tickDiff)), 600),
                     distanceVector;
                     
                 theta = currentXY.x > upXY.x ? theta : Math.PI - theta;
@@ -2533,6 +2534,9 @@ TILE5.Touch = (function() {
             
             function touchEnd(evt) {
                 if (evt.target && (evt.target === params.element)) {
+                    var tickDiff, distance,
+                        touchUpXY = (supportsTouch ? getTouchPoints(evt.changedTouches) : getMousePos(evt))[0];
+                    
                     try {
                         // cancel event propogation
                         if (supportsTouch) {
@@ -2562,9 +2566,6 @@ TILE5.Touch = (function() {
                         else if (touchMode == TOUCH_MODES.MOVE) {
                             triggerEvent('moveEnd', totalDelta.x, totalDelta.y);
                             
-                            var tickDiff, distance,
-                                touchUpXY = (supportsTouch ? getTouchPoints(evt.changedTouches) : getMousePos(evt))[0];
-                            
                             if (! supportsTouch) {
                                 lastXY = touchUpXY;
                                 
@@ -2573,11 +2574,11 @@ TILE5.Touch = (function() {
                                     distance = TILE5.V.distance([touchUpXY, lastXY]);
 
                                     // calculate the inertia
-                                    if ((tickDiff < INERTIA_TIMEOUT) && (distance > params.inertiaTrigger)) {
+                                    if ((tickDiff < INERTIA_TIMEOUT_MOUSE) && (distance > params.inertiaTrigger)) {
                                         clearInterval(checkInertiaInterval);
                                         calculateInertia(touchUpXY, lastXY, distance, tickDiff);
                                     }
-                                    else if (tickDiff > INERTIA_TIMEOUT) {
+                                    else if (tickDiff > INERTIA_TIMEOUT_MOUSE) {
                                         clearInterval(checkInertiaInterval);
                                     } // if..else
                                 }, 5);
@@ -2585,7 +2586,7 @@ TILE5.Touch = (function() {
                             else {
                                 tickDiff = endTick - touchStartTick;
                                 
-                                if ((tickDiff < INERTIA_TIMEOUT)) {
+                                if ((tickDiff < INERTIA_TIMEOUT_TOUCH)) {
                                     distance = TILE5.V.distance([touchesStart[0], touchUpXY]);
                                     
                                     if (distance > params.inertiaTrigger) {
@@ -3603,6 +3604,8 @@ TILE5.Graphics = (function() {
                 initialDrawMode: "source-over",
                 bufferRefresh: 100,
                 defaultFreezeDelay: 500,
+                panAnimationEasing: TILE5.Animation.Easing.Sine.Out,
+                panAnimationDuration: 750,
                 autoSize: false
             }, params);
             
@@ -3641,17 +3644,17 @@ TILE5.Graphics = (function() {
                 
             /* panning functions */
             
-            function pan(x, y, tweenFn) {
+            function pan(x, y, tweenFn, tweenDuration) {
                 // update the offset by the specified amount
                 panimating = typeof(tweenFn) !== "undefined";
-                self.updateOffset(offset.x + x, offset.y + y, tweenFn);
+                self.updateOffset(offset.x + x, offset.y + y, tweenFn, tweenDuration);
                 
                 wake();
                 state = DISPLAY_STATE.PAN;                
             } // pan
             
             function panInertia(x, y) {
-                pan(x, y, TILE5.Animation.Easing.Sine.Out);
+                pan(x, y, params.panAnimationEasing, params.panAnimationDuration);
             } // panIntertia
             
             function panEnd(x, y) {
@@ -4092,7 +4095,7 @@ TILE5.Graphics = (function() {
                     offset.y = y;
                 },
                 
-                updateOffset: function(x, y, tweenFn) {
+                updateOffset: function(x, y, tweenFn, tweenDuration) {
                     if (tweenFn) {
                         var endPosition = new TILE5.Vector(x, y);
 
@@ -4100,7 +4103,7 @@ TILE5.Graphics = (function() {
                         var tweens = TILE5.Animation.tweenVector(offset, endPosition.x, endPosition.y, tweenFn, function() {
                             animating = false;
                             panEnd(0, 0);
-                        });
+                        }, tweenDuration);
 
                         // set the tweens to cancel on interact
                         for (var ii = tweens.length; ii--; ) {
@@ -4628,7 +4631,7 @@ TILE5.Tiling = (function() {
                     if (params.drawGrid) {
                         context.strokeStyle = "rgba(50, 50, 50, 0.3)";
                     } // if
-
+                    
                     // begin the path for the tile borders
                     context.beginPath();
 
@@ -4641,7 +4644,7 @@ TILE5.Tiling = (function() {
                             var x = tile.gridX - xShift,
                                 y = tile.gridY - yShift,
                                 drawn = redraw ? false : (tile.x === x) && (tile.y === y);
-
+                                
                             // draw the tile
                             tilesDrawn = (drawn ? true : self.drawTile(context, tile, x, y, state)) && tilesDrawn;
                         } 
@@ -5867,7 +5870,7 @@ TILE5.Geo = (function() {
     function geolocationAPI(args) {
         args = GRUNT.extend({
             autoPhasing: true,
-            maximumAge: 300000,
+            maximumAge: 500,
             timeout: 0,
             highAccuracyCutoff: 10,
             watch: false,
@@ -6924,6 +6927,16 @@ TILE5.Geo.UI = (function() {
                     // update the annotation xy coordinates
                     annotationsArray[ii].xy = grid.getGridXYForPosition(annotationsArray[ii].pos);
                 } // for
+                
+                // sort the array in the appropriate order
+                annotationsArray.sort(function(itemA, itemB) {
+                    var diff = itemB.xy.y - itemA.xy.y;
+                    if (diff === 0) {
+                        diff = itemB.xy.x - itemA.xy.x;
+                    } // if
+                    
+                    return diff;
+                });
             }
 
             // create the view layer the we will draw the view
@@ -7109,11 +7122,9 @@ TILE5.Geo.UI = (function() {
                 zoomLevel: 0,
                 boundsChange: null,
                 tapPOI: null,
-                tapHandler: null,
                 boundsChangeThreshold: 30,
                 pois: new TILE5.Geo.POIStorage(),
                 createAnnotationForPOI: null,
-                onTilesLoaded: null,
                 zoomAnimation: TILE5.Animation.Easing.Quad.Out
             }, params);
             

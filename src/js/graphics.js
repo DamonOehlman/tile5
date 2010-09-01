@@ -326,6 +326,8 @@ TILE5.Graphics = (function() {
                 initialDrawMode: "source-over",
                 bufferRefresh: 100,
                 defaultFreezeDelay: 500,
+                panAnimationEasing: TILE5.Animation.Easing.Sine.Out,
+                panAnimationDuration: 750,
                 autoSize: false
             }, params);
             
@@ -364,17 +366,17 @@ TILE5.Graphics = (function() {
                 
             /* panning functions */
             
-            function pan(x, y, tweenFn) {
+            function pan(x, y, tweenFn, tweenDuration) {
                 // update the offset by the specified amount
                 panimating = typeof(tweenFn) !== "undefined";
-                self.updateOffset(offset.x + x, offset.y + y, tweenFn);
+                self.updateOffset(offset.x + x, offset.y + y, tweenFn, tweenDuration);
                 
                 wake();
                 state = DISPLAY_STATE.PAN;                
             } // pan
             
             function panInertia(x, y) {
-                pan(x, y, TILE5.Animation.Easing.Sine.Out);
+                pan(x, y, params.panAnimationEasing, params.panAnimationDuration);
             } // panIntertia
             
             function panEnd(x, y) {
@@ -815,7 +817,7 @@ TILE5.Graphics = (function() {
                     offset.y = y;
                 },
                 
-                updateOffset: function(x, y, tweenFn) {
+                updateOffset: function(x, y, tweenFn, tweenDuration) {
                     if (tweenFn) {
                         var endPosition = new TILE5.Vector(x, y);
 
@@ -823,7 +825,7 @@ TILE5.Graphics = (function() {
                         var tweens = TILE5.Animation.tweenVector(offset, endPosition.x, endPosition.y, tweenFn, function() {
                             animating = false;
                             panEnd(0, 0);
-                        });
+                        }, tweenDuration);
 
                         // set the tweens to cancel on interact
                         for (var ii = tweens.length; ii--; ) {

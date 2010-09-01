@@ -24,7 +24,7 @@ TILE5.Geo.Location = (function() {
     function geolocationAPI(args) {
         args = GRUNT.extend({
             autoPhasing: true,
-            maximumAge: 300000,
+            maximumAge: 500,
             timeout: 0,
             highAccuracyCutoff: 10,
             watch: false,

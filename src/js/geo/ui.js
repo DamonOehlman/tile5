@@ -532,6 +532,16 @@ TILE5.Geo.UI = (function() {
                     // update the annotation xy coordinates
                     annotationsArray[ii].xy = grid.getGridXYForPosition(annotationsArray[ii].pos);
                 } // for
+                
+                // sort the array in the appropriate order
+                annotationsArray.sort(function(itemA, itemB) {
+                    var diff = itemB.xy.y - itemA.xy.y;
+                    if (diff === 0) {
+                        diff = itemB.xy.x - itemA.xy.x;
+                    } // if
+                    
+                    return diff;
+                });
             }
 
             // create the view layer the we will draw the view
@@ -717,11 +727,9 @@ TILE5.Geo.UI = (function() {
                 zoomLevel: 0,
                 boundsChange: null,
                 tapPOI: null,
-                tapHandler: null,
                 boundsChangeThreshold: 30,
                 pois: new TILE5.Geo.POIStorage(),
                 createAnnotationForPOI: null,
-                onTilesLoaded: null,
                 zoomAnimation: TILE5.Animation.Easing.Quad.Out
             }, params);
             

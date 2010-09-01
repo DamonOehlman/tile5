@@ -422,7 +422,7 @@ TILE5.Tiling = (function() {
                     if (params.drawGrid) {
                         context.strokeStyle = "rgba(50, 50, 50, 0.3)";
                     } // if
-
+                    
                     // begin the path for the tile borders
                     context.beginPath();
 
@@ -435,7 +435,7 @@ TILE5.Tiling = (function() {
                             var x = tile.gridX - xShift,
                                 y = tile.gridY - yShift,
                                 drawn = redraw ? false : (tile.x === x) && (tile.y === y);
-
+                                
                             // draw the tile
                             tilesDrawn = (drawn ? true : self.drawTile(context, tile, x, y, state)) && tilesDrawn;
                         } 
