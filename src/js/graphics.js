@@ -733,9 +733,7 @@ TILE5.Graphics = (function() {
                     if (tweenFn) {
                         var endPosition = new TILE5.Vector(x, y);
 
-                        animating = true;
                         var tweens = TILE5.Animation.tweenVector(offset, endPosition.x, endPosition.y, tweenFn, function() {
-                            animating = false;
                             panEnd(0, 0);
                         }, tweenDuration);
 
@@ -810,8 +808,8 @@ TILE5.Graphics = (function() {
                 observable: self
             });
             
-            self.bind("move", pan);
-            self.bind("moveEnd", panEnd);
+            self.bind("pan", pan);
+            self.bind("panEnd", panEnd);
             self.bind("pinchZoom", pinchZoom);
             self.bind("pinchZoomEnd", pinchZoomEnd);
             self.bind("wheelZoom", wheelZoom);
@@ -822,8 +820,8 @@ TILE5.Graphics = (function() {
             } // if
             
             // handle intertia events
-            self.bind("moveInertia", panInertia);
-            self.bind("cancelInertia", function() {
+            self.bind("inertiaPan", panInertia);
+            self.bind("inertiaCancel", function() {
                 panimating = false;
                 wake();
             });

@@ -6,6 +6,13 @@ TILE5.Geo.UI = (function() {
     // some base64 images
     var LOCATOR_IMAGE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAACIQAAAiEBPhEQkwAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAG+SURBVCiRlZHNahNRAIW/O7mTTJPahLZBA1YUyriINRAE3bQIKm40m8K8gLj0CRQkO32ELHUlKbgoIu4EqeJPgtCaoBuNtjXt5LeTMZk0mbmuWiuuPLsD3+HAOUIpxf9IHjWmaUbEyWv5ROrsVULhcHP761rUfnN3Y2Otc8CIg4YT85lzuVsPP+Qupw1vpPjRCvhS9ymvV0e77x7nNj+uvADQAIQQ+uLyvdfLV9JGZi7EdEwQlqBpEJ019f0z1mo2u5Q8DMydv25lshemmj1FueZTawbs7inarqLbV7Qjab1upB9YlhWSAHLavLHZCvg1VEhN0PMU9W7At4bPVidg7CtkLLXkut+lBPD6/Ub155jJiADAHSpaLmx3ApyBQoYEUd0PBoOBkAC6+3llvda/YxgGgYL+UNHf/zN3KiExGlsvTdP0NYDkhPdWrz35ZDsBzV5wCMuQwEyFmXFeeadjzfuFQmGkAZRKpdGC/n7x+M6jqvA9Zo6FWDhlcHE+wqT93J1tP7vpOE7rrx8ALMuasPf8S12St4WmJ6bYWTUC52k8Hm8Vi0X/nwBAPp/XKpWKdF1X2LYdlMvlsToC/QYTls7DLFr/PAAAAABJRU5ErkJggg%3D%3D";
     
+    // define the locate modes
+    var LOCATE_MODE = {
+        NONE: 0,
+        SINGLE: 1,
+        WATCH: 2
+    };
+    
     function getAnnotationTween(tweenType) {
         // get the current tick count
         var tickCount = TILE5.Clock.getTime(true);
@@ -512,7 +519,10 @@ TILE5.Geo.UI = (function() {
                         context.fill();
                     } // if
 
-                    context.drawImage(iconImage, centerX, centerY, iconImage.width, iconImage.height);
+                    if (iconImage.complete && iconImage.width > 0) {
+                        context.drawImage(iconImage, centerX, centerY, iconImage.width, iconImage.height);
+                    } // if
+
                     view.trigger("invalidate");
                 }
             }, params));
@@ -691,6 +701,7 @@ TILE5.Geo.UI = (function() {
             // initialise variables
             var lastBoundsChangeOffset = new TILE5.Vector(),
                 locationWatchId = 0,
+                locateMode = LOCATE_MODE.NONE,
                 initialized = false,
                 tappedPOIs = [],
                 annotations = null, // annotations layer
@@ -757,10 +768,72 @@ TILE5.Geo.UI = (function() {
             function trackingError(error) {
                 GRUNT.Log.info("caught location tracking error:", error);
             } // trackingError
+            
+            /* event handlers */
+            
+            function handlePan(x, y) {
+                if (locateMode === LOCATE_MODE.SINGLE) {
+                    self.trackCancel();
+                } // if
+            } // handlePan
+            
+            function handleTap(absXY, relXY) {
+                var grid = self.getTileLayer();
+                var tapBounds = null;
+
+                if (grid) {
+                    var gridPos = self.viewPixToGridPix(new TILE5.Vector(relXY.x, relXY.y)),
+                        tapPos = grid.pixelsToPos(gridPos),
+                        minPos = grid.pixelsToPos(TILE5.V.offset(gridPos, -params.tapExtent, params.tapExtent)),
+                        maxPos = grid.pixelsToPos(TILE5.V.offset(gridPos, params.tapExtent, -params.tapExtent));
+
+                    GRUNT.Log.info("grid tapped @ " + TILE5.Geo.P.toString(grid.pixelsToPos(gridPos)));
+
+                    // turn that into a bounds object
+                    tapBounds = new TILE5.Geo.BoundingBox(minPos, maxPos);
+
+                    // find the pois in the bounds area
+                    tappedPOIs = self.pois.findByBounds(tapBounds);
+                    // GRUNT.Log.info("TAPPED POIS = ", tappedPOIs);
+                    
+                    self.trigger("geotap", absXY, relXY, tapPos, tapBounds);
+
+                    if (params.tapPOI) {
+                        params.tapPOI(tappedPOIs);
+                    } // if
+                } // if
+            } // handleTap
+            
+            function handleDoubleTap(absXY, relXY) {
+                self.animate(2, 
+                    TILE5.D.getCenter(self.getDimensions()), 
+                    new TILE5.Vector(relXY.x, relXY.y), 
+                    params.zoomAnimation);
+            } // handleDoubleTap
+            
+            function handleScale(scaleAmount, zoomXY) {
+                var zoomChange = 0;
+
+                // damp the scale amount
+                scaleAmount = Math.sqrt(scaleAmount);
+
+                if (scaleAmount < 1) {
+                    zoomChange = -(0.5 / scaleAmount);
+                }
+                else if (scaleAmount > 1) {
+                    zoomChange = scaleAmount;
+                } // if..else
+
+                self.gotoPosition(self.getXYPosition(zoomXY), zoomLevel + Math.floor(zoomChange));
+            } // handleScale
+            
+            /* internal functions */
 
             function getLayerScaling(oldZoom, newZoom) {
                 return radsPerPixelAtZoom(1, oldZoom) / radsPerPixelAtZoom(1, newZoom);
             } // getLayerScaling
+            
+            /* public object definition */
             
             // initialise self
             var self = GRUNT.extend({}, new TILE5.Tiling.Tiler(params), {
@@ -936,12 +1009,15 @@ TILE5.Geo.UI = (function() {
                 
                 locate: function() {
                     // run a track start, but only allow it to run for a maximum of 30s 
-                    self.trackStart();
-                    setTimeout(self.trackCancel, 30000);
+                    self.trackStart(LOCATE_MODE.SINGLE);
+                    
+                    // stop checking for location after 10 seconds
+                    setTimeout(self.trackCancel, 10000);
                 },
                 
-                trackStart: function() {
+                trackStart: function(mode) {
                     if (navigator.geolocation) {
+                        locateMode = mode ? mode : LOCATE_MODE.WATCH;
                         
                         initialTrackingUpdate = true;
                         geoWatchId = navigator.geolocation.watchPosition(trackingUpdate, trackingError, {
@@ -957,8 +1033,13 @@ TILE5.Geo.UI = (function() {
                         navigator.geolocation.clearWatch(geoWatchId);
                     } // if
                     
-                    // TODO: fix this to only remove the location annotation
-                    annotations.clear();
+                    if (locateMode === LOCATE_MODE.WATCH) {
+                        // TODO: fix this to only remove the location annotation
+                        annotations.clear();
+                    } // if
+                    
+                    // reset the locate mode
+                    locateMode = LOCATE_MODE.NONE;
                     
                     // reset the watch
                     geoWatchId = 0;
@@ -1013,52 +1094,10 @@ TILE5.Geo.UI = (function() {
             });
             
             // bind some event handlers
-            self.bind("tap", function(absXY, relXY) {
-                var grid = self.getTileLayer();
-                var tapBounds = null;
-
-                if (grid) {
-                    var gridPos = self.viewPixToGridPix(new TILE5.Vector(relXY.x, relXY.y)),
-                        tapPos = grid.pixelsToPos(gridPos),
-                        minPos = grid.pixelsToPos(TILE5.V.offset(gridPos, -params.tapExtent, params.tapExtent)),
-                        maxPos = grid.pixelsToPos(TILE5.V.offset(gridPos, params.tapExtent, -params.tapExtent));
-
-                    GRUNT.Log.info("grid tapped @ " + TILE5.Geo.P.toString(grid.pixelsToPos(gridPos)));
-
-                    // turn that into a bounds object
-                    tapBounds = new TILE5.Geo.BoundingBox(minPos, maxPos);
-
-                    // find the pois in the bounds area
-                    tappedPOIs = self.pois.findByBounds(tapBounds);
-                    // GRUNT.Log.info("TAPPED POIS = ", tappedPOIs);
-                    
-                    self.trigger("geotap", absXY, relXY, tapPos, tapBounds);
-
-                    if (params.tapPOI) {
-                        params.tapPOI(tappedPOIs);
-                    } // if
-                } // if
-            });
-            
-            self.bind("doubleTap", function(absXY, relXY) {
-                self.animate(2, TILE5.D.getCenter(self.getDimensions()), new TILE5.Vector(relXY.x, relXY.y), params.zoomAnimation);
-            });
-            
-            self.bind("scale", function(scaleAmount, zoomXY) {
-                var zoomChange = 0;
-
-                // damp the scale amount
-                scaleAmount = Math.sqrt(scaleAmount);
-
-                if (scaleAmount < 1) {
-                    zoomChange = -(0.5 / scaleAmount);
-                }
-                else if (scaleAmount > 1) {
-                    zoomChange = scaleAmount;
-                } // if..else
-
-                self.gotoPosition(self.getXYPosition(zoomXY), zoomLevel + Math.floor(zoomChange));
-            });
+            self.bind("pan", handlePan);
+            self.bind("tap", handleTap);
+            self.bind("doubleTap", handleDoubleTap);
+            self.bind("scale", handleScale);
 
             // create an annotations layer
             annotations = new TILE5.Geo.UI.AnnotationsOverlay({

@@ -131,7 +131,7 @@ TILE5.Tiling = (function() {
                 if ((shiftDelta.x === 0) && (shiftDelta.y === 0)) { return; }
                 
                 var ii, startTicks = GRUNT.Log.getTraceTicks();
-                GRUNT.Log.info("need to shift tile store grid, " + shiftDelta.x + " cols and " + shiftDelta.y + " rows.");
+                // GRUNT.Log.info("need to shift tile store grid, " + shiftDelta.x + " cols and " + shiftDelta.y + " rows.");
 
                 // create new storage
                 var newStorage = Array(storage.length);

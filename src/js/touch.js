@@ -1,6 +1,7 @@
 TILE5.Touch = (function() {
     // initialise constants
     var PANREFRESH = 5,
+        WHEEL_DELTA_STEP = 120,
         DEFAULT_INERTIA_MAX = 500,
         INERTIA_TIMEOUT_MOUSE = 100,
         INERTIA_TIMEOUT_TOUCH = 250;
@@ -111,7 +112,7 @@ TILE5.Touch = (function() {
                 theta = currentXY.x > upXY.x ? theta : Math.PI - theta;
                 distanceVector = new TILE5.Vector(Math.cos(theta) * -extraDistance, Math.sin(theta) * extraDistance);
                     
-                triggerEvent("moveInertia", distanceVector.x, distanceVector.y);
+                triggerEvent("inertiaPan", distanceVector.x, distanceVector.y);
             } // calculateInertia
             
             function checkInertia(upXY, currentTick) {
@@ -192,7 +193,7 @@ TILE5.Touch = (function() {
                         preventDefaultTouch(evt);
                     } // if
                     
-                    triggerEvent("cancelInertia");
+                    triggerEvent("inertiaCancel");
 
                     // log the current touch start time
                     ticks.current = touchStartTick;
@@ -282,7 +283,7 @@ TILE5.Touch = (function() {
 
                                 // if the pan_delta is sufficient to fire an event, then do so
                                 if (TILE5.V.absSize(panDelta) > params.panEventThreshhold) {
-                                    triggerEvent('move', panDelta.x, panDelta.y);
+                                    triggerEvent("pan", panDelta.x, panDelta.y);
                                     panDelta = TILE5.V.create();
                                 } // if
 
@@ -338,7 +339,7 @@ TILE5.Touch = (function() {
                         }
                         // if moving, then fire the move end
                         else if (touchMode == TOUCH_MODES.MOVE) {
-                            triggerEvent('moveEnd', totalDelta.x, totalDelta.y);
+                            triggerEvent("panEnd", totalDelta.x, totalDelta.y);
                             
                             if (inertiaSettings) {
                                 checkInertia(touchUpXY, endTick);
@@ -358,14 +359,29 @@ TILE5.Touch = (function() {
                 touchDown = false;
             } // touchEnd
             
+            function getWheelDelta(evt) {
+                // process ff DOMMouseScroll event
+                if (evt.detail) {
+                    var delta = -evt.detail * WHEEL_DELTA_STEP;
+                    return new TILE5.Vector(evt.axis === 1 ? delta : 0, evt.axis === 2 ? delta : 0);
+                }
+                else {
+                    return new TILE5.Vector(evt.wheelDeltaX, evt.wheelDeltaY);
+                } // if..else
+            } // getWheelDelta
+            
             function wheelie(evt) {
-                var delta = new TILE5.Vector(evt.wheelDeltaX, evt.wheelDeltaY),
-                    zoomAmount = delta.y !== 0 ? Math.abs(delta.y / 120) : 0;
+                if (evt.target && (evt.target === params.element)) {
+                    var delta = getWheelDelta(evt), 
+                        zoomAmount = delta.y !== 0 ? Math.abs(delta.y / WHEEL_DELTA_STEP) : 0;
+
+                    if (lastXY && (zoomAmount !== 0)) {
+                        // apply the offset to the xy
+                        var xy = TILE5.V.offset(lastXY, -params.element.offsetLeft, -params.element.offsetTop);
+                        triggerEvent("wheelZoom", xy, Math.pow(2, delta.y > 0 ? zoomAmount : -zoomAmount));
+                    } // if
                     
-                if (lastXY && (zoomAmount !== 0)) {
-                    // apply the offset to the xy
-                    var xy = TILE5.V.offset(lastXY, -params.element.offsetLeft, -params.element.offsetTop);
-                    triggerEvent("wheelZoom", xy, Math.pow(2, delta.y > 0 ? zoomAmount : -zoomAmount));
+                    evt.preventDefault();
                 } // if
             } // wheelie
 
@@ -402,7 +418,8 @@ TILE5.Touch = (function() {
                     
                     // handle mouse wheel events by
                     if (! config.supportsTouch) {
-                        config.eventTarget.removeEventListener("mousewheel", wheelie, false);
+                        window.removeEventListener("mousewheel", wheelie, false);
+                        window.removeEventListener("DOMMouseScroll", wheelie, false);
                     } // if
                 },
 
@@ -425,7 +442,8 @@ TILE5.Touch = (function() {
             
             // handle mouse wheel events by
             if (! config.supportsTouch) {
-                config.eventTarget.addEventListener("mousewheel", wheelie, false);
+                window.addEventListener("mousewheel", wheelie, false);
+                window.addEventListener("DOMMouseScroll", wheelie, false);
             } // if
 
             return self;
