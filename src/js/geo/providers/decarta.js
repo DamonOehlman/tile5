@@ -174,7 +174,7 @@ TILE5.Geo.Decarta = (function() {
                 
             // parse the street
             if (params.json.Street) {
-                street = params.json.Street.content ? params.json.Street.content : params.json.Street;
+                street = params.json.Street.content;
             } // if
             
             // strip any trailing highway specifiers from the street
