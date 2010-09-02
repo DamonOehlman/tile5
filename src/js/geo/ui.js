@@ -695,6 +695,7 @@ TILE5.Geo.UI = (function() {
                 boundsChangeThreshold: 30,
                 pois: new TILE5.Geo.POIStorage(),
                 createAnnotationForPOI: null,
+                displayLocationAnnotation: true,
                 zoomAnimation: TILE5.Animation.Easing.Quad.Out
             }, params);
             
@@ -724,6 +725,8 @@ TILE5.Geo.UI = (function() {
                 try {
                     var currentPos = new TILE5.Geo.Position(position.coords.latitude, position.coords.longitude),
                         accuracy = position.coords.accuracy / 1000;
+                        
+                    self.trigger("locationUpdate", position, accuracy);
 
                     // if this is the initial tracking update then create the overlay
                     if (initialTrackingUpdate) {
@@ -739,7 +742,10 @@ TILE5.Geo.UI = (function() {
                             });
                         } // if
 
-                        annotations.add(locationAnnotation);
+                        // if we want to display the location annotation, then put it onscreen
+                        if (params.displayLocationAnnotation) {
+                            annotations.add(locationAnnotation);
+                        } // if
 
                         // TODO: fix the magic number
                         var targetBounds = TILE5.Geo.B.createBoundsFromCenter(currentPos, Math.max(accuracy, 1));
