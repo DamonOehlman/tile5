@@ -347,8 +347,7 @@ TILE5.Touch = (function() {
                         }
                         // if pinchzooming, then fire the pinch zoom end
                         else if (touchMode == TOUCH_MODES.PINCHZOOM) {
-                            // TODO: pass the total zoom amount
-                            triggerEvent('pinchZoomEnd', relativeTouches(touchesStart), relativeTouches(touchesLast));
+                            triggerEvent('pinchZoomEnd', relativeTouches(touchesStart), relativeTouches(touchesLast), endTick - touchStartTick);
                         } // if..else
                     }
                     catch (e) {

@@ -227,6 +227,8 @@ TILE5.Graphics = (function() {
                 inertialScroll: true,
                 panAnimationEasing: TILE5.Animation.Easing.Sine.Out,
                 panAnimationDuration: 750,
+                pinchZoomAnimateTrigger: 400,
+                adjustScaleFactor: null,
                 autoSize: false
             }, params);
             
@@ -259,6 +261,7 @@ TILE5.Graphics = (function() {
                 startRect = null,
                 endRect = null,
                 scaleFactor = 1,
+                lastDrawScaleFactor = 1,
                 aniProgress = null,
                 tweenStart = null,
                 startCenter = null,
@@ -290,13 +293,9 @@ TILE5.Graphics = (function() {
             
             /* scaling functions */
             
-            function animateZoom() {
-                // flag that we are scaling
-                state = module.DisplayState.PINCHZOOM;
-                wake();
-                
-                self.trigger("animate");
-            } // animateZoom
+            function resetZoom() {
+                scaleFactor = 1;
+            } // resetZoom
             
             function checkTouches(start, end) {
                 startRect = TILE5.V.getRect(start);
@@ -325,13 +324,37 @@ TILE5.Graphics = (function() {
                 } // if
             } // pinchZoom
             
-            function pinchZoomEnd(touchesStart, touchesEnd) {
+            function pinchZoomEnd(touchesStart, touchesEnd, pinchZoomTime) {
                 checkTouches(touchesStart, touchesEnd);
-
-                scaleView();
                 
-                // restore the scale amount to 1
-                scaleFactor = 1;
+                if (params.adjustScaleFactor) {
+                    scaleFactor = params.adjustScaleFactor(scaleFactor);
+                    GRUNT.Log.info("scale factor adjusted to: " + scaleFactor);
+                } // if
+
+                if (pinchZoomTime < params.pinchZoomAnimateTrigger) {
+                    // TODO: move this to the map to override
+                    animateZoom(
+                        lastDrawScaleFactor, 
+                        scaleFactor, 
+                        startCenter, 
+                        calcPinchZoomCenter(), 
+                        // TODO: make the animation configurable
+                        TILE5.Animation.Easing.Sine.Out,
+                        function() {
+                            scaleView();
+                            resetZoom();
+                        },
+                        // TODO: make the animation duration configurable
+                        300);
+                        
+                    // reset the scale factor to the last draw scale factor
+                    scaleFactor = lastDrawScaleFactor;
+                }
+                else {
+                    scaleView();
+                    resetZoom();
+                } // if..else
             } // pinchZoomEnd
             
             function wheelZoom(relXY, zoom) {
@@ -347,7 +370,6 @@ TILE5.Graphics = (function() {
 
                 // reset the status flag
                 state = module.DisplayState.ACTIVE;
-                scaleFactor = 1;
                 wake();
             } // scaleView
             
@@ -403,6 +425,53 @@ TILE5.Graphics = (function() {
                 
                 return -1;
             } // getLayerIndex
+            
+            /* animation code */
+            
+            function animateZoom(scaleFactorFrom, scaleFactorTo, startXY, targetXY, tweenFn, callback, duration) {
+                
+                function finishAnimation() {
+                    // if we have a callback to complete, then call it
+                    if (callback) {
+                        callback();
+                    } // if
+
+                    scaleView();
+
+                    // reset the scale factor
+                    resetZoom();
+                    aniProgress = null;
+                } // finishAnimation
+                
+                // update the zoom center
+                scaling = true;
+                startCenter = TILE5.V.copy(startXY);
+                endCenter = TILE5.V.copy(targetXY);
+                startRect = null;
+
+                // if tweening then update the targetXY
+                if (tweenFn) {
+                    var tween = TILE5.Animation.tweenValue(0, scaleFactorTo - scaleFactorFrom, tweenFn, finishAnimation, duration ? duration : 1000);
+                    tween.requestUpdates(function(updatedValue, completed) {
+                        // calculate the completion percentage
+                        aniProgress = updatedValue / (scaleFactorTo - scaleFactorFrom);
+
+                        // update the scale factor
+                        scaleFactor = scaleFactorFrom + updatedValue;
+
+                        // trigger the on animate handler
+                        state = module.DisplayState.PINCHZOOM;
+                        wake();
+
+                        self.trigger("animate");
+                    });
+                }
+                // otherwise, update the scale factor and fire the callback
+                else {
+                    scaleFactor = targetScaleFactor;
+                    finishAnimation();
+                }  // if..else                
+            } // animateZoom
             
             /* draw code */
             
@@ -467,6 +536,8 @@ TILE5.Graphics = (function() {
                 
                 context.save();
                 try {
+                    lastDrawScaleFactor = scaleFactor;
+                    
                     // if the device dpi has scaled, then apply that to the display
                     if (deviceScaling !== 1) {
                         context.scale(deviceScaling, deviceScaling);
@@ -575,47 +646,7 @@ TILE5.Graphics = (function() {
                 
                 // TODO: change name to be scaling related
                 animate: function(targetScaleFactor, startXY, targetXY, tweenFn, callback) {
-
-                    function finishAnimation() {
-                        // if we have a callback to complete, then call it
-                        if (callback) {
-                            callback();
-                        } // if
-
-                        scaleView();
-
-                        // reset the scale factor
-                        scaleFactor = 1;
-                        aniProgress = null;
-                    } // finishAnimation
-
-                    // update the zoom center
-                    scaling = true;
-                    startCenter = TILE5.V.copy(startXY);
-                    endCenter = TILE5.V.copy(targetXY);
-                    startRect = null;
-
-                    // if tweening then update the targetXY
-                    if (tweenFn) {
-                        tweenStart = scaleFactor;
-
-                        var tween = TILE5.Animation.tweenValue(0, targetScaleFactor - tweenStart, tweenFn, finishAnimation, 1000);
-                        tween.requestUpdates(function(updatedValue, completed) {
-                            // calculate the completion percentage
-                            aniProgress = updatedValue / (targetScaleFactor - tweenStart);
-
-                            // update the scale factor
-                            scaleFactor = tweenStart + updatedValue;
-
-                            // trigger the on animate handler
-                            animateZoom();
-                        });
-                    }
-                    // otherwise, update the scale factor and fire the callback
-                    else {
-                        scaleFactor = targetScaleFactor;
-                        finishAnimation();
-                    }  // if..else
+                    animateZoom(scaleFactor, targetScaleFactor, startXY, targetXY, tweenFn, callback);
                 },
                 
                 centerOn: function(offset) {
@@ -770,7 +801,10 @@ TILE5.Graphics = (function() {
 
                         wake();
                         if (rescaleAfter) {
-                            rescaleTimeout = setTimeout(scaleView, parseInt(rescaleAfter, 10));
+                            rescaleTimeout = setTimeout(function() {
+                                scaleView();
+                                resetZoom();
+                            }, parseInt(rescaleAfter, 10));
                         } // if
                     } // if
                 }

@@ -841,6 +841,12 @@ TILE5.Geo.UI = (function() {
             
             /* public object definition */
             
+            // provide the tiler (and view) an adjust scale factor handler
+            params.adjustScaleFactor = function(scaleFactor) {
+                var roundFn = scaleFactor < 1 ? Math.floor : Math.ceil;
+                return Math.pow(2, roundFn(Math.log(scaleFactor)));
+            };
+            
             // initialise self
             var self = GRUNT.extend({}, new TILE5.Tiling.Tiler(params), {
                 pois: params.pois,
