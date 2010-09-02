@@ -211,12 +211,11 @@ TILE5.Geo.Decarta = (function() {
                 },
                 
                 toString: function() {
-                    var fnresult = street;
-                    if (building) {
-                        fnresult = building + " " + fnresult;
+                    if (street) {
+                        return (building ? building + " " : "") + street;
                     } // if
                     
-                    return fnresult;
+                    return "";
                 }
             };
         },
