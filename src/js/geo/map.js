@@ -423,7 +423,7 @@ T5.Map = function(params) {
         },
         
         trackStart: function(mode) {
-            if (navigator.geolocation) {
+            if (navigator.geolocation && (! geoWatchId)) {
                 locateMode = mode ? mode : LOCATE_MODE.WATCH;
                 
                 initialTrackingUpdate = true;
