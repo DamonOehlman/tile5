@@ -1,5 +1,5 @@
 T5.AnimatedPathLayer = function(params) {
-    params = GRUNT.extend({
+    params = T5.ex({
         path: [],
         id: GRUNT.generateObjectID("pathAnimation"),
         easing: T5.Easing.Sine.InOut,
@@ -55,7 +55,7 @@ T5.AnimatedPathLayer = function(params) {
     });
     
     // initialise self
-    var self =  GRUNT.extend(new T5.ViewLayer(params), {
+    var self =  T5.ex(new T5.ViewLayer(params), {
         cycle: function(tickCount, offset, state) {
             var edgeIndex = 0;
 

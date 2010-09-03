@@ -145,10 +145,18 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/device.js" />
 			<fileset file="src/js/resources.js" />
 			<fileset file="src/js/touch.js" />
-			<fileset file="src/js/animation.js" />
 			
-			<!-- include graphics and tiling -->
-			<fileset file="src/js/graphics.js" />
+			<!-- include the animation functionality -->
+			<fileset file="src/js/animation/easing.js" />
+			<fileset file="src/js/animation/tween.js" />
+			
+			<!-- include the graphics functionality -->
+			<fileset file="src/js/graphics/viewstate.js" />
+			<fileset file="src/js/graphics/viewlayer.js" />
+			<fileset file="src/js/graphics/view.js" />
+			<fileset file="src/js/graphics/animatedpathlayer.js" />
+
+			<!-- include tiling -->
 			<fileset file="src/js/tiling.js" />
 		</concat>
 	</target>
@@ -191,9 +199,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		
 		<delete file="dist/tmpmin"/>
         <echo message="${TILE5_MIN} built." />
-    </target>
 
-    <target name="min-lite" depends="build" description="Remove all comments and whitespace, no compression, great in combination with GZip">
         <echo message="Building ${TILE5_MIN} 'lite'" />
 
 		<apply executable="java" parallel="false" verbose="true" dest="${dist}">

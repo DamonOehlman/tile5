@@ -294,7 +294,7 @@ T5.Resources = (function() {
         
         loadResource: function(params) {
             // extend parameters with defaults
-            params = GRUNT.extend({
+            params = T5.ex({
                 filename: "",
                 cacheable: true,
                 dataType: null,

@@ -46,7 +46,7 @@ T5.Geo.Decarta = (function() {
     // define the decarta internal types
     var types = {
         Address: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 countryCode: currentConfig.geocoding.countryCode,
                 language: currentConfig.geocoding.language,
                 freeform: null,
@@ -79,7 +79,7 @@ T5.Geo.Decarta = (function() {
         },
         
         Place: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 landmark: "",
                 municipality: "",
                 municipalitySubdivision: "",
@@ -88,7 +88,7 @@ T5.Geo.Decarta = (function() {
             }, params);
             
             // initialise self (including params in self)
-            var self = GRUNT.extend({
+            var self = T5.ex({
                 calcMatchPercentage: function(input) {
                     var fnresult = 0;
                     
@@ -144,7 +144,7 @@ T5.Geo.Decarta = (function() {
                     } // for
                     
                     // apply the updated parameter values to self
-                    GRUNT.extend(self, params);
+                    T5.ex(self, params);
                 },
                 
                 toString: function() {
@@ -164,7 +164,7 @@ T5.Geo.Decarta = (function() {
         },
         
         Street: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 json: {}
             }, params);
             
@@ -275,7 +275,7 @@ T5.Geo.Decarta = (function() {
         // GRUNT.Log.info("making request: " + generateRequest(request));
         
         // make the request to the server
-        // TODO: convert ajax request to GRUNT
+        // TODO: convert ajax request to UG
         GRUNT.JSONP.get(generateRequestUrl(request, generateRequest(request)), function(data) {
             // get the number of responses received
             var response = data.response.XLS.Response;
@@ -393,7 +393,7 @@ T5.Geo.Decarta = (function() {
             // create the parent
             var parent = new requestTypes.Request();
 
-            var self = GRUNT.extend({}, parent, {
+            var self = T5.ex({}, parent, {
                 // override core properties
                 methodName: "PortrayMap",
                 maxResponses: 10,
@@ -499,7 +499,7 @@ T5.Geo.Decarta = (function() {
         },
 
         GeocodeRequest: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 addresses: [],
                 parserReport: false,
                 parseOnly: false,
@@ -564,7 +564,7 @@ T5.Geo.Decarta = (function() {
             var parent = new requestTypes.Request();
             
             // initialise self
-            var self = GRUNT.extend({}, parent, {
+            var self = T5.ex({}, parent, {
                 methodName: "Geocode",
                 
                 getRequestBody: function() {
@@ -603,12 +603,12 @@ T5.Geo.Decarta = (function() {
         },
         
         ReverseGeocodeRequest: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 position: null,
                 geocodePreference: "StreetAddress"
             }, params);
             
-            var self = GRUNT.extend(new requestTypes.Request(), {
+            var self = T5.ex(new requestTypes.Request(), {
                 methodName: "ReverseGeocode",
                 
                 getRequestBody: function() {
@@ -645,7 +645,7 @@ T5.Geo.Decarta = (function() {
         
         
         RouteRequest: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 waypoints: [],
                 provideRouteHandle: false,
                 distanceUnit: "KM",
@@ -674,7 +674,7 @@ T5.Geo.Decarta = (function() {
             } // parseInstructions
             
             // initialise self
-            var self = GRUNT.extend({}, parent, {
+            var self = T5.ex({}, parent, {
                 methodName: "DetermineRoute",
                 
                 getRequestBody: function() {
@@ -752,14 +752,14 @@ T5.Geo.Decarta = (function() {
         
         applyConfig: function(args) {
             // extend the current configuration with the supplied params
-            GRUNT.extend(currentConfig, args);
+            T5.ex(currentConfig, args);
         },
         
         /**
         Send through a route request to the decarta server 
         */
         calculateRoute: function(args, callback) {
-            args = GRUNT.extend({
+            args = T5.ex({
                waypoints: []
             }, args);
             
@@ -773,7 +773,7 @@ T5.Geo.Decarta = (function() {
         },
         
         geocode: function(args) {
-            args = GRUNT.extend({
+            args = T5.ex({
                 addresses: [],
                 complete: null
             }, args);
@@ -822,7 +822,7 @@ T5.Geo.Decarta = (function() {
         },
         
         reverseGeocode: function(args) {
-            args = GRUNT.extend({
+            args = T5.ex({
                 position: null,
                 complete: null
             }, args);
@@ -868,7 +868,7 @@ T5.Geo.Decarta = (function() {
         })(),
         
         MapProvider: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 pinPosition: false,
                 drawGrid: false
             }, params);
@@ -922,7 +922,7 @@ T5.Geo.Decarta = (function() {
             } // buildTileGrid
 
             // initialise self
-            var self = GRUNT.extend({}, parent, {
+            var self = T5.ex({}, parent, {
                 getCopyright: function() {
                     return "Mapping Webservices &copy; deCarta, Map Data &copy;Navteq";
                 },

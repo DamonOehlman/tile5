@@ -1,6 +1,6 @@
 T5.View = function(params) {
     // initialise defaults
-    params = GRUNT.extend({
+    params = T5.ex({
         id: GRUNT.generateObjectID('view'),
         container: "",
         clearOnDraw: false,
@@ -10,7 +10,7 @@ T5.View = function(params) {
         initialDrawMode: "source-over",
         bufferRefresh: 100,
         defaultFreezeDelay: 500,
-        inertialScroll: true,
+        inertia: true,
         panAnimationEasing: T5.Easing.Sine.Out,
         panAnimationDuration: 750,
         pinchZoomAnimateTrigger: 400,
@@ -66,7 +66,7 @@ T5.View = function(params) {
     } // pan
     
     function panInertia(x, y) {
-        if (params.inertialScroll) {
+        if (params.inertia) {
             pan(x, y, params.panAnimationEasing, params.panAnimationDuration);
         } // if
     } // panIntertia
@@ -159,28 +159,54 @@ T5.View = function(params) {
         wake();
     } // scaleView
     
-    /* view initialization */
+    function handleContainerUpdate(name, value) {
+        canvas = document.getElementById(value);
+        
+        // attach to the new canvas
+        attachToCanvas();
+    } // handleContainerUpdate
     
-    if (canvas) {
-        T5.Touch.resetTouch(canvas);
-        
-        // if we are autosizing the set the size
-        if (params.autoSize) {
-            canvas.height = window.innerHeight - canvas.offsetTop;
-            canvas.width = window.innerWidth - canvas.offsetLeft;
-        } // if
-        
-        try {
-            mainContext = canvas.getContext('2d');
-            mainContext.globalCompositeOperation = params.initialDrawMode;
-            mainContext.clearRect(0, 0, canvas.width, canvas.height);
-        } 
-        catch (e) {
-            GRUNT.Log.exception(e);
-            throw new Error("Could not initialise canvas on specified view element");
-        }
-    } // if
+    /* private functions */
+    
+    function attachToCanvas() {
+        if (canvas) {
+            T5.Touch.resetTouch(canvas);
 
+            // if we are autosizing the set the size
+            if (params.autoSize) {
+                canvas.height = window.innerHeight - canvas.offsetTop;
+                canvas.width = window.innerWidth - canvas.offsetLeft;
+            } // if
+
+            try {
+                mainContext = canvas.getContext('2d');
+                mainContext.globalCompositeOperation = params.initialDrawMode;
+                mainContext.clearRect(0, 0, canvas.width, canvas.height);
+            } 
+            catch (e) {
+                GRUNT.Log.exception(e);
+                throw new Error("Could not initialise canvas on specified view element");
+            }
+            
+            // capture touch events
+            touchHelper = T5.Touch.capture(canvas, {
+                observable: self
+            });
+            
+            // enable inertia if configured
+            if (params.inertia) {
+                touchHelper.inertiaEnable(params.panAnimationDuration, dimensions);
+            } // if
+            
+            // get the dimensions
+            dimensions = self.getDimensions();
+            centerPos = T5.D.getCenter(dimensions);
+
+            // tell the view to redraw
+            wake();
+        } // if        
+    } // attachToCanvas
+    
     function addLayer(id, value) {
         // make sure the layer has the correct id
         value.setId(id);
@@ -442,8 +468,10 @@ T5.View = function(params) {
         repaint = true;
     } // invalidate
     
+    /* object definition */
+    
     // initialise self
-    var self = GRUNT.extend({}, params, new GRUNT.Observable(), {
+    var self = {
         id: params.id,
         deviceScaling: deviceScaling,
         fastDraw: params.fastDraw || T5.Device.getConfig().requireFastDraw,
@@ -633,17 +661,8 @@ T5.View = function(params) {
                 } // if
             } // if
         }
-    });
-    
-    // get the dimensions
-    dimensions = self.getDimensions();
-    centerPos = T5.D.getCenter(dimensions);
-    
-    // calculate the redaw interval based on the device fps
-    if (deviceFps) {
-        redrawInterval = Math.ceil(1000 / deviceFps);
-    } // if
-    
+    };
+
     // listen for layer removals
     GRUNT.WaterCooler.listen("layer.remove", function(args) {
         if (args.id) {
@@ -653,27 +672,20 @@ T5.View = function(params) {
     
     deviceScaling = T5.Device.getConfig().getScaling();
     
+    // make the view observable
+    GRUNT.observable(self);
+    
     // listen for being woken up
     self.bind("wake", wake);
     
     // handle invalidation
     self.bind("invalidate", invalidate);
     
-    // capture touch events
-    touchHelper = T5.Touch.captureTouch(canvas, {
-        observable: self
-    });
-    
     self.bind("pan", pan);
     self.bind("panEnd", panEnd);
     self.bind("pinchZoom", pinchZoom);
     self.bind("pinchZoomEnd", pinchZoomEnd);
     self.bind("wheelZoom", wheelZoom);
-    
-    // enable inertia if configured
-    if (params.inertialScroll) {
-        touchHelper.inertiaEnable(params.panAnimationDuration, dimensions);
-    } // if
     
     // handle intertia events
     self.bind("inertiaPan", panInertia);
@@ -682,7 +694,17 @@ T5.View = function(params) {
         wake();
     });
     
-    wake();
+    // make the view configurable
+    GRUNT.configurable(
+        self, 
+        ["inertia", "container"], 
+        GRUNT.paramTweaker(params, null, {
+            "container": handleContainerUpdate
+        }),
+        true);
+    
+    // attach the map to the canvas
+    attachToCanvas();
     
     return self;
 }; // T5.View

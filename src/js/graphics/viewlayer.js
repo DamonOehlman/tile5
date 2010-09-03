@@ -1,5 +1,5 @@
 T5.ViewLayer = function(params) {
-    params = GRUNT.extend({
+    params = T5.ex({
         id: "",
         centerOnScale: true,
         created: T5.time(),
@@ -13,7 +13,7 @@ T5.ViewLayer = function(params) {
         id = params.id,
         activeState = T5.ViewState.get("ACTIVE");
     
-    var self = GRUNT.extend({
+    var self = T5.ex({
         addToView: function(view) {
             view.setLayer(id, self);
         },

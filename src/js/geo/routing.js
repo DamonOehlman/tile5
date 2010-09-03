@@ -9,7 +9,7 @@ T5.Geo.Routing = (function() {
         /* module functions */
         
         calculate: function(args) {
-            args = GRUNT.extend({
+            args = T5.ex({
                 engineId: "",
                 waypoints: [],
                 map: null,
@@ -127,7 +127,7 @@ T5.Geo.Routing = (function() {
         },
         
         Instruction: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 position: null,
                 description: "",
                 turnType: null
@@ -143,7 +143,7 @@ T5.Geo.Routing = (function() {
         
         
         RouteData: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 geometry: [],
                 instructions: [],
                 boundingBox: null
@@ -154,7 +154,7 @@ T5.Geo.Routing = (function() {
                 params.boundingBox = T5.Geo.B.forPositions(params.geometry);
             } // if
             
-            var self = GRUNT.extend({
+            var self = T5.ex({
                 getInstructionPositions: function() {
                     var positions = [];
                         

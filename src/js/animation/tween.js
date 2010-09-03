@@ -127,7 +127,7 @@ T5.Animation = (function() {
         },
         
         Tween: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 target: null,
                 property: null,
                 startValue: 0,
@@ -224,7 +224,7 @@ T5.Animation = (function() {
         }
     };
     
-    return GRUNT.extend(module, {
+    return T5.ex(module, {
         DEFAULT: T5.Easing.Back.Out
     });
 })();

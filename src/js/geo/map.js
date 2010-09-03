@@ -1,5 +1,5 @@
 T5.Map = function(params) {
-    params = GRUNT.extend({
+    params = T5.ex({
         tapExtent: 10,
         provider: null,
         crosshair: false,
@@ -188,6 +188,11 @@ T5.Map = function(params) {
         } // if
     } // handleIdle
     
+    function handleProviderUpdate(name, value) {
+        self.cleanup();
+        initialized = false;
+    } // handleProviderUpdate
+    
     /* internal functions */
     
     // TODO: evaluate whether this function can be used for 
@@ -323,18 +328,9 @@ T5.Map = function(params) {
     };
     
     // initialise self
-    var self = GRUNT.extend({}, new T5.Tiling.Tiler(params), {
+    var self = T5.ex({}, new T5.Tiling.Tiler(params), {
         pois: params.pois,
         annotations: null,
-        
-        getProvider: function() {
-            return params.provider;
-        },
-        
-        setProvider: function(value) {
-            params.provider = value;
-            initialized = false;
-        },
         
         getBoundingBox: function() {
             var grid = self.getTileLayer(),
@@ -534,6 +530,15 @@ T5.Map = function(params) {
 
     // listen for the view idling
     self.bind("idle", handleIdle);
+    
+    // make a few parameter configurable
+    GRUNT.configurable(
+        self, 
+        ["provider"], 
+        GRUNT.paramTweaker(params, null, {
+            "provider": handleProviderUpdate
+        }), 
+        true);
 
     return self;
 }; // T5.Map

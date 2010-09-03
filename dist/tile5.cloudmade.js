@@ -7,12 +7,12 @@ T5.Geo.Cloudmade = (function() {
         /** @lends T5.Geo.Cloudmade */
         
         MapProvider: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 apikey: "",
                 styleid: 1
             }, params);
             
-            var base = new T5.Geo.OpenStreetMap.MapProvider(GRUNT.extend({
+            var base = new T5.Geo.OpenStreetMap.MapProvider(T5.ex({
                 getServerDetails: function() {
                     return {
                         baseUrl: String.format("http://{3}.tile.cloudmade.com/{0}/{1}/{2}/", params.apikey, params.styleid, T5.Tiling.Config.TILESIZE, "{0}"),
@@ -21,7 +21,7 @@ T5.Geo.Cloudmade = (function() {
                 }
             }, params));
             
-            return GRUNT.extend(base, {
+            return T5.ex(base, {
                 getCopyright: function() {
                     return "This product uses the CloudMade APIs, but is not endorsed or certified by CloudMade.";
                 }

@@ -1,5 +1,7 @@
 T5 = (function() {
     var module = {
+        ex: GRUNT.extend,
+        
         newCanvas: function(width, height) {
             var tmpCanvas = document.createElement('canvas');
 
@@ -42,7 +44,7 @@ T5 = (function() {
                 
                 /** static */
                 extend: function(params) {
-                    GRUNT.extend(currentSettings, params);
+                    T5.ex(currentSettings, params);
                 }
             };
             

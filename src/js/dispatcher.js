@@ -57,7 +57,7 @@ T5.Dispatcher = (function() {
         
         Action: function(params) {
             // use default parameter when insufficient are provided
-            params = GRUNT.extend({
+            params = T5.ex({
                 autoRegister: true,
                 id: '',
                 title: '',
@@ -95,7 +95,7 @@ T5.Dispatcher = (function() {
         /* agents */
         
         createAgent: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 name: "Untitled",
                 trashOrphanedResults: true,
                 translator: null,

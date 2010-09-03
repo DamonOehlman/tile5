@@ -10,7 +10,7 @@ T5.Geo.Bing = (function() {
         /** @lends T5.Geo.Cloudmade */
         
         MapProvider: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 drawGrid: false,
                 apikey: null,
                 style: "Road" // ValidStyles = Road, Aerial, AerialWithLabels (http://msdn.microsoft.com/en-us/library/ff701716.aspx)
@@ -144,7 +144,7 @@ T5.Geo.Bing = (function() {
             } // calculatePositionFromTileOffset
 
             // initialise self
-            var self = GRUNT.extend({}, parent, {
+            var self = T5.ex({}, parent, {
                 getMapTiles: function(tiler, position, callback) {
                     // if the image url is empty, then get it
                     if (! imageUrls[params.style]) {

@@ -11,7 +11,7 @@ T5.Geo.OpenStreetMap = (function() {
         /** @lends T5.Geo.Cloudmade */
         
         MapProvider: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 drawGrid: false,
                 urlFiller: null,
                 getServerDetails: function() {
@@ -132,7 +132,7 @@ T5.Geo.OpenStreetMap = (function() {
             } // calculatePositionFromTileOffset
 
             // initialise self
-            var self = GRUNT.extend({}, parent, {
+            var self = T5.ex({}, parent, {
                 getMapTiles: function(tiler, position, callback) {
                     // check and update the tiler tile size if required
 

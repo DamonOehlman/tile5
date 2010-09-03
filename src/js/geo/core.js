@@ -101,7 +101,7 @@ T5.Geo = (function() {
             } // if
 
             // map the parameters directly to self
-            var self = GRUNT.extend({
+            var self = T5.ex({
                 remove: function() {
                     delete engines[self.id];
                 }
@@ -142,7 +142,7 @@ T5.Geo = (function() {
         // TODO: probably need to include local support for addressing, but really don't want to bulk out T5 :/
         
         Address: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 streetDetails: "",
                 location: "",
                 country: "",
@@ -242,7 +242,7 @@ T5.Geo = (function() {
         })(), // Utilitities
         
         GeoSearchResult: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 id: null,
                 caption: "",
                 resultType: "",
@@ -251,7 +251,7 @@ T5.Geo = (function() {
                 matchWeight: 0
             }, params);
             
-            return GRUNT.extend(params, {
+            return T5.ex(params, {
                 toString: function() {
                     return params.caption + (params.matchWeight ? " (" + params.matchWeight + ")" : "");
                 }
@@ -278,7 +278,7 @@ T5.Geo = (function() {
             } // rankResults
             
             // extend parameters with defaults
-            params = GRUNT.extend({
+            params = T5.ex({
                 name: "Geocoding Search Agent",
                 paramTranslator: null,
                 execute: function(searchParams, callback) {
@@ -315,7 +315,7 @@ T5.Geo = (function() {
         /* Point of Interest Objects */
         
         PointOfInterest: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 id: 0,
                 title: "",
                 pos: null,
@@ -331,7 +331,7 @@ T5.Geo = (function() {
                 params.pos = new T5.Geo.Position(params.lat, params.lon);
             } // if
             
-            return GRUNT.extend({
+            return T5.ex({
                 toString: function() {
                     return params.id + ": '" + params.title + "'";
                 }
@@ -339,7 +339,7 @@ T5.Geo = (function() {
         },
         
         POIStorage: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 visibilityChange: null,
                 onPOIDeleted: null,
                 onPOIAdded: null
@@ -1004,7 +1004,7 @@ T5.Geo = (function() {
                 
             // if the engine is specified and the engine has compare fns, then extend them
             if (engine && engine.compareFns) {
-                compareFns = GRUNT.extend({}, compareFns, engine.compareFns);
+                compareFns = T5.ex({}, compareFns, engine.compareFns);
             } // if
             
             // iterate through the response addresses and compare against the request address

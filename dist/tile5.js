@@ -926,6 +926,101 @@ GRUNT.Data = (function() {
 })();
 
 
+GRUNT.paramTweaker = function(params, getCallbacks, setCallbacks) {
+    return function(name, value) {
+        if (typeof value !== "undefined") {
+            if (name in params) {
+                params[name] = value;
+            } // if
+            
+            if (setCallbacks && (name in setCallbacks)) {
+                setCallbacks[name](name, value);
+            } // if
+        }
+        else {
+            return (getCallbacks && (name in getCallbacks)) ? 
+                getCallbacks[name](name) : 
+                params[name];
+        } // if..else
+        
+        return undefined;
+    };
+}; // paramTweaker
+
+GRUNT.configurable = function(target, configParams, callback, bindHelpers) {
+    if (! target) { return; }
+    
+    /* internal functions */
+    
+    function attachHelper(helperName) {
+        // if the helper is not defined, then attach
+        if (! target[helperName]) {
+            target[helperName] = function(value) {
+                return target.configure(helperName, value);
+            };
+        } // if
+    } // attachHelper
+    
+    function getSettings() {
+        return target.configurableSettings;
+    } // getSettings
+    
+    function getConfigCallbacks() {
+        return target.configCallbacks;
+    } // getConfigGetters
+    
+    /* initialization code */
+    
+    var ii;
+    
+    // if the target doesn't yet have a configurable settings member, then add it
+    if (! getSettings()) {
+        target.configurableId = GRUNT.generateObjectID("configurable");
+        target.configurableSettings = {};
+        target.configCallbacks = [];
+        
+        if (! GRUNT.configurables) {
+            GRUNT.configurables = {};
+        }
+    } // if
+    
+    // update the configurables
+    // this is a which gets the last object in an extension chain in
+    // the configurables list, so make sure you extend before you make
+    // an object configurable, otherwise things will get a bit wierd.
+    GRUNT.configurables[target.configurableId] = target;
+    
+    // add the callback to the list
+    getConfigCallbacks().push(callback);
+    
+    for (ii = configParams.length; ii--; ) {
+        target.configurableSettings[configParams[ii]] = true;
+        
+        if (bindHelpers) {
+            attachHelper(configParams[ii]);
+        } // if
+    } // for
+    
+    if (! target.configure) {
+        target.configure = function(name, value) {
+            var configurableSettings = getSettings(),
+                callbacks = getConfigCallbacks();
+            
+            if (configurableSettings[name]) {
+                for (var ii = callbacks.length; ii--; ) {
+                    var result = callbacks[ii](name, value);
+                    if (typeof result !== "undefined") {
+                        return result;
+                    } // if
+                } // for
+                
+                return GRUNT.configurables[target.configurableId];
+            } // if
+            
+            return null;
+        };
+    } // if
+};
 GRUNT.Template = (function() {
     var REGEX_TEMPLATE_VAR = /\$\{(.*?)\}/ig;
     
@@ -1417,55 +1512,76 @@ GRUNT.XPath = (function() {
     return module;
 })();
 
-GRUNT.Observable = function() {
-    var listeners = {},
-        callbackCounter = 0;
+GRUNT.observable = function(target) {
+    if (! target) { return; }
     
-    var self = {
-        bind: function(eventName, callback) {
-            if (! listeners[eventName]) {
-                listeners[eventName] = [];
-            } // if
+    /* internal functions */
+    
+    function getHandlers() {
+        return target.observableHandlers;
+    } // getHandlers
+    
+    function getHandlersForName(eventName) {
+        return getHandlers()[eventName];
+    } // getHandlersForName
+    
+    function initHandlerArray(eventName) {
+        var handlers = getHandlers();
+        if (! handlers[eventName]) {
+            handlers[eventName] = [];
+        } // if
+    } // initHandlerArray
+    
+    /* initialization code */
+    
+    // check that the target has handlers 
+    if (! getHandlers()) {
+        target.observableHandlers = {};
+    } // if
+
+    var attached = target.bind || target.trigger || target.unbind;
+    if (! attached) {
+        target.bind = function(eventName, callback) {
+            var callbackId = GRUNT.generateObjectID("callback");
             
-            // increment the event counter
-            callbackCounter += 1;
+            initHandlerArray(eventName);
             
-            // add the callback to the list of listeners
-            listeners[eventName].push({
+            getHandlersForName(eventName).push({
                 callback: callback,
-                callbackId: callbackCounter
+                callbackId: callbackId
             });
             
-            return callbackCounter;
-        },
+            return callbackId;
+        }; // bind
         
-        trigger: function(eventName) {
-            var eventCallbacks = listeners[eventName];
+        target.trigger = function(eventName) {
+            var eventCallbacks = getHandlersForName(eventName);
                 
             // check that we have callbacks
             if (! eventCallbacks) {
-                return;
+                return target;
             } // if
             
             for (var ii = eventCallbacks.length; ii--; ) {
                 eventCallbacks[ii].callback.apply(self, Array.prototype.slice.call(arguments, 1));
             } // for
-        },
+            
+            return target;
+        }; // trigger
         
-        unbind: function(eventName, callbackId) {
-            var eventCallbacks = listeners[eventName];
+        target.unbind = function(eventName, callbackId) {
+            var eventCallbacks = getHandlersForName(eventName);
             for (var ii = 0; eventCallbacks && (ii < eventCallbacks.length); ii++) {
                 if (eventCallbacks[ii].callbackId === callbackId) {
                     eventCallbacks.splice(ii, 1);
                     break;
                 } // if
             } // for
-        }
-    };
-    
-    return self;
-}; 
-
+            
+            return target;
+        }; // unbind
+    } // if
+};
 // TODO: add functionality that allows you to stop listening to messages
 GRUNT.WaterCooler = (function() {
     // initialise variables
@@ -1519,9 +1635,43 @@ GRUNT.WaterCooler = (function() {
     return module;
 })();
 
+GRUNT.Storage = (function() {
+    function getStorageScope(scope) {
+        if (scope && (scope == "session")) {
+            return sessionStorage;
+        } // if
+        
+        return localStorage;
+    } // getStorageTarget
+
+    return {
+        get: function(key, scope) {
+            // get the storage target
+            var value = getStorageScope(scope).getItem(key);
+            
+            // if the value looks like serialized JSON, parse it
+            return (/^(\{|\[).*(\}|\])$/).test(value) ? JSON.parse(value) : value;
+        },
+        
+        set: function(key, value, scope) {
+            // if the value is an object, the stringify using JSON
+            var serializable = jQuery.isArray(value) || jQuery.isPlainObject(value);
+            var storeValue = serializable ? JSON.stringify(value) : value;
+            
+            // save the value
+            getStorageScope(scope).setItem(key, storeValue);
+        },
+        
+        remove: function(key, scope) {
+            getStorageScope(scope).removeItem(key);
+        }
+    };
+})();
 /* GRUNTJS END */
 T5 = (function() {
     var module = {
+        ex: GRUNT.extend,
+        
         newCanvas: function(width, height) {
             var tmpCanvas = document.createElement('canvas');
 
@@ -1564,7 +1714,7 @@ T5 = (function() {
                 
                 /** static */
                 extend: function(params) {
-                    GRUNT.extend(currentSettings, params);
+                    T5.ex(currentSettings, params);
                 }
             };
             
@@ -1906,7 +2056,7 @@ T5.Device = (function() {
                     var testPlatform = deviceCheckOrder[ii];
 
                     if (testPlatform.regex && testPlatform.regex.test(navigator.userAgent)) {
-                        detectedConfig = GRUNT.extend({}, deviceConfigs.base, testPlatform);
+                        detectedConfig = T5.ex({}, deviceConfigs.base, testPlatform);
                         GRUNT.Log.info("PLATFORM DETECTED AS: " + detectedConfig.name);
                         break;
                     } // if
@@ -2223,7 +2373,7 @@ T5.Resources = (function() {
         
         loadResource: function(params) {
             // extend parameters with defaults
-            params = GRUNT.extend({
+            params = T5.ex({
                 filename: "",
                 cacheable: true,
                 dataType: null,
@@ -2335,399 +2485,399 @@ T5.Touch = (function() {
         GRUNT.Log.info("TOUCH EVENT '" + title + "': changedTouches = ", evt.changeTouches);
     } // debugTouchEvent
     
-    var module_types = {
-        TouchHelper: function(params) {
-            params = GRUNT.extend({
-                element: null,
-                observable: null,
-                inertiaTrigger: 20,
-                maxDistDoubleTap: 20,
-                panEventThreshhold: 0,
-                pinchZoomThreshold: 5,
-                touchStartHandler: null,
-                moveHandler: null,
-                moveEndHandler: null,
-                pinchZoomHandler: null,
-                pinchZoomEndHandler: null,
-                tapHandler: null,
-                doubleTapHandler: null,
-                wheelZoomHandler: null
-            }, params);
+    /* touch helper */
+    
+    var TouchHelper =  function(params) {
+        params = T5.ex({
+            element: null,
+            observable: null,
+            inertiaTrigger: 20,
+            maxDistDoubleTap: 20,
+            panEventThreshhold: 0,
+            pinchZoomThreshold: 5,
+            touchStartHandler: null,
+            moveHandler: null,
+            moveEndHandler: null,
+            pinchZoomHandler: null,
+            pinchZoomEndHandler: null,
+            tapHandler: null,
+            doubleTapHandler: null,
+            wheelZoomHandler: null
+        }, params);
 
-            /*
-            // determine whether touch is supported
-            // nice work to thomas fuchs on this:
-            // http://mir.aculo.us/2010/06/04/making-an-ipad-html5-app-making-it-really-fast/
-            var touchReady = 'createTouch' in document;
-            */
+        /*
+        // determine whether touch is supported
+        // nice work to thomas fuchs on this:
+        // http://mir.aculo.us/2010/06/04/making-an-ipad-html5-app-making-it-really-fast/
+        var touchReady = 'createTouch' in document;
+        */
 
-            // initialise private members
-            var doubleTap = false,
-                tapTimer = 0,
-                supportsTouch = T5.Device.getConfig().supportsTouch,
-                touchesStart = null,
-                touchesLast = null,
-                touchDelta = null,
-                totalDelta = null,
-                panDelta = new T5.Vector(),
-                touchMode = null,
-                touchDown = false,
-                touchStartTick = 0,
-                listeners = [],
-                lastXY = null,
-                inertiaSettings = null,
-                ticks = {
-                    current: 0,
-                    last: 0
-                },
-                config = T5.Device.getConfig(),
-                BENCHMARK_INTERVAL = 300;
-                
-            function calculateInertia(upXY, currentXY, distance, tickDiff) {
-                var theta = Math.asin((upXY.y - currentXY.y) / distance),
-                    // TODO: remove the magic numbers from here (pass through animation time from view, and determine max from dimensions)
-                    extraDistance = Math.min(Math.floor(distance * (inertiaSettings.duration / tickDiff)), inertiaSettings.max),
-                    distanceVector;
-                    
-                theta = currentXY.x > upXY.x ? theta : Math.PI - theta;
-                distanceVector = new T5.Vector(Math.cos(theta) * -extraDistance, Math.sin(theta) * extraDistance);
-                    
-                triggerEvent("inertiaPan", distanceVector.x, distanceVector.y);
-            } // calculateInertia
+        // initialise private members
+        var doubleTap = false,
+            tapTimer = 0,
+            supportsTouch = T5.Device.getConfig().supportsTouch,
+            touchesStart = null,
+            touchesLast = null,
+            touchDelta = null,
+            totalDelta = null,
+            panDelta = new T5.Vector(),
+            touchMode = null,
+            touchDown = false,
+            touchStartTick = 0,
+            listeners = [],
+            lastXY = null,
+            inertiaSettings = null,
+            ticks = {
+                current: 0,
+                last: 0
+            },
+            config = T5.Device.getConfig(),
+            BENCHMARK_INTERVAL = 300;
             
-            function checkInertia(upXY, currentTick) {
-                var tickDiff, distance;
+        function calculateInertia(upXY, currentXY, distance, tickDiff) {
+            var theta = Math.asin((upXY.y - currentXY.y) / distance),
+                // TODO: remove the magic numbers from here (pass through animation time from view, and determine max from dimensions)
+                extraDistance = Math.min(Math.floor(distance * (inertiaSettings.duration / tickDiff)), inertiaSettings.max),
+                distanceVector;
                 
-                if (! supportsTouch) {
-                    lastXY = upXY;
-                    
-                    var checkInertiaInterval = setInterval(function() {
-                        tickDiff = (T5.time()) - currentTick;
-                        distance = T5.V.distance([upXY, lastXY]);
+            theta = currentXY.x > upXY.x ? theta : Math.PI - theta;
+            distanceVector = new T5.Vector(Math.cos(theta) * -extraDistance, Math.sin(theta) * extraDistance);
+                
+            triggerEvent("inertiaPan", distanceVector.x, distanceVector.y);
+        } // calculateInertia
+        
+        function checkInertia(upXY, currentTick) {
+            var tickDiff, distance;
+            
+            if (! supportsTouch) {
+                lastXY = upXY;
+                
+                var checkInertiaInterval = setInterval(function() {
+                    tickDiff = (T5.time()) - currentTick;
+                    distance = T5.V.distance([upXY, lastXY]);
 
-                        // calculate the inertia
-                        if ((tickDiff < INERTIA_TIMEOUT_MOUSE) && (distance > params.inertiaTrigger)) {
-                            clearInterval(checkInertiaInterval);
-                            calculateInertia(upXY, lastXY, distance, tickDiff);
-                        }
-                        else if (tickDiff > INERTIA_TIMEOUT_MOUSE) {
-                            clearInterval(checkInertiaInterval);
-                        } // if..else
-                    }, 5);
-                }
-                else {
-                    tickDiff = currentTick - touchStartTick;
+                    // calculate the inertia
+                    if ((tickDiff < INERTIA_TIMEOUT_MOUSE) && (distance > params.inertiaTrigger)) {
+                        clearInterval(checkInertiaInterval);
+                        calculateInertia(upXY, lastXY, distance, tickDiff);
+                    }
+                    else if (tickDiff > INERTIA_TIMEOUT_MOUSE) {
+                        clearInterval(checkInertiaInterval);
+                    } // if..else
+                }, 5);
+            }
+            else {
+                tickDiff = currentTick - touchStartTick;
+                
+                if ((tickDiff < INERTIA_TIMEOUT_TOUCH)) {
+                    distance = T5.V.distance([touchesStart[0], upXY]);
                     
-                    if ((tickDiff < INERTIA_TIMEOUT_TOUCH)) {
-                        distance = T5.V.distance([touchesStart[0], upXY]);
-                        
-                        if (distance > params.inertiaTrigger) {
-                            calculateInertia(touchesStart[0], upXY, distance, tickDiff);
-                        } // if
+                    if (distance > params.inertiaTrigger) {
+                        calculateInertia(touchesStart[0], upXY, distance, tickDiff);
                     } // if
-                } // if..else                
-            } // checkInertia
-                
-            function relativeTouches(touches) {
-                var fnresult = [],
-                    offsetX = params.element ? -params.element.offsetLeft : 0,
-                    offsetY = params.element ? -params.element.offsetTop : 0;
-                
-                // apply the offset
-                for (var ii = touches.length; ii--; ) {
-                    fnresult.push(T5.V.offset(touches[ii], offsetX, offsetY));
-                } // for
-                
-                return fnresult;
-            } // relativeTouches
-            
-            function triggerEvent() {
-                if (params.observable) {
-                    params.observable.trigger.apply(null, arguments);
                 } // if
-            } // triggerEvent
+            } // if..else                
+        } // checkInertia
             
-            function triggerPositionEvent(eventName, absVector) {
-                var offsetVector = null;
-                
-                // if an element is defined, then determine the element offset
-                if (params.element) {
-                    offsetVector = T5.V.offset(absVector, -params.element.offsetLeft, -params.element.offsetTop);
+        function relativeTouches(touches) {
+            var fnresult = [],
+                offsetX = params.element ? -params.element.offsetLeft : 0,
+                offsetY = params.element ? -params.element.offsetTop : 0;
+            
+            // apply the offset
+            for (var ii = touches.length; ii--; ) {
+                fnresult.push(T5.V.offset(touches[ii], offsetX, offsetY));
+            } // for
+            
+            return fnresult;
+        } // relativeTouches
+        
+        function triggerEvent() {
+            if (params.observable) {
+                params.observable.trigger.apply(null, arguments);
+            } // if
+        } // triggerEvent
+        
+        function triggerPositionEvent(eventName, absVector) {
+            var offsetVector = null;
+            
+            // if an element is defined, then determine the element offset
+            if (params.element) {
+                offsetVector = T5.V.offset(absVector, -params.element.offsetLeft, -params.element.offsetTop);
+            } // if
+            
+            // fire the event
+            triggerEvent(eventName, absVector, offsetVector);
+        } // triggerPositionEvent
+
+        function touchStart(evt) {
+            if (evt.target && (evt.target === params.element)) {
+                touchesStart = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt);
+                touchDelta = new T5.Vector();
+                totalDelta = new T5.Vector();
+                touchDown = true;
+                doubleTap = false;
+                touchStartTick = T5.time();
+
+                // cancel event propogation
+                if (supportsTouch) {
+                    preventDefaultTouch(evt);
                 } // if
                 
-                // fire the event
-                triggerEvent(eventName, absVector, offsetVector);
-            } // triggerPositionEvent
+                triggerEvent("inertiaCancel");
 
-            function touchStart(evt) {
-                if (evt.target && (evt.target === params.element)) {
-                    touchesStart = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt);
-                    touchDelta = new T5.Vector();
-                    totalDelta = new T5.Vector();
-                    touchDown = true;
-                    doubleTap = false;
-                    touchStartTick = T5.time();
+                // log the current touch start time
+                ticks.current = touchStartTick;
+        
+                // fire the touch start event handler
+                var touchVector = touchesStart.length > 0 ? touchesStart[0] : null;
+        
+                // if we don't have a touch vector, then log a warning, and exit
+                if (! touchVector) {
+                    GRUNT.Log.warn("Touch start fired, but no touch vector found");
+                    return;
+                } // if
+        
+                // fire the touch start handler
+                triggerEvent("touchStart", touchVector.x, touchVector.y);
+        
+                // check to see whether this is a double tap (if we are watching for them)
+                if (ticks.current - ticks.last < self.THRESHOLD_DOUBLETAP) {
+                    // calculate the difference between this and the last touch point
+                    var touchChange = touchesLast ? T5.V.diff(touchesStart[0], touchesLast[0]) : null;
+                    if (touchChange && (Math.abs(touchChange.x) < params.maxDistDoubleTap) && (Math.abs(touchChange.y) < params.maxDistDoubleTap)) {
+                        doubleTap = true;
+                    } // if
+                } // if
 
+                // reset the touch mode to unknown
+                touchMode = TOUCH_MODES.TAP;
+        
+                // update the last touches
+                touchesLast = [].concat(touchesStart);
+            } // if
+        } // touchStart
+        
+        function touchMove(evt) {
+            if (evt.target && (evt.target === params.element)) {
+                lastXY = (supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt))[0];
+                
+                if (! touchDown) { return; }
+
+                try {
                     // cancel event propogation
                     if (supportsTouch) {
                         preventDefaultTouch(evt);
                     } // if
-                    
-                    triggerEvent("inertiaCancel");
 
-                    // log the current touch start time
-                    ticks.current = touchStartTick;
-            
-                    // fire the touch start event handler
-                    var touchVector = touchesStart.length > 0 ? touchesStart[0] : null;
-            
-                    // if we don't have a touch vector, then log a warning, and exit
-                    if (! touchVector) {
-                        GRUNT.Log.warn("Touch start fired, but no touch vector found");
-                        return;
-                    } // if
-            
-                    // fire the touch start handler
-                    triggerEvent("touchStart", touchVector.x, touchVector.y);
-            
-                    // check to see whether this is a double tap (if we are watching for them)
-                    if (ticks.current - ticks.last < self.THRESHOLD_DOUBLETAP) {
-                        // calculate the difference between this and the last touch point
-                        var touchChange = touchesLast ? T5.V.diff(touchesStart[0], touchesLast[0]) : null;
-                        if (touchChange && (Math.abs(touchChange.x) < params.maxDistDoubleTap) && (Math.abs(touchChange.y) < params.maxDistDoubleTap)) {
-                            doubleTap = true;
+                    // get the current touches
+                    var touchesCurrent = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt),
+                        zoomDistance = 0;
+
+                    // check to see if we are pinching or zooming
+                    if (touchesCurrent.length > 1) {
+                        // if the start touches does have two touch points, then reset to the current
+                        if (touchesStart.length === 1) {
+                            touchesStart = [].concat(touchesCurrent);
                         } // if
+
+                        zoomDistance = calcDistance(touchesStart) - calcDistance(touchesCurrent);
                     } // if
 
-                    // reset the touch mode to unknown
-                    touchMode = TOUCH_MODES.TAP;
-            
-                    // update the last touches
-                    touchesLast = [].concat(touchesStart);
-                } // if
-            } // touchStart
-            
-            function touchMove(evt) {
-                if (evt.target && (evt.target === params.element)) {
-                    lastXY = (supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt))[0];
-                    
-                    if (! touchDown) { return; }
+                    // if the touch mode is tap, then check to see if we have gone beyond a move threshhold
+                    if (touchMode === TOUCH_MODES.TAP) {
+                        // get the delta between the first touch and the current touch
+                        var tapDelta = calcChange(touchesCurrent, touchesStart);
 
-                    try {
-                        // cancel event propogation
-                        if (supportsTouch) {
-                            preventDefaultTouch(evt);
+                        // if the delta.x or delta.y is greater than the move threshhold, we are no longer moving
+                        if (tapDelta && ((Math.abs(tapDelta.x) >= MIN_MOVEDIST) || (Math.abs(tapDelta.y) >= MIN_MOVEDIST))) {
+                            touchMode = TOUCH_MODES.MOVE;
                         } // if
+                    } // if
 
-                        // get the current touches
-                        var touchesCurrent = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt),
-                            zoomDistance = 0;
 
-                        // check to see if we are pinching or zooming
-                        if (touchesCurrent.length > 1) {
-                            // if the start touches does have two touch points, then reset to the current
-                            if (touchesStart.length === 1) {
-                                touchesStart = [].concat(touchesCurrent);
+                    // if we aren't in tap mode, then let's see what we should do
+                    if (touchMode !== TOUCH_MODES.TAP) {
+                        // TODO: queue touch count history to enable an informed decision on touch end whether
+                        // a single or multitouch event is completing...
+
+                        // if we aren't pinching or zooming then do the move 
+                        if ((! zoomDistance) || (Math.abs(zoomDistance) < params.pinchZoomThreshold)) {
+                            // calculate the pan delta
+                            touchDelta = calcChange(touchesCurrent, touchesLast);
+
+                            // update the total delta
+                            if (touchDelta) {
+                                totalDelta.x -= touchDelta.x; totalDelta.y -= touchDelta.y;
+                                panDelta.x -= touchDelta.x; panDelta.y -= touchDelta.y;
                             } // if
 
-                            zoomDistance = calcDistance(touchesStart) - calcDistance(touchesCurrent);
-                        } // if
-
-                        // if the touch mode is tap, then check to see if we have gone beyond a move threshhold
-                        if (touchMode === TOUCH_MODES.TAP) {
-                            // get the delta between the first touch and the current touch
-                            var tapDelta = calcChange(touchesCurrent, touchesStart);
-
-                            // if the delta.x or delta.y is greater than the move threshhold, we are no longer moving
-                            if (tapDelta && ((Math.abs(tapDelta.x) >= MIN_MOVEDIST) || (Math.abs(tapDelta.y) >= MIN_MOVEDIST))) {
-                                touchMode = TOUCH_MODES.MOVE;
+                            // if the pan_delta is sufficient to fire an event, then do so
+                            if (T5.V.absSize(panDelta) > params.panEventThreshhold) {
+                                triggerEvent("pan", panDelta.x, panDelta.y);
+                                panDelta = T5.V.create();
                             } // if
-                        } // if
 
+                            // set the touch mode to move
+                            touchMode = TOUCH_MODES.MOVE;
 
-                        // if we aren't in tap mode, then let's see what we should do
-                        if (touchMode !== TOUCH_MODES.TAP) {
-                            // TODO: queue touch count history to enable an informed decision on touch end whether
-                            // a single or multitouch event is completing...
-
-                            // if we aren't pinching or zooming then do the move 
-                            if ((! zoomDistance) || (Math.abs(zoomDistance) < params.pinchZoomThreshold)) {
-                                // calculate the pan delta
-                                touchDelta = calcChange(touchesCurrent, touchesLast);
-
-                                // update the total delta
-                                if (touchDelta) {
-                                    totalDelta.x -= touchDelta.x; totalDelta.y -= touchDelta.y;
-                                    panDelta.x -= touchDelta.x; panDelta.y -= touchDelta.y;
-                                } // if
-
-                                // if the pan_delta is sufficient to fire an event, then do so
-                                if (T5.V.absSize(panDelta) > params.panEventThreshhold) {
-                                    triggerEvent("pan", panDelta.x, panDelta.y);
-                                    panDelta = T5.V.create();
-                                } // if
-
-                                // set the touch mode to move
-                                touchMode = TOUCH_MODES.MOVE;
-
-                                // TODO: investigate whether it is more efficient to animate on a timer or not
-                            }
-                            else {
-                                triggerEvent('pinchZoom', relativeTouches(touchesStart), relativeTouches(touchesCurrent));
-
-                                // set the touch mode to pinch zoom
-                                touchMode = TOUCH_MODES.PINCHZOOM;
-                            } // if..else
-                        } // if..else
-
-                        touchesLast = [].concat(touchesCurrent);                        
-                    }
-                    catch (e) {
-                        GRUNT.Log.exception(e);
-                    } // try..catch
-                } // if
-            } // touchMove
-            
-            function touchEnd(evt) {
-                if (evt.target && (evt.target === params.element)) {
-                    var touchUpXY = (supportsTouch ? getTouchPoints(evt.changedTouches) : getMousePos(evt))[0];
-                    
-                    try {
-                        // cancel event propogation
-                        if (supportsTouch) {
-                            preventDefaultTouch(evt);
-                        } // if
-
-                        // get the end tick
-                        var endTick = T5.time();
-
-                        // save the current ticks to the last ticks
-                        ticks.last = ticks.current;
-
-                        // if tapping, then first the tap event
-                        if (touchMode === TOUCH_MODES.TAP) {
-                            // start the timer to fire the tap handler, if 
-                            if (! tapTimer) {
-                                tapTimer = setTimeout(function() {
-                                    // reset the timer 
-                                    tapTimer = 0;
-
-                                    // fire the appropriate tap event
-                                    triggerPositionEvent(doubleTap ? 'doubleTap' : 'tap', touchesStart[0]);
-                                }, self.THRESHOLD_DOUBLETAP + 50);
-                            }
+                            // TODO: investigate whether it is more efficient to animate on a timer or not
                         }
-                        // if moving, then fire the move end
-                        else if (touchMode == TOUCH_MODES.MOVE) {
-                            triggerEvent("panEnd", totalDelta.x, totalDelta.y);
-                            
-                            if (inertiaSettings) {
-                                checkInertia(touchUpXY, endTick);
-                            } // if
-                        }
-                        // if pinchzooming, then fire the pinch zoom end
-                        else if (touchMode == TOUCH_MODES.PINCHZOOM) {
-                            triggerEvent('pinchZoomEnd', relativeTouches(touchesStart), relativeTouches(touchesLast), endTick - touchStartTick);
+                        else {
+                            triggerEvent('pinchZoom', relativeTouches(touchesStart), relativeTouches(touchesCurrent));
+
+                            // set the touch mode to pinch zoom
+                            touchMode = TOUCH_MODES.PINCHZOOM;
                         } // if..else
-                    }
-                    catch (e) {
-                        GRUNT.Log.exception(e);
-                    } // try..catch
-                } // if
-                
-                touchDown = false;
-            } // touchEnd
-            
-            function getWheelDelta(evt) {
-                // process ff DOMMouseScroll event
-                if (evt.detail) {
-                    var delta = -evt.detail * WHEEL_DELTA_STEP;
-                    return new T5.Vector(evt.axis === 1 ? delta : 0, evt.axis === 2 ? delta : 0);
+                    } // if..else
+
+                    touchesLast = [].concat(touchesCurrent);                        
                 }
-                else {
-                    return new T5.Vector(evt.wheelDeltaX, evt.wheelDeltaY);
-                } // if..else
-            } // getWheelDelta
-            
-            function wheelie(evt) {
-                if (evt.target && (evt.target === params.element)) {
-                    var delta = getWheelDelta(evt), 
-                        zoomAmount = delta.y !== 0 ? Math.abs(delta.y / WHEEL_DELTA_STEP) : 0;
-
-                    if (lastXY && (zoomAmount !== 0)) {
-                        // apply the offset to the xy
-                        var xy = T5.V.offset(lastXY, -params.element.offsetLeft, -params.element.offsetTop);
-                        triggerEvent("wheelZoom", xy, Math.pow(2, delta.y > 0 ? zoomAmount : -zoomAmount));
-                    } // if
-                    
-                    evt.preventDefault();
-                } // if
-            } // wheelie
-
-            // initialise self
-            var self = {
-                supportsTouch: supportsTouch,
-
-                /* define mutable constants (yeah, I know that's a contradiction) */
-
-                THRESHOLD_DOUBLETAP: 300,
-
-                /* define methods */
-                
-                addListeners: function(args) {
-                    listeners.push(args);
-                },
-                
-                decoupleListeners: function(listenerId) {
-                    // iterate through the listeners and look for the matching listener id
-                    for (var ii = 0; listenerId && (ii < listeners.length); ii++) {
-                        if (listeners[ii].listenerId === listenerId) {
-                            listeners.splice(ii, 1);
-                            GRUNT.Log.info("successfully decoupled touch listener: " + listenerId);
-
-                            break;
-                        } // if
-                    } // for
-                },
-                
-                release: function() {
-                    config.eventTarget.removeEventListener(config.supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
-                    config.eventTarget.removeEventListener(config.supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
-                    config.eventTarget.removeEventListener(config.supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
-                    
-                    // handle mouse wheel events by
-                    if (! config.supportsTouch) {
-                        window.removeEventListener("mousewheel", wheelie, false);
-                        window.removeEventListener("DOMMouseScroll", wheelie, false);
-                    } // if
-                },
-
-                inertiaEnable: function(animationTime, dimensions) {
-                    inertiaSettings = {
-                        duration: animationTime,
-                        max: dimensions ? Math.min(dimensions.width, dimensions.height) : DEFAULT_INERTIA_MAX
-                    };
-                },
-                
-                inertiaDisable: function() {
-                    inertiaSettings = null;
-                }
-            };
-            
-            // wire up the events
-            config.eventTarget.addEventListener(config.supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
-            config.eventTarget.addEventListener(config.supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
-            config.eventTarget.addEventListener(config.supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
-            
-            // handle mouse wheel events by
-            if (! config.supportsTouch) {
-                window.addEventListener("mousewheel", wheelie, false);
-                window.addEventListener("DOMMouseScroll", wheelie, false);
+                catch (e) {
+                    GRUNT.Log.exception(e);
+                } // try..catch
             } // if
+        } // touchMove
+        
+        function touchEnd(evt) {
+            if (evt.target && (evt.target === params.element)) {
+                var touchUpXY = (supportsTouch ? getTouchPoints(evt.changedTouches) : getMousePos(evt))[0];
+                
+                try {
+                    // cancel event propogation
+                    if (supportsTouch) {
+                        preventDefaultTouch(evt);
+                    } // if
 
-            return self;
-        } // TouchHelper
-    };
+                    // get the end tick
+                    var endTick = T5.time();
+
+                    // save the current ticks to the last ticks
+                    ticks.last = ticks.current;
+
+                    // if tapping, then first the tap event
+                    if (touchMode === TOUCH_MODES.TAP) {
+                        // start the timer to fire the tap handler, if 
+                        if (! tapTimer) {
+                            tapTimer = setTimeout(function() {
+                                // reset the timer 
+                                tapTimer = 0;
+
+                                // fire the appropriate tap event
+                                triggerPositionEvent(doubleTap ? 'doubleTap' : 'tap', touchesStart[0]);
+                            }, self.THRESHOLD_DOUBLETAP + 50);
+                        }
+                    }
+                    // if moving, then fire the move end
+                    else if (touchMode == TOUCH_MODES.MOVE) {
+                        triggerEvent("panEnd", totalDelta.x, totalDelta.y);
+                        
+                        if (inertiaSettings) {
+                            checkInertia(touchUpXY, endTick);
+                        } // if
+                    }
+                    // if pinchzooming, then fire the pinch zoom end
+                    else if (touchMode == TOUCH_MODES.PINCHZOOM) {
+                        triggerEvent('pinchZoomEnd', relativeTouches(touchesStart), relativeTouches(touchesLast), endTick - touchStartTick);
+                    } // if..else
+                }
+                catch (e) {
+                    GRUNT.Log.exception(e);
+                } // try..catch
+            } // if
+            
+            touchDown = false;
+        } // touchEnd
+        
+        function getWheelDelta(evt) {
+            // process ff DOMMouseScroll event
+            if (evt.detail) {
+                var delta = -evt.detail * WHEEL_DELTA_STEP;
+                return new T5.Vector(evt.axis === 1 ? delta : 0, evt.axis === 2 ? delta : 0);
+            }
+            else {
+                return new T5.Vector(evt.wheelDeltaX, evt.wheelDeltaY);
+            } // if..else
+        } // getWheelDelta
+        
+        function wheelie(evt) {
+            if (evt.target && (evt.target === params.element)) {
+                var delta = getWheelDelta(evt), 
+                    zoomAmount = delta.y !== 0 ? Math.abs(delta.y / WHEEL_DELTA_STEP) : 0;
+
+                if (lastXY && (zoomAmount !== 0)) {
+                    // apply the offset to the xy
+                    var xy = T5.V.offset(lastXY, -params.element.offsetLeft, -params.element.offsetTop);
+                    triggerEvent("wheelZoom", xy, Math.pow(2, delta.y > 0 ? zoomAmount : -zoomAmount));
+                } // if
+                
+                evt.preventDefault();
+            } // if
+        } // wheelie
+
+        // initialise self
+        var self = {
+            supportsTouch: supportsTouch,
+
+            /* define mutable constants (yeah, I know that's a contradiction) */
+
+            THRESHOLD_DOUBLETAP: 300,
+
+            /* define methods */
+            
+            addListeners: function(args) {
+                listeners.push(args);
+            },
+            
+            decoupleListeners: function(listenerId) {
+                // iterate through the listeners and look for the matching listener id
+                for (var ii = 0; listenerId && (ii < listeners.length); ii++) {
+                    if (listeners[ii].listenerId === listenerId) {
+                        listeners.splice(ii, 1);
+                        GRUNT.Log.info("successfully decoupled touch listener: " + listenerId);
+
+                        break;
+                    } // if
+                } // for
+            },
+            
+            release: function() {
+                config.eventTarget.removeEventListener(config.supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
+                config.eventTarget.removeEventListener(config.supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
+                config.eventTarget.removeEventListener(config.supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
+                
+                // handle mouse wheel events by
+                if (! config.supportsTouch) {
+                    window.removeEventListener("mousewheel", wheelie, false);
+                    window.removeEventListener("DOMMouseScroll", wheelie, false);
+                } // if
+            },
+
+            inertiaEnable: function(animationTime, dimensions) {
+                inertiaSettings = {
+                    duration: animationTime,
+                    max: dimensions ? Math.min(dimensions.width, dimensions.height) : DEFAULT_INERTIA_MAX
+                };
+            },
+            
+            inertiaDisable: function() {
+                inertiaSettings = null;
+            }
+        };
+        
+        // wire up the events
+        config.eventTarget.addEventListener(config.supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
+        config.eventTarget.addEventListener(config.supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
+        config.eventTarget.addEventListener(config.supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
+        
+        // handle mouse wheel events by
+        if (! config.supportsTouch) {
+            window.addEventListener("mousewheel", wheelie, false);
+            window.addEventListener("DOMMouseScroll", wheelie, false);
+        } // if
+
+        return self;
+    }; // TouchHelper
     
     // initialise touch helpers array
     var touchHelpers = [];
@@ -2735,7 +2885,7 @@ T5.Touch = (function() {
     // define the module members
     return {
         // TODO: add the release touch method
-        captureTouch: function(element, params) {
+        capture: function(element, params) {
             if (! element) {
                 throw new Error("Unable to capture touch of null element");
             } // if
@@ -2750,7 +2900,7 @@ T5.Touch = (function() {
             
             // if the touch helper has not been created, then create it and attach to events
             if (! touchHelper) {
-                touchHelper = module_types.TouchHelper(GRUNT.extend({ element: element}, params));
+                touchHelper = new TouchHelper(T5.ex({ element: element}, params));
                 touchHelpers[element.id] = touchHelper;
                 
                 GRUNT.Log.info("CREATED TOUCH HELPER. SUPPORTS TOUCH = " + touchHelper.supportsTouch);
@@ -2784,7 +2934,7 @@ if (typeof(jQuery) !== 'undefined') {
     jQuery.fn.canTouchThis = function(params) {
         // bind the touch events
         return this.each(function() {
-            T5.Touch.captureTouch(this, params);
+            T5.Touch.capture(this, params);
         });
     }; // canTouchThis
 
@@ -2869,7 +3019,7 @@ T5.Dispatcher = (function() {
         
         Action: function(params) {
             // use default parameter when insufficient are provided
-            params = GRUNT.extend({
+            params = T5.ex({
                 autoRegister: true,
                 id: '',
                 title: '',
@@ -2907,7 +3057,7 @@ T5.Dispatcher = (function() {
         /* agents */
         
         createAgent: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 name: "Untitled",
                 trashOrphanedResults: true,
                 translator: null,
@@ -3227,7 +3377,7 @@ T5.Animation = (function() {
         },
         
         Tween: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 target: null,
                 property: null,
                 startValue: 0,
@@ -3324,7 +3474,7 @@ T5.Animation = (function() {
         }
     };
     
-    return GRUNT.extend(module, {
+    return T5.ex(module, {
         DEFAULT: T5.Easing.Back.Out
     });
 })();
@@ -3355,7 +3505,7 @@ T5.ViewState = (function() {
     return self;
 })();
 T5.ViewLayer = function(params) {
-    params = GRUNT.extend({
+    params = T5.ex({
         id: "",
         centerOnScale: true,
         created: T5.time(),
@@ -3369,7 +3519,7 @@ T5.ViewLayer = function(params) {
         id = params.id,
         activeState = T5.ViewState.get("ACTIVE");
     
-    var self = GRUNT.extend({
+    var self = T5.ex({
         addToView: function(view) {
             view.setLayer(id, self);
         },
@@ -3424,7 +3574,7 @@ T5.ViewLayer = function(params) {
 }; // T5.ViewLayer
 T5.View = function(params) {
     // initialise defaults
-    params = GRUNT.extend({
+    params = T5.ex({
         id: GRUNT.generateObjectID('view'),
         container: "",
         clearOnDraw: false,
@@ -3434,7 +3584,7 @@ T5.View = function(params) {
         initialDrawMode: "source-over",
         bufferRefresh: 100,
         defaultFreezeDelay: 500,
-        inertialScroll: true,
+        inertia: true,
         panAnimationEasing: T5.Easing.Sine.Out,
         panAnimationDuration: 750,
         pinchZoomAnimateTrigger: 400,
@@ -3490,7 +3640,7 @@ T5.View = function(params) {
     } // pan
     
     function panInertia(x, y) {
-        if (params.inertialScroll) {
+        if (params.inertia) {
             pan(x, y, params.panAnimationEasing, params.panAnimationDuration);
         } // if
     } // panIntertia
@@ -3583,28 +3733,54 @@ T5.View = function(params) {
         wake();
     } // scaleView
     
-    /* view initialization */
+    function handleContainerUpdate(name, value) {
+        canvas = document.getElementById(value);
+        
+        // attach to the new canvas
+        attachToCanvas();
+    } // handleContainerUpdate
     
-    if (canvas) {
-        T5.Touch.resetTouch(canvas);
-        
-        // if we are autosizing the set the size
-        if (params.autoSize) {
-            canvas.height = window.innerHeight - canvas.offsetTop;
-            canvas.width = window.innerWidth - canvas.offsetLeft;
-        } // if
-        
-        try {
-            mainContext = canvas.getContext('2d');
-            mainContext.globalCompositeOperation = params.initialDrawMode;
-            mainContext.clearRect(0, 0, canvas.width, canvas.height);
-        } 
-        catch (e) {
-            GRUNT.Log.exception(e);
-            throw new Error("Could not initialise canvas on specified view element");
-        }
-    } // if
+    /* private functions */
+    
+    function attachToCanvas() {
+        if (canvas) {
+            T5.Touch.resetTouch(canvas);
 
+            // if we are autosizing the set the size
+            if (params.autoSize) {
+                canvas.height = window.innerHeight - canvas.offsetTop;
+                canvas.width = window.innerWidth - canvas.offsetLeft;
+            } // if
+
+            try {
+                mainContext = canvas.getContext('2d');
+                mainContext.globalCompositeOperation = params.initialDrawMode;
+                mainContext.clearRect(0, 0, canvas.width, canvas.height);
+            } 
+            catch (e) {
+                GRUNT.Log.exception(e);
+                throw new Error("Could not initialise canvas on specified view element");
+            }
+            
+            // capture touch events
+            touchHelper = T5.Touch.capture(canvas, {
+                observable: self
+            });
+            
+            // enable inertia if configured
+            if (params.inertia) {
+                touchHelper.inertiaEnable(params.panAnimationDuration, dimensions);
+            } // if
+            
+            // get the dimensions
+            dimensions = self.getDimensions();
+            centerPos = T5.D.getCenter(dimensions);
+
+            // tell the view to redraw
+            wake();
+        } // if        
+    } // attachToCanvas
+    
     function addLayer(id, value) {
         // make sure the layer has the correct id
         value.setId(id);
@@ -3866,8 +4042,10 @@ T5.View = function(params) {
         repaint = true;
     } // invalidate
     
+    /* object definition */
+    
     // initialise self
-    var self = GRUNT.extend({}, params, new GRUNT.Observable(), {
+    var self = {
         id: params.id,
         deviceScaling: deviceScaling,
         fastDraw: params.fastDraw || T5.Device.getConfig().requireFastDraw,
@@ -4057,17 +4235,8 @@ T5.View = function(params) {
                 } // if
             } // if
         }
-    });
-    
-    // get the dimensions
-    dimensions = self.getDimensions();
-    centerPos = T5.D.getCenter(dimensions);
-    
-    // calculate the redaw interval based on the device fps
-    if (deviceFps) {
-        redrawInterval = Math.ceil(1000 / deviceFps);
-    } // if
-    
+    };
+
     // listen for layer removals
     GRUNT.WaterCooler.listen("layer.remove", function(args) {
         if (args.id) {
@@ -4077,27 +4246,20 @@ T5.View = function(params) {
     
     deviceScaling = T5.Device.getConfig().getScaling();
     
+    // make the view observable
+    GRUNT.observable(self);
+    
     // listen for being woken up
     self.bind("wake", wake);
     
     // handle invalidation
     self.bind("invalidate", invalidate);
     
-    // capture touch events
-    touchHelper = T5.Touch.captureTouch(canvas, {
-        observable: self
-    });
-    
     self.bind("pan", pan);
     self.bind("panEnd", panEnd);
     self.bind("pinchZoom", pinchZoom);
     self.bind("pinchZoomEnd", pinchZoomEnd);
     self.bind("wheelZoom", wheelZoom);
-    
-    // enable inertia if configured
-    if (params.inertialScroll) {
-        touchHelper.inertiaEnable(params.panAnimationDuration, dimensions);
-    } // if
     
     // handle intertia events
     self.bind("inertiaPan", panInertia);
@@ -4106,12 +4268,22 @@ T5.View = function(params) {
         wake();
     });
     
-    wake();
+    // make the view configurable
+    GRUNT.configurable(
+        self, 
+        ["inertia", "container"], 
+        GRUNT.paramTweaker(params, null, {
+            "container": handleContainerUpdate
+        }),
+        true);
+    
+    // attach the map to the canvas
+    attachToCanvas();
     
     return self;
 }; // T5.View
 T5.AnimatedPathLayer = function(params) {
-    params = GRUNT.extend({
+    params = T5.ex({
         path: [],
         id: GRUNT.generateObjectID("pathAnimation"),
         easing: T5.Easing.Sine.InOut,
@@ -4167,7 +4339,7 @@ T5.AnimatedPathLayer = function(params) {
     });
     
     // initialise self
-    var self =  GRUNT.extend(new T5.ViewLayer(params), {
+    var self =  T5.ex(new T5.ViewLayer(params), {
         cycle: function(tickCount, offset, state) {
             var edgeIndex = 0;
 
@@ -4217,7 +4389,7 @@ T5.AnimatedPathLayer = function(params) {
 T5.Tiling = (function() {
     TileStore = function(params) {
         // initialise the parameters with the defaults
-        params = GRUNT.extend({
+        params = T5.ex({
             tileSize: null,
             gridSize: 25,
             center: new T5.Vector(),
@@ -4472,7 +4644,7 @@ T5.Tiling = (function() {
         },
         
         Tile: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 gridX: 0,
                 gridY: 0,
                 size: 256,
@@ -4484,7 +4656,7 @@ T5.Tiling = (function() {
         
         ImageTile: function(params) {
             // initialise parameters with defaults
-            params = GRUNT.extend({
+            params = T5.ex({
                 url: "",
                 sessionParamRegex: null,
                 loaded: false
@@ -4495,7 +4667,7 @@ T5.Tiling = (function() {
         
         TileGrid: function(params) {
             // extend the params with the defaults
-            params = GRUNT.extend({
+            params = T5.ex({
                 tileSize: T5.Tiling.Config.TILESIZE,
                 drawGrid: false,
                 center: new T5.Vector(),
@@ -4504,7 +4676,7 @@ T5.Tiling = (function() {
             }, params);
             
             // create the tile store
-            var tileStore = new TileStore(GRUNT.extend({
+            var tileStore = new TileStore(T5.ex({
                 tileSize: params.tileSize,
                 onPopulate: function() {
                     self.dirty = true;
@@ -4575,7 +4747,7 @@ T5.Tiling = (function() {
             } // updateDrawQueue
             
             // initialise self
-            var self = GRUNT.extend(new T5.ViewLayer(params), {
+            var self = T5.ex(new T5.ViewLayer(params), {
                 gridDimensions: new T5.Dimensions(gridHeightWidth, gridHeightWidth),
                 dirty: false,
                 
@@ -4700,7 +4872,7 @@ T5.Tiling = (function() {
         },
         
         ImageTileGrid: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 
             }, params);
             
@@ -4718,7 +4890,7 @@ T5.Tiling = (function() {
                 statePan = T5.ViewState.PAN,
                 fastDraw = T5.Device.getConfig().requireFastDraw;
                 
-            var self = GRUNT.extend(new module.TileGrid(params), {
+            var self = T5.ex(new module.TileGrid(params), {
                 drawTile: function(context, tile, x, y, state) {
                     var image = T5.Resources.getImage(tile.url),
                         drawn = false;
@@ -4757,7 +4929,7 @@ T5.Tiling = (function() {
         },
         
         Tiler: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 container: "",
                 drawCenter: false,
                 datasources: {},
@@ -4769,16 +4941,8 @@ T5.Tiling = (function() {
             var lastTileLayerLoaded = "";
             var actualTileLoadThreshold = 0;
             
-            // create the parent
-            var self = new T5.View(GRUNT.extend({}, params, {
-                // define panning and scaling properties
-                pannable: true,
-                scalable: true,
-                scaleDamping: true
-            }));
-            
             // initialise self
-            GRUNT.extend(self, {
+            var self = T5.ex(new T5.View(params), {
                 getTileLayer: function() {
                     return self.getLayer("grid" + gridIndex);
                 },
@@ -4916,7 +5080,7 @@ T5.Geo = (function() {
             } // if
 
             // map the parameters directly to self
-            var self = GRUNT.extend({
+            var self = T5.ex({
                 remove: function() {
                     delete engines[self.id];
                 }
@@ -4957,7 +5121,7 @@ T5.Geo = (function() {
         // TODO: probably need to include local support for addressing, but really don't want to bulk out T5 :/
         
         Address: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 streetDetails: "",
                 location: "",
                 country: "",
@@ -5057,7 +5221,7 @@ T5.Geo = (function() {
         })(), // Utilitities
         
         GeoSearchResult: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 id: null,
                 caption: "",
                 resultType: "",
@@ -5066,7 +5230,7 @@ T5.Geo = (function() {
                 matchWeight: 0
             }, params);
             
-            return GRUNT.extend(params, {
+            return T5.ex(params, {
                 toString: function() {
                     return params.caption + (params.matchWeight ? " (" + params.matchWeight + ")" : "");
                 }
@@ -5093,7 +5257,7 @@ T5.Geo = (function() {
             } // rankResults
             
             // extend parameters with defaults
-            params = GRUNT.extend({
+            params = T5.ex({
                 name: "Geocoding Search Agent",
                 paramTranslator: null,
                 execute: function(searchParams, callback) {
@@ -5130,7 +5294,7 @@ T5.Geo = (function() {
         /* Point of Interest Objects */
         
         PointOfInterest: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 id: 0,
                 title: "",
                 pos: null,
@@ -5146,7 +5310,7 @@ T5.Geo = (function() {
                 params.pos = new T5.Geo.Position(params.lat, params.lon);
             } // if
             
-            return GRUNT.extend({
+            return T5.ex({
                 toString: function() {
                     return params.id + ": '" + params.title + "'";
                 }
@@ -5154,7 +5318,7 @@ T5.Geo = (function() {
         },
         
         POIStorage: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 visibilityChange: null,
                 onPOIDeleted: null,
                 onPOIAdded: null
@@ -5819,7 +5983,7 @@ T5.Geo = (function() {
                 
             // if the engine is specified and the engine has compare fns, then extend them
             if (engine && engine.compareFns) {
-                compareFns = GRUNT.extend({}, compareFns, engine.compareFns);
+                compareFns = T5.ex({}, compareFns, engine.compareFns);
             } // if
             
             // iterate through the response addresses and compare against the request address
@@ -6014,7 +6178,7 @@ T5.Geo.Routing = (function() {
         /* module functions */
         
         calculate: function(args) {
-            args = GRUNT.extend({
+            args = T5.ex({
                 engineId: "",
                 waypoints: [],
                 map: null,
@@ -6132,7 +6296,7 @@ T5.Geo.Routing = (function() {
         },
         
         Instruction: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 position: null,
                 description: "",
                 turnType: null
@@ -6148,7 +6312,7 @@ T5.Geo.Routing = (function() {
         
         
         RouteData: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 geometry: [],
                 instructions: [],
                 boundingBox: null
@@ -6159,7 +6323,7 @@ T5.Geo.Routing = (function() {
                 params.boundingBox = T5.Geo.B.forPositions(params.geometry);
             } // if
             
-            var self = GRUNT.extend({
+            var self = T5.ex({
                 getInstructionPositions: function() {
                     var positions = [];
                         
@@ -6270,7 +6434,7 @@ T5.Geo.UI = (function() {
     'LFr/PAAAAABJRU5ErkJggg%3D%3D';
     
     function CrosshairOverlay(params) {
-        params = GRUNT.extend({
+        params = T5.ex({
             size: 12,
             zindex: 150,
             scalePosition: false
@@ -6323,7 +6487,7 @@ T5.Geo.UI = (function() {
         var drawPos = null,
             crosshair = createCrosshair();
         
-        return GRUNT.extend(new T5.ViewLayer(params), {
+        return T5.ex(new T5.ViewLayer(params), {
             draw: function(context, offset, dimensions, state, view) {
                 if (! drawPos) {
                     drawPos = T5.D.getCenter(dimensions);
@@ -6344,7 +6508,7 @@ T5.Geo.UI = (function() {
         
         GeoTileGrid: function(params) {
             // extend the params with some defaults
-            params = GRUNT.extend({
+            params = T5.ex({
                 grid: null,
                 centerPos: new T5.Geo.Position(),
                 centerXY: new T5.Vector(),
@@ -6363,7 +6527,7 @@ T5.Geo.UI = (function() {
                 blMercatorPixY = centerMercatorPix.y - params.centerXY.y;
             
             // initialise self
-            var self = GRUNT.extend({}, params.grid, {
+            var self = T5.ex({}, params.grid, {
                 getBoundingBox: function(x, y, width, height) {
                     return new T5.Geo.BoundingBox(
                         self.pixelsToPos(new T5.Vector(x, y + height)),
@@ -6405,7 +6569,7 @@ T5.Geo.UI = (function() {
         Route Overlay
         */
         RouteOverlay: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 data: null,
                 pixelGeneralization: 8,
                 calculationsPerCycle: 250,
@@ -6501,7 +6665,7 @@ T5.Geo.UI = (function() {
             } // calcCoordinates
             
             // create the view layer the we will draw the view
-            var self = GRUNT.extend(new T5.ViewLayer(params), {
+            var self = T5.ex(new T5.ViewLayer(params), {
                 getAnimation: function(easingFn, duration, drawCallback, autoCenter) {
                     if (recalc) {
                         return null;
@@ -6607,7 +6771,7 @@ T5.Geo.UI = (function() {
         /* annotations and annotations overlay */
         
         Annotation: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 xy: null,
                 pos: null,
                 draw: null,
@@ -6694,7 +6858,7 @@ T5.Geo.UI = (function() {
         },
         
         ImageAnnotation: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 imageUrl: null,
                 animatingImageUrl: null,
                 imageAnchor: null
@@ -6762,7 +6926,7 @@ T5.Geo.UI = (function() {
         },
         
         LocationAnnotation: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 accuracy: null
             }, params);
             
@@ -6779,7 +6943,7 @@ T5.Geo.UI = (function() {
                     iconImage.height / 2);
             };
             
-            var self = new module.Annotation(GRUNT.extend({
+            var self = new module.Annotation(T5.ex({
                 calcXY: function(grid) {
                     indicatorRadius = 
                     Math.floor(grid.getPixelDistance(self.accuracy) * 0.5);
@@ -6824,7 +6988,7 @@ T5.Geo.UI = (function() {
         },
         
         AnnotationsOverlay: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 pois: null,
                 map: null,
                 createAnnotationForPOI: null,
@@ -6905,7 +7069,7 @@ T5.Geo.UI = (function() {
             }
 
             // create the view layer the we will draw the view
-            var self = GRUNT.extend(new T5.ViewLayer(params), {
+            var self = T5.ex(new T5.ViewLayer(params), {
                 cycle: function(tickCount, offset, state) {
                     return animating ? 1 : 0;
                 },
@@ -6992,7 +7156,7 @@ T5.Geo.UI = (function() {
     return module;
 })();
 T5.Map = function(params) {
-    params = GRUNT.extend({
+    params = T5.ex({
         tapExtent: 10,
         provider: null,
         crosshair: false,
@@ -7181,6 +7345,11 @@ T5.Map = function(params) {
         } // if
     } // handleIdle
     
+    function handleProviderUpdate(name, value) {
+        self.cleanup();
+        initialized = false;
+    } // handleProviderUpdate
+    
     /* internal functions */
     
     // TODO: evaluate whether this function can be used for 
@@ -7316,18 +7485,9 @@ T5.Map = function(params) {
     };
     
     // initialise self
-    var self = GRUNT.extend({}, new T5.Tiling.Tiler(params), {
+    var self = T5.ex({}, new T5.Tiling.Tiler(params), {
         pois: params.pois,
         annotations: null,
-        
-        getProvider: function() {
-            return params.provider;
-        },
-        
-        setProvider: function(value) {
-            params.provider = value;
-            initialized = false;
-        },
         
         getBoundingBox: function() {
             var grid = self.getTileLayer(),
@@ -7527,6 +7687,15 @@ T5.Map = function(params) {
 
     // listen for the view idling
     self.bind("idle", handleIdle);
+    
+    // make a few parameter configurable
+    GRUNT.configurable(
+        self, 
+        ["provider"], 
+        GRUNT.paramTweaker(params, null, {
+            "provider": handleProviderUpdate
+        }), 
+        true);
 
     return self;
 }; // T5.Map

@@ -19,7 +19,7 @@ T5.Geo.UI = (function() {
     'LFr/PAAAAABJRU5ErkJggg%3D%3D';
     
     function CrosshairOverlay(params) {
-        params = GRUNT.extend({
+        params = T5.ex({
             size: 12,
             zindex: 150,
             scalePosition: false
@@ -72,7 +72,7 @@ T5.Geo.UI = (function() {
         var drawPos = null,
             crosshair = createCrosshair();
         
-        return GRUNT.extend(new T5.ViewLayer(params), {
+        return T5.ex(new T5.ViewLayer(params), {
             draw: function(context, offset, dimensions, state, view) {
                 if (! drawPos) {
                     drawPos = T5.D.getCenter(dimensions);
@@ -93,7 +93,7 @@ T5.Geo.UI = (function() {
         
         GeoTileGrid: function(params) {
             // extend the params with some defaults
-            params = GRUNT.extend({
+            params = T5.ex({
                 grid: null,
                 centerPos: new T5.Geo.Position(),
                 centerXY: new T5.Vector(),
@@ -112,7 +112,7 @@ T5.Geo.UI = (function() {
                 blMercatorPixY = centerMercatorPix.y - params.centerXY.y;
             
             // initialise self
-            var self = GRUNT.extend({}, params.grid, {
+            var self = T5.ex({}, params.grid, {
                 getBoundingBox: function(x, y, width, height) {
                     return new T5.Geo.BoundingBox(
                         self.pixelsToPos(new T5.Vector(x, y + height)),
@@ -154,7 +154,7 @@ T5.Geo.UI = (function() {
         Route Overlay
         */
         RouteOverlay: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 data: null,
                 pixelGeneralization: 8,
                 calculationsPerCycle: 250,
@@ -250,7 +250,7 @@ T5.Geo.UI = (function() {
             } // calcCoordinates
             
             // create the view layer the we will draw the view
-            var self = GRUNT.extend(new T5.ViewLayer(params), {
+            var self = T5.ex(new T5.ViewLayer(params), {
                 getAnimation: function(easingFn, duration, drawCallback, autoCenter) {
                     if (recalc) {
                         return null;
@@ -356,7 +356,7 @@ T5.Geo.UI = (function() {
         /* annotations and annotations overlay */
         
         Annotation: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 xy: null,
                 pos: null,
                 draw: null,
@@ -443,7 +443,7 @@ T5.Geo.UI = (function() {
         },
         
         ImageAnnotation: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 imageUrl: null,
                 animatingImageUrl: null,
                 imageAnchor: null
@@ -511,7 +511,7 @@ T5.Geo.UI = (function() {
         },
         
         LocationAnnotation: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 accuracy: null
             }, params);
             
@@ -528,7 +528,7 @@ T5.Geo.UI = (function() {
                     iconImage.height / 2);
             };
             
-            var self = new module.Annotation(GRUNT.extend({
+            var self = new module.Annotation(T5.ex({
                 calcXY: function(grid) {
                     indicatorRadius = 
                     Math.floor(grid.getPixelDistance(self.accuracy) * 0.5);
@@ -573,7 +573,7 @@ T5.Geo.UI = (function() {
         },
         
         AnnotationsOverlay: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 pois: null,
                 map: null,
                 createAnnotationForPOI: null,
@@ -654,7 +654,7 @@ T5.Geo.UI = (function() {
             }
 
             // create the view layer the we will draw the view
-            var self = GRUNT.extend(new T5.ViewLayer(params), {
+            var self = T5.ex(new T5.ViewLayer(params), {
                 cycle: function(tickCount, offset, state) {
                     return animating ? 1 : 0;
                 },

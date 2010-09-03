@@ -1,7 +1,7 @@
 T5.Tiling = (function() {
     TileStore = function(params) {
         // initialise the parameters with the defaults
-        params = GRUNT.extend({
+        params = T5.ex({
             tileSize: null,
             gridSize: 25,
             center: new T5.Vector(),
@@ -256,7 +256,7 @@ T5.Tiling = (function() {
         },
         
         Tile: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 gridX: 0,
                 gridY: 0,
                 size: 256,
@@ -268,7 +268,7 @@ T5.Tiling = (function() {
         
         ImageTile: function(params) {
             // initialise parameters with defaults
-            params = GRUNT.extend({
+            params = T5.ex({
                 url: "",
                 sessionParamRegex: null,
                 loaded: false
@@ -279,7 +279,7 @@ T5.Tiling = (function() {
         
         TileGrid: function(params) {
             // extend the params with the defaults
-            params = GRUNT.extend({
+            params = T5.ex({
                 tileSize: T5.Tiling.Config.TILESIZE,
                 drawGrid: false,
                 center: new T5.Vector(),
@@ -288,7 +288,7 @@ T5.Tiling = (function() {
             }, params);
             
             // create the tile store
-            var tileStore = new TileStore(GRUNT.extend({
+            var tileStore = new TileStore(T5.ex({
                 tileSize: params.tileSize,
                 onPopulate: function() {
                     self.dirty = true;
@@ -359,7 +359,7 @@ T5.Tiling = (function() {
             } // updateDrawQueue
             
             // initialise self
-            var self = GRUNT.extend(new T5.ViewLayer(params), {
+            var self = T5.ex(new T5.ViewLayer(params), {
                 gridDimensions: new T5.Dimensions(gridHeightWidth, gridHeightWidth),
                 dirty: false,
                 
@@ -484,7 +484,7 @@ T5.Tiling = (function() {
         },
         
         ImageTileGrid: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 
             }, params);
             
@@ -502,7 +502,7 @@ T5.Tiling = (function() {
                 statePan = T5.ViewState.PAN,
                 fastDraw = T5.Device.getConfig().requireFastDraw;
                 
-            var self = GRUNT.extend(new module.TileGrid(params), {
+            var self = T5.ex(new module.TileGrid(params), {
                 drawTile: function(context, tile, x, y, state) {
                     var image = T5.Resources.getImage(tile.url),
                         drawn = false;
@@ -541,7 +541,7 @@ T5.Tiling = (function() {
         },
         
         Tiler: function(params) {
-            params = GRUNT.extend({
+            params = T5.ex({
                 container: "",
                 drawCenter: false,
                 datasources: {},
@@ -553,16 +553,8 @@ T5.Tiling = (function() {
             var lastTileLayerLoaded = "";
             var actualTileLoadThreshold = 0;
             
-            // create the parent
-            var self = new T5.View(GRUNT.extend({}, params, {
-                // define panning and scaling properties
-                pannable: true,
-                scalable: true,
-                scaleDamping: true
-            }));
-            
             // initialise self
-            GRUNT.extend(self, {
+            var self = T5.ex(new T5.View(params), {
                 getTileLayer: function() {
                     return self.getLayer("grid" + gridIndex);
                 },

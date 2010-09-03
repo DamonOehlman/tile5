@@ -141,7 +141,7 @@ T5.Device = (function() {
                     var testPlatform = deviceCheckOrder[ii];
 
                     if (testPlatform.regex && testPlatform.regex.test(navigator.userAgent)) {
-                        detectedConfig = GRUNT.extend({}, deviceConfigs.base, testPlatform);
+                        detectedConfig = T5.ex({}, deviceConfigs.base, testPlatform);
                         GRUNT.Log.info("PLATFORM DETECTED AS: " + detectedConfig.name);
                         break;
                     } // if
