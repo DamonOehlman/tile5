@@ -1763,7 +1763,6 @@ T5 = (function() {
     
     return module;
 })();
-
 T5.Device = (function() {
     var deviceConfigs = null,
         deviceCheckOrder = [],
@@ -7053,7 +7052,7 @@ T5.Map = function(params) {
                 // been created then do that now
                 if (! locationAnnotation) {
                     locationAnnotation = 
-                        new module.LocationAnnotation({
+                        new T5.Geo.UI.LocationAnnotation({
                             pos: currentPos,
                             accuracy: accuracy
                         });
