@@ -3,7 +3,7 @@
 
 Define functionality to enable routing for mapping
 */
-TILE5.Geo.Routing = (function() {
+T5.Geo.Routing = (function() {
     // define the module
     var module = {
         /* module functions */
@@ -22,11 +22,11 @@ TILE5.Geo.Routing = (function() {
             GRUNT.Log.info("attempting to calculate route");
             
             // find an available routing engine
-            var engine = TILE5.Geo.getEngine("route");
+            var engine = T5.Geo.getEngine("route");
             if (engine) {
                 engine.route(args, function(routeData) {
                     if (args.generalize) {
-                        routeData.geometry = TILE5.Geo.P.generalize(routeData.geometry, routeData.getInstructionPositions());
+                        routeData.geometry = T5.Geo.P.generalize(routeData.geometry, routeData.getInstructionPositions());
                     } // if
                     
                     // firstly, if we have a map defined, then let's place the route on the map
@@ -56,7 +56,7 @@ TILE5.Geo.Routing = (function() {
             // GRUNT.Log.info("creating route overlay with route data: ", routeData);
 
             // create a new route overlay for the specified data
-            var overlay = new TILE5.Geo.UI.RouteOverlay({
+            var overlay = new T5.Geo.UI.RouteOverlay({
                 data: routeData,
                 width: dimensions.width,
                 height: dimensions.height
@@ -68,7 +68,7 @@ TILE5.Geo.Routing = (function() {
         
         parseTurnType: function(text) {
             var turnType = module.TurnType.Unknown,
-                rules = TILE5.Geo.Routing.TurnTypeRules;
+                rules = T5.Geo.Routing.TurnTypeRules;
             
             // run the text through the manuever rules
             for (var ii = 0; ii < rules.length; ii++) {
@@ -151,7 +151,7 @@ TILE5.Geo.Routing = (function() {
             
             // update the bounding box
             if (! params.boundingBox) {
-                params.boundingBox = TILE5.Geo.B.forPositions(params.geometry);
+                params.boundingBox = T5.Geo.B.forPositions(params.geometry);
             } // if
             
             var self = GRUNT.extend({

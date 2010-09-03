@@ -1,5 +1,5 @@
 // BING Tiles: http://msdn.microsoft.com/en-us/library/bb259689.aspx
-TILE5.Geo.Bing = (function() {
+T5.Geo.Bing = (function() {
     var imageUrls = {},
         logoUrl, 
         copyrightText,
@@ -7,7 +7,7 @@ TILE5.Geo.Bing = (function() {
     
     // define the module
     var module = {
-        /** @lends TILE5.Geo.Cloudmade */
+        /** @lends T5.Geo.Cloudmade */
         
         MapProvider: function(params) {
             params = GRUNT.extend({
@@ -17,7 +17,7 @@ TILE5.Geo.Bing = (function() {
             }, params);
             
             // initialise parent
-            var parent = new TILE5.Geo.MapProvider();
+            var parent = new T5.Geo.MapProvider();
             
             function authenticate(callback) {
                 var serverUrl = String.format("http://dev.virtualearth.net/REST/V1/Imagery/Metadata/{0}?key={1}", params.style, params.apikey);
@@ -34,7 +34,7 @@ TILE5.Geo.Bing = (function() {
                     
                     self.setZoomRange(resourceData.zoomMin + 1, resourceData.zoomMax);
 
-                    TILE5.Tiling.Config.TILESIZE = resourceData.imageHeight;
+                    T5.Tiling.Config.TILESIZE = resourceData.imageHeight;
                     
                     if (callback) {
                         callback();
@@ -70,8 +70,8 @@ TILE5.Geo.Bing = (function() {
                 // TODO: think about whether to throw an error if not divisble
                 var subdomainIdx = 0;
 
-                var tileGrid = new TILE5.Tiling.ImageTileGrid({
-                    tileSize: TILE5.Tiling.Config.TILESIZE,
+                var tileGrid = new T5.Tiling.ImageTileGrid({
+                    tileSize: T5.Tiling.Config.TILESIZE,
                     width: containerDimensions.width,
                     height: containerDimensions.height,
                     center: tileOffset,
@@ -89,7 +89,7 @@ TILE5.Geo.Bing = (function() {
                         subdomainIdx = 0;
                     } // if                     
 
-                    return new TILE5.Tiling.ImageTile({ 
+                    return new T5.Tiling.ImageTile({ 
                         url: tileUrl.replace("{subdomain}", subDomains[subdomainIdx])
                     });
                 });
@@ -97,14 +97,14 @@ TILE5.Geo.Bing = (function() {
                 // TODO: calculate the offset adjustment from the tile offset
 
                 // wrap the tile grid in a geo tile grid
-                var geoGrid = new TILE5.Geo.UI.GeoTileGrid({
+                var geoGrid = new T5.Geo.UI.GeoTileGrid({
                     grid: tileGrid, 
                     centerXY:  tileGrid.getTileVirtualXY(
                                     tileOffset.x, 
                                     tileOffset.y,
                                     true),
                     centerPos: calculatePositionFromTileOffset(tileOffset.x + 0.5, tileOffset.y + 0.5, self.zoomLevel),
-                    radsPerPixel: module.radsPerPixelAtZoom(TILE5.Tiling.Config.TILESIZE, self.zoomLevel)
+                    radsPerPixel: module.radsPerPixelAtZoom(T5.Tiling.Config.TILESIZE, self.zoomLevel)
                 });
 
                 return geoGrid;
@@ -124,7 +124,7 @@ TILE5.Geo.Bing = (function() {
                 function long2tile(lon,zoom) { return (Math.floor((lon+180)/360*Math.pow(2,zoom))); }
                 function lat2tile(lat,zoom)  { return (Math.floor((1-Math.log(Math.tan(lat*Math.PI/180) + 1/Math.cos(lat*Math.PI/180))/Math.PI)/2 *Math.pow(2,zoom))); }
                 
-                return new TILE5.Vector(long2tile(TILE5.Geo.Utilities.normalizeLon(position.lon), zoomLevel), lat2tile(position.lat, zoomLevel));
+                return new T5.Vector(long2tile(T5.Geo.Utilities.normalizeLon(position.lon), zoomLevel), lat2tile(position.lat, zoomLevel));
             } // calculateTileOffset
             
             function calculatePositionFromTileOffset(x, y, zoomLevel) {
@@ -140,7 +140,7 @@ TILE5.Geo.Bing = (function() {
                   return (180/Math.PI*Math.atan(0.5*(Math.exp(n)-Math.exp(-n))));
                 }
                 
-                return new TILE5.Geo.Position(tile2lat(y, zoomLevel), tile2long(x, zoomLevel));
+                return new T5.Geo.Position(tile2lat(y, zoomLevel), tile2long(x, zoomLevel));
             } // calculatePositionFromTileOffset
 
             // initialise self
@@ -175,8 +175,8 @@ TILE5.Geo.Bing = (function() {
     }; 
     
     // check the tile size, if not valid then correct to a valid tilesize
-    if ((TILE5.Tiling.Config.TILESIZE !== 64) || (TILE5.Tiling.Config.TILESIZE !== 256)) {
-        TILE5.Tiling.Config.TILESIZE = 256;
+    if ((T5.Tiling.Config.TILESIZE !== 64) || (T5.Tiling.Config.TILESIZE !== 256)) {
+        T5.Tiling.Config.TILESIZE = 256;
     } // if    
     
     return module;

@@ -1,4 +1,4 @@
-TILE5.Geo.Search = (function() {
+T5.Geo.Search = (function() {
     var DEFAULT_MAXDIFF = 20;
     
     var module = {

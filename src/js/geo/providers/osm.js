@@ -1,14 +1,14 @@
 /**
 @namespace
 */
-TILE5.Geo.OpenStreetMap = (function() {
+T5.Geo.OpenStreetMap = (function() {
     // define some constants
     var ZOOMLEVEL_MIN = 2;
     var ZOOMLEVEL_MAX = 17;
     
     // define the module
     var module = {
-        /** @lends TILE5.Geo.Cloudmade */
+        /** @lends T5.Geo.Cloudmade */
         
         MapProvider: function(params) {
             params = GRUNT.extend({
@@ -16,14 +16,14 @@ TILE5.Geo.OpenStreetMap = (function() {
                 urlFiller: null,
                 getServerDetails: function() {
                     return {
-                        baseUrl: TILE5.Resources.getPath("tiles/"),
+                        baseUrl: T5.Resources.getPath("tiles/"),
                         subDomains: null
                     };
                 }
             }, params);
             
             // initialise parent
-            var parent = new TILE5.Geo.MapProvider();
+            var parent = new T5.Geo.MapProvider();
 
             function buildTileGrid(tile_offset, container_dimensions, centerPos) {
                 // initialise the first tile origin
@@ -37,8 +37,8 @@ TILE5.Geo.OpenStreetMap = (function() {
                     
                 } // if
 
-                tile_grid = new TILE5.Tiling.ImageTileGrid({
-                    tileSize: TILE5.Tiling.Config.TILESIZE,
+                tile_grid = new T5.Tiling.ImageTileGrid({
+                    tileSize: T5.Tiling.Config.TILESIZE,
                     width: container_dimensions.width,
                     height: container_dimensions.height,
                     center: tile_offset,
@@ -70,12 +70,12 @@ TILE5.Geo.OpenStreetMap = (function() {
                             subdomain_idx = 0;
                         } // if                     
 
-                        return TILE5.Tiling.ImageTile({ 
+                        return T5.Tiling.ImageTile({ 
                             url: String.format(tileUrl, subDomains[subdomain_idx++])
                         });
                     }
                     else {
-                        return TILE5.Tiling.ImageTile({ 
+                        return T5.Tiling.ImageTile({ 
                             url: tileUrl
                         });
                     } // if..else
@@ -84,7 +84,7 @@ TILE5.Geo.OpenStreetMap = (function() {
                 // TODO: calculate the offset adjustment from the tile offset
 
                 // wrap the tile grid in a geo tile grid
-                tile_grid = new TILE5.Geo.UI.GeoTileGrid({
+                tile_grid = new T5.Geo.UI.GeoTileGrid({
                     grid: tile_grid, 
                     centerXY:  tile_grid.getTileVirtualXY(
                                     tile_offset.x, 
@@ -93,7 +93,7 @@ TILE5.Geo.OpenStreetMap = (function() {
                     centerPos: calculatePositionFromTileOffset(tile_offset.x + 0.5, tile_offset.y + 0.5, self.zoomLevel),
                     // NOTE: zoom level is similar to decarta GX zoom level but 1 less...
                     // TODO: implement some kind of universal zoom level... there probably is one already... 
-                    radsPerPixel: module.radsPerPixelAtZoom(TILE5.Tiling.Config.TILESIZE, self.zoomLevel)
+                    radsPerPixel: module.radsPerPixelAtZoom(T5.Tiling.Config.TILESIZE, self.zoomLevel)
                 });
 
                 return tile_grid;
@@ -112,7 +112,7 @@ TILE5.Geo.OpenStreetMap = (function() {
                 function long2tile(lon,zoom) { return (Math.floor((lon+180)/360*Math.pow(2,zoom))); }
                 function lat2tile(lat,zoom)  { return (Math.floor((1-Math.log(Math.tan(lat*Math.PI/180) + 1/Math.cos(lat*Math.PI/180))/Math.PI)/2 *Math.pow(2,zoom))); }
                 
-                return new TILE5.Vector(long2tile(TILE5.Geo.Utilities.normalizeLon(position.lon), zoomLevel), lat2tile(position.lat, zoomLevel));
+                return new T5.Vector(long2tile(T5.Geo.Utilities.normalizeLon(position.lon), zoomLevel), lat2tile(position.lat, zoomLevel));
             } // calculateTileOffset
             
             function calculatePositionFromTileOffset(x, y, zoomLevel) {
@@ -128,7 +128,7 @@ TILE5.Geo.OpenStreetMap = (function() {
                   return (180/Math.PI*Math.atan(0.5*(Math.exp(n)-Math.exp(-n))));
                 }
                 
-                return new TILE5.Geo.Position(tile2lat(y, zoomLevel), tile2long(x, zoomLevel));
+                return new T5.Geo.Position(tile2lat(y, zoomLevel), tile2long(x, zoomLevel));
             } // calculatePositionFromTileOffset
 
             // initialise self
@@ -150,8 +150,8 @@ TILE5.Geo.OpenStreetMap = (function() {
             self.setZoomRange(ZOOMLEVEL_MIN, ZOOMLEVEL_MAX);
             
             // check the tile size, if not valid then correct to a valid tilesize
-            if (TILE5.Tiling.Config.TILESIZE !== 256) {
-                TILE5.Tiling.Config.TILESIZE = 256;
+            if (T5.Tiling.Config.TILESIZE !== 256) {
+                T5.Tiling.Config.TILESIZE = 256;
             } // if    
 
             return self;

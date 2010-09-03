@@ -1,4 +1,4 @@
-TILE5.Device = (function() {
+T5.Device = (function() {
     var deviceConfigs = null,
         deviceCheckOrder = [],
         detectedConfig = null,

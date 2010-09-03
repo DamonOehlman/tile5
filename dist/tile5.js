@@ -1,11 +1,11 @@
 /*!
- * Sidelab TILE5 Javascript Library v0.4.0
+ * Sidelab T5 Javascript Library v0.4.0
 
- * http://sidelab.com/projects/TILE5/
+ * http://sidelab.com/projects/T5/
  *
  * Copyright 2010, Damon Oehlman
  * Licensed under the MIT licence
- * http://sidelab.com/projects/TILE5/license
+ * http://sidelab.com/projects/T5/license
  *
  * Date: ${date}
  */
@@ -1520,11 +1520,11 @@ GRUNT.WaterCooler = (function() {
 })();
 
 /* GRUNTJS END */
-TILE5 = (function () {
+T5 = (function() {
     var module = {
         newCanvas: function(width, height) {
             var tmpCanvas = document.createElement('canvas');
-            
+
             // initialise the canvas element if using explorercanvas
             if (typeof(G_vmlCanvasManager) !== "undefined") {
                 G_vmlCanvasManager.initElement(tmpCanvas);
@@ -1537,19 +1537,21 @@ TILE5 = (function () {
             return tmpCanvas;
         },
         
+        time: function() {
+            return new Date().getTime();
+        },
+        
         Settings: (function() {
             var currentSettings = {};
             
             // define self
             var self = {
-                /** @lends TILE5.Settings */
-                
                 /** 
                 @static
                 Get a setting with the specified name
                 
                 @param {String} name the name of the setting to retrieve
-                @returns the value of the setting if definied, undefined otherwise
+                @returns the value of the setting if defined
                 */
                 get: function(name) {
                     return currentSettings[name];
@@ -1569,17 +1571,6 @@ TILE5 = (function () {
             return self;
         })(),
         
-        Clock: (function() {
-            var ticks = null;
-            
-            return {
-                // TODO: reduce the number of calls to new date get time
-                getTime: function(cached) {
-                    return (cached && ticks) ? ticks : ticks = new Date().getTime();
-                }
-            };
-        })(),
-        
         /**
         Initialise a new Vector instance
         
@@ -1587,7 +1578,7 @@ TILE5 = (function () {
         @param {Number} init_y the Initial y value for the Vector
 
         @class 
-        @name TILE5.Vector
+        @name T5.Vector
         */
         Vector: function(initX, initY) {
             return {
@@ -1600,7 +1591,8 @@ TILE5 = (function () {
 
             function edges(vectors) {
                 if ((! vectors) || (vectors.length <= 1)) {
-                    throw new Error("Cannot determine edge distances for a vector array of only one vector");
+                    throw new Error("Cannot determine edge " +
+                        "distances for a vector array of only one vector");
                 } // if
                 
                 var fnresult = {
@@ -1609,15 +1601,18 @@ TILE5 = (function () {
                     total: 0
                 };
                 
-                var diffFn = TILE5.V.diff;
+                var diffFn = T5.V.diff;
                 
                 // iterate through the vectors and calculate the edges
                 // OPTMIZE: look for speed up opportunities
-                for (var ii = 0; ii < vectors.length-1; ii++) {
+                for (var ii = 0; ii < vectors.length - 1; ii++) {
                     var diff = diffFn(vectors[ii], vectors[ii + 1]);
                     
-                    fnresult.edges[ii] = Math.sqrt((diff.x * diff.x) + (diff.y * diff.y));
-                    fnresult.accrued[ii] = fnresult.total + fnresult.edges[ii];
+                    fnresult.edges[ii] = 
+                        Math.sqrt((diff.x * diff.x) + (diff.y * diff.y));
+                    fnresult.accrued[ii] = 
+                        fnresult.total + fnresult.edges[ii];
+                        
                     fnresult.total += fnresult.edges[ii];
                 } // for
                 
@@ -1652,11 +1647,13 @@ TILE5 = (function () {
                 },
                 
                 invert: function(vector) {
-                    return new TILE5.Vector(-vector.x, -vector.y);
+                    return new T5.Vector(-vector.x, -vector.y);
                 },
                 
                 offset: function(vector, offsetX, offsetY) {
-                    return new TILE5.Vector(vector.x + offsetX, vector.y + (offsetY ? offsetY : offsetX));
+                    return new T5.Vector(
+                                    vector.x + offsetX, 
+                                    vector.y + (offsetY ? offsetY : offsetX));
                 },
                 
                 edges: edges,
@@ -1670,25 +1667,37 @@ TILE5 = (function () {
                 },
                 
                 pointOnEdge: function(v1, v2, theta, delta) {
-                    var xyDelta = new TILE5.Vector(Math.cos(theta) * delta, Math.sin(theta) * delta);
+                    var xyDelta = new T5.Vector(
+                                        Math.cos(theta) * delta, 
+                                        Math.sin(theta) * delta);
                     
-                    return new TILE5.Vector(v1.x - xyDelta.x, v1.y - xyDelta.y);
+                    return new T5.Vector(
+                                        v1.x - xyDelta.x, 
+                                        v1.y - xyDelta.y);
                 },
                 
                 getRect: function(vectorArray) {
                     var arrayLen = vectorArray.length;
                     if (arrayLen > 1) {
-                        return new TILE5.Rect(
-                            Math.min(vectorArray[0].x, vectorArray[arrayLen - 1].x),
-                            Math.min(vectorArray[0].y, vectorArray[arrayLen - 1].y),
-                            Math.abs(vectorArray[0].x - vectorArray[arrayLen - 1].x),
-                            Math.abs(vectorArray[0].y - vectorArray[arrayLen - 1].y)
+                        return new T5.Rect(
+                            Math.min(
+                                vectorArray[0].x, 
+                                vectorArray[arrayLen - 1].x
+                            ),
+                            Math.min(
+                                vectorArray[0].y, 
+                                vectorArray[arrayLen - 1].y
+                            ),
+                            Math.abs(vectorArray[0].x - 
+                                vectorArray[arrayLen - 1].x),
+                            Math.abs(vectorArray[0].y - 
+                                vectorArray[arrayLen - 1].y)
                         );
                     }
                 },
                 
                 toString: function(vector) {
-                    return vector.x + ", " + vector.y;
+                    return vector.x + ', ' + vector.y;
                 }
             };
         })(),
@@ -1703,15 +1712,19 @@ TILE5 = (function () {
         D: (function() {
             var subModule = {
                 getAspectRatio: function(dimensions) {
-                    return dimensions.height !== 0 ? dimensions.width / dimensions.height : 1;
+                    return dimensions.height !== 0 ? 
+                        dimensions.width / dimensions.height : 1;
                 },
 
                 getCenter: function(dimensions) {
-                    return new module.Vector(dimensions.width / 2, dimensions.height / 2);
+                    return new module.Vector(
+                                dimensions.width / 2, 
+                                dimensions.height / 2);
                 },
                 
                 getSize: function(dimensions) {
-                    return Math.sqrt(Math.pow(dimensions.width, 2) + Math.pow(dimensions.height, 2));
+                    return Math.sqrt(Math.pow(dimensions.width, 2) + 
+                            Math.pow(dimensions.height, 2));
                 }
             };
             
@@ -1728,11 +1741,19 @@ TILE5 = (function () {
         R: (function() {
             var subModule = {
                 copy: function(src) {
-                    return src ? new module.Rect(src.origin.x, src.origin.y, src.dimensions.width, src.dimensions.height) : null;
+                    return src ? 
+                        new module.Rect(
+                                src.origin.x, 
+                                src.origin.y, 
+                                src.dimensions.width, 
+                                src.dimensions.height) :
+                        null;
                 },
                 
                 getCenter: function(rect) {
-                    return new TILE5.Vector(rect.origin.x + (rect.dimensions.width / 2), rect.origin.y + (rect.dimensions.height / 2));
+                    return new T5.Vector(
+                                rect.origin.x + (rect.dimensions.width / 2), 
+                                rect.origin.y + (rect.dimensions.height / 2));
                 }
             };
             
@@ -1743,7 +1764,7 @@ TILE5 = (function () {
     return module;
 })();
 
-TILE5.Device = (function() {
+T5.Device = (function() {
     var deviceConfigs = null,
         deviceCheckOrder = [],
         detectedConfig = null,
@@ -1907,7 +1928,7 @@ TILE5.Device = (function() {
     return module;
 })();
 
-TILE5.Resources = (function() {
+T5.Resources = (function() {
     var basePath = "",
         cachedSnippets = {},
         cachedResources = {};
@@ -1960,7 +1981,7 @@ TILE5.Resources = (function() {
         } // handleImageLoad
         
         function loadNextImage() {
-            var maxImageLoads = TILE5.Device.getConfig().maxImageLoads;
+            var maxImageLoads = T5.Device.getConfig().maxImageLoads;
 
             // if we have queued images and a loading slot available, then start a load operation
             while ((queuedImages.length > 0) && ((! maxImageLoads) || (loadingImages.length < maxImageLoads))) {
@@ -1989,7 +2010,7 @@ TILE5.Resources = (function() {
                 // reset the queued flag and attempt to load the image
                 imageData.image.onload = onLoadCallback;
                 imageData.image.src = module.getPath(imageData.url);
-                imageData.requested = new Date().getTime();
+                imageData.requested = T5.time();
             };
         } // getImageLoader
         
@@ -2020,9 +2041,9 @@ TILE5.Resources = (function() {
         } // cleanupImageCache
 
         function checkTimeoutsAndCache() {
-            var currentTickCount = new Date().getTime(),
+            var currentTickCount = T5.time(),
                 timedOutLoad = false, ii = 0,
-                config = TILE5.Device.getConfig();
+                config = T5.Device.getConfig();
             
             // iterate through the loading images, and check if any of them have been active too long
             while (ii < loadingImages.length) {
@@ -2084,7 +2105,7 @@ TILE5.Resources = (function() {
                         image: new Image(),
                         loaded: false,
                         imageLoader: getImageLoader(url),
-                        created: new Date().getTime(),
+                        created: T5.time(),
                         requested: null,
                         hitCount: 0,
                         loadCallback: callback
@@ -2259,10 +2280,9 @@ TILE5.Resources = (function() {
     return module;
 })();
 
-TILE5.Touch = (function() {
+T5.Touch = (function() {
     // initialise constants
-    var PANREFRESH = 5,
-        WHEEL_DELTA_STEP = 120,
+    var WHEEL_DELTA_STEP = 120,
         DEFAULT_INERTIA_MAX = 500,
         INERTIA_TIMEOUT_MOUSE = 100,
         INERTIA_TIMEOUT_TOUCH = 250;
@@ -2279,13 +2299,13 @@ TILE5.Touch = (function() {
         listenerCount = 0;
     
     function calcDistance(touches) {
-        return TILE5.V.distance(touches);
+        return T5.V.distance(touches);
     } // calcDistance
     
     function calcChange(first, second) {
         var srcVector = (first && (first.length > 0)) ? first[0] : null;
         if (srcVector && second && (second.length > 0)) {
-            return TILE5.V.diff(srcVector, second[0]);
+            return T5.V.diff(srcVector, second[0]);
         } // if
         
         return null;
@@ -2299,14 +2319,14 @@ TILE5.Touch = (function() {
     function getTouchPoints(touches) {
         var fnresult = new Array(touches.length);
         for (var ii = touches.length; ii--; ) {
-            fnresult[ii] = new TILE5.Vector(touches[ii].pageX, touches[ii].pageY);
+            fnresult[ii] = new T5.Vector(touches[ii].pageX, touches[ii].pageY);
         } // for
         
         return fnresult;
     } // getTouchPoints
     
     function getMousePos(evt) {
-        return [new TILE5.Vector(evt.pageX, evt.pageY)];
+        return [new T5.Vector(evt.pageX, evt.pageY)];
     } // getMousePos
     
     function debugTouchEvent(evt, title) {
@@ -2345,12 +2365,12 @@ TILE5.Touch = (function() {
             // initialise private members
             var doubleTap = false,
                 tapTimer = 0,
-                supportsTouch = TILE5.Device.getConfig().supportsTouch,
+                supportsTouch = T5.Device.getConfig().supportsTouch,
                 touchesStart = null,
                 touchesLast = null,
                 touchDelta = null,
                 totalDelta = null,
-                panDelta = new TILE5.Vector(),
+                panDelta = new T5.Vector(),
                 touchMode = null,
                 touchDown = false,
                 touchStartTick = 0,
@@ -2361,7 +2381,7 @@ TILE5.Touch = (function() {
                     current: 0,
                     last: 0
                 },
-                config = TILE5.Device.getConfig(),
+                config = T5.Device.getConfig(),
                 BENCHMARK_INTERVAL = 300;
                 
             function calculateInertia(upXY, currentXY, distance, tickDiff) {
@@ -2371,7 +2391,7 @@ TILE5.Touch = (function() {
                     distanceVector;
                     
                 theta = currentXY.x > upXY.x ? theta : Math.PI - theta;
-                distanceVector = new TILE5.Vector(Math.cos(theta) * -extraDistance, Math.sin(theta) * extraDistance);
+                distanceVector = new T5.Vector(Math.cos(theta) * -extraDistance, Math.sin(theta) * extraDistance);
                     
                 triggerEvent("inertiaPan", distanceVector.x, distanceVector.y);
             } // calculateInertia
@@ -2383,8 +2403,8 @@ TILE5.Touch = (function() {
                     lastXY = upXY;
                     
                     var checkInertiaInterval = setInterval(function() {
-                        tickDiff = (new Date().getTime()) - currentTick;
-                        distance = TILE5.V.distance([upXY, lastXY]);
+                        tickDiff = (T5.time()) - currentTick;
+                        distance = T5.V.distance([upXY, lastXY]);
 
                         // calculate the inertia
                         if ((tickDiff < INERTIA_TIMEOUT_MOUSE) && (distance > params.inertiaTrigger)) {
@@ -2400,7 +2420,7 @@ TILE5.Touch = (function() {
                     tickDiff = currentTick - touchStartTick;
                     
                     if ((tickDiff < INERTIA_TIMEOUT_TOUCH)) {
-                        distance = TILE5.V.distance([touchesStart[0], upXY]);
+                        distance = T5.V.distance([touchesStart[0], upXY]);
                         
                         if (distance > params.inertiaTrigger) {
                             calculateInertia(touchesStart[0], upXY, distance, tickDiff);
@@ -2416,7 +2436,7 @@ TILE5.Touch = (function() {
                 
                 // apply the offset
                 for (var ii = touches.length; ii--; ) {
-                    fnresult.push(TILE5.V.offset(touches[ii], offsetX, offsetY));
+                    fnresult.push(T5.V.offset(touches[ii], offsetX, offsetY));
                 } // for
                 
                 return fnresult;
@@ -2433,7 +2453,7 @@ TILE5.Touch = (function() {
                 
                 // if an element is defined, then determine the element offset
                 if (params.element) {
-                    offsetVector = TILE5.V.offset(absVector, -params.element.offsetLeft, -params.element.offsetTop);
+                    offsetVector = T5.V.offset(absVector, -params.element.offsetLeft, -params.element.offsetTop);
                 } // if
                 
                 // fire the event
@@ -2443,11 +2463,11 @@ TILE5.Touch = (function() {
             function touchStart(evt) {
                 if (evt.target && (evt.target === params.element)) {
                     touchesStart = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt);
-                    touchDelta = new TILE5.Vector();
-                    totalDelta = new TILE5.Vector();
+                    touchDelta = new T5.Vector();
+                    totalDelta = new T5.Vector();
                     touchDown = true;
                     doubleTap = false;
-                    touchStartTick = TILE5.Clock.getTime();
+                    touchStartTick = T5.time();
 
                     // cancel event propogation
                     if (supportsTouch) {
@@ -2474,7 +2494,7 @@ TILE5.Touch = (function() {
                     // check to see whether this is a double tap (if we are watching for them)
                     if (ticks.current - ticks.last < self.THRESHOLD_DOUBLETAP) {
                         // calculate the difference between this and the last touch point
-                        var touchChange = touchesLast ? TILE5.V.diff(touchesStart[0], touchesLast[0]) : null;
+                        var touchChange = touchesLast ? T5.V.diff(touchesStart[0], touchesLast[0]) : null;
                         if (touchChange && (Math.abs(touchChange.x) < params.maxDistDoubleTap) && (Math.abs(touchChange.y) < params.maxDistDoubleTap)) {
                             doubleTap = true;
                         } // if
@@ -2543,9 +2563,9 @@ TILE5.Touch = (function() {
                                 } // if
 
                                 // if the pan_delta is sufficient to fire an event, then do so
-                                if (TILE5.V.absSize(panDelta) > params.panEventThreshhold) {
+                                if (T5.V.absSize(panDelta) > params.panEventThreshhold) {
                                     triggerEvent("pan", panDelta.x, panDelta.y);
-                                    panDelta = TILE5.V.create();
+                                    panDelta = T5.V.create();
                                 } // if
 
                                 // set the touch mode to move
@@ -2580,7 +2600,7 @@ TILE5.Touch = (function() {
                         } // if
 
                         // get the end tick
-                        var endTick = TILE5.Clock.getTime();
+                        var endTick = T5.time();
 
                         // save the current ticks to the last ticks
                         ticks.last = ticks.current;
@@ -2623,10 +2643,10 @@ TILE5.Touch = (function() {
                 // process ff DOMMouseScroll event
                 if (evt.detail) {
                     var delta = -evt.detail * WHEEL_DELTA_STEP;
-                    return new TILE5.Vector(evt.axis === 1 ? delta : 0, evt.axis === 2 ? delta : 0);
+                    return new T5.Vector(evt.axis === 1 ? delta : 0, evt.axis === 2 ? delta : 0);
                 }
                 else {
-                    return new TILE5.Vector(evt.wheelDeltaX, evt.wheelDeltaY);
+                    return new T5.Vector(evt.wheelDeltaX, evt.wheelDeltaY);
                 } // if..else
             } // getWheelDelta
             
@@ -2637,7 +2657,7 @@ TILE5.Touch = (function() {
 
                     if (lastXY && (zoomAmount !== 0)) {
                         // apply the offset to the xy
-                        var xy = TILE5.V.offset(lastXY, -params.element.offsetLeft, -params.element.offsetTop);
+                        var xy = T5.V.offset(lastXY, -params.element.offsetLeft, -params.element.offsetTop);
                         triggerEvent("wheelZoom", xy, Math.pow(2, delta.y > 0 ? zoomAmount : -zoomAmount));
                     } // if
                     
@@ -2765,7 +2785,7 @@ if (typeof(jQuery) !== 'undefined') {
     jQuery.fn.canTouchThis = function(params) {
         // bind the touch events
         return this.each(function() {
-            TILE5.Touch.captureTouch(this, params);
+            T5.Touch.captureTouch(this, params);
         });
     }; // canTouchThis
 
@@ -2791,7 +2811,7 @@ if (typeof(jQuery) !== 'undefined') {
     }; // untouchable
 } // if
 
-TILE5.Dispatcher = (function() {
+T5.Dispatcher = (function() {
     // initialise variables
     var registeredActions = [];
     
@@ -2915,7 +2935,7 @@ TILE5.Dispatcher = (function() {
                 run: function(args, callback) {
                     if (params.execute) {
                         // update the last run ticks
-                        lastRunTicks = TILE5.Clock.getTime(true);
+                        lastRunTicks = T5.time();
                         
                         // save the run instance ticks to a local variable so we can check it in the callback
                         var runInstanceTicks = lastRunTicks,
@@ -2948,9 +2968,138 @@ TILE5.Dispatcher = (function() {
 })();
 
 /**
-TILE5 Animation module
+Easing functions
+
+sourced from Robert Penner's excellent work:
+http://www.robertpenner.com/easing/
+
+Functions follow the function format of fn(t, b, c, d, s) where:
+- t = time
+- b = beginning position
+- c = change
+- d = duration
 */
-TILE5.Animation = (function() {
+T5.Easing = (function() {
+    var s = 1.70158;
+    
+    return {
+        Linear: function(t, b, c, d) {
+            return c*t/d + b;
+        },
+        
+        Back: {
+            In: function(t, b, c, d) {
+                return c*(t/=d)*t*((s+1)*t - s) + b;
+            },
+            
+            Out: function(t, b, c, d) {
+                return c*((t=t/d-1)*t*((s+1)*t + s) + 1) + b;
+            },
+            
+            InOut: function(t, b, c, d) {
+                return ((t/=d/2)<1) ? c/2*(t*t*(((s*=(1.525))+1)*t-s))+b : c/2*((t-=2)*t*(((s*=(1.525))+1)*t+s)+2)+b;
+            }
+        },
+        
+        Bounce: {
+            In: function(t, b, c, d) {
+                return c - module.Easing.Bounce.Out(d-t, 0, c, d) + b;
+            },
+            
+            Out: function(t, b, c, d) {
+                if ((t/=d) < (1/2.75)) {
+                    return c*(7.5625*t*t) + b;
+                } else if (t < (2/2.75)) {
+                    return c*(7.5625*(t-=(1.5/2.75))*t + 0.75) + b;
+                } else if (t < (2.5/2.75)) {
+                    return c*(7.5625*(t-=(2.25/2.75))*t + 0.9375) + b;
+                } else {
+                    return c*(7.5625*(t-=(2.625/2.75))*t + 0.984375) + b;
+                }
+            },
+            
+            InOut: function(t, b, c, d) {
+                if (t < d/2) return module.Easing.Bounce.In(t*2, 0, c, d) / 2 + b;
+                else return module.Easing.Bounce.Out(t*2-d, 0, c, d) / 2 + c/2 + b;
+            }
+        },
+        
+        Cubic: {
+            In: function(t, b, c, d) {
+                return c*(t/=d)*t*t + b;
+            },
+            
+            Out: function(t, b, c, d) {
+                return c*((t=t/d-1)*t*t + 1) + b;
+            },
+            
+            InOut: function(t, b, c, d) {
+                if ((t/=d/2) < 1) return c/2*t*t*t + b;
+                return c/2*((t-=2)*t*t + 2) + b;
+            }
+        },
+        
+        Elastic: {
+            In: function(t, b, c, d, a, p) {
+                var s;
+                
+                if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*0.3;
+                if (!a || a < Math.abs(c)) { a=c; s=p/4; }
+                else s = p/(2*Math.PI) * Math.asin (c/a);
+                return -(a*Math.pow(2,10*(t-=1)) * Math.sin( (t*d-s)*(2*Math.PI)/p )) + b;
+            },
+            
+            Out: function(t, b, c, d, a, p) {
+                var s;
+                
+                if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*0.3;
+                if (!a || a < Math.abs(c)) { a=c; s=p/4; }
+                else s = p/(2*Math.PI) * Math.asin (c/a);
+                return (a*Math.pow(2,-10*t) * Math.sin( (t*d-s)*(2*Math.PI)/p ) + c + b);
+            },
+            
+            InOut: function(t, b, c, d, a, p) {
+                var s;
+                
+                if (t==0) return b;  if ((t/=d/2)==2) return b+c;  if (!p) p=d*(0.3*1.5);
+                if (!a || a < Math.abs(c)) { a=c; s=p/4; }
+                else s = p/(2*Math.PI) * Math.asin (c/a);
+                if (t < 1) return -0.5*(a*Math.pow(2,10*(t-=1)) * Math.sin( (t*d-s)*(2*Math.PI)/p )) + b;
+                return a*Math.pow(2,-10*(t-=1)) * Math.sin( (t*d-s)*(2*Math.PI)/p )*0.5 + c + b;
+            }
+        },
+        
+        Quad: {
+            In: function(t, b, c, d) {
+                return c*(t/=d)*t + b;
+            },
+            
+            Out: function(t, b, c, d) {
+                return -c *(t/=d)*(t-2) + b;
+            },
+            
+            InOut: function(t, b, c, d) {
+                if ((t/=d/2) < 1) return c/2*t*t + b;
+                return -c/2 * ((--t)*(t-2) - 1) + b;
+            }
+        },
+        
+        Sine: {
+            In: function(t, b, c, d) {
+                return -c * Math.cos(t/d * (Math.PI/2)) + c + b;
+            },
+            
+            Out: function(t, b, c, d) {
+                return c * Math.sin(t/d * (Math.PI/2)) + b;
+            },
+            
+            InOut: function(t, b, c, d) {
+                return -c/2 * (Math.cos(Math.PI*t/d) - 1) + b;
+            }
+        }
+    };
+})();
+T5.Animation = (function() {
     // initialise variables
     var tweens = [],
         updating = false,
@@ -2960,7 +3109,7 @@ TILE5.Animation = (function() {
         if (tweenTimer !== 0) { return; }
         
         tweenTimer = setInterval(function() {
-            if (update(TILE5.Clock.getTime()) === 0) {
+            if (update(T5.time()) === 0) {
                 clearInterval(tweenTimer);
                 tweenTimer = 0;
             } // if
@@ -2978,8 +3127,6 @@ TILE5.Animation = (function() {
                 if (tweens[ii].isComplete()) {
                     tweens[ii].triggerComplete(false);
                     tweens.splice(ii, 1);
-                
-                    GRUNT.WaterCooler.say("animation.complete");
                 }
                 else {
                     tweens[ii].update(tickCount);
@@ -3093,7 +3240,7 @@ TILE5.Animation = (function() {
             }, params);
             
             // get the start ticks
-            var startTicks = TILE5.Clock.getTime(),
+            var startTicks = T5.time(),
                 updateListeners = [],
                 complete = false,
                 beginningValue = 0.0,
@@ -3122,14 +3269,19 @@ TILE5.Animation = (function() {
                     try {
                         // calculate the updated value
                         var elapsed = tickCount - startTicks,
-                            updatedValue = params.tweenFn(elapsed, beginningValue, change, params.duration);
+                            updatedValue = params.tweenFn(
+                                                elapsed, 
+                                                beginningValue, 
+                                                change, 
+                                                params.duration);
                     
                         // update the property value
                         if (params.target) {
                             params.target[params.property] = updatedValue;
                         } // if
                     
-                        // iterate through the update listeners and let them know the updated value
+                        // iterate through the update listeners 
+                        // and let them know the updated value
                         notifyListeners(updatedValue);
 
                         complete = startTicks + params.duration <= tickCount;
@@ -3152,16 +3304,16 @@ TILE5.Animation = (function() {
             };
             
             // calculate the beginning value
-            beginningValue = (params.target && params.property && params.target[params.property]) ? params.target[params.property] : params.startValue;
+            beginningValue = 
+                (params.target && params.property && params.target[params.property]) ? params.target[params.property] : params.startValue;
 
             // calculate the change and beginning position
             if (typeof params.endValue !== 'undefined') {
                 change = (params.endValue - beginningValue);
             } // if
             
-            // GRUNT.Log.info("creating new tween. change = " + change, params);
-
-            // if no change is required, then mark as complete so the update method will never be called
+            // if no change is required, then mark as complete 
+            // so the update method will never be called
             if (change == 0) {
                 complete = true;
             } // if..else
@@ -3170,1027 +3322,906 @@ TILE5.Animation = (function() {
             wake();
             
             return self;
-        },
-        
-        /**
-        Easing functions
-        
-        sourced from Robert Penner's excellent work:
-        http://www.robertpenner.com/easing/
-        
-        Functions follow the function format of fn(t, b, c, d, s) where:
-        - t = time
-        - b = beginning position
-        - c = change
-        - d = duration
-        */
-        Easing: (function() {
-            var s = 1.70158;
-            
-            return {
-                Linear: function(t, b, c, d) {
-                    return c*t/d + b;
-                },
-                
-                Back: {
-                    In: function(t, b, c, d) {
-                        return c*(t/=d)*t*((s+1)*t - s) + b;
-                    },
-                    
-                    Out: function(t, b, c, d) {
-                        return c*((t=t/d-1)*t*((s+1)*t + s) + 1) + b;
-                    },
-                    
-                    InOut: function(t, b, c, d) {
-                        return ((t/=d/2)<1) ? c/2*(t*t*(((s*=(1.525))+1)*t-s))+b : c/2*((t-=2)*t*(((s*=(1.525))+1)*t+s)+2)+b;
-                    }
-                },
-                
-                Bounce: {
-                    In: function(t, b, c, d) {
-                        return c - module.Easing.Bounce.Out(d-t, 0, c, d) + b;
-                    },
-                    
-                    Out: function(t, b, c, d) {
-                        if ((t/=d) < (1/2.75)) {
-                            return c*(7.5625*t*t) + b;
-                        } else if (t < (2/2.75)) {
-                            return c*(7.5625*(t-=(1.5/2.75))*t + 0.75) + b;
-                        } else if (t < (2.5/2.75)) {
-                            return c*(7.5625*(t-=(2.25/2.75))*t + 0.9375) + b;
-                        } else {
-                            return c*(7.5625*(t-=(2.625/2.75))*t + 0.984375) + b;
-                        }
-                    },
-                    
-                    InOut: function(t, b, c, d) {
-                        if (t < d/2) return module.Easing.Bounce.In(t*2, 0, c, d) / 2 + b;
-                        else return module.Easing.Bounce.Out(t*2-d, 0, c, d) / 2 + c/2 + b;
-                    }
-                },
-                
-                Cubic: {
-                    In: function(t, b, c, d) {
-                        return c*(t/=d)*t*t + b;
-                    },
-                    
-                    Out: function(t, b, c, d) {
-                        return c*((t=t/d-1)*t*t + 1) + b;
-                    },
-                    
-                    InOut: function(t, b, c, d) {
-                        if ((t/=d/2) < 1) return c/2*t*t*t + b;
-                        return c/2*((t-=2)*t*t + 2) + b;
-                    }
-                },
-                
-                Elastic: {
-                    In: function(t, b, c, d, a, p) {
-                        var s;
-                        
-                        if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*0.3;
-                        if (!a || a < Math.abs(c)) { a=c; s=p/4; }
-                        else s = p/(2*Math.PI) * Math.asin (c/a);
-                        return -(a*Math.pow(2,10*(t-=1)) * Math.sin( (t*d-s)*(2*Math.PI)/p )) + b;
-                    },
-                    
-                    Out: function(t, b, c, d, a, p) {
-                        var s;
-                        
-                        if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*0.3;
-                        if (!a || a < Math.abs(c)) { a=c; s=p/4; }
-                        else s = p/(2*Math.PI) * Math.asin (c/a);
-                        return (a*Math.pow(2,-10*t) * Math.sin( (t*d-s)*(2*Math.PI)/p ) + c + b);
-                    },
-                    
-                    InOut: function(t, b, c, d, a, p) {
-                        var s;
-                        
-                        if (t==0) return b;  if ((t/=d/2)==2) return b+c;  if (!p) p=d*(0.3*1.5);
-                        if (!a || a < Math.abs(c)) { a=c; s=p/4; }
-                        else s = p/(2*Math.PI) * Math.asin (c/a);
-                        if (t < 1) return -0.5*(a*Math.pow(2,10*(t-=1)) * Math.sin( (t*d-s)*(2*Math.PI)/p )) + b;
-                        return a*Math.pow(2,-10*(t-=1)) * Math.sin( (t*d-s)*(2*Math.PI)/p )*0.5 + c + b;
-                    }
-                },
-                
-                Quad: {
-                    In: function(t, b, c, d) {
-                        return c*(t/=d)*t + b;
-                    },
-                    
-                    Out: function(t, b, c, d) {
-                        return -c *(t/=d)*(t-2) + b;
-                    },
-                    
-                    InOut: function(t, b, c, d) {
-                        if ((t/=d/2) < 1) return c/2*t*t + b;
-                        return -c/2 * ((--t)*(t-2) - 1) + b;
-                    }
-                },
-                
-                Sine: {
-                    In: function(t, b, c, d) {
-                        return -c * Math.cos(t/d * (Math.PI/2)) + c + b;
-                    },
-                    
-                    Out: function(t, b, c, d) {
-                        return c * Math.sin(t/d * (Math.PI/2)) + b;
-                    },
-                    
-                    InOut: function(t, b, c, d) {
-                        return -c/2 * (Math.cos(Math.PI*t/d) - 1) + b;
-                    }
-                }
-            };
-        })()
+        }
     };
     
     return GRUNT.extend(module, {
-        DEFAULT: module.Easing.Back.Out
+        DEFAULT: T5.Easing.Back.Out
     });
 })();
-
-/*
-File:  TILE5.tiler.js
-This file is used to define the tiler and supporting classes for creating a scrolling
-tilable grid using the HTML canvas.  At this stage, the Tiler is designed primarily for
-mobile devices, however, if the demand is there it could be tweaked to also support other
-HTML5 compatible browsers
-
-Section: Version History
-21/05/2010 (DJO) - Created File
-*/
-
-// define the TILE5 tile borders
-TILE5.Border = {
-    NONE: 0,
-    TOP: 1,
-    RIGHT: 2,
-    BOTTOM: 3,
-    LEFT: 4
-}; // Border
-
-TILE5.Graphics = (function() {
-    // initialise display state constants that will be exposed through the module
-    var DISPLAY_STATE = {
+T5.ViewState = (function() {
+    var self = {
+        // define the view state constants
         NONE: 0,
         ACTIVE: 1,
         ANIMATING: 4,
         PAN: 8,
         PINCHZOOM: 16,
-        FREEZE: 128
+        FREEZE: 128,
+        
+        get: function() {
+            var result = 0;
+            
+            for (var ii = arguments.length; ii--; ) {
+                var value = self[arguments[ii]];
+                if (value) {
+                    result = result | value;
+                } // if
+            } // for
+            
+            return result;
+        }
     };
     
-    // initialise variables
-    var viewCounter = 0;
-    
-    var module = {
-        DisplayState: DISPLAY_STATE,
-        
-        // some precanned display states
-        AnyDisplayState: 255,
-        ActiveDisplayStates: DISPLAY_STATE.ACTIVE | DISPLAY_STATE.ANIMATING,
-        DefaultDisplayStates: DISPLAY_STATE.ACTIVE | DISPLAY_STATE.ANIMATING | DISPLAY_STATE.PAN | DISPLAY_STATE.PINCHZOOM,
-        
-        ViewLayer: function(params) {
-            params = GRUNT.extend({
-                id: "",
-                centerOnScale: true,
-                created: new Date().getTime(),
-                scalePosition: true,
-                zindex: 0,
-                supportFastDraw: false,
-                validStates: module.DefaultDisplayStates
-            }, params);
-            
-            var parent = null,
-                id = params.id;
-            
-            var self = GRUNT.extend({
-                addToView: function(view) {
-                    view.setLayer(id, self);
-                },
-                
-                shouldDraw: function(displayState) {
-                    var stateValid = (displayState & params.validStates) !== 0,
-                        fastDraw = parent ? (parent.fastDraw && (displayState !== DISPLAY_STATE.ACTIVE)) : false;
-
-                    return stateValid && (fastDraw ? params.supportFastDraw : true);
-                },
-                
-                cycle: function(tickCount, offset, state) {
-                    return 0;
-                },
-                
-                draw: function(context, offset, dimensions, state, view) {
-                },
-                
-                /**
-                The remove method enables a view to flag that it is ready or should be removed
-                from any views that it is contained in.  This was introduced specifically for
-                animation layers that should only exist as long as an animation is active.
-                */
-                remove: function() {
-                    GRUNT.WaterCooler.say("layer.remove", { id: id });
-                },
-                
-                wakeParent: function() {
-                    // if we have a parent, then wake them, if we have no parent, well just panic and wake everybody up
-                    GRUNT.WaterCooler.say("view.wake", { id: parent ? parent.id : null });
-                },
-                
-                getId: function() {
-                    return id;
-                },
-                
-                setId: function(value) {
-                    id = value;
-                },
-
-                getParent: function() {
-                    return parent;
-                },
-                
-                setParent: function(view) {
-                    parent = view;
-                }
-            }, params); // self
-            
-            return self;
-        },
-        
-        AnimatedPathLayer: function(params) {
-            params = GRUNT.extend({
-                path: [],
-                id: GRUNT.generateObjectID("pathAnimation"),
-                easing: TILE5.Animation.Easing.Sine.InOut,
-                validStates: module.ActiveDisplayStates | DISPLAY_STATE.PAN | DISPLAY_STATE.PINCHZOOM,
-                drawIndicator: null,
-                duration: 2000,
-                autoCenter: false
-            }, params);
-            
-            // generate the edge data for the specified path
-            var edgeData = TILE5.V.edges(params.path), 
-                tween,
-                theta,
-                indicatorXY = null,
-                pathOffset = 0;
-            
-            function drawDefaultIndicator(context, offset, indicatorXY) {
-                // draw an arc at the specified position
-                context.fillStyle = "#FFFFFF";
-                context.strokeStyle = "#222222";
-                context.beginPath();
-                context.arc(
-                    indicatorXY.x, 
-                    indicatorXY.y,
-                    4,
-                    0,
-                    Math.PI * 2,
-                    false);             
-                context.stroke();
-                context.fill();
-            } // drawDefaultIndicator
-            
-            // calculate the tween
-            tween = TILE5.Animation.tweenValue(
-                0, 
-                edgeData.total, 
-                params.easing, 
-                function() {
-                    self.remove();
-                },
-                params.duration);
-                
-            // if we are autocentering then we need to cancel on interaction
-            // tween.cancelOnInteract = autoCenter;
-                
-            // request updates from the tween
-            tween.requestUpdates(function(updatedValue, complete) {
-                pathOffset = updatedValue;
-
-                if (complete) {
-                    self.remove();
-                } // if
-            });
-            
-            // initialise self
-            var self =  GRUNT.extend(new module.ViewLayer(params), {
-                cycle: function(tickCount, offset, state) {
-                    var edgeIndex = 0;
-
-                    // iterate through the edge data and determine the current journey coordinate index
-                    while ((edgeIndex < edgeData.accrued.length) && (edgeData.accrued[edgeIndex] < pathOffset)) {
-                        edgeIndex++;
-                    } // while
-
-                    // reset offset xy
-                    indicatorXY = null;
-
-                    // if the edge index is valid, then let's determine the xy coordinate
-                    if (edgeIndex < params.path.length-1) {
-                        var extra = pathOffset - (edgeIndex > 0 ? edgeData.accrued[edgeIndex - 1] : 0),
-                            v1 = params.path[edgeIndex],
-                            v2 = params.path[edgeIndex + 1];
-
-                        theta = TILE5.V.theta(v1, v2, edgeData.edges[edgeIndex]);
-                        indicatorXY = TILE5.V.pointOnEdge(v1, v2, theta, extra);
-
-                        if (params.autoCenter) {
-                            var parent = self.getParent();
-                            if (parent) {
-                                parent.centerOn(indicatorXY);
-                            } // if
-                        } // if
-                    } // if
-
-                    return indicatorXY ? 1 : 0;
-                },
-                
-                draw: function(context, offset, dimensions, state, view) {
-                    if (indicatorXY) {
-                        // if the draw indicator method is specified, then draw
-                        (params.drawIndicator ? params.drawIndicator : drawDefaultIndicator)(
-                            context,
-                            offset,
-                            new TILE5.Vector(indicatorXY.x - offset.x, indicatorXY.y - offset.y),
-                            theta
-                        );
-                    } // if
-                }
-            });
-
-            return self;
-        },
-        
-        View: function(params) {
-            // initialise defaults
-            params = GRUNT.extend({
-                id: "view_" + viewCounter++,
-                container: "",
-                clearOnDraw: false,
-                scaleDamping: false,
-                fastDraw: false,
-                fillStyle: "rgb(200, 200, 200)",
-                initialDrawMode: "source-over",
-                bufferRefresh: 100,
-                defaultFreezeDelay: 500,
-                inertialScroll: true,
-                panAnimationEasing: TILE5.Animation.Easing.Sine.Out,
-                panAnimationDuration: 750,
-                pinchZoomAnimateTrigger: 400,
-                adjustScaleFactor: null,
-                autoSize: false
-            }, params);
-            
-            // get the container context
-            var layers = [],
-                canvas = document.getElementById(params.container),
-                mainContext = null,
-                offset = new TILE5.Vector(),
-                clearBackground = false,
-                lastTickCount = null,
-                frozen = false,
-                deviceScaling = 1,
-                dimensions = null,
-                centerPos = null,
-                wakeTriggers = 0,
-                fpsLayer = null,
-                endCenter = null,
-                idle = false,
-                panimating = false,
-                paintTimeout = 0,
-                repaint = false,
-                idleTimeout = 0,
-                rescaleTimeout = 0,
-                bufferTime = 0,
-                zoomCenter = null,
-                tickCount = 0,
-                deviceFps = TILE5.Device.getConfig().targetFps,
-                redrawInterval = 0,
-                scaling = false,
-                startRect = null,
-                endRect = null,
-                scaleFactor = 1,
-                lastDrawScaleFactor = 1,
-                aniProgress = null,
-                tweenStart = null,
-                startCenter = null,
-                touchHelper = null,
-                state = module.DisplayState.ACTIVE;
-                
-            /* panning functions */
-            
-            function pan(x, y, tweenFn, tweenDuration) {
-                // update the offset by the specified amount
-                panimating = typeof(tweenFn) !== "undefined";
-                self.updateOffset(offset.x + x, offset.y + y, tweenFn, tweenDuration);
-                
-                wake();
-                state = DISPLAY_STATE.PAN;                
-            } // pan
-            
-            function panInertia(x, y) {
-                if (params.inertialScroll) {
-                    pan(x, y, params.panAnimationEasing, params.panAnimationDuration);
-                } // if
-            } // panIntertia
-            
-            function panEnd(x, y) {
-                state = DISPLAY_STATE.ACTIVE;
-                panimating = false;
-                setTimeout(wake, 50);
-            } // panEnd
-            
-            /* scaling functions */
-            
-            function resetZoom() {
-                scaleFactor = 1;
-            } // resetZoom
-            
-            function checkTouches(start, end) {
-                startRect = TILE5.V.getRect(start);
-                endRect = TILE5.V.getRect(end);
-
-                // get the sizes of the rects
-                var startSize = TILE5.D.getSize(startRect.dimensions),
-                    endSize = TILE5.D.getSize(endRect.dimensions);
-
-                // update the zoom center
-                startCenter = TILE5.R.getCenter(startRect);
-                endCenter = TILE5.R.getCenter(endRect);
-
-                // determine the ratio between the start rect and the end rect
-                scaleFactor = (startRect && (startSize !== 0)) ? (endSize / startSize) : 1;
-            } // checkTouches            
-            
-            function pinchZoom(touchesStart, touchesCurrent) {
-                checkTouches(touchesStart, touchesCurrent);
-                scaling = scaleFactor !== 1;
-                
-                if (scaling) {
-                    state = module.DisplayState.PINCHZOOM;
-
-                    wake();
-                } // if
-            } // pinchZoom
-            
-            function pinchZoomEnd(touchesStart, touchesEnd, pinchZoomTime) {
-                checkTouches(touchesStart, touchesEnd);
-                
-                if (params.adjustScaleFactor) {
-                    scaleFactor = params.adjustScaleFactor(scaleFactor);
-                    GRUNT.Log.info("scale factor adjusted to: " + scaleFactor);
-                } // if
-
-                if (pinchZoomTime < params.pinchZoomAnimateTrigger) {
-                    // TODO: move this to the map to override
-                    animateZoom(
-                        lastDrawScaleFactor, 
-                        scaleFactor, 
-                        startCenter, 
-                        calcPinchZoomCenter(), 
-                        // TODO: make the animation configurable
-                        TILE5.Animation.Easing.Sine.Out,
-                        function() {
-                            scaleView();
-                            resetZoom();
-                        },
-                        // TODO: make the animation duration configurable
-                        300);
-                        
-                    // reset the scale factor to the last draw scale factor
-                    scaleFactor = lastDrawScaleFactor;
-                }
-                else {
-                    scaleView();
-                    resetZoom();
-                } // if..else
-            } // pinchZoomEnd
-            
-            function wheelZoom(relXY, zoom) {
-                self.zoom(relXY, Math.min(Math.pow(2, Math.round(Math.log(zoom))), 8), 500);
-            } // wheelZoom
-            
-            function scaleView() {
-                // TODO: can this be removed
-                GRUNT.WaterCooler.say("view.scale", { id: self.id });
-                
-                scaling = false;
-                self.trigger("scale", scaleFactor, startRect ? calcPinchZoomCenter() : endCenter);
-
-                // reset the status flag
-                state = module.DisplayState.ACTIVE;
-                wake();
-            } // scaleView
-            
-            /* view initialization */
-            
-            if (canvas) {
-                TILE5.Touch.resetTouch(canvas);
-                
-                // if we are autosizing the set the size
-                if (params.autoSize) {
-                    canvas.height = window.innerHeight - canvas.offsetTop;
-                    canvas.width = window.innerWidth - canvas.offsetLeft;
-                } // if
-                
-                try {
-                    mainContext = canvas.getContext('2d');
-                    mainContext.globalCompositeOperation = params.initialDrawMode;
-                    mainContext.clearRect(0, 0, canvas.width, canvas.height);
-                } 
-                catch (e) {
-                    GRUNT.Log.exception(e);
-                    throw new Error("Could not initialise canvas on specified view element");
-                }
-            } // if
-
-            function addLayer(id, value) {
-                // make sure the layer has the correct id
-                value.setId(id);
-                
-                // tell the layer that I'm going to take care of it
-                value.setParent(self);
-                
-                // add the new layer
-                layers.push(value);
-                
-                // sort the layers
-                layers.sort(function(itemA, itemB) {
-                    var result = itemB.zindex - itemA.zindex;
-                    if (result === 0) {
-                        result = itemB.created - itemA.created;
-                    } // if
-                    
-                    return result;
-                });
-            } // addLayer
-            
-            function getLayerIndex(id) {
-                for (var ii = layers.length; ii--; ) {
-                    if (layers[ii].getId() == id) {
-                        return ii;
-                    } // if
-                } // for
-                
-                return -1;
-            } // getLayerIndex
-            
-            /* animation code */
-            
-            function animateZoom(scaleFactorFrom, scaleFactorTo, startXY, targetXY, tweenFn, callback, duration) {
-                
-                function finishAnimation() {
-                    // if we have a callback to complete, then call it
-                    if (callback) {
-                        callback();
-                    } // if
-
-                    scaleView();
-
-                    // reset the scale factor
-                    resetZoom();
-                    aniProgress = null;
-                } // finishAnimation
-                
-                // update the zoom center
-                scaling = true;
-                startCenter = TILE5.V.copy(startXY);
-                endCenter = TILE5.V.copy(targetXY);
-                startRect = null;
-
-                // if tweening then update the targetXY
-                if (tweenFn) {
-                    var tween = TILE5.Animation.tweenValue(0, scaleFactorTo - scaleFactorFrom, tweenFn, finishAnimation, duration ? duration : 1000);
-                    tween.requestUpdates(function(updatedValue, completed) {
-                        // calculate the completion percentage
-                        aniProgress = updatedValue / (scaleFactorTo - scaleFactorFrom);
-
-                        // update the scale factor
-                        scaleFactor = scaleFactorFrom + updatedValue;
-
-                        // trigger the on animate handler
-                        state = module.DisplayState.PINCHZOOM;
-                        wake();
-
-                        self.trigger("animate");
-                    });
-                }
-                // otherwise, update the scale factor and fire the callback
-                else {
-                    scaleFactor = targetScaleFactor;
-                    finishAnimation();
-                }  // if..else                
-            } // animateZoom
-            
-            /* draw code */
-            
-            function calcPinchZoomCenter() {
-                var center = TILE5.D.getCenter(dimensions),
-                    endDist = TILE5.V.distance([endCenter, center]),
-                    endTheta = TILE5.V.theta(endCenter, center, endDist),
-                    shiftDelta = TILE5.V.diff(startCenter, endCenter);
-                    
-                center = TILE5.V.pointOnEdge(endCenter, center, endTheta, endDist / scaleFactor);
-
-                center.x = center.x + shiftDelta.x;
-                center.y = center.y + shiftDelta.y; 
-                
-                return center;
-            } // calcPinchZoomCenter
-            
-            function calcZoomCenter() {
-                var displayCenter = TILE5.D.getCenter(dimensions),
-                    shiftFactor = (aniProgress ? aniProgress : 1) / 2,
-                    centerOffset = TILE5.V.diff(startCenter, endCenter);
-
-                if (startRect) {
-                    zoomCenter = new TILE5.Vector(endCenter.x + centerOffset.x, endCenter.y + centerOffset.y);
-                } 
-                else {
-                    zoomCenter = new TILE5.Vector(endCenter.x - centerOffset.x * shiftFactor, endCenter.y - centerOffset.y * shiftFactor);
-                } // if..else
-            } // calcZoomCenter
-            
-            function triggerIdle() {
-                GRUNT.WaterCooler.say("view.idle", { id: self.id });
-                
-                idle = true;
-                idleTimeout = 0;
-            } // idle
-            
-            function drawView(context, offset) {
-                var changeCount = 0,
-                    drawState = self.getDisplayState(),
-                    startTicks = new Date().getTime(),
-                    isPinchZoom = (drawState & DISPLAY_STATE.PINCHZOOM) !== 0,
-                    delayDrawLayers = [];
-                
-                var savedDrawn = false,
-                    ii = 0;
-                    
-                if (clearBackground || isPinchZoom) {
-                    context.clearRect(0, 0, canvas.width, canvas.height);
-                    clearBackground = false;
-                } // if
-                
-                // if we are scaling then do some calcs
-                if (isPinchZoom) {
-                    calcZoomCenter();
-                    
-                    // offset the draw args
-                    if (zoomCenter) {
-                        offset = TILE5.V.offset(offset, zoomCenter.x, zoomCenter.y);
-                    } // if
-                } // if
-                
-                context.save();
-                try {
-                    lastDrawScaleFactor = scaleFactor;
-                    
-                    // if the device dpi has scaled, then apply that to the display
-                    if (deviceScaling !== 1) {
-                        context.scale(deviceScaling, deviceScaling);
-                    }
-                    // if we are scaling, then tell the canvas to scale
-                    else if (isPinchZoom) {
-                        context.translate(endCenter.x, endCenter.y);
-                        context.scale(scaleFactor, scaleFactor);
-                    }
-                    
-                    for (ii = layers.length; ii--; ) {
-                        // draw the layer output to the main canvas
-                        // but only if we don't have a scale buffer or the layer is a draw on scale layer
-                        if (layers[ii].shouldDraw(drawState)) {
-                            var layerChanges = layers[ii].draw(context, offset, dimensions, drawState, self);
-                            changeCount += layerChanges ? layerChanges : 0;
-                        } // if
-                    } // for
-                }
-                finally {
-                    context.restore();
-                } // try..finally
-                
-                GRUNT.Log.trace("draw complete", startTicks);
-                
-                repaint = false;
-                return changeCount;
-            } // drawView
-            
-            function cycle() {
-                // check to see if we are panning
-                var changeCount = 0,
-                    interacting = (! panimating) && ((state === DISPLAY_STATE.PINCHZOOM) || (state === DISPLAY_STATE.PAN));
-                    
-                // get the tickcount
-                tickCount = new Date().getTime();
-                
-                // conver the offset x and y to integer values
-                // while canvas implementations work fine with real numbers, the actual drawing of images
-                // will not look crisp when a real number is used rather than an integer (or so I've found)
-                offset.x = Math.floor(offset.x);
-                offset.y = Math.floor(offset.y);
-                
-                // if we have an fps layer, then update the fps
-                if (fpsLayer && lastTickCount) {
-                    fpsLayer.delays.push(tickCount - lastTickCount);
-                } // if
-                    
-                if (interacting) {
-                    TILE5.Animation.cancel(function(tweenInstance) {
-                        return tweenInstance.cancelOnInteract;
-                    });
-                    
-                    idle = false;
-                    if (idleTimeout !== 0) {
-                        clearTimeout(idleTimeout);
-                        idleTimeout = 0;
-                    } // if
-                }  // if
-
-                // check that all is right with each layer
-                for (var ii = layers.length; ii--; ) {
-                    var cycleChanges = layers[ii].cycle(tickCount, offset, state);
-                    changeCount += cycleChanges ? cycleChanges : 0;
-                } // for
-                
-                // draw the view
-                if (lastTickCount + redrawInterval < tickCount) {
-                    changeCount += drawView(mainContext, offset);
-
-                    // update the last tick count
-                    lastTickCount = tickCount;
-                } // if
-
-                // include wake triggers in the change count
-                paintTimeout = 0;
-                if (wakeTriggers + changeCount > 0) {
-                    wake();
-                } 
-                else {
-                    if ((! idle) && (idleTimeout === 0)) {
-                        idleTimeout = setTimeout(triggerIdle, 500);
-                    } // if
-                } // if..else
-                
-                GRUNT.Log.trace("Completed draw cycle", tickCount);
-            } // cycle
-            
-            function wake() {
-                wakeTriggers++;
-                if (frozen || (paintTimeout !== 0)) { return; }
-            
-                wakeTriggers = 0;
-                paintTimeout = setTimeout(cycle, 0);
-            } // wake
-            
-            function invalidate() {
-                repaint = true;
-            } // invalidate
-            
-            // initialise self
-            var self = GRUNT.extend({}, params, new GRUNT.Observable(), {
-                id: params.id,
-                deviceScaling: deviceScaling,
-                fastDraw: params.fastDraw || TILE5.Device.getConfig().requireFastDraw,
-                
-                // TODO: change name to be scaling related
-                animate: function(targetScaleFactor, startXY, targetXY, tweenFn, callback) {
-                    animateZoom(scaleFactor, targetScaleFactor, startXY, targetXY, tweenFn, callback);
-                },
-                
-                centerOn: function(offset) {
-                    self.setOffset(offset.x - (canvas.width / 2), offset.y - (canvas.height / 2));
-                },
-                
-                getDimensions: function() {
-                    if (canvas) {
-                        return new TILE5.Dimensions(canvas.width, canvas.height);
-                    } // if
-                },
-                
-                getZoomCenter: function() {
-                    return zoomCenter;
-                },
-                
-                /* layer getter and setters */
-                
-                getLayer: function(id) {
-                    // look for the matching layer, and return when found
-                    for (var ii = 0; ii < layers.length; ii++) {
-                        if (layers[ii].getId() == id) {
-                            return layers[ii];
-                        } // if
-                    } // for
-                    
-                    return null;
-                },
-                
-                setLayer: function(id, value) {
-                    // if the layer already exists, then remove it
-                    for (var ii = 0; ii < layers.length; ii++) {
-                        if (layers[ii].getId() === id) {
-                            layers.splice(ii, 1);
-                            break;
-                        } // if
-                    } // for
-                    
-                    if (value) {
-                        addLayer(id, value);
-                    } // if
-                    
-                    GRUNT.WaterCooler.say("layer.update", { id: id });
-                    wake();
-                },
-                
-                eachLayer: function(callback) {
-                    // iterate through each of the layers and fire the callback for each 
-                    for (var ii = 0; ii < layers.length; ii++) {
-                        callback(layers[ii]);
-                    } // for
-                },
-                
-                clearBackground: function() {
-                    clearBackground = true;
-                },
-                
-                freeze: function() {
-                    frozen = true;
-                },
-                
-                unfreeze: function() {
-                    frozen = false;
-                    
-                    wake();
-                },
-                
-                needRepaint: function() {
-                    return repaint;
-                },
-                
-                snapshot: function(zindex) {
-                },
-                
-                getDisplayState: function() {
-                    return frozen ? DISPLAY_STATE.FROZEN : state;
-                },
-                
-                scale: function(targetScaling, tweenFn, callback, startXY, targetXY) {
-                    // if the start XY is not defined, used the center
-                    if (! startXY) {
-                        startXY = TILE5.D.getCenter(dimensions);
-                    } // if
-                    
-                    // if the target xy is not defined, then use the canvas center
-                    if (! targetXY) {
-                        targetXY = TILE5.D.getCenter(dimensions);
-                    } // if
-                    
-                    self.animate(targetScaling, startXY, targetXY, tweenFn, callback);
-                    return self;
-                },
-                
-                removeLayer: function(id) {
-                    var layerIndex = getLayerIndex(id);
-                    if ((layerIndex >= 0) && (layerIndex < layers.length)) {
-                        GRUNT.WaterCooler.say("layer.removed", { layer: layers[layerIndex] });
-
-                        layers.splice(layerIndex, 1);
-                    } // if
-                },
-                
-                /* offset methods */
-                
-                getOffset: function() {
-                    return TILE5.V.copy(offset);
-                },
-                
-                setOffset: function(x, y) {
-                    offset.x = x; 
-                    offset.y = y;
-                },
-                
-                updateOffset: function(x, y, tweenFn, tweenDuration) {
-                    if (tweenFn) {
-                        var endPosition = new TILE5.Vector(x, y);
-
-                        var tweens = TILE5.Animation.tweenVector(offset, endPosition.x, endPosition.y, tweenFn, function() {
-                            panEnd(0, 0);
-                        }, tweenDuration);
-
-                        // set the tweens to cancel on interact
-                        for (var ii = tweens.length; ii--; ) {
-                            tweens[ii].cancelOnInteract = true;
-                            tweens[ii].requestUpdates(function(updatedValue, complete) {
-                                wake();
-                                
-                                if (params.onAnimate) {
-                                    params.onAnimate(offset.x, offset.y);
-                                } // if
-                            });
-                        } // for
-                    }
-                    else {
-                        self.setOffset(x, y);
-                    } // if..else
-                },
-                
-                zoom: function(targetXY, newScaleFactor, rescaleAfter) {
-                    panimating = false;
-                    scaleFactor = newScaleFactor;
-                    scaling = scaleFactor !== 1;
-
-                    startCenter = TILE5.D.getCenter(self.getDimensions());
-                    endCenter = scaleFactor > 1 ? TILE5.V.copy(targetXY) : TILE5.D.getCenter(self.getDimensions());
-                    startRect = null;
-                    
-                    clearTimeout(rescaleTimeout);
-
-                    if (scaling) {
-                        state = module.DisplayState.PINCHZOOM;
-
-                        wake();
-                        if (rescaleAfter) {
-                            rescaleTimeout = setTimeout(function() {
-                                scaleView();
-                                resetZoom();
-                            }, parseInt(rescaleAfter, 10));
-                        } // if
-                    } // if
-                }
-            });
-            
-            // get the dimensions
-            dimensions = self.getDimensions();
-            centerPos = TILE5.D.getCenter(dimensions);
-            
-            // calculate the redaw interval based on the device fps
-            if (deviceFps) {
-                redrawInterval = Math.ceil(1000 / deviceFps);
-            } // if
-            
-            // listen for layer removals
-            GRUNT.WaterCooler.listen("layer.remove", function(args) {
-                if (args.id) {
-                    self.removeLayer(args.id);
-                } // if
-            });
-            
-            GRUNT.WaterCooler.listen("view.wake", function(args) {
-                if ((! args.id) || (args.id === self.id)) {
-                    wake();
-                } // if
-            });
-            
-            deviceScaling = TILE5.Device.getConfig().getScaling();
-            
-            // handle invalidation
-            self.bind("invalidate", invalidate);
-            
-            // capture touch events
-            touchHelper = TILE5.Touch.captureTouch(canvas, {
-                observable: self
-            });
-            
-            self.bind("pan", pan);
-            self.bind("panEnd", panEnd);
-            self.bind("pinchZoom", pinchZoom);
-            self.bind("pinchZoomEnd", pinchZoomEnd);
-            self.bind("wheelZoom", wheelZoom);
-            
-            // enable inertia if configured
-            if (params.inertialScroll) {
-                touchHelper.inertiaEnable(params.panAnimationDuration, dimensions);
-            } // if
-            
-            // handle intertia events
-            self.bind("inertiaPan", panInertia);
-            self.bind("inertiaCancel", function() {
-                panimating = false;
-                wake();
-            });
-            
-            // add a status view layer for experimentation sake
-            // self.setLayer("status", new module.StatusViewLayer());
-            wake();
-            return self;
-        }
-    }; 
-    
-    return module;
+    return self;
 })();
+T5.ViewLayer = function(params) {
+    params = GRUNT.extend({
+        id: "",
+        centerOnScale: true,
+        created: T5.time(),
+        scalePosition: true,
+        zindex: 0,
+        supportFastDraw: false,
+        validStates: T5.ViewState.get("ACTIVE", "ANIMATING", "PAN", "PINCHZOOM")
+    }, params);
+    
+    var parent = null,
+        id = params.id,
+        activeState = T5.ViewState.get("ACTIVE");
+    
+    var self = GRUNT.extend({
+        addToView: function(view) {
+            view.setLayer(id, self);
+        },
+        
+        shouldDraw: function(displayState) {
+            var stateValid = (displayState & params.validStates) !== 0,
+                fastDraw = parent ? (parent.fastDraw && (displayState !== activeState)) : false;
 
+            return stateValid && (fastDraw ? params.supportFastDraw : true);
+        },
+        
+        cycle: function(tickCount, offset, state) {
+            return 0;
+        },
+        
+        draw: function(context, offset, dimensions, state, view) {
+        },
+        
+        /**
+        The remove method enables a view to flag that it is ready or should be removed
+        from any views that it is contained in.  This was introduced specifically for
+        animation layers that should only exist as long as an animation is active.
+        */
+        remove: function() {
+            GRUNT.WaterCooler.say("layer.remove", { id: id });
+        },
+        
+        wakeParent: function() {
+            if (parent) {
+                parent.trigger("wake");
+            } // if
+        },
+        
+        getId: function() {
+            return id;
+        },
+        
+        setId: function(value) {
+            id = value;
+        },
 
-TILE5.Tiling = (function() {
+        getParent: function() {
+            return parent;
+        },
+        
+        setParent: function(view) {
+            parent = view;
+        }
+    }, params); // self
+    
+    return self;
+}; // T5.ViewLayer
+T5.View = function(params) {
+    // initialise defaults
+    params = GRUNT.extend({
+        id: GRUNT.generateObjectID('view'),
+        container: "",
+        clearOnDraw: false,
+        scaleDamping: false,
+        fastDraw: false,
+        fillStyle: "rgb(200, 200, 200)",
+        initialDrawMode: "source-over",
+        bufferRefresh: 100,
+        defaultFreezeDelay: 500,
+        inertialScroll: true,
+        panAnimationEasing: T5.Easing.Sine.Out,
+        panAnimationDuration: 750,
+        pinchZoomAnimateTrigger: 400,
+        adjustScaleFactor: null,
+        autoSize: false
+    }, params);
+    
+    // get the container context
+    var layers = [],
+        canvas = document.getElementById(params.container),
+        mainContext = null,
+        offset = new T5.Vector(),
+        clearBackground = false,
+        lastTickCount = null,
+        frozen = false,
+        deviceScaling = 1,
+        dimensions = null,
+        centerPos = null,
+        wakeTriggers = 0,
+        fpsLayer = null,
+        endCenter = null,
+        idle = false,
+        panimating = false,
+        paintTimeout = 0,
+        repaint = false,
+        idleTimeout = 0,
+        rescaleTimeout = 0,
+        bufferTime = 0,
+        zoomCenter = null,
+        tickCount = 0,
+        deviceFps = T5.Device.getConfig().targetFps,
+        redrawInterval = 0,
+        scaling = false,
+        startRect = null,
+        endRect = null,
+        scaleFactor = 1,
+        lastDrawScaleFactor = 1,
+        aniProgress = null,
+        tweenStart = null,
+        startCenter = null,
+        touchHelper = null,
+        state = T5.ViewState.ACTIVE;
+        
+    /* panning functions */
+    
+    function pan(x, y, tweenFn, tweenDuration) {
+        // update the offset by the specified amount
+        panimating = typeof(tweenFn) !== "undefined";
+        self.updateOffset(offset.x + x, offset.y + y, tweenFn, tweenDuration);
+        
+        wake();
+        state = T5.ViewState.PAN;                
+    } // pan
+    
+    function panInertia(x, y) {
+        if (params.inertialScroll) {
+            pan(x, y, params.panAnimationEasing, params.panAnimationDuration);
+        } // if
+    } // panIntertia
+    
+    function panEnd(x, y) {
+        state = T5.ViewState.ACTIVE;
+        panimating = false;
+        setTimeout(wake, 50);
+    } // panEnd
+    
+    /* scaling functions */
+    
+    function resetZoom() {
+        scaleFactor = 1;
+    } // resetZoom
+    
+    function checkTouches(start, end) {
+        startRect = T5.V.getRect(start);
+        endRect = T5.V.getRect(end);
+
+        // get the sizes of the rects
+        var startSize = T5.D.getSize(startRect.dimensions),
+            endSize = T5.D.getSize(endRect.dimensions);
+
+        // update the zoom center
+        startCenter = T5.R.getCenter(startRect);
+        endCenter = T5.R.getCenter(endRect);
+
+        // determine the ratio between the start rect and the end rect
+        scaleFactor = (startRect && (startSize !== 0)) ? (endSize / startSize) : 1;
+    } // checkTouches            
+    
+    function pinchZoom(touchesStart, touchesCurrent) {
+        checkTouches(touchesStart, touchesCurrent);
+        scaling = scaleFactor !== 1;
+        
+        if (scaling) {
+            state = T5.ViewState.PINCHZOOM;
+
+            wake();
+        } // if
+    } // pinchZoom
+    
+    function pinchZoomEnd(touchesStart, touchesEnd, pinchZoomTime) {
+        checkTouches(touchesStart, touchesEnd);
+        
+        if (params.adjustScaleFactor) {
+            scaleFactor = params.adjustScaleFactor(scaleFactor);
+            GRUNT.Log.info("scale factor adjusted to: " + scaleFactor);
+        } // if
+
+        if (pinchZoomTime < params.pinchZoomAnimateTrigger) {
+            // TODO: move this to the map to override
+            animateZoom(
+                lastDrawScaleFactor, 
+                scaleFactor, 
+                startCenter, 
+                calcPinchZoomCenter(), 
+                // TODO: make the animation configurable
+                T5.Easing.Sine.Out,
+                function() {
+                    scaleView();
+                    resetZoom();
+                },
+                // TODO: make the animation duration configurable
+                300);
+                
+            // reset the scale factor to the last draw scale factor
+            scaleFactor = lastDrawScaleFactor;
+        }
+        else {
+            scaleView();
+            resetZoom();
+        } // if..else
+    } // pinchZoomEnd
+    
+    function wheelZoom(relXY, zoom) {
+        self.zoom(relXY, Math.min(Math.pow(2, Math.round(Math.log(zoom))), 8), 500);
+    } // wheelZoom
+    
+    function scaleView() {
+        // TODO: can this be removed
+        GRUNT.WaterCooler.say("view.scale", { id: self.id });
+        
+        scaling = false;
+        self.trigger("scale", scaleFactor, startRect ? calcPinchZoomCenter() : endCenter);
+
+        // reset the status flag
+        state = T5.ViewState.ACTIVE;
+        wake();
+    } // scaleView
+    
+    /* view initialization */
+    
+    if (canvas) {
+        T5.Touch.resetTouch(canvas);
+        
+        // if we are autosizing the set the size
+        if (params.autoSize) {
+            canvas.height = window.innerHeight - canvas.offsetTop;
+            canvas.width = window.innerWidth - canvas.offsetLeft;
+        } // if
+        
+        try {
+            mainContext = canvas.getContext('2d');
+            mainContext.globalCompositeOperation = params.initialDrawMode;
+            mainContext.clearRect(0, 0, canvas.width, canvas.height);
+        } 
+        catch (e) {
+            GRUNT.Log.exception(e);
+            throw new Error("Could not initialise canvas on specified view element");
+        }
+    } // if
+
+    function addLayer(id, value) {
+        // make sure the layer has the correct id
+        value.setId(id);
+        
+        // tell the layer that I'm going to take care of it
+        value.setParent(self);
+        
+        // add the new layer
+        layers.push(value);
+        
+        // sort the layers
+        layers.sort(function(itemA, itemB) {
+            var result = itemB.zindex - itemA.zindex;
+            if (result === 0) {
+                result = itemB.created - itemA.created;
+            } // if
+            
+            return result;
+        });
+    } // addLayer
+    
+    function getLayerIndex(id) {
+        for (var ii = layers.length; ii--; ) {
+            if (layers[ii].getId() == id) {
+                return ii;
+            } // if
+        } // for
+        
+        return -1;
+    } // getLayerIndex
+    
+    /* animation code */
+    
+    function animateZoom(scaleFactorFrom, scaleFactorTo, startXY, targetXY, tweenFn, callback, duration) {
+        
+        function finishAnimation() {
+            // if we have a callback to complete, then call it
+            if (callback) {
+                callback();
+            } // if
+
+            scaleView();
+
+            // reset the scale factor
+            resetZoom();
+            aniProgress = null;
+        } // finishAnimation
+        
+        // update the zoom center
+        scaling = true;
+        startCenter = T5.V.copy(startXY);
+        endCenter = T5.V.copy(targetXY);
+        startRect = null;
+
+        // if tweening then update the targetXY
+        if (tweenFn) {
+            var tween = T5.Animation.tweenValue(
+                            0, 
+                            scaleFactorTo - scaleFactorFrom, 
+                            tweenFn, 
+                            finishAnimation, 
+                            duration ? duration : 1000);
+                            
+            tween.requestUpdates(function(updatedValue, completed) {
+                // calculate the completion percentage
+                aniProgress = updatedValue / (scaleFactorTo - scaleFactorFrom);
+
+                // update the scale factor
+                scaleFactor = scaleFactorFrom + updatedValue;
+
+                // trigger the on animate handler
+                state = T5.ViewState.PINCHZOOM;
+                wake();
+
+                self.trigger("animate");
+            });
+        }
+        // otherwise, update the scale factor and fire the callback
+        else {
+            scaleFactor = targetScaleFactor;
+            finishAnimation();
+        }  // if..else                
+    } // animateZoom
+    
+    /* draw code */
+    
+    function calcPinchZoomCenter() {
+        var center = T5.D.getCenter(dimensions),
+            endDist = T5.V.distance([endCenter, center]),
+            endTheta = T5.V.theta(endCenter, center, endDist),
+            shiftDelta = T5.V.diff(startCenter, endCenter);
+            
+        center = T5.V.pointOnEdge(endCenter, center, endTheta, endDist / scaleFactor);
+
+        center.x = center.x + shiftDelta.x;
+        center.y = center.y + shiftDelta.y; 
+        
+        return center;
+    } // calcPinchZoomCenter
+    
+    function calcZoomCenter() {
+        var displayCenter = T5.D.getCenter(dimensions),
+            shiftFactor = (aniProgress ? aniProgress : 1) / 2,
+            centerOffset = T5.V.diff(startCenter, endCenter);
+
+        if (startRect) {
+            zoomCenter = new T5.Vector(
+                            endCenter.x + centerOffset.x, 
+                            endCenter.y + centerOffset.y);
+        } 
+        else {
+            zoomCenter = new T5.Vector(
+                            endCenter.x - centerOffset.x * shiftFactor, 
+                            endCenter.y - centerOffset.y * shiftFactor);
+        } // if..else
+    } // calcZoomCenter
+    
+    function triggerIdle() {
+        self.trigger("idle");
+        
+        idle = true;
+        idleTimeout = 0;
+    } // idle
+    
+    function drawView(context, offset) {
+        var changeCount = 0,
+            drawState = self.getDisplayState(),
+            startTicks = T5.time(),
+            isPinchZoom = (drawState & T5.ViewState.PINCHZOOM) !== 0,
+            delayDrawLayers = [];
+        
+        var savedDrawn = false,
+            ii = 0;
+            
+        if (clearBackground || isPinchZoom) {
+            context.clearRect(0, 0, canvas.width, canvas.height);
+            clearBackground = false;
+        } // if
+        
+        // if we are scaling then do some calcs
+        if (isPinchZoom) {
+            calcZoomCenter();
+            
+            // offset the draw args
+            if (zoomCenter) {
+                offset = T5.V.offset(offset, zoomCenter.x, zoomCenter.y);
+            } // if
+        } // if
+        
+        context.save();
+        try {
+            lastDrawScaleFactor = scaleFactor;
+            
+            // if the device dpi has scaled, then apply that to the display
+            if (deviceScaling !== 1) {
+                context.scale(deviceScaling, deviceScaling);
+            }
+            // if we are scaling, then tell the canvas to scale
+            else if (isPinchZoom) {
+                context.translate(endCenter.x, endCenter.y);
+                context.scale(scaleFactor, scaleFactor);
+            }
+            
+            for (ii = layers.length; ii--; ) {
+                // draw the layer output to the main canvas
+                // but only if we don't have a scale buffer or the layer is a draw on scale layer
+                if (layers[ii].shouldDraw(drawState)) {
+                    var layerChanges = layers[ii].draw(
+                                            context, 
+                                            offset, 
+                                            dimensions, 
+                                            drawState, 
+                                            self);
+
+                    changeCount += layerChanges ? layerChanges : 0;
+                } // if
+            } // for
+        }
+        finally {
+            context.restore();
+        } // try..finally
+        
+        GRUNT.Log.trace("draw complete", startTicks);
+        
+        repaint = false;
+        return changeCount;
+    } // drawView
+    
+    function cycle() {
+        // check to see if we are panning
+        var changeCount = 0,
+            interacting = (! panimating) && (
+                                (state === T5.ViewState.PINCHZOOM) || 
+                                (state === T5.ViewState.PAN));
+            
+        // get the tickcount
+        tickCount = T5.time();
+        
+        // conver the offset x and y to integer values
+        // while canvas implementations work fine with real numbers, the actual drawing of images
+        // will not look crisp when a real number is used rather than an integer (or so I've found)
+        offset.x = Math.floor(offset.x);
+        offset.y = Math.floor(offset.y);
+        
+        // if we have an fps layer, then update the fps
+        if (fpsLayer && lastTickCount) {
+            fpsLayer.delays.push(tickCount - lastTickCount);
+        } // if
+            
+        if (interacting) {
+            T5.Animation.cancel(function(tweenInstance) {
+                return tweenInstance.cancelOnInteract;
+            });
+            
+            idle = false;
+            if (idleTimeout !== 0) {
+                clearTimeout(idleTimeout);
+                idleTimeout = 0;
+            } // if
+        }  // if
+
+        // check that all is right with each layer
+        for (var ii = layers.length; ii--; ) {
+            var cycleChanges = layers[ii].cycle(tickCount, offset, state);
+            changeCount += cycleChanges ? cycleChanges : 0;
+        } // for
+        
+        // draw the view
+        if (lastTickCount + redrawInterval < tickCount) {
+            changeCount += drawView(mainContext, offset);
+
+            // update the last tick count
+            lastTickCount = tickCount;
+        } // if
+
+        // include wake triggers in the change count
+        paintTimeout = 0;
+        if (wakeTriggers + changeCount > 0) {
+            wake();
+        } 
+        else {
+            if ((! idle) && (idleTimeout === 0)) {
+                idleTimeout = setTimeout(triggerIdle, 500);
+            } // if
+        } // if..else
+        
+        GRUNT.Log.trace("Completed draw cycle", tickCount);
+    } // cycle
+    
+    function wake() {
+        wakeTriggers++;
+        if (frozen || (paintTimeout !== 0)) { return; }
+    
+        wakeTriggers = 0;
+        paintTimeout = setTimeout(cycle, 0);
+    } // wake
+    
+    function invalidate() {
+        repaint = true;
+    } // invalidate
+    
+    // initialise self
+    var self = GRUNT.extend({}, params, new GRUNT.Observable(), {
+        id: params.id,
+        deviceScaling: deviceScaling,
+        fastDraw: params.fastDraw || T5.Device.getConfig().requireFastDraw,
+        
+        // TODO: change name to be scaling related
+        animate: function(targetScaleFactor, startXY, targetXY, tweenFn, callback) {
+            animateZoom(
+                scaleFactor, 
+                targetScaleFactor, 
+                startXY, 
+                targetXY, 
+                tweenFn, 
+                callback);
+        },
+        
+        centerOn: function(offset) {
+            self.setOffset(offset.x - (canvas.width / 2), offset.y - (canvas.height / 2));
+        },
+        
+        getDimensions: function() {
+            if (canvas) {
+                return new T5.Dimensions(canvas.width, canvas.height);
+            } // if
+        },
+        
+        getZoomCenter: function() {
+            return zoomCenter;
+        },
+        
+        /* layer getter and setters */
+        
+        getLayer: function(id) {
+            // look for the matching layer, and return when found
+            for (var ii = 0; ii < layers.length; ii++) {
+                if (layers[ii].getId() == id) {
+                    return layers[ii];
+                } // if
+            } // for
+            
+            return null;
+        },
+        
+        setLayer: function(id, value) {
+            // if the layer already exists, then remove it
+            for (var ii = 0; ii < layers.length; ii++) {
+                if (layers[ii].getId() === id) {
+                    layers.splice(ii, 1);
+                    break;
+                } // if
+            } // for
+            
+            if (value) {
+                addLayer(id, value);
+            } // if
+            
+            GRUNT.WaterCooler.say("layer.update", { id: id });
+            wake();
+        },
+        
+        eachLayer: function(callback) {
+            // iterate through each of the layers and fire the callback for each 
+            for (var ii = 0; ii < layers.length; ii++) {
+                callback(layers[ii]);
+            } // for
+        },
+        
+        clearBackground: function() {
+            clearBackground = true;
+        },
+        
+        freeze: function() {
+            frozen = true;
+        },
+        
+        unfreeze: function() {
+            frozen = false;
+            
+            wake();
+        },
+        
+        needRepaint: function() {
+            return repaint;
+        },
+        
+        snapshot: function(zindex) {
+        },
+        
+        getDisplayState: function() {
+            return frozen ? T5.ViewState.FROZEN : state;
+        },
+        
+        scale: function(targetScaling, tweenFn, callback, startXY, targetXY) {
+            // if the start XY is not defined, used the center
+            if (! startXY) {
+                startXY = T5.D.getCenter(dimensions);
+            } // if
+            
+            // if the target xy is not defined, then use the canvas center
+            if (! targetXY) {
+                targetXY = T5.D.getCenter(dimensions);
+            } // if
+            
+            self.animate(
+                    targetScaling, 
+                    startXY, 
+                    targetXY, 
+                    tweenFn, 
+                    callback);
+
+            return self;
+        },
+        
+        removeLayer: function(id) {
+            var layerIndex = getLayerIndex(id);
+            if ((layerIndex >= 0) && (layerIndex < layers.length)) {
+                GRUNT.WaterCooler.say("layer.removed", { layer: layers[layerIndex] });
+
+                layers.splice(layerIndex, 1);
+            } // if
+        },
+        
+        /* offset methods */
+        
+        getOffset: function() {
+            return T5.V.copy(offset);
+        },
+        
+        setOffset: function(x, y) {
+            offset.x = x; 
+            offset.y = y;
+        },
+        
+        updateOffset: function(x, y, tweenFn, tweenDuration) {
+            
+            function updateOffsetAnimationEnd() {
+                panEnd(0, 0);
+            } // updateOffsetAnimationEnd
+            
+            if (tweenFn) {
+                var endPosition = new T5.Vector(x, y);
+
+                var tweens = T5.Animation.tweenVector(
+                                offset, 
+                                endPosition.x, 
+                                endPosition.y, 
+                                tweenFn, 
+                                updateOffsetAnimationEnd,
+                                tweenDuration);
+
+                // set the tweens to cancel on interact
+                for (var ii = tweens.length; ii--; ) {
+                    tweens[ii].cancelOnInteract = true;
+                    tweens[ii].requestUpdates(function(updatedValue, complete) {
+                        wake();
+                        
+                        if (params.onAnimate) {
+                            params.onAnimate(offset.x, offset.y);
+                        } // if
+                    });
+                } // for
+            }
+            else {
+                self.setOffset(x, y);
+            } // if..else
+        },
+        
+        zoom: function(targetXY, newScaleFactor, rescaleAfter) {
+            panimating = false;
+            scaleFactor = newScaleFactor;
+            scaling = scaleFactor !== 1;
+
+            startCenter = T5.D.getCenter(self.getDimensions());
+            endCenter = scaleFactor > 1 ? T5.V.copy(targetXY) : T5.D.getCenter(self.getDimensions());
+            startRect = null;
+            
+            clearTimeout(rescaleTimeout);
+
+            if (scaling) {
+                state = T5.ViewState.PINCHZOOM;
+
+                wake();
+                if (rescaleAfter) {
+                    rescaleTimeout = setTimeout(function() {
+                        scaleView();
+                        resetZoom();
+                    }, parseInt(rescaleAfter, 10));
+                } // if
+            } // if
+        }
+    });
+    
+    // get the dimensions
+    dimensions = self.getDimensions();
+    centerPos = T5.D.getCenter(dimensions);
+    
+    // calculate the redaw interval based on the device fps
+    if (deviceFps) {
+        redrawInterval = Math.ceil(1000 / deviceFps);
+    } // if
+    
+    // listen for layer removals
+    GRUNT.WaterCooler.listen("layer.remove", function(args) {
+        if (args.id) {
+            self.removeLayer(args.id);
+        } // if
+    });
+    
+    deviceScaling = T5.Device.getConfig().getScaling();
+    
+    // listen for being woken up
+    self.bind("wake", wake);
+    
+    // handle invalidation
+    self.bind("invalidate", invalidate);
+    
+    // capture touch events
+    touchHelper = T5.Touch.captureTouch(canvas, {
+        observable: self
+    });
+    
+    self.bind("pan", pan);
+    self.bind("panEnd", panEnd);
+    self.bind("pinchZoom", pinchZoom);
+    self.bind("pinchZoomEnd", pinchZoomEnd);
+    self.bind("wheelZoom", wheelZoom);
+    
+    // enable inertia if configured
+    if (params.inertialScroll) {
+        touchHelper.inertiaEnable(params.panAnimationDuration, dimensions);
+    } // if
+    
+    // handle intertia events
+    self.bind("inertiaPan", panInertia);
+    self.bind("inertiaCancel", function() {
+        panimating = false;
+        wake();
+    });
+    
+    wake();
+    
+    return self;
+}; // T5.View
+T5.AnimatedPathLayer = function(params) {
+    params = GRUNT.extend({
+        path: [],
+        id: GRUNT.generateObjectID("pathAnimation"),
+        easing: T5.Easing.Sine.InOut,
+        validStates: T5.ViewState.get("ACTIVE", "PAN", "PINCHZOOM"),
+        drawIndicator: null,
+        duration: 2000,
+        autoCenter: false
+    }, params);
+    
+    // generate the edge data for the specified path
+    var edgeData = T5.V.edges(params.path), 
+        tween,
+        theta,
+        indicatorXY = null,
+        pathOffset = 0;
+    
+    function drawDefaultIndicator(context, offset, indicatorXY) {
+        // draw an arc at the specified position
+        context.fillStyle = "#FFFFFF";
+        context.strokeStyle = "#222222";
+        context.beginPath();
+        context.arc(
+            indicatorXY.x, 
+            indicatorXY.y,
+            4,
+            0,
+            Math.PI * 2,
+            false);             
+        context.stroke();
+        context.fill();
+    } // drawDefaultIndicator
+    
+    // calculate the tween
+    tween = T5.Animation.tweenValue(
+        0, 
+        edgeData.total, 
+        params.easing, 
+        function() {
+            self.remove();
+        },
+        params.duration);
+        
+    // if we are autocentering then we need to cancel on interaction
+    // tween.cancelOnInteract = autoCenter;
+        
+    // request updates from the tween
+    tween.requestUpdates(function(updatedValue, complete) {
+        pathOffset = updatedValue;
+
+        if (complete) {
+            self.remove();
+        } // if
+    });
+    
+    // initialise self
+    var self =  GRUNT.extend(new T5.ViewLayer(params), {
+        cycle: function(tickCount, offset, state) {
+            var edgeIndex = 0;
+
+            // iterate through the edge data and determine the current journey coordinate index
+            while ((edgeIndex < edgeData.accrued.length) && (edgeData.accrued[edgeIndex] < pathOffset)) {
+                edgeIndex++;
+            } // while
+
+            // reset offset xy
+            indicatorXY = null;
+
+            // if the edge index is valid, then let's determine the xy coordinate
+            if (edgeIndex < params.path.length-1) {
+                var extra = pathOffset - (edgeIndex > 0 ? edgeData.accrued[edgeIndex - 1] : 0),
+                    v1 = params.path[edgeIndex],
+                    v2 = params.path[edgeIndex + 1];
+
+                theta = T5.V.theta(v1, v2, edgeData.edges[edgeIndex]);
+                indicatorXY = T5.V.pointOnEdge(v1, v2, theta, extra);
+
+                if (params.autoCenter) {
+                    var parent = self.getParent();
+                    if (parent) {
+                        parent.centerOn(indicatorXY);
+                    } // if
+                } // if
+            } // if
+
+            return indicatorXY ? 1 : 0;
+        },
+        
+        draw: function(context, offset, dimensions, state, view) {
+            if (indicatorXY) {
+                // if the draw indicator method is specified, then draw
+                (params.drawIndicator ? params.drawIndicator : drawDefaultIndicator)(
+                    context,
+                    offset,
+                    new T5.Vector(indicatorXY.x - offset.x, indicatorXY.y - offset.y),
+                    theta
+                );
+            } // if
+        }
+    });
+
+    return self;
+}; // T5.AnimatedPathLayer
+T5.Tiling = (function() {
     TileStore = function(params) {
         // initialise the parameters with the defaults
         params = GRUNT.extend({
             tileSize: null,
             gridSize: 25,
-            center: new TILE5.Vector(),
+            center: new T5.Vector(),
             onPopulate: null
         }, params);
         
@@ -4201,9 +4232,9 @@ TILE5.Tiling = (function() {
         // initialise the storage array
         var storage = new Array(Math.pow(params.gridSize, 2)),
             gridHalfWidth = Math.ceil(params.gridSize >> 1),
-            topLeftOffset = TILE5.V.offset(params.center, -gridHalfWidth),
+            topLeftOffset = T5.V.offset(params.center, -gridHalfWidth),
             lastTileCreator = null,
-            tileShift = new TILE5.Vector(),
+            tileShift = new T5.Vector(),
             lastNotifyListener = null;
         
         function getTileIndex(col, row) {
@@ -4228,11 +4259,11 @@ TILE5.Tiling = (function() {
             },
             
             getNormalizedPos: function(col, row) {
-                return TILE5.V.add(new TILE5.Vector(col, row), TILE5.V.invert(topLeftOffset), tileShift);
+                return T5.V.add(new T5.Vector(col, row), T5.V.invert(topLeftOffset), tileShift);
             },
             
             getTileShift: function() {
-                return TILE5.V.copy(tileShift);
+                return T5.V.copy(tileShift);
             },
             
             getTile: function(col, row) {
@@ -4256,7 +4287,7 @@ TILE5.Tiling = (function() {
                     tileIndex = 0,
                     gridSize = params.gridSize,
                     tileSize = params.tileSize,
-                    centerPos = new TILE5.Vector(gridSize / 2, gridSize / 2);
+                    centerPos = new T5.Vector(gridSize / 2, gridSize / 2);
                 
                 if (tileCreator) {
                     // GRUNT.Log.info("populating grid, x shift = " + tileShift.x + ", y shift = " + tileShift.y);
@@ -4296,7 +4327,7 @@ TILE5.Tiling = (function() {
             getShiftDelta: function(topLeftX, topLeftY, cols, rows) {
                 // initialise variables
                 var shiftAmount = Math.floor(params.gridSize * 0.2),
-                    shiftDelta = new TILE5.Vector();
+                    shiftDelta = new T5.Vector();
                     
                 // test the x
                 if (topLeftX < 0 || topLeftX + cols > params.gridSize) {
@@ -4333,7 +4364,7 @@ TILE5.Tiling = (function() {
                     topLeftOffset = shiftOriginCallback(topLeftOffset, shiftDelta);
                 }
                 else {
-                    topLeftOffset = TILE5.V.add(topLeftOffset, shiftDelta);
+                    topLeftOffset = T5.V.add(topLeftOffset, shiftDelta);
                 } // if..else
 
                 // create the tile shift offset
@@ -4350,7 +4381,7 @@ TILE5.Tiling = (function() {
             */
             setOrigin: function(col, row) {
                 if (! tileOrigin) {
-                    topLeftOffset = TILE5.V.offset(new TILE5.Vector(col, row), -tileHalfWidth);
+                    topLeftOffset = T5.V.offset(new T5.Vector(col, row), -tileHalfWidth);
                 }
                 else {
                     shiftOrigin(col, row);
@@ -4385,7 +4416,7 @@ TILE5.Tiling = (function() {
     
     function getEmptyTile() {
         if (! emptyTile) {
-            emptyTile = TILE5.newCanvas(module.Config.TILESIZE, module.Config.TILESIZE);
+            emptyTile = T5.newCanvas(module.Config.TILESIZE, module.Config.TILESIZE);
             
             var tileContext = emptyTile.getContext('2d');
             
@@ -4401,7 +4432,7 @@ TILE5.Tiling = (function() {
         function getPattern() {
             var patternSize = 32,
                 halfSize = patternSize / 2,
-                patternCanvas = TILE5.newCanvas(patternSize, patternSize);
+                patternCanvas = T5.newCanvas(patternSize, patternSize);
             
             // get the canvas context
             var context = patternCanvas.getContext("2d");
@@ -4419,7 +4450,7 @@ TILE5.Tiling = (function() {
         } // getPattern
         
         if (! panningTile) {
-            panningTile = TILE5.newCanvas(module.Config.TILESIZE, module.Config.TILESIZE);
+            panningTile = T5.newCanvas(module.Config.TILESIZE, module.Config.TILESIZE);
             
             var tileContext = panningTile.getContext('2d');
 
@@ -4466,9 +4497,9 @@ TILE5.Tiling = (function() {
         TileGrid: function(params) {
             // extend the params with the defaults
             params = GRUNT.extend({
-                tileSize: TILE5.Tiling.Config.TILESIZE,
+                tileSize: T5.Tiling.Config.TILESIZE,
                 drawGrid: false,
-                center: new TILE5.Vector(),
+                center: new T5.Vector(),
                 shiftOrigin: null,
                 supportFastDraw: true
             }, params);
@@ -4489,10 +4520,10 @@ TILE5.Tiling = (function() {
                 tileDrawQueue = null,
                 loadedTileCount = 0,
                 lastTilesDrawn = false,
-                lastCheckOffset = new TILE5.Vector(),
-                shiftDelta = new TILE5.Vector(),
-                tileShift = new TILE5.Vector(),
-                repaintDistance = TILE5.Device.getConfig().repaintDistance,
+                lastCheckOffset = new T5.Vector(),
+                shiftDelta = new T5.Vector(),
+                tileShift = new T5.Vector(),
+                repaintDistance = T5.Device.getConfig().repaintDistance,
                 reloadTimeout = 0,
                 gridHeightWidth = tileStore.getGridSize() * params.tileSize,
                 tileCols, tileRows, centerPos;
@@ -4501,7 +4532,7 @@ TILE5.Tiling = (function() {
                 if (! centerPos) { return; }
                 
                 var tile, tmpQueue = [],
-                    tileStart = new TILE5.Vector(
+                    tileStart = new T5.Vector(
                                     Math.floor((offset.x + tileShift.x) * invTileSize), 
                                     Math.floor((offset.y + tileShift.y) * invTileSize));
 
@@ -4514,7 +4545,7 @@ TILE5.Tiling = (function() {
                     for (var xx = tileCols; xx--; ) {
                         // get the tile
                         tile = tileStore.getTile(xx + tileStart.x, yy + tileStart.y);
-                        var centerDiff = new TILE5.Vector(xx - centerPos.x, yy - centerPos.y);
+                        var centerDiff = new T5.Vector(xx - centerPos.x, yy - centerPos.y);
 
                         if (! tile) {
                             shiftDelta = tileStore.getShiftDelta(tileStart.x, tileStart.y, tileCols, tileRows);
@@ -4523,7 +4554,7 @@ TILE5.Tiling = (function() {
                         // add the tile and position to the tile draw queue
                         tmpQueue.push({
                             tile: tile,
-                            centerness: TILE5.V.absSize(centerDiff)
+                            centerness: T5.V.absSize(centerDiff)
                         });
                     } // for
                 } // for
@@ -4545,8 +4576,8 @@ TILE5.Tiling = (function() {
             } // updateDrawQueue
             
             // initialise self
-            var self = GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
-                gridDimensions: new TILE5.Dimensions(gridHeightWidth, gridHeightWidth),
+            var self = GRUNT.extend(new T5.ViewLayer(params), {
+                gridDimensions: new T5.Dimensions(gridHeightWidth, gridHeightWidth),
                 dirty: false,
                 
                 cycle: function(tickCount, offset, state) {
@@ -4558,13 +4589,13 @@ TILE5.Tiling = (function() {
                         tileShift = tileStore.getTileShift();
 
                         // reset the delta
-                        shiftDelta = new TILE5.Vector();
+                        shiftDelta = new T5.Vector();
                         
                         // things need to happen
                         changeCount++;
                     } // if
                     
-                    if (state !== TILE5.Graphics.DisplayState.PINCHZOOM) {
+                    if (state !== T5.ViewState.PINCHZOOM) {
                         updateDrawQueue(offset, state);
                     } // if
                     
@@ -4587,16 +4618,16 @@ TILE5.Tiling = (function() {
                     if (! active) { return; }
                     
                     // initialise variables
-                    var startTicks = new Date().getTime(),
+                    var startTicks = T5.time(),
                         xShift = offset.x,
                         yShift = offset.y,
                         tilesDrawn = true,
-                        redraw = view.needRepaint() || (state === TILE5.Graphics.DisplayState.PANNING) || (state === TILE5.Graphics.DisplayState.PINCHZOOM) || TILE5.Animation.isTweening();
+                        redraw = view.needRepaint() || (state === T5.ViewState.PANNING) || (state === T5.ViewState.PINCHZOOM) || T5.Animation.isTweening();
                         
                     if (! centerPos) {
                         tileCols = Math.ceil(dimensions.width * invTileSize) + 1;
                         tileRows = Math.ceil(dimensions.height * invTileSize) + 1;
-                        centerPos = new TILE5.Vector(Math.floor((tileCols-1) / 2), Math.floor((tileRows-1) / 2));
+                        centerPos = new T5.Vector(Math.floor((tileCols-1) / 2), Math.floor((tileRows-1) / 2));
                     } // if
                     
                     // if we don't have a draq queue return
@@ -4650,7 +4681,7 @@ TILE5.Tiling = (function() {
                 getTileVirtualXY: function(col, row, getCenter) {
                     // get the normalized position from the tile store
                     var pos = tileStore.getNormalizedPos(col, row),
-                        fnresult = new TILE5.Vector(pos.x * params.tileSize, pos.y * params.tileSize);
+                        fnresult = new T5.Vector(pos.x * params.tileSize, pos.y * params.tileSize);
                     
                     if (getCenter) {
                         fnresult.x += halfTileSize;
@@ -4684,13 +4715,13 @@ TILE5.Tiling = (function() {
             // initialise variables
             var emptyTile = getEmptyTile(),
                 panningTile = getPanningTile(),
-                stateActive = TILE5.Graphics.DisplayState.ACTIVE,
-                statePan = TILE5.Graphics.DisplayState.PAN,
-                fastDraw = TILE5.Device.getConfig().requireFastDraw;
+                stateActive = T5.ViewState.ACTIVE,
+                statePan = T5.ViewState.PAN,
+                fastDraw = T5.Device.getConfig().requireFastDraw;
                 
             var self = GRUNT.extend(new module.TileGrid(params), {
                 drawTile: function(context, tile, x, y, state) {
-                    var image = TILE5.Resources.getImage(tile.url),
+                    var image = T5.Resources.getImage(tile.url),
                         drawn = false;
                         
                     if (image && image.complete && (image.width > 0)) {
@@ -4715,9 +4746,9 @@ TILE5.Tiling = (function() {
                     } // if
                     
                     if (tile && ((! fastDraw) || (state === stateActive))) {
-                        var image = TILE5.Resources.getImage(tile.url);
+                        var image = T5.Resources.getImage(tile.url);
                         if (! image) {
-                            TILE5.Resources.loadImage(tile.url, handleImageLoad);
+                            T5.Resources.loadImage(tile.url, handleImageLoad);
                         } // if
                     } // if
                 }
@@ -4740,7 +4771,7 @@ TILE5.Tiling = (function() {
             var actualTileLoadThreshold = 0;
             
             // create the parent
-            var self = new TILE5.Graphics.View(GRUNT.extend({}, params, {
+            var self = new T5.View(GRUNT.extend({}, params, {
                 // define panning and scaling properties
                 pannable: true,
                 scalable: true,
@@ -4762,7 +4793,7 @@ TILE5.Tiling = (function() {
 
                 viewPixToGridPix: function(vector) {
                     var offset = self.getOffset();
-                    return new TILE5.Vector(vector.x + offset.x, vector.y + offset.y);
+                    return new T5.Vector(vector.x + offset.x, vector.y + offset.y);
                 },
                 
                 cleanup: function() {
@@ -4773,8 +4804,7 @@ TILE5.Tiling = (function() {
                     // flag to the tile store to reset the image positions
                     GRUNT.WaterCooler.say("tiler.repaint");
                     
-                    // tell the view to repaint itself 
-                    GRUNT.WaterCooler.say("view.wake", { id: self.id });
+                    self.trigger("wake");
                 }
             }); // self
 
@@ -4785,13 +4815,13 @@ TILE5.Tiling = (function() {
     return module;
     
 })();/*
-File:   TILE5.geo.js
+File:   T5.geo.js
 File is used to define geo namespace and classes for implementing GIS classes and operations
 */
 
 /* GEO Basic Type definitions */
 
-TILE5.Geo = (function() {
+T5.Geo = (function() {
     // define constants
     var LAT_VARIABILITIES = [
         1.406245461070741,
@@ -4925,7 +4955,7 @@ TILE5.Geo = (function() {
         
         /* addressing and geocoding support */
         
-        // TODO: probably need to include local support for addressing, but really don't want to bulk out TILE5 :/
+        // TODO: probably need to include local support for addressing, but really don't want to bulk out T5 :/
         
         Address: function(params) {
             params = GRUNT.extend({
@@ -4952,7 +4982,7 @@ TILE5.Geo = (function() {
         
         
         /*
-        Module:  TILE5.Geo.Utilities
+        Module:  T5.Geo.Utilities
         This module contains GIS utility functions that apply across different mapping platforms.  Credit 
         goes to the awesome team at decarta for providing information on many of the following functions through
         their forums here (http://devzone.decarta.com/web/guest/forums?p_p_id=19&p_p_action=0&p_p_state=maximized&p_p_mode=view&_19_struts_action=/message_boards/view_message&_19_messageId=43131)
@@ -5045,7 +5075,7 @@ TILE5.Geo = (function() {
         },
         
         GeoSearchAgent: function(params) {
-            return TILE5.Dispatcher.createAgent(params);
+            return T5.Dispatcher.createAgent(params);
         },
         
         GeocodingAgent: function(params) {
@@ -5114,7 +5144,7 @@ TILE5.Geo = (function() {
 
             // if the position is not defined, but we have a lat and lon, create a new position
             if ((! params.pos) && params.lat && params.lon) {
-                params.pos = new TILE5.Geo.Position(params.lat, params.lon);
+                params.pos = new T5.Geo.Position(params.lat, params.lon);
             } // if
             
             return GRUNT.extend({
@@ -5242,7 +5272,7 @@ TILE5.Geo = (function() {
                 */
                 findByBounds: function(searchBounds) {
                     return poiGrabber(function(testPOI) {
-                        return TILE5.Geo.P.inBounds(testPOI.pos, searchBounds);
+                        return T5.Geo.P.inBounds(testPOI.pos, searchBounds);
                     });
                 },
 
@@ -5254,7 +5284,7 @@ TILE5.Geo = (function() {
 
                     // iterate through the new pois and put into storage
                     for (var ii = 0; newPOIs && (ii < newPOIs.length); ii++) {
-                        newPOIs[ii].retrieved = TILE5.Clock.getTime(true);
+                        newPOIs[ii].retrieved = T5.time();
                         addPOI(newPOIs[ii]);
                     } // for
                 },
@@ -5271,7 +5301,7 @@ TILE5.Geo = (function() {
                     var newPOIs = [],
                         ii = 0,
                         groupName = refreshedPOIs.length > 0 ? refreshedPOIs[0].group : '',
-                        timeRetrieved = TILE5.Clock.getTime(true);
+                        timeRetrieved = T5.time();
                         
                     // iterate through the pois and determine state
                     for (ii = 0; ii < refreshedPOIs.length; ii++) {
@@ -5469,13 +5499,13 @@ TILE5.Geo = (function() {
                 fromMercatorPixels: function(x, y, radsPerPixel) {
                     // return the new position
                     return new module.Position(
-                        TILE5.Geo.Utilities.pix2lat(y, radsPerPixel),
-                        TILE5.Geo.Utilities.normalizeLon(TILE5.Geo.Utilities.pix2lon(x, radsPerPixel))
+                        T5.Geo.Utilities.pix2lat(y, radsPerPixel),
+                        T5.Geo.Utilities.normalizeLon(T5.Geo.Utilities.pix2lon(x, radsPerPixel))
                     );
                 },
 
                 toMercatorPixels: function(pos, radsPerPixel) {
-                    return new TILE5.Vector(TILE5.Geo.Utilities.lon2pix(pos.lon, radsPerPixel), TILE5.Geo.Utilities.lat2pix(pos.lat, radsPerPixel));
+                    return new T5.Vector(T5.Geo.Utilities.lon2pix(pos.lon, radsPerPixel), T5.Geo.Utilities.lat2pix(pos.lat, radsPerPixel));
                 },
                 
                 generalize: function(sourceData, requiredPositions, minDist) {
@@ -5533,7 +5563,7 @@ TILE5.Geo = (function() {
             
             var subModule = {
                 calcSize: function(min, max, normalize) {
-                    var size = new TILE5.Vector(0, max.lat - min.lat);
+                    var size = new T5.Vector(0, max.lat - min.lat);
                     if (typeof normalize === 'undefined') {
                         normalize = true;
                     } // if
@@ -5596,7 +5626,7 @@ TILE5.Geo = (function() {
                 
                 forPositions: function(positions, padding) {
                     var bounds = null,
-                        startTicks = TILE5.Clock.getTime();
+                        startTicks = T5.time();
 
                     // if padding is not specified, then set to auto
                     if (! padding) {
@@ -5605,7 +5635,7 @@ TILE5.Geo = (function() {
 
                     for (var ii = positions.length; ii--; ) {
                         if (! bounds) {
-                            bounds = new TILE5.Geo.BoundingBox(positions[ii], positions[ii]);
+                            bounds = new T5.Geo.BoundingBox(positions[ii], positions[ii]);
                         }
                         else {
                             var minDiff = subModule.calcSize(bounds.min, positions[ii], false),
@@ -5639,12 +5669,12 @@ TILE5.Geo = (function() {
                     var size = module.B.calcSize(bounds.min, bounds.max);
                     
                     // create a new position offset from the current min
-                    return new TILE5.Geo.Position(bounds.min.lat + (size.y / 2), bounds.min.lon + (size.x / 2));
+                    return new T5.Geo.Position(bounds.min.lat + (size.y / 2), bounds.min.lon + (size.x / 2));
                 },
                 
                 getGeoHash: function(bounds) {
-                    var minHash = TILE5.Geo.GeoHash.encode(bounds.min.lat, bounds.min.lon),
-                        maxHash = TILE5.Geo.GeoHash.encode(bounds.max.lat, bounds.max.lon);
+                    var minHash = T5.Geo.GeoHash.encode(bounds.min.lat, bounds.min.lon),
+                        maxHash = T5.Geo.GeoHash.encode(bounds.max.lat, bounds.max.lon);
                         
                     GRUNT.Log.info("min hash = " + minHash + ", max hash = " + maxHash);
                 },
@@ -5818,7 +5848,7 @@ Geohash module c/o and copyright David Troy 2008 (http://davetroy.com/)
 Original codebase available on github @ http://github.com/davetroy/geohash-js/
 */
 
-TILE5.Geo.GeoHash = (function() {
+T5.Geo.GeoHash = (function() {
     /* Start Dave's original code */
     
     // geohash.js
@@ -5943,7 +5973,7 @@ TILE5.Geo.GeoHash = (function() {
     };
 })();
 
-TILE5.Geo.Search = (function() {
+T5.Geo.Search = (function() {
     var DEFAULT_MAXDIFF = 20;
     
     var module = {
@@ -5979,7 +6009,7 @@ TILE5.Geo.Search = (function() {
 
 Define functionality to enable routing for mapping
 */
-TILE5.Geo.Routing = (function() {
+T5.Geo.Routing = (function() {
     // define the module
     var module = {
         /* module functions */
@@ -5998,11 +6028,11 @@ TILE5.Geo.Routing = (function() {
             GRUNT.Log.info("attempting to calculate route");
             
             // find an available routing engine
-            var engine = TILE5.Geo.getEngine("route");
+            var engine = T5.Geo.getEngine("route");
             if (engine) {
                 engine.route(args, function(routeData) {
                     if (args.generalize) {
-                        routeData.geometry = TILE5.Geo.P.generalize(routeData.geometry, routeData.getInstructionPositions());
+                        routeData.geometry = T5.Geo.P.generalize(routeData.geometry, routeData.getInstructionPositions());
                     } // if
                     
                     // firstly, if we have a map defined, then let's place the route on the map
@@ -6032,7 +6062,7 @@ TILE5.Geo.Routing = (function() {
             // GRUNT.Log.info("creating route overlay with route data: ", routeData);
 
             // create a new route overlay for the specified data
-            var overlay = new TILE5.Geo.UI.RouteOverlay({
+            var overlay = new T5.Geo.UI.RouteOverlay({
                 data: routeData,
                 width: dimensions.width,
                 height: dimensions.height
@@ -6044,7 +6074,7 @@ TILE5.Geo.Routing = (function() {
         
         parseTurnType: function(text) {
             var turnType = module.TurnType.Unknown,
-                rules = TILE5.Geo.Routing.TurnTypeRules;
+                rules = T5.Geo.Routing.TurnTypeRules;
             
             // run the text through the manuever rules
             for (var ii = 0; ii < rules.length; ii++) {
@@ -6127,7 +6157,7 @@ TILE5.Geo.Routing = (function() {
             
             // update the bounding box
             if (! params.boundingBox) {
-                params.boundingBox = TILE5.Geo.B.forPositions(params.geometry);
+                params.boundingBox = T5.Geo.B.forPositions(params.geometry);
             } // if
             
             var self = GRUNT.extend({
@@ -6152,8 +6182,8 @@ TILE5.Geo.Routing = (function() {
 })();
 
 // EN-* manuever text matching rules 
-TILE5.Geo.Routing.TurnTypeRules = (function() {
-    var m = TILE5.Geo.Routing.TurnType,
+T5.Geo.Routing.TurnTypeRules = (function() {
+    var m = T5.Geo.Routing.TurnType,
         rules = [];
         
     rules.push({
@@ -6220,52 +6250,38 @@ TILE5.Geo.Routing.TurnTypeRules = (function() {
     return rules;
 })();
 
-TILE5.Geo.UI = (function() {
+T5.Geo.UI = (function() {
     var lastAnnotationTween = null,
         lastAnnotationTweenTicks = null,
         routeAnimationCounter = 0;
     
     // some base64 images
-    var LOCATOR_IMAGE = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAACIQAAAiEBPhEQkwAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAAG+SURBVCiRlZHNahNRAIW/O7mTTJPahLZBA1YUyriINRAE3bQIKm40m8K8gLj0CRQkO32ELHUlKbgoIu4EqeJPgtCaoBuNtjXt5LeTMZk0mbmuWiuuPLsD3+HAOUIpxf9IHjWmaUbEyWv5ROrsVULhcHP761rUfnN3Y2Otc8CIg4YT85lzuVsPP+Qupw1vpPjRCvhS9ymvV0e77x7nNj+uvADQAIQQ+uLyvdfLV9JGZi7EdEwQlqBpEJ019f0z1mo2u5Q8DMydv25lshemmj1FueZTawbs7inarqLbV7Qjab1upB9YlhWSAHLavLHZCvg1VEhN0PMU9W7At4bPVidg7CtkLLXkut+lBPD6/Ub155jJiADAHSpaLmx3ApyBQoYEUd0PBoOBkAC6+3llvda/YxgGgYL+UNHf/zN3KiExGlsvTdP0NYDkhPdWrz35ZDsBzV5wCMuQwEyFmXFeeadjzfuFQmGkAZRKpdGC/n7x+M6jqvA9Zo6FWDhlcHE+wqT93J1tP7vpOE7rrx8ALMuasPf8S12St4WmJ6bYWTUC52k8Hm8Vi0X/nwBAPp/XKpWKdF1X2LYdlMvlsToC/QYTls7DLFr/PAAAAABJRU5ErkJggg%3D%3D";
-    
-    // define the locate modes
-    var LOCATE_MODE = {
-        NONE: 0,
-        SINGLE: 1,
-        WATCH: 2
-    };
-    
-    function getAnnotationTween(tweenType) {
-        // get the current tick count
-        var tickCount = TILE5.Clock.getTime(true);
-
-        if ((! lastAnnotationTween) || (tickCount - lastAnnotationTweenTicks > 100)) {
-            lastAnnotationTween = TILE5.Animation.tweenValue(480, 0, tweenType, null, 250);
-            lastAnnotationTweenTicks = tickCount;
-        } // if
-        
-        return lastAnnotationTween;
-    } // getAnnotationTween
-    
-    // TODO: evaluate whether this function can be used for all mapping providers or we need to 
-    // route this call to the provider
-    function radsPerPixelAtZoom(tileSize, gxZoom) {
-        return 2*Math.PI / (tileSize << gxZoom);
-    } // radsPerPixelAtZoom
+    var LOCATOR_IMAGE = 
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAA' +
+    'BHNCSVQICAgIfAhkiAAAAAlwSFlzAAACIQAAAiEBPhEQkwAAABl0RVh0U29mdHdhcmUAd3' +
+    'd3Lmlua3NjYXBlLm9yZ5vuPBoAAAG+SURBVCiRlZHNahNRAIW/O7mTTJPahLZBA1YUyriI' +
+    'NRAE3bQIKm40m8K8gLj0CRQkO32ELHUlKbgoIu4EqeJPgtCaoBuNtjXt5LeTMZk0mbmuWi' +
+    'uuPLsD3+HAOUIpxf9IHjWmaUbEyWv5ROrsVULhcHP761rUfnN3Y2Otc8CIg4YT85lzuVsP' +
+    'P+Qupw1vpPjRCvhS9ymvV0e77x7nNj+uvADQAIQQ+uLyvdfLV9JGZi7EdEwQlqBpEJ019f' +
+    '0z1mo2u5Q8DMydv25lshemmj1FueZTawbs7inarqLbV7Qjab1upB9YlhWSAHLavLHZCvg1' +
+    'VEhN0PMU9W7At4bPVidg7CtkLLXkut+lBPD6/Ub155jJiADAHSpaLmx3ApyBQoYEUd0PBo' +
+    'OBkAC6+3llvda/YxgGgYL+UNHf/zN3KiExGlsvTdP0NYDkhPdWrz35ZDsBzV5wCMuQwEyF' +
+    'mXFeeadjzfuFQmGkAZRKpdGC/n7x+M6jqvA9Zo6FWDhlcHE+wqT93J1tP7vpOE7rrx8ALM' +
+    'uasPf8S12St4WmJ6bYWTUC52k8Hm8Vi0X/nwBAPp/XKpWKdF1X2LYdlMvlsToC/QYTls7D' +
+    'LFr/PAAAAABJRU5ErkJggg%3D%3D';
     
     function CrosshairOverlay(params) {
         params = GRUNT.extend({
             size: 12,
             zindex: 150,
-            scalePosition: false,
-            validStates: TILE5.Graphics.DisplayState.ACTIVE | TILE5.Graphics.DisplayState.ANIMATING | TILE5.Graphics.DisplayState.PAN
+            scalePosition: false
         }, params);
         
         function drawCrosshair(context, centerPos, size) {
-            var strokeStyles = ["#FFFFFF", "#333333"],
+            var strokeStyles = ['#FFFFFF', '#333333'],
                 lineWidths = [3, 1.5];
                 
-            context.lineCap = "round";
+            context.lineCap = 'round';
                 
             for (var ii = 0; ii < strokeStyles.length; ii++) {
                 var lineSize = size; //  - (ii*2);
@@ -6279,16 +6295,27 @@ TILE5.Geo.UI = (function() {
                 context.lineTo(centerPos.x, centerPos.y + lineSize);
                 context.moveTo(centerPos.x - lineSize, centerPos.y);
                 context.lineTo(centerPos.x + lineSize, centerPos.y);
-                context.arc(centerPos.x, centerPos.y, size * 0.6666, 0, 2 * Math.PI, false);
+                
+                context.arc(
+                    centerPos.x, 
+                    centerPos.y, 
+                    size * 0.6666, 
+                    0, 
+                    2 * Math.PI, 
+                    false);
+                    
                 context.stroke();
             } // for
         } // drawCrosshair
         
         function createCrosshair() { 
-            var newCanvas = TILE5.newCanvas(params.size * 4, params.size * 4);
+            var newCanvas = T5.newCanvas(params.size * 4, params.size * 4);
 
             // draw the cross hair
-            drawCrosshair(newCanvas.getContext("2d"), new TILE5.Vector(newCanvas.width / 2, newCanvas.height / 2), params.size);
+            drawCrosshair(
+                newCanvas.getContext('2d'), 
+                new T5.Vector(newCanvas.width / 2, newCanvas.height / 2), 
+                params.size);
             
             // return the cross hair canvas
             return newCanvas;
@@ -6297,112 +6324,78 @@ TILE5.Geo.UI = (function() {
         var drawPos = null,
             crosshair = createCrosshair();
         
-        return GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
+        return GRUNT.extend(new T5.ViewLayer(params), {
             draw: function(context, offset, dimensions, state, view) {
                 if (! drawPos) {
-                    drawPos = TILE5.D.getCenter(dimensions);
-                    drawPos = new TILE5.Vector(Math.round(drawPos.x - crosshair.width/2), Math.round(drawPos.y - crosshair.height/2));
+                    drawPos = T5.D.getCenter(dimensions);
+                    drawPos = new T5.Vector(
+                        Math.round(drawPos.x - crosshair.width / 2), 
+                        Math.round(drawPos.y - crosshair.height / 2));
                 } // if
 
-                /*
-                // draw the cross hair
-                context.beginPath();
-                context.arc(Math.floor(dimensions.width / 2), Math.floor(dimensions.height / 2), 20, 0, 2 * Math.PI, false);
-                context.fill();
-                */
-                
                 context.drawImage(crosshair, drawPos.x, drawPos.y);
             }
         });
     } // CrosshairOverlay
     
-    function RadarOverlay(params) {
-        params = GRUNT.extend({
-            radarFill: "rgba(0, 221, 238, 0.1)",
-            radarStroke: "rgba(0, 102, 136, 0.3)",
-            zindex: 100
-        }, params);
-        
-        // initialise variables
-        var MAXSIZE = 100;
-        var MINSIZE = 20;
-        var size = 50;
-        var increment = 3;
-        
-        return GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
-            draw: function(context, offset, dimensions, state, view) {
-                // calculate the center position
-                var xPos = dimensions.width >> 1;
-                var yPos = dimensions.height >> 1;
-                
-                context.save();
-                try {
-                    context.globalCompositeOperation = "lighter";
-                    
-                    // initialise the drawing style
-                    context.fillStyle = params.radarFill;
-                    context.strokeStyle = params.radarStroke;
-
-                    // draw the radar circle
-                    context.beginPath();
-                    context.arc(xPos, yPos, size, 0, Math.PI * 2, false);
-                    context.fill();
-                    context.stroke();
-                }
-                finally {
-                    context.restore();
-                }
-            }
-        });        
-    } // RadarOverlay
-    
     var module = {
-        // change this value to have the annotations tween in (eg. TILE5.Animation.Easing.Sine.Out)
+        // change this value to have the annotations tween in 
+        // (eg. T5.Easing.Sine.Out)
         AnnotationTween: null,
         
         GeoTileGrid: function(params) {
             // extend the params with some defaults
             params = GRUNT.extend({
                 grid: null,
-                centerPos: new TILE5.Geo.Position(),
-                centerXY: new TILE5.Vector(),
+                centerPos: new T5.Geo.Position(),
+                centerXY: new T5.Vector(),
                 radsPerPixel: 0
             }, params);
             
             // determine the mercator 
-            var centerMercatorPix = TILE5.Geo.P.toMercatorPixels(params.centerPos, params.radsPerPixel);
+            var centerMercatorPix = T5.Geo.P.toMercatorPixels(
+                                        params.centerPos, 
+                                        params.radsPerPixel);
             
             // calculate the bottom left mercator pix
-            // the position of the bottom left mercator pixel is determined by params.subtracting the actual 
+            // the position of the bottom left mercator pixel is 
+            // determined by params.subtracting the actual 
             var blMercatorPixX = centerMercatorPix.x - params.centerXY.x,
                 blMercatorPixY = centerMercatorPix.y - params.centerXY.y;
             
             // initialise self
             var self = GRUNT.extend({}, params.grid, {
                 getBoundingBox: function(x, y, width, height) {
-                    return new TILE5.Geo.BoundingBox(
-                        self.pixelsToPos(new TILE5.Vector(x, y + height)),
-                        self.pixelsToPos(new TILE5.Vector(x + width, y)));
+                    return new T5.Geo.BoundingBox(
+                        self.pixelsToPos(new T5.Vector(x, y + height)),
+                        self.pixelsToPos(new T5.Vector(x + width, y)));
                 },
                 
                 getGridXYForPosition: function(pos) {
                     // determine the mercator pixels for teh position
-                    var posPixels = TILE5.Geo.P.toMercatorPixels(pos, params.radsPerPixel);
+                    var posPixels = T5.Geo.P.toMercatorPixels(
+                                        pos, 
+                                        params.radsPerPixel);
 
                     // calculate the offsets
                     var offsetX = posPixels.x - blMercatorPixX;
-                    var offsetY = self.gridDimensions.height - (posPixels.y - blMercatorPixY);
+                    var offsetY = self.gridDimensions.height - 
+                            (posPixels.y - blMercatorPixY);
 
-                    return new TILE5.Vector(offsetX, offsetY);
+                    return new T5.Vector(offsetX, offsetY);
                 },
                 
                 getPixelDistance: function(distance) {
-                    var radians = TILE5.Geo.Utilities.dist2rad(distance);
+                    var radians = T5.Geo.Utilities.dist2rad(distance);
                     return Math.floor(radians / params.radsPerPixel);
                 },
                 
                 pixelsToPos: function(vector) {
-                    return TILE5.Geo.P.fromMercatorPixels(blMercatorPixX + vector.x, (blMercatorPixY + self.gridDimensions.height) - vector.y, params.radsPerPixel);
+                    return T5.Geo.P.fromMercatorPixels(
+                        blMercatorPixX + vector.x, 
+                        (blMercatorPixY + self.gridDimensions.height) -
+                            vector.y, 
+                        params.radsPerPixel);
                 }
             });
             
@@ -6418,11 +6411,10 @@ TILE5.Geo.UI = (function() {
                 pixelGeneralization: 8,
                 calculationsPerCycle: 250,
                 partialDraw: false,
-                strokeStyle: "rgba(0, 51, 119, 0.9)",
-                waypointFillStyle: "#FFFFFF",
+                strokeStyle: 'rgba(0, 51, 119, 0.9)',
+                waypointFillStyle: '#FFFFFF',
                 lineWidth: 4,
                 zindex: 50
-                // validStates: TILE5.Graphics.DisplayState.ACTIVE | TILE5.Graphics.DisplayState.PAN | TILE5.Graphics.DisplayState.PINCHZOOM
             }, params);
             
             var recalc = true,
@@ -6440,19 +6432,27 @@ TILE5.Geo.UI = (function() {
                     ii, current, include,
                     geometry = params.data ? params.data.geometry : [],
                     geometryLen = geometry.length,
-                    instructions = params.data ? params.data.instructions : [],
+                    instructions = params.data ? 
+                        params.data.instructions : 
+                        [],
+                        
                     instructionsLength = instructions.length,
                     calculationsPerCycle = params.calculationsPerCycle,
                     currentCalculations = 0;
                     
-                // iterate through the position geometry and determine xy coordinates
+                // iterate through the position geometry 
+                // and determine xy coordinates
                 for (ii = geometryCalcIndex; ii < geometryLen; ii++) {
                     // calculate the current position
                     current = grid.getGridXYForPosition(geometry[ii]);
 
                     // determine whether the current point should be included
-                    include = (! last) || (ii === 0) || 
-                        (Math.abs(current.x - last.x) + Math.abs(current.y - last.y) > params.pixelGeneralization);
+                    include = 
+                        (! last) || 
+                        (ii === 0) || 
+                        (Math.abs(current.x - last.x) + 
+                            Math.abs(current.y - last.y) >
+                            params.pixelGeneralization);
                         
                     if (include) {
                         coordinates.push(current);
@@ -6469,18 +6469,27 @@ TILE5.Geo.UI = (function() {
                 } // for
                 
                 geometryCalcIndex = geometryLen;
-                GRUNT.Log.trace(geometryLen + " geometry points generalized to " + coordinates.length + " coordinates", startTicks);
+                GRUNT.Log.trace(
+                    geometryLen + ' geometry points generalized to ' + 
+                    coordinates.length + ' coordinates', startTicks);
                 
-                // iterate throught the instructions and add any points to the instruction coordinates array
+                // iterate throught the instructions and add any 
+                // points to the instruction coordinates array
                 last = null;
                 for (ii = instructionsLength; ii--; ) {
                     if (instructions[ii].position) {
                         // calculate the current position
-                        current = grid.getGridXYForPosition(instructions[ii].position);
+                        current = grid.getGridXYForPosition(
+                            instructions[ii].position);
 
-                        // determine whether the current point should be included
-                        include = (! last) || (ii === 0) || 
-                            (Math.abs(current.x - last.x) + Math.abs(current.y - last.y) > params.pixelGeneralization);
+                        // determine whether the current point 
+                        // should be included
+                        include = 
+                            (! last) || 
+                            (ii === 0) || 
+                            (Math.abs(current.x - last.x) + 
+                                Math.abs(current.y - last.y) >
+                                params.pixelGeneralization);
 
                         if (include) {
                             instructionCoords.push(current);
@@ -6493,22 +6502,25 @@ TILE5.Geo.UI = (function() {
             } // calcCoordinates
             
             // create the view layer the we will draw the view
-            var self = GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
+            var self = GRUNT.extend(new T5.ViewLayer(params), {
                 getAnimation: function(easingFn, duration, drawCallback, autoCenter) {
                     if (recalc) {
                         return null;
                     } // if
                     
                     // define the layer id
-                    var layerId = "routeAnimation" + routeAnimationCounter++;
+                    var layerId = 'routeAnimation' + routeAnimationCounter++;
                     spawnedAnimations.push(layerId);
 
                     // create a new animation layer based on the coordinates
-                    return new TILE5.Graphics.AnimatedPathLayer({
+                    return new T5.AnimatedPathLayer({
                         id: layerId,
                         path: coordinates,
                         zindex: params.zindex + 1,
-                        easing: easingFn ? easingFn : TILE5.Animation.Easing.Sine.InOut,
+                        easing: easingFn ? 
+                            easingFn : 
+                            T5.Easing.Sine.InOut,
+                            
                         duration: duration ? duration : 5000,
                         drawIndicator: drawCallback,
                         autoCenter: autoCenter ? autoCenter : false
@@ -6541,10 +6553,14 @@ TILE5.Geo.UI = (function() {
                         
                         // start drawing the path
                         context.beginPath();
-                        context.moveTo(coordinates[coordLength - 1].x - offset.x, coordinates[coordLength - 1].y - offset.y);
+                        context.moveTo(
+                            coordinates[coordLength - 1].x - offset.x, 
+                            coordinates[coordLength - 1].y - offset.y);
 
                         for (ii = coordLength; ii--; ) {
-                            context.lineTo(coordinates[ii].x - offset.x, coordinates[ii].y - offset.y);
+                            context.lineTo(
+                                coordinates[ii].x - offset.x,
+                                coordinates[ii].y - offset.y);
                         } // for
 
                         context.stroke();
@@ -6571,10 +6587,11 @@ TILE5.Geo.UI = (function() {
             });
             
             // listed for grid updates
-            GRUNT.WaterCooler.listen("grid.updated", function(args) {
+            GRUNT.WaterCooler.listen('grid.updated', function(args) {
                 // tell all the spawned animations to remove themselves
                 for (var ii = spawnedAnimations.length; ii--; ) {
-                    GRUNT.WaterCooler.say("layer.remove", { id: spawnedAnimations[ii] });
+                    GRUNT.WaterCooler.say(
+                        'layer.remove', { id: spawnedAnimations[ii] });
                 } // for
                 
                 // reset the spawned animations array
@@ -6631,14 +6648,32 @@ TILE5.Geo.UI = (function() {
                         // animate the annotation
                         animating = true;
                         
-                        TILE5.Animation.tween(self.xy, "y", endValue, params.tweenIn, function() {
-                            self.xy.y = endValue;
-                            animating = false;
-                        }, params.animationSpeed ? params.animationSpeed : 250 + (Math.random() * 500));
+                        T5.Animation.tween(
+                            self.xy, 
+                            'y',
+                            endValue, 
+                            params.tweenIn, 
+                            function() {
+                                self.xy.y = endValue;
+                                animating = false;
+                            }, 
+                            params.animationSpeed ? 
+                                params.animationSpeed : 
+                                250 + (Math.random() * 500)
+                        );
                     } // if
                     
                     if (params.draw) {
-                        params.draw(context, offset, new TILE5.Vector(self.xy.x - offset.x, self.xy.y - offset.y), state, overlay, view);
+                        params.draw(
+                            context, 
+                            offset, 
+                            new T5.Vector(
+                                self.xy.x - offset.x, 
+                                self.xy.y - offset.y
+                            ), 
+                            state, 
+                            overlay, 
+                            view);
                     }
                     else {
                         context.beginPath();
@@ -6666,12 +6701,15 @@ TILE5.Geo.UI = (function() {
                 imageAnchor: null
             }, params);
             
-            var imageOffset = params.imageAnchor ? TILE5.V.invert(params.imageAnchor) : null;
+            var imageOffset = params.imageAnchor ?
+                    T5.V.invert(params.imageAnchor) : 
+                    null;
             
             function getImageUrl() {
                 if (params.animatingImageUrl && self.isAnimating()) {
-                    // we want a smooth transition, so make sure the end image is loaded
-                    TILE5.Resources.loadImage(params.imageUrl);
+                    // we want a smooth transition, so make 
+                    // sure the end image is loaded
+                    T5.Resources.loadImage(params.imageUrl);
                     
                     // return the animating image url
                     return params.animatingImageUrl;
@@ -6679,30 +6717,46 @@ TILE5.Geo.UI = (function() {
                 else {
                     return params.imageUrl;
                 } // if..else
-            }
+            } // getImageUrl
             
-            params.draw = function(context, offset, xy, state, overlay, view) {
+            function drawImage(context, offset, xy, state, overlay, view) {
                 // get the image
                 var imageUrl = getImageUrl(),
-                    image = TILE5.Resources.getImage(imageUrl);
+                    image = T5.Resources.getImage(imageUrl);
                     
                 if (! image) {
-                    TILE5.Resources.loadImage(imageUrl, function(loadedImage, fromCache) {
-                        overlay.wakeParent();
-                    });
+                    T5.Resources.loadImage(
+                        imageUrl, 
+                        function(loadedImage, fromCache) {
+                            overlay.wakeParent();
+                        }
+                    );
                 }
                 else if (image.complete && (image.width > 0)) {
                     if (! imageOffset) {
-                        imageOffset = new TILE5.Vector(-image.width >> 1, -image.height >> 1);
+                        imageOffset = new T5.Vector(
+                            -image.width >> 1, 
+                            -image.height >> 1
+                        );
                     } // if
                     
                     // determine the position to draw the image
-                    var imageXY = TILE5.V.offset(xy, imageOffset.x, imageOffset.y);
+                    var imageXY = T5.V.offset(
+                                        xy,
+                                        imageOffset.x,
+                                        imageOffset.y);
 
                     // draw the image
-                    context.drawImage(image, imageXY.x, imageXY.y, image.width, image.height);
+                    context.drawImage(
+                        image,
+                        imageXY.x,
+                        imageXY.y,
+                        image.width,
+                        image.height);
                 } // if
-            }; // draw
+            } // drawImage
+            
+            params.draw = drawImage;
 
             var self = new module.Annotation(params);
             return self;
@@ -6715,18 +6769,21 @@ TILE5.Geo.UI = (function() {
             
             // initialise the locator icon image
             var iconImage = new Image(),
-                iconOffset = new TILE5.Vector(),
+                iconOffset = new T5.Vector(),
                 indicatorRadius = null;
                 
             // load the image
             iconImage.src = LOCATOR_IMAGE;
             iconImage.onload = function() {
-                iconOffset = new TILE5.Vector(iconImage.width / 2, iconImage.height / 2);
+                iconOffset = new T5.Vector(
+                    iconImage.width / 2, 
+                    iconImage.height / 2);
             };
             
             var self = new module.Annotation(GRUNT.extend({
                 calcXY: function(grid) {
-                    indicatorRadius = Math.floor(grid.getPixelDistance(self.accuracy) * 0.5);
+                    indicatorRadius = 
+                    Math.floor(grid.getPixelDistance(self.accuracy) * 0.5);
                 },
                 
                 draw: function(context, offset, xy, state, overlay, view) {
@@ -6734,18 +6791,29 @@ TILE5.Geo.UI = (function() {
                         centerY = xy.y - iconOffset.y;
 
                     if (indicatorRadius && self.drawAccuracyIndicator) {
-                        context.fillStyle = "rgba(30, 30, 30, 0.2)";
+                        context.fillStyle = 'rgba(30, 30, 30, 0.2)';
                         
                         context.beginPath();
-                        context.arc(xy.x, xy.y, indicatorRadius, 0, Math.PI * 2, false);
+                        context.arc(
+                            xy.x, 
+                            xy.y, 
+                            indicatorRadius, 
+                            0, 
+                            Math.PI * 2, 
+                            false);
                         context.fill();
                     } // if
 
                     if (iconImage.complete && iconImage.width > 0) {
-                        context.drawImage(iconImage, centerX, centerY, iconImage.width, iconImage.height);
+                        context.drawImage(
+                            iconImage, 
+                            centerX, 
+                            centerY, 
+                            iconImage.width, 
+                            iconImage.height);
                     } // if
 
-                    view.trigger("invalidate");
+                    view.trigger('invalidate');
                 }
             }, params));
             
@@ -6797,7 +6865,9 @@ TILE5.Geo.UI = (function() {
                     // iterate through the pois and generate the annotations
                     for (var ii = 0; ii < newPOIs.length; ii++) {
                         if (newPOIs[ii].pos) {
-                            var newAnnotation = createAnnotationForPOI(newPOIs[ii]);
+                            var newAnnotation =
+                                createAnnotationForPOI(newPOIs[ii]);
+                                
                             if (newAnnotation) {
                                 annotations.push(newAnnotation); 
                             } // if
@@ -6815,7 +6885,8 @@ TILE5.Geo.UI = (function() {
                 var grid = params.map ? params.map.getTileLayer() : null,
                     annotationsCount = annotationsArray.length;
                 
-                // iterate through the annotations and calculate the xy coordinates
+                // iterate through the annotations and 
+                // calculate the xy coordinates
                 if (grid) {
                     for (var ii = annotationsCount; ii--; ) {
                         // update the annotation xy coordinates
@@ -6835,9 +6906,9 @@ TILE5.Geo.UI = (function() {
             }
 
             // create the view layer the we will draw the view
-            var self = GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
+            var self = GRUNT.extend(new T5.ViewLayer(params), {
                 cycle: function(tickCount, offset, state) {
-                    return animating ? 1: 0;
+                    return animating ? 1 : 0;
                 },
                 
                 draw: function(context, offset, dimensions, state, view) {
@@ -6846,27 +6917,37 @@ TILE5.Geo.UI = (function() {
                 
                     // reset animating to false
                     animating = false;
-                    context.fillStyle = "rgba(255, 0, 0, 0.75)";
-                    context.globalCompositeOperation = "source-over";
+                    context.fillStyle = 'rgba(255, 0, 0, 0.75)';
+                    context.globalCompositeOperation = 'source-over';
                 
                     // iterate through the annotations and draw them
                     for (ii = annotations.length; ii--; ) {
-                        annotations[ii].draw(context, offset, state, self, view);
-                        animating = animating || annotations[ii].isAnimating();
+                        annotations[ii].draw(
+                            context, 
+                            offset, 
+                            state, 
+                            self, 
+                            view);
+                            
+                        animating = animating ||
+                            annotations[ii].isAnimating();
                     } // for
 
                     for (ii = staticAnnotations.length; ii--; ) {
-                        staticAnnotations[ii].draw(context, offset, state, self, view);
-                        animating = animating || staticAnnotations[ii].isAnimating();
+                        staticAnnotations[ii].draw(
+                            context, 
+                            offset, 
+                            state, 
+                            self, 
+                            view);
+                            
+                        animating = animating ||
+                            staticAnnotations[ii].isAnimating();
                     } // for
                     
                     return animating ? 1 : 0;
                 },
                 
-                /**
-                This method provides that ability for the creation of static annotations (as opposed)
-                to annotations that are kept in sync with the pois that are POIStorage of the map. 
-                */
                 add: function(annotation) {
                     staticAnnotations.push(annotation);
                     updateAnnotationCoordinates(staticAnnotations);
@@ -6877,7 +6958,8 @@ TILE5.Geo.UI = (function() {
                     staticAnnotations = [];
                     updateAnnotationCoordinates(staticAnnotations);
                     
-                    // if non static annotations should be cleared also, then do it
+                    // if non static annotations should be cleared 
+                    // also, then do it
                     if (includeNonStatic) {
                         annotations = [];
                         updateAnnotationCoordinates(annotations);
@@ -6888,8 +6970,9 @@ TILE5.Geo.UI = (function() {
                 }
             });
 
-            GRUNT.WaterCooler.listen("geo.pois-updated", function(args) {
-                // if the event source id matches our current poi storage, then apply updates
+            GRUNT.WaterCooler.listen('geo.pois-updated', function(args) {
+                // if the event source id matches our current 
+                // poi storage, then apply updates
                 if (params.pois && (params.pois.id == args.srcID)) {
                     updateAnnotations(args.pois);
                     self.wakeParent();
@@ -6897,477 +6980,554 @@ TILE5.Geo.UI = (function() {
             });
             
             // list for grid updates
-            GRUNT.WaterCooler.listen("grid.updated", function(args) {
+            GRUNT.WaterCooler.listen('grid.updated', function(args) {
                 updateAnnotationCoordinates(annotations);
                 updateAnnotationCoordinates(staticAnnotations);
                 self.wakeParent();
             });
             
             return self;
-        },
-        
-        Tiler: function(params) {
-            params = GRUNT.extend({
-                tapExtent: 10,
-                provider: null,
-                crosshair: false,
-                zoomLevel: 0,
-                boundsChange: null,
-                tapPOI: null,
-                boundsChangeThreshold: 30,
-                pois: new TILE5.Geo.POIStorage(),
-                createAnnotationForPOI: null,
-                displayLocationAnnotation: true,
-                zoomAnimation: TILE5.Animation.Easing.Quad.Out
-            }, params);
-            
-            // initialise variables
-            var lastBoundsChangeOffset = new TILE5.Vector(),
-                locationWatchId = 0,
-                locateMode = LOCATE_MODE.NONE,
-                initialized = false,
-                tappedPOIs = [],
-                annotations = null, // annotations layer
-                lastRequestTime = 0,
-                guideOffset = null,
-                gridLayerId = null,
-                locationAnnotation = null,
-                geoWatchId = 0,
-                initialTrackingUpdate = true,
-                zoomLevel = params.zoomLevel;
-                
-            // if the data provider has not been created, then create a default one
-            if (! params.provider) {
-                params.provider = new TILE5.Geo.MapProvider();
-            } // if
-
-            /* tracking functions */
-            
-            function trackingUpdate(position) {
-                try {
-                    var currentPos = new TILE5.Geo.Position(position.coords.latitude, position.coords.longitude),
-                        accuracy = position.coords.accuracy / 1000;
-                        
-                    self.trigger("locationUpdate", position, accuracy);
-
-                    // if this is the initial tracking update then create the overlay
-                    if (initialTrackingUpdate) {
-                        // if the geolocation annotation has not been created then do that now
-                        if (! locationAnnotation) {
-                            locationAnnotation = new module.LocationAnnotation({
-                                pos: currentPos,
-                                accuracy: accuracy
-                            });
-
-                            self.bind("tileDrawComplete", function() {
-                                locationAnnotation.drawAccuracyIndicator = true;
-                            });
-                        } // if
-
-                        // if we want to display the location annotation, then put it onscreen
-                        if (params.displayLocationAnnotation) {
-                            annotations.add(locationAnnotation);
-                        } // if
-
-                        // TODO: fix the magic number
-                        var targetBounds = TILE5.Geo.B.createBoundsFromCenter(currentPos, Math.max(accuracy, 1));
-                        self.gotoBounds(targetBounds);
-                    }
-                    // otherwise, animate to the new position
-                    else {
-                        // update location annotation details
-                        locationAnnotation.pos = currentPos;
-                        locationAnnotation.accuracy = accuracy;
-
-                        // tell the location annotation to update it's xy coordinate
-                        locationAnnotation.calcXY(self.getTileLayer());
-
-                        // pan to the position
-                        self.panToPosition(currentPos, null, TILE5.Animation.Easing.Sine.Out);
-                    } // if..else
-
-                    initialTrackingUpdate = false;
-                }
-                catch (e) {
-                    GRUNT.Log.exception(e);
-                }
-            } // trackingUpdate
-            
-            function trackingError(error) {
-                GRUNT.Log.info("caught location tracking error:", error);
-            } // trackingError
-            
-            /* event handlers */
-            
-            function handlePan(x, y) {
-                if (locateMode === LOCATE_MODE.SINGLE) {
-                    self.trackCancel();
-                } // if
-            } // handlePan
-            
-            function handleTap(absXY, relXY) {
-                var grid = self.getTileLayer();
-                var tapBounds = null;
-
-                if (grid) {
-                    var gridPos = self.viewPixToGridPix(new TILE5.Vector(relXY.x, relXY.y)),
-                        tapPos = grid.pixelsToPos(gridPos),
-                        minPos = grid.pixelsToPos(TILE5.V.offset(gridPos, -params.tapExtent, params.tapExtent)),
-                        maxPos = grid.pixelsToPos(TILE5.V.offset(gridPos, params.tapExtent, -params.tapExtent));
-
-                    GRUNT.Log.info("grid tapped @ " + TILE5.Geo.P.toString(grid.pixelsToPos(gridPos)));
-
-                    // turn that into a bounds object
-                    tapBounds = new TILE5.Geo.BoundingBox(minPos, maxPos);
-
-                    // find the pois in the bounds area
-                    tappedPOIs = self.pois.findByBounds(tapBounds);
-                    // GRUNT.Log.info("TAPPED POIS = ", tappedPOIs);
-                    
-                    self.trigger("geotap", absXY, relXY, tapPos, tapBounds);
-
-                    if (params.tapPOI) {
-                        params.tapPOI(tappedPOIs);
-                    } // if
-                } // if
-            } // handleTap
-            
-            function handleDoubleTap(absXY, relXY) {
-                self.animate(2, 
-                    TILE5.D.getCenter(self.getDimensions()), 
-                    new TILE5.Vector(relXY.x, relXY.y), 
-                    params.zoomAnimation);
-            } // handleDoubleTap
-            
-            function handleScale(scaleAmount, zoomXY) {
-                var zoomChange = 0;
-
-                // damp the scale amount
-                scaleAmount = Math.sqrt(scaleAmount);
-
-                if (scaleAmount < 1) {
-                    zoomChange = -(0.5 / scaleAmount);
-                }
-                else if (scaleAmount > 1) {
-                    zoomChange = scaleAmount;
-                } // if..else
-
-                self.gotoPosition(self.getXYPosition(zoomXY), zoomLevel + Math.floor(zoomChange));
-            } // handleScale
-            
-            /* internal functions */
-
-            function getLayerScaling(oldZoom, newZoom) {
-                return radsPerPixelAtZoom(1, oldZoom) / radsPerPixelAtZoom(1, newZoom);
-            } // getLayerScaling
-            
-            /* public object definition */
-            
-            // provide the tiler (and view) an adjust scale factor handler
-            params.adjustScaleFactor = function(scaleFactor) {
-                var roundFn = scaleFactor < 1 ? Math.floor : Math.ceil;
-                return Math.pow(2, roundFn(Math.log(scaleFactor)));
-            };
-            
-            // initialise self
-            var self = GRUNT.extend({}, new TILE5.Tiling.Tiler(params), {
-                pois: params.pois,
-                annotations: null,
-                
-                getProvider: function() {
-                    return params.provider;
-                },
-                
-                setProvider: function(value) {
-                    params.provider = value;
-                    initialized = false;
-                },
-                
-                getBoundingBox: function() {
-                    var grid = self.getTileLayer(),
-                        offset = self.getOffset(),
-                        dimensions = self.getDimensions();
-
-                    if (grid) {
-                        return grid.getBoundingBox(offset.x, offset.y, dimensions.width, dimensions.height);
-                    } // if
-                    
-                    return null;
-                },
-
-                getCenterPosition: function() {
-                    // get the position for the grid position
-                    return self.getXYPosition(TILE5.D.getCenter(self.getDimensions()));
-                },
-                
-                getXYPosition: function(xy) {
-                    return self.getTileLayer().pixelsToPos(self.viewPixToGridPix(xy));
-                },
-                
-                gotoBounds: function(bounds, callback) {
-                    // calculate the zoom level required for the specified bounds
-                    var zoomLevel = TILE5.Geo.B.getZoomLevel(bounds, self.getDimensions());
-                    
-                    // goto the center position of the bounding box with the calculated zoom level
-                    self.gotoPosition(TILE5.Geo.B.getCenter(bounds), zoomLevel, callback);
-                },
-                
-                gotoPosition: function(position, newZoomLevel, callback) {
-                    // save the current zoom level
-                    var currentZoomLevel = zoomLevel,
-                        zoomScaling = getLayerScaling(zoomLevel, newZoomLevel),
-                        requestTime = new Date().getTime(),
-                        reset = false,
-                        currentBounds = self.getBoundingBox();
-
-                    if (currentBounds) {
-                        reset = !TILE5.Geo.P.inBounds(position, currentBounds);
-                        /*
-                        // TODO: get this right...
-                        if (reset) {
-                            self.clearBackground();
-                        }
-                        */
-                    } // if                        
-
-                    // if a new zoom level is specified, then use it
-                    zoomLevel = newZoomLevel ? newZoomLevel : zoomLevel;
-
-                    // if the zoom level is not defined, then raise an exception
-                    if (! zoomLevel) {
-                        throw new Error("Zoom level required to goto a position.");
-                    } // if
-
-                    // check the zoom level is ok
-                    if (params.provider) {
-                        zoomLevel = params.provider.checkZoomLevel(zoomLevel);
-                    } // if
-                    
-                    // if the zoom level is different from the current zoom level, then update the map tiles
-                    if (reset || (! initialized) || (zoomLevel !== currentZoomLevel)) {
-                        // remove the grid layer
-                        TILE5.Resources.resetImageLoadQueue();
-                        
-                        // if we have a location annotation tell it not to draw the accuracy ring
-                        if (locationAnnotation) {
-                            locationAnnotation.drawAccuracyIndicator = false;
-                        } // if
-                        
-                        // get the grid and if available, then deactivate to prevent further image draws
-                        var grid = self.getTileLayer();
-                        if (grid) {
-                            grid.deactivate();
-                        } // if
-
-                        // cancel any animations
-                        TILE5.Animation.cancel();
-
-                        // if the map is initialise, then pan to the specified position
-                        if (initialized) {
-                            self.freeze();
-                        } // if
-                        
-                        // update the global request time
-                        lastRequestTime = requestTime;
-
-                        // update the provider zoom level
-                        params.provider.zoomLevel = zoomLevel;
-                        params.provider.getMapTiles(self, position, function(tileGrid) {
-                            // if the request time equals the last request time process, otherwise ignore
-                            if (requestTime === lastRequestTime) {
-                                // update the tile layer to the use the new layer
-                                self.setTileLayer(tileGrid);
-                                
-                                // update the grid layer id
-                                gridLayerId = tileGrid.getId();
-
-                                // pan to the correct position
-                                self.panToPosition(position, function() {
-                                    self.unfreeze();
-                                    
-                                    // trigger the zoom level change event
-                                    self.trigger("zoomLevelChange", zoomLevel);
-
-                                    if (callback) {
-                                        callback();
-                                    } // if
-                                });
-                            }
-                            else {
-                                GRUNT.Log.info("request time mismatch - ignoring update");
-                            }
-                        });
-
-                        initialized = true;
-                    }
-                    // otherwise, just pan to the correct position
-                    else {
-                        self.panToPosition(position, callback);
-                    } // if..else
-                },
-
-                panToPosition: function(position, callback, easingFn) {
-                    var grid = self.getTileLayer();
-                    if (grid) {
-                        // determine the tile offset for the requested position
-                        var centerXY = grid.getGridXYForPosition(position),
-                            dimensions = self.getDimensions();
-
-                        // determine the actual pan amount, by calculating the center of the viewport
-                        centerXY.x -= (dimensions.width / 2);
-                        centerXY.y -= (dimensions.height / 2);
-                        
-                        // if we have a guide layer snap to that
-                        if (guideOffset) {
-                            guideOffset = null;
-                        } // if
-
-                        // pan the required amount
-                        //GRUNT.Log.info(String.format("need to apply pan vector of ({0}) to correctly center", center_xy));
-                        //GRUNT.Log.info("offset before pan = " + self.getOffset());
-                        self.updateOffset(centerXY.x, centerXY.y, easingFn);
-                        GRUNT.WaterCooler.say("view.wake", { id: self.id });
-                        //GRUNT.Log.info("offset after pan = " + self.getOffset());
-
-                        // trigger a bounds change event
-                        if (params.boundsChange) {
-                            params.boundsChange(self.getBoundingBox());
-                        } // if
-
-                        // if we have a callback defined, then run it
-                        if (callback) {
-                            callback(self);
-                        } // if
-                    } // if
-                },
-                
-                locate: function() {
-                    // run a track start, but only allow it to run for a maximum of 30s 
-                    self.trackStart(LOCATE_MODE.SINGLE);
-                    
-                    // stop checking for location after 10 seconds
-                    setTimeout(self.trackCancel, 10000);
-                },
-                
-                trackStart: function(mode) {
-                    if (navigator.geolocation) {
-                        locateMode = mode ? mode : LOCATE_MODE.WATCH;
-                        
-                        initialTrackingUpdate = true;
-                        geoWatchId = navigator.geolocation.watchPosition(trackingUpdate, trackingError, {
-                            enableHighAccuracy: true,
-                            timeout: 10000,
-                            maximumAge: 5000
-                        });
-                    } // if
-                },
-                
-                trackCancel: function() {
-                    if (geoWatchId && navigator.geolocation) {
-                        navigator.geolocation.clearWatch(geoWatchId);
-                    } // if
-                    
-                    if (locateMode === LOCATE_MODE.WATCH) {
-                        // TODO: fix this to only remove the location annotation
-                        annotations.clear();
-                    } // if
-                    
-                    // reset the locate mode
-                    locateMode = LOCATE_MODE.NONE;
-                    
-                    // reset the watch
-                    geoWatchId = 0;
-                },
-                
-                getZoomLevel: function() {
-                    return zoomLevel;
-                },
-
-                setZoomLevel: function(value) {
-                    // if the current position is set, then goto the updated position
-                    try {
-                        self.gotoPosition(self.getCenterPosition(), value);
-                    }
-                    catch (e) {
-                        GRUNT.Log.exception(e);
-                    }
-                },
-
-                zoomIn: function() {
-                    // determine the required scaling
-                    var scalingNeeded = radsPerPixelAtZoom(1, zoomLevel) / radsPerPixelAtZoom(1, zoomLevel + 1);
-                    
-                    if (! self.scale(2, TILE5.Animation.Easing.Sine.Out)) {
-                        self.setZoomLevel(zoomLevel + 1);
-                    } // if
-                },
-
-                zoomOut: function() {
-                    var scalingNeeded = radsPerPixelAtZoom(1, zoomLevel) / radsPerPixelAtZoom(1, zoomLevel - 1);
-                    
-                    if (! self.scale(0.5, TILE5.Animation.Easing.Sine.Out)) {
-                        self.setZoomLevel(zoomLevel - 1);
-                    } // if
-                },
-
-                /* route methods */
-                
-                animateRoute: function(easingFn, duration, drawCallback, autoCenter) {
-                    // get the routing layer
-                    var routeLayer = self.getLayer("route");
-                    if (routeLayer) {
-                        // create the animation layer from the route
-                        var animationLayer = routeLayer.getAnimation(easingFn, duration, drawCallback, autoCenter);
-                        
-                        // add the animation layer
-                        if (animationLayer) {
-                            animationLayer.addToView(self);
-                        }
-                    } // if
-                }
-            });
-            
-            // bind some event handlers
-            self.bind("pan", handlePan);
-            self.bind("tap", handleTap);
-            self.bind("doubleTap", handleDoubleTap);
-            self.bind("scale", handleScale);
-
-            // create an annotations layer
-            annotations = new TILE5.Geo.UI.AnnotationsOverlay({
-                pois: self.pois,
-                map: self,
-                createAnnotationForPOI: params.createAnnotationForPOI
-            });
-
-            // add the annotations layer
-            self.annotations = annotations;
-            self.setLayer("annotations", annotations);
-            
-            // add the radar overlay
-            // self.setLayer("radar", new RadarOverlay());
-            
-            // if we are drawing the cross hair, then add a cross hair overlay
-            if (params.crosshair) {
-                self.setLayer("crosshair", new CrosshairOverlay());
-            } // if
-
-            // listen for the view idling
-            GRUNT.WaterCooler.listen("view.idle", function(args) {
-                if (args.id && (args.id == self.id)) {
-                    // compare the last bounds change offset with the current offset
-                    var changeDelta = TILE5.V.absSize(TILE5.V.diff(lastBoundsChangeOffset, self.getOffset()));
-                    
-                    if ((changeDelta > params.boundsChangeThreshold) && params.boundsChange) {
-                        lastBoundsChangeOffset = self.getOffset();
-                        params.boundsChange(self.getBoundingBox());
-                    } // if
-                }
-            });
-
-            return self;
         }
     };
     
     return module;
 })();
+T5.Map = function(params) {
+    params = GRUNT.extend({
+        tapExtent: 10,
+        provider: null,
+        crosshair: false,
+        zoomLevel: 0,
+        boundsChange: null,
+        tapPOI: null,
+        boundsChangeThreshold: 30,
+        pois: new T5.Geo.POIStorage(),
+        createAnnotationForPOI: null,
+        displayLocationAnnotation: true,
+        zoomAnimation: T5.Easing.Quad.Out
+    }, params);
+
+    // define the locate modes
+    var LOCATE_MODE = {
+        NONE: 0,
+        SINGLE: 1,
+        WATCH: 2
+    };
+    
+    // initialise variables
+    var lastBoundsChangeOffset = new T5.Vector(),
+        locationWatchId = 0,
+        locateMode = LOCATE_MODE.NONE,
+        initialized = false,
+        tappedPOIs = [],
+        annotations = null, // annotations layer
+        guideOffset = null,
+        gridLayerId = null,
+        locationAnnotation = null,
+        geoWatchId = 0,
+        tileRequestInProgress = false,
+        initialTrackingUpdate = true,
+        zoomLevel = params.zoomLevel;
+        
+    // if the data provider has not been created, 
+    // then create a default one
+    if (! params.provider) {
+        params.provider = new T5.Geo.MapProvider();
+    } // if
+
+    /* tracking functions */
+    
+    function trackingUpdate(position) {
+        try {
+            var currentPos = new T5.Geo.Position(
+                        position.coords.latitude, 
+                        position.coords.longitude),
+                accuracy = position.coords.accuracy / 1000;
+                
+            self.trigger('locationUpdate', position, accuracy);
+
+            // if this is the initial tracking update then 
+            // create the overlay
+            if (initialTrackingUpdate) {
+                // if the geolocation annotation has not 
+                // been created then do that now
+                if (! locationAnnotation) {
+                    locationAnnotation = 
+                        new module.LocationAnnotation({
+                            pos: currentPos,
+                            accuracy: accuracy
+                        });
+
+                    self.bind('tileDrawComplete', function() {
+                        locationAnnotation.drawAccuracyIndicator =
+                            true;
+                    });
+                } // if
+
+                // if we want to display the location annotation, t
+                // then put it onscreen
+                if (params.displayLocationAnnotation) {
+                    annotations.add(locationAnnotation);
+                } // if
+
+                // TODO: fix the magic number
+                var targetBounds = T5.Geo.B.createBoundsFromCenter(
+                        currentPos, 
+                        Math.max(accuracy, 1));
+                        
+                self.gotoBounds(targetBounds);
+            }
+            // otherwise, animate to the new position
+            else {
+                // update location annotation details
+                locationAnnotation.pos = currentPos;
+                locationAnnotation.accuracy = accuracy;
+
+                // tell the location annotation to update 
+                // it's xy coordinate
+                locationAnnotation.calcXY(self.getTileLayer());
+
+                // pan to the position
+                self.panToPosition(
+                    currentPos, 
+                    null, 
+                    T5.Easing.Sine.Out);
+            } // if..else
+
+            initialTrackingUpdate = false;
+        }
+        catch (e) {
+            GRUNT.Log.exception(e);
+        }
+    } // trackingUpdate
+    
+    function trackingError(error) {
+        GRUNT.Log.info('caught location tracking error:', error);
+    } // trackingError
+    
+    /* event handlers */
+    
+    function handlePan(x, y) {
+        if (locateMode === LOCATE_MODE.SINGLE) {
+            self.trackCancel();
+        } // if
+    } // handlePan
+    
+    function handleTap(absXY, relXY) {
+        var grid = self.getTileLayer();
+        var tapBounds = null;
+
+        if (grid) {
+            var gridPos = self.viewPixToGridPix(
+                    new T5.Vector(relXY.x, relXY.y)),
+                tapPos = grid.pixelsToPos(gridPos),
+                minPos = grid.pixelsToPos(
+                    T5.V.offset(
+                        gridPos, 
+                        -params.tapExtent, 
+                        params.tapExtent)),
+                maxPos = grid.pixelsToPos(
+                    T5.V.offset(
+                        gridPos,
+                         params.tapExtent, 
+                         -params.tapExtent));
+
+            // turn that into a bounds object
+            tapBounds = new T5.Geo.BoundingBox(minPos, maxPos);
+
+            // find the pois in the bounds area
+            tappedPOIs = self.pois.findByBounds(tapBounds);
+            // GRUNT.Log.info('TAPPED POIS = ', tappedPOIs);
+            
+            self.trigger('geotap', absXY, relXY, tapPos, tapBounds);
+
+            if (params.tapPOI) {
+                params.tapPOI(tappedPOIs);
+            } // if
+        } // if
+    } // handleTap
+    
+    function handleDoubleTap(absXY, relXY) {
+        self.animate(2, 
+            T5.D.getCenter(self.getDimensions()), 
+            new T5.Vector(relXY.x, relXY.y), 
+            params.zoomAnimation);
+    } // handleDoubleTap
+    
+    function handleScale(scaleAmount, zoomXY) {
+        var zoomChange = 0;
+
+        // damp the scale amount
+        scaleAmount = Math.sqrt(scaleAmount);
+
+        if (scaleAmount < 1) {
+            zoomChange = -(0.5 / scaleAmount);
+        }
+        else if (scaleAmount > 1) {
+            zoomChange = scaleAmount;
+        } // if..else
+
+        self.gotoPosition(
+            self.getXYPosition(zoomXY), 
+            zoomLevel + Math.floor(zoomChange));
+    } // handleScale
+    
+    function handleIdle() {
+        var changeDelta = T5.V.absSize(T5.V.diff(
+                lastBoundsChangeOffset, self.getOffset()));
+        
+        if ((changeDelta > params.boundsChangeThreshold) && params.boundsChange) {
+            lastBoundsChangeOffset = self.getOffset();
+            params.boundsChange(self.getBoundingBox());
+        } // if
+    } // handleIdle
+    
+    /* internal functions */
+    
+    // TODO: evaluate whether this function can be used for 
+    // all mapping providers or we need to route this call to the provider
+    function radsPerPixelAtZoom(tileSize, gxZoom) {
+        return 2 * Math.PI / (tileSize << gxZoom);
+    } // radsPerPixelAtZoom
+    
+    function getLayerScaling(oldZoom, newZoom) {
+        return radsPerPixelAtZoom(1, oldZoom) / 
+                    radsPerPixelAtZoom(1, newZoom);
+    } // getLayerScaling
+    
+    /* public methods */
+    
+    function gotoPosition(position, newZoomLevel, callback) {
+        
+        function updateTileGrid(tileGrid) {
+            // update the tile layer to the use the new layer
+            self.setTileLayer(tileGrid);
+
+            // update the grid layer id
+            gridLayerId = tileGrid.getId();
+
+            // pan to the correct position
+            self.panToPosition(position, function() {
+                self.unfreeze();
+
+                // trigger the zoom level change event
+                self.trigger('zoomLevelChange', zoomLevel);
+
+                if (callback) {
+                    callback();
+                } // if
+            });
+
+            // flag as initialized
+            initialized = true;
+
+            // reset the tile request flag
+            tileRequestInProgress = false;
+        } // updateTileGrid
+        
+        // save the current zoom level
+        var currentZoomLevel = zoomLevel,
+            zoomScaling = getLayerScaling(zoomLevel, newZoomLevel),
+            reset = ! initialized,
+            currentBounds = self.getBoundingBox();
+            
+        if (currentBounds) {
+            reset = reset || !T5.Geo.P.inBounds(
+                position, 
+                currentBounds);
+            /*
+            // TODO: get this right...
+            if (reset) {
+                self.clearBackground();
+            }
+            */
+        } // if                        
+
+        // if a new zoom level is specified, then use it
+        zoomLevel = newZoomLevel ? newZoomLevel : zoomLevel;
+
+        // if the zoom level is not defined, 
+        // then raise an exception
+        if (! zoomLevel) {
+            throw new Error('Zoom level required to goto' + 
+            ' a position.');
+        } // if
+
+        // check the zoom level is ok
+        if (params.provider) {
+            zoomLevel = params.provider.checkZoomLevel(zoomLevel);
+        } // if
+        
+        // if the zoom level is different from the 
+        // current zoom level, then update the map tiles
+        if (reset || (zoomLevel !== currentZoomLevel)) {
+            // if there is already a tile request in progress
+            // abort
+            if (tileRequestInProgress) {
+                GRUNT.Log.warn("Tile request in progress, aborting");
+                return;
+            } // if
+            
+            // remove the grid layer
+            T5.Resources.resetImageLoadQueue();
+            
+            // if we have a location annotation tell 
+            // it not to draw the accuracy ring
+            if (locationAnnotation) {
+                locationAnnotation.drawAccuracyIndicator = false;
+            } // if
+            
+            // get the grid and if available, then 
+            // deactivate to prevent further image draws
+            var grid = self.getTileLayer();
+            if (grid) {
+                grid.deactivate();
+            } // if
+
+            // cancel any animations
+            T5.Animation.cancel();
+
+            // if the map is initialise, then pan to 
+            // the specified position
+            if (initialized) {
+                self.freeze();
+            } // if
+            
+            tileRequestInProgress = true;
+            
+            // update the provider zoom level
+            params.provider.zoomLevel = zoomLevel;
+            params.provider.getMapTiles(
+                self, 
+                position, 
+                updateTileGrid);
+        }
+        // otherwise, just pan to the correct position
+        else {
+            self.panToPosition(position, callback);
+        } // if..else
+    } // gotoPosition
+    
+    /* public object definition */
+    
+    // provide the tiler (and view) an adjust scale factor handler
+    params.adjustScaleFactor = function(scaleFactor) {
+        var roundFn = scaleFactor < 1 ? Math.floor : Math.ceil;
+        return Math.pow(2, roundFn(Math.log(scaleFactor)));
+    };
+    
+    // initialise self
+    var self = GRUNT.extend({}, new T5.Tiling.Tiler(params), {
+        pois: params.pois,
+        annotations: null,
+        
+        getProvider: function() {
+            return params.provider;
+        },
+        
+        setProvider: function(value) {
+            params.provider = value;
+            initialized = false;
+        },
+        
+        getBoundingBox: function() {
+            var grid = self.getTileLayer(),
+                offset = self.getOffset(),
+                dimensions = self.getDimensions();
+
+            if (grid) {
+                return grid.getBoundingBox(
+                            offset.x, 
+                            offset.y, 
+                            dimensions.width, 
+                            dimensions.height);
+            } // if
+            
+            return null;
+        },
+
+        getCenterPosition: function() {
+            // get the position for the grid position
+            return self.getXYPosition(
+                T5.D.getCenter(self.getDimensions()));
+        },
+        
+        getXYPosition: function(xy) {
+            return self.getTileLayer().pixelsToPos(
+                self.viewPixToGridPix(xy));
+        },
+        
+        gotoBounds: function(bounds, callback) {
+            // calculate the zoom level required for the 
+            // specified bounds
+            var zoomLevel = T5.Geo.B.getZoomLevel(
+                                bounds, 
+                                self.getDimensions());
+            
+            // goto the center position of the bounding box 
+            // with the calculated zoom level
+            self.gotoPosition(
+                T5.Geo.B.getCenter(bounds), 
+                zoomLevel, 
+                callback);
+        },
+        
+        gotoPosition: gotoPosition,
+
+        panToPosition: function(position, callback, easingFn) {
+            var grid = self.getTileLayer();
+            if (grid) {
+                // determine the tile offset for the 
+                // requested position
+                var centerXY = grid.getGridXYForPosition(position),
+                    dimensions = self.getDimensions();
+
+                // determine the actual pan amount, by 
+                // calculating the center of the viewport
+                centerXY.x -= (dimensions.width / 2);
+                centerXY.y -= (dimensions.height / 2);
+                
+                // if we have a guide layer snap to that
+                if (guideOffset) {
+                    guideOffset = null;
+                } // if
+
+                self.updateOffset(centerXY.x, centerXY.y, easingFn);
+                self.trigger("wake");
+
+                // trigger a bounds change event
+                if (params.boundsChange) {
+                    params.boundsChange(self.getBoundingBox());
+                } // if
+
+                // if we have a callback defined, then run it
+                if (callback) {
+                    callback(self);
+                } // if
+            } // if
+        },
+        
+        locate: function() {
+            // run a track start, but only allow 
+            // it to run for a maximum of 30s 
+            self.trackStart(LOCATE_MODE.SINGLE);
+            
+            // stop checking for location after 10 seconds
+            setTimeout(self.trackCancel, 10000);
+        },
+        
+        trackStart: function(mode) {
+            if (navigator.geolocation) {
+                locateMode = mode ? mode : LOCATE_MODE.WATCH;
+                
+                initialTrackingUpdate = true;
+                geoWatchId = navigator.geolocation.watchPosition(
+                    trackingUpdate, 
+                    trackingError, {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 5000
+                    });
+            } // if
+        },
+        
+        trackCancel: function() {
+            if (geoWatchId && navigator.geolocation) {
+                navigator.geolocation.clearWatch(geoWatchId);
+            } // if
+            
+            if (locateMode === LOCATE_MODE.WATCH) {
+                // TODO: fix this to only remove 
+                // the location annotation
+                annotations.clear();
+            } // if
+            
+            // reset the locate mode
+            locateMode = LOCATE_MODE.NONE;
+            
+            // reset the watch
+            geoWatchId = 0;
+        },
+        
+        getZoomLevel: function() {
+            return zoomLevel;
+        },
+
+        setZoomLevel: function(value) {
+            // if the current position is set, 
+            // then goto the updated position
+            try {
+                self.gotoPosition(self.getCenterPosition(), value);
+            }
+            catch (e) {
+                GRUNT.Log.exception(e);
+            }
+        },
+
+        zoomIn: function() {
+            // determine the required scaling
+            var scalingNeeded = radsPerPixelAtZoom(1, zoomLevel) / 
+                    radsPerPixelAtZoom(1, zoomLevel + 1);
+            
+            if (! self.scale(2, T5.Easing.Sine.Out)) {
+                self.setZoomLevel(zoomLevel + 1);
+            } // if
+        },
+
+        zoomOut: function() {
+            var scalingNeeded = radsPerPixelAtZoom(1, zoomLevel) / 
+                    radsPerPixelAtZoom(1, zoomLevel - 1);
+            
+            if (! self.scale(0.5, T5.Easing.Sine.Out)) {
+                self.setZoomLevel(zoomLevel - 1);
+            } // if
+        },
+
+        /* route methods */
+        
+        animateRoute: function(easing, duration, callback, center) {
+            // get the routing layer
+            var routeLayer = self.getLayer('route');
+            if (routeLayer) {
+                // create the animation layer from the route
+                var animationLayer = routeLayer.getAnimation(
+                                        easing, 
+                                        duration, 
+                                        callback, 
+                                        center);
+                
+                // add the animation layer
+                if (animationLayer) {
+                    animationLayer.addToView(self);
+                }
+            } // if
+        }
+    });
+    
+    // bind some event handlers
+    self.bind('pan', handlePan);
+    self.bind('tap', handleTap);
+    self.bind('doubleTap', handleDoubleTap);
+    self.bind('scale', handleScale);
+
+    // create an annotations layer
+    annotations = new T5.Geo.UI.AnnotationsOverlay({
+        pois: self.pois,
+        map: self,
+        createAnnotationForPOI: params.createAnnotationForPOI
+    });
+
+    // add the annotations layer
+    self.annotations = annotations;
+    self.setLayer('annotations', annotations);
+    
+    // if we are drawing the cross hair, then add a cross hair overlay
+    if (params.crosshair) {
+        self.setLayer('crosshair', new CrosshairOverlay());
+    } // if
+
+    // listen for the view idling
+    self.bind("idle", handleIdle);
+
+    return self;
+}; // T5.Map

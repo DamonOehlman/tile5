@@ -1,4 +1,4 @@
-TILE5.Dispatcher = (function() {
+T5.Dispatcher = (function() {
     // initialise variables
     var registeredActions = [];
     
@@ -122,7 +122,7 @@ TILE5.Dispatcher = (function() {
                 run: function(args, callback) {
                     if (params.execute) {
                         // update the last run ticks
-                        lastRunTicks = TILE5.Clock.getTime(true);
+                        lastRunTicks = T5.time();
                         
                         // save the run instance ticks to a local variable so we can check it in the callback
                         var runInstanceTicks = lastRunTicks,

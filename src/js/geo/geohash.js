@@ -3,7 +3,7 @@ Geohash module c/o and copyright David Troy 2008 (http://davetroy.com/)
 Original codebase available on github @ http://github.com/davetroy/geohash-js/
 */
 
-TILE5.Geo.GeoHash = (function() {
+T5.Geo.GeoHash = (function() {
     /* Start Dave's original code */
     
     // geohash.js

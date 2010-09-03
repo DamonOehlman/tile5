@@ -1,8 +1,8 @@
 // define the DECARTA library
-TILE5.Geo.Decarta = (function() {
+T5.Geo.Decarta = (function() {
     // initialise the default configuration parameters
     var currentConfig = {
-        sessionID: new Date().getTime(),
+        sessionID: T5.time(),
         server: "",
         clientName: "",
         clientPassword: "",
@@ -194,11 +194,11 @@ TILE5.Geo.Decarta = (function() {
                 
                 calcMatchPercentage: function(input) {
                     var fnresult = 0,
-                        test1 = TILE5.Geo.A.normalize(input), 
-                        test2 = TILE5.Geo.A.normalize(street);
+                        test1 = T5.Geo.A.normalize(input), 
+                        test2 = T5.Geo.A.normalize(street);
                         
                     if (params.json.Building) {
-                        if (TILE5.Geo.A.buildingMatch(input, params.json.Building.number.toString())) {
+                        if (T5.Geo.A.buildingMatch(input, params.json.Building.number.toString())) {
                             fnresult += 0.2;
                         } // if
                     } // if
@@ -222,8 +222,8 @@ TILE5.Geo.Decarta = (function() {
         
         CenterContext: function(jsonData) {
             return {
-                centerPos: TILE5.Geo.P.parse(jsonData.CenterPoint ? jsonData.CenterPoint.pos.content : ""),
-                radius: new TILE5.Geo.Radius(jsonData.Radius ? jsonData.Radius.content : 0, jsonData.Radius ? jsonData.Radius.unit : null)
+                centerPos: T5.Geo.P.parse(jsonData.CenterPoint ? jsonData.CenterPoint.pos.content : ""),
+                radius: new T5.Geo.Radius(jsonData.Radius ? jsonData.Radius.content : 0, jsonData.Radius ? jsonData.Radius.unit : null)
             }; // self
         } // CenterContext
     }; // types
@@ -321,7 +321,7 @@ TILE5.Geo.Decarta = (function() {
             pos: position
         };
         
-        return new TILE5.Geo.Address(addressParams);
+        return new T5.Geo.Address(addressParams);
     } // parseAddress
 
     var requestTypes = {
@@ -331,7 +331,7 @@ TILE5.Geo.Decarta = (function() {
                 methodName: "",
                 maxResponses: 25,
                 version: "1.0",
-                requestID: new Date().getTime(),
+                requestID: T5.time(),
 
                 getRequestBody: function() {
                     return "";
@@ -435,7 +435,7 @@ TILE5.Geo.Decarta = (function() {
                         "</xls:PortrayMapRequest>",
 
                         // set the variables in the order they were used
-                        TILE5.Tiling.Config.TILESIZE,
+                        T5.Tiling.Config.TILESIZE,
                         currentConfig.tileFormat,
                         currentConfig.fixedGrid,
                         currentConfig.useCache,
@@ -472,7 +472,7 @@ TILE5.Geo.Decarta = (function() {
                         // parse out the tile url details
                         var urlData = parseImageUrl(grid.Tile.Map.Content.URL);
                         var tileSize = grid.Tile.Map.Content.height;
-                        var panOffset = new TILE5.Vector();
+                        var panOffset = new T5.Vector();
 
                         // GRUNT.Log.info(String.format("parsed image url: {0}, N = {1}, E = {2}", urlData.mask, urlData.N, urlData.E));
                         
@@ -517,7 +517,7 @@ TILE5.Geo.Decarta = (function() {
                 if (match && validMatch(match)) {
                     // if the point is defined, then convert that to a position
                     if (match && match.Point) {
-                        matchPos = TILE5.Geo.P.parse(match.Point.pos);
+                        matchPos = T5.Geo.P.parse(match.Point.pos);
                     } // if
 
                     // if we have the address then convert that to an address
@@ -536,7 +536,7 @@ TILE5.Geo.Decarta = (function() {
                 var matchList = [];
                 
                 // NOTE: this code has been implemented to compensate for strangeness in deCarta JSON land...
-                // see https://github.com/sidelab/TILE5-closed/wikis/geocoder-json-response for more information
+                // see https://github.com/sidelab/T5-closed/wikis/geocoder-json-response for more information
                 if (responseCount > 1) {
                     matchList = responseList.GeocodedAddress;
                 }
@@ -616,7 +616,7 @@ TILE5.Geo.Decarta = (function() {
                         "<xls:ReverseGeocodeRequest>" + 
                             "<xls:Position>" + 
                                 "<gml:Point>" + 
-                                    "<gml:pos>" + TILE5.Geo.P.toString(params.position) + "</gml:pos>" + 
+                                    "<gml:pos>" + T5.Geo.P.toString(params.position) + "</gml:pos>" + 
                                 "</gml:Point>" + 
                             "</xls:Position>" + 
                             "<xls:ReverseGeocodePreference>" + params.geocodePreference + "</xls:ReverseGeocodePreference>" + 
@@ -628,7 +628,7 @@ TILE5.Geo.Decarta = (function() {
                     
                     // if the point is defined, then convert that to a position
                     if (response && response.Point) {
-                        matchPos = TILE5.Geo.P.parse(match.Point.pos);
+                        matchPos = T5.Geo.P.parse(match.Point.pos);
                     } // if
 
                     // if we have the address then convert that to an address
@@ -664,8 +664,8 @@ TILE5.Geo.Decarta = (function() {
 
                 // GRUNT.Log.info("parsing " + instructions.length + " instructions");
                 for (var ii = 0; ii < instructions.length; ii++) {
-                    fnresult.push(new TILE5.Geo.Routing.Instruction({
-                        position: TILE5.Geo.P.parse(instructions[ii].Point),
+                    fnresult.push(new T5.Geo.Routing.Instruction({
+                        position: T5.Geo.P.parse(instructions[ii].Point),
                         description: instructions[ii].Instruction
                     }));
                 } // for
@@ -704,7 +704,7 @@ TILE5.Geo.Decarta = (function() {
                         // as to why this is required, who knows....
                         var tagName = (ii === 0 ? "StartPoint" : (ii === params.waypoints.length-1 ? "EndPoint" : "ViaPoint"));
                         
-                        body += String.format("<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>", tagName, TILE5.Geo.P.toString(params.waypoints[ii]));
+                        body += String.format("<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>", tagName, T5.Geo.P.toString(params.waypoints[ii]));
                     }
                     
                     // close the waypoint list
@@ -734,8 +734,8 @@ TILE5.Geo.Decarta = (function() {
                     // GRUNT.Log.info("received route request response:", response);
                     
                     // create a new route data object and map items 
-                    return new TILE5.Geo.Routing.RouteData({
-                        geometry: TILE5.Geo.P.parseArray(response.RouteGeometry.LineString.pos),
+                    return new T5.Geo.Routing.RouteData({
+                        geometry: T5.Geo.P.parseArray(response.RouteGeometry.LineString.pos),
                         instructions: parseInstructions(response.RouteInstructionsList)
                     });
                 }
@@ -874,32 +874,32 @@ TILE5.Geo.Decarta = (function() {
             }, params);
             
             // initialise parent
-            var parent = new TILE5.Geo.MapProvider();
+            var parent = new T5.Geo.MapProvider();
             
             function buildTileGrid(requestedPosition, responseData, containerDimensions) {
                 // initialise the first tile origin
                 var halfWidth = Math.round(responseData.tileSize / 2),
-                    centerXY = TILE5.D.getCenter(containerDimensions),
+                    centerXY = T5.D.getCenter(containerDimensions),
                     pos_first = {
                         x: centerXY.x - halfWidth,
                         y: centerXY.y - halfWidth
                     }; 
 
                 // create the tile grid
-                var tileGrid = new TILE5.Tiling.ImageTileGrid({
+                var tileGrid = new T5.Tiling.ImageTileGrid({
                     tileSize: responseData.tileSize,
                     width: containerDimensions.width,
                     height: containerDimensions.height,
                     drawGrid: params.drawGrid,
                     shiftOrigin: function(topLeftOffset, shiftDelta) {
-                        return new TILE5.Vector(topLeftOffset.x + shiftDelta.x, topLeftOffset.y - shiftDelta.y);
+                        return new T5.Vector(topLeftOffset.x + shiftDelta.x, topLeftOffset.y - shiftDelta.y);
                     },
-                    center: new TILE5.Vector(responseData.centerTile.E, responseData.centerTile.N)
+                    center: new T5.Vector(responseData.centerTile.E, responseData.centerTile.N)
                 });
                 
                 // set the tile grid origin
                 tileGrid.populate(function(col, row, topLeftOffset, gridSize) {
-                    return TILE5.Tiling.ImageTile({ 
+                    return T5.Tiling.ImageTile({ 
                         url: responseData.imageUrl.replace("${N}", topLeftOffset.y + (gridSize - row)).replace("${E}", topLeftOffset.x + col),
                         sessionParamRegex: /(SESSIONID)/i,
                         size: responseData.tileSize
@@ -910,13 +910,13 @@ TILE5.Geo.Decarta = (function() {
                 var virtualXY = tileGrid.getTileVirtualXY(responseData.centerTile.E, responseData.centerTile.N, true);
                 
                 // apply the pan offset and half tiles
-                virtualXY = TILE5.V.offset(virtualXY, responseData.panOffset.x, responseData.panOffset.y);
+                virtualXY = T5.V.offset(virtualXY, responseData.panOffset.x, responseData.panOffset.y);
                 
-                return new TILE5.Geo.UI.GeoTileGrid({
+                return new T5.Geo.UI.GeoTileGrid({
                     grid: tileGrid, 
                     centerXY:  virtualXY,
                     centerPos: requestedPosition,
-                    offsetAdjustment: new TILE5.Vector(),
+                    offsetAdjustment: new T5.Vector(),
                     radsPerPixel: module.Utilities.radsPerPixelAtZoom(responseData.tileSize, self.zoomLevel)
                 });
             } // buildTileGrid
@@ -944,7 +944,7 @@ TILE5.Geo.Decarta = (function() {
         } // MapProvider
     };
     
-    new TILE5.Geo.Engine({
+    new T5.Geo.Engine({
         id: "decarta",
         route: module.calculateRoute,
         geocode: module.geocode,

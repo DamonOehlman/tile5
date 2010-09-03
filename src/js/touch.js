@@ -1,7 +1,6 @@
-TILE5.Touch = (function() {
+T5.Touch = (function() {
     // initialise constants
-    var PANREFRESH = 5,
-        WHEEL_DELTA_STEP = 120,
+    var WHEEL_DELTA_STEP = 120,
         DEFAULT_INERTIA_MAX = 500,
         INERTIA_TIMEOUT_MOUSE = 100,
         INERTIA_TIMEOUT_TOUCH = 250;
@@ -18,13 +17,13 @@ TILE5.Touch = (function() {
         listenerCount = 0;
     
     function calcDistance(touches) {
-        return TILE5.V.distance(touches);
+        return T5.V.distance(touches);
     } // calcDistance
     
     function calcChange(first, second) {
         var srcVector = (first && (first.length > 0)) ? first[0] : null;
         if (srcVector && second && (second.length > 0)) {
-            return TILE5.V.diff(srcVector, second[0]);
+            return T5.V.diff(srcVector, second[0]);
         } // if
         
         return null;
@@ -38,14 +37,14 @@ TILE5.Touch = (function() {
     function getTouchPoints(touches) {
         var fnresult = new Array(touches.length);
         for (var ii = touches.length; ii--; ) {
-            fnresult[ii] = new TILE5.Vector(touches[ii].pageX, touches[ii].pageY);
+            fnresult[ii] = new T5.Vector(touches[ii].pageX, touches[ii].pageY);
         } // for
         
         return fnresult;
     } // getTouchPoints
     
     function getMousePos(evt) {
-        return [new TILE5.Vector(evt.pageX, evt.pageY)];
+        return [new T5.Vector(evt.pageX, evt.pageY)];
     } // getMousePos
     
     function debugTouchEvent(evt, title) {
@@ -84,12 +83,12 @@ TILE5.Touch = (function() {
             // initialise private members
             var doubleTap = false,
                 tapTimer = 0,
-                supportsTouch = TILE5.Device.getConfig().supportsTouch,
+                supportsTouch = T5.Device.getConfig().supportsTouch,
                 touchesStart = null,
                 touchesLast = null,
                 touchDelta = null,
                 totalDelta = null,
-                panDelta = new TILE5.Vector(),
+                panDelta = new T5.Vector(),
                 touchMode = null,
                 touchDown = false,
                 touchStartTick = 0,
@@ -100,7 +99,7 @@ TILE5.Touch = (function() {
                     current: 0,
                     last: 0
                 },
-                config = TILE5.Device.getConfig(),
+                config = T5.Device.getConfig(),
                 BENCHMARK_INTERVAL = 300;
                 
             function calculateInertia(upXY, currentXY, distance, tickDiff) {
@@ -110,7 +109,7 @@ TILE5.Touch = (function() {
                     distanceVector;
                     
                 theta = currentXY.x > upXY.x ? theta : Math.PI - theta;
-                distanceVector = new TILE5.Vector(Math.cos(theta) * -extraDistance, Math.sin(theta) * extraDistance);
+                distanceVector = new T5.Vector(Math.cos(theta) * -extraDistance, Math.sin(theta) * extraDistance);
                     
                 triggerEvent("inertiaPan", distanceVector.x, distanceVector.y);
             } // calculateInertia
@@ -122,8 +121,8 @@ TILE5.Touch = (function() {
                     lastXY = upXY;
                     
                     var checkInertiaInterval = setInterval(function() {
-                        tickDiff = (new Date().getTime()) - currentTick;
-                        distance = TILE5.V.distance([upXY, lastXY]);
+                        tickDiff = (T5.time()) - currentTick;
+                        distance = T5.V.distance([upXY, lastXY]);
 
                         // calculate the inertia
                         if ((tickDiff < INERTIA_TIMEOUT_MOUSE) && (distance > params.inertiaTrigger)) {
@@ -139,7 +138,7 @@ TILE5.Touch = (function() {
                     tickDiff = currentTick - touchStartTick;
                     
                     if ((tickDiff < INERTIA_TIMEOUT_TOUCH)) {
-                        distance = TILE5.V.distance([touchesStart[0], upXY]);
+                        distance = T5.V.distance([touchesStart[0], upXY]);
                         
                         if (distance > params.inertiaTrigger) {
                             calculateInertia(touchesStart[0], upXY, distance, tickDiff);
@@ -155,7 +154,7 @@ TILE5.Touch = (function() {
                 
                 // apply the offset
                 for (var ii = touches.length; ii--; ) {
-                    fnresult.push(TILE5.V.offset(touches[ii], offsetX, offsetY));
+                    fnresult.push(T5.V.offset(touches[ii], offsetX, offsetY));
                 } // for
                 
                 return fnresult;
@@ -172,7 +171,7 @@ TILE5.Touch = (function() {
                 
                 // if an element is defined, then determine the element offset
                 if (params.element) {
-                    offsetVector = TILE5.V.offset(absVector, -params.element.offsetLeft, -params.element.offsetTop);
+                    offsetVector = T5.V.offset(absVector, -params.element.offsetLeft, -params.element.offsetTop);
                 } // if
                 
                 // fire the event
@@ -182,11 +181,11 @@ TILE5.Touch = (function() {
             function touchStart(evt) {
                 if (evt.target && (evt.target === params.element)) {
                     touchesStart = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt);
-                    touchDelta = new TILE5.Vector();
-                    totalDelta = new TILE5.Vector();
+                    touchDelta = new T5.Vector();
+                    totalDelta = new T5.Vector();
                     touchDown = true;
                     doubleTap = false;
-                    touchStartTick = TILE5.Clock.getTime();
+                    touchStartTick = T5.time();
 
                     // cancel event propogation
                     if (supportsTouch) {
@@ -213,7 +212,7 @@ TILE5.Touch = (function() {
                     // check to see whether this is a double tap (if we are watching for them)
                     if (ticks.current - ticks.last < self.THRESHOLD_DOUBLETAP) {
                         // calculate the difference between this and the last touch point
-                        var touchChange = touchesLast ? TILE5.V.diff(touchesStart[0], touchesLast[0]) : null;
+                        var touchChange = touchesLast ? T5.V.diff(touchesStart[0], touchesLast[0]) : null;
                         if (touchChange && (Math.abs(touchChange.x) < params.maxDistDoubleTap) && (Math.abs(touchChange.y) < params.maxDistDoubleTap)) {
                             doubleTap = true;
                         } // if
@@ -282,9 +281,9 @@ TILE5.Touch = (function() {
                                 } // if
 
                                 // if the pan_delta is sufficient to fire an event, then do so
-                                if (TILE5.V.absSize(panDelta) > params.panEventThreshhold) {
+                                if (T5.V.absSize(panDelta) > params.panEventThreshhold) {
                                     triggerEvent("pan", panDelta.x, panDelta.y);
-                                    panDelta = TILE5.V.create();
+                                    panDelta = T5.V.create();
                                 } // if
 
                                 // set the touch mode to move
@@ -319,7 +318,7 @@ TILE5.Touch = (function() {
                         } // if
 
                         // get the end tick
-                        var endTick = TILE5.Clock.getTime();
+                        var endTick = T5.time();
 
                         // save the current ticks to the last ticks
                         ticks.last = ticks.current;
@@ -362,10 +361,10 @@ TILE5.Touch = (function() {
                 // process ff DOMMouseScroll event
                 if (evt.detail) {
                     var delta = -evt.detail * WHEEL_DELTA_STEP;
-                    return new TILE5.Vector(evt.axis === 1 ? delta : 0, evt.axis === 2 ? delta : 0);
+                    return new T5.Vector(evt.axis === 1 ? delta : 0, evt.axis === 2 ? delta : 0);
                 }
                 else {
-                    return new TILE5.Vector(evt.wheelDeltaX, evt.wheelDeltaY);
+                    return new T5.Vector(evt.wheelDeltaX, evt.wheelDeltaY);
                 } // if..else
             } // getWheelDelta
             
@@ -376,7 +375,7 @@ TILE5.Touch = (function() {
 
                     if (lastXY && (zoomAmount !== 0)) {
                         // apply the offset to the xy
-                        var xy = TILE5.V.offset(lastXY, -params.element.offsetLeft, -params.element.offsetTop);
+                        var xy = T5.V.offset(lastXY, -params.element.offsetLeft, -params.element.offsetTop);
                         triggerEvent("wheelZoom", xy, Math.pow(2, delta.y > 0 ? zoomAmount : -zoomAmount));
                     } // if
                     
@@ -504,7 +503,7 @@ if (typeof(jQuery) !== 'undefined') {
     jQuery.fn.canTouchThis = function(params) {
         // bind the touch events
         return this.each(function() {
-            TILE5.Touch.captureTouch(this, params);
+            T5.Touch.captureTouch(this, params);
         });
     }; // canTouchThis
 

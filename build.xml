@@ -69,10 +69,18 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/resources.js" />
 			<fileset file="src/js/touch.js" />
 			<fileset file="src/js/dispatcher.js" />
-			<fileset file="src/js/animation.js" />
+			
+			<!-- include the animation functionality -->
+			<fileset file="src/js/animation/easing.js" />
+			<fileset file="src/js/animation/tween.js" />
+			
+			<!-- include the graphics functionality -->
+			<fileset file="src/js/graphics/viewstate.js" />
+			<fileset file="src/js/graphics/viewlayer.js" />
+			<fileset file="src/js/graphics/view.js" />
+			<fileset file="src/js/graphics/animatedpathlayer.js" />
 			
 			<!-- include graphics and tiling -->
-			<fileset file="src/js/graphics.js" />
 			<fileset file="src/js/tiling.js" />
 
 			<fileset file="src/js/geo/core.js" />
@@ -81,6 +89,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/geo/routing.js" />
 			<fileset file="src/js/geo/localization/turntype-rules.en.js" />
 			<fileset file="src/js/geo/ui.js" />
+			<fileset file="src/js/geo/map.js" />
 		</concat>
 		
 		<!-- TODO: if the strip logging property is set, then strip it -->

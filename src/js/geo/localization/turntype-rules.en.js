@@ -1,6 +1,6 @@
 // EN-* manuever text matching rules 
-TILE5.Geo.Routing.TurnTypeRules = (function() {
-    var m = TILE5.Geo.Routing.TurnType,
+T5.Geo.Routing.TurnTypeRules = (function() {
+    var m = T5.Geo.Routing.TurnType,
         rules = [];
         
     rules.push({

@@ -1,8 +1,8 @@
-TILE5 = (function () {
+T5 = (function() {
     var module = {
         newCanvas: function(width, height) {
             var tmpCanvas = document.createElement('canvas');
-            
+
             // initialise the canvas element if using explorercanvas
             if (typeof(G_vmlCanvasManager) !== "undefined") {
                 G_vmlCanvasManager.initElement(tmpCanvas);
@@ -15,19 +15,21 @@ TILE5 = (function () {
             return tmpCanvas;
         },
         
+        time: function() {
+            return new Date().getTime();
+        },
+        
         Settings: (function() {
             var currentSettings = {};
             
             // define self
             var self = {
-                /** @lends TILE5.Settings */
-                
                 /** 
                 @static
                 Get a setting with the specified name
                 
                 @param {String} name the name of the setting to retrieve
-                @returns the value of the setting if definied, undefined otherwise
+                @returns the value of the setting if defined
                 */
                 get: function(name) {
                     return currentSettings[name];
@@ -47,17 +49,6 @@ TILE5 = (function () {
             return self;
         })(),
         
-        Clock: (function() {
-            var ticks = null;
-            
-            return {
-                // TODO: reduce the number of calls to new date get time
-                getTime: function(cached) {
-                    return (cached && ticks) ? ticks : ticks = new Date().getTime();
-                }
-            };
-        })(),
-        
         /**
         Initialise a new Vector instance
         
@@ -65,7 +56,7 @@ TILE5 = (function () {
         @param {Number} init_y the Initial y value for the Vector
 
         @class 
-        @name TILE5.Vector
+        @name T5.Vector
         */
         Vector: function(initX, initY) {
             return {
@@ -78,7 +69,8 @@ TILE5 = (function () {
 
             function edges(vectors) {
                 if ((! vectors) || (vectors.length <= 1)) {
-                    throw new Error("Cannot determine edge distances for a vector array of only one vector");
+                    throw new Error("Cannot determine edge " +
+                        "distances for a vector array of only one vector");
                 } // if
                 
                 var fnresult = {
@@ -87,15 +79,18 @@ TILE5 = (function () {
                     total: 0
                 };
                 
-                var diffFn = TILE5.V.diff;
+                var diffFn = T5.V.diff;
                 
                 // iterate through the vectors and calculate the edges
                 // OPTMIZE: look for speed up opportunities
-                for (var ii = 0; ii < vectors.length-1; ii++) {
+                for (var ii = 0; ii < vectors.length - 1; ii++) {
                     var diff = diffFn(vectors[ii], vectors[ii + 1]);
                     
-                    fnresult.edges[ii] = Math.sqrt((diff.x * diff.x) + (diff.y * diff.y));
-                    fnresult.accrued[ii] = fnresult.total + fnresult.edges[ii];
+                    fnresult.edges[ii] = 
+                        Math.sqrt((diff.x * diff.x) + (diff.y * diff.y));
+                    fnresult.accrued[ii] = 
+                        fnresult.total + fnresult.edges[ii];
+                        
                     fnresult.total += fnresult.edges[ii];
                 } // for
                 
@@ -130,11 +125,13 @@ TILE5 = (function () {
                 },
                 
                 invert: function(vector) {
-                    return new TILE5.Vector(-vector.x, -vector.y);
+                    return new T5.Vector(-vector.x, -vector.y);
                 },
                 
                 offset: function(vector, offsetX, offsetY) {
-                    return new TILE5.Vector(vector.x + offsetX, vector.y + (offsetY ? offsetY : offsetX));
+                    return new T5.Vector(
+                                    vector.x + offsetX, 
+                                    vector.y + (offsetY ? offsetY : offsetX));
                 },
                 
                 edges: edges,
@@ -148,25 +145,37 @@ TILE5 = (function () {
                 },
                 
                 pointOnEdge: function(v1, v2, theta, delta) {
-                    var xyDelta = new TILE5.Vector(Math.cos(theta) * delta, Math.sin(theta) * delta);
+                    var xyDelta = new T5.Vector(
+                                        Math.cos(theta) * delta, 
+                                        Math.sin(theta) * delta);
                     
-                    return new TILE5.Vector(v1.x - xyDelta.x, v1.y - xyDelta.y);
+                    return new T5.Vector(
+                                        v1.x - xyDelta.x, 
+                                        v1.y - xyDelta.y);
                 },
                 
                 getRect: function(vectorArray) {
                     var arrayLen = vectorArray.length;
                     if (arrayLen > 1) {
-                        return new TILE5.Rect(
-                            Math.min(vectorArray[0].x, vectorArray[arrayLen - 1].x),
-                            Math.min(vectorArray[0].y, vectorArray[arrayLen - 1].y),
-                            Math.abs(vectorArray[0].x - vectorArray[arrayLen - 1].x),
-                            Math.abs(vectorArray[0].y - vectorArray[arrayLen - 1].y)
+                        return new T5.Rect(
+                            Math.min(
+                                vectorArray[0].x, 
+                                vectorArray[arrayLen - 1].x
+                            ),
+                            Math.min(
+                                vectorArray[0].y, 
+                                vectorArray[arrayLen - 1].y
+                            ),
+                            Math.abs(vectorArray[0].x - 
+                                vectorArray[arrayLen - 1].x),
+                            Math.abs(vectorArray[0].y - 
+                                vectorArray[arrayLen - 1].y)
                         );
                     }
                 },
                 
                 toString: function(vector) {
-                    return vector.x + ", " + vector.y;
+                    return vector.x + ', ' + vector.y;
                 }
             };
         })(),
@@ -181,15 +190,19 @@ TILE5 = (function () {
         D: (function() {
             var subModule = {
                 getAspectRatio: function(dimensions) {
-                    return dimensions.height !== 0 ? dimensions.width / dimensions.height : 1;
+                    return dimensions.height !== 0 ? 
+                        dimensions.width / dimensions.height : 1;
                 },
 
                 getCenter: function(dimensions) {
-                    return new module.Vector(dimensions.width / 2, dimensions.height / 2);
+                    return new module.Vector(
+                                dimensions.width / 2, 
+                                dimensions.height / 2);
                 },
                 
                 getSize: function(dimensions) {
-                    return Math.sqrt(Math.pow(dimensions.width, 2) + Math.pow(dimensions.height, 2));
+                    return Math.sqrt(Math.pow(dimensions.width, 2) + 
+                            Math.pow(dimensions.height, 2));
                 }
             };
             
@@ -206,11 +219,19 @@ TILE5 = (function () {
         R: (function() {
             var subModule = {
                 copy: function(src) {
-                    return src ? new module.Rect(src.origin.x, src.origin.y, src.dimensions.width, src.dimensions.height) : null;
+                    return src ? 
+                        new module.Rect(
+                                src.origin.x, 
+                                src.origin.y, 
+                                src.dimensions.width, 
+                                src.dimensions.height) :
+                        null;
                 },
                 
                 getCenter: function(rect) {
-                    return new TILE5.Vector(rect.origin.x + (rect.dimensions.width / 2), rect.origin.y + (rect.dimensions.height / 2));
+                    return new T5.Vector(
+                                rect.origin.x + (rect.dimensions.width / 2), 
+                                rect.origin.y + (rect.dimensions.height / 2));
                 }
             };
             

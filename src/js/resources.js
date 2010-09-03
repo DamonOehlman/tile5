@@ -1,4 +1,4 @@
-TILE5.Resources = (function() {
+T5.Resources = (function() {
     var basePath = "",
         cachedSnippets = {},
         cachedResources = {};
@@ -51,7 +51,7 @@ TILE5.Resources = (function() {
         } // handleImageLoad
         
         function loadNextImage() {
-            var maxImageLoads = TILE5.Device.getConfig().maxImageLoads;
+            var maxImageLoads = T5.Device.getConfig().maxImageLoads;
 
             // if we have queued images and a loading slot available, then start a load operation
             while ((queuedImages.length > 0) && ((! maxImageLoads) || (loadingImages.length < maxImageLoads))) {
@@ -80,7 +80,7 @@ TILE5.Resources = (function() {
                 // reset the queued flag and attempt to load the image
                 imageData.image.onload = onLoadCallback;
                 imageData.image.src = module.getPath(imageData.url);
-                imageData.requested = new Date().getTime();
+                imageData.requested = T5.time();
             };
         } // getImageLoader
         
@@ -111,9 +111,9 @@ TILE5.Resources = (function() {
         } // cleanupImageCache
 
         function checkTimeoutsAndCache() {
-            var currentTickCount = new Date().getTime(),
+            var currentTickCount = T5.time(),
                 timedOutLoad = false, ii = 0,
-                config = TILE5.Device.getConfig();
+                config = T5.Device.getConfig();
             
             // iterate through the loading images, and check if any of them have been active too long
             while (ii < loadingImages.length) {
@@ -175,7 +175,7 @@ TILE5.Resources = (function() {
                         image: new Image(),
                         loaded: false,
                         imageLoader: getImageLoader(url),
-                        created: new Date().getTime(),
+                        created: T5.time(),
                         requested: null,
                         hitCount: 0,
                         loadCallback: callback

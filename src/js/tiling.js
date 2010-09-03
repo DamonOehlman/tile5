@@ -1,10 +1,10 @@
-TILE5.Tiling = (function() {
+T5.Tiling = (function() {
     TileStore = function(params) {
         // initialise the parameters with the defaults
         params = GRUNT.extend({
             tileSize: null,
             gridSize: 25,
-            center: new TILE5.Vector(),
+            center: new T5.Vector(),
             onPopulate: null
         }, params);
         
@@ -15,9 +15,9 @@ TILE5.Tiling = (function() {
         // initialise the storage array
         var storage = new Array(Math.pow(params.gridSize, 2)),
             gridHalfWidth = Math.ceil(params.gridSize >> 1),
-            topLeftOffset = TILE5.V.offset(params.center, -gridHalfWidth),
+            topLeftOffset = T5.V.offset(params.center, -gridHalfWidth),
             lastTileCreator = null,
-            tileShift = new TILE5.Vector(),
+            tileShift = new T5.Vector(),
             lastNotifyListener = null;
         
         function getTileIndex(col, row) {
@@ -42,11 +42,11 @@ TILE5.Tiling = (function() {
             },
             
             getNormalizedPos: function(col, row) {
-                return TILE5.V.add(new TILE5.Vector(col, row), TILE5.V.invert(topLeftOffset), tileShift);
+                return T5.V.add(new T5.Vector(col, row), T5.V.invert(topLeftOffset), tileShift);
             },
             
             getTileShift: function() {
-                return TILE5.V.copy(tileShift);
+                return T5.V.copy(tileShift);
             },
             
             getTile: function(col, row) {
@@ -70,7 +70,7 @@ TILE5.Tiling = (function() {
                     tileIndex = 0,
                     gridSize = params.gridSize,
                     tileSize = params.tileSize,
-                    centerPos = new TILE5.Vector(gridSize / 2, gridSize / 2);
+                    centerPos = new T5.Vector(gridSize / 2, gridSize / 2);
                 
                 if (tileCreator) {
                     // GRUNT.Log.info("populating grid, x shift = " + tileShift.x + ", y shift = " + tileShift.y);
@@ -110,7 +110,7 @@ TILE5.Tiling = (function() {
             getShiftDelta: function(topLeftX, topLeftY, cols, rows) {
                 // initialise variables
                 var shiftAmount = Math.floor(params.gridSize * 0.2),
-                    shiftDelta = new TILE5.Vector();
+                    shiftDelta = new T5.Vector();
                     
                 // test the x
                 if (topLeftX < 0 || topLeftX + cols > params.gridSize) {
@@ -147,7 +147,7 @@ TILE5.Tiling = (function() {
                     topLeftOffset = shiftOriginCallback(topLeftOffset, shiftDelta);
                 }
                 else {
-                    topLeftOffset = TILE5.V.add(topLeftOffset, shiftDelta);
+                    topLeftOffset = T5.V.add(topLeftOffset, shiftDelta);
                 } // if..else
 
                 // create the tile shift offset
@@ -164,7 +164,7 @@ TILE5.Tiling = (function() {
             */
             setOrigin: function(col, row) {
                 if (! tileOrigin) {
-                    topLeftOffset = TILE5.V.offset(new TILE5.Vector(col, row), -tileHalfWidth);
+                    topLeftOffset = T5.V.offset(new T5.Vector(col, row), -tileHalfWidth);
                 }
                 else {
                     shiftOrigin(col, row);
@@ -199,7 +199,7 @@ TILE5.Tiling = (function() {
     
     function getEmptyTile() {
         if (! emptyTile) {
-            emptyTile = TILE5.newCanvas(module.Config.TILESIZE, module.Config.TILESIZE);
+            emptyTile = T5.newCanvas(module.Config.TILESIZE, module.Config.TILESIZE);
             
             var tileContext = emptyTile.getContext('2d');
             
@@ -215,7 +215,7 @@ TILE5.Tiling = (function() {
         function getPattern() {
             var patternSize = 32,
                 halfSize = patternSize / 2,
-                patternCanvas = TILE5.newCanvas(patternSize, patternSize);
+                patternCanvas = T5.newCanvas(patternSize, patternSize);
             
             // get the canvas context
             var context = patternCanvas.getContext("2d");
@@ -233,7 +233,7 @@ TILE5.Tiling = (function() {
         } // getPattern
         
         if (! panningTile) {
-            panningTile = TILE5.newCanvas(module.Config.TILESIZE, module.Config.TILESIZE);
+            panningTile = T5.newCanvas(module.Config.TILESIZE, module.Config.TILESIZE);
             
             var tileContext = panningTile.getContext('2d');
 
@@ -280,9 +280,9 @@ TILE5.Tiling = (function() {
         TileGrid: function(params) {
             // extend the params with the defaults
             params = GRUNT.extend({
-                tileSize: TILE5.Tiling.Config.TILESIZE,
+                tileSize: T5.Tiling.Config.TILESIZE,
                 drawGrid: false,
-                center: new TILE5.Vector(),
+                center: new T5.Vector(),
                 shiftOrigin: null,
                 supportFastDraw: true
             }, params);
@@ -303,10 +303,10 @@ TILE5.Tiling = (function() {
                 tileDrawQueue = null,
                 loadedTileCount = 0,
                 lastTilesDrawn = false,
-                lastCheckOffset = new TILE5.Vector(),
-                shiftDelta = new TILE5.Vector(),
-                tileShift = new TILE5.Vector(),
-                repaintDistance = TILE5.Device.getConfig().repaintDistance,
+                lastCheckOffset = new T5.Vector(),
+                shiftDelta = new T5.Vector(),
+                tileShift = new T5.Vector(),
+                repaintDistance = T5.Device.getConfig().repaintDistance,
                 reloadTimeout = 0,
                 gridHeightWidth = tileStore.getGridSize() * params.tileSize,
                 tileCols, tileRows, centerPos;
@@ -315,7 +315,7 @@ TILE5.Tiling = (function() {
                 if (! centerPos) { return; }
                 
                 var tile, tmpQueue = [],
-                    tileStart = new TILE5.Vector(
+                    tileStart = new T5.Vector(
                                     Math.floor((offset.x + tileShift.x) * invTileSize), 
                                     Math.floor((offset.y + tileShift.y) * invTileSize));
 
@@ -328,7 +328,7 @@ TILE5.Tiling = (function() {
                     for (var xx = tileCols; xx--; ) {
                         // get the tile
                         tile = tileStore.getTile(xx + tileStart.x, yy + tileStart.y);
-                        var centerDiff = new TILE5.Vector(xx - centerPos.x, yy - centerPos.y);
+                        var centerDiff = new T5.Vector(xx - centerPos.x, yy - centerPos.y);
 
                         if (! tile) {
                             shiftDelta = tileStore.getShiftDelta(tileStart.x, tileStart.y, tileCols, tileRows);
@@ -337,7 +337,7 @@ TILE5.Tiling = (function() {
                         // add the tile and position to the tile draw queue
                         tmpQueue.push({
                             tile: tile,
-                            centerness: TILE5.V.absSize(centerDiff)
+                            centerness: T5.V.absSize(centerDiff)
                         });
                     } // for
                 } // for
@@ -359,8 +359,8 @@ TILE5.Tiling = (function() {
             } // updateDrawQueue
             
             // initialise self
-            var self = GRUNT.extend(new TILE5.Graphics.ViewLayer(params), {
-                gridDimensions: new TILE5.Dimensions(gridHeightWidth, gridHeightWidth),
+            var self = GRUNT.extend(new T5.ViewLayer(params), {
+                gridDimensions: new T5.Dimensions(gridHeightWidth, gridHeightWidth),
                 dirty: false,
                 
                 cycle: function(tickCount, offset, state) {
@@ -372,13 +372,13 @@ TILE5.Tiling = (function() {
                         tileShift = tileStore.getTileShift();
 
                         // reset the delta
-                        shiftDelta = new TILE5.Vector();
+                        shiftDelta = new T5.Vector();
                         
                         // things need to happen
                         changeCount++;
                     } // if
                     
-                    if (state !== TILE5.Graphics.DisplayState.PINCHZOOM) {
+                    if (state !== T5.ViewState.PINCHZOOM) {
                         updateDrawQueue(offset, state);
                     } // if
                     
@@ -401,16 +401,16 @@ TILE5.Tiling = (function() {
                     if (! active) { return; }
                     
                     // initialise variables
-                    var startTicks = new Date().getTime(),
+                    var startTicks = T5.time(),
                         xShift = offset.x,
                         yShift = offset.y,
                         tilesDrawn = true,
-                        redraw = view.needRepaint() || (state === TILE5.Graphics.DisplayState.PANNING) || (state === TILE5.Graphics.DisplayState.PINCHZOOM) || TILE5.Animation.isTweening();
+                        redraw = view.needRepaint() || (state === T5.ViewState.PANNING) || (state === T5.ViewState.PINCHZOOM) || T5.Animation.isTweening();
                         
                     if (! centerPos) {
                         tileCols = Math.ceil(dimensions.width * invTileSize) + 1;
                         tileRows = Math.ceil(dimensions.height * invTileSize) + 1;
-                        centerPos = new TILE5.Vector(Math.floor((tileCols-1) / 2), Math.floor((tileRows-1) / 2));
+                        centerPos = new T5.Vector(Math.floor((tileCols-1) / 2), Math.floor((tileRows-1) / 2));
                     } // if
                     
                     // if we don't have a draq queue return
@@ -464,7 +464,7 @@ TILE5.Tiling = (function() {
                 getTileVirtualXY: function(col, row, getCenter) {
                     // get the normalized position from the tile store
                     var pos = tileStore.getNormalizedPos(col, row),
-                        fnresult = new TILE5.Vector(pos.x * params.tileSize, pos.y * params.tileSize);
+                        fnresult = new T5.Vector(pos.x * params.tileSize, pos.y * params.tileSize);
                     
                     if (getCenter) {
                         fnresult.x += halfTileSize;
@@ -498,13 +498,13 @@ TILE5.Tiling = (function() {
             // initialise variables
             var emptyTile = getEmptyTile(),
                 panningTile = getPanningTile(),
-                stateActive = TILE5.Graphics.DisplayState.ACTIVE,
-                statePan = TILE5.Graphics.DisplayState.PAN,
-                fastDraw = TILE5.Device.getConfig().requireFastDraw;
+                stateActive = T5.ViewState.ACTIVE,
+                statePan = T5.ViewState.PAN,
+                fastDraw = T5.Device.getConfig().requireFastDraw;
                 
             var self = GRUNT.extend(new module.TileGrid(params), {
                 drawTile: function(context, tile, x, y, state) {
-                    var image = TILE5.Resources.getImage(tile.url),
+                    var image = T5.Resources.getImage(tile.url),
                         drawn = false;
                         
                     if (image && image.complete && (image.width > 0)) {
@@ -529,9 +529,9 @@ TILE5.Tiling = (function() {
                     } // if
                     
                     if (tile && ((! fastDraw) || (state === stateActive))) {
-                        var image = TILE5.Resources.getImage(tile.url);
+                        var image = T5.Resources.getImage(tile.url);
                         if (! image) {
-                            TILE5.Resources.loadImage(tile.url, handleImageLoad);
+                            T5.Resources.loadImage(tile.url, handleImageLoad);
                         } // if
                     } // if
                 }
@@ -554,7 +554,7 @@ TILE5.Tiling = (function() {
             var actualTileLoadThreshold = 0;
             
             // create the parent
-            var self = new TILE5.Graphics.View(GRUNT.extend({}, params, {
+            var self = new T5.View(GRUNT.extend({}, params, {
                 // define panning and scaling properties
                 pannable: true,
                 scalable: true,
@@ -576,7 +576,7 @@ TILE5.Tiling = (function() {
 
                 viewPixToGridPix: function(vector) {
                     var offset = self.getOffset();
-                    return new TILE5.Vector(vector.x + offset.x, vector.y + offset.y);
+                    return new T5.Vector(vector.x + offset.x, vector.y + offset.y);
                 },
                 
                 cleanup: function() {
@@ -587,8 +587,7 @@ TILE5.Tiling = (function() {
                     // flag to the tile store to reset the image positions
                     GRUNT.WaterCooler.say("tiler.repaint");
                     
-                    // tell the view to repaint itself 
-                    GRUNT.WaterCooler.say("view.wake", { id: self.id });
+                    self.trigger("wake");
                 }
             }); // self
 

@@ -1,11 +1,11 @@
 /*
-File:   TILE5.geo.js
+File:   T5.geo.js
 File is used to define geo namespace and classes for implementing GIS classes and operations
 */
 
 /* GEO Basic Type definitions */
 
-TILE5.Geo = (function() {
+T5.Geo = (function() {
     // define constants
     var LAT_VARIABILITIES = [
         1.406245461070741,
@@ -139,7 +139,7 @@ TILE5.Geo = (function() {
         
         /* addressing and geocoding support */
         
-        // TODO: probably need to include local support for addressing, but really don't want to bulk out TILE5 :/
+        // TODO: probably need to include local support for addressing, but really don't want to bulk out T5 :/
         
         Address: function(params) {
             params = GRUNT.extend({
@@ -166,7 +166,7 @@ TILE5.Geo = (function() {
         
         
         /*
-        Module:  TILE5.Geo.Utilities
+        Module:  T5.Geo.Utilities
         This module contains GIS utility functions that apply across different mapping platforms.  Credit 
         goes to the awesome team at decarta for providing information on many of the following functions through
         their forums here (http://devzone.decarta.com/web/guest/forums?p_p_id=19&p_p_action=0&p_p_state=maximized&p_p_mode=view&_19_struts_action=/message_boards/view_message&_19_messageId=43131)
@@ -259,7 +259,7 @@ TILE5.Geo = (function() {
         },
         
         GeoSearchAgent: function(params) {
-            return TILE5.Dispatcher.createAgent(params);
+            return T5.Dispatcher.createAgent(params);
         },
         
         GeocodingAgent: function(params) {
@@ -328,7 +328,7 @@ TILE5.Geo = (function() {
 
             // if the position is not defined, but we have a lat and lon, create a new position
             if ((! params.pos) && params.lat && params.lon) {
-                params.pos = new TILE5.Geo.Position(params.lat, params.lon);
+                params.pos = new T5.Geo.Position(params.lat, params.lon);
             } // if
             
             return GRUNT.extend({
@@ -456,7 +456,7 @@ TILE5.Geo = (function() {
                 */
                 findByBounds: function(searchBounds) {
                     return poiGrabber(function(testPOI) {
-                        return TILE5.Geo.P.inBounds(testPOI.pos, searchBounds);
+                        return T5.Geo.P.inBounds(testPOI.pos, searchBounds);
                     });
                 },
 
@@ -468,7 +468,7 @@ TILE5.Geo = (function() {
 
                     // iterate through the new pois and put into storage
                     for (var ii = 0; newPOIs && (ii < newPOIs.length); ii++) {
-                        newPOIs[ii].retrieved = TILE5.Clock.getTime(true);
+                        newPOIs[ii].retrieved = T5.time();
                         addPOI(newPOIs[ii]);
                     } // for
                 },
@@ -485,7 +485,7 @@ TILE5.Geo = (function() {
                     var newPOIs = [],
                         ii = 0,
                         groupName = refreshedPOIs.length > 0 ? refreshedPOIs[0].group : '',
-                        timeRetrieved = TILE5.Clock.getTime(true);
+                        timeRetrieved = T5.time();
                         
                     // iterate through the pois and determine state
                     for (ii = 0; ii < refreshedPOIs.length; ii++) {
@@ -683,13 +683,13 @@ TILE5.Geo = (function() {
                 fromMercatorPixels: function(x, y, radsPerPixel) {
                     // return the new position
                     return new module.Position(
-                        TILE5.Geo.Utilities.pix2lat(y, radsPerPixel),
-                        TILE5.Geo.Utilities.normalizeLon(TILE5.Geo.Utilities.pix2lon(x, radsPerPixel))
+                        T5.Geo.Utilities.pix2lat(y, radsPerPixel),
+                        T5.Geo.Utilities.normalizeLon(T5.Geo.Utilities.pix2lon(x, radsPerPixel))
                     );
                 },
 
                 toMercatorPixels: function(pos, radsPerPixel) {
-                    return new TILE5.Vector(TILE5.Geo.Utilities.lon2pix(pos.lon, radsPerPixel), TILE5.Geo.Utilities.lat2pix(pos.lat, radsPerPixel));
+                    return new T5.Vector(T5.Geo.Utilities.lon2pix(pos.lon, radsPerPixel), T5.Geo.Utilities.lat2pix(pos.lat, radsPerPixel));
                 },
                 
                 generalize: function(sourceData, requiredPositions, minDist) {
@@ -747,7 +747,7 @@ TILE5.Geo = (function() {
             
             var subModule = {
                 calcSize: function(min, max, normalize) {
-                    var size = new TILE5.Vector(0, max.lat - min.lat);
+                    var size = new T5.Vector(0, max.lat - min.lat);
                     if (typeof normalize === 'undefined') {
                         normalize = true;
                     } // if
@@ -810,7 +810,7 @@ TILE5.Geo = (function() {
                 
                 forPositions: function(positions, padding) {
                     var bounds = null,
-                        startTicks = TILE5.Clock.getTime();
+                        startTicks = T5.time();
 
                     // if padding is not specified, then set to auto
                     if (! padding) {
@@ -819,7 +819,7 @@ TILE5.Geo = (function() {
 
                     for (var ii = positions.length; ii--; ) {
                         if (! bounds) {
-                            bounds = new TILE5.Geo.BoundingBox(positions[ii], positions[ii]);
+                            bounds = new T5.Geo.BoundingBox(positions[ii], positions[ii]);
                         }
                         else {
                             var minDiff = subModule.calcSize(bounds.min, positions[ii], false),
@@ -853,12 +853,12 @@ TILE5.Geo = (function() {
                     var size = module.B.calcSize(bounds.min, bounds.max);
                     
                     // create a new position offset from the current min
-                    return new TILE5.Geo.Position(bounds.min.lat + (size.y / 2), bounds.min.lon + (size.x / 2));
+                    return new T5.Geo.Position(bounds.min.lat + (size.y / 2), bounds.min.lon + (size.x / 2));
                 },
                 
                 getGeoHash: function(bounds) {
-                    var minHash = TILE5.Geo.GeoHash.encode(bounds.min.lat, bounds.min.lon),
-                        maxHash = TILE5.Geo.GeoHash.encode(bounds.max.lat, bounds.max.lon);
+                    var minHash = T5.Geo.GeoHash.encode(bounds.min.lat, bounds.min.lon),
+                        maxHash = T5.Geo.GeoHash.encode(bounds.max.lat, bounds.max.lon);
                         
                     GRUNT.Log.info("min hash = " + minHash + ", max hash = " + maxHash);
                 },
