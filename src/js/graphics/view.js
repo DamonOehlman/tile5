@@ -11,6 +11,8 @@ T5.View = function(params) {
         bufferRefresh: 100,
         defaultFreezeDelay: 500,
         inertia: true,
+        pannable: true,
+        scalable: true,
         panAnimationEasing: T5.Easing.Sine.Out,
         panAnimationDuration: 750,
         pinchZoomAnimateTrigger: 400,
@@ -681,18 +683,25 @@ T5.View = function(params) {
     // handle invalidation
     self.bind("invalidate", invalidate);
     
-    self.bind("pan", pan);
-    self.bind("panEnd", panEnd);
-    self.bind("pinchZoom", pinchZoom);
-    self.bind("pinchZoomEnd", pinchZoomEnd);
-    self.bind("wheelZoom", wheelZoom);
-    
-    // handle intertia events
-    self.bind("inertiaPan", panInertia);
-    self.bind("inertiaCancel", function() {
-        panimating = false;
-        wake();
-    });
+    // if this is pannable, then attach event handlers
+    if (params.pannable) {
+        self.bind("pan", pan);
+        self.bind("panEnd", panEnd);
+
+        // handle intertia events
+        self.bind("inertiaPan", panInertia);
+        self.bind("inertiaCancel", function() {
+            panimating = false;
+            wake();
+        });
+    } // if
+
+    // if this view is scalable, attach zooming event handlers
+    if (params.scalable) {
+        self.bind("pinchZoom", pinchZoom);
+        self.bind("pinchZoomEnd", pinchZoomEnd);
+        self.bind("wheelZoom", wheelZoom);
+    }
     
     // make the view configurable
     GRUNT.configurable(

@@ -58,8 +58,7 @@ T5.Device = (function() {
                 name: "Unknown",
                 eventTarget: document,
                 supportsTouch: "createTouch" in document,
-                // TODO: remove this (it's just for testing)
-                imageCacheMaxSize: 4 * 1024,
+                imageCacheMaxSize: null, 
                 getScaling: function() {
                     return 1;
                 },

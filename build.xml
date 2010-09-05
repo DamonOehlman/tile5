@@ -80,9 +80,11 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/graphics/view.js" />
 			<fileset file="src/js/graphics/animatedpathlayer.js" />
 			
-			<!-- include graphics and tiling -->
-			<fileset file="src/js/tiling.js" />
+			<!-- include tiling -->
+			<fileset file="src/js/tiling/core.js" />
+			<fileset file="src/js/tiling/tiler.js" />
 
+			<!-- include geo and mapping -->
 			<fileset file="src/js/geo/core.js" />
 			<fileset file="src/js/geo/geohash.js" />
 			<fileset file="src/js/geo/search.js" />
@@ -137,8 +139,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/template/header.js" />
 			
 			<!-- include dependencies -->
-			<fileset file="lib/grunt/src/core.js" />
-			<fileset file="lib/grunt/src/event.js" />
+			<fileset file="lib/grunt/dist/grunt.js" />
 			
 			<!-- include core functionality -->
 			<fileset file="src/js/core.js" />
@@ -157,7 +158,8 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/graphics/animatedpathlayer.js" />
 
 			<!-- include tiling -->
-			<fileset file="src/js/tiling.js" />
+			<fileset file="src/js/tiling/core.js" />
+			<fileset file="src/js/tiling/tiler.js" />
 		</concat>
 	</target>
 	

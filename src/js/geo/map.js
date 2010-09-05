@@ -328,7 +328,7 @@ T5.Map = function(params) {
     };
     
     // initialise self
-    var self = T5.ex({}, new T5.Tiling.Tiler(params), {
+    var self = T5.ex({}, new T5.Tiler(params), {
         pois: params.pois,
         annotations: null,
         

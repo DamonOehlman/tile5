@@ -553,14 +553,10 @@ T5.Geo = (function() {
                 getLogoUrl: function() {
                 },
 
-                getMapTiles: function(tiler, position, zoom_level, callback) {
+                getMapTiles: function(tiler, position, callback) {
 
                 },
 
-                getPositionForXY: function(x, y) {
-                    return null;
-                },
-                
                 getZoomRange: function() {
                     return {
                         min: zoomMin,

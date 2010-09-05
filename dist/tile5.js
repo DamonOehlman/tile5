@@ -1973,8 +1973,7 @@ T5.Device = (function() {
                 name: "Unknown",
                 eventTarget: document,
                 supportsTouch: "createTouch" in document,
-                // TODO: remove this (it's just for testing)
-                imageCacheMaxSize: 4 * 1024,
+                imageCacheMaxSize: null, 
                 getScaling: function() {
                     return 1;
                 },
@@ -3585,6 +3584,8 @@ T5.View = function(params) {
         bufferRefresh: 100,
         defaultFreezeDelay: 500,
         inertia: true,
+        pannable: true,
+        scalable: true,
         panAnimationEasing: T5.Easing.Sine.Out,
         panAnimationDuration: 750,
         pinchZoomAnimateTrigger: 400,
@@ -4255,18 +4256,25 @@ T5.View = function(params) {
     // handle invalidation
     self.bind("invalidate", invalidate);
     
-    self.bind("pan", pan);
-    self.bind("panEnd", panEnd);
-    self.bind("pinchZoom", pinchZoom);
-    self.bind("pinchZoomEnd", pinchZoomEnd);
-    self.bind("wheelZoom", wheelZoom);
-    
-    // handle intertia events
-    self.bind("inertiaPan", panInertia);
-    self.bind("inertiaCancel", function() {
-        panimating = false;
-        wake();
-    });
+    // if this is pannable, then attach event handlers
+    if (params.pannable) {
+        self.bind("pan", pan);
+        self.bind("panEnd", panEnd);
+
+        // handle intertia events
+        self.bind("inertiaPan", panInertia);
+        self.bind("inertiaCancel", function() {
+            panimating = false;
+            wake();
+        });
+    } // if
+
+    // if this view is scalable, attach zooming event handlers
+    if (params.scalable) {
+        self.bind("pinchZoom", pinchZoom);
+        self.bind("pinchZoomEnd", pinchZoomEnd);
+        self.bind("wheelZoom", wheelZoom);
+    }
     
     // make the view configurable
     GRUNT.configurable(
@@ -4391,13 +4399,17 @@ T5.Tiling = (function() {
         // initialise the parameters with the defaults
         params = T5.ex({
             tileSize: null,
-            gridSize: 25,
+            gridSize: null,
             center: new T5.Vector(),
             onPopulate: null
         }, params);
         
         if (! params.tileSize) {
             throw new Error("Cannot create TileStore with an empty tile size");
+        } // if
+        
+        if (! params.gridSize) {
+            throw new Error("0 grid size for TileStore");
         } // if
         
         // initialise the storage array
@@ -4585,54 +4597,6 @@ T5.Tiling = (function() {
     var emptyTile = null,
         panningTile = null;
     
-    function getEmptyTile() {
-        if (! emptyTile) {
-            emptyTile = T5.newCanvas(module.Config.TILESIZE, module.Config.TILESIZE);
-            
-            var tileContext = emptyTile.getContext('2d');
-            
-            tileContext.fillStyle = "rgba(150, 150, 150, 0.01)";
-            tileContext.fillRect(0, 0, emptyTile.width, emptyTile.height);
-        } // if
-        
-        return emptyTile;
-    } // getEmptyTile
-    
-    function getPanningTile() {
-        
-        function getPattern() {
-            var patternSize = 32,
-                halfSize = patternSize / 2,
-                patternCanvas = T5.newCanvas(patternSize, patternSize);
-            
-            // get the canvas context
-            var context = patternCanvas.getContext("2d");
-            
-            // fill the canvas
-            context.fillStyle = "#BBBBBB";
-            context.fillRect(0, 0, patternSize, patternSize);
-            
-            // now draw two smaller rectangles
-            context.fillStyle = "#C3C3C3";
-            context.fillRect(0, 0, halfSize, halfSize);
-            context.fillRect(halfSize, halfSize, halfSize, halfSize);
-
-            return patternCanvas;
-        } // getPattern
-        
-        if (! panningTile) {
-            panningTile = T5.newCanvas(module.Config.TILESIZE, module.Config.TILESIZE);
-            
-            var tileContext = panningTile.getContext('2d');
-
-            // fill the panning tile with the pattern
-            tileContext.fillStyle = tileContext.createPattern(getPattern(), "repeat");
-            tileContext.fillRect(0, 0, panningTile.width, panningTile.height);
-        } // if
-        
-        return panningTile;
-    } // getLoadingTile
-    
     // define the module
     var module = {
         // define the tiler config
@@ -4643,10 +4607,59 @@ T5.Tiling = (function() {
             TILEBUFFER_LOADNEW: 0.2
         },
         
+        getEmptyTile: function(tileSize) {
+            if ((! emptyTile) || (tileSize !== emptyTile.width)) {
+                emptyTile = T5.newCanvas(tileSize, tileSize);
+
+                var tileContext = emptyTile.getContext('2d');
+
+                tileContext.fillStyle = "rgba(150, 150, 150, 0.01)";
+                tileContext.fillRect(0, 0, emptyTile.width, emptyTile.height);
+            } // if
+
+            return emptyTile;
+        },
+        
+        getPanningTile: function(tileSize) {
+
+            function getPattern() {
+                var patternSize = 32,
+                    halfSize = patternSize / 2,
+                    patternCanvas = T5.newCanvas(patternSize, patternSize);
+
+                // get the canvas context
+                var context = patternCanvas.getContext("2d");
+
+                // fill the canvas
+                context.fillStyle = "#BBBBBB";
+                context.fillRect(0, 0, patternSize, patternSize);
+
+                // now draw two smaller rectangles
+                context.fillStyle = "#C3C3C3";
+                context.fillRect(0, 0, halfSize, halfSize);
+                context.fillRect(halfSize, halfSize, halfSize, halfSize);
+
+                return patternCanvas;
+            } // getPattern
+
+            if ((! panningTile) || (tileSize !== panningTile.width)) {
+                panningTile = T5.newCanvas(tileSize, tileSize);
+
+                var tileContext = panningTile.getContext('2d');
+
+                // fill the panning tile with the pattern
+                tileContext.fillStyle = tileContext.createPattern(getPattern(), "repeat");
+                tileContext.fillRect(0, 0, panningTile.width, panningTile.height);
+            } // if
+
+            return panningTile;
+        },
+        
         Tile: function(params) {
             params = T5.ex({
                 gridX: 0,
                 gridY: 0,
+                // TODO: I think this should be removed...
                 size: 256,
                 dirty: false
             }, params);
@@ -4671,6 +4684,7 @@ T5.Tiling = (function() {
                 tileSize: T5.Tiling.Config.TILESIZE,
                 drawGrid: false,
                 center: new T5.Vector(),
+                gridSize: 25,
                 shiftOrigin: null,
                 supportFastDraw: true
             }, params);
@@ -4678,6 +4692,7 @@ T5.Tiling = (function() {
             // create the tile store
             var tileStore = new TileStore(T5.ex({
                 tileSize: params.tileSize,
+                gridSize: params.gridSize,
                 onPopulate: function() {
                     self.dirty = true;
                     self.wakeParent();
@@ -4873,7 +4888,10 @@ T5.Tiling = (function() {
         
         ImageTileGrid: function(params) {
             params = T5.ex({
-                
+                emptyTile: module.getEmptyTile(module.Config.TILESIZE),
+                panningTile: module.getPanningTile(module.Config.TILESIZE),
+                tileOffset: new T5.Vector(),
+                imageOverlay: null
             }, params);
             
             function handleImageLoad(loadedImage, fromCache) {
@@ -4884,8 +4902,10 @@ T5.Tiling = (function() {
             } // handleImageLoad
             
             // initialise variables
-            var emptyTile = getEmptyTile(),
-                panningTile = getPanningTile(),
+            var emptyTile = params.emptyTile,
+                panningTile = params.panningTile,
+                tileOffset = params.tileOffset,
+                imageOverlay = params.imageOverlay,
                 stateActive = T5.ViewState.ACTIVE,
                 statePan = T5.ViewState.PAN,
                 fastDraw = T5.Device.getConfig().requireFastDraw;
@@ -4896,15 +4916,19 @@ T5.Tiling = (function() {
                         drawn = false;
                         
                     if (image && image.complete && (image.width > 0)) {
-                        context.drawImage(image, x, y);
+                        context.drawImage(image, x + tileOffset.x, y + tileOffset.y);
                         tile.dirty = false;
+                        
+                        if (imageOverlay) {
+                            context.drawImage(imageOverlay, x, y);
+                        } // if
                         
                         drawn = true;
                     }
                     else if (state === statePan) {
-                        context.drawImage(panningTile, x, y);
+                        panningTile ? context.drawImage(panningTile, x, y) : 0;
                     }
-                    else {
+                    else if (emptyTile) {
                         context.drawImage(emptyTile, x, y);
                     } // if..else
                     
@@ -4926,58 +4950,57 @@ T5.Tiling = (function() {
             });
             
             return self;
-        },
-        
-        Tiler: function(params) {
-            params = T5.ex({
-                container: "",
-                drawCenter: false,
-                datasources: {},
-                tileLoadThreshold: "first"
-            }, params);
-            
-            // initialise layers
-            var gridIndex = 0;
-            var lastTileLayerLoaded = "";
-            var actualTileLoadThreshold = 0;
-            
-            // initialise self
-            var self = T5.ex(new T5.View(params), {
-                getTileLayer: function() {
-                    return self.getLayer("grid" + gridIndex);
-                },
-
-                setTileLayer: function(value) {
-                    self.setLayer("grid" + gridIndex, value);
-                    
-                    // update the tile load threshold
-                    GRUNT.WaterCooler.say("grid.updated", { id: "grid" + gridIndex });
-                },
-
-                viewPixToGridPix: function(vector) {
-                    var offset = self.getOffset();
-                    return new T5.Vector(vector.x + offset.x, vector.y + offset.y);
-                },
-                
-                cleanup: function() {
-                    self.removeLayer("grid" + gridIndex);
-                },
-                
-                repaint: function() {
-                    // flag to the tile store to reset the image positions
-                    GRUNT.WaterCooler.say("tiler.repaint");
-                    
-                    self.trigger("wake");
-                }
-            }); // self
-
-            return self;
-        } // Tiler
+        }
     };
     
     return module;
     
-})();/*
+})();T5.Tiler = function(params) {
+    params = T5.ex({
+        container: "",
+        drawCenter: false,
+        datasources: {},
+        tileLoadThreshold: "first"
+    }, params);
+    
+    // initialise layers
+    var gridIndex = 0;
+    var lastTileLayerLoaded = "";
+    var actualTileLoadThreshold = 0;
+    
+    // initialise self
+    var self = T5.ex(new T5.View(params), {
+        getTileLayer: function() {
+            return self.getLayer("grid" + gridIndex);
+        },
+
+        setTileLayer: function(value) {
+            self.setLayer("grid" + gridIndex, value);
+            
+            // update the tile load threshold
+            GRUNT.WaterCooler.say("grid.updated", { id: "grid" + gridIndex });
+        },
+
+        viewPixToGridPix: function(vector) {
+            var offset = self.getOffset();
+            return new T5.Vector(vector.x + offset.x, vector.y + offset.y);
+        },
+        
+        cleanup: function() {
+            self.removeLayer("grid" + gridIndex);
+        },
+        
+        repaint: function() {
+            // flag to the tile store to reset the image positions
+            GRUNT.WaterCooler.say("tiler.repaint");
+            
+            self.trigger("wake");
+        }
+    }); // self
+
+    return self;
+}; // Tiler
+/*
 File:   T5.geo.js
 File is used to define geo namespace and classes for implementing GIS classes and operations
 */
@@ -5532,14 +5555,10 @@ T5.Geo = (function() {
                 getLogoUrl: function() {
                 },
 
-                getMapTiles: function(tiler, position, zoom_level, callback) {
+                getMapTiles: function(tiler, position, callback) {
 
                 },
 
-                getPositionForXY: function(x, y) {
-                    return null;
-                },
-                
                 getZoomRange: function() {
                     return {
                         min: zoomMin,
@@ -7485,7 +7504,7 @@ T5.Map = function(params) {
     };
     
     // initialise self
-    var self = T5.ex({}, new T5.Tiling.Tiler(params), {
+    var self = T5.ex({}, new T5.Tiler(params), {
         pois: params.pois,
         annotations: null,
         
