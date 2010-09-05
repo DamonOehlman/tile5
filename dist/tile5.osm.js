@@ -25,7 +25,7 @@ T5.Geo.OpenStreetMap = (function() {
             // initialise parent
             var parent = new T5.Geo.MapProvider();
 
-            function buildTileGrid(tile_offset, container_dimensions, centerPos) {
+            function buildTileGrid(tileOffset, container_dimensions, centerPos) {
                 // initialise the first tile origin
                 // TODO: think about whether to throw an error if not divisble
                 var subdomain_idx = 0,
@@ -41,7 +41,7 @@ T5.Geo.OpenStreetMap = (function() {
                     tileSize: T5.Tiling.Config.TILESIZE,
                     width: container_dimensions.width,
                     height: container_dimensions.height,
-                    center: tile_offset,
+                    center: tileOffset,
                     drawGrid: params.drawGrid
                 });
 
@@ -87,10 +87,10 @@ T5.Geo.OpenStreetMap = (function() {
                 tile_grid = new T5.Geo.UI.GeoTileGrid({
                     grid: tile_grid, 
                     centerXY:  tile_grid.getTileVirtualXY(
-                                    tile_offset.x, 
-                                    tile_offset.y,
+                                    tileOffset.x, 
+                                    tileOffset.y,
                                     true),
-                    centerPos: calculatePositionFromTileOffset(tile_offset.x + 0.5, tile_offset.y + 0.5, self.zoomLevel),
+                    centerPos: calculatePositionFromTileOffset(tileOffset.x + 0.5, tileOffset.y + 0.5, self.zoomLevel),
                     // NOTE: zoom level is similar to decarta GX zoom level but 1 less...
                     // TODO: implement some kind of universal zoom level... there probably is one already... 
                     radsPerPixel: module.radsPerPixelAtZoom(T5.Tiling.Config.TILESIZE, self.zoomLevel)
@@ -137,11 +137,11 @@ T5.Geo.OpenStreetMap = (function() {
                     // check and update the tiler tile size if required
 
                     // firstly determine the tile offset of the specified position
-                    tile_offset = calculateTileOffset(position, self.zoomLevel);
+                    var tileOffset = calculateTileOffset(position, self.zoomLevel);
                     
                     // if the callback is defined, then build the tile grid
                     if (callback) {
-                        callback(buildTileGrid(tile_offset, tiler.getDimensions(), position));
+                        callback(buildTileGrid(tileOffset, tiler.getDimensions(), position));
                     } // if
                 }
             });
