@@ -15,6 +15,28 @@ T5.Resources = (function() {
             imageCacheFullness = 0,
             clearingCache = false;
             
+        function postProcess(imageData) {
+            if (! imageData.image) { return; }
+            
+            var width = imageData.realSize ? imageData.realSize.width : image.width,
+                height = imageData.realSize ? imageData.realSize.height : image.height,
+                canvas = T5.newCanvas(width, height),
+                context = canvas.getContext('2d'),
+                offset = imageData.offset ? imageData.offset : new T5.Vector();
+                
+            if (imageData.background) {
+                context.drawImage(imageData.background, 0, 0);
+            } // if
+            
+            context.drawImage(imageData.image, offset.x, offset.y);
+            
+            if (imageData.postProcess) {
+                imageData.postProcess(context, imageData);
+            }
+            // update the image data image
+            imageData.image = canvas;
+        } // applyBackground
+            
         function handleImageLoad() {
             // get the image data
             var imageData = loadWatchers[this.id];
@@ -30,6 +52,11 @@ T5.Resources = (function() {
                         break;
                     } // if
                 } // for
+                
+                // if we have an image background, or overlay then apply
+                if (imageData.background || imageData.postProcess) {
+                    postProcess(imageData);
+                } // if
                 
                 // if the image data has a callback, fire it
                 if (imageData.loadCallback) {
@@ -154,23 +181,29 @@ T5.Resources = (function() {
             },
             
             getImage: function(url) {
-                var imageData = null;
+                var imageData = null,
+                    image = null;
+                    
                 if (! clearingCache) {
                     imageData = images[url];
                 } // if
 
                 // return the image from the image data
-                return imageData ? imageData.image : null;
+                image = imageData ? imageData.image : null;
+                
+                if (image && (image.getContext || (image.complete && (image.width > 0)))) {
+                    return image;
+                } // if
             },
             
-            loadImage: function(url, callback) {
+            loadImage: function(url, callback, loadArgs) {
                 // look for the image data
                 var imageData = images[url];
 
                 // if the image data is not defined, then create new image data
                 if (! imageData) {
                     // initialise the image data
-                    imageData = {
+                    imageData = T5.ex({
                         url: url,
                         image: new Image(),
                         loaded: false,
@@ -179,7 +212,9 @@ T5.Resources = (function() {
                         requested: null,
                         hitCount: 0,
                         loadCallback: callback
-                    };
+                    }, loadArgs);
+                    
+                    // GRUNT.Log.info("loading image, image args = ", loadArgs);
                     
                     // initialise the image id
                     imageData.image.id = "resourceLoaderImage" + (imageCounter++);
@@ -276,8 +311,8 @@ T5.Resources = (function() {
             return ImageLoader.getImage(url);
         },
 
-        loadImage: function(url, callback) {
-            ImageLoader.loadImage(url, callback);
+        loadImage: function(url, callback, loadArgs) {
+            ImageLoader.loadImage.apply(null, arguments);
         },
         
         resetImageLoadQueue: function() {
