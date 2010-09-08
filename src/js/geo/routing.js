@@ -16,7 +16,8 @@ T5.Geo.Routing = (function() {
                 error: null,
                 autoFit: true,
                 success: null,
-                generalize: true
+                // TODO: reimplement generalization...
+                generalize: false
             }, args);
             
             GRUNT.Log.info("attempting to calculate route");
