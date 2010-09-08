@@ -94,16 +94,12 @@ T5.Dispatcher = (function() {
         
         /* agents */
         
-        createAgent: function(params) {
-            params = T5.ex({
+        Agent: function(params) {
+            params = GRUNT.extend({
                 name: "Untitled",
-                trashOrphanedResults: true,
                 translator: null,
                 execute: null
             }, params);
-            
-            // last run time
-            var lastRunTicks = null;
             
             // define the wrapper for the agent
             var self = {
@@ -121,19 +117,14 @@ T5.Dispatcher = (function() {
                 
                 run: function(args, callback) {
                     if (params.execute) {
-                        // update the last run ticks
-                        lastRunTicks = T5.time();
-                        
                         // save the run instance ticks to a local variable so we can check it in the callback
-                        var runInstanceTicks = lastRunTicks,
-                            searchArgs = params.translator ? params.translator(args) : args;
+                        // SEARCH ARGS changed
+                        var searchArgs = params.translator ? params.translator(args) : args;
                         
                         // execute the agent
                         params.execute.call(self, searchArgs, function(data, agentParams) {
-                            if ((! params.trashOrphanedResults) || (runInstanceTicks == lastRunTicks)) {
-                                if (callback) {
-                                    callback(data, agentParams, searchArgs);
-                                } // if
+                            if (callback) {
+                                callback(data, agentParams, searchArgs);
                             } // if
                         });
                     } // if

@@ -259,7 +259,7 @@ T5.Geo = (function() {
         },
         
         GeoSearchAgent: function(params) {
-            return T5.Dispatcher.createAgent(params);
+            return new T5.Dispatcher.Agent(params);
         },
         
         GeocodingAgent: function(params) {
