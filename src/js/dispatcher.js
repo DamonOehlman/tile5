@@ -10,17 +10,8 @@ T5.Dispatcher = (function() {
         execute: function(actionId) {
             // find the requested action
             var action = module.findAction(actionId);
-            
-            GRUNT.Log.info("looking for action id: " + actionId + ", found: " + action);
-            
-            // if we found the action then execute it
             if (action) {
-                // get the trailing arguments from the call
-                var actionArgs = [].concat(arguments).slice(0, 1);
-                
-                GRUNT.Log.watch("EXECUTING ACTION: " + actionId, function() {
-                    action.execute(actionArgs);
-                });
+                action.execute.apply(action, Array.prototype.slice.call(arguments, 1));
             } // if
         },
         

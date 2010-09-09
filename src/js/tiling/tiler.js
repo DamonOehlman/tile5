@@ -10,6 +10,12 @@ T5.Tiler = function(params) {
     var gridIndex = 0,
         lastTileLayerLoaded = "",
         actualTileLoadThreshold = 0;
+        
+    /* private methods */
+    
+    function selectTile(tile) {
+        self.trigger("selectTile", tile);
+    } // selectTile
     
     /* event handlers */
     
@@ -18,7 +24,7 @@ T5.Tiler = function(params) {
         if (grid) {
             var tile = grid.getTileAtXY(relXY.x, relXY.y);
             if (tile) {
-                self.trigger("tapTile", tile);
+                selectTile(tile);
             }
         } // grid
     } // handleTap
@@ -43,7 +49,7 @@ T5.Tiler = function(params) {
             return new T5.Vector(vector.x + offset.x, vector.y + offset.y);
         },
         
-        centerOn: function(tile, easing, duration) {
+        centerOn: function(tile, easing, duration, callback) {
             var grid = self.getTileLayer(),
                 dimensions = self.getDimensions(),
                 tileSize = grid ? grid.getTileSize() : 0;
@@ -53,7 +59,8 @@ T5.Tiler = function(params) {
                     tile.gridX - Math.floor((dimensions.width - tileSize) * 0.5), 
                     tile.gridY - Math.floor((dimensions.height - tileSize) * 0.5),
                     easing,
-                    duration);
+                    duration,
+                    callback);
             } // if
         },
         
@@ -66,6 +73,10 @@ T5.Tiler = function(params) {
             GRUNT.WaterCooler.say("tiler.repaint");
             
             self.trigger("wake");
+        },
+        
+        select: function(tile) {
+            selectTile(tile);
         }
     }); // self
     

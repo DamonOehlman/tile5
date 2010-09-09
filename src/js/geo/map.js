@@ -280,7 +280,7 @@ T5.Map = function(params) {
             } // if
             
             // remove the grid layer
-            T5.Resources.resetImageLoadQueue();
+            T5.Images.cancelLoad();
             
             // if we have a location annotation tell 
             // it not to draw the accuracy ring

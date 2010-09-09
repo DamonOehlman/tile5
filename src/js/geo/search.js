@@ -14,7 +14,9 @@ T5.Geo.Search = (function() {
                 
             // iterate through the search results and cull those that are 
             for (var ii = 0; ii < searchResults.length; ii++) {
-                if (bestMatch.matchWeight - searchResults[ii].matchWeight <= maxDifference) {
+                if (bestMatch && searchResults[ii] && 
+                    (bestMatch.matchWeight - searchResults[ii].matchWeight <= maxDifference)) {
+                        
                     fnresult.push(searchResults[ii]);
                 }
                 else {

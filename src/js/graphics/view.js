@@ -606,10 +606,13 @@ T5.View = function(params) {
             offset.y = y;
         },
         
-        updateOffset: function(x, y, tweenFn, tweenDuration) {
+        updateOffset: function(x, y, tweenFn, tweenDuration, callback) {
             
             function updateOffsetAnimationEnd() {
                 panEnd(0, 0);
+                if (callback) {
+                    callback();
+                } // if
             } // updateOffsetAnimationEnd
             
             if (tweenFn) {

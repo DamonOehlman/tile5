@@ -457,7 +457,7 @@ T5.Geo.UI = (function() {
                 if (params.animatingImageUrl && self.isAnimating()) {
                     // we want a smooth transition, so make 
                     // sure the end image is loaded
-                    T5.Resources.loadImage(params.imageUrl);
+                    T5.Images.load(params.imageUrl);
                     
                     // return the animating image url
                     return params.animatingImageUrl;
@@ -470,10 +470,10 @@ T5.Geo.UI = (function() {
             function drawImage(context, offset, xy, state, overlay, view) {
                 // get the image
                 var imageUrl = getImageUrl(),
-                    image = T5.Resources.getImage(imageUrl);
+                    image = T5.Images.get(imageUrl);
                     
                 if (! image) {
-                    T5.Resources.loadImage(
+                    T5.Images.load(
                         imageUrl, 
                         function(loadedImage, fromCache) {
                             overlay.wakeParent();

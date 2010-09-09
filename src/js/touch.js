@@ -189,10 +189,10 @@ T5.Touch = (function() {
                 touchStartTick = T5.time();
 
                 // cancel event propogation
-                if (supportsTouch) {
-                    preventDefaultTouch(evt);
-                } // if
-                
+                preventDefaultTouch(evt);
+                evt.target.style.cursor = 'move';
+
+                // trigger the inertia cancel event
                 triggerEvent("inertiaCancel");
 
                 // log the current touch start time
@@ -233,78 +233,71 @@ T5.Touch = (function() {
                 
                 if (! touchDown) { return; }
 
-                try {
-                    // cancel event propogation
-                    if (supportsTouch) {
-                        preventDefaultTouch(evt);
+                // cancel event propogation
+                if (supportsTouch) {
+                    preventDefaultTouch(evt);
+                } // if
+
+                // get the current touches
+                var touchesCurrent = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt),
+                    zoomDistance = 0;
+
+                // check to see if we are pinching or zooming
+                if (touchesCurrent.length > 1) {
+                    // if the start touches does have two touch points, then reset to the current
+                    if (touchesStart.length === 1) {
+                        touchesStart = [].concat(touchesCurrent);
                     } // if
 
-                    // get the current touches
-                    var touchesCurrent = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt),
-                        zoomDistance = 0;
+                    zoomDistance = calcDistance(touchesStart) - calcDistance(touchesCurrent);
+                } // if
 
-                    // check to see if we are pinching or zooming
-                    if (touchesCurrent.length > 1) {
-                        // if the start touches does have two touch points, then reset to the current
-                        if (touchesStart.length === 1) {
-                            touchesStart = [].concat(touchesCurrent);
+                // if the touch mode is tap, then check to see if we have gone beyond a move threshhold
+                if (touchMode === TOUCH_MODES.TAP) {
+                    // get the delta between the first touch and the current touch
+                    var tapDelta = calcChange(touchesCurrent, touchesStart);
+
+                    // if the delta.x or delta.y is greater than the move threshhold, we are no longer moving
+                    if (tapDelta && ((Math.abs(tapDelta.x) >= MIN_MOVEDIST) || (Math.abs(tapDelta.y) >= MIN_MOVEDIST))) {
+                        touchMode = TOUCH_MODES.MOVE;
+                    } // if
+                } // if
+
+
+                // if we aren't in tap mode, then let's see what we should do
+                if (touchMode !== TOUCH_MODES.TAP) {
+                    // TODO: queue touch count history to enable an informed decision on touch end whether
+                    // a single or multitouch event is completing...
+
+                    // if we aren't pinching or zooming then do the move 
+                    if ((! zoomDistance) || (Math.abs(zoomDistance) < params.pinchZoomThreshold)) {
+                        // calculate the pan delta
+                        touchDelta = calcChange(touchesCurrent, touchesLast);
+
+                        // update the total delta
+                        if (touchDelta) {
+                            totalDelta.x -= touchDelta.x; totalDelta.y -= touchDelta.y;
+                            panDelta.x -= touchDelta.x; panDelta.y -= touchDelta.y;
                         } // if
 
-                        zoomDistance = calcDistance(touchesStart) - calcDistance(touchesCurrent);
-                    } // if
-
-                    // if the touch mode is tap, then check to see if we have gone beyond a move threshhold
-                    if (touchMode === TOUCH_MODES.TAP) {
-                        // get the delta between the first touch and the current touch
-                        var tapDelta = calcChange(touchesCurrent, touchesStart);
-
-                        // if the delta.x or delta.y is greater than the move threshhold, we are no longer moving
-                        if (tapDelta && ((Math.abs(tapDelta.x) >= MIN_MOVEDIST) || (Math.abs(tapDelta.y) >= MIN_MOVEDIST))) {
-                            touchMode = TOUCH_MODES.MOVE;
+                        // if the pan_delta is sufficient to fire an event, then do so
+                        if (T5.V.absSize(panDelta) > params.panEventThreshhold) {
+                            triggerEvent("pan", panDelta.x, panDelta.y);
+                            panDelta = T5.V.create();
                         } // if
-                    } // if
 
+                        // set the touch mode to move
+                        touchMode = TOUCH_MODES.MOVE;
+                    }
+                    else {
+                        triggerEvent('pinchZoom', relativeTouches(touchesStart), relativeTouches(touchesCurrent));
 
-                    // if we aren't in tap mode, then let's see what we should do
-                    if (touchMode !== TOUCH_MODES.TAP) {
-                        // TODO: queue touch count history to enable an informed decision on touch end whether
-                        // a single or multitouch event is completing...
-
-                        // if we aren't pinching or zooming then do the move 
-                        if ((! zoomDistance) || (Math.abs(zoomDistance) < params.pinchZoomThreshold)) {
-                            // calculate the pan delta
-                            touchDelta = calcChange(touchesCurrent, touchesLast);
-
-                            // update the total delta
-                            if (touchDelta) {
-                                totalDelta.x -= touchDelta.x; totalDelta.y -= touchDelta.y;
-                                panDelta.x -= touchDelta.x; panDelta.y -= touchDelta.y;
-                            } // if
-
-                            // if the pan_delta is sufficient to fire an event, then do so
-                            if (T5.V.absSize(panDelta) > params.panEventThreshhold) {
-                                triggerEvent("pan", panDelta.x, panDelta.y);
-                                panDelta = T5.V.create();
-                            } // if
-
-                            // set the touch mode to move
-                            touchMode = TOUCH_MODES.MOVE;
-
-                            // TODO: investigate whether it is more efficient to animate on a timer or not
-                        }
-                        else {
-                            triggerEvent('pinchZoom', relativeTouches(touchesStart), relativeTouches(touchesCurrent));
-
-                            // set the touch mode to pinch zoom
-                            touchMode = TOUCH_MODES.PINCHZOOM;
-                        } // if..else
+                        // set the touch mode to pinch zoom
+                        touchMode = TOUCH_MODES.PINCHZOOM;
                     } // if..else
+                } // if..else
 
-                    touchesLast = [].concat(touchesCurrent);                        
-                }
-                catch (e) {
-                    GRUNT.Log.exception(e);
-                } // try..catch
+                touchesLast = [].concat(touchesCurrent);                        
             } // if
         } // touchMove
         
@@ -312,50 +305,46 @@ T5.Touch = (function() {
             if (evt.target && (evt.target === params.element)) {
                 var touchUpXY = (supportsTouch ? getTouchPoints(evt.changedTouches) : getMousePos(evt))[0];
                 
-                try {
-                    // cancel event propogation
-                    if (supportsTouch) {
-                        preventDefaultTouch(evt);
-                    } // if
+                // cancel event propogation
+                if (supportsTouch) {
+                    preventDefaultTouch(evt);
+                } // if
 
-                    // get the end tick
-                    var endTick = T5.time();
+                // get the end tick
+                var endTick = T5.time();
 
-                    // save the current ticks to the last ticks
-                    ticks.last = ticks.current;
+                // save the current ticks to the last ticks
+                ticks.last = ticks.current;
 
-                    // if tapping, then first the tap event
-                    if (touchMode === TOUCH_MODES.TAP) {
-                        // start the timer to fire the tap handler, if 
-                        if (! tapTimer) {
-                            tapTimer = setTimeout(function() {
-                                // reset the timer 
-                                tapTimer = 0;
+                // if tapping, then first the tap event
+                if (touchMode === TOUCH_MODES.TAP) {
+                    // start the timer to fire the tap handler, if 
+                    if (! tapTimer) {
+                        tapTimer = setTimeout(function() {
+                            // reset the timer 
+                            tapTimer = 0;
 
-                                // fire the appropriate tap event
-                                triggerPositionEvent(doubleTap ? 'doubleTap' : 'tap', touchesStart[0]);
-                            }, self.THRESHOLD_DOUBLETAP + 50);
-                        }
+                            // fire the appropriate tap event
+                            triggerPositionEvent(doubleTap ? 'doubleTap' : 'tap', touchesStart[0]);
+                        }, self.THRESHOLD_DOUBLETAP + 50);
                     }
-                    // if moving, then fire the move end
-                    else if (touchMode == TOUCH_MODES.MOVE) {
-                        triggerEvent("panEnd", totalDelta.x, totalDelta.y);
-                        
-                        if (inertiaSettings) {
-                            checkInertia(touchUpXY, endTick);
-                        } // if
-                    }
-                    // if pinchzooming, then fire the pinch zoom end
-                    else if (touchMode == TOUCH_MODES.PINCHZOOM) {
-                        triggerEvent('pinchZoomEnd', relativeTouches(touchesStart), relativeTouches(touchesLast), endTick - touchStartTick);
-                    } // if..else
                 }
-                catch (e) {
-                    GRUNT.Log.exception(e);
-                } // try..catch
+                // if moving, then fire the move end
+                else if (touchMode == TOUCH_MODES.MOVE) {
+                    triggerEvent("panEnd", totalDelta.x, totalDelta.y);
+                    
+                    if (inertiaSettings) {
+                        checkInertia(touchUpXY, endTick);
+                    } // if
+                }
+                // if pinchzooming, then fire the pinch zoom end
+                else if (touchMode == TOUCH_MODES.PINCHZOOM) {
+                    triggerEvent('pinchZoomEnd', relativeTouches(touchesStart), relativeTouches(touchesLast), endTick - touchStartTick);
+                } // if..else
+                
+                evt.target.style.cursor = 'default';
+                touchDown = false;
             } // if
-            
-            touchDown = false;
         } // touchEnd
         
         function getWheelDelta(evt) {

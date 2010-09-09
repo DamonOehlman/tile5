@@ -58,6 +58,12 @@ T5.Tiling = (function() {
                 return params.gridSize;
             },
             
+            getGridXY: function(col, row) {
+                return T5.Vector(
+                    col * params.tileSize - tileShift.x,
+                    row * params.tileSize - tileShift.y);
+            },
+            
             getNormalizedPos: function(col, row) {
                 return T5.V.add(new T5.Vector(col, row), T5.V.invert(topLeftOffset), tileShift);
             },
@@ -81,13 +87,18 @@ T5.Tiling = (function() {
             can do whatever it likes but should return a Tile object or null for the specified
             column and row.
             */
-            populate: function(tileCreator, notifyListener) {
+            populate: function(tileCreator, notifyListener, resetStorage) {
                 // take a tick count as we want to time this
                 var startTicks = GRUNT.Log.getTraceTicks(),
                     tileIndex = 0,
                     gridSize = params.gridSize,
                     tileSize = params.tileSize,
                     centerPos = new T5.Vector(gridSize / 2, gridSize / 2);
+                    
+                // if the storage is to be reset, then do that now
+                if (resetStorage) {
+                    storage = [];
+                } // if
                 
                 if (tileCreator) {
                     // GRUNT.Log.info("populating grid, x shift = " + tileShift.x + ", y shift = " + tileShift.y);
@@ -330,6 +341,14 @@ T5.Tiling = (function() {
                 reloadTimeout = 0,
                 gridHeightWidth = tileStore.getGridSize() * params.tileSize,
                 tileCols, tileRows, centerPos;
+                
+            function createTempTile(col, row) {
+                var gridXY = tileStore.getGridXY(col, row);
+                return new module.ImageTile({
+                    gridX: gridXY.x,
+                    gridY: gridXY.y
+                });
+            } // createTempTile
             
             function updateDrawQueue(offset, state) {
                 if (! centerPos) { return; }
@@ -352,8 +371,11 @@ T5.Tiling = (function() {
 
                         if (! tile) {
                             shiftDelta = tileStore.getShiftDelta(tileStart.x, tileStart.y, tileCols, tileRows);
+                            
+                            // TODO: replace the tile with a temporary draw tile here
+                            tile = createTempTile(xx + tileStart.x, yy + tileStart.y);
                         } // if
-
+                        
                         // add the tile and position to the tile draw queue
                         tmpQueue.push({
                             tile: tile,
@@ -384,7 +406,7 @@ T5.Tiling = (function() {
                 dirty: false,
                 
                 cycle: function(tickCount, offset, state) {
-                    var needTiles = shiftDelta.x + shiftDelta.y !== 0,
+                    var needTiles = shiftDelta.x !== 0 || shiftDelta.y !== 0,
                         changeCount = 0;
 
                     if (needTiles) {
@@ -526,8 +548,7 @@ T5.Tiling = (function() {
                 },
                 
                 populate: function(tileCreator) {
-                    tileStore.populate(tileCreator, function(tile) {
-                    });
+                    tileStore.populate(tileCreator, null, true);
                 }
             });
 
@@ -570,7 +591,7 @@ T5.Tiling = (function() {
             // initialise self
             var self = T5.ex(new module.TileGrid(params), {
                 drawTile: function(context, tile, x, y, state) {
-                    var image = T5.Resources.getImage(tile.url),
+                    var image = tile.url ? T5.Images.get(tile.url) : null,
                         drawn = false;
                         
                     if (image) {
@@ -595,9 +616,9 @@ T5.Tiling = (function() {
                     } // if
                     
                     if (tile && ((! fastDraw) || (state === stateActive))) {
-                        var image = T5.Resources.getImage(tile.url);
+                        var image = T5.Images.get(tile.url);
                         if (! image) {
-                            T5.Resources.loadImage(tile.url, handleImageLoad, tileDrawArgs);
+                            T5.Images.load(tile.url, handleImageLoad, tileDrawArgs);
                         } // if
                     } // if
                 }

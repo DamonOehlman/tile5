@@ -1667,6 +1667,53 @@ GRUNT.Storage = (function() {
         }
     };
 })();
+GRUNT.ParseRules = function(params) {
+    var rules = [];
+    
+    var self = {
+        add: function(regex, handler) {
+            rules.push({
+                regex: regex,
+                handler: handler
+            });
+        },
+        
+        each: function(input, outputReceiver, allCompleteCallback) {
+            var completionCounter = 0;
+            
+            function incCounter() {
+                completionCounter++;
+                if (allCompleteCallback && (completionCounter >= rules.length)) {
+                    allCompleteCallback(outputReceiver);
+                } // if
+            } // incCounter
+            
+            for (var ii = 0; ii < rules.length; ii++) {
+                var regex = rules[ii].regex,
+                    handler = rules[ii].handler,
+                    handled = false;
+                
+                if (regex) {
+                    regex.lastIndex = -1;
+                    
+                    var matches = regex.exec(input);
+                    if (matches && handler) {
+                        handled = true;
+                        if (handler(matches, outputReceiver, incCounter)) {
+                            incCounter();
+                        } // if
+                    } // if
+                } // if
+                
+                if (! handled) {
+                    incCounter();
+                } // if
+            }
+        }
+    };
+    
+    return self;
+}; // ParseRules
 /* GRUNTJS END */
 T5 = (function() {
     var module = {
@@ -2081,295 +2128,7 @@ T5.Resources = (function() {
         cachedSnippets = {},
         cachedResources = {};
         
-    var ImageLoader = (function() {
-        // initialise image loader internal variables
-        var images = {},
-            loadWatchers = {},
-            imageCounter = 0,
-            queuedImages = [],
-            loadingImages = [],
-            cachedImages = [],
-            interceptors = [],
-            imageCacheFullness = 0,
-            clearingCache = false;
-            
-        function postProcess(imageData) {
-            if (! imageData.image) { return; }
-            
-            var width = imageData.realSize ? imageData.realSize.width : image.width,
-                height = imageData.realSize ? imageData.realSize.height : image.height,
-                canvas = T5.newCanvas(width, height),
-                context = canvas.getContext('2d'),
-                offset = imageData.offset ? imageData.offset : new T5.Vector();
-                
-            if (imageData.background) {
-                context.drawImage(imageData.background, 0, 0);
-            } // if
-            
-            context.drawImage(imageData.image, offset.x, offset.y);
-            
-            if (imageData.postProcess) {
-                imageData.postProcess(context, imageData);
-            }
-            // update the image data image
-            imageData.image = canvas;
-        } // applyBackground
-            
-        function handleImageLoad() {
-            // get the image data
-            var imageData = loadWatchers[this.id];
-            if (imageData && imageData.image.complete && (imageData.image.width > 0)) {
-                imageData.loaded = true;
-                // TODO: check the image width to ensure the image is loaded properly
-                imageData.hitCount = 1;
-                
-                // remove the image data from the loading images array
-                for (var ii = loadingImages.length; ii--; ) {
-                    if (loadingImages[ii].image.src == this.src) {
-                        loadingImages.splice(ii, 1);
-                        break;
-                    } // if
-                } // for
-                
-                // if we have an image background, or overlay then apply
-                if (imageData.background || imageData.postProcess) {
-                    postProcess(imageData);
-                } // if
-                
-                // if the image data has a callback, fire it
-                if (imageData.loadCallback) {
-                    imageData.loadCallback(this, false);
-                } // if
-                
-                // add the image to the cached images
-                cachedImages.push({
-                    url: this.src,
-                    created: imageData.requested
-                });
-                
-                // remove the item from the load watchers
-                delete loadWatchers[this.id];
-                
-                // load the next image
-                loadNextImage();
-            } // if
-        } // handleImageLoad
-        
-        function loadNextImage() {
-            var maxImageLoads = T5.Device.getConfig().maxImageLoads;
-
-            // if we have queued images and a loading slot available, then start a load operation
-            while ((queuedImages.length > 0) && ((! maxImageLoads) || (loadingImages.length < maxImageLoads))) {
-                var imageData = queuedImages.shift();
-                
-                if (imageData.imageLoader) {
-                    // add the image data to the loading images
-                    loadingImages.push(imageData);
-                    
-                    // run the image loader
-                    imageData.imageLoader(imageData, handleImageLoad);
-                } // if
-            } // if
-        } // loadNextImage
-        
-        function getImageLoader(url) {
-            var loaderFn = null;
-            
-            // iterate through the interceptors and see if any of them want it
-            for (var ii = interceptors.length; ii-- && (! loaderFn); ) {
-                loaderFn = interceptors[ii](url);
-            } // for
-            
-            // if one of the interceptors provided an image loader, then use that otherwise provide the default
-            return loaderFn ? loaderFn : function(imageData, onLoadCallback) {
-                // reset the queued flag and attempt to load the image
-                imageData.image.onload = onLoadCallback;
-                imageData.image.src = module.getPath(imageData.url);
-                imageData.requested = T5.time();
-            };
-        } // getImageLoader
-        
-        function cleanupImageCache() {
-            clearingCache = true;
-            try {
-                var halfLen = Math.floor(cachedImages.length / 2);
-                if (halfLen > 0) {
-                    // TODO: make this more selective... currently some images on screen may be removed :/
-                    cachedImages.sort(function(itemA, itemB) {
-                        return itemA.created - itemB.created;
-                    });
-
-                    // remove the cached image data
-                    for (var ii = halfLen; ii--; ) {
-                        delete images[cachedImages[ii].url];
-                    } // for
-
-                    // now remove the images from the cached images
-                    cachedImages.splice(0, halfLen);
-                } // if
-            }
-            finally {
-                clearingCache = false;
-            } // try..finally
-            
-            GRUNT.WaterCooler.say("imagecache.cleared");
-        } // cleanupImageCache
-
-        function checkTimeoutsAndCache() {
-            var currentTickCount = T5.time(),
-                timedOutLoad = false, ii = 0,
-                config = T5.Device.getConfig();
-            
-            // iterate through the loading images, and check if any of them have been active too long
-            while (ii < loadingImages.length) {
-                var loadingTime = currentTickCount - loadingImages[ii].requested;
-                if (loadingTime > (module.loadTimeout * 1000)) {
-                    loadingImages.splice(ii, 1);
-                    timedOutLoad = true;
-                }
-                else {
-                    ii++;
-                } // if..else
-            } // while
-            
-            // if we timeout some images, then load next images
-            if (timedOutLoad) {
-                loadNextImage();
-            } // if
-            
-            // if we have a configuration and an image cache max size, then ensure we haven't exceeded it
-            if (config && config.imageCacheMaxSize) {
-                imageCacheFullness = (cachedImages.length * module.avgImageSize) / config.imageCacheMaxSize;
-                if (imageCacheFullness >= 1) {
-                    cleanupImageCache();
-                } // if
-            } // if
-        } // checkTimeoutsAndCache
-        
-        var subModule = {
-            loadingImages: loadingImages,
-            queuedImages: queuedImages,
-            
-            addInterceptor: function(callback) {
-                interceptors.push(callback);
-            },
-            
-            getCacheFullness: function() {
-                return imageCacheFullness;
-            },
-            
-            getImage: function(url) {
-                var imageData = null,
-                    image = null;
-                    
-                if (! clearingCache) {
-                    imageData = images[url];
-                } // if
-
-                // return the image from the image data
-                image = imageData ? imageData.image : null;
-                
-                if (image && (image.getContext || (image.complete && (image.width > 0)))) {
-                    return image;
-                } // if
-            },
-            
-            loadImage: function(url, callback, loadArgs) {
-                // look for the image data
-                var imageData = images[url];
-
-                // if the image data is not defined, then create new image data
-                if (! imageData) {
-                    // initialise the image data
-                    imageData = T5.ex({
-                        url: url,
-                        image: new Image(),
-                        loaded: false,
-                        imageLoader: getImageLoader(url),
-                        created: T5.time(),
-                        requested: null,
-                        hitCount: 0,
-                        loadCallback: callback
-                    }, loadArgs);
-                    
-                    // GRUNT.Log.info("loading image, image args = ", loadArgs);
-                    
-                    // initialise the image id
-                    imageData.image.id = "resourceLoaderImage" + (imageCounter++);
-                    
-                    // add the image to the images lookup
-                    images[url] = imageData;
-                    loadWatchers[imageData.image.id] = imageData;
-                    
-                    // add the image to the queued images
-                    queuedImages.push(imageData);
-                    
-                    // trigger the next load event
-                    loadNextImage();
-                }
-                else {
-                    imageData.hitCount++;
-                    if (imageData.image.complete && callback) {
-                        callback(imageData.image, true);
-                    } // if
-                }
-                
-                return imageData;
-            },
-            
-            resetLoadingQueue: function() {
-                loadingImages = [];
-            }
-        }; // 
-        
-        setInterval(checkTimeoutsAndCache, 1000);
-        
-        return subModule;
-    })();
-    
     var module = {
-        avgImageSize: 25,
-        loadTimeout: 10,
-        
-        Cache: (function() {
-            // initailise self
-            var self = {
-                read: function(key) {
-                    return null;
-                },
-
-                write: function(key, data) {
-                },
-                
-                getUrlCacheKey: function(url, sessionParamRegex) {
-                    // get the url parameters
-                    var queryParams = (url ? url.replace(/^.*\?/, "") : "").split("&");
-                    var coreUrl = url ? url.replace(/\?.*$/, "?") : "";
-
-                    // iterate through the query params and weed out any session params
-                    for (var ii = 0; ii < queryParams.length; ii++) {
-                        var kv = queryParams[ii].split("=");
-
-                        if ((! sessionParamRegex) || (! sessionParamRegex.test(kv[0]))) {
-                            coreUrl += queryParams[ii] + "&";
-                        } // if
-                    } // for
-
-                    return coreUrl.replace(/\W/g, "");
-                },
-
-                isValidCacheKey: function(cacheKey) {
-                    GRUNT.Log.info("cache key = " + cacheKey);
-
-                    return false;
-                }
-            };
-            
-            return self;
-        })(),
-        
-        addInterceptor: ImageLoader.addInterceptor,
-        
         getPath: function(path) {
             // if the path is an absolute url, then just return that
             if (/^(file|https?|\/)/.test(path)) {
@@ -2385,26 +2144,6 @@ T5.Resources = (function() {
             basePath = path;
         },
 
-        getImage: function(url) {
-            return ImageLoader.getImage(url);
-        },
-
-        loadImage: function(url, callback, loadArgs) {
-            ImageLoader.loadImage.apply(null, arguments);
-        },
-        
-        resetImageLoadQueue: function() {
-            ImageLoader.resetLoadingQueue();
-        },
-        
-        getStats: function() {
-            return {
-                imageLoadingCount: ImageLoader.loadingImages.length,
-                queuedImageCount: ImageLoader.queuedImages.length,
-                imageCacheFullness: ImageLoader.getCacheFullness()
-            };
-        },
-        
         loadResource: function(params) {
             // extend parameters with defaults
             params = T5.ex({
@@ -2463,6 +2202,255 @@ T5.Resources = (function() {
     return module;
 })();
 
+T5.Images = (function() {
+    // initialise image loader internal variables
+    var images = {},
+        loadWatchers = {},
+        imageCounter = 0,
+        queuedImages = [],
+        loadingImages = [],
+        cachedImages = [],
+        interceptors = [],
+        imageCacheFullness = 0,
+        clearingCache = false;
+        
+    function postProcess(imageData) {
+        if (! imageData.image) { return; }
+        
+        var width = imageData.realSize ? imageData.realSize.width : image.width,
+            height = imageData.realSize ? imageData.realSize.height : image.height,
+            canvas = T5.newCanvas(width, height),
+            context = canvas.getContext('2d'),
+            offset = imageData.offset ? imageData.offset : new T5.Vector();
+            
+        if (imageData.background) {
+            context.drawImage(imageData.background, 0, 0);
+        } // if
+        
+        context.drawImage(imageData.image, offset.x, offset.y);
+        
+        if (imageData.postProcess) {
+            imageData.postProcess(context, imageData);
+        }
+        // update the image data image
+        imageData.image = canvas;
+    } // applyBackground
+        
+    function handleImageLoad() {
+        // get the image data
+        var imageData = loadWatchers[this.id];
+        if (imageData && imageData.image.complete && (imageData.image.width > 0)) {
+            imageData.loaded = true;
+            // TODO: check the image width to ensure the image is loaded properly
+            imageData.hitCount = 1;
+            
+            // remove the image data from the loading images array
+            for (var ii = loadingImages.length; ii--; ) {
+                if (loadingImages[ii].image.src == this.src) {
+                    loadingImages.splice(ii, 1);
+                    break;
+                } // if
+            } // for
+            
+            // if we have an image background, or overlay then apply
+            if (imageData.background || imageData.postProcess) {
+                postProcess(imageData);
+            } // if
+            
+            // if the image data has a callback, fire it
+            if (imageData.loadCallback) {
+                imageData.loadCallback(this, false);
+            } // if
+            
+            // add the image to the cached images
+            cachedImages.push({
+                url: this.src,
+                created: imageData.requested
+            });
+            
+            // remove the item from the load watchers
+            delete loadWatchers[this.id];
+            
+            // load the next image
+            loadNextImage();
+        } // if
+    } // handleImageLoad
+    
+    function loadNextImage() {
+        var maxImageLoads = T5.Device.getConfig().maxImageLoads;
+
+        // if we have queued images and a loading slot available, then start a load operation
+        while ((queuedImages.length > 0) && ((! maxImageLoads) || (loadingImages.length < maxImageLoads))) {
+            var imageData = queuedImages.shift();
+            
+            if (imageData.imageLoader) {
+                // add the image data to the loading images
+                loadingImages.push(imageData);
+                
+                // run the image loader
+                imageData.imageLoader(imageData, handleImageLoad);
+            } // if
+        } // if
+    } // loadNextImage
+    
+    function getImageLoader(url) {
+        var loaderFn = null;
+        
+        // iterate through the interceptors and see if any of them want it
+        for (var ii = interceptors.length; ii-- && (! loaderFn); ) {
+            loaderFn = interceptors[ii](url);
+        } // for
+        
+        // if one of the interceptors provided an image loader, then use that otherwise provide the default
+        return loaderFn ? loaderFn : function(imageData, onLoadCallback) {
+            // reset the queued flag and attempt to load the image
+            imageData.image.onload = onLoadCallback;
+            imageData.image.src = T5.Resources.getPath(imageData.url);
+            imageData.requested = T5.time();
+        };
+    } // getImageLoader
+    
+    function cleanupImageCache() {
+        clearingCache = true;
+        try {
+            var halfLen = Math.floor(cachedImages.length / 2);
+            if (halfLen > 0) {
+                // TODO: make this more selective... currently some images on screen may be removed :/
+                cachedImages.sort(function(itemA, itemB) {
+                    return itemA.created - itemB.created;
+                });
+
+                // remove the cached image data
+                for (var ii = halfLen; ii--; ) {
+                    delete images[cachedImages[ii].url];
+                } // for
+
+                // now remove the images from the cached images
+                cachedImages.splice(0, halfLen);
+            } // if
+        }
+        finally {
+            clearingCache = false;
+        } // try..finally
+        
+        GRUNT.WaterCooler.say("imagecache.cleared");
+    } // cleanupImageCache
+
+    function checkTimeoutsAndCache() {
+        var currentTickCount = T5.time(),
+            timedOutLoad = false, ii = 0,
+            config = T5.Device.getConfig();
+        
+        // iterate through the loading images, and check if any of them have been active too long
+        while (ii < loadingImages.length) {
+            var loadingTime = currentTickCount - loadingImages[ii].requested;
+            if (loadingTime > (module.loadTimeout * 1000)) {
+                loadingImages.splice(ii, 1);
+                timedOutLoad = true;
+            }
+            else {
+                ii++;
+            } // if..else
+        } // while
+        
+        // if we timeout some images, then load next images
+        if (timedOutLoad) {
+            loadNextImage();
+        } // if
+        
+        // if we have a configuration and an image cache max size, then ensure we haven't exceeded it
+        if (config && config.imageCacheMaxSize) {
+            imageCacheFullness = (cachedImages.length * module.avgImageSize) / config.imageCacheMaxSize;
+            if (imageCacheFullness >= 1) {
+                cleanupImageCache();
+            } // if
+        } // if
+    } // checkTimeoutsAndCache
+    
+    var module = {
+        avgImageSize: 25,
+        loadTimeout: 10,
+        
+        addInterceptor: function(callback) {
+            interceptors.push(callback);
+        },
+        
+        cancelLoad: function() {
+            loadingImages = [];
+        },
+        
+        get: function(url) {
+            var imageData = null,
+                image = null;
+                
+            if (! clearingCache) {
+                imageData = images[url];
+            } // if
+
+            // return the image from the image data
+            image = imageData ? imageData.image : null;
+            
+            if (image && (image.getContext || (image.complete && (image.width > 0)))) {
+                return image;
+            } // if
+        },
+        
+        load: function(url, callback, loadArgs) {
+            // look for the image data
+            var imageData = images[url];
+
+            // if the image data is not defined, then create new image data
+            if (! imageData) {
+                // initialise the image data
+                imageData = T5.ex({
+                    url: url,
+                    image: new Image(),
+                    loaded: false,
+                    imageLoader: getImageLoader(url),
+                    created: T5.time(),
+                    requested: null,
+                    hitCount: 0,
+                    loadCallback: callback
+                }, loadArgs);
+                
+                // GRUNT.Log.info("loading image, image args = ", loadArgs);
+                
+                // initialise the image id
+                imageData.image.id = "resourceLoaderImage" + (imageCounter++);
+                
+                // add the image to the images lookup
+                images[url] = imageData;
+                loadWatchers[imageData.image.id] = imageData;
+                
+                // add the image to the queued images
+                queuedImages.push(imageData);
+                
+                // trigger the next load event
+                loadNextImage();
+            }
+            else {
+                imageData.hitCount++;
+                if (imageData.image.complete && callback) {
+                    callback(imageData.image, true);
+                } // if
+            }
+            
+            return imageData;
+        },
+        
+        stats: function() {
+            return {
+                imageLoadingCount: loadingImages.length,
+                queuedImageCount: queuedImages.length,
+                imageCacheFullness: imageCacheFullness
+            };
+        }
+    }; // 
+    
+    setInterval(checkTimeoutsAndCache, 1000);
+    
+    return module;
+})();
 T5.Touch = (function() {
     // initialise constants
     var WHEEL_DELTA_STEP = 120,
@@ -2654,10 +2642,10 @@ T5.Touch = (function() {
                 touchStartTick = T5.time();
 
                 // cancel event propogation
-                if (supportsTouch) {
-                    preventDefaultTouch(evt);
-                } // if
-                
+                preventDefaultTouch(evt);
+                evt.target.style.cursor = 'move';
+
+                // trigger the inertia cancel event
                 triggerEvent("inertiaCancel");
 
                 // log the current touch start time
@@ -2698,78 +2686,71 @@ T5.Touch = (function() {
                 
                 if (! touchDown) { return; }
 
-                try {
-                    // cancel event propogation
-                    if (supportsTouch) {
-                        preventDefaultTouch(evt);
+                // cancel event propogation
+                if (supportsTouch) {
+                    preventDefaultTouch(evt);
+                } // if
+
+                // get the current touches
+                var touchesCurrent = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt),
+                    zoomDistance = 0;
+
+                // check to see if we are pinching or zooming
+                if (touchesCurrent.length > 1) {
+                    // if the start touches does have two touch points, then reset to the current
+                    if (touchesStart.length === 1) {
+                        touchesStart = [].concat(touchesCurrent);
                     } // if
 
-                    // get the current touches
-                    var touchesCurrent = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt),
-                        zoomDistance = 0;
+                    zoomDistance = calcDistance(touchesStart) - calcDistance(touchesCurrent);
+                } // if
 
-                    // check to see if we are pinching or zooming
-                    if (touchesCurrent.length > 1) {
-                        // if the start touches does have two touch points, then reset to the current
-                        if (touchesStart.length === 1) {
-                            touchesStart = [].concat(touchesCurrent);
+                // if the touch mode is tap, then check to see if we have gone beyond a move threshhold
+                if (touchMode === TOUCH_MODES.TAP) {
+                    // get the delta between the first touch and the current touch
+                    var tapDelta = calcChange(touchesCurrent, touchesStart);
+
+                    // if the delta.x or delta.y is greater than the move threshhold, we are no longer moving
+                    if (tapDelta && ((Math.abs(tapDelta.x) >= MIN_MOVEDIST) || (Math.abs(tapDelta.y) >= MIN_MOVEDIST))) {
+                        touchMode = TOUCH_MODES.MOVE;
+                    } // if
+                } // if
+
+
+                // if we aren't in tap mode, then let's see what we should do
+                if (touchMode !== TOUCH_MODES.TAP) {
+                    // TODO: queue touch count history to enable an informed decision on touch end whether
+                    // a single or multitouch event is completing...
+
+                    // if we aren't pinching or zooming then do the move 
+                    if ((! zoomDistance) || (Math.abs(zoomDistance) < params.pinchZoomThreshold)) {
+                        // calculate the pan delta
+                        touchDelta = calcChange(touchesCurrent, touchesLast);
+
+                        // update the total delta
+                        if (touchDelta) {
+                            totalDelta.x -= touchDelta.x; totalDelta.y -= touchDelta.y;
+                            panDelta.x -= touchDelta.x; panDelta.y -= touchDelta.y;
                         } // if
 
-                        zoomDistance = calcDistance(touchesStart) - calcDistance(touchesCurrent);
-                    } // if
-
-                    // if the touch mode is tap, then check to see if we have gone beyond a move threshhold
-                    if (touchMode === TOUCH_MODES.TAP) {
-                        // get the delta between the first touch and the current touch
-                        var tapDelta = calcChange(touchesCurrent, touchesStart);
-
-                        // if the delta.x or delta.y is greater than the move threshhold, we are no longer moving
-                        if (tapDelta && ((Math.abs(tapDelta.x) >= MIN_MOVEDIST) || (Math.abs(tapDelta.y) >= MIN_MOVEDIST))) {
-                            touchMode = TOUCH_MODES.MOVE;
+                        // if the pan_delta is sufficient to fire an event, then do so
+                        if (T5.V.absSize(panDelta) > params.panEventThreshhold) {
+                            triggerEvent("pan", panDelta.x, panDelta.y);
+                            panDelta = T5.V.create();
                         } // if
-                    } // if
 
+                        // set the touch mode to move
+                        touchMode = TOUCH_MODES.MOVE;
+                    }
+                    else {
+                        triggerEvent('pinchZoom', relativeTouches(touchesStart), relativeTouches(touchesCurrent));
 
-                    // if we aren't in tap mode, then let's see what we should do
-                    if (touchMode !== TOUCH_MODES.TAP) {
-                        // TODO: queue touch count history to enable an informed decision on touch end whether
-                        // a single or multitouch event is completing...
-
-                        // if we aren't pinching or zooming then do the move 
-                        if ((! zoomDistance) || (Math.abs(zoomDistance) < params.pinchZoomThreshold)) {
-                            // calculate the pan delta
-                            touchDelta = calcChange(touchesCurrent, touchesLast);
-
-                            // update the total delta
-                            if (touchDelta) {
-                                totalDelta.x -= touchDelta.x; totalDelta.y -= touchDelta.y;
-                                panDelta.x -= touchDelta.x; panDelta.y -= touchDelta.y;
-                            } // if
-
-                            // if the pan_delta is sufficient to fire an event, then do so
-                            if (T5.V.absSize(panDelta) > params.panEventThreshhold) {
-                                triggerEvent("pan", panDelta.x, panDelta.y);
-                                panDelta = T5.V.create();
-                            } // if
-
-                            // set the touch mode to move
-                            touchMode = TOUCH_MODES.MOVE;
-
-                            // TODO: investigate whether it is more efficient to animate on a timer or not
-                        }
-                        else {
-                            triggerEvent('pinchZoom', relativeTouches(touchesStart), relativeTouches(touchesCurrent));
-
-                            // set the touch mode to pinch zoom
-                            touchMode = TOUCH_MODES.PINCHZOOM;
-                        } // if..else
+                        // set the touch mode to pinch zoom
+                        touchMode = TOUCH_MODES.PINCHZOOM;
                     } // if..else
+                } // if..else
 
-                    touchesLast = [].concat(touchesCurrent);                        
-                }
-                catch (e) {
-                    GRUNT.Log.exception(e);
-                } // try..catch
+                touchesLast = [].concat(touchesCurrent);                        
             } // if
         } // touchMove
         
@@ -2777,50 +2758,46 @@ T5.Touch = (function() {
             if (evt.target && (evt.target === params.element)) {
                 var touchUpXY = (supportsTouch ? getTouchPoints(evt.changedTouches) : getMousePos(evt))[0];
                 
-                try {
-                    // cancel event propogation
-                    if (supportsTouch) {
-                        preventDefaultTouch(evt);
-                    } // if
+                // cancel event propogation
+                if (supportsTouch) {
+                    preventDefaultTouch(evt);
+                } // if
 
-                    // get the end tick
-                    var endTick = T5.time();
+                // get the end tick
+                var endTick = T5.time();
 
-                    // save the current ticks to the last ticks
-                    ticks.last = ticks.current;
+                // save the current ticks to the last ticks
+                ticks.last = ticks.current;
 
-                    // if tapping, then first the tap event
-                    if (touchMode === TOUCH_MODES.TAP) {
-                        // start the timer to fire the tap handler, if 
-                        if (! tapTimer) {
-                            tapTimer = setTimeout(function() {
-                                // reset the timer 
-                                tapTimer = 0;
+                // if tapping, then first the tap event
+                if (touchMode === TOUCH_MODES.TAP) {
+                    // start the timer to fire the tap handler, if 
+                    if (! tapTimer) {
+                        tapTimer = setTimeout(function() {
+                            // reset the timer 
+                            tapTimer = 0;
 
-                                // fire the appropriate tap event
-                                triggerPositionEvent(doubleTap ? 'doubleTap' : 'tap', touchesStart[0]);
-                            }, self.THRESHOLD_DOUBLETAP + 50);
-                        }
+                            // fire the appropriate tap event
+                            triggerPositionEvent(doubleTap ? 'doubleTap' : 'tap', touchesStart[0]);
+                        }, self.THRESHOLD_DOUBLETAP + 50);
                     }
-                    // if moving, then fire the move end
-                    else if (touchMode == TOUCH_MODES.MOVE) {
-                        triggerEvent("panEnd", totalDelta.x, totalDelta.y);
-                        
-                        if (inertiaSettings) {
-                            checkInertia(touchUpXY, endTick);
-                        } // if
-                    }
-                    // if pinchzooming, then fire the pinch zoom end
-                    else if (touchMode == TOUCH_MODES.PINCHZOOM) {
-                        triggerEvent('pinchZoomEnd', relativeTouches(touchesStart), relativeTouches(touchesLast), endTick - touchStartTick);
-                    } // if..else
                 }
-                catch (e) {
-                    GRUNT.Log.exception(e);
-                } // try..catch
+                // if moving, then fire the move end
+                else if (touchMode == TOUCH_MODES.MOVE) {
+                    triggerEvent("panEnd", totalDelta.x, totalDelta.y);
+                    
+                    if (inertiaSettings) {
+                        checkInertia(touchUpXY, endTick);
+                    } // if
+                }
+                // if pinchzooming, then fire the pinch zoom end
+                else if (touchMode == TOUCH_MODES.PINCHZOOM) {
+                    triggerEvent('pinchZoomEnd', relativeTouches(touchesStart), relativeTouches(touchesLast), endTick - touchStartTick);
+                } // if..else
+                
+                evt.target.style.cursor = 'default';
+                touchDown = false;
             } // if
-            
-            touchDown = false;
         } // touchEnd
         
         function getWheelDelta(evt) {
@@ -3006,17 +2983,8 @@ T5.Dispatcher = (function() {
         execute: function(actionId) {
             // find the requested action
             var action = module.findAction(actionId);
-            
-            GRUNT.Log.info("looking for action id: " + actionId + ", found: " + action);
-            
-            // if we found the action then execute it
             if (action) {
-                // get the trailing arguments from the call
-                var actionArgs = [].concat(arguments).slice(0, 1);
-                
-                GRUNT.Log.watch("EXECUTING ACTION: " + actionId, function() {
-                    action.execute(actionArgs);
-                });
+                action.execute.apply(action, Array.prototype.slice.call(arguments, 1));
             } // if
         },
         
@@ -4205,10 +4173,13 @@ T5.View = function(params) {
             offset.y = y;
         },
         
-        updateOffset: function(x, y, tweenFn, tweenDuration) {
+        updateOffset: function(x, y, tweenFn, tweenDuration, callback) {
             
             function updateOffsetAnimationEnd() {
                 panEnd(0, 0);
+                if (callback) {
+                    callback();
+                } // if
             } // updateOffsetAnimationEnd
             
             if (tweenFn) {
@@ -4480,6 +4451,12 @@ T5.Tiling = (function() {
                 return params.gridSize;
             },
             
+            getGridXY: function(col, row) {
+                return T5.Vector(
+                    col * params.tileSize - tileShift.x,
+                    row * params.tileSize - tileShift.y);
+            },
+            
             getNormalizedPos: function(col, row) {
                 return T5.V.add(new T5.Vector(col, row), T5.V.invert(topLeftOffset), tileShift);
             },
@@ -4503,13 +4480,18 @@ T5.Tiling = (function() {
             can do whatever it likes but should return a Tile object or null for the specified
             column and row.
             */
-            populate: function(tileCreator, notifyListener) {
+            populate: function(tileCreator, notifyListener, resetStorage) {
                 // take a tick count as we want to time this
                 var startTicks = GRUNT.Log.getTraceTicks(),
                     tileIndex = 0,
                     gridSize = params.gridSize,
                     tileSize = params.tileSize,
                     centerPos = new T5.Vector(gridSize / 2, gridSize / 2);
+                    
+                // if the storage is to be reset, then do that now
+                if (resetStorage) {
+                    storage = [];
+                } // if
                 
                 if (tileCreator) {
                     // GRUNT.Log.info("populating grid, x shift = " + tileShift.x + ", y shift = " + tileShift.y);
@@ -4752,6 +4734,14 @@ T5.Tiling = (function() {
                 reloadTimeout = 0,
                 gridHeightWidth = tileStore.getGridSize() * params.tileSize,
                 tileCols, tileRows, centerPos;
+                
+            function createTempTile(col, row) {
+                var gridXY = tileStore.getGridXY(col, row);
+                return new module.ImageTile({
+                    gridX: gridXY.x,
+                    gridY: gridXY.y
+                });
+            } // createTempTile
             
             function updateDrawQueue(offset, state) {
                 if (! centerPos) { return; }
@@ -4774,8 +4764,11 @@ T5.Tiling = (function() {
 
                         if (! tile) {
                             shiftDelta = tileStore.getShiftDelta(tileStart.x, tileStart.y, tileCols, tileRows);
+                            
+                            // TODO: replace the tile with a temporary draw tile here
+                            tile = createTempTile(xx + tileStart.x, yy + tileStart.y);
                         } // if
-
+                        
                         // add the tile and position to the tile draw queue
                         tmpQueue.push({
                             tile: tile,
@@ -4806,7 +4799,7 @@ T5.Tiling = (function() {
                 dirty: false,
                 
                 cycle: function(tickCount, offset, state) {
-                    var needTiles = shiftDelta.x + shiftDelta.y !== 0,
+                    var needTiles = shiftDelta.x !== 0 || shiftDelta.y !== 0,
                         changeCount = 0;
 
                     if (needTiles) {
@@ -4948,8 +4941,7 @@ T5.Tiling = (function() {
                 },
                 
                 populate: function(tileCreator) {
-                    tileStore.populate(tileCreator, function(tile) {
-                    });
+                    tileStore.populate(tileCreator, null, true);
                 }
             });
 
@@ -4992,7 +4984,7 @@ T5.Tiling = (function() {
             // initialise self
             var self = T5.ex(new module.TileGrid(params), {
                 drawTile: function(context, tile, x, y, state) {
-                    var image = T5.Resources.getImage(tile.url),
+                    var image = tile.url ? T5.Images.get(tile.url) : null,
                         drawn = false;
                         
                     if (image) {
@@ -5017,9 +5009,9 @@ T5.Tiling = (function() {
                     } // if
                     
                     if (tile && ((! fastDraw) || (state === stateActive))) {
-                        var image = T5.Resources.getImage(tile.url);
+                        var image = T5.Images.get(tile.url);
                         if (! image) {
-                            T5.Resources.loadImage(tile.url, handleImageLoad, tileDrawArgs);
+                            T5.Images.load(tile.url, handleImageLoad, tileDrawArgs);
                         } // if
                     } // if
                 }
@@ -5043,6 +5035,12 @@ T5.Tiling = (function() {
     var gridIndex = 0,
         lastTileLayerLoaded = "",
         actualTileLoadThreshold = 0;
+        
+    /* private methods */
+    
+    function selectTile(tile) {
+        self.trigger("selectTile", tile);
+    } // selectTile
     
     /* event handlers */
     
@@ -5051,7 +5049,7 @@ T5.Tiling = (function() {
         if (grid) {
             var tile = grid.getTileAtXY(relXY.x, relXY.y);
             if (tile) {
-                self.trigger("tapTile", tile);
+                selectTile(tile);
             }
         } // grid
     } // handleTap
@@ -5076,7 +5074,7 @@ T5.Tiling = (function() {
             return new T5.Vector(vector.x + offset.x, vector.y + offset.y);
         },
         
-        centerOn: function(tile, easing, duration) {
+        centerOn: function(tile, easing, duration, callback) {
             var grid = self.getTileLayer(),
                 dimensions = self.getDimensions(),
                 tileSize = grid ? grid.getTileSize() : 0;
@@ -5086,7 +5084,8 @@ T5.Tiling = (function() {
                     tile.gridX - Math.floor((dimensions.width - tileSize) * 0.5), 
                     tile.gridY - Math.floor((dimensions.height - tileSize) * 0.5),
                     easing,
-                    duration);
+                    duration,
+                    callback);
             } // if
         },
         
@@ -5099,6 +5098,10 @@ T5.Tiling = (function() {
             GRUNT.WaterCooler.say("tiler.repaint");
             
             self.trigger("wake");
+        },
+        
+        select: function(tile) {
+            selectTile(tile);
         }
     }); // self
     
@@ -6277,7 +6280,9 @@ T5.Geo.Search = (function() {
                 
             // iterate through the search results and cull those that are 
             for (var ii = 0; ii < searchResults.length; ii++) {
-                if (bestMatch.matchWeight - searchResults[ii].matchWeight <= maxDifference) {
+                if (bestMatch && searchResults[ii] && 
+                    (bestMatch.matchWeight - searchResults[ii].matchWeight <= maxDifference)) {
+                        
                     fnresult.push(searchResults[ii]);
                 }
                 else {
@@ -6998,7 +7003,7 @@ T5.Geo.UI = (function() {
                 if (params.animatingImageUrl && self.isAnimating()) {
                     // we want a smooth transition, so make 
                     // sure the end image is loaded
-                    T5.Resources.loadImage(params.imageUrl);
+                    T5.Images.load(params.imageUrl);
                     
                     // return the animating image url
                     return params.animatingImageUrl;
@@ -7011,10 +7016,10 @@ T5.Geo.UI = (function() {
             function drawImage(context, offset, xy, state, overlay, view) {
                 // get the image
                 var imageUrl = getImageUrl(),
-                    image = T5.Resources.getImage(imageUrl);
+                    image = T5.Images.get(imageUrl);
                     
                 if (! image) {
-                    T5.Resources.loadImage(
+                    T5.Images.load(
                         imageUrl, 
                         function(loadedImage, fromCache) {
                             overlay.wakeParent();
@@ -7563,7 +7568,7 @@ T5.Map = function(params) {
             } // if
             
             // remove the grid layer
-            T5.Resources.resetImageLoadQueue();
+            T5.Images.cancelLoad();
             
             // if we have a location annotation tell 
             // it not to draw the accuracy ring
