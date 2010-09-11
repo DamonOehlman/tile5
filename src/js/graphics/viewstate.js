@@ -1,26 +1,23 @@
-T5.ViewState = (function() {
-    var self = {
-        // define the view state constants
+(function() {
+    var viewStates = {
         NONE: 0,
         ACTIVE: 1,
         ANIMATING: 4,
         PAN: 8,
-        PINCHZOOM: 16,
-        FREEZE: 128,
-        
-        get: function() {
-            var result = 0;
-            
-            for (var ii = arguments.length; ii--; ) {
-                var value = self[arguments[ii]];
-                if (value) {
-                    result = result | value;
-                } // if
-            } // for
-            
-            return result;
-        }
+        PINCH: 16,
+        FREEZE: 128
     };
     
-    return self;
+    T5.viewState = function() {
+        var result = 0;
+        
+        for (var ii = arguments.length; ii--; ) {
+            var value = viewStates[arguments[ii].toUpperCase()];
+            if (value) {
+                result = result | value;
+            } // if
+        } // for
+        
+        return result;
+    }; // T5.viewState
 })();

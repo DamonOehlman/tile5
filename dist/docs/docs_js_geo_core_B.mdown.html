@@ -10,37 +10,37 @@
 <meta name="format-detection" content="false">
 </head>
 <body>
-<h1><a name="TILE5.Geo.B">TILE5.Geo.B</a></h1>
+<h1><a name="T5.Geo.B">T5.Geo.B</a></h1>
 
-<p>The <a href="docs_js_geo_core_B.mdown.html#TILE5.Geo.B">TILE5.Geo.B</a> submodule is a collection of utilities that are primarily designed to help with working with <a href="docs_js_geo_core_BoundingBox.mdown.html#TILE5.Geo.BoundingBox">TILE5.Geo.BoundingBox</a> objects.  The functions are implemented here rather than with the actual object itself to ensure that the object remains lightweight.</p>
+<p>The <a href="docs_js_geo_core_B.mdown.html#T5.Geo.B">T5.Geo.B</a> submodule is a collection of utilities that are primarily designed to help with working with <a href="docs_js_geo_core_BoundingBox.mdown.html#T5.Geo.BoundingBox">T5.Geo.BoundingBox</a> objects.  The functions are implemented here rather than with the actual object itself to ensure that the object remains lightweight.</p>
 
 <h2>Module Functions</h2>
 
 <ul>
 <li><p><code>calcSize(min, max, normalize)</code></p>
 
-<p>The calcSize function is used to determine the size of a <a href="docs_js_geo_core_BoundingBox.mdown.html#TILE5.Geo.BoundingBox">TILE5.Geo.BoundingBox</a> given a minimum position (relates to the bottom-left / south-western corner) and maximum position (top-right / north-eastern corner) of the bounding box.  The 3rd parameter specifies whether the size calculations should normalize the calculation in cases where the bounding box crosses the 360 degree boundary.</p></li>
+<p>The calcSize function is used to determine the size of a <a href="docs_js_geo_core_BoundingBox.mdown.html#T5.Geo.BoundingBox">T5.Geo.BoundingBox</a> given a minimum position (relates to the bottom-left / south-western corner) and maximum position (top-right / north-eastern corner) of the bounding box.  The 3rd parameter specifies whether the size calculations should normalize the calculation in cases where the bounding box crosses the 360 degree boundary.</p></li>
 <li><p><code>createBoundsFromCenter(centerPos, distance)</code></p>
 
-<p>This function is very useful for creating a <a href="docs_js_geo_core_BoundingBox.mdown.html#TILE5.Geo.BoundingBox">TILE5.Geo.BoundingBox</a> given a center position and a radial distance (specified in KM) from the center position.  Basically, imagine a circle is drawn around the center position with a radius of distance from the center position, and then a box is drawn to surround that circle.  Adapted from the <a class="external" href="http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates">functions written in Java by Jan Philip Matuschek</a></p></li>
+<p>This function is very useful for creating a <a href="docs_js_geo_core_BoundingBox.mdown.html#T5.Geo.BoundingBox">T5.Geo.BoundingBox</a> given a center position and a radial distance (specified in KM) from the center position.  Basically, imagine a circle is drawn around the center position with a radius of distance from the center position, and then a box is drawn to surround that circle.  Adapted from the <a class="external" href="http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates">functions written in Java by Jan Philip Matuschek</a></p></li>
 <li><p><code>expand(bounds, amount)</code></p>
 
-<p>A simple function that is used to expand a <a href="docs_js_geo_core_BoundingBox.mdown.html#TILE5.Geo.BoundingBox">TILE5.Geo.BoundingBox</a> by the specified amount (in degrees).</p></li>
+<p>A simple function that is used to expand a <a href="docs_js_geo_core_BoundingBox.mdown.html#T5.Geo.BoundingBox">T5.Geo.BoundingBox</a> by the specified amount (in degrees).</p></li>
 <li><p><code>forPositions(positions, padding)</code></p>
 
-<p>This function is very useful when you need to create a <a href="docs_js_geo_core_BoundingBox.mdown.html#TILE5.Geo.BoundingBox">TILE5.Geo.BoundingBox</a> to contain an array of <a href="docs_js_geo_core_Position.mdown.html#TILE5.Geo.Position">TILE5.Geo.Position</a>.  The optional second parameter allows you to specify an amount of padding (in degrees) to apply to the bounding box that is created.</p></li>
+<p>This function is very useful when you need to create a <a href="docs_js_geo_core_BoundingBox.mdown.html#T5.Geo.BoundingBox">T5.Geo.BoundingBox</a> to contain an array of <a href="docs_js_geo_core_Position.mdown.html#T5.Geo.Position">T5.Geo.Position</a>.  The optional second parameter allows you to specify an amount of padding (in degrees) to apply to the bounding box that is created.</p></li>
 <li><p><code>getCenter(bounds)</code></p>
 
-<p>Returns a <a href="docs_js_geo_core_Position.mdown.html#TILE5.Geo.Position">TILE5.Geo.Position</a> for the center position of the bounding box.</p></li>
+<p>Returns a <a href="docs_js_geo_core_Position.mdown.html#T5.Geo.Position">T5.Geo.Position</a> for the center position of the bounding box.</p></li>
 <li><p><code>getZoomLevel(bounds, displaySize)</code></p>
 
-<p>This function is used to return the zoom level (seems consistent across mapping providers at this stage) that is required to properly display the specified <a href="docs_js_geo_core_BoundingBox.mdown.html#TILE5.Geo.BoundingBox">TILE5.Geo.BoundingBox</a> given the screen dimensions (specified as a TILE5.Dimensions object) of the map display.</p></li>
+<p>This function is used to return the zoom level (seems consistent across mapping providers at this stage) that is required to properly display the specified <a href="docs_js_geo_core_BoundingBox.mdown.html#T5.Geo.BoundingBox">T5.Geo.BoundingBox</a> given the screen dimensions (specified as a T5.Dimensions object) of the map display.</p></li>
 <li><p><code>isEmpty(bounds)</code></p>
 
-<p>Returns true if the specified <a href="docs_js_geo_core_BoundingBox.mdown.html#TILE5.Geo.BoundingBox">TILE5.Geo.BoundingBox</a> is empty.</p></li>
+<p>Returns true if the specified <a href="docs_js_geo_core_BoundingBox.mdown.html#T5.Geo.BoundingBox">T5.Geo.BoundingBox</a> is empty.</p></li>
 <li><p><code>toString(bounds)</code></p>
 
-<p>Returns a string representation of a <a href="docs_js_geo_core_BoundingBox.mdown.html#TILE5.Geo.BoundingBox">TILE5.Geo.BoundingBox</a></p></li>
+<p>Returns a string representation of a <a href="docs_js_geo_core_BoundingBox.mdown.html#T5.Geo.BoundingBox">T5.Geo.BoundingBox</a></p></li>
 </ul>
 
 <script> 

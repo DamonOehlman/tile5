@@ -1,15 +1,15 @@
-TILE5.Geo.UI
+T5.Geo.UI
 ============
 
-The TILE5.Geo.UI module contains classes and functionality that are used to take a TILE5.Tiling.Tiler and make it work as a map interface.
+The T5.Geo.UI module contains classes and functionality that are used to take a T5.Tiling.Tiler and make it work as a map interface.
 
 Classes
 -------
 
-- TILE5.Geo.UI.GeoTileGrid
-- TILE5.Geo.UI.RadarOverlay
-- TILE5.Geo.UI.RouteOverlay
-- TILE5.Geo.UI.Annotation
-- TILE5.Geo.UI.ImageAnnotation
-- TILE5.Geo.UI.AnnotationOverlay
-- TILE5.Geo.UI.Tiler
+- T5.Geo.UI.GeoTileGrid
+- T5.Geo.UI.RadarOverlay
+- T5.Geo.UI.RouteOverlay
+- T5.Geo.UI.Annotation
+- T5.Geo.UI.ImageAnnotation
+- T5.Geo.UI.AnnotationOverlay
+- T5.Geo.UI.Tiler

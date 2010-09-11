@@ -1,4 +1,4 @@
-T5.Device = (function() {
+(function() {
     var deviceConfigs = null,
         deviceCheckOrder = [],
         detectedConfig = null,
@@ -38,7 +38,7 @@ T5.Device = (function() {
         
     function bridgeNotifyLog(message, args) {
         if (shouldBridgeMessage(message)) {
-            GRUNT.Log.info("would push url: " + messageToUrl(message, args));
+            GT.Log.info("would push url: " + messageToUrl(message, args));
         } // if
     } // bridgeCommandEmpty
     
@@ -125,39 +125,35 @@ T5.Device = (function() {
         ];
     } // loadDeviceConfigs
     
-    var module = {
-        getConfig: function() {
-            if (! deviceConfigs) {
-                loadDeviceConfigs();
-            } // if
-            
-            // if the device configuration hasn't already been detected do that now
+    T5.getConfig = function() {
+        if (! deviceConfigs) {
+            loadDeviceConfigs();
+        } // if
+        
+        // if the device configuration hasn't already been detected do that now
+        if (! detectedConfig) {
+            GT.Log.info("ATTEMPTING TO DETECT PLATFORM: UserAgent = " + navigator.userAgent);
+
+            // iterate through the platforms and run detection on the platform
+            for (var ii = 0; ii < deviceCheckOrder.length; ii++) {
+                var testPlatform = deviceCheckOrder[ii];
+
+                if (testPlatform.regex && testPlatform.regex.test(navigator.userAgent)) {
+                    detectedConfig = T5.ex({}, deviceConfigs.base, testPlatform);
+                    GT.Log.info("PLATFORM DETECTED AS: " + detectedConfig.name);
+                    break;
+                } // if
+            } // for
+
             if (! detectedConfig) {
-                GRUNT.Log.info("ATTEMPTING TO DETECT PLATFORM: UserAgent = " + navigator.userAgent);
-
-                // iterate through the platforms and run detection on the platform
-                for (var ii = 0; ii < deviceCheckOrder.length; ii++) {
-                    var testPlatform = deviceCheckOrder[ii];
-
-                    if (testPlatform.regex && testPlatform.regex.test(navigator.userAgent)) {
-                        detectedConfig = T5.ex({}, deviceConfigs.base, testPlatform);
-                        GRUNT.Log.info("PLATFORM DETECTED AS: " + detectedConfig.name);
-                        break;
-                    } // if
-                } // for
-
-                if (! detectedConfig) {
-                    GRUNT.Log.warn("UNABLE TO DETECT PLATFORM, REVERTING TO BASE CONFIGURATION");
-                    detectedConfig = deviceConfigs.base;
-                }
-                
-                GRUNT.Log.info("CURRENT DEVICE PIXEL RATIO = " + window.devicePixelRatio);
-            } // if
+                GT.Log.warn("UNABLE TO DETECT PLATFORM, REVERTING TO BASE CONFIGURATION");
+                detectedConfig = deviceConfigs.base;
+            }
             
-            return detectedConfig;
-        }
-    };
-    
-    return module;
+            GT.Log.info("CURRENT DEVICE PIXEL RATIO = " + window.devicePixelRatio);
+        } // if
+        
+        return detectedConfig;        
+    }; // T5.getConfig
 })();
 

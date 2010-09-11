@@ -4,13 +4,10 @@ T5.Map = function(params) {
         provider: null,
         crosshair: false,
         zoomLevel: 0,
-        boundsChange: null,
-        tapPOI: null,
         boundsChangeThreshold: 30,
         pois: new T5.Geo.POIStorage(),
-        createAnnotationForPOI: null,
         displayLocationAnnotation: true,
-        zoomAnimation: T5.Easing.Quad.Out
+        zoomAnimation: T5.easing('quad.out')
     }, params);
 
     // define the locate modes
@@ -97,18 +94,18 @@ T5.Map = function(params) {
                 self.panToPosition(
                     currentPos, 
                     null, 
-                    T5.Easing.Sine.Out);
+                    T5.easing('sine.out'));
             } // if..else
 
             initialTrackingUpdate = false;
         }
         catch (e) {
-            GRUNT.Log.exception(e);
+            GT.Log.exception(e);
         }
     } // trackingUpdate
     
     function trackingError(error) {
-        GRUNT.Log.info('caught location tracking error:', error);
+        GT.Log.info('caught location tracking error:', error);
     } // trackingError
     
     /* event handlers */
@@ -143,13 +140,10 @@ T5.Map = function(params) {
 
             // find the pois in the bounds area
             tappedPOIs = self.pois.findByBounds(tapBounds);
-            // GRUNT.Log.info('TAPPED POIS = ', tappedPOIs);
+            // GT.Log.info('TAPPED POIS = ', tappedPOIs);
             
             self.trigger('geotap', absXY, relXY, tapPos, tapBounds);
-
-            if (params.tapPOI) {
-                params.tapPOI(tappedPOIs);
-            } // if
+            self.trigger('tapPOI', tappedPOIs);
         } // if
     } // handleTap
     
@@ -182,9 +176,9 @@ T5.Map = function(params) {
         var changeDelta = T5.V.absSize(T5.V.diff(
                 lastBoundsChangeOffset, self.getOffset()));
         
-        if ((changeDelta > params.boundsChangeThreshold) && params.boundsChange) {
+        if (changeDelta > params.boundsChangeThreshold) {
             lastBoundsChangeOffset = self.getOffset();
-            params.boundsChange(self.getBoundingBox());
+            self.trigger("boundsChange", self.getBoundingBox());
         } // if
     } // handleIdle
     
@@ -275,7 +269,7 @@ T5.Map = function(params) {
             // if there is already a tile request in progress
             // abort
             if (tileRequestInProgress) {
-                GRUNT.Log.warn("Tile request in progress, aborting");
+                GT.Log.warn("Tile request in progress, aborting");
                 return;
             } // if
             
@@ -296,7 +290,7 @@ T5.Map = function(params) {
             } // if
 
             // cancel any animations
-            T5.Animation.cancel();
+            T5.cancelAnimation();
 
             // if the map is initialise, then pan to 
             // the specified position
@@ -462,7 +456,7 @@ T5.Map = function(params) {
                 self.gotoPosition(self.getCenterPosition(), value);
             }
             catch (e) {
-                GRUNT.Log.exception(e);
+                GT.Log.exception(e);
             }
         },
 
@@ -471,7 +465,7 @@ T5.Map = function(params) {
             var scalingNeeded = radsPerPixelAtZoom(1, zoomLevel) / 
                     radsPerPixelAtZoom(1, zoomLevel + 1);
             
-            if (! self.scale(2, T5.Easing.Sine.Out)) {
+            if (! self.scale(2, T5.easing('sine.out'))) {
                 self.setZoomLevel(zoomLevel + 1);
             } // if
         },
@@ -480,7 +474,7 @@ T5.Map = function(params) {
             var scalingNeeded = radsPerPixelAtZoom(1, zoomLevel) / 
                     radsPerPixelAtZoom(1, zoomLevel - 1);
             
-            if (! self.scale(0.5, T5.Easing.Sine.Out)) {
+            if (! self.scale(0.5, T5.easing('sine.out'))) {
                 self.setZoomLevel(zoomLevel - 1);
             } // if
         },
@@ -515,8 +509,7 @@ T5.Map = function(params) {
     // create an annotations layer
     annotations = new T5.Geo.UI.AnnotationsOverlay({
         pois: self.pois,
-        map: self,
-        createAnnotationForPOI: params.createAnnotationForPOI
+        map: self
     });
 
     // add the annotations layer
@@ -532,10 +525,10 @@ T5.Map = function(params) {
     self.bind("idle", handleIdle);
     
     // make a few parameter configurable
-    GRUNT.configurable(
+    GT.configurable(
         self, 
         ["provider"], 
-        GRUNT.paramTweaker(params, null, {
+        GT.paramTweaker(params, null, {
             "provider": handleProviderUpdate
         }), 
         true);

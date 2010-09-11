@@ -1,17 +1,15 @@
 T5.ViewLayer = function(params) {
     params = T5.ex({
         id: "",
-        centerOnScale: true,
         created: T5.time(),
-        scalePosition: true,
         zindex: 0,
         supportFastDraw: false,
-        validStates: T5.ViewState.get("ACTIVE", "ANIMATING", "PAN", "PINCHZOOM")
+        validStates: T5.viewState("ACTIVE", "ANIMATING", "PAN", "PINCH")
     }, params);
     
     var parent = null,
         id = params.id,
-        activeState = T5.ViewState.get("ACTIVE");
+        activeState = T5.viewState("ACTIVE");
     
     var self = T5.ex({
         addToView: function(view) {
@@ -38,7 +36,7 @@ T5.ViewLayer = function(params) {
         animation layers that should only exist as long as an animation is active.
         */
         remove: function() {
-            GRUNT.WaterCooler.say("layer.remove", { id: id });
+            GT.WaterCooler.say("layer.remove", { id: id });
         },
         
         wakeParent: function() {
@@ -63,6 +61,8 @@ T5.ViewLayer = function(params) {
             parent = view;
         }
     }, params); // self
+    
+    GT.observable(self);
     
     return self;
 }; // T5.ViewLayer

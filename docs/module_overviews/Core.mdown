@@ -1,19 +1,19 @@
-TILE5.Core
+T5.Core
 ==========
 
-The TILE5.Core module contains classes and functionality that support basic drawing operations and math that are used in managing and drawing the graphical and tiling interfaces that are provided in the Tile5 library.
+The T5.Core module contains classes and functionality that support basic drawing operations and math that are used in managing and drawing the graphical and tiling interfaces that are provided in the Tile5 library.
 
 Classes
 -------
 
-- TILE5.Vector
-- TILE5.Dimensions
-- TILE5.Rect
+- T5.Vector
+- T5.Dimensions
+- T5.Rect
 
 Submodules
 ----------
 
-- TILE5.Settings
-- TILE5.V
-- TILE5.D
-- TILE5.R
+- T5.Settings
+- T5.V
+- T5.D
+- T5.R

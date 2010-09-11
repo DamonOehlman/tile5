@@ -1,9 +1,9 @@
-TILE5.Device
+T5.Device
 ============
 
-The TILE5.Device module is used to perform device detection through user agent sniffing.  Depending on the platform and browser combination that is detected, certain tweaks may be made to rendering behaviour of tiles / maps to ensure optimal performance.
+The T5.Device module is used to perform device detection through user agent sniffing.  Depending on the platform and browser combination that is detected, certain tweaks may be made to rendering behaviour of tiles / maps to ensure optimal performance.
 
 Module Functions
 ----------------
 
-- TILE5.Device.getConfig
+- T5.Device.getConfig

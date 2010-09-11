@@ -37,8 +37,8 @@ T5.Geo.OpenStreetMap = (function() {
                     
                 } // if
 
-                tile_grid = new T5.Tiling.ImageTileGrid({
-                    tileSize: T5.Tiling.Config.TILESIZE,
+                tile_grid = new T5.ImageTileGrid({
+                    tileSize: T5.tileSize,
                     width: container_dimensions.width,
                     height: container_dimensions.height,
                     center: tileOffset,
@@ -70,12 +70,12 @@ T5.Geo.OpenStreetMap = (function() {
                             subdomain_idx = 0;
                         } // if                     
 
-                        return T5.Tiling.ImageTile({ 
+                        return T5.ImageTile({ 
                             url: String.format(tileUrl, subDomains[subdomain_idx++])
                         });
                     }
                     else {
-                        return T5.Tiling.ImageTile({ 
+                        return T5.ImageTile({ 
                             url: tileUrl
                         });
                     } // if..else
@@ -93,7 +93,7 @@ T5.Geo.OpenStreetMap = (function() {
                     centerPos: calculatePositionFromTileOffset(tileOffset.x + 0.5, tileOffset.y + 0.5, self.zoomLevel),
                     // NOTE: zoom level is similar to decarta GX zoom level but 1 less...
                     // TODO: implement some kind of universal zoom level... there probably is one already... 
-                    radsPerPixel: module.radsPerPixelAtZoom(T5.Tiling.Config.TILESIZE, self.zoomLevel)
+                    radsPerPixel: module.radsPerPixelAtZoom(T5.tileSize, self.zoomLevel)
                 });
 
                 return tile_grid;
@@ -150,8 +150,8 @@ T5.Geo.OpenStreetMap = (function() {
             self.setZoomRange(ZOOMLEVEL_MIN, ZOOMLEVEL_MAX);
             
             // check the tile size, if not valid then correct to a valid tilesize
-            if (T5.Tiling.Config.TILESIZE !== 256) {
-                T5.Tiling.Config.TILESIZE = 256;
+            if (T5.tileSize !== 256) {
+                T5.tileSize = 256;
             } // if    
 
             return self;

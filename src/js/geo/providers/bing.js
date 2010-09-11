@@ -22,7 +22,7 @@ T5.Geo.Bing = (function() {
             function authenticate(callback) {
                 var serverUrl = String.format("http://dev.virtualearth.net/REST/V1/Imagery/Metadata/{0}?key={1}", params.style, params.apikey);
                 
-                GRUNT.JSONP.get(serverUrl, function(data) {
+                GT.jsonp(serverUrl, function(data) {
                     // FIXME: very hacky...
                     var resourceData = data.resourceSets[0].resources[0];
                     
@@ -34,7 +34,7 @@ T5.Geo.Bing = (function() {
                     
                     self.setZoomRange(resourceData.zoomMin + 1, resourceData.zoomMax);
 
-                    T5.Tiling.Config.TILESIZE = resourceData.imageHeight;
+                    T5.tileSize = resourceData.imageHeight;
                     
                     if (callback) {
                         callback();
@@ -70,8 +70,8 @@ T5.Geo.Bing = (function() {
                 // TODO: think about whether to throw an error if not divisble
                 var subdomainIdx = 0;
 
-                var tileGrid = new T5.Tiling.ImageTileGrid({
-                    tileSize: T5.Tiling.Config.TILESIZE,
+                var tileGrid = new T5.ImageTileGrid({
+                    tileSize: T5.tileSize,
                     width: containerDimensions.width,
                     height: containerDimensions.height,
                     center: tileOffset,
@@ -89,7 +89,7 @@ T5.Geo.Bing = (function() {
                         subdomainIdx = 0;
                     } // if                     
 
-                    return new T5.Tiling.ImageTile({ 
+                    return new T5.ImageTile({ 
                         url: tileUrl.replace("{subdomain}", subDomains[subdomainIdx])
                     });
                 });
@@ -104,7 +104,7 @@ T5.Geo.Bing = (function() {
                                     tileOffset.y,
                                     true),
                     centerPos: calculatePositionFromTileOffset(tileOffset.x + 0.5, tileOffset.y + 0.5, self.zoomLevel),
-                    radsPerPixel: module.radsPerPixelAtZoom(T5.Tiling.Config.TILESIZE, self.zoomLevel)
+                    radsPerPixel: module.radsPerPixelAtZoom(T5.tileSize, self.zoomLevel)
                 });
 
                 return geoGrid;
@@ -175,8 +175,8 @@ T5.Geo.Bing = (function() {
     }; 
     
     // check the tile size, if not valid then correct to a valid tilesize
-    if ((T5.Tiling.Config.TILESIZE !== 64) || (T5.Tiling.Config.TILESIZE !== 256)) {
-        T5.Tiling.Config.TILESIZE = 256;
+    if ((T5.tileSize !== 64) || (T5.tileSize !== 256)) {
+        T5.tileSize = 256;
     } // if    
     
     return module;

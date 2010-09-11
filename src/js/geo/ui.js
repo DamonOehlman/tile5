@@ -21,8 +21,7 @@ T5.Geo.UI = (function() {
     function CrosshairOverlay(params) {
         params = T5.ex({
             size: 12,
-            zindex: 150,
-            scalePosition: false
+            zindex: 150
         }, params);
         
         function drawCrosshair(context, centerPos, size) {
@@ -88,7 +87,7 @@ T5.Geo.UI = (function() {
     
     var module = {
         // change this value to have the annotations tween in 
-        // (eg. T5.Easing.Sine.Out)
+        // (eg. T5.easing('sineout'))
         AnnotationTween: null,
         
         GeoTileGrid: function(params) {
@@ -176,7 +175,7 @@ T5.Geo.UI = (function() {
                 instructionCoords = [];
                 if (! grid) { return; }
                 
-                var startTicks = GRUNT.Log.getTraceTicks(),
+                var startTicks = GT.Log.getTraceTicks(),
                     ii, current, include,
                     geometry = params.data ? params.data.geometry : [],
                     geometryLen = geometry.length,
@@ -217,7 +216,7 @@ T5.Geo.UI = (function() {
                 } // for
                 
                 geometryCalcIndex = geometryLen;
-                GRUNT.Log.trace(
+                GT.Log.trace(
                     geometryLen + ' geometry points generalized to ' + 
                     coordinates.length + ' coordinates', startTicks);
                 
@@ -267,7 +266,7 @@ T5.Geo.UI = (function() {
                         zindex: params.zindex + 1,
                         easing: easingFn ? 
                             easingFn : 
-                            T5.Easing.Sine.InOut,
+                            T5.T5.easing('sine.inout'),
                             
                         duration: duration ? duration : 5000,
                         drawIndicator: drawCallback,
@@ -335,10 +334,10 @@ T5.Geo.UI = (function() {
             });
             
             // listed for grid updates
-            GRUNT.WaterCooler.listen('grid.updated', function(args) {
+            GT.WaterCooler.listen('grid.updated', function(args) {
                 // tell all the spawned animations to remove themselves
                 for (var ii = spawnedAnimations.length; ii--; ) {
-                    GRUNT.WaterCooler.say(
+                    GT.WaterCooler.say(
                         'layer.remove', { id: spawnedAnimations[ii] });
                 } // for
                 
@@ -396,7 +395,7 @@ T5.Geo.UI = (function() {
                         // animate the annotation
                         animating = true;
                         
-                        T5.Animation.tween(
+                        T5.tween(
                             self.xy, 
                             'y',
                             endValue, 
@@ -576,7 +575,6 @@ T5.Geo.UI = (function() {
             params = T5.ex({
                 pois: null,
                 map: null,
-                createAnnotationForPOI: null,
                 zindex: 100
             }, params);
             
@@ -586,22 +584,27 @@ T5.Geo.UI = (function() {
                 
             function createAnnotationForPOI(poi) {
                 if (poi && poi.pos) {
-                    var annotation = null;
-                    if (params.createAnnotationForPOI) {
-                        annotation = params.createAnnotationForPOI(poi);
-                    }
-                    else {
-                        annotation = new module.Annotation({
+                    var evt = {
+                        poi: poi,
+                        annotation: null
+                    };
+                    
+                    if (params.map) {
+                        params.map.trigger('getAnnotationForPOI', evt);
+                    } // if
+                        
+                    if (! evt.annotation) {
+                        evt.annotation = new module.Annotation({
                             pos: poi.pos
                         });
-                    } // if..else
+                    } // if
                     
-                    if (annotation) {
-                        annotation.isNew = poi.isNew;
+                    if (evt.annotation) {
+                        evt.annotation.isNew = poi.isNew;
                         poi.isNew = false;
                     } // if
                     
-                    return annotation;
+                    return evt.annotation;
                 } // if
             } // createAnnotationForPOI
             
@@ -625,7 +628,7 @@ T5.Geo.UI = (function() {
                     updateAnnotationCoordinates(annotations);
                 }
                 catch (e) {
-                    GRUNT.Log.exception(e);
+                    GT.Log.exception(e);
                 }
             } // updateAnnotations
             
@@ -718,7 +721,7 @@ T5.Geo.UI = (function() {
                 }
             });
 
-            GRUNT.WaterCooler.listen('geo.pois-updated', function(args) {
+            GT.WaterCooler.listen('geo.pois-updated', function(args) {
                 // if the event source id matches our current 
                 // poi storage, then apply updates
                 if (params.pois && (params.pois.id == args.srcID)) {
@@ -728,7 +731,7 @@ T5.Geo.UI = (function() {
             });
             
             // list for grid updates
-            GRUNT.WaterCooler.listen('grid.updated', function(args) {
+            GT.WaterCooler.listen('grid.updated', function(args) {
                 updateAnnotationCoordinates(annotations);
                 updateAnnotationCoordinates(staticAnnotations);
                 self.wakeParent();

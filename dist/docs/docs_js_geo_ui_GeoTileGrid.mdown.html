@@ -10,22 +10,22 @@
 <meta name="format-detection" content="false">
 </head>
 <body>
-<h1><a name="TILE5.Geo.UI.GeoTileGrid">TILE5.Geo.UI.GeoTileGrid</a></h1>
+<h1><a name="T5.Geo.UI.GeoTileGrid">T5.Geo.UI.GeoTileGrid</a></h1>
 
-<p>Extends: <a href="docs_js_tiling_TileGrid.mdown.html#TILE5.Tiling.TileGrid">TILE5.Tiling.TileGrid</a></p>
+<p>Extends: <a href="docs_js_tiling_TileGrid.mdown.html#T5.Tiling.TileGrid">T5.Tiling.TileGrid</a></p>
 
-<p>The GeoTileGrid class is used to <strong>wrap</strong> and extend a standard <a href="docs_js_tiling_TileGrid.mdown.html#TILE5.Tiling.TileGrid">TILE5.Tiling.TileGrid</a> and make it "Geospatial aware".  Essentially a GeoTileGrid is initialized by passing an existing TileGrid and a center position (<a href="docs_js_geo_core_Position.mdown.html#TILE5.Geo.Position">TILE5.Geo.Position</a>) and center xy coordinate (TILE5.Vector) and this allows it to translate screen coordinates into latitude / longitude pairs.</p>
+<p>The GeoTileGrid class is used to <strong>wrap</strong> and extend a standard <a href="docs_js_tiling_TileGrid.mdown.html#T5.Tiling.TileGrid">T5.Tiling.TileGrid</a> and make it "Geospatial aware".  Essentially a GeoTileGrid is initialized by passing an existing TileGrid and a center position (<a href="docs_js_geo_core_Position.mdown.html#T5.Geo.Position">T5.Geo.Position</a>) and center xy coordinate (T5.Vector) and this allows it to translate screen coordinates into latitude / longitude pairs.</p>
 
 <h2>Constructor Parameters</h2>
 
 <ul>
-<li><p><strong>grid</strong> (<a href="docs_js_tiling_TileGrid.mdown.html#TILE5.Tiling.TileGrid">TILE5.Tiling.TileGrid</a>)</p>
+<li><p><strong>grid</strong> (<a href="docs_js_tiling_TileGrid.mdown.html#T5.Tiling.TileGrid">T5.Tiling.TileGrid</a>)</p>
 
 <p>the grid to wrap and make Geospatial aware</p></li>
-<li><p><strong>centerPos</strong> (<a href="docs_js_geo_core_Position.mdown.html#TILE5.Geo.Position">TILE5.Geo.Position</a>)</p>
+<li><p><strong>centerPos</strong> (<a href="docs_js_geo_core_Position.mdown.html#T5.Geo.Position">T5.Geo.Position</a>)</p>
 
 <p>the latitude and longitude of the center of the grid</p></li>
-<li><p><strong>centerXY</strong> (TILE5.Vector)</p>
+<li><p><strong>centerXY</strong> (T5.Vector)</p>
 
 <p>the center xy coordinate of the grid (relative to the top left tile, xy coordinate = 0,0)</p></li>
 <li><p><strong>radsPerPixel</strong> (float) </p>
@@ -38,13 +38,13 @@
 <ul>
 <li><p><code>getBoundingBox(x, y, width, height)</code></p>
 
-<p>Returns a new <a href="docs_js_geo_core_BoundingBox.mdown.html#TILE5.Geo.BoundingBox">TILE5.Geo.BoundingBox</a> that relates to the specified area on the tile grid.</p></li>
+<p>Returns a new <a href="docs_js_geo_core_BoundingBox.mdown.html#T5.Geo.BoundingBox">T5.Geo.BoundingBox</a> that relates to the specified area on the tile grid.</p></li>
 <li><p><code>getGridXYForPosition(pos)</code></p>
 
-<p>Returns a TILE5.Vector that relates to the grid position of the <a href="docs_js_geo_core_Position.mdown.html#TILE5.Geo.Position">TILE5.Geo.Position</a> value passed in the pos parameter to the method.  This method is used extensively to calculate the position that shapes / points should be drawn to the grid based on their geospatial position.</p></li>
+<p>Returns a T5.Vector that relates to the grid position of the <a href="docs_js_geo_core_Position.mdown.html#T5.Geo.Position">T5.Geo.Position</a> value passed in the pos parameter to the method.  This method is used extensively to calculate the position that shapes / points should be drawn to the grid based on their geospatial position.</p></li>
 <li><p><code>pixelsToPos(vector)</code></p>
 
-<p>Basically the opposite of the above.  Returns a <a href="docs_js_geo_core_Position.mdown.html#TILE5.Geo.Position">TILE5.Geo.Position</a> based on the xy value of the TILE5.Vector that is passed to the method.  Very useful when you need to translate screen / grid coordinates into a latitude longitude.  For instance, in the case where the user clicks on the map and you need to know the latitude and longitude of that click / touch.</p></li>
+<p>Basically the opposite of the above.  Returns a <a href="docs_js_geo_core_Position.mdown.html#T5.Geo.Position">T5.Geo.Position</a> based on the xy value of the T5.Vector that is passed to the method.  Very useful when you need to translate screen / grid coordinates into a latitude longitude.  For instance, in the case where the user clicks on the map and you need to know the latitude and longitude of that click / touch.</p></li>
 </ul>
 
 <script> 

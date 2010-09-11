@@ -1,19 +1,13 @@
 T5.View = function(params) {
     // initialise defaults
     params = T5.ex({
-        id: GRUNT.generateObjectID('view'),
+        id: GT.objId('view'),
         container: "",
-        clearOnDraw: false,
-        scaleDamping: false,
         fastDraw: false,
-        fillStyle: "rgb(200, 200, 200)",
-        initialDrawMode: "source-over",
-        bufferRefresh: 100,
-        defaultFreezeDelay: 500,
         inertia: true,
         pannable: true,
         scalable: true,
-        panAnimationEasing: T5.Easing.Sine.Out,
+        panAnimationEasing: T5.easing('sine.out'),
         panAnimationDuration: 750,
         pinchZoomAnimateTrigger: 400,
         adjustScaleFactor: null,
@@ -43,7 +37,7 @@ T5.View = function(params) {
         bufferTime = 0,
         zoomCenter = null,
         tickCount = 0,
-        deviceFps = T5.Device.getConfig().targetFps,
+        deviceFps = T5.getConfig().targetFps,
         redrawInterval = 0,
         scaling = false,
         startRect = null,
@@ -54,17 +48,24 @@ T5.View = function(params) {
         tweenStart = null,
         startCenter = null,
         touchHelper = null,
-        state = T5.ViewState.ACTIVE;
+        
+        /* state shortcuts */
+        
+        stateActive = T5.viewState('ACTIVE'),
+        statePan = T5.viewState('PAN'),
+        statePinch = T5.viewState('PINCH'),
+        
+        state = stateActive;
         
     /* panning functions */
     
     function pan(x, y, tweenFn, tweenDuration) {
         // update the offset by the specified amount
         panimating = typeof(tweenFn) !== "undefined";
-        self.updateOffset(offset.x + x, offset.y + y, tweenFn, tweenDuration);
-        
+
+        state = statePan;
         wake();
-        state = T5.ViewState.PAN;                
+        self.updateOffset(offset.x + x, offset.y + y, tweenFn, tweenDuration);
     } // pan
     
     function panInertia(x, y) {
@@ -74,7 +75,7 @@ T5.View = function(params) {
     } // panIntertia
     
     function panEnd(x, y) {
-        state = T5.ViewState.ACTIVE;
+        state = stateActive;
         panimating = false;
         setTimeout(wake, 50);
     } // panEnd
@@ -106,8 +107,7 @@ T5.View = function(params) {
         scaling = scaleFactor !== 1;
         
         if (scaling) {
-            state = T5.ViewState.PINCHZOOM;
-
+            state = statePinch;
             wake();
         } // if
     } // pinchZoom
@@ -117,7 +117,7 @@ T5.View = function(params) {
         
         if (params.adjustScaleFactor) {
             scaleFactor = params.adjustScaleFactor(scaleFactor);
-            GRUNT.Log.info("scale factor adjusted to: " + scaleFactor);
+            GT.Log.info("scale factor adjusted to: " + scaleFactor);
         } // if
 
         if (pinchZoomTime < params.pinchZoomAnimateTrigger) {
@@ -128,7 +128,7 @@ T5.View = function(params) {
                 startCenter, 
                 calcPinchZoomCenter(), 
                 // TODO: make the animation configurable
-                T5.Easing.Sine.Out,
+                T5.easing('sine.out'),
                 function() {
                     scaleView();
                     resetZoom();
@@ -150,14 +150,10 @@ T5.View = function(params) {
     } // wheelZoom
     
     function scaleView() {
-        // TODO: can this be removed
-        GRUNT.WaterCooler.say("view.scale", { id: self.id });
-        
         scaling = false;
         self.trigger("scale", scaleFactor, startRect ? calcPinchZoomCenter() : endCenter);
 
-        // reset the status flag
-        state = T5.ViewState.ACTIVE;
+        state = stateActive;
         wake();
     } // scaleView
     
@@ -182,11 +178,11 @@ T5.View = function(params) {
 
             try {
                 mainContext = canvas.getContext('2d');
-                mainContext.globalCompositeOperation = params.initialDrawMode;
+                mainContext.globalCompositeOperation = 'source-over';
                 mainContext.clearRect(0, 0, canvas.width, canvas.height);
             } 
             catch (e) {
-                GRUNT.Log.exception(e);
+                GT.Log.exception(e);
                 throw new Error("Could not initialise canvas on specified view element");
             }
             
@@ -212,6 +208,7 @@ T5.View = function(params) {
     function addLayer(id, value) {
         // make sure the layer has the correct id
         value.setId(id);
+        value.added = T5.time();
         
         // tell the layer that I'm going to take care of it
         value.setParent(self);
@@ -265,7 +262,7 @@ T5.View = function(params) {
 
         // if tweening then update the targetXY
         if (tweenFn) {
-            var tween = T5.Animation.tweenValue(
+            var tween = T5.tweenValue(
                             0, 
                             scaleFactorTo - scaleFactorFrom, 
                             tweenFn, 
@@ -280,9 +277,8 @@ T5.View = function(params) {
                 scaleFactor = scaleFactorFrom + updatedValue;
 
                 // trigger the on animate handler
-                state = T5.ViewState.PINCHZOOM;
+                state = statePinch;
                 wake();
-
                 self.trigger("animate");
             });
         }
@@ -335,9 +331,9 @@ T5.View = function(params) {
     
     function drawView(context, offset) {
         var changeCount = 0,
-            drawState = self.getDisplayState(),
+            drawState = frozen ? T5.viewState('FROZEN') : state,
             startTicks = T5.time(),
-            isPinchZoom = (drawState & T5.ViewState.PINCHZOOM) !== 0,
+            isPinchZoom = (drawState & statePinch) !== 0,
             delayDrawLayers = [];
         
         var savedDrawn = false,
@@ -391,7 +387,7 @@ T5.View = function(params) {
             context.restore();
         } // try..finally
         
-        GRUNT.Log.trace("draw complete", startTicks);
+        GT.Log.trace("draw complete", startTicks);
         
         repaint = false;
         return changeCount;
@@ -400,9 +396,8 @@ T5.View = function(params) {
     function cycle() {
         // check to see if we are panning
         var changeCount = 0,
-            interacting = (! panimating) && (
-                                (state === T5.ViewState.PINCHZOOM) || 
-                                (state === T5.ViewState.PAN));
+            interacting = (! panimating) && 
+                ((state === statePinch) || (state === statePan));
             
         // get the tickcount
         tickCount = T5.time();
@@ -419,7 +414,7 @@ T5.View = function(params) {
         } // if
             
         if (interacting) {
-            T5.Animation.cancel(function(tweenInstance) {
+            T5.cancelAnimation(function(tweenInstance) {
                 return tweenInstance.cancelOnInteract;
             });
             
@@ -455,7 +450,7 @@ T5.View = function(params) {
             } // if
         } // if..else
         
-        GRUNT.Log.trace("Completed draw cycle", tickCount);
+        GT.Log.trace("Completed draw cycle", tickCount);
     } // cycle
     
     function wake() {
@@ -476,7 +471,7 @@ T5.View = function(params) {
     var self = {
         id: params.id,
         deviceScaling: deviceScaling,
-        fastDraw: params.fastDraw || T5.Device.getConfig().requireFastDraw,
+        fastDraw: params.fastDraw || T5.getConfig().requireFastDraw,
         
         // TODO: change name to be scaling related
         animate: function(targetScaleFactor, startXY, targetXY, tweenFn, callback) {
@@ -528,8 +523,7 @@ T5.View = function(params) {
             if (value) {
                 addLayer(id, value);
             } // if
-            
-            GRUNT.WaterCooler.say("layer.update", { id: id });
+
             wake();
         },
         
@@ -561,10 +555,6 @@ T5.View = function(params) {
         snapshot: function(zindex) {
         },
         
-        getDisplayState: function() {
-            return frozen ? T5.ViewState.FROZEN : state;
-        },
-        
         scale: function(targetScaling, tweenFn, callback, startXY, targetXY) {
             // if the start XY is not defined, used the center
             if (! startXY) {
@@ -589,7 +579,7 @@ T5.View = function(params) {
         removeLayer: function(id) {
             var layerIndex = getLayerIndex(id);
             if ((layerIndex >= 0) && (layerIndex < layers.length)) {
-                GRUNT.WaterCooler.say("layer.removed", { layer: layers[layerIndex] });
+                GT.WaterCooler.say("layer.removed", { layer: layers[layerIndex] });
 
                 layers.splice(layerIndex, 1);
             } // if
@@ -618,7 +608,7 @@ T5.View = function(params) {
             if (tweenFn) {
                 var endPosition = new T5.Vector(x, y);
 
-                var tweens = T5.Animation.tweenVector(
+                var tweens = T5.tweenVector(
                                 offset, 
                                 endPosition.x, 
                                 endPosition.y, 
@@ -629,13 +619,7 @@ T5.View = function(params) {
                 // set the tweens to cancel on interact
                 for (var ii = tweens.length; ii--; ) {
                     tweens[ii].cancelOnInteract = true;
-                    tweens[ii].requestUpdates(function(updatedValue, complete) {
-                        wake();
-                        
-                        if (params.onAnimate) {
-                            params.onAnimate(offset.x, offset.y);
-                        } // if
-                    });
+                    tweens[ii].requestUpdates(wake);
                 } // for
             }
             else {
@@ -655,9 +639,9 @@ T5.View = function(params) {
             clearTimeout(rescaleTimeout);
 
             if (scaling) {
-                state = T5.ViewState.PINCHZOOM;
-
+                state = statePinch;
                 wake();
+
                 if (rescaleAfter) {
                     rescaleTimeout = setTimeout(function() {
                         scaleView();
@@ -669,16 +653,16 @@ T5.View = function(params) {
     };
 
     // listen for layer removals
-    GRUNT.WaterCooler.listen("layer.remove", function(args) {
+    GT.WaterCooler.listen("layer.remove", function(args) {
         if (args.id) {
             self.removeLayer(args.id);
         } // if
     });
     
-    deviceScaling = T5.Device.getConfig().getScaling();
+    deviceScaling = T5.getConfig().getScaling();
     
     // make the view observable
-    GRUNT.observable(self);
+    GT.observable(self);
     
     // listen for being woken up
     self.bind("wake", wake);
@@ -707,10 +691,10 @@ T5.View = function(params) {
     }
     
     // make the view configurable
-    GRUNT.configurable(
+    GT.configurable(
         self, 
         ["inertia", "container"], 
-        GRUNT.paramTweaker(params, null, {
+        GT.paramTweaker(params, null, {
             "container": handleContainerUpdate
         }),
         true);

@@ -10,16 +10,16 @@
 <meta name="format-detection" content="false">
 </head>
 <body>
-<h1><a name="TILE5.Geo.UI.RouteOverlay">TILE5.Geo.UI.RouteOverlay</a></h1>
+<h1><a name="T5.Geo.UI.RouteOverlay">T5.Geo.UI.RouteOverlay</a></h1>
 
-<p>Extends: <a href="docs_js_graphics_ViewLayer.mdown.html#TILE5.Graphics.ViewLayer">TILE5.Graphics.ViewLayer</a></p>
+<p>Extends: <a href="docs_module_overviews_Graphics.mdown.html#T5.Graphics">T5.Graphics</a>.ViewLayer</p>
 
 <p>The RouteOverlay class is used to render the route geometry to the map.  </p>
 
 <h2>Constructor Parameters</h2>
 
 <ul>
-<li><p><strong>data</strong> (<a href="docs_module_overviews_geo_Routing.mdown.html#TILE5.Geo.Routing">TILE5.Geo.Routing</a>.RouteData)</p>
+<li><p><strong>data</strong> (<a href="docs_module_overviews_geo_Routing.mdown.html#T5.Geo.Routing">T5.Geo.Routing</a>.RouteData)</p>
 
 <p>The route data that will be rendered in the ViewLayer.  </p></li>
 <li><p>pixelGeneralization (int, default = 8)</p>
@@ -27,7 +27,7 @@
 <p>This parameter refers to the minimum distance that must occur between two screen coordinates at a particular zoom level before a point is considered worth drawing.  This is the 2nd phase of generalization that is applied to the route data.  For more information see: <a href="docs_geo_generalization.mdown.html#Understanding Route Generalization">Understanding Route Generalization</a>.</p></li>
 <li><p>calculationsPerCycle (int, default = 250)</p>
 
-<p>This parameter is used to specify how many <a href="docs_js_geo_core_Position.mdown.html#TILE5.Geo.Position">TILE5.Geo.Position</a> values from the <a href="docs_module_overviews_geo_Routing.mdown.html#TILE5.Geo.Routing">TILE5.Geo.Routing</a>.RouteData geometry should be converted to a screen coordinate per draw cycle (see <a href="docs_js_graphics_View.mdown.html#TILE5.Graphics.View">TILE5.Graphics.View</a>).  The conversion of positions into screen coordinates is done in a re-entrant fashion to ensure that the application UI is not blocked while long routes are converted to screen positions.  When HTML5 web workers become common place, this will be revisited :)</p></li>
+<p>This parameter is used to specify how many <a href="docs_js_geo_core_Position.mdown.html#T5.Geo.Position">T5.Geo.Position</a> values from the <a href="docs_module_overviews_geo_Routing.mdown.html#T5.Geo.Routing">T5.Geo.Routing</a>.RouteData geometry should be converted to a screen coordinate per draw cycle (see <a href="docs_module_overviews_Graphics.mdown.html#T5.Graphics">T5.Graphics</a>.View).  The conversion of positions into screen coordinates is done in a re-entrant fashion to ensure that the application UI is not blocked while long routes are converted to screen positions.  When HTML5 web workers become common place, this will be revisited :)</p></li>
 <li><p>partialDraw (boolean, default = false)</p>
 
 <p>Given the re-entrant nature of the position -> screen coordinate calculations it is possible to draw partial routes quite early once a route has been retrieved.  If it is desirable to do this (you actually get quite a nice effect with it enabled) then simply mark this option as true in the constructor.</p></li>
@@ -36,13 +36,13 @@
 <p>The stroke color that is used to draw the route line.</p></li>
 <li><p>waypointFillStyle (HTML5 Canvas fillStyle, default = #FFFFFF)</p>
 
-<p>The color that is used to fill the waypoint circles on the route.  Waypoints are drawn to correspond to instructions that are passed through in the <a href="docs_module_overviews_geo_Routing.mdown.html#TILE5.Geo.Routing">TILE5.Geo.Routing</a>.RouteData</p></li>
+<p>The color that is used to fill the waypoint circles on the route.  Waypoints are drawn to correspond to instructions that are passed through in the <a href="docs_module_overviews_geo_Routing.mdown.html#T5.Geo.Routing">T5.Geo.Routing</a>.RouteData</p></li>
 <li><p>lineWidth (int, default = 4)</p>
 
 <p>The default line width that is used when drawing the route line.</p></li>
 <li><p>zindex (int, default = 50)</p>
 
-<p>The <a href="docs_js_graphics_ViewLayer.mdown.html#TILE5.Graphics.ViewLayer">TILE5.Graphics.ViewLayer</a> zindex for the RouteOverlay.</p></li>
+<p>The <a href="docs_module_overviews_Graphics.mdown.html#T5.Graphics">T5.Graphics</a>.ViewLayer zindex for the RouteOverlay.</p></li>
 </ul>
 
 <h2>Methods</h2>
@@ -50,12 +50,12 @@
 <ul>
 <li><p><code>getAnimation(easingFn, duration, drawCallback, autoCenter)</code></p>
 
-<p>This method is used to create a new <a href="docs_js_graphics_AnimatedPathLayer.mdown.html#TILE5.Graphics.AnimatedPathLayer">TILE5.Graphics.AnimatedPathLayer</a> from the current route information.  Rather than animating the path in this overlay it was a design decision to have a new <a href="docs_js_graphics_ViewLayer.mdown.html#TILE5.Graphics.ViewLayer">TILE5.Graphics.ViewLayer</a> spawned to manage drawing any route animation.  So far this has proven to be pretty effective.  The method takes the following parameters:</p>
+<p>This method is used to create a new <a href="docs_module_overviews_Graphics.mdown.html#T5.Graphics">T5.Graphics</a>.AnimatedPathLayer from the current route information.  Rather than animating the path in this overlay it was a design decision to have a new <a href="docs_module_overviews_Graphics.mdown.html#T5.Graphics">T5.Graphics</a>.ViewLayer spawned to manage drawing any route animation.  So far this has proven to be pretty effective.  The method takes the following parameters:</p>
 
 <ul>
-<li><p>easingFn - the <a href="docs_module_overviews_Animation.mdown.html#TILE5.Animation">TILE5.Animation</a>.Easing function that will be used when animating the path.</p></li>
+<li><p>easingFn - the <a href="docs_module_overviews_Animation.mdown.html#T5.Animation">T5.Animation</a>.Easing function that will be used when animating the path.</p></li>
 <li><p>duration - the duration of the animation</p></li>
-<li><p>drawCallback - a callback function that will be used to draw the indicator for the animation.  Providing a value for this callback will allow you to do nifty things like draw images as the animation indicator.  See the <a href="docs_js_graphics_AnimatedPathLayer.mdown.html#TILE5.Graphics.AnimatedPathLayer">TILE5.Graphics.AnimatedPathLayer</a> doco for details on the drawCallback format.</p></li>
+<li><p>drawCallback - a callback function that will be used to draw the indicator for the animation.  Providing a value for this callback will allow you to do nifty things like draw images as the animation indicator.  See the <a href="docs_module_overviews_Graphics.mdown.html#T5.Graphics">T5.Graphics</a>.AnimatedPathLayer doco for details on the drawCallback format.</p></li>
 <li><p>autoCenter - whether or not the view should autocenter on the animation indicator while the animation is completing.  If this is set as true, the user will be taken along the route.</p></li>
 </ul></li>
 </ul>
@@ -63,7 +63,7 @@
 <h2>Usage</h2>
 
 <pre><code>// create a new route overlay
-var routeLayer = new <a href="docs_js_geo_ui_RouteOverlay.mdown.html#TILE5.Geo.UI.RouteOverlay">TILE5.Geo.UI.RouteOverlay</a>({
+var routeLayer = new <a href="docs_js_geo_ui_RouteOverlay.mdown.html#T5.Geo.UI.RouteOverlay">T5.Geo.UI.RouteOverlay</a>({
     data: myRouteData,
     partialDraw: true,
     lineWidth: 6

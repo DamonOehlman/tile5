@@ -86,7 +86,7 @@ T5.Dispatcher = (function() {
         /* agents */
         
         Agent: function(params) {
-            params = GRUNT.extend({
+            params = GT.extend({
                 name: "Untitled",
                 translator: null,
                 execute: null
@@ -103,7 +103,7 @@ T5.Dispatcher = (function() {
                 },
                 
                 getId: function() {
-                    return GRUNT.toID(self.getName());
+                    return GT.toID(self.getName());
                 },
                 
                 run: function(args, callback) {

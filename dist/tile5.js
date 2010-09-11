@@ -548,7 +548,7 @@ Number.prototype.sec = function() {
 };
 
 /** @namespace */
-GRUNT = (function() {
+GT = (function() {
     var hasOwn = Object.prototype.hasOwnProperty,
         objectCounter = 0;
     
@@ -672,7 +672,7 @@ GRUNT = (function() {
         This function is used to determine whether an object contains the specified names
         as specified by arguments beyond and including index 1.  For instance, if you wanted 
         to check whether object 'foo' contained the member 'name' then you would simply call
-        GRUNT.contains(foo, 'name'). 
+        GT.contains(foo, 'name'). 
         
         @static
         */
@@ -717,7 +717,7 @@ GRUNT = (function() {
         },
         
         /** @static */
-        generateObjectID: function(prefix) {
+        objId: function(prefix) {
             return (prefix ? prefix : "obj") + objectCounter++;
         }
     }; // module definition
@@ -725,7 +725,7 @@ GRUNT = (function() {
     return module;
 })();
 
-GRUNT.Log = (function() {
+GT.Log = (function() {
     var listeners = [];
     var jsonAvailable = (typeof JSON !== 'undefined'),
         traceAvailable = window.console && window.console.markTimeline;
@@ -737,7 +737,7 @@ GRUNT.Log = (function() {
         
         // iterate through the remaining arguments and append them as required
         for (ii = 1; entryDetails && (ii < entryDetails.length); ii++) {
-            message += " " + (jsonAvailable && GRUNT.isPlainObject(entryDetails[ii]) ? JSON.stringify(entryDetails[ii]) : entryDetails[ii]);
+            message += " " + (jsonAvailable && GT.isPlainObject(entryDetails[ii]) ? JSON.stringify(entryDetails[ii]) : entryDetails[ii]);
         } // for
         
         if (typeof console !== 'undefined') {
@@ -823,7 +823,7 @@ GRUNT.Log = (function() {
     return module;
 })();
 
-GRUNT.Data = (function() {
+GT.Data = (function() {
     
     var pdon = {
         determineObjectMapping: function(line) {
@@ -900,7 +900,7 @@ GRUNT.Data = (function() {
         },
         
         parse: function(params) {
-            params = GRUNT.extend({
+            params = GT.extend({
                 data: "",
                 format: "JSON"
             }, params);
@@ -914,8 +914,8 @@ GRUNT.Data = (function() {
                 return module.supportedFormats[params.format].parse(params.data);
             } 
             catch (e) {
-                GRUNT.Log.error("ERROR PARSING DATA FROM FORMAT: " + params.format, params.data);
-                GRUNT.Log.exception(e);
+                GT.Log.error("ERROR PARSING DATA FROM FORMAT: " + params.format, params.data);
+                GT.Log.exception(e);
             } // try..catch
             
             return {};
@@ -926,7 +926,7 @@ GRUNT.Data = (function() {
 })();
 
 
-GRUNT.paramTweaker = function(params, getCallbacks, setCallbacks) {
+GT.paramTweaker = function(params, getCallbacks, setCallbacks) {
     return function(name, value) {
         if (typeof value !== "undefined") {
             if (name in params) {
@@ -947,7 +947,7 @@ GRUNT.paramTweaker = function(params, getCallbacks, setCallbacks) {
     };
 }; // paramTweaker
 
-GRUNT.configurable = function(target, configParams, callback, bindHelpers) {
+GT.configurable = function(target, configParams, callback, bindHelpers) {
     if (! target) { return; }
     
     /* internal functions */
@@ -975,12 +975,12 @@ GRUNT.configurable = function(target, configParams, callback, bindHelpers) {
     
     // if the target doesn't yet have a configurable settings member, then add it
     if (! getSettings()) {
-        target.configurableId = GRUNT.generateObjectID("configurable");
+        target.configurableId = GT.objId("configurable");
         target.configurableSettings = {};
         target.configCallbacks = [];
         
-        if (! GRUNT.configurables) {
-            GRUNT.configurables = {};
+        if (! GT.configurables) {
+            GT.configurables = {};
         }
     } // if
     
@@ -988,7 +988,7 @@ GRUNT.configurable = function(target, configParams, callback, bindHelpers) {
     // this is a which gets the last object in an extension chain in
     // the configurables list, so make sure you extend before you make
     // an object configurable, otherwise things will get a bit wierd.
-    GRUNT.configurables[target.configurableId] = target;
+    GT.configurables[target.configurableId] = target;
     
     // add the callback to the list
     getConfigCallbacks().push(callback);
@@ -1014,14 +1014,14 @@ GRUNT.configurable = function(target, configParams, callback, bindHelpers) {
                     } // if
                 } // for
                 
-                return GRUNT.configurables[target.configurableId];
+                return GT.configurables[target.configurableId];
             } // if
             
             return null;
         };
     } // if
 };
-GRUNT.Template = (function() {
+GT.Template = (function() {
     var REGEX_TEMPLATE_VAR = /\$\{(.*?)\}/ig;
     
     // initialise module
@@ -1034,7 +1034,7 @@ GRUNT.Template = (function() {
             var matches = REGEX_TEMPLATE_VAR.exec(fnresult);
             while (matches) {
                 // remove the variable from the text
-                fnresult = fnresult.replace(matches[0], GRUNT.XPath.first(matches[1], data));
+                fnresult = fnresult.replace(matches[0], GT.XPath.first(matches[1], data));
                 
                 // find the next match
                 REGEX_TEMPLATE_VAR.lastIndex = 0;
@@ -1060,7 +1060,7 @@ variable (didn't work with multiple calls).
 
 http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-libraries/
 */
-GRUNT.JSONP = (function(){
+(function(){
     var counter = 0, head, query, key, window = this;
     
     function load(url) {
@@ -1101,14 +1101,8 @@ GRUNT.JSONP = (function(){
         return jsonp;
     } // jsonp
     
-    return {
-        get:prepAndLoad
-    };
-    
-}());
-
-
-/** @namespace 
+    GT.jsonp = prepAndLoad;
+}());/** @namespace 
 
 The XHR namespace provides functionality for issuing AJAX requests in a similar style 
 to the way jQuery does.  Why build a replacement for jQuery's ajax functionality you ask 
@@ -1120,7 +1114,7 @@ object.  So what does GRUNT XHR provide then?
 
 TODO: add information here...
 */
-GRUNT.XHR = (function() {
+(function() {
     // define some content types
     var CONTENT_TYPES = {
         HTML: "text/html",
@@ -1152,15 +1146,15 @@ GRUNT.XHR = (function() {
                 return JSON.parse(xhr.responseText);
             }
             catch (e) {
-                GRUNT.Log.error("Error parsing JSON data: ", xhr.responseText);
-                GRUNT.Log.exception(e);
+                GT.Log.error("Error parsing JSON data: ", xhr.responseText);
+                GT.Log.exception(e);
             }
             
             return "";
         },
         
         PDON: function(xhr, requestParams) {
-            return GRUNT.Data.parse({
+            return GT.Data.parse({
                 data: xhr.responseText,
                 format: "PDON"
             });
@@ -1203,6 +1197,38 @@ GRUNT.XHR = (function() {
         return fallbackType ? fallbackType : "DEFAULT";
     } // getProcessorForRequestUrl
     
+    function handleReadyStateChange() {
+        if (this.readyState === 4) {
+            var responseData = null,
+                success = requestOK(this, params);
+            
+            try {
+                // get and check the status
+                if (success) {
+                    // process the response
+                    if (params.handleResponse) {
+                        params.handleResponse(this);
+                    }
+                    else {
+                        responseData = processResponseData(this, params);
+                    }
+                }
+                else if (params.error) {
+                    params.error(this);
+                } // if..else
+            }
+            catch (e) {
+                GT.Log.exception(e, "PROCESSING AJAX RESPONSE");
+            } // try..catch
+
+            // if the success callback is defined, then call it
+            // GT.Log.info("received response, calling success handler: " + params.success);
+            if (success && responseData && params.success) {
+                params.success.call(this, responseData);
+            } // if
+        } // if
+    } // handleReadyStateChange
+    
     function requestOK(xhr, requestParams) {
         return ((! xhr.status) && (location.protocol === "file:")) ||
             (xhr.status >= 200 && xhr.status < 300) || 
@@ -1210,14 +1236,39 @@ GRUNT.XHR = (function() {
             (xhr.status === 1223) || 
             (xhr.status === 0);
     } // getStatus
+    
+    function param(data) {
+        // iterate through the members of the data and convert to a paramstring
+        var params = [];
+        var addKeyVal = function (key, value) {
+            // If value is a function, invoke it and return its value
+            value = GT.isFunction(value) ? value() : value;
+            params[ params.length ] = encodeURIComponent(key) + "=" + encodeURIComponent(value);
+        };
 
+        // If an array was passed in, assume that it is an array of form elements.
+        if (GT.isArray(data)) {
+            for (var ii = 0; ii < data.length; ii++) {
+                addKeyVal(data[ii].name, data[ii].value);
+            } // for
+        }
+        else {
+            for (var keyname in data) {
+                addKeyVal(keyname, data[keyname]);
+            } // for
+        } // if..else
+
+        // Return the resulting serialization
+        return params.join("&").replace(/%20/g, "+");
+    } // param
+    
     function processResponseData(xhr, requestParams) {
         // get the content type of the response
         var contentType = xhr.getResponseHeader(HEADERS.CONTENT_TYPE),
             processorId,
             matchedType = false;
         
-        // GRUNT.Log.info("processing response data, content type = " + contentType);
+        // GT.Log.info("processing response data, content type = " + contentType);
         
         // determine the matching content type
         for (processorId in CONTENT_TYPES) {
@@ -1239,151 +1290,85 @@ GRUNT.XHR = (function() {
         } // if
         
         try {
-            // GRUNT.Log.info("using processor: " + processorId + " to process response");
+            // GT.Log.info("using processor: " + processorId + " to process response");
             return RESPONSE_TYPE_PROCESSORS[processorId](xhr, requestParams);
         }
         catch (e) {
-            GRUNT.Log.warn("error applying processor '" + processorId + "' to response type, falling back to default");
+            // GT.Log.warn("error applying processor '" + processorId + "' to response type, falling back to default");
             return RESPONSE_TYPE_PROCESSORS.DEFAULT(xhr, requestParams);
         } // try..catch
     } // processResponseData
     
-    // define self
-    var module = GRUNT.newModule({
-        id: "GRUNT.xhr",
-        
-        ajaxSettings: {
-            xhr: null
-        },
-        
-        ajax: function(params) {
-            // given that I am having to write my own AJAX handling, I think it's safe to assume that I should
-            // do that in the context of a try catch statement to catch the things that are going to go wrong...
-            try {
-                params = GRUNT.extend({
-                    method: "GET",
-                    data: null,
-                    url: null,
-                    async: true,
-                    success: null,
-                    handleResponse: null,
-                    error: null,
-                    contentType: "application/x-www-form-urlencoded"
-                }, module.ajaxSettings, params);
-                
-                // determine if this is a remote request (as per the jQuery ajax calls)
-                var parts = REGEX_URL.exec(params.url),
-                    remote = parts && (parts[1] && parts[1] !== location.protocol || parts[2] !== location.host);                
-                
-                // if we have data, then update the method to POST
-                if (params.data) {
-                    params.method = "POST";
-                } // if
+    GT.xhr = function(params) {
+        // given that I am having to write my own AJAX handling, I think it's safe to assume that I should
+        // do that in the context of a try catch statement to catch the things that are going to go wrong...
+        try {
+            params = GT.extend({
+                method: "GET",
+                data: null,
+                url: null,
+                async: true,
+                success: null,
+                handleResponse: null,
+                error: null,
+                contentType: "application/x-www-form-urlencoded"
+            }, module.ajaxSettings, params);
+            
+            // determine if this is a remote request (as per the jQuery ajax calls)
+            var parts = REGEX_URL.exec(params.url),
+                remote = parts && (parts[1] && parts[1] !== location.protocol || parts[2] !== location.host);                
+            
+            // if we have data, then update the method to POST
+            if (params.data) {
+                params.method = "POST";
+            } // if
 
-                // if the url is empty, then log an error
-                if (! params.url) {
-                    GRUNT.Log.warn("ajax request issued with no url - that ain't going to work...");
-                    return;
-                } // if
-                
-                // if the we have an xhr creator registered, then let it decide whether it wants to create the client
-                var xhr = null;
-                if (params.xhr) {
-                    xhr = params.xhr(params);
-                } // if
-                
-                // if the optional creator, didn't create the client, then create the default client
-                if (! xhr) {
-                    xhr = new XMLHttpRequest();
-                } // if
+            // if the url is empty, then log an error
+            if (! params.url) {
+                GT.Log.warn("ajax request issued with no url - that ain't going to work...");
+                return;
+            } // if
+            
+            // if the we have an xhr creator registered, then let it decide whether it wants to create the client
+            var xhr = null;
+            if (params.xhr) {
+                xhr = params.xhr(params);
+            } // if
+            
+            // if the optional creator, didn't create the client, then create the default client
+            if (! xhr) {
+                xhr = new XMLHttpRequest();
+            } // if
 
-                // GRUNT.Log.info("opening request: " + JSON.stringify(params));
+            // GT.Log.info("opening request: " + JSON.stringify(params));
 
-                // open the request
-                // TODO: support basic authentication
-                xhr.open(params.method, params.url, params.async);
+            // open the request
+            // TODO: support basic authentication
+            xhr.open(params.method, params.url, params.async);
 
-                // if we are sending data, then set the correct content type
-                if (params.data) {
-                    xhr.setRequestHeader("Content-Type", params.contentType);
-                } // if
-                
-                // if this is not a remote request, the set the requested with header
-                if (! remote) {
-                    xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
-                } // if
-                
-                xhr.onreadystatechange = function() {
-                    if (this.readyState === 4) {
-                        var responseData = null,
-                            success = requestOK(this, params);
-                        
-                        try {
-                            // get and check the status
-                            if (success) {
-                                // process the response
-                                if (params.handleResponse) {
-                                    params.handleResponse(this);
-                                }
-                                else {
-                                    responseData = processResponseData(this, params);
-                                }
-                            }
-                            else if (params.error) {
-                                params.error(this);
-                            } // if..else
-                        }
-                        catch (e) {
-                            GRUNT.Log.exception(e, "PROCESSING AJAX RESPONSE");
-                        } // try..catch
+            // if we are sending data, then set the correct content type
+            if (params.data) {
+                xhr.setRequestHeader("Content-Type", params.contentType);
+            } // if
+            
+            // if this is not a remote request, the set the requested with header
+            if (! remote) {
+                xhr.setRequestHeader("X-Requested-With", "XMLHttpRequest");
+            } // if
+            
+            xhr.onreadystatechange = handleReadyStateChange;
 
-                        // if the success callback is defined, then call it
-                        // GRUNT.Log.info("received response, calling success handler: " + params.success);
-                        if (success && responseData && params.success) {
-                            params.success.call(this, responseData);
-                        } // if
-                    } // if
-                }; // onreadystatechange
-
-                // send the request
-                // GRUNT.Log.info("sending request with data: " + module.param(params.data));
-                xhr.send(params.method == "POST" ? module.param(params.data) : null);
-            } 
-            catch (e) {
-                GRUNT.Log.exception(e);
-            } // try..catch                    
-        }, // ajax
-        
-        param: function(data) {
-            // iterate through the members of the data and convert to a paramstring
-            var params = [];
-            var addKeyVal = function (key, value) {
-                // If value is a function, invoke it and return its value
-                value = GRUNT.isFunction(value) ? value() : value;
-                params[ params.length ] = encodeURIComponent(key) + "=" + encodeURIComponent(value);
-            };
-
-            // If an array was passed in, assume that it is an array of form elements.
-            if (GRUNT.isArray(data)) {
-                for (var ii = 0; ii < data.length; ii++) {
-                    addKeyVal(data[ii].name, data[ii].value);
-                } // for
-            }
-            else {
-                for (var keyname in data) {
-                    addKeyVal(keyname, data[keyname]);
-                } // for
-            } // if..else
-
-            // Return the resulting serialization
-            return params.join("&").replace(/%20/g, "+");
-        }
-    }); // self
-    
-    return module;
+            // send the request
+            // GT.Log.info("sending request with data: " + module.param(params.data));
+            xhr.send(params.method == "POST" ? module.param(params.data) : null);
+        } 
+        catch (e) {
+            GT.Log.exception(e);
+        } // try..catch                    
+    }; // GT.xhr
 })();
 
-GRUNT.XPath = (function() {
+GT.XPath = (function() {
     var xpathEnabled = typeof XPathResult !== 'undefined';
     var nsResolvers = [];
     
@@ -1446,7 +1431,7 @@ GRUNT.XPath = (function() {
     
     // if xpath is not enabled, then throw a warning
     if (! xpathEnabled) {
-        GRUNT.Log.warn("No XPATH support, this is going to cause problems");
+        GT.Log.warn("No XPATH support, this is going to cause problems");
     } // if
     
     function xpath(expression, context, resultType) {
@@ -1457,8 +1442,8 @@ GRUNT.XPath = (function() {
         
         try {
             // if the context node is not xml, then return null and raise a warning
-            if (! GRUNT.isXmlDocument(context)) {
-                GRUNT.Log.warn("attempted xpath expression: " + expression + " on a non-xml document");
+            if (! GT.isXmlDocument(context)) {
+                GT.Log.warn("attempted xpath expression: " + expression + " on a non-xml document");
                 return null;
             } // if
             
@@ -1466,7 +1451,7 @@ GRUNT.XPath = (function() {
             return context.evaluate(expression, context, namespaceResolver, resultType, null);
         } 
         catch (e) {
-            GRUNT.Log.warn("attempted to run invalid xpath expression: " + expression + " on node: " + context);
+            GT.Log.warn("attempted to run invalid xpath expression: " + expression + " on node: " + context);
             return null;
         } // try..catch
     } // xpath
@@ -1488,7 +1473,7 @@ GRUNT.XPath = (function() {
                         
                         // if we have a match handler, then call it
                         if (matchHandler) {
-                            GRUNT.Log.info("invoking match handler for result type: " + matches.resultType);
+                            // GT.Log.info("invoking match handler for result type: " + matches.resultType);
                             result = matchHandler(matches);
                         }
                     } // if
@@ -1512,7 +1497,7 @@ GRUNT.XPath = (function() {
     return module;
 })();
 
-GRUNT.observable = function(target) {
+GT.observable = function(target) {
     if (! target) { return; }
     
     /* internal functions */
@@ -1542,7 +1527,7 @@ GRUNT.observable = function(target) {
     var attached = target.bind || target.trigger || target.unbind;
     if (! attached) {
         target.bind = function(eventName, callback) {
-            var callbackId = GRUNT.generateObjectID("callback");
+            var callbackId = GT.objId("callback");
             
             initHandlerArray(eventName);
             
@@ -1583,7 +1568,7 @@ GRUNT.observable = function(target) {
     } // if
 };
 // TODO: add functionality that allows you to stop listening to messages
-GRUNT.WaterCooler = (function() {
+GT.WaterCooler = (function() {
     // initialise variables
     var messageListeners = {},
         pipes = [];
@@ -1635,7 +1620,7 @@ GRUNT.WaterCooler = (function() {
     return module;
 })();
 
-GRUNT.Storage = (function() {
+GT.Storage = (function() {
     function getStorageScope(scope) {
         if (scope && (scope == "session")) {
             return sessionStorage;
@@ -1667,7 +1652,7 @@ GRUNT.Storage = (function() {
         }
     };
 })();
-GRUNT.ParseRules = function(params) {
+GT.ParseRules = function(params) {
     var rules = [];
     
     var self = {
@@ -1717,7 +1702,7 @@ GRUNT.ParseRules = function(params) {
 /* GRUNTJS END */
 T5 = (function() {
     var module = {
-        ex: GRUNT.extend,
+        ex: GT.extend,
         
         newCanvas: function(width, height) {
             var tmpCanvas = document.createElement('canvas');
@@ -1737,36 +1722,6 @@ T5 = (function() {
         time: function() {
             return new Date().getTime();
         },
-        
-        Settings: (function() {
-            var currentSettings = {};
-            
-            // define self
-            var self = {
-                /** 
-                @static
-                Get a setting with the specified name
-                
-                @param {String} name the name of the setting to retrieve
-                @returns the value of the setting if defined
-                */
-                get: function(name) {
-                    return currentSettings[name];
-                },
-                
-                /** @static */
-                set: function(name, value) {
-                    currentSettings[name] = value;
-                },
-                
-                /** static */
-                extend: function(params) {
-                    T5.ex(currentSettings, params);
-                }
-            };
-            
-            return self;
-        })(),
         
         /**
         Initialise a new Vector instance
@@ -1960,7 +1915,7 @@ T5 = (function() {
     
     return module;
 })();
-T5.Device = (function() {
+(function() {
     var deviceConfigs = null,
         deviceCheckOrder = [],
         detectedConfig = null,
@@ -2000,7 +1955,7 @@ T5.Device = (function() {
         
     function bridgeNotifyLog(message, args) {
         if (shouldBridgeMessage(message)) {
-            GRUNT.Log.info("would push url: " + messageToUrl(message, args));
+            GT.Log.info("would push url: " + messageToUrl(message, args));
         } // if
     } // bridgeCommandEmpty
     
@@ -2087,40 +2042,36 @@ T5.Device = (function() {
         ];
     } // loadDeviceConfigs
     
-    var module = {
-        getConfig: function() {
-            if (! deviceConfigs) {
-                loadDeviceConfigs();
-            } // if
-            
-            // if the device configuration hasn't already been detected do that now
+    T5.getConfig = function() {
+        if (! deviceConfigs) {
+            loadDeviceConfigs();
+        } // if
+        
+        // if the device configuration hasn't already been detected do that now
+        if (! detectedConfig) {
+            GT.Log.info("ATTEMPTING TO DETECT PLATFORM: UserAgent = " + navigator.userAgent);
+
+            // iterate through the platforms and run detection on the platform
+            for (var ii = 0; ii < deviceCheckOrder.length; ii++) {
+                var testPlatform = deviceCheckOrder[ii];
+
+                if (testPlatform.regex && testPlatform.regex.test(navigator.userAgent)) {
+                    detectedConfig = T5.ex({}, deviceConfigs.base, testPlatform);
+                    GT.Log.info("PLATFORM DETECTED AS: " + detectedConfig.name);
+                    break;
+                } // if
+            } // for
+
             if (! detectedConfig) {
-                GRUNT.Log.info("ATTEMPTING TO DETECT PLATFORM: UserAgent = " + navigator.userAgent);
-
-                // iterate through the platforms and run detection on the platform
-                for (var ii = 0; ii < deviceCheckOrder.length; ii++) {
-                    var testPlatform = deviceCheckOrder[ii];
-
-                    if (testPlatform.regex && testPlatform.regex.test(navigator.userAgent)) {
-                        detectedConfig = T5.ex({}, deviceConfigs.base, testPlatform);
-                        GRUNT.Log.info("PLATFORM DETECTED AS: " + detectedConfig.name);
-                        break;
-                    } // if
-                } // for
-
-                if (! detectedConfig) {
-                    GRUNT.Log.warn("UNABLE TO DETECT PLATFORM, REVERTING TO BASE CONFIGURATION");
-                    detectedConfig = deviceConfigs.base;
-                }
-                
-                GRUNT.Log.info("CURRENT DEVICE PIXEL RATIO = " + window.devicePixelRatio);
-            } // if
+                GT.Log.warn("UNABLE TO DETECT PLATFORM, REVERTING TO BASE CONFIGURATION");
+                detectedConfig = deviceConfigs.base;
+            }
             
-            return detectedConfig;
-        }
-    };
-    
-    return module;
+            GT.Log.info("CURRENT DEVICE PIXEL RATIO = " + window.devicePixelRatio);
+        } // if
+        
+        return detectedConfig;        
+    }; // T5.getConfig
 })();
 
 T5.Resources = (function() {
@@ -2155,7 +2106,7 @@ T5.Resources = (function() {
             
             var callback = function(data) {
                 if (params.callback) {
-                    GRUNT.Log.watch("CALLING RESOURCE CALLBACK", function() {
+                    GT.Log.watch("CALLING RESOURCE CALLBACK", function() {
                         params.callback(data);
                     });
                 } // if
@@ -2165,11 +2116,11 @@ T5.Resources = (function() {
                 callback(cachedResources[params.filename]); 
             }
             else {
-                GRUNT.XHR.ajax({
+                GT.xhr({
                     url: module.getPath(params.filename),
                     dataType: params.dataType,
                     success: function(data) {
-                        // GRUNT.Log.info("got data: " + data);
+                        // GT.Log.info("got data: " + data);
                         // add the snippet to the cache
                         if (params.cacheable) {
                             cachedResources[params.filename] = data;
@@ -2179,7 +2130,7 @@ T5.Resources = (function() {
                         callback(data);
                     },
                     error: function(raw_request, textStatus, error_thrown) {
-                        GRUNT.Log.error("error loading resource [" + params.filename + "], error = " + error_thrown);
+                        GT.Log.error("error loading resource [" + params.filename + "], error = " + error_thrown);
                     }
                 });
             } // if..else
@@ -2277,7 +2228,7 @@ T5.Images = (function() {
     } // handleImageLoad
     
     function loadNextImage() {
-        var maxImageLoads = T5.Device.getConfig().maxImageLoads;
+        var maxImageLoads = T5.getConfig().maxImageLoads;
 
         // if we have queued images and a loading slot available, then start a load operation
         while ((queuedImages.length > 0) && ((! maxImageLoads) || (loadingImages.length < maxImageLoads))) {
@@ -2333,13 +2284,13 @@ T5.Images = (function() {
             clearingCache = false;
         } // try..finally
         
-        GRUNT.WaterCooler.say("imagecache.cleared");
+        GT.WaterCooler.say("imagecache.cleared");
     } // cleanupImageCache
 
     function checkTimeoutsAndCache() {
         var currentTickCount = T5.time(),
             timedOutLoad = false, ii = 0,
-            config = T5.Device.getConfig();
+            config = T5.getConfig();
         
         // iterate through the loading images, and check if any of them have been active too long
         while (ii < loadingImages.length) {
@@ -2413,7 +2364,7 @@ T5.Images = (function() {
                     loadCallback: callback
                 }, loadArgs);
                 
-                // GRUNT.Log.info("loading image, image args = ", loadArgs);
+                // GT.Log.info("loading image, image args = ", loadArgs);
                 
                 // initialise the image id
                 imageData.image.id = "resourceLoaderImage" + (imageCounter++);
@@ -2460,7 +2411,7 @@ T5.Touch = (function() {
     var TOUCH_MODES = {
         TAP: 0,
         MOVE: 1, 
-        PINCHZOOM: 2
+        PINCH: 2
     }; // TOUCH_MODES
 
     // TODO: configure the move distance to be screen size sensitive....
@@ -2501,10 +2452,10 @@ T5.Touch = (function() {
     } // getMousePos
     
     function debugTouchEvent(evt, title) {
-        GRUNT.Log.info("TOUCH EVENT '" + title + "':", evt);
-        GRUNT.Log.info("TOUCH EVENT '" + title + "': touches = ", evt.touches);
-        GRUNT.Log.info("TOUCH EVENT '" + title + "': targetTouches = ", evt.targetTouches);
-        GRUNT.Log.info("TOUCH EVENT '" + title + "': changedTouches = ", evt.changeTouches);
+        GT.Log.info("TOUCH EVENT '" + title + "':", evt);
+        GT.Log.info("TOUCH EVENT '" + title + "': touches = ", evt.touches);
+        GT.Log.info("TOUCH EVENT '" + title + "': targetTouches = ", evt.targetTouches);
+        GT.Log.info("TOUCH EVENT '" + title + "': changedTouches = ", evt.changeTouches);
     } // debugTouchEvent
     
     /* touch helper */
@@ -2537,7 +2488,7 @@ T5.Touch = (function() {
         // initialise private members
         var doubleTap = false,
             tapTimer = 0,
-            supportsTouch = T5.Device.getConfig().supportsTouch,
+            supportsTouch = T5.getConfig().supportsTouch,
             touchesStart = null,
             touchesLast = null,
             touchDelta = null,
@@ -2553,7 +2504,7 @@ T5.Touch = (function() {
                 current: 0,
                 last: 0
             },
-            config = T5.Device.getConfig(),
+            config = T5.getConfig(),
             BENCHMARK_INTERVAL = 300;
             
         function calculateInertia(upXY, currentXY, distance, tickDiff) {
@@ -2656,7 +2607,7 @@ T5.Touch = (function() {
         
                 // if we don't have a touch vector, then log a warning, and exit
                 if (! touchVector) {
-                    GRUNT.Log.warn("Touch start fired, but no touch vector found");
+                    GT.Log.warn("Touch start fired, but no touch vector found");
                     return;
                 } // if
         
@@ -2746,7 +2697,7 @@ T5.Touch = (function() {
                         triggerEvent('pinchZoom', relativeTouches(touchesStart), relativeTouches(touchesCurrent));
 
                         // set the touch mode to pinch zoom
-                        touchMode = TOUCH_MODES.PINCHZOOM;
+                        touchMode = TOUCH_MODES.PINCH;
                     } // if..else
                 } // if..else
 
@@ -2791,7 +2742,7 @@ T5.Touch = (function() {
                     } // if
                 }
                 // if pinchzooming, then fire the pinch zoom end
-                else if (touchMode == TOUCH_MODES.PINCHZOOM) {
+                else if (touchMode == TOUCH_MODES.PINCH) {
                     triggerEvent('pinchZoomEnd', relativeTouches(touchesStart), relativeTouches(touchesLast), endTick - touchStartTick);
                 } // if..else
                 
@@ -2845,7 +2796,7 @@ T5.Touch = (function() {
                 for (var ii = 0; listenerId && (ii < listeners.length); ii++) {
                     if (listeners[ii].listenerId === listenerId) {
                         listeners.splice(ii, 1);
-                        GRUNT.Log.info("successfully decoupled touch listener: " + listenerId);
+                        GT.Log.info("successfully decoupled touch listener: " + listenerId);
 
                         break;
                     } // if
@@ -2914,7 +2865,7 @@ T5.Touch = (function() {
                 touchHelper = new TouchHelper(T5.ex({ element: element}, params));
                 touchHelpers[element.id] = touchHelper;
                 
-                GRUNT.Log.info("CREATED TOUCH HELPER. SUPPORTS TOUCH = " + touchHelper.supportsTouch);
+                GT.Log.info("CREATED TOUCH HELPER. SUPPORTS TOUCH = " + touchHelper.supportsTouch);
             } // if
             
             // if we already have an association with listeners, then remove first
@@ -2939,38 +2890,6 @@ T5.Touch = (function() {
         }
     }; // module
 })();
-
-// if jquery is defined, then add the plugins
-if (typeof(jQuery) !== 'undefined') {
-    jQuery.fn.canTouchThis = function(params) {
-        // bind the touch events
-        return this.each(function() {
-            T5.Touch.capture(this, params);
-        });
-    }; // canTouchThis
-
-    jQuery.fn.untouchable = function() {
-        // define acceptable touch items
-        var TAGS_CANTOUCH = /^(A|BUTTON)$/i;
-
-        return this
-            /*
-            .bind("touchstart", function(evt) {
-                if (! (evt.target && TAGS_CANTOUCH.test(evt.target.tagName))) {
-                    // check to see whether a click handler has been assigned for the current object
-                    if (! (evt.target.onclick || evt.target.ondblclick)) {
-                        GRUNT.Log.info("no touch for: " + evt.target.tagName);
-                        evt.preventDefault();
-                    } // if
-                } // if
-            })
-            */
-            .bind("touchmove", function(evt) {
-                evt.preventDefault();
-            });
-    }; // untouchable
-} // if
-
 T5.Dispatcher = (function() {
     // initialise variables
     var registeredActions = [];
@@ -3059,7 +2978,7 @@ T5.Dispatcher = (function() {
         /* agents */
         
         Agent: function(params) {
-            params = GRUNT.extend({
+            params = GT.extend({
                 name: "Untitled",
                 translator: null,
                 execute: null
@@ -3076,7 +2995,7 @@ T5.Dispatcher = (function() {
                 },
                 
                 getId: function() {
-                    return GRUNT.toID(self.getName());
+                    return GT.toID(self.getName());
                 },
                 
                 run: function(args, callback) {
@@ -3121,143 +3040,240 @@ Functions follow the function format of fn(t, b, c, d, s) where:
 - c = change
 - d = duration
 */
-T5.Easing = (function() {
+(function() {
     var s = 1.70158;
     
-    return {
-        Linear: function(t, b, c, d) {
+    function simpleTypeName(typeName) {
+        return typeName.replace(/[\-\_\s\.]/g, '').toLowerCase();
+    } // simpleTypeName
+    
+    var easingFns = {
+        linear: function(t, b, c, d) {
             return c*t/d + b;
         },
         
-        Back: {
-            In: function(t, b, c, d) {
-                return c*(t/=d)*t*((s+1)*t - s) + b;
-            },
+        /* back easing functions */
+        
+        backin: function(t, b, c, d) {
+            return c*(t/=d)*t*((s+1)*t - s) + b;
+        },
             
-            Out: function(t, b, c, d) {
-                return c*((t=t/d-1)*t*((s+1)*t + s) + 1) + b;
-            },
+        backout: function(t, b, c, d) {
+            return c*((t=t/d-1)*t*((s+1)*t + s) + 1) + b;
+        },
             
-            InOut: function(t, b, c, d) {
-                return ((t/=d/2)<1) ? c/2*(t*t*(((s*=(1.525))+1)*t-s))+b : c/2*((t-=2)*t*(((s*=(1.525))+1)*t+s)+2)+b;
-            }
+        backinout: function(t, b, c, d) {
+            return ((t/=d/2)<1) ? c/2*(t*t*(((s*=(1.525))+1)*t-s))+b : c/2*((t-=2)*t*(((s*=(1.525))+1)*t+s)+2)+b;
+        }, 
+        
+        /* bounce easing functions */
+        
+        bouncein: function(t, b, c, d) {
+            return c - easingFns.bounceout(d-t, 0, c, d) + b;
         },
         
-        Bounce: {
-            In: function(t, b, c, d) {
-                return c - module.Easing.Bounce.Out(d-t, 0, c, d) + b;
-            },
-            
-            Out: function(t, b, c, d) {
-                if ((t/=d) < (1/2.75)) {
-                    return c*(7.5625*t*t) + b;
-                } else if (t < (2/2.75)) {
-                    return c*(7.5625*(t-=(1.5/2.75))*t + 0.75) + b;
-                } else if (t < (2.5/2.75)) {
-                    return c*(7.5625*(t-=(2.25/2.75))*t + 0.9375) + b;
-                } else {
-                    return c*(7.5625*(t-=(2.625/2.75))*t + 0.984375) + b;
-                }
-            },
-            
-            InOut: function(t, b, c, d) {
-                if (t < d/2) return module.Easing.Bounce.In(t*2, 0, c, d) / 2 + b;
-                else return module.Easing.Bounce.Out(t*2-d, 0, c, d) / 2 + c/2 + b;
+        bounceout: function(t, b, c, d) {
+            if ((t/=d) < (1/2.75)) {
+                return c*(7.5625*t*t) + b;
+            } else if (t < (2/2.75)) {
+                return c*(7.5625*(t-=(1.5/2.75))*t + 0.75) + b;
+            } else if (t < (2.5/2.75)) {
+                return c*(7.5625*(t-=(2.25/2.75))*t + 0.9375) + b;
+            } else {
+                return c*(7.5625*(t-=(2.625/2.75))*t + 0.984375) + b;
             }
         },
-        
-        Cubic: {
-            In: function(t, b, c, d) {
-                return c*(t/=d)*t*t + b;
-            },
             
-            Out: function(t, b, c, d) {
-                return c*((t=t/d-1)*t*t + 1) + b;
-            },
-            
-            InOut: function(t, b, c, d) {
-                if ((t/=d/2) < 1) return c/2*t*t*t + b;
-                return c/2*((t-=2)*t*t + 2) + b;
-            }
+        bounceinout: function(t, b, c, d) {
+            if (t < d/2) return easingFns.bouncein(t*2, 0, c, d) / 2 + b;
+            else return easingFns.bounceout(t*2-d, 0, c, d) / 2 + c/2 + b;
         },
         
-        Elastic: {
-            In: function(t, b, c, d, a, p) {
-                var s;
-                
-                if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*0.3;
-                if (!a || a < Math.abs(c)) { a=c; s=p/4; }
-                else s = p/(2*Math.PI) * Math.asin (c/a);
-                return -(a*Math.pow(2,10*(t-=1)) * Math.sin( (t*d-s)*(2*Math.PI)/p )) + b;
-            },
+        /* cubic easing functions */
+        
+        cubicin: function(t, b, c, d) {
+            return c*(t/=d)*t*t + b;
+        },
             
-            Out: function(t, b, c, d, a, p) {
-                var s;
-                
-                if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*0.3;
-                if (!a || a < Math.abs(c)) { a=c; s=p/4; }
-                else s = p/(2*Math.PI) * Math.asin (c/a);
-                return (a*Math.pow(2,-10*t) * Math.sin( (t*d-s)*(2*Math.PI)/p ) + c + b);
-            },
-            
-            InOut: function(t, b, c, d, a, p) {
-                var s;
-                
-                if (t==0) return b;  if ((t/=d/2)==2) return b+c;  if (!p) p=d*(0.3*1.5);
-                if (!a || a < Math.abs(c)) { a=c; s=p/4; }
-                else s = p/(2*Math.PI) * Math.asin (c/a);
-                if (t < 1) return -0.5*(a*Math.pow(2,10*(t-=1)) * Math.sin( (t*d-s)*(2*Math.PI)/p )) + b;
-                return a*Math.pow(2,-10*(t-=1)) * Math.sin( (t*d-s)*(2*Math.PI)/p )*0.5 + c + b;
-            }
+        cubicout: function(t, b, c, d) {
+            return c*((t=t/d-1)*t*t + 1) + b;
         },
         
-        Quad: {
-            In: function(t, b, c, d) {
-                return c*(t/=d)*t + b;
-            },
-            
-            Out: function(t, b, c, d) {
-                return -c *(t/=d)*(t-2) + b;
-            },
-            
-            InOut: function(t, b, c, d) {
-                if ((t/=d/2) < 1) return c/2*t*t + b;
-                return -c/2 * ((--t)*(t-2) - 1) + b;
-            }
+        cubicinout: function(t, b, c, d) {
+            if ((t/=d/2) < 1) return c/2*t*t*t + b;
+            return c/2*((t-=2)*t*t + 2) + b;
         },
         
-        Sine: {
-            In: function(t, b, c, d) {
-                return -c * Math.cos(t/d * (Math.PI/2)) + c + b;
-            },
+        /* elastic easing functions */
+        
+        elasticin: function(t, b, c, d, a, p) {
+            var s;
             
-            Out: function(t, b, c, d) {
-                return c * Math.sin(t/d * (Math.PI/2)) + b;
-            },
+            if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*0.3;
+            if (!a || a < Math.abs(c)) { a=c; s=p/4; }
+            else s = p/(2*Math.PI) * Math.asin (c/a);
+            return -(a*Math.pow(2,10*(t-=1)) * Math.sin( (t*d-s)*(2*Math.PI)/p )) + b;
+        },
+        
+        elasticout: function(t, b, c, d, a, p) {
+            var s;
             
-            InOut: function(t, b, c, d) {
-                return -c/2 * (Math.cos(Math.PI*t/d) - 1) + b;
-            }
+            if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*0.3;
+            if (!a || a < Math.abs(c)) { a=c; s=p/4; }
+            else s = p/(2*Math.PI) * Math.asin (c/a);
+            return (a*Math.pow(2,-10*t) * Math.sin( (t*d-s)*(2*Math.PI)/p ) + c + b);
+        },
+        
+        elasticinout: function(t, b, c, d, a, p) {
+            var s;
+            
+            if (t==0) return b;  if ((t/=d/2)==2) return b+c;  if (!p) p=d*(0.3*1.5);
+            if (!a || a < Math.abs(c)) { a=c; s=p/4; }
+            else s = p/(2*Math.PI) * Math.asin (c/a);
+            if (t < 1) return -0.5*(a*Math.pow(2,10*(t-=1)) * Math.sin( (t*d-s)*(2*Math.PI)/p )) + b;
+            return a*Math.pow(2,-10*(t-=1)) * Math.sin( (t*d-s)*(2*Math.PI)/p )*0.5 + c + b;
+        },
+        
+        /* quad easing */
+        
+        quadin: function(t, b, c, d) {
+            return c*(t/=d)*t + b;
+        },
+            
+        quadout: function(t, b, c, d) {
+            return -c *(t/=d)*(t-2) + b;
+        },
+        
+        quadinout: function(t, b, c, d) {
+            if ((t/=d/2) < 1) return c/2*t*t + b;
+            return -c/2 * ((--t)*(t-2) - 1) + b;
+        },
+        
+        /* sine easing */
+        
+        sinein: function(t, b, c, d) {
+            return -c * Math.cos(t/d * (Math.PI/2)) + c + b;
+        },
+        
+        sineout: function(t, b, c, d) {
+            return c * Math.sin(t/d * (Math.PI/2)) + b;
+        },
+        
+        sineinout: function(t, b, c, d) {
+            return -c/2 * (Math.cos(Math.PI*t/d) - 1) + b;
         }
     };
+    
+    T5.easing = function(typeName) {
+        return easingFns[simpleTypeName(typeName)];
+    }; // easing
+    
+    T5.registerEasingType = function(typeName, callback) {
+        easingFns[simpleTypeName(typeName)] = callback;
+    }; // setEasing
 })();
-T5.Animation = (function() {
+T5.Tween = function(params) {
+    params = T5.ex({
+        target: null,
+        property: null,
+        startValue: 0,
+        endValue: null,
+        duration: 2000,
+        tweenFn: T5.easing('sine.out'),
+        complete: null,
+        cancelOnInteract: false
+    }, params);
+    
+    // get the start ticks
+    var startTicks = T5.time(),
+        updateListeners = [],
+        complete = false,
+        beginningValue = 0.0,
+        change = 0;
+        
+    function notifyListeners(updatedValue, complete) {
+        for (var ii = updateListeners.length; ii--; ) {
+            updateListeners[ii](updatedValue, complete);
+        } // for
+    } // notifyListeners
+        
+    var self = {
+        cancelOnInteract: params.cancelOnInteract,
+        
+        isComplete: function() {
+            return complete;
+        },
+        
+        triggerComplete: function(cancelled) {
+            if (params.complete) {
+                params.complete(cancelled);
+            } // if
+        },
+        
+        update: function(tickCount) {
+            try {
+                // calculate the updated value
+                var elapsed = tickCount - startTicks,
+                    updatedValue = params.tweenFn(
+                                        elapsed, 
+                                        beginningValue, 
+                                        change, 
+                                        params.duration);
+            
+                // update the property value
+                if (params.target) {
+                    params.target[params.property] = updatedValue;
+                } // if
+            
+                // iterate through the update listeners 
+                // and let them know the updated value
+                notifyListeners(updatedValue);
+
+                complete = startTicks + params.duration <= tickCount;
+                if (complete) {
+                    if (params.target) {
+                        params.target[params.property] = params.tweenFn(params.duration, beginningValue, change, params.duration);
+                    } // if
+                
+                    notifyListeners(updatedValue, true);
+                } // if
+            }
+            catch (e) {
+                GT.Log.exception(e);
+            } // try..catch
+        },
+        
+        requestUpdates: function(callback) {
+            updateListeners.push(callback);
+        }
+    };
+    
+    // calculate the beginning value
+    beginningValue = 
+        (params.target && params.property && params.target[params.property]) ? params.target[params.property] : params.startValue;
+
+    // calculate the change and beginning position
+    if (typeof params.endValue !== 'undefined') {
+        change = (params.endValue - beginningValue);
+    } // if
+    
+    // if no change is required, then mark as complete 
+    // so the update method will never be called
+    if (change == 0) {
+        complete = true;
+    } // if..else
+    
+    // wake the tween timer
+    T5.wakeTweens();
+    
+    return self;
+}; 
+(function() {
     // initialise variables
     var tweens = [],
         updating = false,
         tweenTimer = 0;
         
-    function wake() {
-        if (tweenTimer !== 0) { return; }
-        
-        tweenTimer = setInterval(function() {
-            if (update(T5.time()) === 0) {
-                clearInterval(tweenTimer);
-                tweenTimer = 0;
-            } // if
-        }, 20);
-    } // wake
-    
     function update(tickCount) {
         if (updating) { return tweens.length; }
         
@@ -3283,234 +3299,133 @@ T5.Animation = (function() {
         return tweens.length;
     } // update
     
-    // define the module
-    var module = {
-        DURATION: 2000,
+    T5.tweenValue = function(startValue, endValue, fn, callback, duration) {
+        // create a tween that doesn't operate on a property
+        var fnresult = new T5.Tween({
+            startValue: startValue,
+            endValue: endValue,
+            tweenFn: fn,
+            complete: callback,
+            duration: duration
+        });
         
-        tweenValue: function(startValue, endValue, fn, callback, duration) {
-            // create a tween that doesn't operate on a property
-            var fnresult = new module.Tween({
-                startValue: startValue,
-                endValue: endValue,
-                tweenFn: fn,
-                complete: callback,
-                duration: duration
-            });
-            
-            // add the the list return the new tween
-            tweens.push(fnresult);
-            return fnresult;
-        },
-        
-        tween: function(target, property, targetValue, fn, callback, duration) {
-            var fnresult = new module.Tween({
-                target: target,
-                property: property,
-                endValue: targetValue,
-                tweenFn: fn,
-                duration: duration,
-                complete: callback
-            });
-            
-            // return the new tween
-            tweens.push(fnresult);
-            return fnresult;
-        },
-        
-        tweenVector: function(target, dstX, dstY, fn, callback, duration) {
-            var fnresult = [];
-            
-            if (target) {
-                var xDone = target.x == dstX;
-                var yDone = target.y == dstY;
-                
-                if (! xDone) {
-                    fnresult.push(module.tween(target, "x", dstX, fn, function() {
-                        xDone = true;
-                        if (xDone && yDone) { callback(); }
-                    }, duration));
-                } // if
-                
-                if (! yDone) {
-                    fnresult.push(module.tween(target, "y", dstY, fn, function() {
-                        yDone = true;
-                        if (xDone && yDone) { callback(); }
-                    }, duration));
-                } // if
-            } // if
-            
-            return fnresult;
-        },
-        
-        cancel: function(checkCallback) {
-            if (updating) { return ; }
-            
-            updating = true;
-            try {
-                var ii = 0;
-
-                // trigger the complete for the tween marking it as cancelled
-                while (ii < tweens.length) {
-                    if ((! checkCallback) || checkCallback(tweens[ii])) {
-                        tweens[ii].triggerComplete(true);
-                        tweens.splice(ii, 1);
-                    }
-                    else {
-                        ii++;
-                    } // if..else
-                } // for
-            }
-            finally {
-                updating = false;
-            } // try..finally
-        },
-        
-        isTweening: function() {
-            return tweens.length > 0;
-        },
-        
-        Tween: function(params) {
-            params = T5.ex({
-                target: null,
-                property: null,
-                startValue: 0,
-                endValue: null,
-                duration: module.DURATION,
-                tweenFn: module.DEFAULT,
-                complete: null,
-                cancelOnInteract: false
-            }, params);
-            
-            // get the start ticks
-            var startTicks = T5.time(),
-                updateListeners = [],
-                complete = false,
-                beginningValue = 0.0,
-                change = 0;
-                
-            function notifyListeners(updatedValue, complete) {
-                for (var ii = updateListeners.length; ii--; ) {
-                    updateListeners[ii](updatedValue, complete);
-                } // for
-            } // notifyListeners
-                
-            var self = {
-                cancelOnInteract: params.cancelOnInteract,
-                
-                isComplete: function() {
-                    return complete;
-                },
-                
-                triggerComplete: function(cancelled) {
-                    if (params.complete) {
-                        params.complete(cancelled);
-                    } // if
-                },
-                
-                update: function(tickCount) {
-                    try {
-                        // calculate the updated value
-                        var elapsed = tickCount - startTicks,
-                            updatedValue = params.tweenFn(
-                                                elapsed, 
-                                                beginningValue, 
-                                                change, 
-                                                params.duration);
-                    
-                        // update the property value
-                        if (params.target) {
-                            params.target[params.property] = updatedValue;
-                        } // if
-                    
-                        // iterate through the update listeners 
-                        // and let them know the updated value
-                        notifyListeners(updatedValue);
-
-                        complete = startTicks + params.duration <= tickCount;
-                        if (complete) {
-                            if (params.target) {
-                                params.target[params.property] = params.tweenFn(params.duration, beginningValue, change, params.duration);
-                            } // if
-                        
-                            notifyListeners(updatedValue, true);
-                        } // if
-                    }
-                    catch (e) {
-                        GRUNT.Log.exception(e);
-                    } // try..catch
-                },
-                
-                requestUpdates: function(callback) {
-                    updateListeners.push(callback);
-                }
-            };
-            
-            // calculate the beginning value
-            beginningValue = 
-                (params.target && params.property && params.target[params.property]) ? params.target[params.property] : params.startValue;
-
-            // calculate the change and beginning position
-            if (typeof params.endValue !== 'undefined') {
-                change = (params.endValue - beginningValue);
-            } // if
-            
-            // if no change is required, then mark as complete 
-            // so the update method will never be called
-            if (change == 0) {
-                complete = true;
-            } // if..else
-            
-            // wake the tween timer
-            wake();
-            
-            return self;
-        }
-    };
+        // add the the list return the new tween
+        tweens.push(fnresult);
+        return fnresult;
+    }; // T5.tweenValue
     
-    return T5.ex(module, {
-        DEFAULT: T5.Easing.Back.Out
-    });
-})();
-T5.ViewState = (function() {
-    var self = {
-        // define the view state constants
+    T5.tween = function(target, property, targetValue, fn, callback, duration) {
+        var fnresult = new T5.Tween({
+            target: target,
+            property: property,
+            endValue: targetValue,
+            tweenFn: fn,
+            duration: duration,
+            complete: callback
+        });
+        
+        // return the new tween
+        tweens.push(fnresult);
+        return fnresult;
+    }; // T5.tween
+    
+    T5.tweenVector = function(target, dstX, dstY, fn, callback, duration) {
+        var fnresult = [];
+        
+        if (target) {
+            var xDone = target.x == dstX;
+            var yDone = target.y == dstY;
+            
+            if (! xDone) {
+                fnresult.push(T5.tween(target, "x", dstX, fn, function() {
+                    xDone = true;
+                    if (xDone && yDone) { callback(); }
+                }, duration));
+            } // if
+            
+            if (! yDone) {
+                fnresult.push(T5.tween(target, "y", dstY, fn, function() {
+                    yDone = true;
+                    if (xDone && yDone) { callback(); }
+                }, duration));
+            } // if
+        } // if
+        
+        return fnresult;
+    }; // T5.tweenVector
+    
+    T5.cancelAnimation = function(checkCallback) {
+        if (updating) { return ; }
+        
+        updating = true;
+        try {
+            var ii = 0;
+
+            // trigger the complete for the tween marking it as cancelled
+            while (ii < tweens.length) {
+                if ((! checkCallback) || checkCallback(tweens[ii])) {
+                    tweens[ii].triggerComplete(true);
+                    tweens.splice(ii, 1);
+                }
+                else {
+                    ii++;
+                } // if..else
+            } // for
+        }
+        finally {
+            updating = false;
+        } // try..finally
+    }; // T5.cancelAnimation
+    
+    T5.isTweening = function() {
+        return tweens.length > 0;
+    }; // T5.isTweening
+
+    T5.wakeTweens = function() {
+        if (tweenTimer !== 0) { return; }
+        
+        tweenTimer = setInterval(function() {
+            if (update(T5.time()) === 0) {
+                clearInterval(tweenTimer);
+                tweenTimer = 0;
+            } // if
+        }, 20);
+    };
+})();(function() {
+    var viewStates = {
         NONE: 0,
         ACTIVE: 1,
         ANIMATING: 4,
         PAN: 8,
-        PINCHZOOM: 16,
-        FREEZE: 128,
-        
-        get: function() {
-            var result = 0;
-            
-            for (var ii = arguments.length; ii--; ) {
-                var value = self[arguments[ii]];
-                if (value) {
-                    result = result | value;
-                } // if
-            } // for
-            
-            return result;
-        }
+        PINCH: 16,
+        FREEZE: 128
     };
     
-    return self;
+    T5.viewState = function() {
+        var result = 0;
+        
+        for (var ii = arguments.length; ii--; ) {
+            var value = viewStates[arguments[ii].toUpperCase()];
+            if (value) {
+                result = result | value;
+            } // if
+        } // for
+        
+        return result;
+    }; // T5.viewState
 })();
 T5.ViewLayer = function(params) {
     params = T5.ex({
         id: "",
-        centerOnScale: true,
         created: T5.time(),
-        scalePosition: true,
         zindex: 0,
         supportFastDraw: false,
-        validStates: T5.ViewState.get("ACTIVE", "ANIMATING", "PAN", "PINCHZOOM")
+        validStates: T5.viewState("ACTIVE", "ANIMATING", "PAN", "PINCH")
     }, params);
     
     var parent = null,
         id = params.id,
-        activeState = T5.ViewState.get("ACTIVE");
+        activeState = T5.viewState("ACTIVE");
     
     var self = T5.ex({
         addToView: function(view) {
@@ -3537,7 +3452,7 @@ T5.ViewLayer = function(params) {
         animation layers that should only exist as long as an animation is active.
         */
         remove: function() {
-            GRUNT.WaterCooler.say("layer.remove", { id: id });
+            GT.WaterCooler.say("layer.remove", { id: id });
         },
         
         wakeParent: function() {
@@ -3563,24 +3478,20 @@ T5.ViewLayer = function(params) {
         }
     }, params); // self
     
+    GT.observable(self);
+    
     return self;
 }; // T5.ViewLayer
 T5.View = function(params) {
     // initialise defaults
     params = T5.ex({
-        id: GRUNT.generateObjectID('view'),
+        id: GT.objId('view'),
         container: "",
-        clearOnDraw: false,
-        scaleDamping: false,
         fastDraw: false,
-        fillStyle: "rgb(200, 200, 200)",
-        initialDrawMode: "source-over",
-        bufferRefresh: 100,
-        defaultFreezeDelay: 500,
         inertia: true,
         pannable: true,
         scalable: true,
-        panAnimationEasing: T5.Easing.Sine.Out,
+        panAnimationEasing: T5.easing('sine.out'),
         panAnimationDuration: 750,
         pinchZoomAnimateTrigger: 400,
         adjustScaleFactor: null,
@@ -3610,7 +3521,7 @@ T5.View = function(params) {
         bufferTime = 0,
         zoomCenter = null,
         tickCount = 0,
-        deviceFps = T5.Device.getConfig().targetFps,
+        deviceFps = T5.getConfig().targetFps,
         redrawInterval = 0,
         scaling = false,
         startRect = null,
@@ -3621,17 +3532,24 @@ T5.View = function(params) {
         tweenStart = null,
         startCenter = null,
         touchHelper = null,
-        state = T5.ViewState.ACTIVE;
+        
+        /* state shortcuts */
+        
+        stateActive = T5.viewState('ACTIVE'),
+        statePan = T5.viewState('PAN'),
+        statePinch = T5.viewState('PINCH'),
+        
+        state = stateActive;
         
     /* panning functions */
     
     function pan(x, y, tweenFn, tweenDuration) {
         // update the offset by the specified amount
         panimating = typeof(tweenFn) !== "undefined";
-        self.updateOffset(offset.x + x, offset.y + y, tweenFn, tweenDuration);
-        
+
+        state = statePan;
         wake();
-        state = T5.ViewState.PAN;                
+        self.updateOffset(offset.x + x, offset.y + y, tweenFn, tweenDuration);
     } // pan
     
     function panInertia(x, y) {
@@ -3641,7 +3559,7 @@ T5.View = function(params) {
     } // panIntertia
     
     function panEnd(x, y) {
-        state = T5.ViewState.ACTIVE;
+        state = stateActive;
         panimating = false;
         setTimeout(wake, 50);
     } // panEnd
@@ -3673,8 +3591,7 @@ T5.View = function(params) {
         scaling = scaleFactor !== 1;
         
         if (scaling) {
-            state = T5.ViewState.PINCHZOOM;
-
+            state = statePinch;
             wake();
         } // if
     } // pinchZoom
@@ -3684,7 +3601,7 @@ T5.View = function(params) {
         
         if (params.adjustScaleFactor) {
             scaleFactor = params.adjustScaleFactor(scaleFactor);
-            GRUNT.Log.info("scale factor adjusted to: " + scaleFactor);
+            GT.Log.info("scale factor adjusted to: " + scaleFactor);
         } // if
 
         if (pinchZoomTime < params.pinchZoomAnimateTrigger) {
@@ -3695,7 +3612,7 @@ T5.View = function(params) {
                 startCenter, 
                 calcPinchZoomCenter(), 
                 // TODO: make the animation configurable
-                T5.Easing.Sine.Out,
+                T5.easing('sine.out'),
                 function() {
                     scaleView();
                     resetZoom();
@@ -3717,14 +3634,10 @@ T5.View = function(params) {
     } // wheelZoom
     
     function scaleView() {
-        // TODO: can this be removed
-        GRUNT.WaterCooler.say("view.scale", { id: self.id });
-        
         scaling = false;
         self.trigger("scale", scaleFactor, startRect ? calcPinchZoomCenter() : endCenter);
 
-        // reset the status flag
-        state = T5.ViewState.ACTIVE;
+        state = stateActive;
         wake();
     } // scaleView
     
@@ -3749,11 +3662,11 @@ T5.View = function(params) {
 
             try {
                 mainContext = canvas.getContext('2d');
-                mainContext.globalCompositeOperation = params.initialDrawMode;
+                mainContext.globalCompositeOperation = 'source-over';
                 mainContext.clearRect(0, 0, canvas.width, canvas.height);
             } 
             catch (e) {
-                GRUNT.Log.exception(e);
+                GT.Log.exception(e);
                 throw new Error("Could not initialise canvas on specified view element");
             }
             
@@ -3779,6 +3692,7 @@ T5.View = function(params) {
     function addLayer(id, value) {
         // make sure the layer has the correct id
         value.setId(id);
+        value.added = T5.time();
         
         // tell the layer that I'm going to take care of it
         value.setParent(self);
@@ -3832,7 +3746,7 @@ T5.View = function(params) {
 
         // if tweening then update the targetXY
         if (tweenFn) {
-            var tween = T5.Animation.tweenValue(
+            var tween = T5.tweenValue(
                             0, 
                             scaleFactorTo - scaleFactorFrom, 
                             tweenFn, 
@@ -3847,9 +3761,8 @@ T5.View = function(params) {
                 scaleFactor = scaleFactorFrom + updatedValue;
 
                 // trigger the on animate handler
-                state = T5.ViewState.PINCHZOOM;
+                state = statePinch;
                 wake();
-
                 self.trigger("animate");
             });
         }
@@ -3902,9 +3815,9 @@ T5.View = function(params) {
     
     function drawView(context, offset) {
         var changeCount = 0,
-            drawState = self.getDisplayState(),
+            drawState = frozen ? T5.viewState('FROZEN') : state,
             startTicks = T5.time(),
-            isPinchZoom = (drawState & T5.ViewState.PINCHZOOM) !== 0,
+            isPinchZoom = (drawState & statePinch) !== 0,
             delayDrawLayers = [];
         
         var savedDrawn = false,
@@ -3958,7 +3871,7 @@ T5.View = function(params) {
             context.restore();
         } // try..finally
         
-        GRUNT.Log.trace("draw complete", startTicks);
+        GT.Log.trace("draw complete", startTicks);
         
         repaint = false;
         return changeCount;
@@ -3967,9 +3880,8 @@ T5.View = function(params) {
     function cycle() {
         // check to see if we are panning
         var changeCount = 0,
-            interacting = (! panimating) && (
-                                (state === T5.ViewState.PINCHZOOM) || 
-                                (state === T5.ViewState.PAN));
+            interacting = (! panimating) && 
+                ((state === statePinch) || (state === statePan));
             
         // get the tickcount
         tickCount = T5.time();
@@ -3986,7 +3898,7 @@ T5.View = function(params) {
         } // if
             
         if (interacting) {
-            T5.Animation.cancel(function(tweenInstance) {
+            T5.cancelAnimation(function(tweenInstance) {
                 return tweenInstance.cancelOnInteract;
             });
             
@@ -4022,7 +3934,7 @@ T5.View = function(params) {
             } // if
         } // if..else
         
-        GRUNT.Log.trace("Completed draw cycle", tickCount);
+        GT.Log.trace("Completed draw cycle", tickCount);
     } // cycle
     
     function wake() {
@@ -4043,7 +3955,7 @@ T5.View = function(params) {
     var self = {
         id: params.id,
         deviceScaling: deviceScaling,
-        fastDraw: params.fastDraw || T5.Device.getConfig().requireFastDraw,
+        fastDraw: params.fastDraw || T5.getConfig().requireFastDraw,
         
         // TODO: change name to be scaling related
         animate: function(targetScaleFactor, startXY, targetXY, tweenFn, callback) {
@@ -4095,8 +4007,7 @@ T5.View = function(params) {
             if (value) {
                 addLayer(id, value);
             } // if
-            
-            GRUNT.WaterCooler.say("layer.update", { id: id });
+
             wake();
         },
         
@@ -4128,10 +4039,6 @@ T5.View = function(params) {
         snapshot: function(zindex) {
         },
         
-        getDisplayState: function() {
-            return frozen ? T5.ViewState.FROZEN : state;
-        },
-        
         scale: function(targetScaling, tweenFn, callback, startXY, targetXY) {
             // if the start XY is not defined, used the center
             if (! startXY) {
@@ -4156,7 +4063,7 @@ T5.View = function(params) {
         removeLayer: function(id) {
             var layerIndex = getLayerIndex(id);
             if ((layerIndex >= 0) && (layerIndex < layers.length)) {
-                GRUNT.WaterCooler.say("layer.removed", { layer: layers[layerIndex] });
+                GT.WaterCooler.say("layer.removed", { layer: layers[layerIndex] });
 
                 layers.splice(layerIndex, 1);
             } // if
@@ -4185,7 +4092,7 @@ T5.View = function(params) {
             if (tweenFn) {
                 var endPosition = new T5.Vector(x, y);
 
-                var tweens = T5.Animation.tweenVector(
+                var tweens = T5.tweenVector(
                                 offset, 
                                 endPosition.x, 
                                 endPosition.y, 
@@ -4196,13 +4103,7 @@ T5.View = function(params) {
                 // set the tweens to cancel on interact
                 for (var ii = tweens.length; ii--; ) {
                     tweens[ii].cancelOnInteract = true;
-                    tweens[ii].requestUpdates(function(updatedValue, complete) {
-                        wake();
-                        
-                        if (params.onAnimate) {
-                            params.onAnimate(offset.x, offset.y);
-                        } // if
-                    });
+                    tweens[ii].requestUpdates(wake);
                 } // for
             }
             else {
@@ -4222,9 +4123,9 @@ T5.View = function(params) {
             clearTimeout(rescaleTimeout);
 
             if (scaling) {
-                state = T5.ViewState.PINCHZOOM;
-
+                state = statePinch;
                 wake();
+
                 if (rescaleAfter) {
                     rescaleTimeout = setTimeout(function() {
                         scaleView();
@@ -4236,16 +4137,16 @@ T5.View = function(params) {
     };
 
     // listen for layer removals
-    GRUNT.WaterCooler.listen("layer.remove", function(args) {
+    GT.WaterCooler.listen("layer.remove", function(args) {
         if (args.id) {
             self.removeLayer(args.id);
         } // if
     });
     
-    deviceScaling = T5.Device.getConfig().getScaling();
+    deviceScaling = T5.getConfig().getScaling();
     
     // make the view observable
-    GRUNT.observable(self);
+    GT.observable(self);
     
     // listen for being woken up
     self.bind("wake", wake);
@@ -4274,10 +4175,10 @@ T5.View = function(params) {
     }
     
     // make the view configurable
-    GRUNT.configurable(
+    GT.configurable(
         self, 
         ["inertia", "container"], 
-        GRUNT.paramTweaker(params, null, {
+        GT.paramTweaker(params, null, {
             "container": handleContainerUpdate
         }),
         true);
@@ -4290,9 +4191,9 @@ T5.View = function(params) {
 T5.AnimatedPathLayer = function(params) {
     params = T5.ex({
         path: [],
-        id: GRUNT.generateObjectID("pathAnimation"),
-        easing: T5.Easing.Sine.InOut,
-        validStates: T5.ViewState.get("ACTIVE", "PAN", "PINCHZOOM"),
+        id: GT.objId('pathAni'),
+        easing: T5.easing('sine.inout'),
+        validStates: T5.viewState("ACTIVE", "PAN", "PINCH"),
         drawIndicator: null,
         duration: 2000,
         autoCenter: false
@@ -4322,7 +4223,7 @@ T5.AnimatedPathLayer = function(params) {
     } // drawDefaultIndicator
     
     // calculate the tween
-    tween = T5.Animation.tweenValue(
+    tween = T5.tweenValue(
         0, 
         edgeData.total, 
         params.easing, 
@@ -4391,198 +4292,459 @@ T5.AnimatedPathLayer = function(params) {
 
     return self;
 }; // T5.AnimatedPathLayer
-T5.Tiling = (function() {
-    TileStore = function(params) {
-        // initialise the parameters with the defaults
+(function() {
+    // set the default tile size to 256 pixels
+    T5.tileSize = 256;
+    
+    T5.Tile = function(params) {
         params = T5.ex({
-            tileSize: null,
-            gridSize: null,
-            center: new T5.Vector(),
-            onPopulate: null
+            x: 0,
+            y: 0,
+            gridX: 0,
+            gridY: 0,
+            dirty: false
         }, params);
         
-        if (! params.tileSize) {
-            throw new Error("Cannot create TileStore with an empty tile size");
-        } // if
+        return params;
+    }; // T5.Tile
+    
+    T5.ImageTile = function(params) {
+        // initialise parameters with defaults
+        params = T5.ex({
+            url: "",
+            sessionParamRegex: null,
+            loaded: false
+        }, params);
         
-        if (! params.gridSize) {
-            throw new Error("0 grid size for TileStore");
-        } // if
+        return new T5.Tile(params);
+    }; // T5.ImageTile
+})();T5.TileGrid = function(params) {
+    // extend the params with the defaults
+    params = T5.ex({
+        tileSize: T5.tileSize,
+        drawGrid: false,
+        center: new T5.Vector(),
+        gridSize: 25,
+        shiftOrigin: null,
+        supportFastDraw: true
+    }, params);
+    
+    // initialise tile store related information
+    var storage = new Array(Math.pow(params.gridSize, 2)),
+        gridSize = params.gridSize,
+        tileSize = params.tileSize,
+        gridHalfWidth = Math.ceil(params.gridSize >> 1),
+        topLeftOffset = T5.V.offset(params.center, -gridHalfWidth),
+        lastTileCreator = null,
+        tileShift = new T5.Vector(),
+        lastNotifyListener = null;    
+    
+    // initialise varibles
+    var halfTileSize = Math.round(params.tileSize / 2),
+        invTileSize = params.tileSize ? 1 / params.tileSize : 0,
+        active = true,
+        tileDrawQueue = null,
+        loadedTileCount = 0,
+        lastTilesDrawn = false,
+        lastCheckOffset = new T5.Vector(),
+        shiftDelta = new T5.Vector(),
+        repaintDistance = T5.getConfig().repaintDistance,
+        reloadTimeout = 0,
+        gridHeightWidth = gridSize * params.tileSize,
+        tileCols, tileRows, centerPos;
         
-        // initialise the storage array
-        var storage = new Array(Math.pow(params.gridSize, 2)),
-            gridHalfWidth = Math.ceil(params.gridSize >> 1),
-            topLeftOffset = T5.V.offset(params.center, -gridHalfWidth),
-            lastTileCreator = null,
-            tileShift = new T5.Vector(),
-            lastNotifyListener = null;
+    /* internal functions */
         
-        function getTileIndex(col, row) {
-            return (row * params.gridSize) + col;
-        } // getTileIndex
-        
-        function copyStorage(dst, src, delta) {
-            // set the length of the destination to match the source
-            dst.length = src.length;
+    function copyStorage(dst, src, delta) {
+        // set the length of the destination to match the source
+        dst.length = src.length;
 
-            for (var xx = 0; xx < params.gridSize; xx++) {
-                for (var yy = 0; yy < params.gridSize; yy++) {
-                    dst[getTileIndex(xx, yy)] = self.getTile(xx + delta.x, yy + delta.y);
+        for (var xx = 0; xx < params.gridSize; xx++) {
+            for (var yy = 0; yy < params.gridSize; yy++) {
+                dst[getTileIndex(xx, yy)] = getTile(xx + delta.x, yy + delta.y);
+            } // for
+        } // for
+    } // copyStorage
+
+    function createTempTile(col, row) {
+        var gridXY = getGridXY(col, row);
+        return new T5.ImageTile({
+            gridX: gridXY.x,
+            gridY: gridXY.y
+        });
+    } // createTempTile
+    
+    function findTile(matcher) {
+        if (! matcher) { return null; }
+        
+        for (var ii = storage.length; ii--; ) {
+            var tile = storage[ii];
+            if (tile && matcher(tile)) {
+                return tile;
+            } // if
+        } // for
+        
+        return null;
+    } // findTile
+    
+    function getGridXY(col, row) {
+        return T5.Vector(
+            col * tileSize - tileShift.x,
+            row * tileSize - tileShift.y);
+    } // getGridXY
+    
+    function getNormalizedPos(col, row) {
+        return T5.V.add(new T5.Vector(col, row), T5.V.invert(topLeftOffset), tileShift);
+    } // getNormalizedPos
+    
+    function getShiftDelta(topLeftX, topLeftY, cols, rows) {
+        // initialise variables
+        var shiftAmount = Math.floor(params.gridSize * 0.2),
+            shiftDelta = new T5.Vector();
+            
+        // test the x
+        if (topLeftX < 0 || topLeftX + cols > params.gridSize) {
+            shiftDelta.x = topLeftX < 0 ? -shiftAmount : shiftAmount;
+        } // if
+
+        // test the y
+        if (topLeftY < 0 || topLeftY + rows > params.gridSize) {
+            shiftDelta.y = topLeftY < 0 ? -shiftAmount : shiftAmount;
+        } // if
+        
+        return shiftDelta;
+    } // getShiftDelta
+    
+    function getTile(col, row) {
+        return (col >= 0 && col < params.gridSize) ? storage[getTileIndex(col, row)] : null;
+    } // getTile
+    
+    function setTile(col, row, tile) {
+        storage[getTileIndex(col, row)] = tile;
+    } // setTile
+    
+    function getTileIndex(col, row) {
+        return (row * params.gridSize) + col;
+    } // getTileIndex
+    
+    /*
+    What a cool function this is.  Basically, this goes through the tile
+    grid and creates each of the tiles required at that position of the grid.
+    The tileCreator is a callback function that takes a two parameters (col, row) and
+    can do whatever it likes but should return a Tile object or null for the specified
+    column and row.
+    */
+    function populate(tileCreator, notifyListener, resetStorage) {
+        // take a tick count as we want to time this
+        var startTicks = GT.Log.getTraceTicks(),
+            tileIndex = 0,
+            gridSize = params.gridSize,
+            tileSize = params.tileSize,
+            centerPos = new T5.Vector(gridSize / 2, gridSize / 2);
+            
+        // if the storage is to be reset, then do that now
+        if (resetStorage) {
+            storage = [];
+        } // if
+        
+        if (tileCreator) {
+            // GT.Log.info("populating grid, x shift = " + tileShift.x + ", y shift = " + tileShift.y);
+            
+            for (var row = 0; row < gridSize; row++) {
+                for (var col = 0; col < gridSize; col++) {
+                    if (! storage[tileIndex]) {
+                        var tile = tileCreator(col, row, topLeftOffset, gridSize);
+                        
+                        // set the tile grid x and grid y position
+                        tile.gridX = (col * tileSize) - tileShift.x;
+                        tile.gridY = (row * tileSize) - tileShift.y;
+
+                        // add the tile to storage
+                        storage[tileIndex] = tile;
+                    } // if
+                    
+                    // increment the tile index
+                    tileIndex++;
                 } // for
             } // for
-        } // copyStorage
+        } // if
+        
+        // save the last tile creator
+        lastTileCreator = tileCreator;
+        lastNotifyListener = notifyListener;
+
+        // log how long it took
+        GT.Log.trace("tile grid populated", startTicks);
+        
+        // if we have an onpopulate listener defined, let them know
+        self.dirty = true;
+        self.wakeParent();
+    } // populate
+    
+    function shift(shiftDelta, shiftOriginCallback) {
+        // if the shift delta x and the shift delta y are both 0, then return
+        if ((shiftDelta.x === 0) && (shiftDelta.y === 0)) { return; }
+        
+        var ii, startTicks = GT.Log.getTraceTicks();
+        // GT.Log.info("need to shift tile store grid, " + shiftDelta.x + " cols and " + shiftDelta.y + " rows.");
+
+        // create new storage
+        var newStorage = Array(storage.length);
+
+        // copy the storage from given the various offsets
+        copyStorage(newStorage, storage, shiftDelta);
+
+        // update the storage and top left offset
+        storage = newStorage;
+
+        // TODO: check whether this is right or not
+        if (shiftOriginCallback) {
+            topLeftOffset = shiftOriginCallback(topLeftOffset, shiftDelta);
+        }
+        else {
+            topLeftOffset = T5.V.add(topLeftOffset, shiftDelta);
+        } // if..else
+
+        // create the tile shift offset
+        tileShift.x += (-shiftDelta.x * params.tileSize);
+        tileShift.y += (-shiftDelta.y * params.tileSize);
+        GT.Log.trace("tile storage shifted", startTicks);
+
+        // populate with the last tile creator (crazy talk)
+        populate(lastTileCreator, lastNotifyListener);
+    } // shift
+    
+    function updateDrawQueue(offset, state) {
+        if (! centerPos) { return; }
+        
+        var tile, tmpQueue = [],
+            tileStart = new T5.Vector(
+                            Math.floor((offset.x + tileShift.x) * invTileSize), 
+                            Math.floor((offset.y + tileShift.y) * invTileSize));
+
+        // reset the tile draw queue
+        tilesNeeded = false;
+
+        // right, let's draw some tiles (draw rows first)
+        for (var yy = tileRows; yy--; ) {
+            // iterate through the columns and draw the tiles
+            for (var xx = tileCols; xx--; ) {
+                // get the tile
+                tile = getTile(xx + tileStart.x, yy + tileStart.y);
+                var centerDiff = new T5.Vector(xx - centerPos.x, yy - centerPos.y);
+
+                if (! tile) {
+                    shiftDelta = getShiftDelta(tileStart.x, tileStart.y, tileCols, tileRows);
+                    
+                    // TODO: replace the tile with a temporary draw tile here
+                    tile = createTempTile(xx + tileStart.x, yy + tileStart.y);
+                } // if
+                
+                // add the tile and position to the tile draw queue
+                tmpQueue.push({
+                    tile: tile,
+                    centerness: T5.V.absSize(centerDiff)
+                });
+            } // for
+        } // for
+
+        // sort the tile queue by "centerness"
+        tmpQueue.sort(function(itemA, itemB) {
+            return itemB.centerness - itemA.centerness;
+        });
+        
+        if (! tileDrawQueue) {
+            tileDrawQueue = new Array(tmpQueue.length);
+        } // if
+        
+        // copy the temporary queue item to the draw queue
+        for (var ii = tmpQueue.length; ii--; ) {
+            tileDrawQueue[ii] = tmpQueue[ii].tile;
+            self.prepTile(tileDrawQueue[ii], state);
+        } // for
+    } // updateDrawQueue
+    
+    /* external object definition */
+    
+    // initialise self
+    var self = T5.ex(new T5.ViewLayer(params), {
+        gridDimensions: new T5.Dimensions(gridHeightWidth, gridHeightWidth),
+        dirty: false,
+        
+        cycle: function(tickCount, offset, state) {
+            var needTiles = shiftDelta.x !== 0 || shiftDelta.y !== 0,
+                changeCount = 0;
+
+            if (needTiles) {
+                shift(shiftDelta, params.shiftOrigin);
+
+                // reset the delta
+                shiftDelta = new T5.Vector();
+                
+                // things need to happen
+                changeCount++;
+            } // if
+            
+            if (state !== T5.viewState('PINCH')) {
+                updateDrawQueue(offset, state);
+            } // if
+            
+            // if the grid is dirty let the calling view know
+            return changeCount + self.dirty ? 1 : 0;
+        },
+        
+        deactivate: function() {
+            active = false;
+        },
+        
+        find: findTile,
+        
+        prepTile: function(tile, state) {
+        },
+        
+        drawTile: function(context, tile, x, y, state) {
+            return false;
+        },
+        
+        // TODO: convert to a configurable implementation
+        getTileSize: function() {
+            return params.tileSize;
+        },
+        
+        draw: function(context, offset, dimensions, state, view) {
+            if (! active) { return; }
+            
+            // initialise variables
+            var startTicks = T5.time(),
+                xShift = offset.x,
+                yShift = offset.y,
+                tilesDrawn = true,
+                redraw = view.needRepaint() || (state === T5.viewState('PAN')) || (state === T5.viewState('PINCH')) || T5.isTweening();
+                
+            if (! centerPos) {
+                tileCols = Math.ceil(dimensions.width * invTileSize) + 1;
+                tileRows = Math.ceil(dimensions.height * invTileSize) + 1;
+                centerPos = new T5.Vector(Math.floor((tileCols-1) / 2), Math.floor((tileRows-1) / 2));
+            } // if
+            
+            // if we don't have a draq queue return
+            if (! tileDrawQueue) { return; }
+            
+            // set the context stroke style for the border
+            if (params.drawGrid) {
+                context.strokeStyle = "rgba(50, 50, 50, 0.3)";
+            } // if
+            
+            // begin the path for the tile borders
+            context.beginPath();
+
+            // iterate through the tiles in the draw queue
+            for (var ii = tileDrawQueue.length; ii--; ) {
+                var tile = tileDrawQueue[ii];
+
+                // if the tile is loaded, then draw, otherwise load
+                if (tile) {
+                    var x = tile.gridX - xShift,
+                        y = tile.gridY - yShift,
+                        drawn = redraw ? false : (! tile.dirty);
+                        
+                    // draw the tile
+                    if (! drawn) {
+                        tilesDrawn =  self.drawTile(context, tile, x, y, state) && tilesDrawn;
+                        
+                        tile.x = x;
+                        tile.y = y;
+                    } // if
+                } 
+                else {
+                    tilesDrawn = false;
+                } // if..else
+
+                // if we are drawing borders, then draw that now
+                if (params.drawGrid) {
+                    context.rect(x, y, params.tileSize, params.tileSize);
+                } // if
+            } // for
+
+            // draw the borders if we have them...
+            context.stroke();
+            GT.Log.trace("drawn tiles", startTicks);
+            
+            // if the tiles have been drawn and previously haven't then fire the tiles drawn event
+            if (tilesDrawn && (! lastTilesDrawn)) {
+                view.trigger("tileDrawComplete");
+            } // if
+            
+            // flag the grid as not dirty
+            lastTilesDrawn = tilesDrawn;
+            self.dirty = false;
+        },
+        
+        getTileAtXY: function(x, y) {
+            var queueLength = tileDrawQueue ? tileDrawQueue.length : 0,
+                tileSize = params.tileSize;
+            
+            for (var ii = queueLength; ii--; ) {
+                var tile = tileDrawQueue[ii];
+                
+                if (tile && (x >= tile.x) && (y >= tile.y)) {
+                    if ((x <= tile.x + tileSize) && (y <= tile.y + tileSize)) {
+                        return tile;
+                    } // if
+                } // if
+            } // for
+            
+            return null;
+        },
+        
+        getTileVirtualXY: function(col, row, getCenter) {
+            // get the normalized position from the tile store
+            var pos = getNormalizedPos(col, row),
+                fnresult = new T5.Vector(pos.x * params.tileSize, pos.y * params.tileSize);
+            
+            if (getCenter) {
+                fnresult.x += halfTileSize;
+                fnresult.y += halfTileSize;
+            } // if
+            
+            return fnresult;
+        },
+        
+        populate: function(tileCreator) {
+            populate(tileCreator, null, true);
+        }
+    });
+    
+    GT.WaterCooler.listen("imagecache.cleared", function(args) {
+        // reset all the tiles loaded state
+        for (var ii = storage.length; ii--; ) {
+            if (storage[ii]) {
+                storage[ii].loaded = false;
+            } // if
+        } // for
+    });
+    
+    GT.WaterCooler.listen("tiler.repaint", function(args) {
+        for (var ii = storage.length; ii--; ) {
+            if (storage[ii]) {
+                storage[ii].x = null;
+                storage[ii].y = null;
+            } // if
+        } // for
+    });
+
+    return self;
+}; // T5.TileGrid
+
+/*
+
+(function() {
+    TileStore = function(params) {
+
+        
         
         // initialise self
         var self = {
-            find: function(matcher) {
-                if (! matcher) { return null; }
-                
-                for (var ii = storage.length; ii--; ) {
-                    var tile = storage[ii];
-                    if (tile && matcher(tile)) {
-                        return tile;
-                    } // if
-                } // for
-                
-                return null;
-            },
-            
-            getGridSize: function() {
-                return params.gridSize;
-            },
-            
-            getGridXY: function(col, row) {
-                return T5.Vector(
-                    col * params.tileSize - tileShift.x,
-                    row * params.tileSize - tileShift.y);
-            },
-            
-            getNormalizedPos: function(col, row) {
-                return T5.V.add(new T5.Vector(col, row), T5.V.invert(topLeftOffset), tileShift);
-            },
-            
-            getTileShift: function() {
-                return T5.V.copy(tileShift);
-            },
-            
-            getTile: function(col, row) {
-                return (col >= 0 && col < params.gridSize) ? storage[getTileIndex(col, row)] : null;
-            },
-            
-            setTile: function(col, row, tile) {
-                storage[getTileIndex(col, row)] = tile;
-            },
-            
-            /*
-            What a cool function this is.  Basically, this goes through the tile
-            grid and creates each of the tiles required at that position of the grid.
-            The tileCreator is a callback function that takes a two parameters (col, row) and
-            can do whatever it likes but should return a Tile object or null for the specified
-            column and row.
-            */
-            populate: function(tileCreator, notifyListener, resetStorage) {
-                // take a tick count as we want to time this
-                var startTicks = GRUNT.Log.getTraceTicks(),
-                    tileIndex = 0,
-                    gridSize = params.gridSize,
-                    tileSize = params.tileSize,
-                    centerPos = new T5.Vector(gridSize / 2, gridSize / 2);
-                    
-                // if the storage is to be reset, then do that now
-                if (resetStorage) {
-                    storage = [];
-                } // if
-                
-                if (tileCreator) {
-                    // GRUNT.Log.info("populating grid, x shift = " + tileShift.x + ", y shift = " + tileShift.y);
-                    
-                    for (var row = 0; row < gridSize; row++) {
-                        for (var col = 0; col < gridSize; col++) {
-                            if (! storage[tileIndex]) {
-                                var tile = tileCreator(col, row, topLeftOffset, gridSize);
-                                
-                                // set the tile grid x and grid y position
-                                tile.gridX = (col * tileSize) - tileShift.x;
-                                tile.gridY = (row * tileSize) - tileShift.y;
-
-                                // add the tile to storage
-                                storage[tileIndex] = tile;
-                            } // if
-                            
-                            // increment the tile index
-                            tileIndex++;
-                        } // for
-                    } // for
-                } // if
-                
-                // save the last tile creator
-                lastTileCreator = tileCreator;
-                lastNotifyListener = notifyListener;
-
-                // log how long it took
-                GRUNT.Log.trace("tile grid populated", startTicks);
-                
-                // if we have an onpopulate listener defined, let them know
-                if (params.onPopulate) {
-                    params.onPopulate();
-                } // if
-            },
-            
-            getShiftDelta: function(topLeftX, topLeftY, cols, rows) {
-                // initialise variables
-                var shiftAmount = Math.floor(params.gridSize * 0.2),
-                    shiftDelta = new T5.Vector();
-                    
-                // test the x
-                if (topLeftX < 0 || topLeftX + cols > params.gridSize) {
-                    shiftDelta.x = topLeftX < 0 ? -shiftAmount : shiftAmount;
-                } // if
-
-                // test the y
-                if (topLeftY < 0 || topLeftY + rows > params.gridSize) {
-                    shiftDelta.y = topLeftY < 0 ? -shiftAmount : shiftAmount;
-                } // if
-                
-                return shiftDelta;
-            },
-            
-            
-            shift: function(shiftDelta, shiftOriginCallback) {
-                // if the shift delta x and the shift delta y are both 0, then return
-                if ((shiftDelta.x === 0) && (shiftDelta.y === 0)) { return; }
-                
-                var ii, startTicks = GRUNT.Log.getTraceTicks();
-                // GRUNT.Log.info("need to shift tile store grid, " + shiftDelta.x + " cols and " + shiftDelta.y + " rows.");
-
-                // create new storage
-                var newStorage = Array(storage.length);
-
-                // copy the storage from given the various offsets
-                copyStorage(newStorage, storage, shiftDelta);
-
-                // update the storage and top left offset
-                storage = newStorage;
-
-                // TODO: check whether this is right or not
-                if (shiftOriginCallback) {
-                    topLeftOffset = shiftOriginCallback(topLeftOffset, shiftDelta);
-                }
-                else {
-                    topLeftOffset = T5.V.add(topLeftOffset, shiftDelta);
-                } // if..else
-
-                // create the tile shift offset
-                tileShift.x += (-shiftDelta.x * params.tileSize);
-                tileShift.y += (-shiftDelta.y * params.tileSize);
-                GRUNT.Log.trace("tile storage shifted", startTicks);
-
-                // populate with the last tile creator (crazy talk)
-                self.populate(lastTileCreator, lastNotifyListener);
-            },
-            
-            /*
-            The setOrigin method is used to tell the tile store the position of the center tile in the grid
-            */
             setOrigin: function(col, row) {
                 if (! tileOrigin) {
                     topLeftOffset = T5.V.offset(new T5.Vector(col, row), -tileHalfWidth);
@@ -4593,437 +4755,132 @@ T5.Tiling = (function() {
             }
         };
         
-        GRUNT.WaterCooler.listen("imagecache.cleared", function(args) {
-            // reset all the tiles loaded state
-            for (var ii = storage.length; ii--; ) {
-                if (storage[ii]) {
-                    storage[ii].loaded = false;
-                } // if
-            } // for
-        });
-        
-        GRUNT.WaterCooler.listen("tiler.repaint", function(args) {
-            for (var ii = storage.length; ii--; ) {
-                if (storage[ii]) {
-                    storage[ii].x = null;
-                    storage[ii].y = null;
-                } // if
-            } // for
-        });
         
         return self;
     };
+})();
 
+*/
+T5.ImageTileGrid = function(params) {
+    params = T5.ex({
+        emptyTile: getEmptyTile(T5.tileSize),
+        panningTile: getPanningTile(T5.tileSize),
+        tileOffset: new T5.Vector(),
+        tileDrawArgs: {}
+    }, params);
+    
+    function getEmptyTile(tileSize) {
+        if ((! emptyTile) || (tileSize !== emptyTile.width)) {
+            emptyTile = T5.newCanvas(tileSize, tileSize);
+
+            var tileContext = emptyTile.getContext('2d');
+
+            tileContext.fillStyle = "rgba(150, 150, 150, 0.01)";
+            tileContext.fillRect(0, 0, emptyTile.width, emptyTile.height);
+        } // if
+
+        return emptyTile;
+    } // getEmptyTile
+    
+    function getPanningTile(tileSize) {
+
+        function getPattern() {
+            var patternSize = 32,
+                halfSize = patternSize / 2,
+                patternCanvas = T5.newCanvas(patternSize, patternSize);
+
+            // get the canvas context
+            var context = patternCanvas.getContext("2d");
+
+            // fill the canvas
+            context.fillStyle = "#BBBBBB";
+            context.fillRect(0, 0, patternSize, patternSize);
+
+            // now draw two smaller rectangles
+            context.fillStyle = "#C3C3C3";
+            context.fillRect(0, 0, halfSize, halfSize);
+            context.fillRect(halfSize, halfSize, halfSize, halfSize);
+
+            return patternCanvas;
+        } // getPattern
+
+        if ((! panningTile) || (tileSize !== panningTile.width)) {
+            panningTile = T5.newCanvas(tileSize, tileSize);
+
+            var tileContext = panningTile.getContext('2d');
+
+            // fill the panning tile with the pattern
+            tileContext.fillStyle = tileContext.createPattern(getPattern(), "repeat");
+            tileContext.fillRect(0, 0, panningTile.width, panningTile.height);
+        } // if
+
+        return panningTile;
+    } // getPanningTile
+    
+    function handleImageLoad(loadedImage, fromCache) {
+        self.getParent().trigger("invalidate");
+
+        self.dirty = true;
+        self.wakeParent();
+    } // handleImageLoad
+    
     // initialise variables
-    var emptyTile = null,
-        panningTile = null;
-    
-    // define the module
-    var module = {
-        // define the tiler config
-        Config: {
-            TILESIZE: 256,
-            // TODO: put some logic in to determine optimal buffer size based on connection speed...
-            TILEBUFFER: 1,
-            TILEBUFFER_LOADNEW: 0.2
+    var emptyTile = params.emptyTile,
+        panningTile = params.panningTile,
+        tileOffset = params.tileOffset,
+        imageOverlay = params.imageOverlay,
+        stateActive = T5.viewState('ACTIVE'),
+        statePan = T5.viewState('PAN'),
+        fastDraw = T5.getConfig().requireFastDraw,
+        tileSize = params.tileSize ? params.tileSize : T5.tileSize;
+        
+    // initialise the tile draw args
+    var tileDrawArgs = T5.ex({
+        background: null, 
+        overlay: null,
+        offset: new T5.Vector(),
+        realSize: new T5.Dimensions(tileSize, tileSize)
+    }, params.tileDrawArgs);
+        
+    // initialise self
+    var self = T5.ex(new T5.TileGrid(params), {
+        drawTile: function(context, tile, x, y, state) {
+            var image = tile.url ? T5.Images.get(tile.url) : null,
+                drawn = false;
+                
+            if (image) {
+                context.drawImage(image, x, y);
+                tile.dirty = false;
+
+                drawn = true;
+            }
+            else if (state === statePan) {
+                panningTile ? context.drawImage(panningTile, x, y) : 0;
+            }
+            else if (emptyTile) {
+                context.drawImage(emptyTile, x, y);
+            } // if..else
+            
+            return drawn;
         },
         
-        getEmptyTile: function(tileSize) {
-            if ((! emptyTile) || (tileSize !== emptyTile.width)) {
-                emptyTile = T5.newCanvas(tileSize, tileSize);
-
-                var tileContext = emptyTile.getContext('2d');
-
-                tileContext.fillStyle = "rgba(150, 150, 150, 0.01)";
-                tileContext.fillRect(0, 0, emptyTile.width, emptyTile.height);
+        prepTile: function(tile, state) {
+            if (tile) {
+                tile.dirty = true;
             } // if
-
-            return emptyTile;
-        },
-        
-        getPanningTile: function(tileSize) {
-
-            function getPattern() {
-                var patternSize = 32,
-                    halfSize = patternSize / 2,
-                    patternCanvas = T5.newCanvas(patternSize, patternSize);
-
-                // get the canvas context
-                var context = patternCanvas.getContext("2d");
-
-                // fill the canvas
-                context.fillStyle = "#BBBBBB";
-                context.fillRect(0, 0, patternSize, patternSize);
-
-                // now draw two smaller rectangles
-                context.fillStyle = "#C3C3C3";
-                context.fillRect(0, 0, halfSize, halfSize);
-                context.fillRect(halfSize, halfSize, halfSize, halfSize);
-
-                return patternCanvas;
-            } // getPattern
-
-            if ((! panningTile) || (tileSize !== panningTile.width)) {
-                panningTile = T5.newCanvas(tileSize, tileSize);
-
-                var tileContext = panningTile.getContext('2d');
-
-                // fill the panning tile with the pattern
-                tileContext.fillStyle = tileContext.createPattern(getPattern(), "repeat");
-                tileContext.fillRect(0, 0, panningTile.width, panningTile.height);
-            } // if
-
-            return panningTile;
-        },
-        
-        Tile: function(params) {
-            params = T5.ex({
-                x: 0,
-                y: 0,
-                gridX: 0,
-                gridY: 0,
-                dirty: false
-            }, params);
             
-            return params;
-        },
-        
-        ImageTile: function(params) {
-            // initialise parameters with defaults
-            params = T5.ex({
-                url: "",
-                sessionParamRegex: null,
-                loaded: false
-            }, params);
-            
-            return new module.Tile(params);
-        },
-        
-        TileGrid: function(params) {
-            // extend the params with the defaults
-            params = T5.ex({
-                tileSize: T5.Tiling.Config.TILESIZE,
-                drawGrid: false,
-                center: new T5.Vector(),
-                gridSize: 25,
-                shiftOrigin: null,
-                supportFastDraw: true
-            }, params);
-            
-            // create the tile store
-            var tileStore = new TileStore(T5.ex({
-                tileSize: params.tileSize,
-                gridSize: params.gridSize,
-                onPopulate: function() {
-                    self.dirty = true;
-                    self.wakeParent();
-                }
-            }, params));
-            
-            // initialise varibles
-            var halfTileSize = Math.round(params.tileSize / 2),
-                invTileSize = params.tileSize ? 1 / params.tileSize : 0,
-                active = true,
-                tileDrawQueue = null,
-                loadedTileCount = 0,
-                lastTilesDrawn = false,
-                lastCheckOffset = new T5.Vector(),
-                shiftDelta = new T5.Vector(),
-                tileShift = new T5.Vector(),
-                repaintDistance = T5.Device.getConfig().repaintDistance,
-                reloadTimeout = 0,
-                gridHeightWidth = tileStore.getGridSize() * params.tileSize,
-                tileCols, tileRows, centerPos;
-                
-            function createTempTile(col, row) {
-                var gridXY = tileStore.getGridXY(col, row);
-                return new module.ImageTile({
-                    gridX: gridXY.x,
-                    gridY: gridXY.y
-                });
-            } // createTempTile
-            
-            function updateDrawQueue(offset, state) {
-                if (! centerPos) { return; }
-                
-                var tile, tmpQueue = [],
-                    tileStart = new T5.Vector(
-                                    Math.floor((offset.x + tileShift.x) * invTileSize), 
-                                    Math.floor((offset.y + tileShift.y) * invTileSize));
-
-                // reset the tile draw queue
-                tilesNeeded = false;
-
-                // right, let's draw some tiles (draw rows first)
-                for (var yy = tileRows; yy--; ) {
-                    // iterate through the columns and draw the tiles
-                    for (var xx = tileCols; xx--; ) {
-                        // get the tile
-                        tile = tileStore.getTile(xx + tileStart.x, yy + tileStart.y);
-                        var centerDiff = new T5.Vector(xx - centerPos.x, yy - centerPos.y);
-
-                        if (! tile) {
-                            shiftDelta = tileStore.getShiftDelta(tileStart.x, tileStart.y, tileCols, tileRows);
-                            
-                            // TODO: replace the tile with a temporary draw tile here
-                            tile = createTempTile(xx + tileStart.x, yy + tileStart.y);
-                        } // if
-                        
-                        // add the tile and position to the tile draw queue
-                        tmpQueue.push({
-                            tile: tile,
-                            centerness: T5.V.absSize(centerDiff)
-                        });
-                    } // for
-                } // for
-
-                // sort the tile queue by "centerness"
-                tmpQueue.sort(function(itemA, itemB) {
-                    return itemB.centerness - itemA.centerness;
-                });
-                
-                if (! tileDrawQueue) {
-                    tileDrawQueue = new Array(tmpQueue.length);
+            if (tile && ((! fastDraw) || (state === stateActive))) {
+                var image = T5.Images.get(tile.url);
+                if (! image) {
+                    T5.Images.load(tile.url, handleImageLoad, tileDrawArgs);
                 } // if
-                
-                // copy the temporary queue item to the draw queue
-                for (var ii = tmpQueue.length; ii--; ) {
-                    tileDrawQueue[ii] = tmpQueue[ii].tile;
-                    self.prepTile(tileDrawQueue[ii], state);
-                } // for
-            } // updateDrawQueue
-            
-            // initialise self
-            var self = T5.ex(new T5.ViewLayer(params), {
-                gridDimensions: new T5.Dimensions(gridHeightWidth, gridHeightWidth),
-                dirty: false,
-                
-                cycle: function(tickCount, offset, state) {
-                    var needTiles = shiftDelta.x !== 0 || shiftDelta.y !== 0,
-                        changeCount = 0;
-
-                    if (needTiles) {
-                        tileStore.shift(shiftDelta, params.shiftOrigin);
-                        tileShift = tileStore.getTileShift();
-
-                        // reset the delta
-                        shiftDelta = new T5.Vector();
-                        
-                        // things need to happen
-                        changeCount++;
-                    } // if
-                    
-                    if (state !== T5.ViewState.PINCHZOOM) {
-                        updateDrawQueue(offset, state);
-                    } // if
-                    
-                    // if the grid is dirty let the calling view know
-                    return changeCount + self.dirty ? 1 : 0;
-                },
-                
-                deactivate: function() {
-                    active = false;
-                },
-                
-                find: function(matcher) {
-                    return tileStore.find.apply(null, arguments);
-                },
-                
-                prepTile: function(tile, state) {
-                },
-                
-                drawTile: function(context, tile, x, y, state) {
-                    return false;
-                },
-                
-                // TODO: convert to a configurable implementation
-                getTileSize: function() {
-                    return params.tileSize;
-                },
-                
-                draw: function(context, offset, dimensions, state, view) {
-                    if (! active) { return; }
-                    
-                    // initialise variables
-                    var startTicks = T5.time(),
-                        xShift = offset.x,
-                        yShift = offset.y,
-                        tilesDrawn = true,
-                        redraw = view.needRepaint() || (state === T5.ViewState.PANNING) || (state === T5.ViewState.PINCHZOOM) || T5.Animation.isTweening();
-                        
-                    if (! centerPos) {
-                        tileCols = Math.ceil(dimensions.width * invTileSize) + 1;
-                        tileRows = Math.ceil(dimensions.height * invTileSize) + 1;
-                        centerPos = new T5.Vector(Math.floor((tileCols-1) / 2), Math.floor((tileRows-1) / 2));
-                    } // if
-                    
-                    // if we don't have a draq queue return
-                    if (! tileDrawQueue) { return; }
-                    
-                    // set the context stroke style for the border
-                    if (params.drawGrid) {
-                        context.strokeStyle = "rgba(50, 50, 50, 0.3)";
-                    } // if
-                    
-                    // begin the path for the tile borders
-                    context.beginPath();
-
-                    // iterate through the tiles in the draw queue
-                    for (var ii = tileDrawQueue.length; ii--; ) {
-                        var tile = tileDrawQueue[ii];
-
-                        // if the tile is loaded, then draw, otherwise load
-                        if (tile) {
-                            var x = tile.gridX - xShift,
-                                y = tile.gridY - yShift,
-                                drawn = redraw ? false : (! tile.dirty);
-                                
-                            // draw the tile
-                            if (! drawn) {
-                                tilesDrawn =  self.drawTile(context, tile, x, y, state) && tilesDrawn;
-                                
-                                tile.x = x;
-                                tile.y = y;
-                            } // if
-                        } 
-                        else {
-                            tilesDrawn = false;
-                        } // if..else
-
-                        // if we are drawing borders, then draw that now
-                        if (params.drawGrid) {
-                            context.rect(x, y, params.tileSize, params.tileSize);
-                        } // if
-                    } // for
-
-                    // draw the borders if we have them...
-                    context.stroke();
-                    GRUNT.Log.trace("drawn tiles", startTicks);
-                    
-                    // if the tiles have been drawn and previously haven't then fire the tiles drawn event
-                    if (tilesDrawn && (! lastTilesDrawn)) {
-                        view.trigger("tileDrawComplete");
-                    } // if
-                    
-                    // flag the grid as not dirty
-                    lastTilesDrawn = tilesDrawn;
-                    self.dirty = false;
-                },
-                
-                getTileAtXY: function(x, y) {
-                    var queueLength = tileDrawQueue ? tileDrawQueue.length : 0,
-                        tileSize = params.tileSize;
-                    
-                    for (var ii = queueLength; ii--; ) {
-                        var tile = tileDrawQueue[ii];
-                        
-                        if (tile && (x >= tile.x) && (y >= tile.y)) {
-                            if ((x <= tile.x + tileSize) && (y <= tile.y + tileSize)) {
-                                return tile;
-                            } // if
-                        } // if
-                    } // for
-                    
-                    return null;
-                },
-                
-                getTileVirtualXY: function(col, row, getCenter) {
-                    // get the normalized position from the tile store
-                    var pos = tileStore.getNormalizedPos(col, row),
-                        fnresult = new T5.Vector(pos.x * params.tileSize, pos.y * params.tileSize);
-                    
-                    if (getCenter) {
-                        fnresult.x += halfTileSize;
-                        fnresult.y += halfTileSize;
-                    } // if
-                    
-                    return fnresult;
-                },
-                
-                populate: function(tileCreator) {
-                    tileStore.populate(tileCreator, null, true);
-                }
-            });
-
-            return self;
-        },
-        
-        ImageTileGrid: function(params) {
-            params = T5.ex({
-                emptyTile: module.getEmptyTile(module.Config.TILESIZE),
-                panningTile: module.getPanningTile(module.Config.TILESIZE),
-                tileOffset: new T5.Vector(),
-                tileDrawArgs: {}
-            }, params);
-            
-            function handleImageLoad(loadedImage, fromCache) {
-                self.getParent().trigger("invalidate");
-
-                self.dirty = true;
-                self.wakeParent();
-            } // handleImageLoad
-            
-            // initialise variables
-            var emptyTile = params.emptyTile,
-                panningTile = params.panningTile,
-                tileOffset = params.tileOffset,
-                imageOverlay = params.imageOverlay,
-                stateActive = T5.ViewState.ACTIVE,
-                statePan = T5.ViewState.PAN,
-                fastDraw = T5.Device.getConfig().requireFastDraw,
-                tileSize = params.tileSize ? params.tileSize : module.Config.TILESIZE;
-                
-            // initialise the tile draw args
-            var tileDrawArgs = T5.ex({
-                background: null, 
-                overlay: null,
-                offset: new T5.Vector(),
-                realSize: new T5.Dimensions(tileSize, tileSize)
-            }, params.tileDrawArgs);
-                
-            // initialise self
-            var self = T5.ex(new module.TileGrid(params), {
-                drawTile: function(context, tile, x, y, state) {
-                    var image = tile.url ? T5.Images.get(tile.url) : null,
-                        drawn = false;
-                        
-                    if (image) {
-                        context.drawImage(image, x, y);
-                        tile.dirty = false;
-
-                        drawn = true;
-                    }
-                    else if (state === statePan) {
-                        panningTile ? context.drawImage(panningTile, x, y) : 0;
-                    }
-                    else if (emptyTile) {
-                        context.drawImage(emptyTile, x, y);
-                    } // if..else
-                    
-                    return drawn;
-                },
-                
-                prepTile: function(tile, state) {
-                    if (tile) {
-                        tile.dirty = true;
-                    } // if
-                    
-                    if (tile && ((! fastDraw) || (state === stateActive))) {
-                        var image = T5.Images.get(tile.url);
-                        if (! image) {
-                            T5.Images.load(tile.url, handleImageLoad, tileDrawArgs);
-                        } // if
-                    } // if
-                }
-            });
-            
-            return self;
+            } // if
         }
-    };
+    });
     
-    return module;
-    
-})();T5.Tiler = function(params) {
+    return self;
+}; // T5.ImageTileGrid
+T5.Tiler = function(params) {
     params = T5.ex({
         container: "",
         drawCenter: false,
@@ -5066,7 +4923,7 @@ T5.Tiling = (function() {
             self.setLayer("grid" + gridIndex, value);
             
             // update the tile load threshold
-            GRUNT.WaterCooler.say("grid.updated", { id: "grid" + gridIndex });
+            GT.WaterCooler.say("grid.updated", { id: "grid" + gridIndex });
         },
 
         viewPixToGridPix: function(vector) {
@@ -5095,7 +4952,7 @@ T5.Tiling = (function() {
         
         repaint: function() {
             // flag to the tile store to reset the image positions
-            GRUNT.WaterCooler.say("tiler.repaint");
+            GT.WaterCooler.say("tiler.repaint");
             
             self.trigger("wake");
         },
@@ -5180,7 +5037,7 @@ T5.Geo = (function() {
         // uppercase the request for comparisons
         request = request.toUpperCase();
         
-        // GRUNT.Log.info("CALCULATING MATCH WEIGHT FOR [" + request + "] = [" + response + "]");
+        // GT.Log.info("CALCULATING MATCH WEIGHT FOR [" + request + "] = [" + response + "]");
         
         // iterate through the field weights
         for (var fieldId in fieldWeights) {
@@ -5413,7 +5270,7 @@ T5.Geo = (function() {
                         } // if
                     } 
                     catch (e) {
-                        GRUNT.Log.exception(e);
+                        GT.Log.exception(e);
                     } // try..catch
                 }
             }, params);
@@ -5517,7 +5374,7 @@ T5.Geo = (function() {
             } // poiGrabber
             
             function triggerUpdate() {
-                GRUNT.WaterCooler.say("geo.pois-updated", {
+                GT.WaterCooler.say("geo.pois-updated", {
                     srcID: self.id,
                     pois: self.getPOIs()
                 });
@@ -5525,7 +5382,7 @@ T5.Geo = (function() {
 
             // initialise self
             var self = {
-                id: GRUNT.generateObjectID(),
+                id: GT.objId(),
                 
                 getPOIs: function() {
                     return poiGrabber();
@@ -5605,7 +5462,7 @@ T5.Geo = (function() {
 
                         // add the poi to either the update or new array according to whether it was found
                         if (foundPOI) {
-                            // GRUNT.Log.info("FOUND EXISTING POI");
+                            // GT.Log.info("FOUND EXISTING POI");
                             foundPOI.retrieved = timeRetrieved;
                             foundPOI.isNew = false;
                         }
@@ -5619,7 +5476,7 @@ T5.Geo = (function() {
 
                     // add new pois to the poi layer
                     self.addPOIs(newPOIs);
-                    // GRUNT.Log.info(String.format("POI-UPDATE: {0} new, {1} deleted", newPOIs.length, deletedPOIs.length));
+                    // GT.Log.info(String.format("POI-UPDATE: {0} new, {1} deleted", newPOIs.length, deletedPOIs.length));
 
                     // fire the on poi added event when appropriate
                     for (ii = 0; params.onPOIAdded && (ii < newPOIs.length); ii++) {
@@ -5783,7 +5640,7 @@ T5.Geo = (function() {
                         positions[ii] = subModule.parse(sourceData[ii]);
                     } // for
 
-                    GRUNT.Log.info("parsed " + positions.length + " positions");
+                    GT.Log.info("parsed " + positions.length + " positions");
                     return positions;
                 },
                 
@@ -5811,7 +5668,7 @@ T5.Geo = (function() {
                     // convert min distance to km
                     minDist = minDist / 1000;
 
-                    GRUNT.Log.info("generalizing positions, must include " + requiredPositions.length + " positions");
+                    GT.Log.info("generalizing positions, must include " + requiredPositions.length + " positions");
 
                     // iterate thorugh the source data and add positions the differ by the required amount to 
                     // the result positions
@@ -5833,7 +5690,7 @@ T5.Geo = (function() {
                         } // if..else
                     } // for
 
-                    GRUNT.Log.info("generalized " + sourceLen + " positions into " + positions.length + " positions");
+                    GT.Log.info("generalized " + sourceLen + " positions into " + positions.length + " positions");
                     return positions;
                 },                
 
@@ -5878,9 +5735,9 @@ T5.Geo = (function() {
                         maxLat = radLat + radDist,
                         minLon, maxLon;
                         
-                    // GRUNT.Log.info("rad distance = " + radDist);
-                    // GRUNT.Log.info("rad lat = " + radLat + ", lon = " + radLon);
-                    // GRUNT.Log.info("min lat = " + minLat + ", max lat = " + maxLat);
+                    // GT.Log.info("rad distance = " + radDist);
+                    // GT.Log.info("rad lat = " + radLat + ", lon = " + radLon);
+                    // GT.Log.info("min lat = " + minLat + ", max lat = " + maxLat);
                         
                     if ((minLat > MIN_LAT) && (maxLat < MAX_LAT)) {
                         var deltaLon = Math.asin(Math.sin(radDist) / Math.cos(radLat));
@@ -5951,7 +5808,7 @@ T5.Geo = (function() {
                         bounds = subModule.expand(bounds, padding);
                     } // if
 
-                    GRUNT.Log.trace("calculated bounds for " + positions.length + " positions", startTicks);
+                    GT.Log.trace("calculated bounds for " + positions.length + " positions", startTicks);
                     return bounds;
                 },
                 
@@ -5967,7 +5824,7 @@ T5.Geo = (function() {
                     var minHash = T5.Geo.GeoHash.encode(bounds.min.lat, bounds.min.lon),
                         maxHash = T5.Geo.GeoHash.encode(bounds.max.lat, bounds.max.lon);
                         
-                    GRUNT.Log.info("min hash = " + minHash + ", max hash = " + maxHash);
+                    GT.Log.info("min hash = " + minHash + ", max hash = " + maxHash);
                 },
 
                 /** 
@@ -5987,9 +5844,9 @@ T5.Geo = (function() {
                         bestZoomH = Math.ceil(Math.log(LAT_VARIABILITIES[3] * displaySize.height / delta.y) / Math.log(2)),
                         bestZoomW = Math.ceil(Math.log(variability * displaySize.width / delta.x) / Math.log(2));
 
-                    // GRUNT.Log.info("constant index for bbox: " + bounds + " (center = " + boundsCenter + ") is " + variabilityIndex);
-                    // GRUNT.Log.info("distances  = " + delta);
-                    // GRUNT.Log.info("optimal zoom levels: height = " + bestZoomH + ", width = " + bestZoomW);
+                    // GT.Log.info("constant index for bbox: " + bounds + " (center = " + boundsCenter + ") is " + variabilityIndex);
+                    // GT.Log.info("distances  = " + delta);
+                    // GT.Log.info("optimal zoom levels: height = " + bestZoomH + ", width = " + bestZoomW);
 
                     // return the lower of the two zoom levels
                     return Math.min(isNaN(bestZoomH) ? maxZoom : bestZoomH, isNaN(bestZoomW) ? maxZoom : bestZoomW);
@@ -6319,7 +6176,7 @@ T5.Geo.Routing = (function() {
                 generalize: false
             }, args);
             
-            GRUNT.Log.info("attempting to calculate route");
+            GT.Log.info("attempting to calculate route");
             
             // find an available routing engine
             var engine = T5.Geo.getEngine("route");
@@ -6336,7 +6193,7 @@ T5.Geo.Routing = (function() {
                         
                         // if we are to auto fit the map to the bounds, then do that now
                         if (args.autoFit) {
-                            GRUNT.Log.info("AUTOFITTING MAP TO ROUTE: bounds = " + routeData.boundingBox);
+                            GT.Log.info("AUTOFITTING MAP TO ROUTE: bounds = " + routeData.boundingBox);
                             args.map.gotoBounds(routeData.boundingBox);
                         } // if
                     } // if
@@ -6353,7 +6210,7 @@ T5.Geo.Routing = (function() {
             // get the map dimensions
             var dimensions = map.getDimensions();
 
-            // GRUNT.Log.info("creating route overlay with route data: ", routeData);
+            // GT.Log.info("creating route overlay with route data: ", routeData);
 
             // create a new route overlay for the specified data
             var overlay = new T5.Geo.UI.RouteOverlay({
@@ -6567,8 +6424,7 @@ T5.Geo.UI = (function() {
     function CrosshairOverlay(params) {
         params = T5.ex({
             size: 12,
-            zindex: 150,
-            scalePosition: false
+            zindex: 150
         }, params);
         
         function drawCrosshair(context, centerPos, size) {
@@ -6634,7 +6490,7 @@ T5.Geo.UI = (function() {
     
     var module = {
         // change this value to have the annotations tween in 
-        // (eg. T5.Easing.Sine.Out)
+        // (eg. T5.easing('sineout'))
         AnnotationTween: null,
         
         GeoTileGrid: function(params) {
@@ -6722,7 +6578,7 @@ T5.Geo.UI = (function() {
                 instructionCoords = [];
                 if (! grid) { return; }
                 
-                var startTicks = GRUNT.Log.getTraceTicks(),
+                var startTicks = GT.Log.getTraceTicks(),
                     ii, current, include,
                     geometry = params.data ? params.data.geometry : [],
                     geometryLen = geometry.length,
@@ -6763,7 +6619,7 @@ T5.Geo.UI = (function() {
                 } // for
                 
                 geometryCalcIndex = geometryLen;
-                GRUNT.Log.trace(
+                GT.Log.trace(
                     geometryLen + ' geometry points generalized to ' + 
                     coordinates.length + ' coordinates', startTicks);
                 
@@ -6813,7 +6669,7 @@ T5.Geo.UI = (function() {
                         zindex: params.zindex + 1,
                         easing: easingFn ? 
                             easingFn : 
-                            T5.Easing.Sine.InOut,
+                            T5.T5.easing('sine.inout'),
                             
                         duration: duration ? duration : 5000,
                         drawIndicator: drawCallback,
@@ -6881,10 +6737,10 @@ T5.Geo.UI = (function() {
             });
             
             // listed for grid updates
-            GRUNT.WaterCooler.listen('grid.updated', function(args) {
+            GT.WaterCooler.listen('grid.updated', function(args) {
                 // tell all the spawned animations to remove themselves
                 for (var ii = spawnedAnimations.length; ii--; ) {
-                    GRUNT.WaterCooler.say(
+                    GT.WaterCooler.say(
                         'layer.remove', { id: spawnedAnimations[ii] });
                 } // for
                 
@@ -6942,7 +6798,7 @@ T5.Geo.UI = (function() {
                         // animate the annotation
                         animating = true;
                         
-                        T5.Animation.tween(
+                        T5.tween(
                             self.xy, 
                             'y',
                             endValue, 
@@ -7122,7 +6978,6 @@ T5.Geo.UI = (function() {
             params = T5.ex({
                 pois: null,
                 map: null,
-                createAnnotationForPOI: null,
                 zindex: 100
             }, params);
             
@@ -7132,22 +6987,27 @@ T5.Geo.UI = (function() {
                 
             function createAnnotationForPOI(poi) {
                 if (poi && poi.pos) {
-                    var annotation = null;
-                    if (params.createAnnotationForPOI) {
-                        annotation = params.createAnnotationForPOI(poi);
-                    }
-                    else {
-                        annotation = new module.Annotation({
+                    var evt = {
+                        poi: poi,
+                        annotation: null
+                    };
+                    
+                    if (params.map) {
+                        params.map.trigger('getAnnotationForPOI', evt);
+                    } // if
+                        
+                    if (! evt.annotation) {
+                        evt.annotation = new module.Annotation({
                             pos: poi.pos
                         });
-                    } // if..else
+                    } // if
                     
-                    if (annotation) {
-                        annotation.isNew = poi.isNew;
+                    if (evt.annotation) {
+                        evt.annotation.isNew = poi.isNew;
                         poi.isNew = false;
                     } // if
                     
-                    return annotation;
+                    return evt.annotation;
                 } // if
             } // createAnnotationForPOI
             
@@ -7171,7 +7031,7 @@ T5.Geo.UI = (function() {
                     updateAnnotationCoordinates(annotations);
                 }
                 catch (e) {
-                    GRUNT.Log.exception(e);
+                    GT.Log.exception(e);
                 }
             } // updateAnnotations
             
@@ -7264,7 +7124,7 @@ T5.Geo.UI = (function() {
                 }
             });
 
-            GRUNT.WaterCooler.listen('geo.pois-updated', function(args) {
+            GT.WaterCooler.listen('geo.pois-updated', function(args) {
                 // if the event source id matches our current 
                 // poi storage, then apply updates
                 if (params.pois && (params.pois.id == args.srcID)) {
@@ -7274,7 +7134,7 @@ T5.Geo.UI = (function() {
             });
             
             // list for grid updates
-            GRUNT.WaterCooler.listen('grid.updated', function(args) {
+            GT.WaterCooler.listen('grid.updated', function(args) {
                 updateAnnotationCoordinates(annotations);
                 updateAnnotationCoordinates(staticAnnotations);
                 self.wakeParent();
@@ -7292,13 +7152,10 @@ T5.Map = function(params) {
         provider: null,
         crosshair: false,
         zoomLevel: 0,
-        boundsChange: null,
-        tapPOI: null,
         boundsChangeThreshold: 30,
         pois: new T5.Geo.POIStorage(),
-        createAnnotationForPOI: null,
         displayLocationAnnotation: true,
-        zoomAnimation: T5.Easing.Quad.Out
+        zoomAnimation: T5.easing('quad.out')
     }, params);
 
     // define the locate modes
@@ -7385,18 +7242,18 @@ T5.Map = function(params) {
                 self.panToPosition(
                     currentPos, 
                     null, 
-                    T5.Easing.Sine.Out);
+                    T5.easing('sine.out'));
             } // if..else
 
             initialTrackingUpdate = false;
         }
         catch (e) {
-            GRUNT.Log.exception(e);
+            GT.Log.exception(e);
         }
     } // trackingUpdate
     
     function trackingError(error) {
-        GRUNT.Log.info('caught location tracking error:', error);
+        GT.Log.info('caught location tracking error:', error);
     } // trackingError
     
     /* event handlers */
@@ -7431,13 +7288,10 @@ T5.Map = function(params) {
 
             // find the pois in the bounds area
             tappedPOIs = self.pois.findByBounds(tapBounds);
-            // GRUNT.Log.info('TAPPED POIS = ', tappedPOIs);
+            // GT.Log.info('TAPPED POIS = ', tappedPOIs);
             
             self.trigger('geotap', absXY, relXY, tapPos, tapBounds);
-
-            if (params.tapPOI) {
-                params.tapPOI(tappedPOIs);
-            } // if
+            self.trigger('tapPOI', tappedPOIs);
         } // if
     } // handleTap
     
@@ -7470,9 +7324,9 @@ T5.Map = function(params) {
         var changeDelta = T5.V.absSize(T5.V.diff(
                 lastBoundsChangeOffset, self.getOffset()));
         
-        if ((changeDelta > params.boundsChangeThreshold) && params.boundsChange) {
+        if (changeDelta > params.boundsChangeThreshold) {
             lastBoundsChangeOffset = self.getOffset();
-            params.boundsChange(self.getBoundingBox());
+            self.trigger("boundsChange", self.getBoundingBox());
         } // if
     } // handleIdle
     
@@ -7563,7 +7417,7 @@ T5.Map = function(params) {
             // if there is already a tile request in progress
             // abort
             if (tileRequestInProgress) {
-                GRUNT.Log.warn("Tile request in progress, aborting");
+                GT.Log.warn("Tile request in progress, aborting");
                 return;
             } // if
             
@@ -7584,7 +7438,7 @@ T5.Map = function(params) {
             } // if
 
             // cancel any animations
-            T5.Animation.cancel();
+            T5.cancelAnimation();
 
             // if the map is initialise, then pan to 
             // the specified position
@@ -7750,7 +7604,7 @@ T5.Map = function(params) {
                 self.gotoPosition(self.getCenterPosition(), value);
             }
             catch (e) {
-                GRUNT.Log.exception(e);
+                GT.Log.exception(e);
             }
         },
 
@@ -7759,7 +7613,7 @@ T5.Map = function(params) {
             var scalingNeeded = radsPerPixelAtZoom(1, zoomLevel) / 
                     radsPerPixelAtZoom(1, zoomLevel + 1);
             
-            if (! self.scale(2, T5.Easing.Sine.Out)) {
+            if (! self.scale(2, T5.easing('sine.out'))) {
                 self.setZoomLevel(zoomLevel + 1);
             } // if
         },
@@ -7768,7 +7622,7 @@ T5.Map = function(params) {
             var scalingNeeded = radsPerPixelAtZoom(1, zoomLevel) / 
                     radsPerPixelAtZoom(1, zoomLevel - 1);
             
-            if (! self.scale(0.5, T5.Easing.Sine.Out)) {
+            if (! self.scale(0.5, T5.easing('sine.out'))) {
                 self.setZoomLevel(zoomLevel - 1);
             } // if
         },
@@ -7803,8 +7657,7 @@ T5.Map = function(params) {
     // create an annotations layer
     annotations = new T5.Geo.UI.AnnotationsOverlay({
         pois: self.pois,
-        map: self,
-        createAnnotationForPOI: params.createAnnotationForPOI
+        map: self
     });
 
     // add the annotations layer
@@ -7820,10 +7673,10 @@ T5.Map = function(params) {
     self.bind("idle", handleIdle);
     
     // make a few parameter configurable
-    GRUNT.configurable(
+    GT.configurable(
         self, 
         ["provider"], 
-        GRUNT.paramTweaker(params, null, {
+        GT.paramTweaker(params, null, {
             "provider": handleProviderUpdate
         }), 
         true);

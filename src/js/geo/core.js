@@ -69,7 +69,7 @@ T5.Geo = (function() {
         // uppercase the request for comparisons
         request = request.toUpperCase();
         
-        // GRUNT.Log.info("CALCULATING MATCH WEIGHT FOR [" + request + "] = [" + response + "]");
+        // GT.Log.info("CALCULATING MATCH WEIGHT FOR [" + request + "] = [" + response + "]");
         
         // iterate through the field weights
         for (var fieldId in fieldWeights) {
@@ -302,7 +302,7 @@ T5.Geo = (function() {
                         } // if
                     } 
                     catch (e) {
-                        GRUNT.Log.exception(e);
+                        GT.Log.exception(e);
                     } // try..catch
                 }
             }, params);
@@ -406,7 +406,7 @@ T5.Geo = (function() {
             } // poiGrabber
             
             function triggerUpdate() {
-                GRUNT.WaterCooler.say("geo.pois-updated", {
+                GT.WaterCooler.say("geo.pois-updated", {
                     srcID: self.id,
                     pois: self.getPOIs()
                 });
@@ -414,7 +414,7 @@ T5.Geo = (function() {
 
             // initialise self
             var self = {
-                id: GRUNT.generateObjectID(),
+                id: GT.objId(),
                 
                 getPOIs: function() {
                     return poiGrabber();
@@ -494,7 +494,7 @@ T5.Geo = (function() {
 
                         // add the poi to either the update or new array according to whether it was found
                         if (foundPOI) {
-                            // GRUNT.Log.info("FOUND EXISTING POI");
+                            // GT.Log.info("FOUND EXISTING POI");
                             foundPOI.retrieved = timeRetrieved;
                             foundPOI.isNew = false;
                         }
@@ -508,7 +508,7 @@ T5.Geo = (function() {
 
                     // add new pois to the poi layer
                     self.addPOIs(newPOIs);
-                    // GRUNT.Log.info(String.format("POI-UPDATE: {0} new, {1} deleted", newPOIs.length, deletedPOIs.length));
+                    // GT.Log.info(String.format("POI-UPDATE: {0} new, {1} deleted", newPOIs.length, deletedPOIs.length));
 
                     // fire the on poi added event when appropriate
                     for (ii = 0; params.onPOIAdded && (ii < newPOIs.length); ii++) {
@@ -672,7 +672,7 @@ T5.Geo = (function() {
                         positions[ii] = subModule.parse(sourceData[ii]);
                     } // for
 
-                    GRUNT.Log.info("parsed " + positions.length + " positions");
+                    GT.Log.info("parsed " + positions.length + " positions");
                     return positions;
                 },
                 
@@ -700,7 +700,7 @@ T5.Geo = (function() {
                     // convert min distance to km
                     minDist = minDist / 1000;
 
-                    GRUNT.Log.info("generalizing positions, must include " + requiredPositions.length + " positions");
+                    GT.Log.info("generalizing positions, must include " + requiredPositions.length + " positions");
 
                     // iterate thorugh the source data and add positions the differ by the required amount to 
                     // the result positions
@@ -722,7 +722,7 @@ T5.Geo = (function() {
                         } // if..else
                     } // for
 
-                    GRUNT.Log.info("generalized " + sourceLen + " positions into " + positions.length + " positions");
+                    GT.Log.info("generalized " + sourceLen + " positions into " + positions.length + " positions");
                     return positions;
                 },                
 
@@ -767,9 +767,9 @@ T5.Geo = (function() {
                         maxLat = radLat + radDist,
                         minLon, maxLon;
                         
-                    // GRUNT.Log.info("rad distance = " + radDist);
-                    // GRUNT.Log.info("rad lat = " + radLat + ", lon = " + radLon);
-                    // GRUNT.Log.info("min lat = " + minLat + ", max lat = " + maxLat);
+                    // GT.Log.info("rad distance = " + radDist);
+                    // GT.Log.info("rad lat = " + radLat + ", lon = " + radLon);
+                    // GT.Log.info("min lat = " + minLat + ", max lat = " + maxLat);
                         
                     if ((minLat > MIN_LAT) && (maxLat < MAX_LAT)) {
                         var deltaLon = Math.asin(Math.sin(radDist) / Math.cos(radLat));
@@ -840,7 +840,7 @@ T5.Geo = (function() {
                         bounds = subModule.expand(bounds, padding);
                     } // if
 
-                    GRUNT.Log.trace("calculated bounds for " + positions.length + " positions", startTicks);
+                    GT.Log.trace("calculated bounds for " + positions.length + " positions", startTicks);
                     return bounds;
                 },
                 
@@ -856,7 +856,7 @@ T5.Geo = (function() {
                     var minHash = T5.Geo.GeoHash.encode(bounds.min.lat, bounds.min.lon),
                         maxHash = T5.Geo.GeoHash.encode(bounds.max.lat, bounds.max.lon);
                         
-                    GRUNT.Log.info("min hash = " + minHash + ", max hash = " + maxHash);
+                    GT.Log.info("min hash = " + minHash + ", max hash = " + maxHash);
                 },
 
                 /** 
@@ -876,9 +876,9 @@ T5.Geo = (function() {
                         bestZoomH = Math.ceil(Math.log(LAT_VARIABILITIES[3] * displaySize.height / delta.y) / Math.log(2)),
                         bestZoomW = Math.ceil(Math.log(variability * displaySize.width / delta.x) / Math.log(2));
 
-                    // GRUNT.Log.info("constant index for bbox: " + bounds + " (center = " + boundsCenter + ") is " + variabilityIndex);
-                    // GRUNT.Log.info("distances  = " + delta);
-                    // GRUNT.Log.info("optimal zoom levels: height = " + bestZoomH + ", width = " + bestZoomW);
+                    // GT.Log.info("constant index for bbox: " + bounds + " (center = " + boundsCenter + ") is " + variabilityIndex);
+                    // GT.Log.info("distances  = " + delta);
+                    // GT.Log.info("optimal zoom levels: height = " + bestZoomH + ", width = " + bestZoomW);
 
                     // return the lower of the two zoom levels
                     return Math.min(isNaN(bestZoomH) ? maxZoom : bestZoomH, isNaN(bestZoomW) ? maxZoom : bestZoomW);

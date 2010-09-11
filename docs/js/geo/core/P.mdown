@@ -1,38 +1,38 @@
-TILE5.Geo.P
+T5.Geo.P
 ===========
 
-The TILE5.Geo.P submodule is used to perform operations on TILE5.Geo.Position objects rather than have those operations bundled with the object.
+The T5.Geo.P submodule is used to perform operations on T5.Geo.Position objects rather than have those operations bundled with the object.
 
 Module Functions
 ----------------
 
 - `calcDistance(pos1, pos2)`
 
-	Calculate the distance between two TILE5.Geo.Position objects, pos1 and pos2.  The distance returned is measured in kilometers.
+	Calculate the distance between two T5.Geo.Position objects, pos1 and pos2.  The distance returned is measured in kilometers.
 	
 - `copy(src)`
 
-	Create a copy of the specified TILE5.Geo.Position object.
+	Create a copy of the specified T5.Geo.Position object.
 
 - `empty(pos)`
 
-	Returns true if the TILE5.Geo.Position object is empty, false if not.
+	Returns true if the T5.Geo.Position object is empty, false if not.
 	
 - `equal(pos1, pos2)`
 
-	Compares to TILE5.Geo.Position objects and returns true if they have the same latitude and longitude values
+	Compares to T5.Geo.Position objects and returns true if they have the same latitude and longitude values
 	
 - `inArray(pos, testArray)`
 
-	Checks to see whether the specified TILE5.Geo.Position is contained within the array of position objects passed in the testArray.
+	Checks to see whether the specified T5.Geo.Position is contained within the array of position objects passed in the testArray.
 	
 - `inBounds(pos, bounds)`
 
-	Returns true if the specified TILE5.Geo.Position object is within the TILE5.Geo.BoundingBox specified by the bounds argument.
+	Returns true if the specified T5.Geo.Position object is within the T5.Geo.BoundingBox specified by the bounds argument.
 	
 - `parse(object)`
 
-	This function is used to take a latitude and longitude String pair (either space or comma delimited) and return a new TILE5.Geo.Position value.  The function is also tolerant of being passed an existing TILE5.Geo.Position object as the object argument, and in these cases returns a copy of the position.
+	This function is used to take a latitude and longitude String pair (either space or comma delimited) and return a new T5.Geo.Position value.  The function is also tolerant of being passed an existing T5.Geo.Position object as the object argument, and in these cases returns a copy of the position.
 	
 - `parseArray(sourceData)`
 
@@ -40,8 +40,8 @@ Module Functions
 	
 - `fromMercatorPixels(x, y, radsPerPixel)`
 
-	This function is used to take x and y mercator pixels values, and using the value passed in the radsPerPixel value convert that to a TILE5.Geo.Position object.
+	This function is used to take x and y mercator pixels values, and using the value passed in the radsPerPixel value convert that to a T5.Geo.Position object.
 	
 - `toMercatorPixels(pos, radsPerPixel)`
 
-	Basically, the reverse of the fromMercatorPixels function - pass it a TILE5.Geo.Position object and get a TILE5.Vector object back with x and y mercator pixel values back.
+	Basically, the reverse of the fromMercatorPixels function - pass it a T5.Geo.Position object and get a T5.Vector object back with x and y mercator pixel values back.

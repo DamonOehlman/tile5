@@ -1,22 +1,22 @@
-TILE5.Dispatcher
+T5.Dispatcher
 ================
 
-The TILE5.Dispatcher module is used to assist with creating task agents that are used in things such as geosearch operations, etc. 
+The T5.Dispatcher module is used to assist with creating task agents that are used in things such as geosearch operations, etc. 
 
 __NOTE:__ This module will be reviewed and may be moved into [GRUNT](http://github.com/sidelab/grunt/) as the functionality is perhaps more low-level than what should be contained in the Tile5 library.
 
 Module Functions
 ----------------
 
-- TILE5.Dispatcher.execute
-- TILE5.Dispatcher.findAction
-- TILE5.Dispatcher.getRegisteredActions
-- TILE5.Dispatcher.getRegisteredActionIds
-- TILE5.Dispatcher.registerAction
-- TILE5.Dispatcher.createAgent
-- TILE5.Dispatcher.runAgent
+- T5.Dispatcher.execute
+- T5.Dispatcher.findAction
+- T5.Dispatcher.getRegisteredActions
+- T5.Dispatcher.getRegisteredActionIds
+- T5.Dispatcher.registerAction
+- T5.Dispatcher.createAgent
+- T5.Dispatcher.runAgent
 
 Classes
 -------
 
-- TILE5.Dispatcher.Action
+- T5.Dispatcher.Action

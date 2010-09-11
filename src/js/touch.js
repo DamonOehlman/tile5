@@ -7,7 +7,7 @@ T5.Touch = (function() {
     var TOUCH_MODES = {
         TAP: 0,
         MOVE: 1, 
-        PINCHZOOM: 2
+        PINCH: 2
     }; // TOUCH_MODES
 
     // TODO: configure the move distance to be screen size sensitive....
@@ -48,10 +48,10 @@ T5.Touch = (function() {
     } // getMousePos
     
     function debugTouchEvent(evt, title) {
-        GRUNT.Log.info("TOUCH EVENT '" + title + "':", evt);
-        GRUNT.Log.info("TOUCH EVENT '" + title + "': touches = ", evt.touches);
-        GRUNT.Log.info("TOUCH EVENT '" + title + "': targetTouches = ", evt.targetTouches);
-        GRUNT.Log.info("TOUCH EVENT '" + title + "': changedTouches = ", evt.changeTouches);
+        GT.Log.info("TOUCH EVENT '" + title + "':", evt);
+        GT.Log.info("TOUCH EVENT '" + title + "': touches = ", evt.touches);
+        GT.Log.info("TOUCH EVENT '" + title + "': targetTouches = ", evt.targetTouches);
+        GT.Log.info("TOUCH EVENT '" + title + "': changedTouches = ", evt.changeTouches);
     } // debugTouchEvent
     
     /* touch helper */
@@ -84,7 +84,7 @@ T5.Touch = (function() {
         // initialise private members
         var doubleTap = false,
             tapTimer = 0,
-            supportsTouch = T5.Device.getConfig().supportsTouch,
+            supportsTouch = T5.getConfig().supportsTouch,
             touchesStart = null,
             touchesLast = null,
             touchDelta = null,
@@ -100,7 +100,7 @@ T5.Touch = (function() {
                 current: 0,
                 last: 0
             },
-            config = T5.Device.getConfig(),
+            config = T5.getConfig(),
             BENCHMARK_INTERVAL = 300;
             
         function calculateInertia(upXY, currentXY, distance, tickDiff) {
@@ -203,7 +203,7 @@ T5.Touch = (function() {
         
                 // if we don't have a touch vector, then log a warning, and exit
                 if (! touchVector) {
-                    GRUNT.Log.warn("Touch start fired, but no touch vector found");
+                    GT.Log.warn("Touch start fired, but no touch vector found");
                     return;
                 } // if
         
@@ -293,7 +293,7 @@ T5.Touch = (function() {
                         triggerEvent('pinchZoom', relativeTouches(touchesStart), relativeTouches(touchesCurrent));
 
                         // set the touch mode to pinch zoom
-                        touchMode = TOUCH_MODES.PINCHZOOM;
+                        touchMode = TOUCH_MODES.PINCH;
                     } // if..else
                 } // if..else
 
@@ -338,7 +338,7 @@ T5.Touch = (function() {
                     } // if
                 }
                 // if pinchzooming, then fire the pinch zoom end
-                else if (touchMode == TOUCH_MODES.PINCHZOOM) {
+                else if (touchMode == TOUCH_MODES.PINCH) {
                     triggerEvent('pinchZoomEnd', relativeTouches(touchesStart), relativeTouches(touchesLast), endTick - touchStartTick);
                 } // if..else
                 
@@ -392,7 +392,7 @@ T5.Touch = (function() {
                 for (var ii = 0; listenerId && (ii < listeners.length); ii++) {
                     if (listeners[ii].listenerId === listenerId) {
                         listeners.splice(ii, 1);
-                        GRUNT.Log.info("successfully decoupled touch listener: " + listenerId);
+                        GT.Log.info("successfully decoupled touch listener: " + listenerId);
 
                         break;
                     } // if
@@ -461,7 +461,7 @@ T5.Touch = (function() {
                 touchHelper = new TouchHelper(T5.ex({ element: element}, params));
                 touchHelpers[element.id] = touchHelper;
                 
-                GRUNT.Log.info("CREATED TOUCH HELPER. SUPPORTS TOUCH = " + touchHelper.supportsTouch);
+                GT.Log.info("CREATED TOUCH HELPER. SUPPORTS TOUCH = " + touchHelper.supportsTouch);
             } // if
             
             // if we already have an association with listeners, then remove first
@@ -486,35 +486,3 @@ T5.Touch = (function() {
         }
     }; // module
 })();
-
-// if jquery is defined, then add the plugins
-if (typeof(jQuery) !== 'undefined') {
-    jQuery.fn.canTouchThis = function(params) {
-        // bind the touch events
-        return this.each(function() {
-            T5.Touch.capture(this, params);
-        });
-    }; // canTouchThis
-
-    jQuery.fn.untouchable = function() {
-        // define acceptable touch items
-        var TAGS_CANTOUCH = /^(A|BUTTON)$/i;
-
-        return this
-            /*
-            .bind("touchstart", function(evt) {
-                if (! (evt.target && TAGS_CANTOUCH.test(evt.target.tagName))) {
-                    // check to see whether a click handler has been assigned for the current object
-                    if (! (evt.target.onclick || evt.target.ondblclick)) {
-                        GRUNT.Log.info("no touch for: " + evt.target.tagName);
-                        evt.preventDefault();
-                    } // if
-                } // if
-            })
-            */
-            .bind("touchmove", function(evt) {
-                evt.preventDefault();
-            });
-    }; // untouchable
-} // if
-

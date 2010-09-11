@@ -262,7 +262,7 @@ T5.Geo.Decarta = (function() {
 
     function generateRequestUrl(request, request_data) {
         if (! currentConfig.server) {
-            GRUNT.Log.warn("No server configured for deCarta - we are going to have issues");
+            GT.Log.warn("No server configured for deCarta - we are going to have issues");
         } // if
         
         return String.format("{0}/JSON?reqID={1}&chunkNo=1&numChunks=1&data={2}&responseFormat=JSON",
@@ -272,11 +272,11 @@ T5.Geo.Decarta = (function() {
     } // generateRequestUrl
 
     function makeServerRequest(request, callback) {
-        // GRUNT.Log.info("making request: " + generateRequest(request));
+        // GT.Log.info("making request: " + generateRequest(request));
         
         // make the request to the server
         // TODO: convert ajax request to UG
-        GRUNT.JSONP.get(generateRequestUrl(request, generateRequest(request)), function(data) {
+        GT.jsonp(generateRequestUrl(request, generateRequest(request)), function(data) {
             // get the number of responses received
             var response = data.response.XLS.Response;
 
@@ -295,7 +295,7 @@ T5.Geo.Decarta = (function() {
             }
             // otherwise, report the error
             else {
-                GRUNT.Log.error("no responses from server: " + JSON.stringify(data.response));
+                GT.Log.error("no responses from server: " + JSON.stringify(data.response));
             } // if..else
         });
     } // openlsComms
@@ -387,7 +387,7 @@ T5.Geo.Decarta = (function() {
             var zoomString = zoom_level;
             if (lastZoom) {
                 zoomString += ":" + lastZoom;
-                // GRUNT.Log.info("zoom string = " + zoomString);
+                // GT.Log.info("zoom string = " + zoomString);
             } // if
 
             // create the parent
@@ -435,7 +435,7 @@ T5.Geo.Decarta = (function() {
                         "</xls:PortrayMapRequest>",
 
                         // set the variables in the order they were used
-                        T5.Tiling.Config.TILESIZE,
+                        T5.tileSize,
                         currentConfig.tileFormat,
                         currentConfig.fixedGrid,
                         currentConfig.useCache,
@@ -458,11 +458,11 @@ T5.Geo.Decarta = (function() {
                     
                     function applyPanOffset(offset, tileSize, panInfo) {
                         if (panInfo.direction == "E") {
-                            // GRUNT.Log.info("E pan offset = " + panInfo.numTiles);
+                            // GT.Log.info("E pan offset = " + panInfo.numTiles);
                             offset.x = (panInfo.numTiles * tileSize);
                         }
                         else if (panInfo.direction == "N") {
-                            // GRUNT.Log.info("N pan offset = " + panInfo.numTiles);
+                            // GT.Log.info("N pan offset = " + panInfo.numTiles);
                             offset.y = (panInfo.numTiles * tileSize) - tileSize;
                         } // if..else
                     } // applyPanOffset
@@ -474,7 +474,7 @@ T5.Geo.Decarta = (function() {
                         var tileSize = grid.Tile.Map.Content.height;
                         var panOffset = new T5.Vector();
 
-                        // GRUNT.Log.info(String.format("parsed image url: {0}, N = {1}, E = {2}", urlData.mask, urlData.N, urlData.E));
+                        // GT.Log.info(String.format("parsed image url: {0}, N = {1}, E = {2}", urlData.mask, urlData.N, urlData.E));
                         
                         // calculate the pan offset 
                         for (var ii = 0; ii < grid.Pan.length; ii++) {
@@ -554,7 +554,7 @@ T5.Geo.Decarta = (function() {
                     } // for
                 } 
                 catch (e) {
-                    GRUNT.Log.exception(e);
+                    GT.Log.exception(e);
                 } // try..except
                 
                 return addresses;                
@@ -582,7 +582,7 @@ T5.Geo.Decarta = (function() {
                 },
                 
                 parseResponse: function(response) {
-                    // GRUNT.Log.info("got response: ", response);
+                    // GT.Log.info("got response: ", response);
 
                     if (params.addresses.length === 1) {
                         return [getResponseAddresses(response.GeocodeResponseList)];
@@ -662,7 +662,7 @@ T5.Geo.Decarta = (function() {
                 var fnresult = [];
                 var instructions = instructionList && instructionList.RouteInstruction ? instructionList.RouteInstruction : [];
 
-                // GRUNT.Log.info("parsing " + instructions.length + " instructions");
+                // GT.Log.info("parsing " + instructions.length + " instructions");
                 for (var ii = 0; ii < instructions.length; ii++) {
                     fnresult.push(new T5.Geo.Routing.Instruction({
                         position: T5.Geo.P.parse(instructions[ii].Point),
@@ -731,7 +731,7 @@ T5.Geo.Decarta = (function() {
                 },
                 
                 parseResponse: function(response) {
-                    // GRUNT.Log.info("received route request response:", response);
+                    // GT.Log.info("received route request response:", response);
                     
                     // create a new route data object and map items 
                     return new T5.Geo.Routing.RouteData({
@@ -782,15 +782,15 @@ T5.Geo.Decarta = (function() {
             var ii, requestAddresses = [];
             
             // coerce a simple value into an array...
-            if (args.addresses && (! GRUNT.isArray(args.addresses))) {
+            if (args.addresses && (! GT.isArray(args.addresses))) {
                 args.addresses = [args.addresses];
             } // if
             
             // iterate through the addresses supplied and issue geocoding requests for them
             for (ii = 0; ii < args.addresses.length; ii++) {
                 // TODO: if the element is a simple object, then treat as a structured geocode
-                if (GRUNT.isPlainObject(args.addresses[ii])) {
-                    GRUNT.Log.warn("attempting to geocode a simple object - not implemented");
+                if (GT.isPlainObject(args.addresses[ii])) {
+                    GT.Log.warn("attempting to geocode a simple object - not implemented");
                 }
                 // else assume we are dealing with a free form routing request
                 else {
@@ -801,7 +801,7 @@ T5.Geo.Decarta = (function() {
             } // if
             
             // if we have request addresses to process, then issue a geocoding request
-            // GRUNT.Log.info("attempting to geocode addresses: ", requestAddresses);
+            // GT.Log.info("attempting to geocode addresses: ", requestAddresses);
             if (requestAddresses.length > 0) {
                 // create the geocoding request and execute it
                 var request = new requestTypes.GeocodeRequest({
@@ -853,7 +853,7 @@ T5.Geo.Decarta = (function() {
                 /* start forum extracted functions */
 
                 radsPerPixelAtZoom: function(tileSize, gxZoom) {
-                    // GRUNT.Log.info("calculating rpp@z for gx zoomlevel = " + gxZoom + ", tilesize = " + tileSize);
+                    // GT.Log.info("calculating rpp@z for gx zoomlevel = " + gxZoom + ", tilesize = " + tileSize);
                     return 2*Math.PI / (tileSize << gxZoom);
                 },
 
@@ -886,7 +886,7 @@ T5.Geo.Decarta = (function() {
                     }; 
 
                 // create the tile grid
-                var tileGrid = new T5.Tiling.ImageTileGrid({
+                var tileGrid = new T5.ImageTileGrid({
                     tileSize: responseData.tileSize,
                     width: containerDimensions.width,
                     height: containerDimensions.height,
@@ -899,7 +899,7 @@ T5.Geo.Decarta = (function() {
                 
                 // set the tile grid origin
                 tileGrid.populate(function(col, row, topLeftOffset, gridSize) {
-                    return T5.Tiling.ImageTile({ 
+                    return T5.ImageTile({ 
                         url: responseData.imageUrl.replace("${N}", topLeftOffset.y + (gridSize - row)).replace("${E}", topLeftOffset.x + col),
                         sessionParamRegex: /(SESSIONID)/i,
                         size: responseData.tileSize

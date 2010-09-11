@@ -41,7 +41,7 @@ T5.Tiler = function(params) {
             self.setLayer("grid" + gridIndex, value);
             
             // update the tile load threshold
-            GRUNT.WaterCooler.say("grid.updated", { id: "grid" + gridIndex });
+            GT.WaterCooler.say("grid.updated", { id: "grid" + gridIndex });
         },
 
         viewPixToGridPix: function(vector) {
@@ -70,7 +70,7 @@ T5.Tiler = function(params) {
         
         repaint: function() {
             // flag to the tile store to reset the image positions
-            GRUNT.WaterCooler.say("tiler.repaint");
+            GT.WaterCooler.say("tiler.repaint");
             
             self.trigger("wake");
         },

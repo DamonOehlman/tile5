@@ -1,4 +1,4 @@
-TILE5.Tiling.Tile
+T5.Tiling.Tile
 =================
 
 A very simple lightweight class that stores information relevant to a tile.
@@ -15,11 +15,11 @@ Usage
 
 A new tile is created using the following code:
 
-	new TILE5.Tiling.Tile();
+	new T5.Tiling.Tile();
 	
 or with specific initial property values
 
-	new TILE5.Tiling.Tile({
+	new T5.Tiling.Tile({
 		x: 10,
 		y: 10,
 		size: 128

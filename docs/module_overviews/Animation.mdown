@@ -1,28 +1,28 @@
-TILE5.Animation
+T5.Animation
 ===============
 
-The TILE5.Animation module implements [Robert Penner's easing equations](http://www.robertpenner.com/easing/) and also includes functionality for implementing tweening values and object properties through particular functions and classes.
+The T5.Animation module implements [Robert Penner's easing equations](http://www.robertpenner.com/easing/) and also includes functionality for implementing tweening values and object properties through particular functions and classes.
 
 Module Functions
 ----------------
 
-- TILE5.Animation.tweenValue
-- TILE5.Animation.tween
-- TILE5.Animation.tweenVector
-- TILE5.Animation.cancel
+- T5.Animation.tweenValue
+- T5.Animation.tween
+- T5.Animation.tweenVector
+- T5.Animation.cancel
 
 Classes
 -------
 
-- TILE5.Animation.Tween
+- T5.Animation.Tween
 
 Easing Equations
 ----------------
 
-- TILE5.Animation.Easing.Linear
-- TILE5.Animation.Easing.Back
-- TILE5.Animation.Easing.Bounce
-- TILE5.Animation.Easing.Cubic
-- TILE5.Animation.Easing.Elastic
-- TILE5.Animation.Easing.Quad
-- TILE5.Animation.Easing.Sine
+- T5.Easing.Linear
+- T5.Easing.Back
+- T5.Easing.Bounce
+- T5.Easing.Cubic
+- T5.Easing.Elastic
+- T5.Easing.Quad
+- T5.Easing.Sine

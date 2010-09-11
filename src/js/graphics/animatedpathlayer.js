@@ -1,9 +1,9 @@
 T5.AnimatedPathLayer = function(params) {
     params = T5.ex({
         path: [],
-        id: GRUNT.generateObjectID("pathAnimation"),
-        easing: T5.Easing.Sine.InOut,
-        validStates: T5.ViewState.get("ACTIVE", "PAN", "PINCHZOOM"),
+        id: GT.objId('pathAni'),
+        easing: T5.easing('sine.inout'),
+        validStates: T5.viewState("ACTIVE", "PAN", "PINCH"),
         drawIndicator: null,
         duration: 2000,
         autoCenter: false
@@ -33,7 +33,7 @@ T5.AnimatedPathLayer = function(params) {
     } // drawDefaultIndicator
     
     // calculate the tween
-    tween = T5.Animation.tweenValue(
+    tween = T5.tweenValue(
         0, 
         edgeData.total, 
         params.easing, 

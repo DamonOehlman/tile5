@@ -1,18 +1,16 @@
-TILE5.Graphics
+T5.Graphics
 ==============
 
-The TILE5.Graphics module defines the following:
+The T5.Graphics module defines the following:
 
 Types
 -----
 
-- TILE5.Graphics.DisplayState
+- T5.DisplayState
 
 Classes
 -------
 
-- TILE5.Graphics.View
-- TILE5.Graphics.ViewLayer
-- TILE5.Graphics.AnimatedPathLayer
-- TILE5.Graphics.FPSLayer
-- TILE5.Graphics.ResourceStatsLayer
+- T5.View
+- T5.ViewLayer
+- T5.AnimatedPathLayer

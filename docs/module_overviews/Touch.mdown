@@ -1,23 +1,23 @@
-TILE5.Touch
+T5.Touch
 ===========
 
-The TILE5.Touch module is an initial implementation of touch handling for mobile devices.  The module is built to support mouse events also on devices that aren't touch enabled so that the UI components work equally well on desktop devices as they do on mobile devices.  In terms of touch event handling, both panning and scaling via multi-touch interfaces are supported.
+The T5.Touch module is an initial implementation of touch handling for mobile devices.  The module is built to support mouse events also on devices that aren't touch enabled so that the UI components work equally well on desktop devices as they do on mobile devices.  In terms of touch event handling, both panning and scaling via multi-touch interfaces are supported.
 
 In the future, a priority for Tile5 is to allow implementors to decide to either use the internal touch module or utilize another module such as a [Sencha Touch](http://www.sencha.com/products/touch/) or [jQuery Mobile](http://jquerymobile.com) implementation.  The last thing any of us needs is ever javascript library demanding that it's own touch implementation is used :/
 
 Module Functions
 ----------------
 
-- TILE5.Touch.captureTouch
-- TILE5.Touch.resetTouch
+- T5.Touch.captureTouch
+- T5.Touch.resetTouch
 
 Classes
 -------
 
-- TILE5.Touch.Pannable
-- TILE5.Touch.Scalable
+- T5.Touch.Pannable
+- T5.Touch.Scalable
 
 Internal Classes
 ----------------
 
-- TILE5.Touch.TouchHelper
+- T5.Touch.TouchHelper

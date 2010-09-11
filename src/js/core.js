@@ -1,6 +1,6 @@
 T5 = (function() {
     var module = {
-        ex: GRUNT.extend,
+        ex: GT.extend,
         
         newCanvas: function(width, height) {
             var tmpCanvas = document.createElement('canvas');
@@ -20,36 +20,6 @@ T5 = (function() {
         time: function() {
             return new Date().getTime();
         },
-        
-        Settings: (function() {
-            var currentSettings = {};
-            
-            // define self
-            var self = {
-                /** 
-                @static
-                Get a setting with the specified name
-                
-                @param {String} name the name of the setting to retrieve
-                @returns the value of the setting if defined
-                */
-                get: function(name) {
-                    return currentSettings[name];
-                },
-                
-                /** @static */
-                set: function(name, value) {
-                    currentSettings[name] = value;
-                },
-                
-                /** static */
-                extend: function(params) {
-                    T5.ex(currentSettings, params);
-                }
-            };
-            
-            return self;
-        })(),
         
         /**
         Initialise a new Vector instance

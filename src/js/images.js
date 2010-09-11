@@ -73,7 +73,7 @@ T5.Images = (function() {
     } // handleImageLoad
     
     function loadNextImage() {
-        var maxImageLoads = T5.Device.getConfig().maxImageLoads;
+        var maxImageLoads = T5.getConfig().maxImageLoads;
 
         // if we have queued images and a loading slot available, then start a load operation
         while ((queuedImages.length > 0) && ((! maxImageLoads) || (loadingImages.length < maxImageLoads))) {
@@ -129,13 +129,13 @@ T5.Images = (function() {
             clearingCache = false;
         } // try..finally
         
-        GRUNT.WaterCooler.say("imagecache.cleared");
+        GT.WaterCooler.say("imagecache.cleared");
     } // cleanupImageCache
 
     function checkTimeoutsAndCache() {
         var currentTickCount = T5.time(),
             timedOutLoad = false, ii = 0,
-            config = T5.Device.getConfig();
+            config = T5.getConfig();
         
         // iterate through the loading images, and check if any of them have been active too long
         while (ii < loadingImages.length) {
@@ -209,7 +209,7 @@ T5.Images = (function() {
                     loadCallback: callback
                 }, loadArgs);
                 
-                // GRUNT.Log.info("loading image, image args = ", loadArgs);
+                // GT.Log.info("loading image, image args = ", loadArgs);
                 
                 // initialise the image id
                 imageData.image.id = "resourceLoaderImage" + (imageCounter++);
