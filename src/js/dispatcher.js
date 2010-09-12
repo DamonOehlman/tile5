@@ -71,7 +71,7 @@ T5.Dispatcher = (function() {
                 },
                 
                 toString: function() {
-                    return String.format("{0} [title = {1}, icon = {2}]", self.id, params.title, params.icon);
+                    return GT.formatStr("{0} [title = {1}, icon = {2}]", self.id, params.title, params.icon);
                 }
             };
             

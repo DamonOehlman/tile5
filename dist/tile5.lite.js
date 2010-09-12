@@ -493,61 +493,11 @@ replace(/(?:^|:|,)(?:\s*\[)+/g, ''))) {
     }
 }());
 
-/* initialise javascript extensions */
-
-if (! String.format) {
-    String.format = function( text )
-    {
-        //check if there are two arguments in the arguments list
-        if ( arguments.length <= 1 )
-        {
-            //if there are not 2 or more arguments there's nothing to replace
-            //just return the original text
-            return text;
-        }
-        //decrement to move to the second argument in the array
-        var tokenCount = arguments.length - 2;
-        for( var token = 0; token <= tokenCount; token++ )
-        {
-            //iterate through the tokens and replace their placeholders from the original text in order
-            text = text.replace( new RegExp( "\\{" + token + "\\}", "gi" ),
-                                                    arguments[ token + 1 ] );
-        }
-        return text;
-    };    
-} // if
-
-String.prototype.containsWord = function(word) {
-    var testString = "";
-
-    // if the word argument is an object, and can be converted to a string, then do so
-    if (word.toString) {
-        word = word.toString();
-    } // if
-
-    // iterate through the string and test escape special characters
-    for (var ii = 0; ii < word.length; ii++) {
-        testString += (! (/\w/).test(word[ii])) ? "\\" + word[ii] : word[ii];
-    } // for
-    
-    var regex = new RegExp("(^|\\s|\\,)" + testString + "(\\,|\\s|$)", "i");
-    
-    return regex.test(this);
-};
-
-Number.prototype.toRad = function() {  // convert degrees to radians 
-  return this * Math.PI / 180; 
-}; // 
-
-// include the secant method for Number
-// code from the excellent number extensions library:
-// http://safalra.com/web-design/javascript/number-object-extensions/
-Number.prototype.sec = function() {
-  return 1 / Math.cos(this);
-};
-
 /** @namespace */
 GT = (function() {
+    // initialise constants
+    var REGEX_TEMPLATE_VAR = /\$\{(.*?)\}/ig;
+    
     var hasOwn = Object.prototype.hasOwnProperty,
         objectCounter = 0;
     
@@ -718,6 +668,61 @@ GT = (function() {
         /** @static */
         objId: function(prefix) {
             return (prefix ? prefix : "obj") + objectCounter++;
+        },
+        
+        // TODO: rewrite implementation of this
+        formatStr: function(text) {
+            //check if there are two arguments in the arguments list
+            if ( arguments.length <= 1 )
+            {
+                //if there are not 2 or more arguments there's nothing to replace
+                //just return the original text
+                return text;
+            }
+            //decrement to move to the second argument in the array
+            var tokenCount = arguments.length - 2;
+            for( var token = 0; token <= tokenCount; token++ )
+            {
+                //iterate through the tokens and replace their placeholders from the original text in order
+                text = text.replace( new RegExp( "\\{" + token + "\\}", "gi" ),
+                                                        arguments[ token + 1 ] );
+            }
+            return text;
+        },
+        
+        wordExists: function(stringToCheck, word) {
+            var testString = "";
+
+            // if the word argument is an object, and can be converted to a string, then do so
+            if (word.toString) {
+                word = word.toString();
+            } // if
+
+            // iterate through the string and test escape special characters
+            for (var ii = 0; ii < word.length; ii++) {
+                testString += (! (/\w/).test(word[ii])) ? "\\" + word[ii] : word[ii];
+            } // for
+
+            var regex = new RegExp("(^|\\s|\\,)" + testString + "(\\,|\\s|$)", "i");
+
+            return regex.test(stringToCheck);
+        },
+        
+        /* some simple template parsing */
+        
+        parseTemplate: function(templateHtml, data) {
+            // look for template variables in the html
+            var matches = REGEX_TEMPLATE_VAR.exec(templateHtml);
+            while (matches) {
+                // remove the variable from the text
+                templateHtml = templateHtml.replace(matches[0], GT.XPath.first(matches[1], data));
+
+                // find the next match
+                REGEX_TEMPLATE_VAR.lastIndex = 0;
+                matches = REGEX_TEMPLATE_VAR.exec(templateHtml);
+            } // while
+
+            return templateHtml;
         }
     }; // module definition
     
@@ -748,10 +753,6 @@ GT.Log = (function() {
             listeners[ii].call(module, message, level);
         } // for
     } // writeEntry
-    
-    function detectCallerSection(target) {
-        return null;
-    } // detectCallerSection
     
     // define the module
     var module = {
@@ -822,136 +823,106 @@ GT.Log = (function() {
     return module;
 })();
 
-GT.Data = (function() {
+(function() {
     
-    var pdon = {
-        determineObjectMapping: function(line) {
-            // if the line is empty, then return null
-            if (! line) {
-                return null;
-            } // if
-            
-            // split the line on the pipe character
-            var fields = line.split("|");
-            var objectMapping = {};
-            
-            // iterate through the fields and initialise the object mapping
-            for (var ii = 0; ii < fields.length; ii++) {
-                objectMapping[fields[ii]] = ii;
-            } // for
-            
-            return objectMapping;
-        },
+    function determineObjectMapping(line) {
+        // if the line is empty, then return null
+        if (! line) {
+            return null;
+        } // if
         
-        mapLineToObject: function(line, mapping) {
-            // split the line on the pipe character
-            var fields = line.split("|");
-            var objectData = {};
-            
-            // iterate through the mapping and pick up the fields and assign them to the object
-            for (var fieldName in mapping) {
-                var fieldIndex = mapping[fieldName];
-                objectData[fieldName] = fields.length > fieldIndex ? fields[fieldIndex] : null;
-            } // for
-            
-            return objectData;
-        },
+        // split the line on the pipe character
+        var fields = line.split("|");
+        var objectMapping = {};
         
-        parse: function(data) {
-            // initialise variables
-            var objectMapping = null;
-            var results = [];
-
-            // split the data on line breaks
-            var lines = data.split("\n");
-            for (var ii = 0; ii < lines.length; ii++) {
-                // TODO: remove leading and trailing whitespace
-                var lineData = lines[ii];
-
-                // if the object mapping hasn't been initialised, then initialise it
-                if (! objectMapping) {
-                    objectMapping = pdon.determineObjectMapping(lineData);
-                }
-                // otherwise create an object from the object mapping
-                else {
-                    results.push(pdon.mapLineToObject(lineData, objectMapping));
-                } // if..else
-            } // for
-
-            return results;
-        }
-    }; // pdon
+        // iterate through the fields and initialise the object mapping
+        for (var ii = 0; ii < fields.length; ii++) {
+            objectMapping[fields[ii]] = ii;
+        } // for
+        
+        return objectMapping;
+    } // determineObjectMapping
     
-    // define the module
-    var module = {
-        supportedFormats: {
-            JSON: {
-                parse: function(data) {
-                    return JSON.parse(data);
-                }
-            },
-            
-            PDON: {
-                parse: function(data) {
-                    return pdon.parse(data);
-                }
+    function mapLineToObject(line, mapping) {
+        // split the line on the pipe character
+        var fields = line.split("|");
+        var objectData = {};
+        
+        // iterate through the mapping and pick up the fields and assign them to the object
+        for (var fieldName in mapping) {
+            var fieldIndex = mapping[fieldName];
+            objectData[fieldName] = fields.length > fieldIndex ? fields[fieldIndex] : null;
+        } // for
+        
+        return objectData;
+    } // mapLineToObject
+    
+    function parsePDON(data) {
+        // initialise variables
+        var objectMapping = null;
+        var results = [];
+
+        // split the data on line breaks
+        var lines = data.split("\n");
+        for (var ii = 0; ii < lines.length; ii++) {
+            // TODO: remove leading and trailing whitespace
+            var lineData = lines[ii];
+
+            // if the object mapping hasn't been initialised, then initialise it
+            if (! objectMapping) {
+                objectMapping = determineObjectMapping(lineData);
+            }
+            // otherwise create an object from the object mapping
+            else {
+                results.push(mapLineToObject(lineData, objectMapping));
+            } // if..else
+        } // for
+
+        return results;
+    } // parsePDON
+    
+    // define the supported formats
+    var supportedFormats = {
+        JSON: {
+            parse: function(data) {
+                return JSON.parse(data);
             }
         },
         
-        parse: function(params) {
-            params = GT.extend({
-                data: "",
-                format: "JSON"
-            }, params);
-            
-            // check that the format is supported, if not raise an exception
-            if (! module.supportedFormats[params.format]) {
-                throw new Error("Unsupported data format: " + params.format + ", cannot parse data in javascript object");
-            } // if
-            
-            try {
-                return module.supportedFormats[params.format].parse(params.data);
-            } 
-            catch (e) {
-                GT.Log.error("ERROR PARSING DATA FROM FORMAT: " + params.format, params.data);
-                GT.Log.exception(e);
-            } // try..catch
-            
-            return {};
+        PDON: {
+            parse: function(data) {
+                return parsePDON(data);
+            }
         }
-    };
+    }; // supportedFormats
     
-    return module;
+    // define the module
+    GT.parseData = function(data, format) {
+        format = format ? format.toUpperCase() : "JSON";
+        
+        // check that the format is supported, if not raise an exception
+        if (! supportedFormats[format]) {
+            throw new Error("Unsupported data format: " + format);
+        } // if
+        
+        try {
+            return supportedFormats[format].parse(data);
+        } 
+        catch (e) {
+            GT.Log.exception(e);
+        } // try..catch
+        
+        return {};
+    }; // parseData
 })();
 
-
-GT.paramTweaker = function(params, getCallbacks, setCallbacks) {
-    return function(name, value) {
-        if (typeof value !== "undefined") {
-            if (name in params) {
-                params[name] = value;
-            } // if
-            
-            if (setCallbacks && (name in setCallbacks)) {
-                setCallbacks[name](name, value);
-            } // if
-        }
-        else {
-            return (getCallbacks && (name in getCallbacks)) ? 
-                getCallbacks[name](name) : 
-                params[name];
-        } // if..else
-        
-        return undefined;
-    };
-}; // paramTweaker
-
-GT.configurable = function(target, configParams, callback, bindHelpers) {
-    if (! target) { return; }
+(function() {
+    // initilialise local variables
+    var configurables = {};
     
     /* internal functions */
-    
-    function attachHelper(helperName) {
+
+    function attachHelper(target, helperName) {
         // if the helper is not defined, then attach
         if (! target[helperName]) {
             target[helperName] = function(value) {
@@ -959,94 +930,96 @@ GT.configurable = function(target, configParams, callback, bindHelpers) {
             };
         } // if
     } // attachHelper
-    
-    function getSettings() {
-        return target.configurableSettings;
+
+    function getSettings(target) {
+        return target.gtConfig;
     } // getSettings
-    
-    function getConfigCallbacks() {
-        return target.configCallbacks;
+
+    function getConfigCallbacks(target) {
+        return target.gtConfigFns;
     } // getConfigGetters
     
-    /* initialization code */
-    
-    var ii;
-    
-    // if the target doesn't yet have a configurable settings member, then add it
-    if (! getSettings()) {
-        target.configurableId = GT.objId("configurable");
-        target.configurableSettings = {};
-        target.configCallbacks = [];
+    function initSettings(target) {
+        target.gtConfId = GT.objId("configurable");
+        target.gtConfig = {};
+        target.gtConfigFns = [];
         
-        if (! GT.configurables) {
-            GT.configurables = {};
-        }
-    } // if
-    
-    // update the configurables
-    // this is a which gets the last object in an extension chain in
-    // the configurables list, so make sure you extend before you make
-    // an object configurable, otherwise things will get a bit wierd.
-    GT.configurables[target.configurableId] = target;
-    
-    // add the callback to the list
-    getConfigCallbacks().push(callback);
-    
-    for (ii = configParams.length; ii--; ) {
-        target.configurableSettings[configParams[ii]] = true;
-        
-        if (bindHelpers) {
-            attachHelper(configParams[ii]);
-        } // if
-    } // for
-    
-    if (! target.configure) {
-        target.configure = function(name, value) {
-            var configurableSettings = getSettings(),
-                callbacks = getConfigCallbacks();
-            
-            if (configurableSettings[name]) {
-                for (var ii = callbacks.length; ii--; ) {
-                    var result = callbacks[ii](name, value);
-                    if (typeof result !== "undefined") {
-                        return result;
-                    } // if
-                } // for
-                
-                return GT.configurables[target.configurableId];
-            } // if
-            
-            return null;
-        };
-    } // if
-};
-GT.Template = (function() {
-    var REGEX_TEMPLATE_VAR = /\$\{(.*?)\}/ig;
-    
-    // initialise module
-    var module = {
-        parse: function(template_html, data) {
-            // initialise variables
-            var fnresult = template_html;
-            
-            // look for template variables in the html
-            var matches = REGEX_TEMPLATE_VAR.exec(fnresult);
-            while (matches) {
-                // remove the variable from the text
-                fnresult = fnresult.replace(matches[0], GT.XPath.first(matches[1], data));
-                
-                // find the next match
-                REGEX_TEMPLATE_VAR.lastIndex = 0;
-                matches = REGEX_TEMPLATE_VAR.exec(fnresult);
-            } // while
-            
-            return fnresult;
-        }
-    };
-    
-    return module;
-})();
+        return target.gtConfig;
+    } // initSettings
 
+    /* define the param tweaker */
+    
+    GT.paramTweaker = function(params, getCallbacks, setCallbacks) {
+        return function(name, value) {
+            if (typeof value !== "undefined") {
+                if (name in params) {
+                    params[name] = value;
+                } // if
+
+                if (setCallbacks && (name in setCallbacks)) {
+                    setCallbacks[name](name, value);
+                } // if
+            }
+            else {
+                return (getCallbacks && (name in getCallbacks)) ? 
+                    getCallbacks[name](name) : 
+                    params[name];
+            } // if..else
+
+            return undefined;
+        };
+    }; // paramTweaker
+    
+    /* define configurable */
+
+    GT.configurable = function(target, configParams, callback, bindHelpers) {
+        if (! target) { return; }
+
+        // if the target doesn't yet have a configurable settings member, then add it
+        if (! target.gtConfId) {
+            initSettings(target);
+        } // if
+
+        var ii,
+            targetId = target.gtConfId,
+            targetSettings = getSettings(target),
+            targetCallbacks = getConfigCallbacks(target);
+
+        // update the configurables
+        // this is a which gets the last object in an extension chain in
+        // the configurables list, so make sure you extend before you make
+        // an object configurable, otherwise things will get a bit wierd.
+        configurables[targetId] = target;
+
+        // add the callback to the list
+        targetCallbacks.push(callback);
+
+        for (ii = configParams.length; ii--; ) {
+            targetSettings[configParams[ii]] = true;
+
+            if (bindHelpers) {
+                attachHelper(target, configParams[ii]);
+            } // if
+        } // for
+
+        if (! target.configure) {
+            target.configure = function(name, value) {
+                if (targetSettings[name]) {
+                    for (var ii = targetCallbacks.length; ii--; ) {
+                        var result = targetCallbacks[ii](name, value);
+                        if (typeof result !== "undefined") {
+                            return result;
+                        } // if
+                    } // for
+
+                    return configurables[targetId];
+                } // if
+
+                return null;
+            };
+        } // if
+    };
+})();
 /** @namespace 
 
 Lightweight JSONP fetcher - www.nonobstrusive.com
@@ -1140,23 +1113,11 @@ TODO: add information here...
         },
         
         JSON: function(xhr, requestParams) {
-            // use the JSON object to convert the responseText to a JS object
-            try {
-                return JSON.parse(xhr.responseText);
-            }
-            catch (e) {
-                GT.Log.error("Error parsing JSON data: ", xhr.responseText);
-                GT.Log.exception(e);
-            }
-            
-            return "";
+            return GT.parseData(xhr.responseText);
         },
         
         PDON: function(xhr, requestParams) {
-            return GT.Data.parse({
-                data: xhr.responseText,
-                format: "PDON"
-            });
+            return GT.parseData(xhr.responseText, "PDON");
         },
         
         DEFAULT: function(xhr, requestParam) {
@@ -1430,7 +1391,7 @@ GT.XPath = (function() {
     
     // if xpath is not enabled, then throw a warning
     if (! xpathEnabled) {
-        GT.Log.warn("No XPATH support, this is going to cause problems");
+        GT.Log.warn("No XPATH support");
     } // if
     
     function xpath(expression, context, resultType) {
@@ -1450,7 +1411,7 @@ GT.XPath = (function() {
             return context.evaluate(expression, context, namespaceResolver, resultType, null);
         } 
         catch (e) {
-            GT.Log.warn("attempted to run invalid xpath expression: " + expression + " on node: " + context);
+            GT.Log.warn("invalid xpath expression: " + expression + " on node: " + context);
             return null;
         } // try..catch
     } // xpath
@@ -1496,127 +1457,115 @@ GT.XPath = (function() {
     return module;
 })();
 
-GT.observable = function(target) {
-    if (! target) { return; }
-    
-    /* internal functions */
-    
-    function getHandlers() {
-        return target.observableHandlers;
+(function() {
+    function getHandlers(target) {
+        return target.gtObsHandlers;
     } // getHandlers
     
-    function getHandlersForName(eventName) {
-        return getHandlers()[eventName];
-    } // getHandlersForName
-    
-    function initHandlerArray(eventName) {
-        var handlers = getHandlers();
+    function getHandlersForName(target, eventName) {
+        var handlers = getHandlers(target);
         if (! handlers[eventName]) {
             handlers[eventName] = [];
         } // if
-    } // initHandlerArray
-    
-    /* initialization code */
-    
-    // check that the target has handlers 
-    if (! getHandlers()) {
-        target.observableHandlers = {};
-    } // if
 
-    var attached = target.bind || target.trigger || target.unbind;
-    if (! attached) {
-        target.bind = function(eventName, callback) {
-            var callbackId = GT.objId("callback");
-            
-            initHandlerArray(eventName);
-            
-            getHandlersForName(eventName).push({
-                callback: callback,
-                callbackId: callbackId
-            });
-            
-            return callbackId;
-        }; // bind
-        
-        target.trigger = function(eventName) {
-            var eventCallbacks = getHandlersForName(eventName);
-                
-            // check that we have callbacks
-            if (! eventCallbacks) {
-                return target;
-            } // if
-            
-            for (var ii = eventCallbacks.length; ii--; ) {
-                eventCallbacks[ii].callback.apply(self, Array.prototype.slice.call(arguments, 1));
-            } // for
-            
-            return target;
-        }; // trigger
-        
-        target.unbind = function(eventName, callbackId) {
-            var eventCallbacks = getHandlersForName(eventName);
-            for (var ii = 0; eventCallbacks && (ii < eventCallbacks.length); ii++) {
-                if (eventCallbacks[ii].callbackId === callbackId) {
-                    eventCallbacks.splice(ii, 1);
-                    break;
+        return handlers[eventName];
+    } // getHandlersForName
+    
+    GT.observable = function(target) {
+        if (! target) { return; }
+
+        /* initialization code */
+
+        // check that the target has handlers 
+        if (! getHandlers(target)) {
+            target.gtObsHandlers = {};
+        } // if
+
+        var attached = target.bind || target.trigger || target.unbind;
+        if (! attached) {
+            target.bind = function(eventName, callback) {
+                var callbackId = GT.objId("callback");
+                getHandlersForName(target, eventName).push({
+                    fn: callback,
+                    id: callbackId
+                });
+
+                return callbackId;
+            }; // bind
+
+            target.trigger = function(eventName) {
+                var eventCallbacks = getHandlersForName(target, eventName);
+
+                // check that we have callbacks
+                if (! eventCallbacks) {
+                    return target;
                 } // if
-            } // for
-            
-            return target;
-        }; // unbind
-    } // if
-};
+
+                for (var ii = eventCallbacks.length; ii--; ) {
+                    eventCallbacks[ii].fn.apply(self, Array.prototype.slice.call(arguments, 1));
+                } // for
+
+                return target;
+            }; // trigger
+
+            target.unbind = function(eventName, callbackId) {
+                var eventCallbacks = getHandlersForName(target, eventName);
+                for (var ii = 0; eventCallbacks && (ii < eventCallbacks.length); ii++) {
+                    if (eventCallbacks[ii].id === callbackId) {
+                        eventCallbacks.splice(ii, 1);
+                        break;
+                    } // if
+                } // for
+
+                return target;
+            }; // unbind
+        } // if
+    };
+})();
+
 // TODO: add functionality that allows you to stop listening to messages
-GT.WaterCooler = (function() {
+(function() {
     // initialise variables
     var messageListeners = {},
         pipes = [];
     
     // define the module
-    var module = {
-        addPipe: function(callback) {
-            // test the pipe because if it is broke it will break everything
-            callback("pipe.test", {});
-            
-            // given that didn't throw an exception and we got here, we can now add the pipe
-            pipes.push(callback);
-        },
+    GT.addPipe = function(callback) {
+        // test the pipe because if it is broke it will break everything
+        callback("pipe.test", {});
         
-        listen: function(message, callback) {
-            // if we don't have a message listener array configured, then create one now
-            if (! messageListeners[message]) {
-                messageListeners[message] = [];
-            } // if
-            
-            // add the callback to the listener queue
-            if (callback) {
-                messageListeners[message].push(callback);
-            } // if
-        },
-        
-        say: function(message, args) {
-            var ii;
-            
-            // if there are pipes, then send the message through each
-            for (ii = pipes.length; ii--; ) {
-                pipes[ii](message, args);
-            } // for
-            
-            // if we don't have any message listeners for that message, then return
-            if (! messageListeners[message]) { return; }
-            
-            // iterate through the message callbacks
-            for (ii = messageListeners[message].length; ii--; ) {
-                messageListeners[message][ii](args);
-            } // for
-        },
-        
-        leave: function() {
-            
-        }
-    };
+        // given that didn't throw an exception and we got here, we can now add the pipe
+        pipes.push(callback);
+    }; // addPipe
     
-    return module;
+    GT.listen = function(message, callback) {
+        // if we don't have a message listener array configured, then create one now
+        if (! messageListeners[message]) {
+            messageListeners[message] = [];
+        } // if
+        
+        // add the callback to the listener queue
+        if (callback) {
+            messageListeners[message].push(callback);
+        } // if
+    }; // listen
+        
+    GT.say = function(message, args) {
+        var ii;
+        
+        // if there are pipes, then send the message through each
+        for (ii = pipes.length; ii--; ) {
+            pipes[ii](message, args);
+        } // for
+        
+        // if we don't have any message listeners for that message, then return
+        if (! messageListeners[message]) { return; }
+        
+        // iterate through the message callbacks
+        for (ii = messageListeners[message].length; ii--; ) {
+            messageListeners[message][ii](args);
+        } // for
+    }; // say
 })();
 
 GT.Storage = (function() {
@@ -1700,6 +1649,191 @@ GT.ParseRules = function(params) {
 }; // ParseRules
 /* GRUNTJS END */
 T5 = (function() {
+    /* vector definition and tools */
+    
+    var Vector = function(initX, initY) {
+        return {
+            x: initX ? initX : 0,
+            y: initY ? initY : 0
+        };
+    }; // Vector
+    
+    var vectorTools = (function() {
+        function edges(vectors) {
+            if ((! vectors) || (vectors.length <= 1)) {
+                throw new Error("Cannot determine edge " +
+                    "distances for a vector array of only one vector");
+            } // if
+            
+            var fnresult = {
+                edges: new Array(vectors.length - 1),
+                accrued: new Array(vectors.length - 1),
+                total: 0
+            };
+            
+            var diffFn = vectorTools.diff;
+            
+            // iterate through the vectors and calculate the edges
+            // OPTMIZE: look for speed up opportunities
+            for (var ii = 0; ii < vectors.length - 1; ii++) {
+                var diff = diffFn(vectors[ii], vectors[ii + 1]);
+                
+                fnresult.edges[ii] = 
+                    Math.sqrt((diff.x * diff.x) + (diff.y * diff.y));
+                fnresult.accrued[ii] = 
+                    fnresult.total + fnresult.edges[ii];
+                    
+                fnresult.total += fnresult.edges[ii];
+            } // for
+            
+            return fnresult;
+        } // edges
+
+        return {
+            create: function(x, y) {
+                return new Vector(x, y);
+            },
+            
+            add: function() {
+                var fnresult = new Vector();
+                for (var ii = arguments.length; ii--; ) {
+                    fnresult.x += arguments[ii].x;
+                    fnresult.y += arguments[ii].y;
+                } // for
+                
+                return fnresult;
+            },
+            
+            absSize: function(vector) {
+                return Math.max(Math.abs(vector.x), Math.abs(vector.y));
+            },
+            
+            diff: function(v1, v2) {
+                return new Vector(v1.x - v2.x, v1.y - v2.y);
+            },
+            
+            copy: function(src) {
+                return src ? new Vector(src.x, src.y) : null;
+            },
+            
+            invert: function(vector) {
+                return new Vector(-vector.x, -vector.y);
+            },
+            
+            offset: function(vector, offsetX, offsetY) {
+                return new Vector(
+                                vector.x + offsetX, 
+                                vector.y + (offsetY ? offsetY : offsetX));
+            },
+            
+            edges: edges,
+            distance: function(vectors) {
+                return edges(vectors).total;
+            },
+            
+            theta: function(v1, v2, distance) {
+                var theta = Math.asin((v1.y - v2.y) / distance);
+                return v1.x > v2.x ? theta : Math.PI - theta;
+            },
+            
+            pointOnEdge: function(v1, v2, theta, delta) {
+                var xyDelta = new Vector(
+                                    Math.cos(theta) * delta, 
+                                    Math.sin(theta) * delta);
+                
+                return new Vector(
+                                    v1.x - xyDelta.x, 
+                                    v1.y - xyDelta.y);
+            },
+            
+            getRect: function(vectorArray) {
+                var arrayLen = vectorArray.length;
+                if (arrayLen > 1) {
+                    return new Rect(
+                        Math.min(
+                            vectorArray[0].x, 
+                            vectorArray[arrayLen - 1].x
+                        ),
+                        Math.min(
+                            vectorArray[0].y, 
+                            vectorArray[arrayLen - 1].y
+                        ),
+                        Math.abs(vectorArray[0].x - 
+                            vectorArray[arrayLen - 1].x),
+                        Math.abs(vectorArray[0].y - 
+                            vectorArray[arrayLen - 1].y)
+                    );
+                }
+            },
+            
+            toString: function(vector) {
+                return vector.x + ', ' + vector.y;
+            }
+        };
+    })(); // vectorTools
+    
+    /* rect definition and tools */
+    
+    var Rect = function(x, y, width, height) {
+        return {
+            origin: new Vector(x, y),
+            dimensions: new Dimensions(width, height)
+        };
+    }; // Rect
+    
+    var rectTools = (function() {
+        var subModule = {
+            copy: function(src) {
+                return src ? 
+                    new Rect(
+                            src.origin.x, 
+                            src.origin.y, 
+                            src.dimensions.width, 
+                            src.dimensions.height) :
+                    null;
+            },
+            
+            getCenter: function(rect) {
+                return new Vector(
+                            rect.origin.x + (rect.dimensions.width / 2), 
+                            rect.origin.y + (rect.dimensions.height / 2));
+            }
+        };
+        
+        return subModule;
+    })(); // rectTools
+
+    /* dimensions definition and tools */
+    
+    var Dimensions = function(initWidth, initHeight) {
+        return {
+            width: initWidth ? initWidth : 0,
+            height: initHeight ? initHeight : 0
+        }; 
+    }; // Dimensions
+    
+    var dimensionTools = (function() {
+        var subModule = {
+            getAspectRatio: function(dimensions) {
+                return dimensions.height !== 0 ? 
+                    dimensions.width / dimensions.height : 1;
+            },
+
+            getCenter: function(dimensions) {
+                return new Vector(
+                            dimensions.width / 2, 
+                            dimensions.height / 2);
+            },
+            
+            getSize: function(dimensions) {
+                return Math.sqrt(Math.pow(dimensions.width, 2) + 
+                        Math.pow(dimensions.height, 2));
+            }
+        };
+        
+        return subModule;
+    })(); // dimensionTools
+
     var module = {
         ex: GT.extend,
         
@@ -1729,187 +1863,16 @@ T5 = (function() {
         @param {Number} init_y the Initial y value for the Vector
 
         @class 
-        @name T5.Vector
+        @name Vector
         */
-        Vector: function(initX, initY) {
-            return {
-                x: initX ? initX : 0,
-                y: initY ? initY : 0
-            };
-        }, // Vector
+        Vector: Vector, // Vector
+        V: vectorTools,
         
-        V: (function() {
-
-            function edges(vectors) {
-                if ((! vectors) || (vectors.length <= 1)) {
-                    throw new Error("Cannot determine edge " +
-                        "distances for a vector array of only one vector");
-                } // if
-                
-                var fnresult = {
-                    edges: new Array(vectors.length - 1),
-                    accrued: new Array(vectors.length - 1),
-                    total: 0
-                };
-                
-                var diffFn = T5.V.diff;
-                
-                // iterate through the vectors and calculate the edges
-                // OPTMIZE: look for speed up opportunities
-                for (var ii = 0; ii < vectors.length - 1; ii++) {
-                    var diff = diffFn(vectors[ii], vectors[ii + 1]);
-                    
-                    fnresult.edges[ii] = 
-                        Math.sqrt((diff.x * diff.x) + (diff.y * diff.y));
-                    fnresult.accrued[ii] = 
-                        fnresult.total + fnresult.edges[ii];
-                        
-                    fnresult.total += fnresult.edges[ii];
-                } // for
-                
-                return fnresult;
-            } // edges
-
-            return {
-                create: function(x, y) {
-                    return new module.Vector(x, y);
-                },
-                
-                add: function() {
-                    var fnresult = new module.Vector();
-                    for (var ii = arguments.length; ii--; ) {
-                        fnresult.x += arguments[ii].x;
-                        fnresult.y += arguments[ii].y;
-                    } // for
-                    
-                    return fnresult;
-                },
-                
-                absSize: function(vector) {
-                    return Math.max(Math.abs(vector.x), Math.abs(vector.y));
-                },
-                
-                diff: function(v1, v2) {
-                    return new module.Vector(v1.x - v2.x, v1.y - v2.y);
-                },
-                
-                copy: function(src) {
-                    return src ? new module.Vector(src.x, src.y) : null;
-                },
-                
-                invert: function(vector) {
-                    return new T5.Vector(-vector.x, -vector.y);
-                },
-                
-                offset: function(vector, offsetX, offsetY) {
-                    return new T5.Vector(
-                                    vector.x + offsetX, 
-                                    vector.y + (offsetY ? offsetY : offsetX));
-                },
-                
-                edges: edges,
-                distance: function(vectors) {
-                    return edges(vectors).total;
-                },
-                
-                theta: function(v1, v2, distance) {
-                    var theta = Math.asin((v1.y - v2.y) / distance);
-                    return v1.x > v2.x ? theta : Math.PI - theta;
-                },
-                
-                pointOnEdge: function(v1, v2, theta, delta) {
-                    var xyDelta = new T5.Vector(
-                                        Math.cos(theta) * delta, 
-                                        Math.sin(theta) * delta);
-                    
-                    return new T5.Vector(
-                                        v1.x - xyDelta.x, 
-                                        v1.y - xyDelta.y);
-                },
-                
-                getRect: function(vectorArray) {
-                    var arrayLen = vectorArray.length;
-                    if (arrayLen > 1) {
-                        return new T5.Rect(
-                            Math.min(
-                                vectorArray[0].x, 
-                                vectorArray[arrayLen - 1].x
-                            ),
-                            Math.min(
-                                vectorArray[0].y, 
-                                vectorArray[arrayLen - 1].y
-                            ),
-                            Math.abs(vectorArray[0].x - 
-                                vectorArray[arrayLen - 1].x),
-                            Math.abs(vectorArray[0].y - 
-                                vectorArray[arrayLen - 1].y)
-                        );
-                    }
-                },
-                
-                toString: function(vector) {
-                    return vector.x + ', ' + vector.y;
-                }
-            };
-        })(),
+        Dimensions: Dimensions, // Dimensions
+        D: dimensionTools,
         
-        Dimensions: function(initWidth, initHeight) {
-            return {
-                width: initWidth ? initWidth : 0,
-                height: initHeight ? initHeight : 0
-            }; 
-        }, // Dimensions
-        
-        D: (function() {
-            var subModule = {
-                getAspectRatio: function(dimensions) {
-                    return dimensions.height !== 0 ? 
-                        dimensions.width / dimensions.height : 1;
-                },
-
-                getCenter: function(dimensions) {
-                    return new module.Vector(
-                                dimensions.width / 2, 
-                                dimensions.height / 2);
-                },
-                
-                getSize: function(dimensions) {
-                    return Math.sqrt(Math.pow(dimensions.width, 2) + 
-                            Math.pow(dimensions.height, 2));
-                }
-            };
-            
-            return subModule;
-        })(),
-        
-        Rect: function(x, y, width, height) {
-            return {
-                origin: new module.Vector(x, y),
-                dimensions: new module.Dimensions(width, height)
-            };
-        },
-        
-        R: (function() {
-            var subModule = {
-                copy: function(src) {
-                    return src ? 
-                        new module.Rect(
-                                src.origin.x, 
-                                src.origin.y, 
-                                src.dimensions.width, 
-                                src.dimensions.height) :
-                        null;
-                },
-                
-                getCenter: function(rect) {
-                    return new T5.Vector(
-                                rect.origin.x + (rect.dimensions.width / 2), 
-                                rect.origin.y + (rect.dimensions.height / 2));
-                }
-            };
-            
-            return subModule;
-        })()
+        Rect: Rect,
+        R: rectTools
     };
     
     return module;
@@ -2146,7 +2109,7 @@ T5.Dispatcher = (function() {
                 },
                 
                 toString: function() {
-                    return String.format("{0} [title = {1}, icon = {2}]", self.id, params.title, params.icon);
+                    return GT.formatStr("{0} [title = {1}, icon = {2}]", self.id, params.title, params.icon);
                 }
             };
             
@@ -2421,7 +2384,7 @@ T5.Images = (function() {
             clearingCache = false;
         } // try..finally
         
-        GT.WaterCooler.say("imagecache.cleared");
+        GT.say("imagecache.cleared");
     } // cleanupImageCache
 
     function checkTimeoutsAndCache() {
@@ -2455,6 +2418,65 @@ T5.Images = (function() {
         } // if
     } // checkTimeoutsAndCache
     
+    function getImage(url) {
+        var imageData = null,
+            image = null;
+            
+        if (! clearingCache) {
+            imageData = images[url];
+        } // if
+
+        // return the image from the image data
+        image = imageData ? imageData.image : null;
+        
+        if (image && (image.getContext || (image.complete && (image.width > 0)))) {
+            return image;
+        } // if
+    } // getImage
+    
+    function loadImage(url, callback, loadArgs) {
+        // look for the image data
+        var imageData = images[url];
+
+        // if the image data is not defined, then create new image data
+        if (! imageData) {
+            // initialise the image data
+            imageData = T5.ex({
+                url: url,
+                image: new Image(),
+                loaded: false,
+                imageLoader: getImageLoader(url),
+                created: T5.time(),
+                requested: null,
+                hitCount: 0,
+                loadCallback: callback
+            }, loadArgs);
+            
+            // GT.Log.info("loading image, image args = ", loadArgs);
+            
+            // initialise the image id
+            imageData.image.id = "resourceLoaderImage" + (imageCounter++);
+            
+            // add the image to the images lookup
+            images[url] = imageData;
+            loadWatchers[imageData.image.id] = imageData;
+            
+            // add the image to the queued images
+            queuedImages.push(imageData);
+            
+            // trigger the next load event
+            loadNextImage();
+        }
+        else {
+            imageData.hitCount++;
+            if (imageData.image.complete && callback) {
+                callback(imageData.image, true);
+            } // if
+        }
+        
+        return imageData;
+    } // loadImage
+    
     var module = {
         avgImageSize: 25,
         loadTimeout: 10,
@@ -2467,64 +2489,8 @@ T5.Images = (function() {
             loadingImages = [];
         },
         
-        get: function(url) {
-            var imageData = null,
-                image = null;
-                
-            if (! clearingCache) {
-                imageData = images[url];
-            } // if
-
-            // return the image from the image data
-            image = imageData ? imageData.image : null;
-            
-            if (image && (image.getContext || (image.complete && (image.width > 0)))) {
-                return image;
-            } // if
-        },
-        
-        load: function(url, callback, loadArgs) {
-            // look for the image data
-            var imageData = images[url];
-
-            // if the image data is not defined, then create new image data
-            if (! imageData) {
-                // initialise the image data
-                imageData = T5.ex({
-                    url: url,
-                    image: new Image(),
-                    loaded: false,
-                    imageLoader: getImageLoader(url),
-                    created: T5.time(),
-                    requested: null,
-                    hitCount: 0,
-                    loadCallback: callback
-                }, loadArgs);
-                
-                // GT.Log.info("loading image, image args = ", loadArgs);
-                
-                // initialise the image id
-                imageData.image.id = "resourceLoaderImage" + (imageCounter++);
-                
-                // add the image to the images lookup
-                images[url] = imageData;
-                loadWatchers[imageData.image.id] = imageData;
-                
-                // add the image to the queued images
-                queuedImages.push(imageData);
-                
-                // trigger the next load event
-                loadNextImage();
-            }
-            else {
-                imageData.hitCount++;
-                if (imageData.image.complete && callback) {
-                    callback(imageData.image, true);
-                } // if
-            }
-            
-            return imageData;
-        },
+        get: getImage,
+        load: loadImage,
         
         stats: function() {
             return {
@@ -2539,32 +2505,38 @@ T5.Images = (function() {
     
     return module;
 })();
-T5.Touch = (function() {
+(function() {
     // initialise constants
     var WHEEL_DELTA_STEP = 120,
         DEFAULT_INERTIA_MAX = 500,
         INERTIA_TIMEOUT_MOUSE = 100,
-        INERTIA_TIMEOUT_TOUCH = 250;
-    var TOUCH_MODES = {
-        TAP: 0,
-        MOVE: 1, 
-        PINCH: 2
-    }; // TOUCH_MODES
+        INERTIA_TIMEOUT_TOUCH = 250,
+        THRESHOLD_DOUBLETAP = 300,
+        THRESHOLD_PINCHZOOM = 5,
+        THRESHOLD_PAN_EVENT = 2;
+        
+    // define the touch modes
+    var TOUCH_MODE_TAP = 0,
+        TOUCH_MODE_MOVE = 1,
+        TOUCH_MOVE_PINCH = 2;
 
     // TODO: configure the move distance to be screen size sensitive....
     var MIN_MOVEDIST = 7;
 
     var elementCounter = 0,
-        listenerCount = 0;
+        listenerCount = 0,
+        createVector = T5.V.create,
+        vectorDistance = T5.V.distance,
+        vectorDiff = T5.V.diff;
     
     function calcDistance(touches) {
-        return T5.V.distance(touches);
+        return vectorDistance(touches);
     } // calcDistance
     
     function calcChange(first, second) {
         var srcVector = (first && (first.length > 0)) ? first[0] : null;
         if (srcVector && second && (second.length > 0)) {
-            return T5.V.diff(srcVector, second[0]);
+            return vectorDiff(srcVector, second[0]);
         } // if
         
         return null;
@@ -2578,14 +2550,14 @@ T5.Touch = (function() {
     function getTouchPoints(touches) {
         var fnresult = new Array(touches.length);
         for (var ii = touches.length; ii--; ) {
-            fnresult[ii] = new T5.Vector(touches[ii].pageX, touches[ii].pageY);
+            fnresult[ii] = createVector(touches[ii].pageX, touches[ii].pageY);
         } // for
         
         return fnresult;
     } // getTouchPoints
     
     function getMousePos(evt) {
-        return [new T5.Vector(evt.pageX, evt.pageY)];
+        return [createVector(evt.pageX, evt.pageY)];
     } // getMousePos
     
     function debugTouchEvent(evt, title) {
@@ -2603,8 +2575,6 @@ T5.Touch = (function() {
             observable: null,
             inertiaTrigger: 20,
             maxDistDoubleTap: 20,
-            panEventThreshhold: 0,
-            pinchZoomThreshold: 5,
             touchStartHandler: null,
             moveHandler: null,
             moveEndHandler: null,
@@ -2625,23 +2595,23 @@ T5.Touch = (function() {
         // initialise private members
         var doubleTap = false,
             tapTimer = 0,
+            config = T5.getConfig(),
             supportsTouch = T5.getConfig().supportsTouch,
             touchesStart = null,
             touchesLast = null,
             touchDelta = null,
             totalDelta = null,
-            panDelta = new T5.Vector(),
+            panDelta = createVector(),
             touchMode = null,
             touchDown = false,
             touchStartTick = 0,
             listeners = [],
             lastXY = null,
             inertiaSettings = null,
-            ticks = {
-                current: 0,
-                last: 0
-            },
-            config = T5.getConfig(),
+            ticksCurrent = 0,
+            ticksLast = 0,
+            targetElement = params.element,
+            observable = params.observable,
             BENCHMARK_INTERVAL = 300;
             
         function calculateInertia(upXY, currentXY, distance, tickDiff) {
@@ -2651,7 +2621,7 @@ T5.Touch = (function() {
                 distanceVector;
                 
             theta = currentXY.x > upXY.x ? theta : Math.PI - theta;
-            distanceVector = new T5.Vector(Math.cos(theta) * -extraDistance, Math.sin(theta) * extraDistance);
+            distanceVector = createVector(Math.cos(theta) * -extraDistance, Math.sin(theta) * extraDistance);
                 
             triggerEvent("inertiaPan", distanceVector.x, distanceVector.y);
         } // calculateInertia
@@ -2664,7 +2634,7 @@ T5.Touch = (function() {
                 
                 var checkInertiaInterval = setInterval(function() {
                     tickDiff = (T5.time()) - currentTick;
-                    distance = T5.V.distance([upXY, lastXY]);
+                    distance = vectorDistance([upXY, lastXY]);
 
                     // calculate the inertia
                     if ((tickDiff < INERTIA_TIMEOUT_MOUSE) && (distance > params.inertiaTrigger)) {
@@ -2680,7 +2650,7 @@ T5.Touch = (function() {
                 tickDiff = currentTick - touchStartTick;
                 
                 if ((tickDiff < INERTIA_TIMEOUT_TOUCH)) {
-                    distance = T5.V.distance([touchesStart[0], upXY]);
+                    distance = vectorDistance([touchesStart[0], upXY]);
                     
                     if (distance > params.inertiaTrigger) {
                         calculateInertia(touchesStart[0], upXY, distance, tickDiff);
@@ -2691,8 +2661,8 @@ T5.Touch = (function() {
             
         function relativeTouches(touches) {
             var fnresult = [],
-                offsetX = params.element ? -params.element.offsetLeft : 0,
-                offsetY = params.element ? -params.element.offsetTop : 0;
+                offsetX = targetElement ? -targetElement.offsetLeft : 0,
+                offsetY = targetElement ? -targetElement.offsetTop : 0;
             
             // apply the offset
             for (var ii = touches.length; ii--; ) {
@@ -2703,8 +2673,8 @@ T5.Touch = (function() {
         } // relativeTouches
         
         function triggerEvent() {
-            if (params.observable) {
-                params.observable.trigger.apply(null, arguments);
+            if (observable) {
+                observable.trigger.apply(null, arguments);
             } // if
         } // triggerEvent
         
@@ -2712,8 +2682,8 @@ T5.Touch = (function() {
             var offsetVector = null;
             
             // if an element is defined, then determine the element offset
-            if (params.element) {
-                offsetVector = T5.V.offset(absVector, -params.element.offsetLeft, -params.element.offsetTop);
+            if (targetElement) {
+                offsetVector = T5.V.offset(absVector, -targetElement.offsetLeft, -targetElement.offsetTop);
             } // if
             
             // fire the event
@@ -2721,10 +2691,10 @@ T5.Touch = (function() {
         } // triggerPositionEvent
 
         function touchStart(evt) {
-            if (evt.target && (evt.target === params.element)) {
+            if (evt.target && (evt.target === targetElement)) {
                 touchesStart = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt);
-                touchDelta = new T5.Vector();
-                totalDelta = new T5.Vector();
+                touchDelta = createVector();
+                totalDelta = createVector();
                 touchDown = true;
                 doubleTap = false;
                 touchStartTick = T5.time();
@@ -2737,7 +2707,7 @@ T5.Touch = (function() {
                 triggerEvent("inertiaCancel");
 
                 // log the current touch start time
-                ticks.current = touchStartTick;
+                ticksCurrent = touchStartTick;
         
                 // fire the touch start event handler
                 var touchVector = touchesStart.length > 0 ? touchesStart[0] : null;
@@ -2752,7 +2722,7 @@ T5.Touch = (function() {
                 triggerEvent("touchStart", touchVector.x, touchVector.y);
         
                 // check to see whether this is a double tap (if we are watching for them)
-                if (ticks.current - ticks.last < self.THRESHOLD_DOUBLETAP) {
+                if (ticksCurrent - ticksLast < THRESHOLD_DOUBLETAP) {
                     // calculate the difference between this and the last touch point
                     var touchChange = touchesLast ? T5.V.diff(touchesStart[0], touchesLast[0]) : null;
                     if (touchChange && (Math.abs(touchChange.x) < params.maxDistDoubleTap) && (Math.abs(touchChange.y) < params.maxDistDoubleTap)) {
@@ -2761,7 +2731,7 @@ T5.Touch = (function() {
                 } // if
 
                 // reset the touch mode to unknown
-                touchMode = TOUCH_MODES.TAP;
+                touchMode = TOUCH_MODE_TAP;
         
                 // update the last touches
                 touchesLast = [].concat(touchesStart);
@@ -2769,7 +2739,7 @@ T5.Touch = (function() {
         } // touchStart
         
         function touchMove(evt) {
-            if (evt.target && (evt.target === params.element)) {
+            if (evt.target && (evt.target === targetElement)) {
                 lastXY = (supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt))[0];
                 
                 if (! touchDown) { return; }
@@ -2794,24 +2764,24 @@ T5.Touch = (function() {
                 } // if
 
                 // if the touch mode is tap, then check to see if we have gone beyond a move threshhold
-                if (touchMode === TOUCH_MODES.TAP) {
+                if (touchMode === TOUCH_MODE_TAP) {
                     // get the delta between the first touch and the current touch
                     var tapDelta = calcChange(touchesCurrent, touchesStart);
 
                     // if the delta.x or delta.y is greater than the move threshhold, we are no longer moving
                     if (tapDelta && ((Math.abs(tapDelta.x) >= MIN_MOVEDIST) || (Math.abs(tapDelta.y) >= MIN_MOVEDIST))) {
-                        touchMode = TOUCH_MODES.MOVE;
+                        touchMode = TOUCH_MODE_MOVE;
                     } // if
                 } // if
 
 
                 // if we aren't in tap mode, then let's see what we should do
-                if (touchMode !== TOUCH_MODES.TAP) {
+                if (touchMode !== TOUCH_MODE_TAP) {
                     // TODO: queue touch count history to enable an informed decision on touch end whether
                     // a single or multitouch event is completing...
 
                     // if we aren't pinching or zooming then do the move 
-                    if ((! zoomDistance) || (Math.abs(zoomDistance) < params.pinchZoomThreshold)) {
+                    if ((! zoomDistance) || (Math.abs(zoomDistance) < THRESHOLD_PINCHZOOM)) {
                         // calculate the pan delta
                         touchDelta = calcChange(touchesCurrent, touchesLast);
 
@@ -2822,19 +2792,19 @@ T5.Touch = (function() {
                         } // if
 
                         // if the pan_delta is sufficient to fire an event, then do so
-                        if (T5.V.absSize(panDelta) > params.panEventThreshhold) {
+                        if (T5.V.absSize(panDelta) > THRESHOLD_PAN_EVENT) {
                             triggerEvent("pan", panDelta.x, panDelta.y);
-                            panDelta = T5.V.create();
+                            panDelta = createVector();
                         } // if
 
                         // set the touch mode to move
-                        touchMode = TOUCH_MODES.MOVE;
+                        touchMode = TOUCH_MODE_MOVE;
                     }
                     else {
                         triggerEvent('pinchZoom', relativeTouches(touchesStart), relativeTouches(touchesCurrent));
 
                         // set the touch mode to pinch zoom
-                        touchMode = TOUCH_MODES.PINCH;
+                        touchMode = TOUCH_MODE_PINCH;
                     } // if..else
                 } // if..else
 
@@ -2843,7 +2813,7 @@ T5.Touch = (function() {
         } // touchMove
         
         function touchEnd(evt) {
-            if (evt.target && (evt.target === params.element)) {
+            if (evt.target && (evt.target === targetElement)) {
                 var touchUpXY = (supportsTouch ? getTouchPoints(evt.changedTouches) : getMousePos(evt))[0];
                 
                 // cancel event propogation
@@ -2855,10 +2825,10 @@ T5.Touch = (function() {
                 var endTick = T5.time();
 
                 // save the current ticks to the last ticks
-                ticks.last = ticks.current;
+                ticksLast = ticksCurrent;
 
                 // if tapping, then first the tap event
-                if (touchMode === TOUCH_MODES.TAP) {
+                if (touchMode === TOUCH_MODE_TAP) {
                     // start the timer to fire the tap handler, if 
                     if (! tapTimer) {
                         tapTimer = setTimeout(function() {
@@ -2867,11 +2837,11 @@ T5.Touch = (function() {
 
                             // fire the appropriate tap event
                             triggerPositionEvent(doubleTap ? 'doubleTap' : 'tap', touchesStart[0]);
-                        }, self.THRESHOLD_DOUBLETAP + 50);
+                        }, THRESHOLD_DOUBLETAP + 50);
                     }
                 }
                 // if moving, then fire the move end
-                else if (touchMode == TOUCH_MODES.MOVE) {
+                else if (touchMode == TOUCH_MODE_MOVE) {
                     triggerEvent("panEnd", totalDelta.x, totalDelta.y);
                     
                     if (inertiaSettings) {
@@ -2879,7 +2849,7 @@ T5.Touch = (function() {
                     } // if
                 }
                 // if pinchzooming, then fire the pinch zoom end
-                else if (touchMode == TOUCH_MODES.PINCH) {
+                else if (touchMode == TOUCH_MODE_PINCH) {
                     triggerEvent('pinchZoomEnd', relativeTouches(touchesStart), relativeTouches(touchesLast), endTick - touchStartTick);
                 } // if..else
                 
@@ -2892,21 +2862,21 @@ T5.Touch = (function() {
             // process ff DOMMouseScroll event
             if (evt.detail) {
                 var delta = -evt.detail * WHEEL_DELTA_STEP;
-                return new T5.Vector(evt.axis === 1 ? delta : 0, evt.axis === 2 ? delta : 0);
+                return createVector(evt.axis === 1 ? delta : 0, evt.axis === 2 ? delta : 0);
             }
             else {
-                return new T5.Vector(evt.wheelDeltaX, evt.wheelDeltaY);
+                return createVector(evt.wheelDeltaX, evt.wheelDeltaY);
             } // if..else
         } // getWheelDelta
         
         function wheelie(evt) {
-            if (evt.target && (evt.target === params.element)) {
+            if (evt.target && (evt.target === targetElement)) {
                 var delta = getWheelDelta(evt), 
                     zoomAmount = delta.y !== 0 ? Math.abs(delta.y / WHEEL_DELTA_STEP) : 0;
 
                 if (lastXY && (zoomAmount !== 0)) {
                     // apply the offset to the xy
-                    var xy = T5.V.offset(lastXY, -params.element.offsetLeft, -params.element.offsetTop);
+                    var xy = T5.V.offset(lastXY, -targetElement.offsetLeft, -targetElement.offsetTop);
                     triggerEvent("wheelZoom", xy, Math.pow(2, delta.y > 0 ? zoomAmount : -zoomAmount));
                 } // if
                 
@@ -2917,10 +2887,6 @@ T5.Touch = (function() {
         // initialise self
         var self = {
             supportsTouch: supportsTouch,
-
-            /* define mutable constants (yeah, I know that's a contradiction) */
-
-            THRESHOLD_DOUBLETAP: 300,
 
             /* define methods */
             
@@ -2933,7 +2899,6 @@ T5.Touch = (function() {
                 for (var ii = 0; listenerId && (ii < listeners.length); ii++) {
                     if (listeners[ii].listenerId === listenerId) {
                         listeners.splice(ii, 1);
-                        GT.Log.info("successfully decoupled touch listener: " + listenerId);
 
                         break;
                     } // if
@@ -2941,12 +2906,12 @@ T5.Touch = (function() {
             },
             
             release: function() {
-                config.eventTarget.removeEventListener(config.supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
-                config.eventTarget.removeEventListener(config.supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
-                config.eventTarget.removeEventListener(config.supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
+                config.eventTarget.removeEventListener(supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
+                config.eventTarget.removeEventListener(supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
+                config.eventTarget.removeEventListener(supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
                 
                 // handle mouse wheel events by
-                if (! config.supportsTouch) {
+                if (! supportsTouch) {
                     window.removeEventListener("mousewheel", wheelie, false);
                     window.removeEventListener("DOMMouseScroll", wheelie, false);
                 } // if
@@ -2965,12 +2930,12 @@ T5.Touch = (function() {
         };
         
         // wire up the events
-        config.eventTarget.addEventListener(config.supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
-        config.eventTarget.addEventListener(config.supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
-        config.eventTarget.addEventListener(config.supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
+        config.eventTarget.addEventListener(supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
+        config.eventTarget.addEventListener(supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
+        config.eventTarget.addEventListener(supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
         
         // handle mouse wheel events by
-        if (! config.supportsTouch) {
+        if (! supportsTouch) {
             window.addEventListener("mousewheel", wheelie, false);
             window.addEventListener("DOMMouseScroll", wheelie, false);
         } // if
@@ -2981,51 +2946,45 @@ T5.Touch = (function() {
     // initialise touch helpers array
     var touchHelpers = [];
     
-    // define the module members
-    return {
-        // TODO: add the release touch method
-        capture: function(element, params) {
-            if (! element) {
-                throw new Error("Unable to capture touch of null element");
-            } // if
-            
-            // if the element does not have an id, then generate on
-            if (! element.id) {
-                element.id = "touchable_" + elementCounter++;
-            } // if
+    T5.captureTouch = function(element, params) {
+        if (! element) {
+            throw new Error("Unable to capture touch of null element");
+        } // if
         
-            // create the touch helper
-            var touchHelper = touchHelpers[element.id];
-            
-            // if the touch helper has not been created, then create it and attach to events
-            if (! touchHelper) {
-                touchHelper = new TouchHelper(T5.ex({ element: element}, params));
-                touchHelpers[element.id] = touchHelper;
-                
-                GT.Log.info("CREATED TOUCH HELPER. SUPPORTS TOUCH = " + touchHelper.supportsTouch);
-            } // if
-            
-            // if we already have an association with listeners, then remove first
-            if (params.listenerId) {
-                touchHelper.decoupleListeners(params.listenerId);
-            } // if
-            
-            // flag the parameters with touch listener ids so they can be removed later
-            params.listenerId = (++listenerCount);
+        // if the element does not have an id, then generate on
+        if (! element.id) {
+            element.id = "touchable_" + elementCounter++;
+        } // if
+    
+        // create the touch helper
+        var touchHelper = touchHelpers[element.id];
+        
+        // if the touch helper has not been created, then create it and attach to events
+        if (! touchHelper) {
+            touchHelper = new TouchHelper(T5.ex({ element: element}, params));
+            touchHelpers[element.id] = touchHelper;
+        } // if
+        
+        // if we already have an association with listeners, then remove first
+        if (params.listenerId) {
+            touchHelper.decoupleListeners(params.listenerId);
+        } // if
+        
+        // flag the parameters with touch listener ids so they can be removed later
+        params.listenerId = (++listenerCount);
 
-            // add the listeners to the helper
-            touchHelper.addListeners(params);
-            
-            return touchHelper;
-        },
+        // add the listeners to the helper
+        touchHelper.addListeners(params);
         
-        resetTouch: function(element) {
-            if (element && element.id && touchHelpers[element.id]) {
-                touchHelpers[element.id].release();
-                delete touchHelpers[element.id];
-            } // if
-        }
-    }; // module
+        return touchHelper;
+    }; // T5.captureTouch
+    
+    T5.resetTouch = function(element) {
+        if (element && element.id && touchHelpers[element.id]) {
+            touchHelpers[element.id].release();
+            delete touchHelpers[element.id];
+        } // if
+    }; // T5.resetTouch
 })();
 /**
 Easing functions
@@ -3040,6 +2999,17 @@ Functions follow the function format of fn(t, b, c, d, s) where:
 - d = duration
 */
 (function() {
+    // define some constants
+    var TWO_PI = Math.PI * 2,
+        HALF_PI = Math.PI / 2;
+        
+    // define some function references
+    var abs = Math.abs,
+        pow = Math.pow,
+        sin = Math.sin,
+        asin = Math.asin,
+        cos = Math.cos;
+    
     var s = 1.70158;
     
     function simpleTypeName(typeName) {
@@ -3109,28 +3079,28 @@ Functions follow the function format of fn(t, b, c, d, s) where:
             var s;
             
             if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*0.3;
-            if (!a || a < Math.abs(c)) { a=c; s=p/4; }
-            else s = p/(2*Math.PI) * Math.asin (c/a);
-            return -(a*Math.pow(2,10*(t-=1)) * Math.sin( (t*d-s)*(2*Math.PI)/p )) + b;
+            if (!a || a < abs(c)) { a=c; s=p/4; }
+            else s = p/TWO_PI * asin (c/a);
+            return -(a*pow(2,10*(t-=1)) * sin( (t*d-s)*TWO_PI/p )) + b;
         },
         
         elasticout: function(t, b, c, d, a, p) {
             var s;
             
             if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*0.3;
-            if (!a || a < Math.abs(c)) { a=c; s=p/4; }
-            else s = p/(2*Math.PI) * Math.asin (c/a);
-            return (a*Math.pow(2,-10*t) * Math.sin( (t*d-s)*(2*Math.PI)/p ) + c + b);
+            if (!a || a < abs(c)) { a=c; s=p/4; }
+            else s = p/TWO_PI * asin (c/a);
+            return (a*pow(2,-10*t) * sin( (t*d-s)*TWO_PI/p ) + c + b);
         },
         
         elasticinout: function(t, b, c, d, a, p) {
             var s;
             
             if (t==0) return b;  if ((t/=d/2)==2) return b+c;  if (!p) p=d*(0.3*1.5);
-            if (!a || a < Math.abs(c)) { a=c; s=p/4; }
-            else s = p/(2*Math.PI) * Math.asin (c/a);
-            if (t < 1) return -0.5*(a*Math.pow(2,10*(t-=1)) * Math.sin( (t*d-s)*(2*Math.PI)/p )) + b;
-            return a*Math.pow(2,-10*(t-=1)) * Math.sin( (t*d-s)*(2*Math.PI)/p )*0.5 + c + b;
+            if (!a || a < abs(c)) { a=c; s=p/4; }
+            else s = p/TWO_PI * asin (c/a);
+            if (t < 1) return -0.5*(a*pow(2,10*(t-=1)) * sin( (t*d-s)*TWO_PI/p )) + b;
+            return a*pow(2,-10*(t-=1)) * sin( (t*d-s)*TWO_PI/p )*0.5 + c + b;
         },
         
         /* quad easing */
@@ -3151,15 +3121,15 @@ Functions follow the function format of fn(t, b, c, d, s) where:
         /* sine easing */
         
         sinein: function(t, b, c, d) {
-            return -c * Math.cos(t/d * (Math.PI/2)) + c + b;
+            return -c * cos(t/d * HALF_PI) + c + b;
         },
         
         sineout: function(t, b, c, d) {
-            return c * Math.sin(t/d * (Math.PI/2)) + b;
+            return c * sin(t/d * HALF_PI) + b;
         },
         
         sineinout: function(t, b, c, d) {
-            return -c/2 * (Math.cos(Math.PI*t/d) - 1) + b;
+            return -c/2 * (cos(Math.PI*t/d) - 1) + b;
         }
     };
     
@@ -3416,7 +3386,6 @@ T5.Tween = function(params) {
 T5.ViewLayer = function(params) {
     params = T5.ex({
         id: "",
-        created: T5.time(),
         zindex: 0,
         supportFastDraw: false,
         validStates: T5.viewState("ACTIVE", "ANIMATING", "PAN", "PINCH")
@@ -3451,7 +3420,7 @@ T5.ViewLayer = function(params) {
         animation layers that should only exist as long as an animation is active.
         */
         remove: function() {
-            GT.WaterCooler.say("layer.remove", { id: id });
+            GT.say("layer.remove", { id: id });
         },
         
         wakeParent: function() {
@@ -3503,13 +3472,10 @@ T5.View = function(params) {
         mainContext = null,
         offset = new T5.Vector(),
         clearBackground = false,
-        lastTickCount = null,
         frozen = false,
         deviceScaling = 1,
         dimensions = null,
-        centerPos = null,
         wakeTriggers = 0,
-        fpsLayer = null,
         endCenter = null,
         idle = false,
         panimating = false,
@@ -3517,11 +3483,8 @@ T5.View = function(params) {
         repaint = false,
         idleTimeout = 0,
         rescaleTimeout = 0,
-        bufferTime = 0,
         zoomCenter = null,
         tickCount = 0,
-        deviceFps = T5.getConfig().targetFps,
-        redrawInterval = 0,
         scaling = false,
         startRect = null,
         endRect = null,
@@ -3539,6 +3502,11 @@ T5.View = function(params) {
         statePinch = T5.viewState('PINCH'),
         
         state = stateActive;
+        
+    // some function references for speed
+    var vectorRect = T5.V.getRect,
+        dimensionsSize = T5.D.getSize,
+        rectCenter = T5.R.getCenter;
         
     /* panning functions */
     
@@ -3570,16 +3538,16 @@ T5.View = function(params) {
     } // resetZoom
     
     function checkTouches(start, end) {
-        startRect = T5.V.getRect(start);
-        endRect = T5.V.getRect(end);
+        startRect = vectorRect(start);
+        endRect = vectorRect(end);
 
         // get the sizes of the rects
-        var startSize = T5.D.getSize(startRect.dimensions),
-            endSize = T5.D.getSize(endRect.dimensions);
+        var startSize = dimensionsSize(startRect.dimensions),
+            endSize = dimensionsSize(endRect.dimensions);
 
         // update the zoom center
-        startCenter = T5.R.getCenter(startRect);
-        endCenter = T5.R.getCenter(endRect);
+        startCenter = rectCenter(startRect);
+        endCenter = rectCenter(endRect);
 
         // determine the ratio between the start rect and the end rect
         scaleFactor = (startRect && (startSize !== 0)) ? (endSize / startSize) : 1;
@@ -3651,7 +3619,7 @@ T5.View = function(params) {
     
     function attachToCanvas() {
         if (canvas) {
-            T5.Touch.resetTouch(canvas);
+            T5.resetTouch(canvas);
 
             // if we are autosizing the set the size
             if (params.autoSize) {
@@ -3670,7 +3638,7 @@ T5.View = function(params) {
             }
             
             // capture touch events
-            touchHelper = T5.Touch.capture(canvas, {
+            touchHelper = T5.captureTouch(canvas, {
                 observable: self
             });
             
@@ -3681,7 +3649,11 @@ T5.View = function(params) {
             
             // get the dimensions
             dimensions = self.getDimensions();
-            centerPos = T5.D.getCenter(dimensions);
+            
+            // iterate through the layers, and change the context
+            for (var ii = layers.length; ii--; ) {
+                layerContextChange(layers[ii]);
+            } // for
 
             // tell the view to redraw
             wake();
@@ -3693,6 +3665,8 @@ T5.View = function(params) {
         value.setId(id);
         value.added = T5.time();
         
+        layerContextChanged(value);
+        
         // tell the layer that I'm going to take care of it
         value.setParent(self);
         
@@ -3703,7 +3677,7 @@ T5.View = function(params) {
         layers.sort(function(itemA, itemB) {
             var result = itemB.zindex - itemA.zindex;
             if (result === 0) {
-                result = itemB.created - itemA.created;
+                result = itemB.added - itemA.added;
             } // if
             
             return result;
@@ -3891,11 +3865,6 @@ T5.View = function(params) {
         offset.x = Math.floor(offset.x);
         offset.y = Math.floor(offset.y);
         
-        // if we have an fps layer, then update the fps
-        if (fpsLayer && lastTickCount) {
-            fpsLayer.delays.push(tickCount - lastTickCount);
-        } // if
-            
         if (interacting) {
             T5.cancelAnimation(function(tweenInstance) {
                 return tweenInstance.cancelOnInteract;
@@ -3914,13 +3883,7 @@ T5.View = function(params) {
             changeCount += cycleChanges ? cycleChanges : 0;
         } // for
         
-        // draw the view
-        if (lastTickCount + redrawInterval < tickCount) {
-            changeCount += drawView(mainContext, offset);
-
-            // update the last tick count
-            lastTickCount = tickCount;
-        } // if
+        changeCount += drawView(mainContext, offset);
 
         // include wake triggers in the change count
         paintTimeout = 0;
@@ -3947,6 +3910,10 @@ T5.View = function(params) {
     function invalidate() {
         repaint = true;
     } // invalidate
+    
+    function layerContextChanged(layer) {
+        layer.trigger("contextChanged", mainContext);
+    } // layerContextChanged
     
     /* object definition */
     
@@ -4062,7 +4029,7 @@ T5.View = function(params) {
         removeLayer: function(id) {
             var layerIndex = getLayerIndex(id);
             if ((layerIndex >= 0) && (layerIndex < layers.length)) {
-                GT.WaterCooler.say("layer.removed", { layer: layers[layerIndex] });
+                GT.say("layer.removed", { layer: layers[layerIndex] });
 
                 layers.splice(layerIndex, 1);
             } // if
@@ -4136,7 +4103,7 @@ T5.View = function(params) {
     };
 
     // listen for layer removals
-    GT.WaterCooler.listen("layer.remove", function(args) {
+    GT.listen("layer.remove", function(args) {
         if (args.id) {
             self.removeLayer(args.id);
         } // if
@@ -4714,7 +4681,7 @@ T5.AnimatedPathLayer = function(params) {
         }
     });
     
-    GT.WaterCooler.listen("imagecache.cleared", function(args) {
+    GT.listen("imagecache.cleared", function(args) {
         // reset all the tiles loaded state
         for (var ii = storage.length; ii--; ) {
             if (storage[ii]) {
@@ -4723,7 +4690,7 @@ T5.AnimatedPathLayer = function(params) {
         } // for
     });
     
-    GT.WaterCooler.listen("tiler.repaint", function(args) {
+    GT.listen("tiler.repaint", function(args) {
         for (var ii = storage.length; ii--; ) {
             if (storage[ii]) {
                 storage[ii].x = null;
@@ -4831,7 +4798,11 @@ T5.ImageTileGrid = function(params) {
         stateActive = T5.viewState('ACTIVE'),
         statePan = T5.viewState('PAN'),
         fastDraw = T5.getConfig().requireFastDraw,
-        tileSize = params.tileSize ? params.tileSize : T5.tileSize;
+        tileSize = params.tileSize ? params.tileSize : T5.tileSize,
+        
+        // some short cut functions
+        getImage = T5.Images.get,
+        loadImage = T5.Images.load;
         
     // initialise the tile draw args
     var tileDrawArgs = T5.ex({
@@ -4844,7 +4815,7 @@ T5.ImageTileGrid = function(params) {
     // initialise self
     var self = T5.ex(new T5.TileGrid(params), {
         drawTile: function(context, tile, x, y, state) {
-            var image = tile.url ? T5.Images.get(tile.url) : null,
+            var image = tile.url ? getImage(tile.url) : null,
                 drawn = false;
                 
             if (image) {
@@ -4869,9 +4840,9 @@ T5.ImageTileGrid = function(params) {
             } // if
             
             if (tile && ((! fastDraw) || (state === stateActive))) {
-                var image = T5.Images.get(tile.url);
+                var image = getImage(tile.url);
                 if (! image) {
-                    T5.Images.load(tile.url, handleImageLoad, tileDrawArgs);
+                    loadImage(tile.url, handleImageLoad, tileDrawArgs);
                 } // if
             } // if
         }
@@ -4922,7 +4893,7 @@ T5.Tiler = function(params) {
             self.setLayer("grid" + gridIndex, value);
             
             // update the tile load threshold
-            GT.WaterCooler.say("grid.updated", { id: "grid" + gridIndex });
+            GT.say("grid.updated", { id: "grid" + gridIndex });
         },
 
         viewPixToGridPix: function(vector) {
@@ -4951,7 +4922,7 @@ T5.Tiler = function(params) {
         
         repaint: function() {
             // flag to the tile store to reset the image positions
-            GT.WaterCooler.say("tiler.repaint");
+            GT.say("tiler.repaint");
             
             self.trigger("wake");
         },

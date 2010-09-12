@@ -133,7 +133,7 @@ T5.Geo.UI = (function() {
                 },
                 
                 getPixelDistance: function(distance) {
-                    var radians = T5.Geo.Utilities.dist2rad(distance);
+                    var radians = T5.Geo.dist2rad(distance);
                     return Math.floor(radians / params.radsPerPixel);
                 },
                 
@@ -334,10 +334,10 @@ T5.Geo.UI = (function() {
             });
             
             // listed for grid updates
-            GT.WaterCooler.listen('grid.updated', function(args) {
+            GT.listen('grid.updated', function(args) {
                 // tell all the spawned animations to remove themselves
                 for (var ii = spawnedAnimations.length; ii--; ) {
-                    GT.WaterCooler.say(
+                    GT.say(
                         'layer.remove', { id: spawnedAnimations[ii] });
                 } // for
                 
@@ -721,7 +721,7 @@ T5.Geo.UI = (function() {
                 }
             });
 
-            GT.WaterCooler.listen('geo.pois-updated', function(args) {
+            GT.listen('geo.pois-updated', function(args) {
                 // if the event source id matches our current 
                 // poi storage, then apply updates
                 if (params.pois && (params.pois.id == args.srcID)) {
@@ -731,7 +731,7 @@ T5.Geo.UI = (function() {
             });
             
             // list for grid updates
-            GT.WaterCooler.listen('grid.updated', function(args) {
+            GT.listen('grid.updated', function(args) {
                 updateAnnotationCoordinates(annotations);
                 updateAnnotationCoordinates(staticAnnotations);
                 self.wakeParent();

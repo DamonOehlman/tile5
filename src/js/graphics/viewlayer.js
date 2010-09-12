@@ -1,7 +1,6 @@
 T5.ViewLayer = function(params) {
     params = T5.ex({
         id: "",
-        created: T5.time(),
         zindex: 0,
         supportFastDraw: false,
         validStates: T5.viewState("ACTIVE", "ANIMATING", "PAN", "PINCH")
@@ -36,7 +35,7 @@ T5.ViewLayer = function(params) {
         animation layers that should only exist as long as an animation is active.
         */
         remove: function() {
-            GT.WaterCooler.say("layer.remove", { id: id });
+            GT.say("layer.remove", { id: id });
         },
         
         wakeParent: function() {

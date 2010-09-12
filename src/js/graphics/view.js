@@ -20,13 +20,10 @@ T5.View = function(params) {
         mainContext = null,
         offset = new T5.Vector(),
         clearBackground = false,
-        lastTickCount = null,
         frozen = false,
         deviceScaling = 1,
         dimensions = null,
-        centerPos = null,
         wakeTriggers = 0,
-        fpsLayer = null,
         endCenter = null,
         idle = false,
         panimating = false,
@@ -34,11 +31,8 @@ T5.View = function(params) {
         repaint = false,
         idleTimeout = 0,
         rescaleTimeout = 0,
-        bufferTime = 0,
         zoomCenter = null,
         tickCount = 0,
-        deviceFps = T5.getConfig().targetFps,
-        redrawInterval = 0,
         scaling = false,
         startRect = null,
         endRect = null,
@@ -56,6 +50,11 @@ T5.View = function(params) {
         statePinch = T5.viewState('PINCH'),
         
         state = stateActive;
+        
+    // some function references for speed
+    var vectorRect = T5.V.getRect,
+        dimensionsSize = T5.D.getSize,
+        rectCenter = T5.R.getCenter;
         
     /* panning functions */
     
@@ -87,16 +86,16 @@ T5.View = function(params) {
     } // resetZoom
     
     function checkTouches(start, end) {
-        startRect = T5.V.getRect(start);
-        endRect = T5.V.getRect(end);
+        startRect = vectorRect(start);
+        endRect = vectorRect(end);
 
         // get the sizes of the rects
-        var startSize = T5.D.getSize(startRect.dimensions),
-            endSize = T5.D.getSize(endRect.dimensions);
+        var startSize = dimensionsSize(startRect.dimensions),
+            endSize = dimensionsSize(endRect.dimensions);
 
         // update the zoom center
-        startCenter = T5.R.getCenter(startRect);
-        endCenter = T5.R.getCenter(endRect);
+        startCenter = rectCenter(startRect);
+        endCenter = rectCenter(endRect);
 
         // determine the ratio between the start rect and the end rect
         scaleFactor = (startRect && (startSize !== 0)) ? (endSize / startSize) : 1;
@@ -168,7 +167,7 @@ T5.View = function(params) {
     
     function attachToCanvas() {
         if (canvas) {
-            T5.Touch.resetTouch(canvas);
+            T5.resetTouch(canvas);
 
             // if we are autosizing the set the size
             if (params.autoSize) {
@@ -187,7 +186,7 @@ T5.View = function(params) {
             }
             
             // capture touch events
-            touchHelper = T5.Touch.capture(canvas, {
+            touchHelper = T5.captureTouch(canvas, {
                 observable: self
             });
             
@@ -198,7 +197,11 @@ T5.View = function(params) {
             
             // get the dimensions
             dimensions = self.getDimensions();
-            centerPos = T5.D.getCenter(dimensions);
+            
+            // iterate through the layers, and change the context
+            for (var ii = layers.length; ii--; ) {
+                layerContextChange(layers[ii]);
+            } // for
 
             // tell the view to redraw
             wake();
@@ -210,6 +213,8 @@ T5.View = function(params) {
         value.setId(id);
         value.added = T5.time();
         
+        layerContextChanged(value);
+        
         // tell the layer that I'm going to take care of it
         value.setParent(self);
         
@@ -220,7 +225,7 @@ T5.View = function(params) {
         layers.sort(function(itemA, itemB) {
             var result = itemB.zindex - itemA.zindex;
             if (result === 0) {
-                result = itemB.created - itemA.created;
+                result = itemB.added - itemA.added;
             } // if
             
             return result;
@@ -408,11 +413,6 @@ T5.View = function(params) {
         offset.x = Math.floor(offset.x);
         offset.y = Math.floor(offset.y);
         
-        // if we have an fps layer, then update the fps
-        if (fpsLayer && lastTickCount) {
-            fpsLayer.delays.push(tickCount - lastTickCount);
-        } // if
-            
         if (interacting) {
             T5.cancelAnimation(function(tweenInstance) {
                 return tweenInstance.cancelOnInteract;
@@ -431,13 +431,7 @@ T5.View = function(params) {
             changeCount += cycleChanges ? cycleChanges : 0;
         } // for
         
-        // draw the view
-        if (lastTickCount + redrawInterval < tickCount) {
-            changeCount += drawView(mainContext, offset);
-
-            // update the last tick count
-            lastTickCount = tickCount;
-        } // if
+        changeCount += drawView(mainContext, offset);
 
         // include wake triggers in the change count
         paintTimeout = 0;
@@ -464,6 +458,10 @@ T5.View = function(params) {
     function invalidate() {
         repaint = true;
     } // invalidate
+    
+    function layerContextChanged(layer) {
+        layer.trigger("contextChanged", mainContext);
+    } // layerContextChanged
     
     /* object definition */
     
@@ -579,7 +577,7 @@ T5.View = function(params) {
         removeLayer: function(id) {
             var layerIndex = getLayerIndex(id);
             if ((layerIndex >= 0) && (layerIndex < layers.length)) {
-                GT.WaterCooler.say("layer.removed", { layer: layers[layerIndex] });
+                GT.say("layer.removed", { layer: layers[layerIndex] });
 
                 layers.splice(layerIndex, 1);
             } // if
@@ -653,7 +651,7 @@ T5.View = function(params) {
     };
 
     // listen for layer removals
-    GT.WaterCooler.listen("layer.remove", function(args) {
+    GT.listen("layer.remove", function(args) {
         if (args.id) {
             self.removeLayer(args.id);
         } // if

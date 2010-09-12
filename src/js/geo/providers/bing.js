@@ -20,7 +20,7 @@ T5.Geo.Bing = (function() {
             var parent = new T5.Geo.MapProvider();
             
             function authenticate(callback) {
-                var serverUrl = String.format("http://dev.virtualearth.net/REST/V1/Imagery/Metadata/{0}?key={1}", params.style, params.apikey);
+                var serverUrl = GT.formatStr("http://dev.virtualearth.net/REST/V1/Imagery/Metadata/{0}?key={1}", params.style, params.apikey);
                 
                 GT.jsonp(serverUrl, function(data) {
                     // FIXME: very hacky...
@@ -124,7 +124,7 @@ T5.Geo.Bing = (function() {
                 function long2tile(lon,zoom) { return (Math.floor((lon+180)/360*Math.pow(2,zoom))); }
                 function lat2tile(lat,zoom)  { return (Math.floor((1-Math.log(Math.tan(lat*Math.PI/180) + 1/Math.cos(lat*Math.PI/180))/Math.PI)/2 *Math.pow(2,zoom))); }
                 
-                return new T5.Vector(long2tile(T5.Geo.Utilities.normalizeLon(position.lon), zoomLevel), lat2tile(position.lat, zoomLevel));
+                return new T5.Vector(long2tile(T5.Geo.normalizeLon(position.lon), zoomLevel), lat2tile(position.lat, zoomLevel));
             } // calculateTileOffset
             
             function calculatePositionFromTileOffset(x, y, zoomLevel) {

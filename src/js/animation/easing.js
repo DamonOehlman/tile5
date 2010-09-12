@@ -11,6 +11,17 @@ Functions follow the function format of fn(t, b, c, d, s) where:
 - d = duration
 */
 (function() {
+    // define some constants
+    var TWO_PI = Math.PI * 2,
+        HALF_PI = Math.PI / 2;
+        
+    // define some function references
+    var abs = Math.abs,
+        pow = Math.pow,
+        sin = Math.sin,
+        asin = Math.asin,
+        cos = Math.cos;
+    
     var s = 1.70158;
     
     function simpleTypeName(typeName) {
@@ -80,28 +91,28 @@ Functions follow the function format of fn(t, b, c, d, s) where:
             var s;
             
             if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*0.3;
-            if (!a || a < Math.abs(c)) { a=c; s=p/4; }
-            else s = p/(2*Math.PI) * Math.asin (c/a);
-            return -(a*Math.pow(2,10*(t-=1)) * Math.sin( (t*d-s)*(2*Math.PI)/p )) + b;
+            if (!a || a < abs(c)) { a=c; s=p/4; }
+            else s = p/TWO_PI * asin (c/a);
+            return -(a*pow(2,10*(t-=1)) * sin( (t*d-s)*TWO_PI/p )) + b;
         },
         
         elasticout: function(t, b, c, d, a, p) {
             var s;
             
             if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*0.3;
-            if (!a || a < Math.abs(c)) { a=c; s=p/4; }
-            else s = p/(2*Math.PI) * Math.asin (c/a);
-            return (a*Math.pow(2,-10*t) * Math.sin( (t*d-s)*(2*Math.PI)/p ) + c + b);
+            if (!a || a < abs(c)) { a=c; s=p/4; }
+            else s = p/TWO_PI * asin (c/a);
+            return (a*pow(2,-10*t) * sin( (t*d-s)*TWO_PI/p ) + c + b);
         },
         
         elasticinout: function(t, b, c, d, a, p) {
             var s;
             
             if (t==0) return b;  if ((t/=d/2)==2) return b+c;  if (!p) p=d*(0.3*1.5);
-            if (!a || a < Math.abs(c)) { a=c; s=p/4; }
-            else s = p/(2*Math.PI) * Math.asin (c/a);
-            if (t < 1) return -0.5*(a*Math.pow(2,10*(t-=1)) * Math.sin( (t*d-s)*(2*Math.PI)/p )) + b;
-            return a*Math.pow(2,-10*(t-=1)) * Math.sin( (t*d-s)*(2*Math.PI)/p )*0.5 + c + b;
+            if (!a || a < abs(c)) { a=c; s=p/4; }
+            else s = p/TWO_PI * asin (c/a);
+            if (t < 1) return -0.5*(a*pow(2,10*(t-=1)) * sin( (t*d-s)*TWO_PI/p )) + b;
+            return a*pow(2,-10*(t-=1)) * sin( (t*d-s)*TWO_PI/p )*0.5 + c + b;
         },
         
         /* quad easing */
@@ -122,15 +133,15 @@ Functions follow the function format of fn(t, b, c, d, s) where:
         /* sine easing */
         
         sinein: function(t, b, c, d) {
-            return -c * Math.cos(t/d * (Math.PI/2)) + c + b;
+            return -c * cos(t/d * HALF_PI) + c + b;
         },
         
         sineout: function(t, b, c, d) {
-            return c * Math.sin(t/d * (Math.PI/2)) + b;
+            return c * sin(t/d * HALF_PI) + b;
         },
         
         sineinout: function(t, b, c, d) {
-            return -c/2 * (Math.cos(Math.PI*t/d) - 1) + b;
+            return -c/2 * (cos(Math.PI*t/d) - 1) + b;
         }
     };
     

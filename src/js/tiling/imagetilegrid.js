@@ -69,7 +69,11 @@ T5.ImageTileGrid = function(params) {
         stateActive = T5.viewState('ACTIVE'),
         statePan = T5.viewState('PAN'),
         fastDraw = T5.getConfig().requireFastDraw,
-        tileSize = params.tileSize ? params.tileSize : T5.tileSize;
+        tileSize = params.tileSize ? params.tileSize : T5.tileSize,
+        
+        // some short cut functions
+        getImage = T5.Images.get,
+        loadImage = T5.Images.load;
         
     // initialise the tile draw args
     var tileDrawArgs = T5.ex({
@@ -82,7 +86,7 @@ T5.ImageTileGrid = function(params) {
     // initialise self
     var self = T5.ex(new T5.TileGrid(params), {
         drawTile: function(context, tile, x, y, state) {
-            var image = tile.url ? T5.Images.get(tile.url) : null,
+            var image = tile.url ? getImage(tile.url) : null,
                 drawn = false;
                 
             if (image) {
@@ -107,9 +111,9 @@ T5.ImageTileGrid = function(params) {
             } // if
             
             if (tile && ((! fastDraw) || (state === stateActive))) {
-                var image = T5.Images.get(tile.url);
+                var image = getImage(tile.url);
                 if (! image) {
-                    T5.Images.load(tile.url, handleImageLoad, tileDrawArgs);
+                    loadImage(tile.url, handleImageLoad, tileDrawArgs);
                 } // if
             } // if
         }

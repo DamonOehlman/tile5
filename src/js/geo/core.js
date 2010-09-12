@@ -19,7 +19,10 @@ T5.Geo = (function() {
     var M_PER_KM = 1000,
         KM_PER_RAD = 6371,
         DEGREES_TO_RADIANS = Math.PI / 180,
-        RADIANS_TO_DEGREES = 180 / Math.PI;
+        RADIANS_TO_DEGREES = 180 / Math.PI,
+        HALF_PI = Math.PI / 2,
+        TWO_PI = Math.PI * 2,
+        ECC = 0.08181919084262157;
     
     var ROADTYPE_REGEX = null,
         // TODO: I think these need to move to the provider level..
@@ -34,10 +37,452 @@ T5.Geo = (function() {
             MWY: "MOTORWAY"
         },
         DEFAULT_GENERALIZATION_DISTANCE = 250;
+        
+    /* define the geo simple types */
+    
+    var Radius = function(init_dist, init_uom) {
+        return {
+            distance: parseInt(init_dist, 10),
+            uom: init_uom
+        }; 
+    }; // Radius
+    
+    var Position = function(initLat, initLon) {
+        // initialise self
+        return {
+            lat: parseFloat(initLat ? initLat : 0),
+            lon: parseFloat(initLon ? initLon : 0)
+        };
+    }; // Position
+    
+    var BoundingBox = function(initMin, initMax) {
+        return {
+            min: posTools.parse(initMin),
+            max: posTools.parse(initMax)
+        };
+    }; // BoundingBox
+    
+    /* address types */
+    
+    var Address = function(params) {
+        params = T5.ex({
+            streetDetails: "",
+            location: "",
+            country: "",
+            postalCode: "",
+            pos: null,
+            boundingBox: null
+        }, params);
+        
+        return params;
+    }; // Address
+    
+    /* define the position tools */
+    
+    var posTools = (function() {
+        var subModule = {
+            calcDistance: function(pos1, pos2) {
+                if (subModule.empty(pos1) || subModule.empty(pos2)) {
+                    return 0;
+                } // if
+                
+                var halfdelta_lat = toRad(pos2.lat - pos1.lat) / 2;
+                var halfdelta_lon = toRad(pos2.lon - pos1.lon) / 2;
+
+                // TODO: find out what a stands for, I don't like single char variables in code (same goes for c)
+                var a = (Math.sin(halfdelta_lat) * Math.sin(halfdelta_lat)) + 
+                        (Math.cos(toRad(pos1.lat)) * Math.cos(toRad(pos2.lat))) * 
+                        (Math.sin(halfdelta_lon) * Math.sin(halfdelta_lon));
+
+                // calculate c (whatever c is)
+                var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+                // calculate the distance
+                return KM_PER_RAD * c;
+            },
+            
+            copy: function(src) {
+                return src ? new Position(src.lat, src.lon) : null;
+            },
+
+            empty: function(pos) {
+                return (! pos) || ((pos.lat === 0) && (pos.lon === 0));
+            },
+            
+            equal: function(pos1, pos2) {
+                return pos1 && pos2 && (pos1.lat == pos2.lat) && (pos1.lon == pos2.lon);
+            },
+            
+            almostEqual: function(pos1, pos2) {
+                var multiplier = 1000;
+                
+                return pos1 && pos2 && 
+                    (Math.floor(pos1.lat * multiplier) === Math.floor(pos2.lat * multiplier)) &&
+                    (Math.floor(pos1.lon * multiplier) === Math.floor(pos2.lon * multiplier));
+            },
+            
+            inArray: function(pos, testArray) {
+                var arrayLen = testArray.length,
+                    testFn = posTools.equal;
+                    
+                for (var ii = arrayLen; ii--; ) {
+                    if (testFn(pos, testArray[ii])) {
+                        return true;
+                    } // if
+                } // for
+                
+                return false;
+            },
+            
+            inBounds: function(pos, bounds) {
+                // initialise variables
+                var fnresult = ! (posTools.empty(pos) || posTools.empty(bounds));
+
+                // check the pos latitude
+                fnresult = fnresult && (pos.lat >= bounds.min.lat) && (pos.lat <= bounds.max.lat);
+
+                // check the pos longitude
+                fnresult = fnresult && (pos.lon >= bounds.min.lon) && (pos.lon <= bounds.max.lon);
+
+                return fnresult;
+            },
+            
+            parse: function(pos) {
+                // first case, null value, create a new empty position
+                if (! pos) {
+                    return new Position();
+                }
+                else if (typeof(pos.lat) !== 'undefined') {
+                    return subModule.copy(pos);
+                }
+                // now attempt the various different types of splits
+                else if (pos.split) {
+                    var sepChars = [' ', ','];
+                    for (var ii = 0; ii < sepChars.length; ii++) {
+                        var coords = pos.split(sepChars[ii]);
+                        if (coords.length === 2) {
+                            return new Position(coords[0], coords[1]);
+                        } // if
+                    } // for
+                } // if..else
+
+                return null;
+            },
+            
+            parseArray: function(sourceData) {
+                var sourceLen = sourceData.length,
+                    positions = new Array(sourceLen);
+
+                for (var ii = sourceLen; ii--; ) {
+                    positions[ii] = subModule.parse(sourceData[ii]);
+                } // for
+
+                GT.Log.info("parsed " + positions.length + " positions");
+                return positions;
+            },
+            
+            fromMercatorPixels: function(x, y, radsPerPixel) {
+                // return the new position
+                return new Position(
+                    T5.Geo.pix2lat(y, radsPerPixel),
+                    T5.Geo.normalizeLon(T5.Geo.pix2lon(x, radsPerPixel))
+                );
+            },
+
+            toMercatorPixels: function(pos, radsPerPixel) {
+                return new T5.Vector(T5.Geo.lon2pix(pos.lon, radsPerPixel), T5.Geo.lat2pix(pos.lat, radsPerPixel));
+            },
+            
+            generalize: function(sourceData, requiredPositions, minDist) {
+                var sourceLen = sourceData.length,
+                    positions = [],
+                    lastPosition = null;
+
+                if (! minDist) {
+                    minDist = DEFAULT_GENERALIZATION_DISTANCE;
+                } // if
+
+                // convert min distance to km
+                minDist = minDist / 1000;
+
+                GT.Log.info("generalizing positions, must include " + requiredPositions.length + " positions");
+
+                // iterate thorugh the source data and add positions the differ by the required amount to 
+                // the result positions
+                for (var ii = sourceLen; ii--; ) {
+                    if (ii === 0) {
+                        positions.unshift(sourceData[ii]);
+                    }
+                    else {
+                        var include = (! lastPosition) || posTools.inArray(sourceData[ii], requiredPositions),
+                            posDiff = include ? minDist : posTools.calcDistance(lastPosition, sourceData[ii]);
+
+                        // if the position difference is suitable then include
+                        if (sourceData[ii] && (posDiff >= minDist)) {
+                            positions.unshift(sourceData[ii]);
+
+                            // update the last position
+                            lastPosition = sourceData[ii];
+                        } // if
+                    } // if..else
+                } // for
+
+                GT.Log.info("generalized " + sourceLen + " positions into " + positions.length + " positions");
+                return positions;
+            },                
+
+            toString: function(pos) {
+                return pos ? pos.lat + " " + pos.lon : "";
+            }
+        };
+        
+        return subModule;
+    })();
+    
+    /* define the bounding box tools */
+    
+    var boundsTools = (function() {
+        var MIN_LAT = -HALF_PI,
+            MAX_LAT = HALF_PI,
+            MIN_LON = -TWO_PI,
+            MAX_LON = TWO_PI;
+        
+        var subModule = {
+            calcSize: function(min, max, normalize) {
+                var size = new T5.Vector(0, max.lat - min.lat);
+                if (typeof normalize === 'undefined') {
+                    normalize = true;
+                } // if
+
+                if (normalize && (min.lon > max.lon)) {
+                    size.x = 360 - min.lon + max.lon;
+                }
+                else {
+                    size.x = max.lon - min.lon;
+                } // if..else
+
+                return size;
+            },
+
+            // adapted from: http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates
+            createBoundsFromCenter: function(centerPos, distance) {
+                var radDist = distance / KM_PER_RAD,
+                    radLat = centerPos.lat * DEGREES_TO_RADIANS,
+                    radLon = centerPos.lon * DEGREES_TO_RADIANS,
+                    minLat = radLat - radDist,
+                    maxLat = radLat + radDist,
+                    minLon, maxLon;
+                    
+                // GT.Log.info("rad distance = " + radDist);
+                // GT.Log.info("rad lat = " + radLat + ", lon = " + radLon);
+                // GT.Log.info("min lat = " + minLat + ", max lat = " + maxLat);
+                    
+                if ((minLat > MIN_LAT) && (maxLat < MAX_LAT)) {
+                    var deltaLon = Math.asin(Math.sin(radDist) / Math.cos(radLat));
+                    
+                    // determine the min longitude
+                    minLon = radLon - deltaLon;
+                    if (minLon < MIN_LON) {
+                        minLon += 2 * Math.PI;
+                    } // if
+                    
+                    // determine the max longitude
+                    maxLon = radLon + deltaLon;
+                    if (maxLon > MAX_LON) {
+                        maxLon -= 2 * Math.PI;
+                    } // if
+                }
+                else {
+                    minLat = Math.max(minLat, MIN_LAT);
+                    maxLat = Math.min(maxLat, MAX_LAT);
+                    minLon = MIN_LON;
+                    maxLon = MAX_LON;
+                } // if..else
+                
+                return new BoundingBox(
+                    new Position(minLat * RADIANS_TO_DEGREES, minLon * RADIANS_TO_DEGREES), 
+                    new Position(maxLat * RADIANS_TO_DEGREES, maxLon * RADIANS_TO_DEGREES));
+            },
+            
+            expand: function(bounds, amount) {
+                return new BoundingBox(
+                    new Position(bounds.min.lat - amount, bounds.min.lon - module.normalizeLon(amount)),
+                    new Position(bounds.max.lat + amount, bounds.max.lon + module.normalizeLon(amount)));
+            },
+            
+            forPositions: function(positions, padding) {
+                var bounds = null,
+                    startTicks = T5.time();
+
+                // if padding is not specified, then set to auto
+                if (! padding) {
+                    padding = "auto";
+                } // if
+
+                for (var ii = positions.length; ii--; ) {
+                    if (! bounds) {
+                        bounds = new T5.Geo.BoundingBox(positions[ii], positions[ii]);
+                    }
+                    else {
+                        var minDiff = subModule.calcSize(bounds.min, positions[ii], false),
+                            maxDiff = subModule.calcSize(positions[ii], bounds.max, false);
+
+                        if (minDiff.x < 0) { bounds.min.lon = positions[ii].lon; }
+                        if (minDiff.y < 0) { bounds.min.lat = positions[ii].lat; }
+                        if (maxDiff.x < 0) { bounds.max.lon = positions[ii].lon; }
+                        if (maxDiff.y < 0) { bounds.max.lat = positions[ii].lat; }
+                    } // if..else
+                } // for
+
+                // expand the bounds to give us some padding
+                if (padding) {
+                    if (padding == "auto") {
+                        var size = subModule.calcSize(bounds.min, bounds.max);
+
+                        // update padding to be a third of the max size
+                        padding = Math.max(size.x, size.y) * 0.3;
+                    } // if
+
+                    bounds = subModule.expand(bounds, padding);
+                } // if
+
+                GT.Log.trace("calculated bounds for " + positions.length + " positions", startTicks);
+                return bounds;
+            },
+            
+            getCenter: function(bounds) {
+                // calculate the bounds size
+                var size = boundsTools.calcSize(bounds.min, bounds.max);
+                
+                // create a new position offset from the current min
+                return new T5.Geo.Position(bounds.min.lat + (size.y / 2), bounds.min.lon + (size.x / 2));
+            },
+            
+            getGeoHash: function(bounds) {
+                var minHash = T5.Geo.GeoHash.encode(bounds.min.lat, bounds.min.lon),
+                    maxHash = T5.Geo.GeoHash.encode(bounds.max.lat, bounds.max.lon);
+                    
+                GT.Log.info("min hash = " + minHash + ", max hash = " + maxHash);
+            },
+
+            /** 
+            Function adapted from the following code:
+            http://groups.google.com/group/google-maps-js-api-v3/browse_thread/thread/43958790eafe037f/66e889029c555bee
+            */
+            getZoomLevel: function(bounds, displaySize) {
+                // get the constant index for the center of the bounds
+                var boundsCenter = subModule.getCenter(bounds),
+                    maxZoom = 1000,
+                    variabilityIndex = Math.min(Math.round(Math.abs(boundsCenter.lat) * 0.05), LAT_VARIABILITIES.length),
+                    variability = LAT_VARIABILITIES[variabilityIndex],
+                    delta = subModule.calcSize(bounds.min, bounds.max),
+                    // interestingly, the original article had the variability included, when in actual reality it isn't, 
+                    // however a constant value is required. must find out exactly what it is.  At present, though this
+                    // works fine.
+                    bestZoomH = Math.ceil(Math.log(LAT_VARIABILITIES[3] * displaySize.height / delta.y) / Math.log(2)),
+                    bestZoomW = Math.ceil(Math.log(variability * displaySize.width / delta.x) / Math.log(2));
+
+                // GT.Log.info("constant index for bbox: " + bounds + " (center = " + boundsCenter + ") is " + variabilityIndex);
+                // GT.Log.info("distances  = " + delta);
+                // GT.Log.info("optimal zoom levels: height = " + bestZoomH + ", width = " + bestZoomW);
+
+                // return the lower of the two zoom levels
+                return Math.min(isNaN(bestZoomH) ? maxZoom : bestZoomH, isNaN(bestZoomW) ? maxZoom : bestZoomW);
+            },
+
+            isEmpty: function(bounds) {
+                return (! bounds) || posTools.empty(bounds.min) || posTools.empty(bounds.max);
+            },
+            
+            toString: function(bounds) {
+                return "min: " + posTools.toString(bounds.min) + ", max: " + posTools.toString(bounds.max);
+            }
+        };
+        
+        return subModule;
+    })();
+    
+    /* define the address tools */
+    
+    var addrTools = (function() {
+        var REGEX_BUILDINGNO = /^(\d+).*$/,
+            REGEX_NUMBERRANGE = /(\d+)\s?\-\s?(\d+)/;
+        
+        var subModule = {
+            buildingMatch: function(freeform, numberRange, name) {
+                // from the freeform address extract the building number
+                REGEX_BUILDINGNO.lastIndex = -1;
+                if (REGEX_BUILDINGNO.test(freeform)) {
+                    var buildingNo = freeform.replace(REGEX_BUILDINGNO, "$1");
+
+                    // split up the number range
+                    var numberRanges = numberRange.split(",");
+                    for (var ii = 0; ii < numberRanges.length; ii++) {
+                        REGEX_NUMBERRANGE.lastIndex = -1;
+                        if (REGEX_NUMBERRANGE.test(numberRanges[ii])) {
+                            var matches = REGEX_NUMBERRANGE.exec(numberRanges[ii]);
+                            if ((buildingNo >= parseInt(matches[1], 10)) && (buildingNo <= parseInt(matches[2], 10))) {
+                                return true;
+                            } // if
+                        }
+                        else if (buildingNo == numberRanges[ii]) {
+                            return true;
+                        } // if..else
+                    } // for
+                } // if
+
+                return false;
+            },
+            
+            /**
+            The normalizeAddress function is used to take an address that could be in a variety of formats
+            and normalize as many details as possible.  Text is uppercased, road types are replaced, etc.
+            */
+            normalize: function(addressText) {
+                if (! addressText) { return ""; }
+
+                addressText = addressText.toUpperCase();
+
+                // if the road type regular expression has not been initialised, then do that now
+                if (! ROADTYPE_REGEX) {
+                    var abbreviations = [];
+                    for (var roadTypes in ROADTYPE_REPLACEMENTS) {
+                        abbreviations.push(roadTypes);
+                    } // for
+
+                    ROADTYPE_REGEX = new RegExp("(\\s)(" + abbreviations.join("|") + ")(\\s|$)", "i");
+                } // if
+
+                // run the road type normalizations
+                ROADTYPE_REGEX.lastIndex = -1;
+
+                // get the matches for the regex
+                var matches = ROADTYPE_REGEX.exec(addressText);
+                if (matches) {
+                    // get the replacement road type
+                    var normalizedRoadType = ROADTYPE_REPLACEMENTS[matches[2]];
+                    addressText = addressText.replace(ROADTYPE_REGEX, "$1" + normalizedRoadType);
+                } // if
+
+                return addressText;
+            },
+            
+            toString: function(address) {
+                return address.streetDetails + " " + address.location;
+            }
+        };
+        
+        return subModule;
+    })(); // addrTools
+
+    /* define the distance tools */
+    
     
     
     // define the engines array
     var engines = {};
+    
+    /* private internal functions */
     
     function findEngine(capability, preference) {
         var matchingEngine = null;
@@ -58,6 +503,16 @@ T5.Geo = (function() {
 
         return matchingEngine;
     } // findEngine
+    
+    function findRadPhi(phi, t) {
+        var eSinPhi = ECC * Math.sin(phi);
+
+        return HALF_PI - (2 * Math.atan (t * Math.pow((1 - eSinPhi) / (1 + eSinPhi), ECC / 2)));
+    } // findRadPhi
+    
+    function mercatorUnproject(t) {
+        return HALF_PI - 2 * Math.atan(t);
+    } // mercatorUnproject
     
     /**
     This function is used to determine the match weight between a freeform geocoding
@@ -80,7 +535,7 @@ T5.Geo = (function() {
             if (fieldVal) {
                 // get the field comparison function
                 var compareFn = compareFns[fieldId],
-                    matchStrength = compareFn ? compareFn(request, fieldVal) : (request.containsWord(fieldVal) ? 1 : 0);
+                    matchStrength = compareFn ? compareFn(request, fieldVal) : (GT.wordExists(request, fieldVal) ? 1 : 0);
 
                 // increment the match weight
                 matchWeight += (matchStrength * fieldWeights[fieldId]);
@@ -89,7 +544,11 @@ T5.Geo = (function() {
         
         return matchWeight;
     } // plainTextAddressMatch
-   
+    
+    function toRad(value) {
+        return value * DEGREES_TO_RADIANS;
+    } // toRad
+    
     // define the module
     var module = {
         /* geo engine class */
@@ -115,45 +574,15 @@ T5.Geo = (function() {
         
         /* geo type definitions */
         
-        Radius: function(init_dist, init_uom) {
-            return {
-                distance: parseInt(init_dist, 10),
-                uom: init_uom
-            }; 
-        }, // Radius
-        
-        Position: function(initLat, initLon) {
-            // initialise self
-            return {
-                lat: parseFloat(initLat ? initLat : 0),
-                lon: parseFloat(initLon ? initLon : 0)
-            };
-        }, // Position
-        
-        BoundingBox: function(initMin, initMax) {
-            return {
-                min: module.P.parse(initMin),
-                max: module.P.parse(initMax)
-            };
-        }, // BoundingBox
+        Radius: Radius,
+        Position: Position,
+        BoundingBox: BoundingBox,
         
         /* addressing and geocoding support */
         
         // TODO: probably need to include local support for addressing, but really don't want to bulk out T5 :/
         
-        Address: function(params) {
-            params = T5.ex({
-                streetDetails: "",
-                location: "",
-                country: "",
-                postalCode: "",
-                pos: null,
-                boundingBox: null
-            }, params);
-            
-            return params;
-        },
-        
+        Address: Address,
         GeocodeFieldWeights: {
             streetDetails: 50,
             location: 50
@@ -161,85 +590,6 @@ T5.Geo = (function() {
         
         AddressCompareFns: {
         },
-        
-        /* utilities */
-        
-        
-        /*
-        Module:  T5.Geo.Utilities
-        This module contains GIS utility functions that apply across different mapping platforms.  Credit 
-        goes to the awesome team at decarta for providing information on many of the following functions through
-        their forums here (http://devzone.decarta.com/web/guest/forums?p_p_id=19&p_p_action=0&p_p_state=maximized&p_p_mode=view&_19_struts_action=/message_boards/view_message&_19_messageId=43131)
-        */
-        Utilities: (function() {
-            // define some constants
-            var ECC = 0.08181919084262157;
-
-            var self = {
-                dist2rad: function(distance) {
-                    return distance / KM_PER_RAD;
-                },
-                
-                lat2pix: function(lat, scale) {
-                    var radLat = (parseFloat(lat)*(2*Math.PI))/360;
-                    var sinPhi = Math.sin(radLat);
-                    var eSinPhi = ECC * sinPhi;
-                    var retVal = Math.log(((1.0 + sinPhi) / (1.0 - sinPhi)) * Math.pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
-
-                    return (retVal / scale);
-                },
-
-                lon2pix: function(lon, scale) {
-                    return ((parseFloat(lon)/180)*Math.PI) / scale;
-                },
-
-                pix2lon: function(x, scale) {
-                    return self.normalizeLon((x * scale)*180/Math.PI);
-                },
-
-                pix2lat: function(y, scale) {
-                    var phiEpsilon = 1E-7;
-                    var phiMaxIter = 12;
-                    var t = Math.pow(Math.E, -y * scale);
-                    var prevPhi = self.mercatorUnproject(t);
-                    var newPhi = self.findRadPhi(prevPhi, t);
-                    var iterCount = 0;
-
-                    while (iterCount < phiMaxIter && Math.abs(prevPhi - newPhi) > phiEpsilon) {
-                        prevPhi = newPhi;
-                        newPhi = self.findRadPhi(prevPhi, t);
-                        iterCount++;
-                    } // while
-
-                    return newPhi*180/Math.PI;
-                },
-
-                mercatorUnproject: function(t) {
-                    return (Math.PI / 2) - 2 * Math.atan(t);
-                },
-
-                findRadPhi: function(phi, t) {
-                    var eSinPhi = ECC * Math.sin(phi);
-
-                    return (Math.PI / 2) - (2 * Math.atan (t * Math.pow((1 - eSinPhi) / (1 + eSinPhi), ECC / 2)));
-                },
-                
-                normalizeLon: function(lon) {
-                    // return lon;
-                    while (lon < -180) {
-                        lon += 360;
-                    } // while
-                    
-                    while (lon > 180) {
-                        lon -= 360;
-                    } // while
-                    
-                    return lon;
-                }
-            }; // self
-
-            return self;
-        })(), // Utilitities
         
         GeoSearchResult: function(params) {
             params = T5.ex({
@@ -285,7 +635,7 @@ T5.Geo = (function() {
                     try {
                         // check for a freeform request
                         if ((! searchParams.reverse) && (! searchParams.freeform)) {
-                            address = new module.Address(searchParams);
+                            address = new Address(searchParams);
                         } // if
                         
                         // get the geocoding engine
@@ -406,7 +756,7 @@ T5.Geo = (function() {
             } // poiGrabber
             
             function triggerUpdate() {
-                GT.WaterCooler.say("geo.pois-updated", {
+                GT.say("geo.pois-updated", {
                     srcID: self.id,
                     pois: self.getPOIs()
                 });
@@ -508,7 +858,7 @@ T5.Geo = (function() {
 
                     // add new pois to the poi layer
                     self.addPOIs(newPOIs);
-                    // GT.Log.info(String.format("POI-UPDATE: {0} new, {1} deleted", newPOIs.length, deletedPOIs.length));
+                    // GT.Log.info(GT.formatStr("POI-UPDATE: {0} new, {1} deleted", newPOIs.length, deletedPOIs.length));
 
                     // fire the on poi added event when appropriate
                     for (ii = 0; params.onPOIAdded && (ii < newPOIs.length); ii++) {
@@ -573,401 +923,6 @@ T5.Geo = (function() {
             return self;
         }, // MapProvider
         
-        /* Position utility functions */
-        P: (function() {
-            var subModule = {
-                calcDistance: function(pos1, pos2) {
-                    if (subModule.empty(pos1) || subModule.empty(pos2)) {
-                        return 0;
-                    } // if
-                    
-                    var halfdelta_lat = (pos2.lat - pos1.lat).toRad() / 2;
-                    var halfdelta_lon = (pos2.lon - pos1.lon).toRad() / 2;
-
-                    // TODO: find out what a stands for, I don't like single char variables in code (same goes for c)
-                    var a = (Math.sin(halfdelta_lat) * Math.sin(halfdelta_lat)) + 
-                            (Math.cos(pos1.lat.toRad()) * Math.cos(pos2.lat.toRad())) * 
-                            (Math.sin(halfdelta_lon) * Math.sin(halfdelta_lon));
-
-                    // calculate c (whatever c is)
-                    var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-                    // calculate the distance
-                    return KM_PER_RAD * c;
-                },
-                
-                copy: function(src) {
-                    return src ? new module.Position(src.lat, src.lon) : null;
-                },
-
-                empty: function(pos) {
-                    return (! pos) || ((pos.lat === 0) && (pos.lon === 0));
-                },
-                
-                equal: function(pos1, pos2) {
-                    return pos1 && pos2 && (pos1.lat == pos2.lat) && (pos1.lon == pos2.lon);
-                },
-                
-                almostEqual: function(pos1, pos2) {
-                    var multiplier = 1000;
-                    
-                    return pos1 && pos2 && 
-                        (Math.floor(pos1.lat * multiplier) === Math.floor(pos2.lat * multiplier)) &&
-                        (Math.floor(pos1.lon * multiplier) === Math.floor(pos2.lon * multiplier));
-                },
-                
-                inArray: function(pos, testArray) {
-                    var arrayLen = testArray.length,
-                        testFn = module.P.equal;
-                        
-                    for (var ii = arrayLen; ii--; ) {
-                        if (testFn(pos, testArray[ii])) {
-                            return true;
-                        } // if
-                    } // for
-                    
-                    return false;
-                },
-                
-                inBounds: function(pos, bounds) {
-                    // initialise variables
-                    var fnresult = ! (module.P.empty(pos) || module.P.empty(bounds));
-
-                    // check the pos latitude
-                    fnresult = fnresult && (pos.lat >= bounds.min.lat) && (pos.lat <= bounds.max.lat);
-
-                    // check the pos longitude
-                    fnresult = fnresult && (pos.lon >= bounds.min.lon) && (pos.lon <= bounds.max.lon);
-
-                    return fnresult;
-                },
-                
-                parse: function(pos) {
-                    // first case, null value, create a new empty position
-                    if (! pos) {
-                        return new module.Position();
-                    }
-                    else if (typeof(pos.lat) !== 'undefined') {
-                        return subModule.copy(pos);
-                    }
-                    // now attempt the various different types of splits
-                    else if (pos.split) {
-                        var sepChars = [' ', ','];
-                        for (var ii = 0; ii < sepChars.length; ii++) {
-                            var coords = pos.split(sepChars[ii]);
-                            if (coords.length === 2) {
-                                return new module.Position(coords[0], coords[1]);
-                            } // if
-                        } // for
-                    } // if..else
-
-                    return null;
-                },
-                
-                parseArray: function(sourceData) {
-                    var sourceLen = sourceData.length,
-                        positions = new Array(sourceLen);
-
-                    for (var ii = sourceLen; ii--; ) {
-                        positions[ii] = subModule.parse(sourceData[ii]);
-                    } // for
-
-                    GT.Log.info("parsed " + positions.length + " positions");
-                    return positions;
-                },
-                
-                fromMercatorPixels: function(x, y, radsPerPixel) {
-                    // return the new position
-                    return new module.Position(
-                        T5.Geo.Utilities.pix2lat(y, radsPerPixel),
-                        T5.Geo.Utilities.normalizeLon(T5.Geo.Utilities.pix2lon(x, radsPerPixel))
-                    );
-                },
-
-                toMercatorPixels: function(pos, radsPerPixel) {
-                    return new T5.Vector(T5.Geo.Utilities.lon2pix(pos.lon, radsPerPixel), T5.Geo.Utilities.lat2pix(pos.lat, radsPerPixel));
-                },
-                
-                generalize: function(sourceData, requiredPositions, minDist) {
-                    var sourceLen = sourceData.length,
-                        positions = [],
-                        lastPosition = null;
-
-                    if (! minDist) {
-                        minDist = DEFAULT_GENERALIZATION_DISTANCE;
-                    } // if
-
-                    // convert min distance to km
-                    minDist = minDist / 1000;
-
-                    GT.Log.info("generalizing positions, must include " + requiredPositions.length + " positions");
-
-                    // iterate thorugh the source data and add positions the differ by the required amount to 
-                    // the result positions
-                    for (var ii = sourceLen; ii--; ) {
-                        if (ii === 0) {
-                            positions.unshift(sourceData[ii]);
-                        }
-                        else {
-                            var include = (! lastPosition) || module.P.inArray(sourceData[ii], requiredPositions),
-                                posDiff = include ? minDist : module.P.calcDistance(lastPosition, sourceData[ii]);
-
-                            // if the position difference is suitable then include
-                            if (sourceData[ii] && (posDiff >= minDist)) {
-                                positions.unshift(sourceData[ii]);
-
-                                // update the last position
-                                lastPosition = sourceData[ii];
-                            } // if
-                        } // if..else
-                    } // for
-
-                    GT.Log.info("generalized " + sourceLen + " positions into " + positions.length + " positions");
-                    return positions;
-                },                
-
-                toString: function(pos) {
-                    return pos ? pos.lat + " " + pos.lon : "";
-                }
-            };
-            
-            return subModule;
-        })(),
-        
-        /* BoundingBox utility functions */
-        B: (function() {
-            var MIN_LAT = -(Math.PI / 2),
-                MAX_LAT = Math.PI / 2,
-                MIN_LON = -Math.PI * 2,
-                MAX_LON = Math.PI * 2;
-            
-            var subModule = {
-                calcSize: function(min, max, normalize) {
-                    var size = new T5.Vector(0, max.lat - min.lat);
-                    if (typeof normalize === 'undefined') {
-                        normalize = true;
-                    } // if
-
-                    if (normalize && (min.lon > max.lon)) {
-                        size.x = 360 - min.lon + max.lon;
-                    }
-                    else {
-                        size.x = max.lon - min.lon;
-                    } // if..else
-
-                    return size;
-                },
-
-                // adapted from: http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates
-                createBoundsFromCenter: function(centerPos, distance) {
-                    var radDist = distance / KM_PER_RAD,
-                        radLat = centerPos.lat * DEGREES_TO_RADIANS,
-                        radLon = centerPos.lon * DEGREES_TO_RADIANS,
-                        minLat = radLat - radDist,
-                        maxLat = radLat + radDist,
-                        minLon, maxLon;
-                        
-                    // GT.Log.info("rad distance = " + radDist);
-                    // GT.Log.info("rad lat = " + radLat + ", lon = " + radLon);
-                    // GT.Log.info("min lat = " + minLat + ", max lat = " + maxLat);
-                        
-                    if ((minLat > MIN_LAT) && (maxLat < MAX_LAT)) {
-                        var deltaLon = Math.asin(Math.sin(radDist) / Math.cos(radLat));
-                        
-                        // determine the min longitude
-                        minLon = radLon - deltaLon;
-                        if (minLon < MIN_LON) {
-                            minLon += 2 * Math.PI;
-                        } // if
-                        
-                        // determine the max longitude
-                        maxLon = radLon + deltaLon;
-                        if (maxLon > MAX_LON) {
-                            maxLon -= 2 * Math.PI;
-                        } // if
-                    }
-                    else {
-                        minLat = Math.max(minLat, MIN_LAT);
-                        maxLat = Math.min(maxLat, MAX_LAT);
-                        minLon = MIN_LON;
-                        maxLon = MAX_LON;
-                    } // if..else
-                    
-                    return new module.BoundingBox(
-                                    new module.Position(minLat * RADIANS_TO_DEGREES, minLon * RADIANS_TO_DEGREES), 
-                                    new module.Position(maxLat * RADIANS_TO_DEGREES, maxLon * RADIANS_TO_DEGREES));
-                },
-                
-                expand: function(bounds, amount) {
-                    return new module.BoundingBox(
-                        new module.Position(bounds.min.lat - amount, bounds.min.lon - module.Utilities.normalizeLon(amount)),
-                        new module.Position(bounds.max.lat + amount, bounds.max.lon + module.Utilities.normalizeLon(amount)));
-                },
-                
-                forPositions: function(positions, padding) {
-                    var bounds = null,
-                        startTicks = T5.time();
-
-                    // if padding is not specified, then set to auto
-                    if (! padding) {
-                        padding = "auto";
-                    } // if
-
-                    for (var ii = positions.length; ii--; ) {
-                        if (! bounds) {
-                            bounds = new T5.Geo.BoundingBox(positions[ii], positions[ii]);
-                        }
-                        else {
-                            var minDiff = subModule.calcSize(bounds.min, positions[ii], false),
-                                maxDiff = subModule.calcSize(positions[ii], bounds.max, false);
-
-                            if (minDiff.x < 0) { bounds.min.lon = positions[ii].lon; }
-                            if (minDiff.y < 0) { bounds.min.lat = positions[ii].lat; }
-                            if (maxDiff.x < 0) { bounds.max.lon = positions[ii].lon; }
-                            if (maxDiff.y < 0) { bounds.max.lat = positions[ii].lat; }
-                        } // if..else
-                    } // for
-
-                    // expand the bounds to give us some padding
-                    if (padding) {
-                        if (padding == "auto") {
-                            var size = subModule.calcSize(bounds.min, bounds.max);
-
-                            // update padding to be a third of the max size
-                            padding = Math.max(size.x, size.y) * 0.3;
-                        } // if
-
-                        bounds = subModule.expand(bounds, padding);
-                    } // if
-
-                    GT.Log.trace("calculated bounds for " + positions.length + " positions", startTicks);
-                    return bounds;
-                },
-                
-                getCenter: function(bounds) {
-                    // calculate the bounds size
-                    var size = module.B.calcSize(bounds.min, bounds.max);
-                    
-                    // create a new position offset from the current min
-                    return new T5.Geo.Position(bounds.min.lat + (size.y / 2), bounds.min.lon + (size.x / 2));
-                },
-                
-                getGeoHash: function(bounds) {
-                    var minHash = T5.Geo.GeoHash.encode(bounds.min.lat, bounds.min.lon),
-                        maxHash = T5.Geo.GeoHash.encode(bounds.max.lat, bounds.max.lon);
-                        
-                    GT.Log.info("min hash = " + minHash + ", max hash = " + maxHash);
-                },
-
-                /** 
-                Function adapted from the following code:
-                http://groups.google.com/group/google-maps-js-api-v3/browse_thread/thread/43958790eafe037f/66e889029c555bee
-                */
-                getZoomLevel: function(bounds, displaySize) {
-                    // get the constant index for the center of the bounds
-                    var boundsCenter = subModule.getCenter(bounds),
-                        maxZoom = 1000,
-                        variabilityIndex = Math.min(Math.round(Math.abs(boundsCenter.lat) * 0.05), LAT_VARIABILITIES.length),
-                        variability = LAT_VARIABILITIES[variabilityIndex],
-                        delta = subModule.calcSize(bounds.min, bounds.max),
-                        // interestingly, the original article had the variability included, when in actual reality it isn't, 
-                        // however a constant value is required. must find out exactly what it is.  At present, though this
-                        // works fine.
-                        bestZoomH = Math.ceil(Math.log(LAT_VARIABILITIES[3] * displaySize.height / delta.y) / Math.log(2)),
-                        bestZoomW = Math.ceil(Math.log(variability * displaySize.width / delta.x) / Math.log(2));
-
-                    // GT.Log.info("constant index for bbox: " + bounds + " (center = " + boundsCenter + ") is " + variabilityIndex);
-                    // GT.Log.info("distances  = " + delta);
-                    // GT.Log.info("optimal zoom levels: height = " + bestZoomH + ", width = " + bestZoomW);
-
-                    // return the lower of the two zoom levels
-                    return Math.min(isNaN(bestZoomH) ? maxZoom : bestZoomH, isNaN(bestZoomW) ? maxZoom : bestZoomW);
-                },
-
-                isEmpty: function(bounds) {
-                    return (! bounds) || module.P.empty(bounds.min) || module.P.empty(bounds.max);
-                },
-                
-                toString: function(bounds) {
-                    return "min: " + module.P.toString(bounds.min) + ", max: " + module.P.toString(bounds.max);
-                }
-            };
-            
-            return subModule;
-        })(),
-       
-        /* Addressing utility functions */
-        A: (function() {
-            var REGEX_BUILDINGNO = /^(\d+).*$/,
-                REGEX_NUMBERRANGE = /(\d+)\s?\-\s?(\d+)/;
-            
-            var subModule = {
-                buildingMatch: function(freeform, numberRange, name) {
-                    // from the freeform address extract the building number
-                    REGEX_BUILDINGNO.lastIndex = -1;
-                    if (REGEX_BUILDINGNO.test(freeform)) {
-                        var buildingNo = freeform.replace(REGEX_BUILDINGNO, "$1");
-
-                        // split up the number range
-                        var numberRanges = numberRange.split(",");
-                        for (var ii = 0; ii < numberRanges.length; ii++) {
-                            REGEX_NUMBERRANGE.lastIndex = -1;
-                            if (REGEX_NUMBERRANGE.test(numberRanges[ii])) {
-                                var matches = REGEX_NUMBERRANGE.exec(numberRanges[ii]);
-                                if ((buildingNo >= parseInt(matches[1], 10)) && (buildingNo <= parseInt(matches[2], 10))) {
-                                    return true;
-                                } // if
-                            }
-                            else if (buildingNo == numberRanges[ii]) {
-                                return true;
-                            } // if..else
-                        } // for
-                    } // if
-
-                    return false;
-                },
-                
-                /**
-                The normalizeAddress function is used to take an address that could be in a variety of formats
-                and normalize as many details as possible.  Text is uppercased, road types are replaced, etc.
-                */
-                normalize: function(addressText) {
-                    if (! addressText) { return ""; }
-
-                    addressText = addressText.toUpperCase();
-
-                    // if the road type regular expression has not been initialised, then do that now
-                    if (! ROADTYPE_REGEX) {
-                        var abbreviations = [];
-                        for (var roadTypes in ROADTYPE_REPLACEMENTS) {
-                            abbreviations.push(roadTypes);
-                        } // for
-
-                        ROADTYPE_REGEX = new RegExp("(\\s)(" + abbreviations.join("|") + ")(\\s|$)", "i");
-                    } // if
-
-                    // run the road type normalizations
-                    ROADTYPE_REGEX.lastIndex = -1;
-
-                    // get the matches for the regex
-                    var matches = ROADTYPE_REGEX.exec(addressText);
-                    if (matches) {
-                        // get the replacement road type
-                        var normalizedRoadType = ROADTYPE_REPLACEMENTS[matches[2]];
-                        addressText = addressText.replace(ROADTYPE_REGEX, "$1" + normalizedRoadType);
-                    } // if
-
-                    return addressText;
-                },
-                
-                toString: function(address) {
-                    return address.streetDetails + " " + address.location;
-                }
-            };
-            
-            return subModule;
-        })(),
-        
         /* static functions */
         
         /**
@@ -1006,7 +961,7 @@ T5.Geo = (function() {
             // iterate through the response addresses and compare against the request address
             for (var ii = 0; ii < responseAddresses.length; ii++) {
                 matches.push(new module.GeoSearchResult({
-                    caption: module.A.toString(responseAddresses[ii]),
+                    caption: addrTools.toString(responseAddresses[ii]),
                     data: responseAddresses[ii],
                     pos: responseAddresses[ii].pos,
                     matchWeight: plainTextAddressMatch(requestAddress, responseAddresses[ii], compareFns, module.GeocodeFieldWeights)
@@ -1019,7 +974,66 @@ T5.Geo = (function() {
             });
             
             return matches;
-        }
+        },
+        
+        /* position, bounds and address utility modules */
+        
+        P: posTools,
+        B: boundsTools,
+        A: addrTools,
+        
+        /* general utilities */
+        
+        dist2rad: function(distance) {
+            return distance / KM_PER_RAD;
+        },
+        
+        lat2pix: function(lat, scale) {
+            var radLat = (parseFloat(lat)*(2*Math.PI))/360;
+            var sinPhi = Math.sin(radLat);
+            var eSinPhi = ECC * sinPhi;
+            var retVal = Math.log(((1.0 + sinPhi) / (1.0 - sinPhi)) * Math.pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
+
+            return (retVal / scale);
+        },
+
+        lon2pix: function(lon, scale) {
+            return ((parseFloat(lon)/180)*Math.PI) / scale;
+        },
+
+        pix2lon: function(x, scale) {
+            return module.normalizeLon((x * scale)*180/Math.PI);
+        },
+
+        pix2lat: function(y, scale) {
+            var phiEpsilon = 1E-7;
+            var phiMaxIter = 12;
+            var t = Math.pow(Math.E, -y * scale);
+            var prevPhi = mercatorUnproject(t);
+            var newPhi = findRadPhi(prevPhi, t);
+            var iterCount = 0;
+
+            while (iterCount < phiMaxIter && Math.abs(prevPhi - newPhi) > phiEpsilon) {
+                prevPhi = newPhi;
+                newPhi = findRadPhi(prevPhi, t);
+                iterCount++;
+            } // while
+
+            return newPhi*180/Math.PI;
+        },
+
+        normalizeLon: function(lon) {
+            // return lon;
+            while (lon < -180) {
+                lon += 360;
+            } // while
+            
+            while (lon > 180) {
+                lon -= 360;
+            } // while
+            
+            return lon;
+        }        
     }; // module
 
     return module;

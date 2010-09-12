@@ -15,7 +15,7 @@ T5.Geo.Cloudmade = (function() {
             var base = new T5.Geo.OpenStreetMap.MapProvider(T5.ex({
                 getServerDetails: function() {
                     return {
-                        baseUrl: String.format("http://{3}.tile.cloudmade.com/{0}/{1}/{2}/", params.apikey, params.styleid, T5.tileSize, "{0}"),
+                        baseUrl: GT.formatStr("http://{3}.tile.cloudmade.com/{0}/{1}/{2}/", params.apikey, params.styleid, T5.tileSize, "{0}"),
                         subDomains: ['a', 'b', 'c']
                     };
                 }

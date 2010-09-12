@@ -129,7 +129,7 @@ T5.Images = (function() {
             clearingCache = false;
         } // try..finally
         
-        GT.WaterCooler.say("imagecache.cleared");
+        GT.say("imagecache.cleared");
     } // cleanupImageCache
 
     function checkTimeoutsAndCache() {
@@ -163,6 +163,65 @@ T5.Images = (function() {
         } // if
     } // checkTimeoutsAndCache
     
+    function getImage(url) {
+        var imageData = null,
+            image = null;
+            
+        if (! clearingCache) {
+            imageData = images[url];
+        } // if
+
+        // return the image from the image data
+        image = imageData ? imageData.image : null;
+        
+        if (image && (image.getContext || (image.complete && (image.width > 0)))) {
+            return image;
+        } // if
+    } // getImage
+    
+    function loadImage(url, callback, loadArgs) {
+        // look for the image data
+        var imageData = images[url];
+
+        // if the image data is not defined, then create new image data
+        if (! imageData) {
+            // initialise the image data
+            imageData = T5.ex({
+                url: url,
+                image: new Image(),
+                loaded: false,
+                imageLoader: getImageLoader(url),
+                created: T5.time(),
+                requested: null,
+                hitCount: 0,
+                loadCallback: callback
+            }, loadArgs);
+            
+            // GT.Log.info("loading image, image args = ", loadArgs);
+            
+            // initialise the image id
+            imageData.image.id = "resourceLoaderImage" + (imageCounter++);
+            
+            // add the image to the images lookup
+            images[url] = imageData;
+            loadWatchers[imageData.image.id] = imageData;
+            
+            // add the image to the queued images
+            queuedImages.push(imageData);
+            
+            // trigger the next load event
+            loadNextImage();
+        }
+        else {
+            imageData.hitCount++;
+            if (imageData.image.complete && callback) {
+                callback(imageData.image, true);
+            } // if
+        }
+        
+        return imageData;
+    } // loadImage
+    
     var module = {
         avgImageSize: 25,
         loadTimeout: 10,
@@ -175,64 +234,8 @@ T5.Images = (function() {
             loadingImages = [];
         },
         
-        get: function(url) {
-            var imageData = null,
-                image = null;
-                
-            if (! clearingCache) {
-                imageData = images[url];
-            } // if
-
-            // return the image from the image data
-            image = imageData ? imageData.image : null;
-            
-            if (image && (image.getContext || (image.complete && (image.width > 0)))) {
-                return image;
-            } // if
-        },
-        
-        load: function(url, callback, loadArgs) {
-            // look for the image data
-            var imageData = images[url];
-
-            // if the image data is not defined, then create new image data
-            if (! imageData) {
-                // initialise the image data
-                imageData = T5.ex({
-                    url: url,
-                    image: new Image(),
-                    loaded: false,
-                    imageLoader: getImageLoader(url),
-                    created: T5.time(),
-                    requested: null,
-                    hitCount: 0,
-                    loadCallback: callback
-                }, loadArgs);
-                
-                // GT.Log.info("loading image, image args = ", loadArgs);
-                
-                // initialise the image id
-                imageData.image.id = "resourceLoaderImage" + (imageCounter++);
-                
-                // add the image to the images lookup
-                images[url] = imageData;
-                loadWatchers[imageData.image.id] = imageData;
-                
-                // add the image to the queued images
-                queuedImages.push(imageData);
-                
-                // trigger the next load event
-                loadNextImage();
-            }
-            else {
-                imageData.hitCount++;
-                if (imageData.image.complete && callback) {
-                    callback(imageData.image, true);
-                } // if
-            }
-            
-            return imageData;
-        },
+        get: getImage,
+        load: loadImage,
         
         stats: function() {
             return {

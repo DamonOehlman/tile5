@@ -52,7 +52,7 @@ T5.Geo.OpenStreetMap = (function() {
                     // initialise the image url
                     if (! params.urlFiller) {
                         tileUrl = (serverDetails ? serverDetails.baseUrl : "") + 
-                            String.format("{0}/{1}/{2}.png",
+                            GT.formatStr("{0}/{1}/{2}.png",
                                 self.zoomLevel,
                                 topLeftOffset.x + col,
                                 topLeftOffset.y + row);
@@ -70,12 +70,12 @@ T5.Geo.OpenStreetMap = (function() {
                             subdomain_idx = 0;
                         } // if                     
 
-                        return T5.ImageTile({ 
-                            url: String.format(tileUrl, subDomains[subdomain_idx++])
+                        return new T5.ImageTile({ 
+                            url: GT.formatStr(tileUrl, subDomains[subdomain_idx++])
                         });
                     }
                     else {
-                        return T5.ImageTile({ 
+                        return new T5.ImageTile({ 
                             url: tileUrl
                         });
                     } // if..else
@@ -112,7 +112,7 @@ T5.Geo.OpenStreetMap = (function() {
                 function long2tile(lon,zoom) { return (Math.floor((lon+180)/360*Math.pow(2,zoom))); }
                 function lat2tile(lat,zoom)  { return (Math.floor((1-Math.log(Math.tan(lat*Math.PI/180) + 1/Math.cos(lat*Math.PI/180))/Math.PI)/2 *Math.pow(2,zoom))); }
                 
-                return new T5.Vector(long2tile(T5.Geo.Utilities.normalizeLon(position.lon), zoomLevel), lat2tile(position.lat, zoomLevel));
+                return new T5.Vector(long2tile(T5.Geo.normalizeLon(position.lon), zoomLevel), lat2tile(position.lat, zoomLevel));
             } // calculateTileOffset
             
             function calculatePositionFromTileOffset(x, y, zoomLevel) {

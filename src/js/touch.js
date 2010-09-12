@@ -1,29 +1,35 @@
-T5.Touch = (function() {
+(function() {
     // initialise constants
     var WHEEL_DELTA_STEP = 120,
         DEFAULT_INERTIA_MAX = 500,
         INERTIA_TIMEOUT_MOUSE = 100,
-        INERTIA_TIMEOUT_TOUCH = 250;
-    var TOUCH_MODES = {
-        TAP: 0,
-        MOVE: 1, 
-        PINCH: 2
-    }; // TOUCH_MODES
+        INERTIA_TIMEOUT_TOUCH = 250,
+        THRESHOLD_DOUBLETAP = 300,
+        THRESHOLD_PINCHZOOM = 5,
+        THRESHOLD_PAN_EVENT = 2;
+        
+    // define the touch modes
+    var TOUCH_MODE_TAP = 0,
+        TOUCH_MODE_MOVE = 1,
+        TOUCH_MOVE_PINCH = 2;
 
     // TODO: configure the move distance to be screen size sensitive....
     var MIN_MOVEDIST = 7;
 
     var elementCounter = 0,
-        listenerCount = 0;
+        listenerCount = 0,
+        createVector = T5.V.create,
+        vectorDistance = T5.V.distance,
+        vectorDiff = T5.V.diff;
     
     function calcDistance(touches) {
-        return T5.V.distance(touches);
+        return vectorDistance(touches);
     } // calcDistance
     
     function calcChange(first, second) {
         var srcVector = (first && (first.length > 0)) ? first[0] : null;
         if (srcVector && second && (second.length > 0)) {
-            return T5.V.diff(srcVector, second[0]);
+            return vectorDiff(srcVector, second[0]);
         } // if
         
         return null;
@@ -37,14 +43,14 @@ T5.Touch = (function() {
     function getTouchPoints(touches) {
         var fnresult = new Array(touches.length);
         for (var ii = touches.length; ii--; ) {
-            fnresult[ii] = new T5.Vector(touches[ii].pageX, touches[ii].pageY);
+            fnresult[ii] = createVector(touches[ii].pageX, touches[ii].pageY);
         } // for
         
         return fnresult;
     } // getTouchPoints
     
     function getMousePos(evt) {
-        return [new T5.Vector(evt.pageX, evt.pageY)];
+        return [createVector(evt.pageX, evt.pageY)];
     } // getMousePos
     
     function debugTouchEvent(evt, title) {
@@ -62,8 +68,6 @@ T5.Touch = (function() {
             observable: null,
             inertiaTrigger: 20,
             maxDistDoubleTap: 20,
-            panEventThreshhold: 0,
-            pinchZoomThreshold: 5,
             touchStartHandler: null,
             moveHandler: null,
             moveEndHandler: null,
@@ -84,23 +88,23 @@ T5.Touch = (function() {
         // initialise private members
         var doubleTap = false,
             tapTimer = 0,
+            config = T5.getConfig(),
             supportsTouch = T5.getConfig().supportsTouch,
             touchesStart = null,
             touchesLast = null,
             touchDelta = null,
             totalDelta = null,
-            panDelta = new T5.Vector(),
+            panDelta = createVector(),
             touchMode = null,
             touchDown = false,
             touchStartTick = 0,
             listeners = [],
             lastXY = null,
             inertiaSettings = null,
-            ticks = {
-                current: 0,
-                last: 0
-            },
-            config = T5.getConfig(),
+            ticksCurrent = 0,
+            ticksLast = 0,
+            targetElement = params.element,
+            observable = params.observable,
             BENCHMARK_INTERVAL = 300;
             
         function calculateInertia(upXY, currentXY, distance, tickDiff) {
@@ -110,7 +114,7 @@ T5.Touch = (function() {
                 distanceVector;
                 
             theta = currentXY.x > upXY.x ? theta : Math.PI - theta;
-            distanceVector = new T5.Vector(Math.cos(theta) * -extraDistance, Math.sin(theta) * extraDistance);
+            distanceVector = createVector(Math.cos(theta) * -extraDistance, Math.sin(theta) * extraDistance);
                 
             triggerEvent("inertiaPan", distanceVector.x, distanceVector.y);
         } // calculateInertia
@@ -123,7 +127,7 @@ T5.Touch = (function() {
                 
                 var checkInertiaInterval = setInterval(function() {
                     tickDiff = (T5.time()) - currentTick;
-                    distance = T5.V.distance([upXY, lastXY]);
+                    distance = vectorDistance([upXY, lastXY]);
 
                     // calculate the inertia
                     if ((tickDiff < INERTIA_TIMEOUT_MOUSE) && (distance > params.inertiaTrigger)) {
@@ -139,7 +143,7 @@ T5.Touch = (function() {
                 tickDiff = currentTick - touchStartTick;
                 
                 if ((tickDiff < INERTIA_TIMEOUT_TOUCH)) {
-                    distance = T5.V.distance([touchesStart[0], upXY]);
+                    distance = vectorDistance([touchesStart[0], upXY]);
                     
                     if (distance > params.inertiaTrigger) {
                         calculateInertia(touchesStart[0], upXY, distance, tickDiff);
@@ -150,8 +154,8 @@ T5.Touch = (function() {
             
         function relativeTouches(touches) {
             var fnresult = [],
-                offsetX = params.element ? -params.element.offsetLeft : 0,
-                offsetY = params.element ? -params.element.offsetTop : 0;
+                offsetX = targetElement ? -targetElement.offsetLeft : 0,
+                offsetY = targetElement ? -targetElement.offsetTop : 0;
             
             // apply the offset
             for (var ii = touches.length; ii--; ) {
@@ -162,8 +166,8 @@ T5.Touch = (function() {
         } // relativeTouches
         
         function triggerEvent() {
-            if (params.observable) {
-                params.observable.trigger.apply(null, arguments);
+            if (observable) {
+                observable.trigger.apply(null, arguments);
             } // if
         } // triggerEvent
         
@@ -171,8 +175,8 @@ T5.Touch = (function() {
             var offsetVector = null;
             
             // if an element is defined, then determine the element offset
-            if (params.element) {
-                offsetVector = T5.V.offset(absVector, -params.element.offsetLeft, -params.element.offsetTop);
+            if (targetElement) {
+                offsetVector = T5.V.offset(absVector, -targetElement.offsetLeft, -targetElement.offsetTop);
             } // if
             
             // fire the event
@@ -180,10 +184,10 @@ T5.Touch = (function() {
         } // triggerPositionEvent
 
         function touchStart(evt) {
-            if (evt.target && (evt.target === params.element)) {
+            if (evt.target && (evt.target === targetElement)) {
                 touchesStart = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt);
-                touchDelta = new T5.Vector();
-                totalDelta = new T5.Vector();
+                touchDelta = createVector();
+                totalDelta = createVector();
                 touchDown = true;
                 doubleTap = false;
                 touchStartTick = T5.time();
@@ -196,7 +200,7 @@ T5.Touch = (function() {
                 triggerEvent("inertiaCancel");
 
                 // log the current touch start time
-                ticks.current = touchStartTick;
+                ticksCurrent = touchStartTick;
         
                 // fire the touch start event handler
                 var touchVector = touchesStart.length > 0 ? touchesStart[0] : null;
@@ -211,7 +215,7 @@ T5.Touch = (function() {
                 triggerEvent("touchStart", touchVector.x, touchVector.y);
         
                 // check to see whether this is a double tap (if we are watching for them)
-                if (ticks.current - ticks.last < self.THRESHOLD_DOUBLETAP) {
+                if (ticksCurrent - ticksLast < THRESHOLD_DOUBLETAP) {
                     // calculate the difference between this and the last touch point
                     var touchChange = touchesLast ? T5.V.diff(touchesStart[0], touchesLast[0]) : null;
                     if (touchChange && (Math.abs(touchChange.x) < params.maxDistDoubleTap) && (Math.abs(touchChange.y) < params.maxDistDoubleTap)) {
@@ -220,7 +224,7 @@ T5.Touch = (function() {
                 } // if
 
                 // reset the touch mode to unknown
-                touchMode = TOUCH_MODES.TAP;
+                touchMode = TOUCH_MODE_TAP;
         
                 // update the last touches
                 touchesLast = [].concat(touchesStart);
@@ -228,7 +232,7 @@ T5.Touch = (function() {
         } // touchStart
         
         function touchMove(evt) {
-            if (evt.target && (evt.target === params.element)) {
+            if (evt.target && (evt.target === targetElement)) {
                 lastXY = (supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt))[0];
                 
                 if (! touchDown) { return; }
@@ -253,24 +257,24 @@ T5.Touch = (function() {
                 } // if
 
                 // if the touch mode is tap, then check to see if we have gone beyond a move threshhold
-                if (touchMode === TOUCH_MODES.TAP) {
+                if (touchMode === TOUCH_MODE_TAP) {
                     // get the delta between the first touch and the current touch
                     var tapDelta = calcChange(touchesCurrent, touchesStart);
 
                     // if the delta.x or delta.y is greater than the move threshhold, we are no longer moving
                     if (tapDelta && ((Math.abs(tapDelta.x) >= MIN_MOVEDIST) || (Math.abs(tapDelta.y) >= MIN_MOVEDIST))) {
-                        touchMode = TOUCH_MODES.MOVE;
+                        touchMode = TOUCH_MODE_MOVE;
                     } // if
                 } // if
 
 
                 // if we aren't in tap mode, then let's see what we should do
-                if (touchMode !== TOUCH_MODES.TAP) {
+                if (touchMode !== TOUCH_MODE_TAP) {
                     // TODO: queue touch count history to enable an informed decision on touch end whether
                     // a single or multitouch event is completing...
 
                     // if we aren't pinching or zooming then do the move 
-                    if ((! zoomDistance) || (Math.abs(zoomDistance) < params.pinchZoomThreshold)) {
+                    if ((! zoomDistance) || (Math.abs(zoomDistance) < THRESHOLD_PINCHZOOM)) {
                         // calculate the pan delta
                         touchDelta = calcChange(touchesCurrent, touchesLast);
 
@@ -281,19 +285,19 @@ T5.Touch = (function() {
                         } // if
 
                         // if the pan_delta is sufficient to fire an event, then do so
-                        if (T5.V.absSize(panDelta) > params.panEventThreshhold) {
+                        if (T5.V.absSize(panDelta) > THRESHOLD_PAN_EVENT) {
                             triggerEvent("pan", panDelta.x, panDelta.y);
-                            panDelta = T5.V.create();
+                            panDelta = createVector();
                         } // if
 
                         // set the touch mode to move
-                        touchMode = TOUCH_MODES.MOVE;
+                        touchMode = TOUCH_MODE_MOVE;
                     }
                     else {
                         triggerEvent('pinchZoom', relativeTouches(touchesStart), relativeTouches(touchesCurrent));
 
                         // set the touch mode to pinch zoom
-                        touchMode = TOUCH_MODES.PINCH;
+                        touchMode = TOUCH_MODE_PINCH;
                     } // if..else
                 } // if..else
 
@@ -302,7 +306,7 @@ T5.Touch = (function() {
         } // touchMove
         
         function touchEnd(evt) {
-            if (evt.target && (evt.target === params.element)) {
+            if (evt.target && (evt.target === targetElement)) {
                 var touchUpXY = (supportsTouch ? getTouchPoints(evt.changedTouches) : getMousePos(evt))[0];
                 
                 // cancel event propogation
@@ -314,10 +318,10 @@ T5.Touch = (function() {
                 var endTick = T5.time();
 
                 // save the current ticks to the last ticks
-                ticks.last = ticks.current;
+                ticksLast = ticksCurrent;
 
                 // if tapping, then first the tap event
-                if (touchMode === TOUCH_MODES.TAP) {
+                if (touchMode === TOUCH_MODE_TAP) {
                     // start the timer to fire the tap handler, if 
                     if (! tapTimer) {
                         tapTimer = setTimeout(function() {
@@ -326,11 +330,11 @@ T5.Touch = (function() {
 
                             // fire the appropriate tap event
                             triggerPositionEvent(doubleTap ? 'doubleTap' : 'tap', touchesStart[0]);
-                        }, self.THRESHOLD_DOUBLETAP + 50);
+                        }, THRESHOLD_DOUBLETAP + 50);
                     }
                 }
                 // if moving, then fire the move end
-                else if (touchMode == TOUCH_MODES.MOVE) {
+                else if (touchMode == TOUCH_MODE_MOVE) {
                     triggerEvent("panEnd", totalDelta.x, totalDelta.y);
                     
                     if (inertiaSettings) {
@@ -338,7 +342,7 @@ T5.Touch = (function() {
                     } // if
                 }
                 // if pinchzooming, then fire the pinch zoom end
-                else if (touchMode == TOUCH_MODES.PINCH) {
+                else if (touchMode == TOUCH_MODE_PINCH) {
                     triggerEvent('pinchZoomEnd', relativeTouches(touchesStart), relativeTouches(touchesLast), endTick - touchStartTick);
                 } // if..else
                 
@@ -351,21 +355,21 @@ T5.Touch = (function() {
             // process ff DOMMouseScroll event
             if (evt.detail) {
                 var delta = -evt.detail * WHEEL_DELTA_STEP;
-                return new T5.Vector(evt.axis === 1 ? delta : 0, evt.axis === 2 ? delta : 0);
+                return createVector(evt.axis === 1 ? delta : 0, evt.axis === 2 ? delta : 0);
             }
             else {
-                return new T5.Vector(evt.wheelDeltaX, evt.wheelDeltaY);
+                return createVector(evt.wheelDeltaX, evt.wheelDeltaY);
             } // if..else
         } // getWheelDelta
         
         function wheelie(evt) {
-            if (evt.target && (evt.target === params.element)) {
+            if (evt.target && (evt.target === targetElement)) {
                 var delta = getWheelDelta(evt), 
                     zoomAmount = delta.y !== 0 ? Math.abs(delta.y / WHEEL_DELTA_STEP) : 0;
 
                 if (lastXY && (zoomAmount !== 0)) {
                     // apply the offset to the xy
-                    var xy = T5.V.offset(lastXY, -params.element.offsetLeft, -params.element.offsetTop);
+                    var xy = T5.V.offset(lastXY, -targetElement.offsetLeft, -targetElement.offsetTop);
                     triggerEvent("wheelZoom", xy, Math.pow(2, delta.y > 0 ? zoomAmount : -zoomAmount));
                 } // if
                 
@@ -376,10 +380,6 @@ T5.Touch = (function() {
         // initialise self
         var self = {
             supportsTouch: supportsTouch,
-
-            /* define mutable constants (yeah, I know that's a contradiction) */
-
-            THRESHOLD_DOUBLETAP: 300,
 
             /* define methods */
             
@@ -392,7 +392,6 @@ T5.Touch = (function() {
                 for (var ii = 0; listenerId && (ii < listeners.length); ii++) {
                     if (listeners[ii].listenerId === listenerId) {
                         listeners.splice(ii, 1);
-                        GT.Log.info("successfully decoupled touch listener: " + listenerId);
 
                         break;
                     } // if
@@ -400,12 +399,12 @@ T5.Touch = (function() {
             },
             
             release: function() {
-                config.eventTarget.removeEventListener(config.supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
-                config.eventTarget.removeEventListener(config.supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
-                config.eventTarget.removeEventListener(config.supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
+                config.eventTarget.removeEventListener(supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
+                config.eventTarget.removeEventListener(supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
+                config.eventTarget.removeEventListener(supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
                 
                 // handle mouse wheel events by
-                if (! config.supportsTouch) {
+                if (! supportsTouch) {
                     window.removeEventListener("mousewheel", wheelie, false);
                     window.removeEventListener("DOMMouseScroll", wheelie, false);
                 } // if
@@ -424,12 +423,12 @@ T5.Touch = (function() {
         };
         
         // wire up the events
-        config.eventTarget.addEventListener(config.supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
-        config.eventTarget.addEventListener(config.supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
-        config.eventTarget.addEventListener(config.supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
+        config.eventTarget.addEventListener(supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
+        config.eventTarget.addEventListener(supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
+        config.eventTarget.addEventListener(supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
         
         // handle mouse wheel events by
-        if (! config.supportsTouch) {
+        if (! supportsTouch) {
             window.addEventListener("mousewheel", wheelie, false);
             window.addEventListener("DOMMouseScroll", wheelie, false);
         } // if
@@ -440,49 +439,43 @@ T5.Touch = (function() {
     // initialise touch helpers array
     var touchHelpers = [];
     
-    // define the module members
-    return {
-        // TODO: add the release touch method
-        capture: function(element, params) {
-            if (! element) {
-                throw new Error("Unable to capture touch of null element");
-            } // if
-            
-            // if the element does not have an id, then generate on
-            if (! element.id) {
-                element.id = "touchable_" + elementCounter++;
-            } // if
+    T5.captureTouch = function(element, params) {
+        if (! element) {
+            throw new Error("Unable to capture touch of null element");
+        } // if
         
-            // create the touch helper
-            var touchHelper = touchHelpers[element.id];
-            
-            // if the touch helper has not been created, then create it and attach to events
-            if (! touchHelper) {
-                touchHelper = new TouchHelper(T5.ex({ element: element}, params));
-                touchHelpers[element.id] = touchHelper;
-                
-                GT.Log.info("CREATED TOUCH HELPER. SUPPORTS TOUCH = " + touchHelper.supportsTouch);
-            } // if
-            
-            // if we already have an association with listeners, then remove first
-            if (params.listenerId) {
-                touchHelper.decoupleListeners(params.listenerId);
-            } // if
-            
-            // flag the parameters with touch listener ids so they can be removed later
-            params.listenerId = (++listenerCount);
+        // if the element does not have an id, then generate on
+        if (! element.id) {
+            element.id = "touchable_" + elementCounter++;
+        } // if
+    
+        // create the touch helper
+        var touchHelper = touchHelpers[element.id];
+        
+        // if the touch helper has not been created, then create it and attach to events
+        if (! touchHelper) {
+            touchHelper = new TouchHelper(T5.ex({ element: element}, params));
+            touchHelpers[element.id] = touchHelper;
+        } // if
+        
+        // if we already have an association with listeners, then remove first
+        if (params.listenerId) {
+            touchHelper.decoupleListeners(params.listenerId);
+        } // if
+        
+        // flag the parameters with touch listener ids so they can be removed later
+        params.listenerId = (++listenerCount);
 
-            // add the listeners to the helper
-            touchHelper.addListeners(params);
-            
-            return touchHelper;
-        },
+        // add the listeners to the helper
+        touchHelper.addListeners(params);
         
-        resetTouch: function(element) {
-            if (element && element.id && touchHelpers[element.id]) {
-                touchHelpers[element.id].release();
-                delete touchHelpers[element.id];
-            } // if
-        }
-    }; // module
+        return touchHelper;
+    }; // T5.captureTouch
+    
+    T5.resetTouch = function(element) {
+        if (element && element.id && touchHelpers[element.id]) {
+            touchHelpers[element.id].release();
+            delete touchHelpers[element.id];
+        } // if
+    }; // T5.resetTouch
 })();

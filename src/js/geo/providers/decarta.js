@@ -58,7 +58,7 @@ T5.Geo.Decarta = (function() {
             var self = {
                 getXML: function() {
                     // initailise the address xml
-                    var addressXml = String.format("<xls:Address countryCode=\"{0}\" language=\"{1}\">", params.countryCode, params.language);
+                    var addressXml = GT.formatStr("<xls:Address countryCode=\"{0}\" language=\"{1}\">", params.countryCode, params.language);
                     
                     // if we have a freeform address, then simply add the freeform address request
                     if (params.freeform) {
@@ -96,24 +96,24 @@ T5.Geo.Decarta = (function() {
                     // then process as a landmark
                     if (params.landmark && params.landmarkSubType) {
                         // if we found the landmark subtype
-                        if (input.containsWord(params.landmarkSubType)) {
+                        if (GT.wordExists(input, params.landmarkSubType)) {
                             fnresult += 0.4;
                             
                             // add another 0.5 if we find the name
-                            fnresult += input.containsWord(params.landmark) ? 0.6 : 0;
+                            fnresult += GT.wordExists(input, params.landmark) ? 0.6 : 0;
                         } // if
                     }
                     else {
-                        fnresult += input.containsWord(params.municipalitySubdivision) ? 0.8 : 0;
+                        fnresult += GT.wordExists(input, params.municipalitySubdivision) ? 0.8 : 0;
                         
                         if ((fnresult === 0) && params.municipality) {
-                            fnresult += input.containsWord(params.municipality) ? 0.7 : 0;
+                            fnresult += GT.wordExists(input, params.municipality) ? 0.7 : 0;
                         } // if
                     } // if..else
                     
                     // check for the country subdivision
                     if (params.countrySubdivision) {
-                        fnresult += input.containsWord(params.countrySubdivision) ? 0.2 : 0;
+                        fnresult += GT.wordExists(input, params.countrySubdivision) ? 0.2 : 0;
                     } // if
                     
                     return fnresult;
@@ -203,7 +203,7 @@ T5.Geo.Decarta = (function() {
                         } // if
                     } // if
                         
-                    if (test1 && test2 && test1.containsWord(test2)) {
+                    if (test1 && test2 && GT.wordExists(test1, test2)) {
                         fnresult += 0.8;
                     } // if
 
@@ -232,7 +232,7 @@ T5.Geo.Decarta = (function() {
     
     function createRequestHeader(payload) {
         // TODO: write a function that takes parameters and generates xml
-        return String.format(
+        return GT.formatStr(
             "<xls:XLS version='1' xls:lang='en' xmlns:xls='http://www.opengis.net/xls' rel='{4}' xmlns:gml='http://www.opengis.net/gml'>" + 
                 "<xls:RequestHeader clientName='{0}' clientPassword='{1}' sessionID='{2}' configuration='{3}' />" + 
                 "{5}" + 
@@ -247,7 +247,7 @@ T5.Geo.Decarta = (function() {
     } // createRequestHeader
     
     function createRequestTag(request, payload) {
-        return String.format(
+        return GT.formatStr(
             "<xls:Request maximumResponses='{0}' version='{1}' requestID='{2}' methodName='{3}Request'>{4}</xls:Request>",
             request.maxResponses,
             request.version,
@@ -265,7 +265,7 @@ T5.Geo.Decarta = (function() {
             GT.Log.warn("No server configured for deCarta - we are going to have issues");
         } // if
         
-        return String.format("{0}/JSON?reqID={1}&chunkNo=1&numChunks=1&data={2}&responseFormat=JSON",
+        return GT.formatStr("{0}/JSON?reqID={1}&chunkNo=1&numChunks=1&data={2}&responseFormat=JSON",
             currentConfig.server,
             request.requestID,
             escape(request_data));
@@ -407,7 +407,7 @@ T5.Geo.Decarta = (function() {
                     // update the last zoom
                     lastZoom = zoom_level;
                     
-                    return String.format(
+                    return GT.formatStr(
                         // initialise the xml request content
                         "<xls:PortrayMapRequest>" + 
                             "<xls:Output height='{0}' width='{0}' format='{1}' fixedgrid='{2}' useCache='{3}'>" + 
@@ -474,7 +474,7 @@ T5.Geo.Decarta = (function() {
                         var tileSize = grid.Tile.Map.Content.height;
                         var panOffset = new T5.Vector();
 
-                        // GT.Log.info(String.format("parsed image url: {0}, N = {1}, E = {2}", urlData.mask, urlData.N, urlData.E));
+                        // GT.Log.info(GT.formatStr("parsed image url: {0}, N = {1}, E = {2}", urlData.mask, urlData.N, urlData.E));
                         
                         // calculate the pan offset 
                         for (var ii = 0; ii < grid.Pan.length; ii++) {
@@ -568,7 +568,7 @@ T5.Geo.Decarta = (function() {
                 methodName: "Geocode",
                 
                 getRequestBody: function() {
-                    var body = String.format("<xls:GeocodeRequest parserReport=\"{0}\" parseOnly=\"{1}\" returnSpatialKeys=\"{2}\">", 
+                    var body = GT.formatStr("<xls:GeocodeRequest parserReport=\"{0}\" parseOnly=\"{1}\" returnSpatialKeys=\"{2}\">", 
                                     params.parserReport, 
                                     params.parseOnly,
                                     params.returnSpatialKeys);
@@ -683,7 +683,7 @@ T5.Geo.Decarta = (function() {
                         throw new Error("Cannot send RouteRequest, less than 2 waypoints specified");
                     } // if
                     
-                    var body = String.format(
+                    var body = GT.formatStr(
                                     "<xls:DetermineRouteRequest provideRouteHandle=\"{0}\" distanceUnit=\"{1}\" routeQueryType=\"{2}\">",
                                     params.provideRouteHandle, 
                                     params.distanceUnit,
@@ -704,7 +704,7 @@ T5.Geo.Decarta = (function() {
                         // as to why this is required, who knows....
                         var tagName = (ii === 0 ? "StartPoint" : (ii === params.waypoints.length-1 ? "EndPoint" : "ViaPoint"));
                         
-                        body += String.format("<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>", tagName, T5.Geo.P.toString(params.waypoints[ii]));
+                        body += GT.formatStr("<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>", tagName, T5.Geo.P.toString(params.waypoints[ii]));
                     }
                     
                     // close the waypoint list
@@ -899,7 +899,7 @@ T5.Geo.Decarta = (function() {
                 
                 // set the tile grid origin
                 tileGrid.populate(function(col, row, topLeftOffset, gridSize) {
-                    return T5.ImageTile({ 
+                    return new T5.ImageTile({ 
                         url: responseData.imageUrl.replace("${N}", topLeftOffset.y + (gridSize - row)).replace("${E}", topLeftOffset.x + col),
                         sessionParamRegex: /(SESSIONID)/i,
                         size: responseData.tileSize

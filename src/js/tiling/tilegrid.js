@@ -395,7 +395,7 @@ T5.TileGrid = function(params) {
         }
     });
     
-    GT.WaterCooler.listen("imagecache.cleared", function(args) {
+    GT.listen("imagecache.cleared", function(args) {
         // reset all the tiles loaded state
         for (var ii = storage.length; ii--; ) {
             if (storage[ii]) {
@@ -404,7 +404,7 @@ T5.TileGrid = function(params) {
         } // for
     });
     
-    GT.WaterCooler.listen("tiler.repaint", function(args) {
+    GT.listen("tiler.repaint", function(args) {
         for (var ii = storage.length; ii--; ) {
             if (storage[ii]) {
                 storage[ii].x = null;
