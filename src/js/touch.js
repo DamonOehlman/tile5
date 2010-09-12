@@ -11,7 +11,7 @@
     // define the touch modes
     var TOUCH_MODE_TAP = 0,
         TOUCH_MODE_MOVE = 1,
-        TOUCH_MOVE_PINCH = 2;
+        TOUCH_MODE_PINCH = 2;
 
     // TODO: configure the move distance to be screen size sensitive....
     var MIN_MOVEDIST = 7;
