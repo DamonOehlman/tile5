@@ -1158,38 +1158,6 @@ TODO: add information here...
         return fallbackType ? fallbackType : "DEFAULT";
     } // getProcessorForRequestUrl
     
-    function handleReadyStateChange() {
-        if (this.readyState === 4) {
-            var responseData = null,
-                success = requestOK(this, params);
-            
-            try {
-                // get and check the status
-                if (success) {
-                    // process the response
-                    if (params.handleResponse) {
-                        params.handleResponse(this);
-                    }
-                    else {
-                        responseData = processResponseData(this, params);
-                    }
-                }
-                else if (params.error) {
-                    params.error(this);
-                } // if..else
-            }
-            catch (e) {
-                GT.Log.exception(e, "PROCESSING AJAX RESPONSE");
-            } // try..catch
-
-            // if the success callback is defined, then call it
-            // GT.Log.info("received response, calling success handler: " + params.success);
-            if (success && responseData && params.success) {
-                params.success.call(this, responseData);
-            } // if
-        } // if
-    } // handleReadyStateChange
-    
     function requestOK(xhr, requestParams) {
         return ((! xhr.status) && (location.protocol === "file:")) ||
             (xhr.status >= 200 && xhr.status < 300) || 
@@ -1261,6 +1229,39 @@ TODO: add information here...
     } // processResponseData
     
     GT.xhr = function(params) {
+        
+        function handleReadyStateChange() {
+            if (this.readyState === 4) {
+                var responseData = null,
+                    success = requestOK(this, params);
+
+                try {
+                    // get and check the status
+                    if (success) {
+                        // process the response
+                        if (params.handleResponse) {
+                            params.handleResponse(this);
+                        }
+                        else {
+                            responseData = processResponseData(this, params);
+                        }
+                    }
+                    else if (params.error) {
+                        params.error(this);
+                    } // if..else
+                }
+                catch (e) {
+                    GT.Log.exception(e, "PROCESSING AJAX RESPONSE");
+                } // try..catch
+
+                // if the success callback is defined, then call it
+                // GT.Log.info("received response, calling success handler: " + params.success);
+                if (success && responseData && params.success) {
+                    params.success.call(this, responseData);
+                } // if
+            } // if
+        } // handleReadyStateChange
+        
         // given that I am having to write my own AJAX handling, I think it's safe to assume that I should
         // do that in the context of a try catch statement to catch the things that are going to go wrong...
         try {
@@ -1273,7 +1274,7 @@ TODO: add information here...
                 handleResponse: null,
                 error: null,
                 contentType: "application/x-www-form-urlencoded"
-            }, module.ajaxSettings, params);
+            }, params);
             
             // determine if this is a remote request (as per the jQuery ajax calls)
             var parts = REGEX_URL.exec(params.url),
@@ -1320,8 +1321,8 @@ TODO: add information here...
             xhr.onreadystatechange = handleReadyStateChange;
 
             // send the request
-            // GT.Log.info("sending request with data: " + module.param(params.data));
-            xhr.send(params.method == "POST" ? module.param(params.data) : null);
+            // GT.Log.info("sending request with data: " + param(params.data));
+            xhr.send(params.method == "POST" ? param(params.data) : null);
         } 
         catch (e) {
             GT.Log.exception(e);
