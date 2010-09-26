@@ -1649,9 +1649,40 @@ GT.ParseRules = function(params) {
     return self;
 }; // ParseRules
 /* GRUNTJS END */
+/**
+T5.Core
+=======
+
+The T5.Core module contains classes and functionality that support basic drawing 
+operations and math that are used in managing and drawing the graphical and tiling interfaces 
+that are provided in the Tile5 library.
+
+Classes
+-------
+
+- T5.Vector
+- T5.Dimensions
+- T5.Rect
+
+
+Submodules
+----------
+
+- T5.Settings
+- T5.V
+- T5.D
+- T5.R
+*/
 T5 = (function() {
-    /* vector definition and tools */
-    
+    /**
+    # T5.Vector
+
+    A vector is used to encapsulate X and Y coordinates for a point, and rather than 
+    bundle it with methods it has been kept to just core data to ensure it has a 
+    lightweight memory footprint.
+
+
+    */
     var Vector = function(initX, initY) {
         return {
             x: initX ? initX : 0,
@@ -1659,6 +1690,15 @@ T5 = (function() {
         };
     }; // Vector
     
+    /**
+    # T5.V
+
+    This module defines functions that are used to maintain T5.Vector objects and this
+    is removed from the actual Vector class to keep the Vector object lightweight.
+
+    ## Functions
+
+    */
     var vectorTools = (function() {
         function edges(vectors) {
             if ((! vectors) || (vectors.length <= 1)) {
@@ -1695,6 +1735,12 @@ T5 = (function() {
                 return new Vector(x, y);
             },
             
+            /**
+            - `add(v*)`
+            
+            Return a new T5.Vector that is the total sum value of all the 
+            vectors passed to the function.
+            */
             add: function() {
                 var fnresult = new Vector();
                 for (var ii = arguments.length; ii--; ) {
@@ -1709,18 +1755,39 @@ T5 = (function() {
                 return Math.max(Math.abs(vector.x), Math.abs(vector.y));
             },
             
+            /**
+            - `diff(v1, v2)`
+            
+            Return a new T5.Vector that contains the result of v1 - v2.
+            */
             diff: function(v1, v2) {
                 return new Vector(v1.x - v2.x, v1.y - v2.y);
             },
             
+            /**
+            - `copy(src)`
+            
+            Return a new T5.Vector copy of the vector passed to the function 
+            */
             copy: function(src) {
                 return src ? new Vector(src.x, src.y) : null;
             },
             
+            /**
+            - `invert(v)`
+            
+            Return a new T5.Vector that contains the inverted values of the 
+            vector passed to the function
+            */
             invert: function(vector) {
                 return new Vector(-vector.x, -vector.y);
             },
             
+            /**
+            - `offset(vector, offsetX, offsetY)`
+            
+            Return a new T5.Vector that is offset by the specified x and y offset
+            */
             offset: function(vector, offsetX, offsetY) {
                 return new Vector(
                                 vector.x + offsetX, 
@@ -1728,15 +1795,31 @@ T5 = (function() {
             },
             
             edges: edges,
+            
+            /**
+            - `distance(v*)`
+            
+            Return the total euclidean distance between all the points of the
+            vectors supplied to the function
+            */
             distance: function(vectors) {
                 return edges(vectors).total;
             },
             
+            /**
+            - `theta (v1, v2, distance)`
+            
+            */
             theta: function(v1, v2, distance) {
                 var theta = Math.asin((v1.y - v2.y) / distance);
                 return v1.x > v2.x ? theta : Math.PI - theta;
             },
             
+            
+            /**
+            - `pointOnEdge(v1, v2, theta, delta)`
+            
+            */
             pointOnEdge: function(v1, v2, theta, delta) {
                 var xyDelta = new Vector(
                                     Math.cos(theta) * delta, 
@@ -1747,6 +1830,10 @@ T5 = (function() {
                                     v1.y - xyDelta.y);
             },
             
+            /**
+            - `getRect(v*)`
+            
+            */
             getRect: function(vectorArray) {
                 var arrayLen = vectorArray.length;
                 if (arrayLen > 1) {
@@ -1767,14 +1854,30 @@ T5 = (function() {
                 }
             },
             
+            /**
+            - `toString(vector)`
+            
+            */
             toString: function(vector) {
                 return vector.x + ', ' + vector.y;
             }
         };
     })(); // vectorTools
     
-    /* rect definition and tools */
+    /**
+    # T5.Rect
     
+    A class used to store details pertaining to a rectangular region.
+    
+    ## Constructor
+    
+    `new T5.Rect(x, y, width, height)`
+    
+    ## Properties
+    
+    - origin - the top left point of the rectangle
+    - dimensions - the width and height of the rectangle
+    */
     var Rect = function(x, y, width, height) {
         return {
             origin: new Vector(x, y),
@@ -1782,6 +1885,10 @@ T5 = (function() {
         };
     }; // Rect
     
+    /**
+    # T5.R
+    
+    */
     var rectTools = (function() {
         var subModule = {
             copy: function(src) {
@@ -1804,8 +1911,10 @@ T5 = (function() {
         return subModule;
     })(); // rectTools
 
-    /* dimensions definition and tools */
+    /**
+    # T5.Dimensions
     
+    */
     var Dimensions = function(initWidth, initHeight) {
         return {
             width: initWidth ? initWidth : 0,
@@ -1813,6 +1922,10 @@ T5 = (function() {
         }; 
     }; // Dimensions
     
+    /** 
+    # T5.D
+    
+    */
     var dimensionTools = (function() {
         var subModule = {
             getAspectRatio: function(dimensions) {
@@ -1857,15 +1970,6 @@ T5 = (function() {
             return new Date().getTime();
         },
         
-        /**
-        Initialise a new Vector instance
-        
-        @param {Number} init_x the Initial x value for the Vector
-        @param {Number} init_y the Initial y value for the Vector
-
-        @class 
-        @name Vector
-        */
         Vector: Vector, // Vector
         V: vectorTools,
         
@@ -3451,6 +3555,20 @@ T5.ViewLayer = function(params) {
     
     return self;
 }; // T5.ViewLayer
+/**
+T5.View
+=======
+
+The Tile5 View is the fundamental building block for tiling and 
+mapping interface.  Which this class does not implement any of 
+the logic required for tiling, it does handle the redraw logic.  
+Applications implementing Tile5 maps will not need to be aware of 
+the implementation specifics of the View, but for those interested 
+in building extensions or customizations should definitely take a look.  
+Additionally, it is worth being familiar with the core methods that 
+are implemented here around the layering as these are used extensively 
+when creating overlays and the like for the map implementations.
+*/
 T5.View = function(params) {
     // initialise defaults
     params = T5.ex({

@@ -262,7 +262,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<arg value="Tile5 API Documentation" />
 			<arg value="--template" />
 			<arg value="docs/html/template.html" />
-			<arg line="README.mdown LICENSE.mdown docs/" />
+			<arg line="README.mdown LICENSE.mdown docs/ src/js/" />
 		</exec>
 		
 		<copy todir="${dist}/docs" overwrite="true">

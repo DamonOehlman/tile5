@@ -22,7 +22,9 @@ T5.Geo = (function() {
         RADIANS_TO_DEGREES = 180 / Math.PI,
         HALF_PI = Math.PI / 2,
         TWO_PI = Math.PI * 2,
-        ECC = 0.08181919084262157;
+        ECC = 0.08181919084262157,
+        PHI_EPSILON = 1E-7,
+        PHI_MAXITER = 12;
     
     var ROADTYPE_REGEX = null,
         // TODO: I think these need to move to the provider level..
@@ -181,16 +183,16 @@ T5.Geo = (function() {
                 return positions;
             },
             
-            fromMercatorPixels: function(x, y, radsPerPixel) {
+            fromMercatorPixels: function(mercX, mercY) {
                 // return the new position
                 return new Position(
-                    T5.Geo.pix2lat(y, radsPerPixel),
-                    T5.Geo.normalizeLon(T5.Geo.pix2lon(x, radsPerPixel))
+                    T5.Geo.pix2lat(mercY),
+                    T5.Geo.normalizeLon(T5.Geo.pix2lon(mercX))
                 );
             },
 
-            toMercatorPixels: function(pos, radsPerPixel) {
-                return new T5.Vector(T5.Geo.lon2pix(pos.lon, radsPerPixel), T5.Geo.lat2pix(pos.lat, radsPerPixel));
+            toMercatorPixels: function(pos) {
+                return new T5.Vector(T5.Geo.lon2pix(pos.lon), T5.Geo.lat2pix(pos.lat));
             },
             
             generalize: function(sourceData, requiredPositions, minDist) {
@@ -988,38 +990,36 @@ T5.Geo = (function() {
             return distance / KM_PER_RAD;
         },
         
-        lat2pix: function(lat, scale) {
-            var radLat = (parseFloat(lat)*(2*Math.PI))/360;
+        lat2pix: function(lat) {
+            var radLat = parseFloat(lat) * DEGREES_TO_RADIANS; // *(2*Math.PI))/360;
             var sinPhi = Math.sin(radLat);
             var eSinPhi = ECC * sinPhi;
             var retVal = Math.log(((1.0 + sinPhi) / (1.0 - sinPhi)) * Math.pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
 
-            return (retVal / scale);
+            return retVal;
         },
 
-        lon2pix: function(lon, scale) {
-            return ((parseFloat(lon)/180)*Math.PI) / scale;
+        lon2pix: function(lon) {
+            return parseFloat(lon) * DEGREES_TO_RADIANS; // /180)*Math.PI;
         },
 
-        pix2lon: function(x, scale) {
-            return module.normalizeLon((x * scale)*180/Math.PI);
+        pix2lon: function(mercX) {
+            return module.normalizeLon(mercX) * RADIANS_TO_DEGREES;
         },
 
-        pix2lat: function(y, scale) {
-            var phiEpsilon = 1E-7;
-            var phiMaxIter = 12;
-            var t = Math.pow(Math.E, -y * scale);
-            var prevPhi = mercatorUnproject(t);
-            var newPhi = findRadPhi(prevPhi, t);
-            var iterCount = 0;
+        pix2lat: function(mercY) {
+            var t = Math.pow(Math.E, -mercY),
+                prevPhi = mercatorUnproject(t),
+                newPhi = findRadPhi(prevPhi, t),
+                iterCount = 0;
 
-            while (iterCount < phiMaxIter && Math.abs(prevPhi - newPhi) > phiEpsilon) {
+            while (iterCount < PHI_MAXITER && Math.abs(prevPhi - newPhi) > PHI_EPSILON) {
                 prevPhi = newPhi;
                 newPhi = findRadPhi(prevPhi, t);
                 iterCount++;
             } // while
 
-            return newPhi*180/Math.PI;
+            return newPhi * RADIANS_TO_DEGREES;
         },
 
         normalizeLon: function(lon) {

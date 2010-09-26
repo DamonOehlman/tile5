@@ -1,5 +1,9 @@
 # Tile5
 
-Tile5 is a HTML5 mobile-optimized mapping and tiling library, although it could definitely be used to do more.  Designed from the ground up to be compatible with multiple map vendors and work on a multitude of mobile devices.
+Tile5 is a HTML5 mobile-optimized mapping and tiling library, that has
+been built from the ground up to support multiple mapping providers. 
+
+If you are interested in mapping, I would start by having a look at the T5.Map
+class and if you are looking for more generic applications of the library then either at the T5.Tiler or T5.View classes.
 
 For more information see the tile5 website: [www.tile5.org](http://www.tile5.org/)

@@ -1,30 +1,16 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
-<html lang="en">
-<head>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<title>Tile5 API Documentation</title>
-<meta name="generator" content="joDoc">
-<link rel="stylesheet" type="text/css" href="docbody.css">
-<link rel="stylesheet" type="text/css" href="doc.css">
-<meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no, width=device-width">
-<meta name="format-detection" content="false">
-</head>
-<body>
+{% extends 'apidoc.html' %}
+
+{% block title %}Tile5 API Documentation{% endblock %}
+
+{% block api %}
 <h1><a name="Tile5">Tile5</a></h1>
 
-<p><a href="README.mdown.html#Tile5">Tile5</a> is a HTML5 mobile-optimized mapping and tiling library, although it could definitely be used to do more.  Designed from the ground up to be compatible with multiple map vendors and work on a multitude of mobile devices.</p>
+<p><a href="README.mdown.html#Tile5">Tile5</a> is a HTML5 mobile-optimized mapping and tiling library, that has
+been built from the ground up to support multiple mapping providers. </p>
+
+<p>If you are interested in mapping, I would start by having a look at the <a href="src_js_geo_map.js.html#T5.Map">T5.Map</a>
+class and if you are looking for more generic applications of the library then either at the T5.Tiler or <a href="src_js_graphics_view.js.html#T5.View">T5.View</a> classes.</p>
 
 <p>For more information see the tile5 website: <a class="external" href="http://www.tile5.org/">www.tile5.org</a></p>
 
-<script> 
- var _gaq = [['_setAccount', 'UA-8447893-8'], ['_trackPageview']];
- (function(d, t) {
-  var g = d.createElement(t),
-      s = d.getElementsByTagName(t)[0];
-  g.async = true;
-  g.src = '//www.google-analytics.com/ga.js';
-  s.parentNode.insertBefore(g, s);
- })(document, 'script');
-</script>
-</body>
-</html>
+{% endblock %}

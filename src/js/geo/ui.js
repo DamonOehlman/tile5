@@ -100,15 +100,16 @@ T5.Geo.UI = (function() {
             }, params);
             
             // determine the mercator 
-            var centerMercatorPix = T5.Geo.P.toMercatorPixels(
-                                        params.centerPos, 
-                                        params.radsPerPixel);
+            var radsPerPixel = params.radsPerPixel,
+                centerMercatorPix = T5.Geo.P.toMercatorPixels(params.centerPos);
+                
+            GT.Log.info("tile grid created, rads per pixel = " + radsPerPixel);
             
             // calculate the bottom left mercator pix
             // the position of the bottom left mercator pixel is 
             // determined by params.subtracting the actual 
-            var blMercatorPixX = centerMercatorPix.x - params.centerXY.x,
-                blMercatorPixY = centerMercatorPix.y - params.centerXY.y;
+            var blPixX = (centerMercatorPix.x / radsPerPixel) - params.centerXY.x,
+                blPixY = (centerMercatorPix.y / radsPerPixel) - params.centerXY.y;
             
             // initialise self
             var self = T5.ex({}, params.grid, {
@@ -120,14 +121,12 @@ T5.Geo.UI = (function() {
                 
                 getGridXYForPosition: function(pos) {
                     // determine the mercator pixels for teh position
-                    var posPixels = T5.Geo.P.toMercatorPixels(
-                                        pos, 
-                                        params.radsPerPixel);
+                    var posPixels = T5.Geo.P.toMercatorPixels(pos);
 
                     // calculate the offsets
-                    var offsetX = posPixels.x - blMercatorPixX;
+                    var offsetX = (posPixels.x / radsPerPixel) - blPixX;
                     var offsetY = self.gridDimensions.height - 
-                            (posPixels.y - blMercatorPixY);
+                            ((posPixels.y / radsPerPixel) - blPixY);
 
                     return new T5.Vector(offsetX, offsetY);
                 },
@@ -139,10 +138,9 @@ T5.Geo.UI = (function() {
                 
                 pixelsToPos: function(vector) {
                     return T5.Geo.P.fromMercatorPixels(
-                        blMercatorPixX + vector.x, 
-                        (blMercatorPixY + self.gridDimensions.height) -
-                            vector.y, 
-                        params.radsPerPixel);
+                        (blPixX + vector.x) * radsPerPixel, 
+                        ((blPixY + self.gridDimensions.height) -
+                            vector.y) * radsPerPixel);
                 }
             });
             

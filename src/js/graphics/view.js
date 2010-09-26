@@ -1,3 +1,17 @@
+/**
+T5.View
+=======
+
+The Tile5 View is the fundamental building block for tiling and 
+mapping interface.  Which this class does not implement any of 
+the logic required for tiling, it does handle the redraw logic.  
+Applications implementing Tile5 maps will not need to be aware of 
+the implementation specifics of the View, but for those interested 
+in building extensions or customizations should definitely take a look.  
+Additionally, it is worth being familiar with the core methods that 
+are implemented here around the layering as these are used extensively 
+when creating overlays and the like for the map implementations.
+*/
 T5.View = function(params) {
     // initialise defaults
     params = T5.ex({

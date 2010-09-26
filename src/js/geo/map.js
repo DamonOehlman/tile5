@@ -1,3 +1,26 @@
+/**
+T5.Map
+======
+
+The T5.Map class is the entry point for creating a tiling map.  Creating a 
+map is quite simple and requires two things to operate.  A containing HTML5 canvas
+that will be used to display the map and a T5.Geo.MapProvider that will populate 
+the map.
+
+## Example Usage: Creating a Map
+    
+<pre lang='javascript'>
+// create the map
+map = new T5.Map({
+    container: 'mapCanvas',
+    provider: new T5.Geo.Decarta.MapProvider();
+});
+</pre>
+    
+Like all T5.View descendants the map supports features such as intertial scrolling and
+the like and is configurable through implementing the GRUNT.configurable interface. For 
+more information on view level features check out the T5.View documentation.
+*/
 T5.Map = function(params) {
     params = T5.ex({
         tapExtent: 10,
@@ -28,7 +51,6 @@ T5.Map = function(params) {
         gridLayerId = null,
         locationAnnotation = null,
         geoWatchId = 0,
-        tileRequestInProgress = false,
         initialTrackingUpdate = true,
         zoomLevel = params.zoomLevel;
         
@@ -202,6 +224,9 @@ T5.Map = function(params) {
     
     /* public methods */
     
+    // TODO: make sure tile requests are returned in the correct 
+    // order and if a new request is issued while a request is completing
+    // the previous results don't create a tile layer
     function gotoPosition(position, newZoomLevel, callback) {
         
         function updateTileGrid(tileGrid) {
@@ -225,9 +250,6 @@ T5.Map = function(params) {
 
             // flag as initialized
             initialized = true;
-
-            // reset the tile request flag
-            tileRequestInProgress = false;
         } // updateTileGrid
         
         // save the current zoom level
@@ -266,13 +288,6 @@ T5.Map = function(params) {
         // if the zoom level is different from the 
         // current zoom level, then update the map tiles
         if (reset || (zoomLevel !== currentZoomLevel)) {
-            // if there is already a tile request in progress
-            // abort
-            if (tileRequestInProgress) {
-                GT.Log.warn("Tile request in progress, aborting");
-                return;
-            } // if
-            
             // remove the grid layer
             T5.Images.cancelLoad();
             
@@ -297,8 +312,6 @@ T5.Map = function(params) {
             if (initialized) {
                 self.freeze();
             } // if
-            
-            tileRequestInProgress = true;
             
             // update the provider zoom level
             params.provider.zoomLevel = zoomLevel;

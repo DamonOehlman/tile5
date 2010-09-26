@@ -1650,9 +1650,40 @@ GT.ParseRules = function(params) {
     return self;
 }; // ParseRules
 /* GRUNTJS END */
+/**
+T5.Core
+=======
+
+The T5.Core module contains classes and functionality that support basic drawing 
+operations and math that are used in managing and drawing the graphical and tiling interfaces 
+that are provided in the Tile5 library.
+
+Classes
+-------
+
+- T5.Vector
+- T5.Dimensions
+- T5.Rect
+
+
+Submodules
+----------
+
+- T5.Settings
+- T5.V
+- T5.D
+- T5.R
+*/
 T5 = (function() {
-    /* vector definition and tools */
-    
+    /**
+    # T5.Vector
+
+    A vector is used to encapsulate X and Y coordinates for a point, and rather than 
+    bundle it with methods it has been kept to just core data to ensure it has a 
+    lightweight memory footprint.
+
+
+    */
     var Vector = function(initX, initY) {
         return {
             x: initX ? initX : 0,
@@ -1660,6 +1691,15 @@ T5 = (function() {
         };
     }; // Vector
     
+    /**
+    # T5.V
+
+    This module defines functions that are used to maintain T5.Vector objects and this
+    is removed from the actual Vector class to keep the Vector object lightweight.
+
+    ## Functions
+
+    */
     var vectorTools = (function() {
         function edges(vectors) {
             if ((! vectors) || (vectors.length <= 1)) {
@@ -1696,6 +1736,12 @@ T5 = (function() {
                 return new Vector(x, y);
             },
             
+            /**
+            - `add(v*)`
+            
+            Return a new T5.Vector that is the total sum value of all the 
+            vectors passed to the function.
+            */
             add: function() {
                 var fnresult = new Vector();
                 for (var ii = arguments.length; ii--; ) {
@@ -1710,18 +1756,39 @@ T5 = (function() {
                 return Math.max(Math.abs(vector.x), Math.abs(vector.y));
             },
             
+            /**
+            - `diff(v1, v2)`
+            
+            Return a new T5.Vector that contains the result of v1 - v2.
+            */
             diff: function(v1, v2) {
                 return new Vector(v1.x - v2.x, v1.y - v2.y);
             },
             
+            /**
+            - `copy(src)`
+            
+            Return a new T5.Vector copy of the vector passed to the function 
+            */
             copy: function(src) {
                 return src ? new Vector(src.x, src.y) : null;
             },
             
+            /**
+            - `invert(v)`
+            
+            Return a new T5.Vector that contains the inverted values of the 
+            vector passed to the function
+            */
             invert: function(vector) {
                 return new Vector(-vector.x, -vector.y);
             },
             
+            /**
+            - `offset(vector, offsetX, offsetY)`
+            
+            Return a new T5.Vector that is offset by the specified x and y offset
+            */
             offset: function(vector, offsetX, offsetY) {
                 return new Vector(
                                 vector.x + offsetX, 
@@ -1729,15 +1796,31 @@ T5 = (function() {
             },
             
             edges: edges,
+            
+            /**
+            - `distance(v*)`
+            
+            Return the total euclidean distance between all the points of the
+            vectors supplied to the function
+            */
             distance: function(vectors) {
                 return edges(vectors).total;
             },
             
+            /**
+            - `theta (v1, v2, distance)`
+            
+            */
             theta: function(v1, v2, distance) {
                 var theta = Math.asin((v1.y - v2.y) / distance);
                 return v1.x > v2.x ? theta : Math.PI - theta;
             },
             
+            
+            /**
+            - `pointOnEdge(v1, v2, theta, delta)`
+            
+            */
             pointOnEdge: function(v1, v2, theta, delta) {
                 var xyDelta = new Vector(
                                     Math.cos(theta) * delta, 
@@ -1748,6 +1831,10 @@ T5 = (function() {
                                     v1.y - xyDelta.y);
             },
             
+            /**
+            - `getRect(v*)`
+            
+            */
             getRect: function(vectorArray) {
                 var arrayLen = vectorArray.length;
                 if (arrayLen > 1) {
@@ -1768,14 +1855,30 @@ T5 = (function() {
                 }
             },
             
+            /**
+            - `toString(vector)`
+            
+            */
             toString: function(vector) {
                 return vector.x + ', ' + vector.y;
             }
         };
     })(); // vectorTools
     
-    /* rect definition and tools */
+    /**
+    # T5.Rect
     
+    A class used to store details pertaining to a rectangular region.
+    
+    ## Constructor
+    
+    `new T5.Rect(x, y, width, height)`
+    
+    ## Properties
+    
+    - origin - the top left point of the rectangle
+    - dimensions - the width and height of the rectangle
+    */
     var Rect = function(x, y, width, height) {
         return {
             origin: new Vector(x, y),
@@ -1783,6 +1886,10 @@ T5 = (function() {
         };
     }; // Rect
     
+    /**
+    # T5.R
+    
+    */
     var rectTools = (function() {
         var subModule = {
             copy: function(src) {
@@ -1805,8 +1912,10 @@ T5 = (function() {
         return subModule;
     })(); // rectTools
 
-    /* dimensions definition and tools */
+    /**
+    # T5.Dimensions
     
+    */
     var Dimensions = function(initWidth, initHeight) {
         return {
             width: initWidth ? initWidth : 0,
@@ -1814,6 +1923,10 @@ T5 = (function() {
         }; 
     }; // Dimensions
     
+    /** 
+    # T5.D
+    
+    */
     var dimensionTools = (function() {
         var subModule = {
             getAspectRatio: function(dimensions) {
@@ -1858,15 +1971,6 @@ T5 = (function() {
             return new Date().getTime();
         },
         
-        /**
-        Initialise a new Vector instance
-        
-        @param {Number} init_x the Initial x value for the Vector
-        @param {Number} init_y the Initial y value for the Vector
-
-        @class 
-        @name Vector
-        */
         Vector: Vector, // Vector
         V: vectorTools,
         
@@ -3452,6 +3556,20 @@ T5.ViewLayer = function(params) {
     
     return self;
 }; // T5.ViewLayer
+/**
+T5.View
+=======
+
+The Tile5 View is the fundamental building block for tiling and 
+mapping interface.  Which this class does not implement any of 
+the logic required for tiling, it does handle the redraw logic.  
+Applications implementing Tile5 maps will not need to be aware of 
+the implementation specifics of the View, but for those interested 
+in building extensions or customizations should definitely take a look.  
+Additionally, it is worth being familiar with the core methods that 
+are implemented here around the layering as these are used extensively 
+when creating overlays and the like for the map implementations.
+*/
 T5.View = function(params) {
     // initialise defaults
     params = T5.ex({
@@ -4962,7 +5080,9 @@ T5.Geo = (function() {
         RADIANS_TO_DEGREES = 180 / Math.PI,
         HALF_PI = Math.PI / 2,
         TWO_PI = Math.PI * 2,
-        ECC = 0.08181919084262157;
+        ECC = 0.08181919084262157,
+        PHI_EPSILON = 1E-7,
+        PHI_MAXITER = 12;
     
     var ROADTYPE_REGEX = null,
         // TODO: I think these need to move to the provider level..
@@ -5121,16 +5241,16 @@ T5.Geo = (function() {
                 return positions;
             },
             
-            fromMercatorPixels: function(x, y, radsPerPixel) {
+            fromMercatorPixels: function(mercX, mercY) {
                 // return the new position
                 return new Position(
-                    T5.Geo.pix2lat(y, radsPerPixel),
-                    T5.Geo.normalizeLon(T5.Geo.pix2lon(x, radsPerPixel))
+                    T5.Geo.pix2lat(mercY),
+                    T5.Geo.normalizeLon(T5.Geo.pix2lon(mercX))
                 );
             },
 
-            toMercatorPixels: function(pos, radsPerPixel) {
-                return new T5.Vector(T5.Geo.lon2pix(pos.lon, radsPerPixel), T5.Geo.lat2pix(pos.lat, radsPerPixel));
+            toMercatorPixels: function(pos) {
+                return new T5.Vector(T5.Geo.lon2pix(pos.lon), T5.Geo.lat2pix(pos.lat));
             },
             
             generalize: function(sourceData, requiredPositions, minDist) {
@@ -5928,38 +6048,36 @@ T5.Geo = (function() {
             return distance / KM_PER_RAD;
         },
         
-        lat2pix: function(lat, scale) {
-            var radLat = (parseFloat(lat)*(2*Math.PI))/360;
+        lat2pix: function(lat) {
+            var radLat = parseFloat(lat) * DEGREES_TO_RADIANS; // *(2*Math.PI))/360;
             var sinPhi = Math.sin(radLat);
             var eSinPhi = ECC * sinPhi;
             var retVal = Math.log(((1.0 + sinPhi) / (1.0 - sinPhi)) * Math.pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
 
-            return (retVal / scale);
+            return retVal;
         },
 
-        lon2pix: function(lon, scale) {
-            return ((parseFloat(lon)/180)*Math.PI) / scale;
+        lon2pix: function(lon) {
+            return parseFloat(lon) * DEGREES_TO_RADIANS; // /180)*Math.PI;
         },
 
-        pix2lon: function(x, scale) {
-            return module.normalizeLon((x * scale)*180/Math.PI);
+        pix2lon: function(mercX) {
+            return module.normalizeLon(mercX) * RADIANS_TO_DEGREES;
         },
 
-        pix2lat: function(y, scale) {
-            var phiEpsilon = 1E-7;
-            var phiMaxIter = 12;
-            var t = Math.pow(Math.E, -y * scale);
-            var prevPhi = mercatorUnproject(t);
-            var newPhi = findRadPhi(prevPhi, t);
-            var iterCount = 0;
+        pix2lat: function(mercY) {
+            var t = Math.pow(Math.E, -mercY),
+                prevPhi = mercatorUnproject(t),
+                newPhi = findRadPhi(prevPhi, t),
+                iterCount = 0;
 
-            while (iterCount < phiMaxIter && Math.abs(prevPhi - newPhi) > phiEpsilon) {
+            while (iterCount < PHI_MAXITER && Math.abs(prevPhi - newPhi) > PHI_EPSILON) {
                 prevPhi = newPhi;
                 newPhi = findRadPhi(prevPhi, t);
                 iterCount++;
             } // while
 
-            return newPhi*180/Math.PI;
+            return newPhi * RADIANS_TO_DEGREES;
         },
 
         normalizeLon: function(lon) {
@@ -6489,15 +6607,16 @@ T5.Geo.UI = (function() {
             }, params);
             
             // determine the mercator 
-            var centerMercatorPix = T5.Geo.P.toMercatorPixels(
-                                        params.centerPos, 
-                                        params.radsPerPixel);
+            var radsPerPixel = params.radsPerPixel,
+                centerMercatorPix = T5.Geo.P.toMercatorPixels(params.centerPos);
+                
+            GT.Log.info("tile grid created, rads per pixel = " + radsPerPixel);
             
             // calculate the bottom left mercator pix
             // the position of the bottom left mercator pixel is 
             // determined by params.subtracting the actual 
-            var blMercatorPixX = centerMercatorPix.x - params.centerXY.x,
-                blMercatorPixY = centerMercatorPix.y - params.centerXY.y;
+            var blPixX = (centerMercatorPix.x / radsPerPixel) - params.centerXY.x,
+                blPixY = (centerMercatorPix.y / radsPerPixel) - params.centerXY.y;
             
             // initialise self
             var self = T5.ex({}, params.grid, {
@@ -6509,14 +6628,12 @@ T5.Geo.UI = (function() {
                 
                 getGridXYForPosition: function(pos) {
                     // determine the mercator pixels for teh position
-                    var posPixels = T5.Geo.P.toMercatorPixels(
-                                        pos, 
-                                        params.radsPerPixel);
+                    var posPixels = T5.Geo.P.toMercatorPixels(pos);
 
                     // calculate the offsets
-                    var offsetX = posPixels.x - blMercatorPixX;
+                    var offsetX = (posPixels.x / radsPerPixel) - blPixX;
                     var offsetY = self.gridDimensions.height - 
-                            (posPixels.y - blMercatorPixY);
+                            ((posPixels.y / radsPerPixel) - blPixY);
 
                     return new T5.Vector(offsetX, offsetY);
                 },
@@ -6528,10 +6645,9 @@ T5.Geo.UI = (function() {
                 
                 pixelsToPos: function(vector) {
                     return T5.Geo.P.fromMercatorPixels(
-                        blMercatorPixX + vector.x, 
-                        (blMercatorPixY + self.gridDimensions.height) -
-                            vector.y, 
-                        params.radsPerPixel);
+                        (blPixX + vector.x) * radsPerPixel, 
+                        ((blPixY + self.gridDimensions.height) -
+                            vector.y) * radsPerPixel);
                 }
             });
             
@@ -7132,6 +7248,29 @@ T5.Geo.UI = (function() {
     
     return module;
 })();
+/**
+T5.Map
+======
+
+The T5.Map class is the entry point for creating a tiling map.  Creating a 
+map is quite simple and requires two things to operate.  A containing HTML5 canvas
+that will be used to display the map and a T5.Geo.MapProvider that will populate 
+the map.
+
+## Example Usage: Creating a Map
+    
+<pre lang='javascript'>
+// create the map
+map = new T5.Map({
+    container: 'mapCanvas',
+    provider: new T5.Geo.Decarta.MapProvider();
+});
+</pre>
+    
+Like all T5.View descendants the map supports features such as intertial scrolling and
+the like and is configurable through implementing the GRUNT.configurable interface. For 
+more information on view level features check out the T5.View documentation.
+*/
 T5.Map = function(params) {
     params = T5.ex({
         tapExtent: 10,
@@ -7162,7 +7301,6 @@ T5.Map = function(params) {
         gridLayerId = null,
         locationAnnotation = null,
         geoWatchId = 0,
-        tileRequestInProgress = false,
         initialTrackingUpdate = true,
         zoomLevel = params.zoomLevel;
         
@@ -7336,6 +7474,9 @@ T5.Map = function(params) {
     
     /* public methods */
     
+    // TODO: make sure tile requests are returned in the correct 
+    // order and if a new request is issued while a request is completing
+    // the previous results don't create a tile layer
     function gotoPosition(position, newZoomLevel, callback) {
         
         function updateTileGrid(tileGrid) {
@@ -7359,9 +7500,6 @@ T5.Map = function(params) {
 
             // flag as initialized
             initialized = true;
-
-            // reset the tile request flag
-            tileRequestInProgress = false;
         } // updateTileGrid
         
         // save the current zoom level
@@ -7400,13 +7538,6 @@ T5.Map = function(params) {
         // if the zoom level is different from the 
         // current zoom level, then update the map tiles
         if (reset || (zoomLevel !== currentZoomLevel)) {
-            // if there is already a tile request in progress
-            // abort
-            if (tileRequestInProgress) {
-                GT.Log.warn("Tile request in progress, aborting");
-                return;
-            } // if
-            
             // remove the grid layer
             T5.Images.cancelLoad();
             
@@ -7431,8 +7562,6 @@ T5.Map = function(params) {
             if (initialized) {
                 self.freeze();
             } // if
-            
-            tileRequestInProgress = true;
             
             // update the provider zoom level
             params.provider.zoomLevel = zoomLevel;

@@ -1,15 +1,8 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
-<html lang="en">
-<head>
-<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-<title>Tile5 API Documentation</title>
-<meta name="generator" content="joDoc">
-<link rel="stylesheet" type="text/css" href="docbody.css">
-<link rel="stylesheet" type="text/css" href="doc.css">
-<meta name="viewport" content="initial-scale=1.0, maximum-scale=1.0, user-scalable=no, width=device-width">
-<meta name="format-detection" content="false">
-</head>
-<body>
+{% extends 'apidoc.html' %}
+
+{% block title %}Tile5 API Documentation{% endblock %}
+
+{% block api %}
 <h1><a name="T5.Geo.BoundingBox">T5.Geo.BoundingBox</a></h1>
 
 <p>The BoundingBox class is used to store the min and max <a href="docs_js_geo_core_Position.mdown.html#T5.Geo.Position">T5.Geo.Position</a> that represents a bounding box.  For support functions for manipulating a bounding box, see the <a href="docs_js_geo_core_B.mdown.html#T5.Geo.B">T5.Geo.B</a> submodule.</p>
@@ -41,15 +34,4 @@
 <pre><code>var bounds = new <a href="docs_js_geo_core_BoundingBox.mdown.html#T5.Geo.BoundingBox">T5.Geo.BoundingBox</a>("-27.587 152.876", "-27.468 153.028");
 </code></pre>
 
-<script> 
- var _gaq = [['_setAccount', 'UA-8447893-8'], ['_trackPageview']];
- (function(d, t) {
-  var g = d.createElement(t),
-      s = d.getElementsByTagName(t)[0];
-  g.async = true;
-  g.src = '//www.google-analytics.com/ga.js';
-  s.parentNode.insertBefore(g, s);
- })(document, 'script');
-</script>
-</body>
-</html>
+{% endblock %}
