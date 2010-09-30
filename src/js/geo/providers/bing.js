@@ -1,5 +1,11 @@
 // BING Tiles: http://msdn.microsoft.com/en-us/library/bb259689.aspx
 T5.Geo.Bing = (function() {
+    var DEFAULT_COPYRIGHT = 
+        'Copyright © Microsoft and its suppliers. All rights reserved. This API ' +
+        'cannot be accessed and the content and any results may not be used, ' + 
+        'reproduced or transmitted in any manner without express written permission ' + 
+        'from Microsoft Corporation.';
+    
     var imageUrls = {},
         logoUrl, 
         copyrightText,
@@ -158,7 +164,7 @@ T5.Geo.Bing = (function() {
                 },
                 
                 getCopyright: function() {
-                    return copyrightText;
+                    return copyrightText ? copyrightText : DEFAULT_COPYRIGHT;
                 },
                 
                 getLogoUrl: function() {
