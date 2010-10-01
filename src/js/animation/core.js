@@ -1,10 +1,10 @@
 (function() {
     // initialise variables
     var tweens = [],
-        updating = false,
-        tweenTimer = 0;
-        
-    function update(tickCount) {
+        tweenWorker = null,
+        updating = false;
+                
+    function update(tickCount, worker) {
         if (updating) { return tweens.length; }
         
         updating = true;
@@ -25,6 +25,11 @@
         finally {
             updating = false;
         } // try..finally
+        
+        // if we have no more tweens then complete it
+        if (tweens.length === 0) {
+            tweenWorker.trigger('complete');
+        } // if
         
         return tweens.length;
     } // update
@@ -112,13 +117,15 @@
     }; // T5.isTweening
 
     T5.wakeTweens = function() {
-        if (tweenTimer !== 0) { return; }
+        if (tweenWorker) { return; }
         
-        tweenTimer = setInterval(function() {
-            if (update(T5.time()) === 0) {
-                clearInterval(tweenTimer);
-                tweenTimer = 0;
-            } // if
-        }, 20);
+        // create a tween worker
+        tweenWorker = GT.Loopage.join({
+            execute: update
+        });
+        
+        tweenWorker.bind('complete', function() {
+            tweenWorker = null;
+        });
     };
 })();

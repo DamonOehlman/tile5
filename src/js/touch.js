@@ -125,19 +125,21 @@
             if (! supportsTouch) {
                 lastXY = upXY;
                 
-                var checkInertiaInterval = setInterval(function() {
-                    tickDiff = (T5.time()) - currentTick;
-                    distance = vectorDistance([upXY, lastXY]);
+                GT.Loopage.join({
+                    execute: function(tickCount, worker) {
+                        tickDiff = tickCount - currentTick;
+                        distance = vectorDistance([upXY, lastXY]);
 
-                    // calculate the inertia
-                    if ((tickDiff < INERTIA_TIMEOUT_MOUSE) && (distance > params.inertiaTrigger)) {
-                        clearInterval(checkInertiaInterval);
-                        calculateInertia(upXY, lastXY, distance, tickDiff);
+                        // calculate the inertia
+                        if ((tickDiff < INERTIA_TIMEOUT_MOUSE) && (distance > params.inertiaTrigger)) {
+                            worker.trigger('complete');
+                            calculateInertia(upXY, lastXY, distance, tickDiff);
+                        }
+                        else if (tickDiff > INERTIA_TIMEOUT_MOUSE) {
+                            worker.trigger('complete');
+                        } // if..else
                     }
-                    else if (tickDiff > INERTIA_TIMEOUT_MOUSE) {
-                        clearInterval(checkInertiaInterval);
-                    } // if..else
-                }, 5);
+                });
             }
             else {
                 tickDiff = currentTick - touchStartTick;
@@ -159,7 +161,7 @@
             
             // apply the offset
             for (var ii = touches.length; ii--; ) {
-                fnresult.push(T5.V.offset(touches[ii], offsetX, offsetY));
+                fnresult[fnresult.length] = T5.V.offset(touches[ii], offsetX, offsetY);
             } // for
             
             return fnresult;

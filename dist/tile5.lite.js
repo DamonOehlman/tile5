@@ -1569,6 +1569,91 @@ GT.XPath = (function() {
     }; // say
 })();
 
+/**
+GT.Loopage
+----------
+
+This module implements a control loop that can be used to centralize
+jobs draw loops, animation calculations, partial calculations for GT.Job 
+instances, etc.
+*/
+GT.Loopage = (function() {
+    // initialise variables
+    var workerCount = 0,
+        workers = [],
+        removalQueue = [],
+        loopTimeout = 0;
+    
+    function LoopWorker(params) {
+        var self = GT.extend({
+            id: workerCount++,
+            execute: function() {}
+        }, params);
+        
+        return self;
+    } // LoopWorker
+    
+    
+    /* internal functions */
+    
+    function joinLoop(params) {
+        // create the worker
+        var worker = new LoopWorker(params);
+        
+        // make the worker observable
+        GT.observable(worker);
+        worker.bind('complete', function() {
+            leaveLoop(worker.id);
+        });
+        
+        // add the worker to the array
+        workers.unshift(worker);
+        
+        // if the loop is not running, then set it running
+        loopTimeout = loopTimeout ? loopTimeout : setTimeout(runLoop, 0);
+        
+        // return the newly created worker
+        return worker;
+    } // joinLoop
+    
+    function leaveLoop(workerId) {
+        removalQueue.push(workerId);
+    } // leaveLoop
+    
+    function runLoop() {
+        // get the current tick count
+        var ii,
+            tickCount = new Date().getTime();
+        
+        // iterate through removal queue
+        while (removalQueue.length > 0) {
+            var workerId = removalQueue.shift();
+            
+            // look for the worker and remove it
+            for (ii = workers.length; ii--; ) {
+                if (workers[ii].id === workerId) {
+                    workers.splice(ii, 1);
+                    break;
+                } // if
+            } // for
+        } // while
+        
+        // iterate through the workers and run
+        for (ii = workers.length; ii--; ) {
+            workers[ii].execute(tickCount, workers[ii]);
+        } // for
+        
+        // update the loop timeout
+        loopTimeout = workers.length ? setTimeout(runLoop, 0) : 0;
+    } // runLoop
+    
+    var module = {
+        join: joinLoop,
+        leave: leaveLoop
+    };
+    
+    return module;
+})();
 GT.Storage = (function() {
     function getStorageScope(scope) {
         if (scope && (scope == "session")) {
@@ -2419,10 +2504,10 @@ T5.Images = (function() {
             } // if
             
             // add the image to the cached images
-            cachedImages.push({
+            cachedImages[cachedImages.length] = {
                 url: this.src,
                 created: imageData.requested
-            });
+            };
             
             // remove the item from the load watchers
             delete loadWatchers[this.id];
@@ -2441,7 +2526,7 @@ T5.Images = (function() {
             
             if (imageData.imageLoader) {
                 // add the image data to the loading images
-                loadingImages.push(imageData);
+                loadingImages[loadingImages.length] = imageData;
                 
                 // run the image loader
                 imageData.imageLoader(imageData, handleImageLoad);
@@ -2567,7 +2652,7 @@ T5.Images = (function() {
             loadWatchers[imageData.image.id] = imageData;
             
             // add the image to the queued images
-            queuedImages.push(imageData);
+            queuedImages[queuedImages.length] = imageData;
             
             // trigger the next load event
             loadNextImage();
@@ -2737,19 +2822,21 @@ T5.Images = (function() {
             if (! supportsTouch) {
                 lastXY = upXY;
                 
-                var checkInertiaInterval = setInterval(function() {
-                    tickDiff = (T5.time()) - currentTick;
-                    distance = vectorDistance([upXY, lastXY]);
+                GT.Loopage.join({
+                    execute: function(tickCount, worker) {
+                        tickDiff = tickCount - currentTick;
+                        distance = vectorDistance([upXY, lastXY]);
 
-                    // calculate the inertia
-                    if ((tickDiff < INERTIA_TIMEOUT_MOUSE) && (distance > params.inertiaTrigger)) {
-                        clearInterval(checkInertiaInterval);
-                        calculateInertia(upXY, lastXY, distance, tickDiff);
+                        // calculate the inertia
+                        if ((tickDiff < INERTIA_TIMEOUT_MOUSE) && (distance > params.inertiaTrigger)) {
+                            worker.trigger('complete');
+                            calculateInertia(upXY, lastXY, distance, tickDiff);
+                        }
+                        else if (tickDiff > INERTIA_TIMEOUT_MOUSE) {
+                            worker.trigger('complete');
+                        } // if..else
                     }
-                    else if (tickDiff > INERTIA_TIMEOUT_MOUSE) {
-                        clearInterval(checkInertiaInterval);
-                    } // if..else
-                }, 5);
+                });
             }
             else {
                 tickDiff = currentTick - touchStartTick;
@@ -2771,7 +2858,7 @@ T5.Images = (function() {
             
             // apply the offset
             for (var ii = touches.length; ii--; ) {
-                fnresult.push(T5.V.offset(touches[ii], offsetX, offsetY));
+                fnresult[fnresult.length] = T5.V.offset(touches[ii], offsetX, offsetY);
             } // for
             
             return fnresult;
@@ -3345,10 +3432,10 @@ T5.Tween = function(params) {
 (function() {
     // initialise variables
     var tweens = [],
-        updating = false,
-        tweenTimer = 0;
-        
-    function update(tickCount) {
+        tweenWorker = null,
+        updating = false;
+                
+    function update(tickCount, worker) {
         if (updating) { return tweens.length; }
         
         updating = true;
@@ -3369,6 +3456,11 @@ T5.Tween = function(params) {
         finally {
             updating = false;
         } // try..finally
+        
+        // if we have no more tweens then complete it
+        if (tweens.length === 0) {
+            tweenWorker.trigger('complete');
+        } // if
         
         return tweens.length;
     } // update
@@ -3456,14 +3548,16 @@ T5.Tween = function(params) {
     }; // T5.isTweening
 
     T5.wakeTweens = function() {
-        if (tweenTimer !== 0) { return; }
+        if (tweenWorker) { return; }
         
-        tweenTimer = setInterval(function() {
-            if (update(T5.time()) === 0) {
-                clearInterval(tweenTimer);
-                tweenTimer = 0;
-            } // if
-        }, 20);
+        // create a tween worker
+        tweenWorker = GT.Loopage.join({
+            execute: update
+        });
+        
+        tweenWorker.bind('complete', function() {
+            tweenWorker = null;
+        });
     };
 })();(function() {
     var viewStates = {
@@ -3591,6 +3685,7 @@ T5.View = function(params) {
         mainContext = null,
         offset = new T5.Vector(),
         clearBackground = false,
+        cycleWorker = null,
         frozen = false,
         deviceScaling = 1,
         dimensions = null,
@@ -3603,7 +3698,7 @@ T5.View = function(params) {
         idleTimeout = 0,
         rescaleTimeout = 0,
         zoomCenter = null,
-        prepContextCallback = null,
+        rotation = 0,
         tickCount = 0,
         scaling = false,
         startRect = null,
@@ -3735,8 +3830,8 @@ T5.View = function(params) {
         attachToCanvas();
     } // handleContainerUpdate
     
-    function handlePrepContextCallback(name, value) {
-        prepContextCallback = value;
+    function handleRotationUpdate(name, value) {
+        rotation = value;
     } // handlePrepCanvasCallback
     
     /* private functions */
@@ -3949,10 +4044,6 @@ T5.View = function(params) {
                 context.scale(scaleFactor, scaleFactor);
             } // if..else
             
-            if (prepContextCallback) {
-                prepContextCallback(context, drawState);
-            } // if
-            
             for (ii = layers.length; ii--; ) {
                 // draw the layer output to the main canvas
                 // but only if we don't have a scale buffer or the layer is a draw on scale layer
@@ -3978,15 +4069,12 @@ T5.View = function(params) {
         return changeCount;
     } // drawView
     
-    function cycle() {
+    function cycle(tickCount, worker) {
         // check to see if we are panning
         var changeCount = 0,
             interacting = (! panimating) && 
                 ((state === statePinch) || (state === statePan));
-            
-        // get the tickcount
-        tickCount = T5.time();
-        
+                
         // conver the offset x and y to integer values
         // while canvas implementations work fine with real numbers, the actual drawing of images
         // will not look crisp when a real number is used rather than an integer (or so I've found)
@@ -4014,25 +4102,31 @@ T5.View = function(params) {
         changeCount += drawView(mainContext, offset);
 
         // include wake triggers in the change count
-        paintTimeout = 0;
-        if (wakeTriggers + changeCount > 0) {
-            wake();
+        if (wakeTriggers + changeCount === 0) {
+            worker.trigger('complete');
         } 
-        else {
-            if ((! idle) && (idleTimeout === 0)) {
-                idleTimeout = setTimeout(triggerIdle, 500);
-            } // if
+        else if ((! idle) && (idleTimeout === 0)) {
+            idleTimeout = setTimeout(triggerIdle, 500);
         } // if..else
         
+        wakeTriggers = 0;
         GT.Log.trace("Completed draw cycle", tickCount);
     } // cycle
     
     function wake() {
         wakeTriggers++;
-        if (frozen || (paintTimeout !== 0)) { return; }
-    
-        wakeTriggers = 0;
-        paintTimeout = setTimeout(cycle, 0);
+        if (frozen || cycleWorker) { return; }
+        GT.Log.info("actually woken up");
+        
+        // create the cycle worker
+        cycleWorker = GT.Loopage.join({
+            execute: cycle
+        });
+        
+        // bind to the complete method
+        cycleWorker.bind('complete', function() {
+            cycleWorker = null;
+        });
     } // wake
     
     function invalidate() {
@@ -4269,15 +4363,15 @@ T5.View = function(params) {
         self.bind("pinchZoom", pinchZoom);
         self.bind("pinchZoomEnd", pinchZoomEnd);
         self.bind("wheelZoom", wheelZoom);
-    }
+    } // if
     
     // make the view configurable
     GT.configurable(
         self, 
-        ["inertia", "container", 'prepContext'], 
+        ["inertia", "container", 'rotation'], 
         GT.paramTweaker(params, null, {
             "container": handleContainerUpdate,
-            'prepContext': handlePrepContextCallback
+            'rotation':  handleRotationUpdate
         }),
         true);
     
@@ -4639,10 +4733,10 @@ T5.AnimatedPathLayer = function(params) {
                 } // if
                 
                 // add the tile and position to the tile draw queue
-                tmpQueue.push({
+                tmpQueue[tmpQueue.length] = {
                     tile: tile,
                     centerness: T5.V.absSize(centerDiff)
-                });
+                };
             } // for
         } // for
 

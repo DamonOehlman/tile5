@@ -34,6 +34,7 @@ T5.View = function(params) {
         mainContext = null,
         offset = new T5.Vector(),
         clearBackground = false,
+        cycleWorker = null,
         frozen = false,
         deviceScaling = 1,
         dimensions = null,
@@ -417,15 +418,12 @@ T5.View = function(params) {
         return changeCount;
     } // drawView
     
-    function cycle() {
+    function cycle(tickCount, worker) {
         // check to see if we are panning
         var changeCount = 0,
             interacting = (! panimating) && 
                 ((state === statePinch) || (state === statePan));
-            
-        // get the tickcount
-        tickCount = T5.time();
-        
+                
         // conver the offset x and y to integer values
         // while canvas implementations work fine with real numbers, the actual drawing of images
         // will not look crisp when a real number is used rather than an integer (or so I've found)
@@ -453,25 +451,31 @@ T5.View = function(params) {
         changeCount += drawView(mainContext, offset);
 
         // include wake triggers in the change count
-        paintTimeout = 0;
-        if (wakeTriggers + changeCount > 0) {
-            wake();
+        if (wakeTriggers + changeCount === 0) {
+            worker.trigger('complete');
         } 
-        else {
-            if ((! idle) && (idleTimeout === 0)) {
-                idleTimeout = setTimeout(triggerIdle, 500);
-            } // if
+        else if ((! idle) && (idleTimeout === 0)) {
+            idleTimeout = setTimeout(triggerIdle, 500);
         } // if..else
         
+        wakeTriggers = 0;
         GT.Log.trace("Completed draw cycle", tickCount);
     } // cycle
     
     function wake() {
         wakeTriggers++;
-        if (frozen || (paintTimeout !== 0)) { return; }
-    
-        wakeTriggers = 0;
-        paintTimeout = setTimeout(cycle, 0);
+        if (frozen || cycleWorker) { return; }
+        GT.Log.info("actually woken up");
+        
+        // create the cycle worker
+        cycleWorker = GT.Loopage.join({
+            execute: cycle
+        });
+        
+        // bind to the complete method
+        cycleWorker.bind('complete', function() {
+            cycleWorker = null;
+        });
     } // wake
     
     function invalidate() {
@@ -708,7 +712,7 @@ T5.View = function(params) {
         self.bind("pinchZoom", pinchZoom);
         self.bind("pinchZoomEnd", pinchZoomEnd);
         self.bind("wheelZoom", wheelZoom);
-    }
+    } // if
     
     // make the view configurable
     GT.configurable(

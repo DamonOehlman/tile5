@@ -221,10 +221,10 @@ T5.TileGrid = function(params) {
                 } // if
                 
                 // add the tile and position to the tile draw queue
-                tmpQueue.push({
+                tmpQueue[tmpQueue.length] = {
                     tile: tile,
                     centerness: T5.V.absSize(centerDiff)
-                });
+                };
             } // for
         } // for
 

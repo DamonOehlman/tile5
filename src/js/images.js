@@ -59,10 +59,10 @@ T5.Images = (function() {
             } // if
             
             // add the image to the cached images
-            cachedImages.push({
+            cachedImages[cachedImages.length] = {
                 url: this.src,
                 created: imageData.requested
-            });
+            };
             
             // remove the item from the load watchers
             delete loadWatchers[this.id];
@@ -81,7 +81,7 @@ T5.Images = (function() {
             
             if (imageData.imageLoader) {
                 // add the image data to the loading images
-                loadingImages.push(imageData);
+                loadingImages[loadingImages.length] = imageData;
                 
                 // run the image loader
                 imageData.imageLoader(imageData, handleImageLoad);
@@ -207,7 +207,7 @@ T5.Images = (function() {
             loadWatchers[imageData.image.id] = imageData;
             
             // add the image to the queued images
-            queuedImages.push(imageData);
+            queuedImages[queuedImages.length] = imageData;
             
             // trigger the next load event
             loadNextImage();
