@@ -3604,6 +3604,7 @@ T5.View = function(params) {
         idleTimeout = 0,
         rescaleTimeout = 0,
         zoomCenter = null,
+        prepContextCallback = null,
         tickCount = 0,
         scaling = false,
         startRect = null,
@@ -3734,6 +3735,10 @@ T5.View = function(params) {
         // attach to the new canvas
         attachToCanvas();
     } // handleContainerUpdate
+    
+    function handlePrepContextCallback(name, value) {
+        prepContextCallback = value;
+    } // handlePrepCanvasCallback
     
     /* private functions */
     
@@ -3908,7 +3913,7 @@ T5.View = function(params) {
     
     function drawView(context, offset) {
         var changeCount = 0,
-            drawState = frozen ? T5.viewState('FROZEN') : state,
+            drawState = panimating ? statePan : (frozen ? T5.viewState('FROZEN') : state),
             startTicks = T5.time(),
             isPinchZoom = (drawState & statePinch) !== 0,
             delayDrawLayers = [];
@@ -3943,7 +3948,11 @@ T5.View = function(params) {
             else if (isPinchZoom) {
                 context.translate(endCenter.x, endCenter.y);
                 context.scale(scaleFactor, scaleFactor);
-            }
+            } // if..else
+            
+            if (prepContextCallback) {
+                prepContextCallback(context, drawState);
+            } // if
             
             for (ii = layers.length; ii--; ) {
                 // draw the layer output to the main canvas
@@ -4191,6 +4200,9 @@ T5.View = function(params) {
                     tweens[ii].cancelOnInteract = true;
                     tweens[ii].requestUpdates(wake);
                 } // for
+
+                // set the panimating flag to true
+                panimating = true;
             }
             else {
                 self.setOffset(x, y);
@@ -4263,9 +4275,10 @@ T5.View = function(params) {
     // make the view configurable
     GT.configurable(
         self, 
-        ["inertia", "container"], 
+        ["inertia", "container", 'prepContext'], 
         GT.paramTweaker(params, null, {
-            "container": handleContainerUpdate
+            "container": handleContainerUpdate,
+            'prepContext': handlePrepContextCallback
         }),
         true);
     
@@ -7633,7 +7646,17 @@ T5.Map = function(params) {
         
         gotoPosition: gotoPosition,
 
-        panToPosition: function(position, callback, easingFn) {
+        /**
+        - `panToPosition(position, callback, easingFn)`
+        
+        This method is used to tell the map to pan (not zoom) to the specified 
+        T5.Geo.Position.  An optional callback can be passed as the second
+        parameter to the function and this fires a notification once the map is
+        at the new specified position.  Additionally, an optional easingFn parameter
+        can be supplied if the pan operation should ease to the specified location 
+        rather than just shift immediately.  An easingDuration can also be supplied.
+        */
+        panToPosition: function(position, callback, easingFn, easingDuration) {
             var grid = self.getTileLayer();
             if (grid) {
                 // determine the tile offset for the 
@@ -7651,7 +7674,7 @@ T5.Map = function(params) {
                     guideOffset = null;
                 } // if
 
-                self.updateOffset(centerXY.x, centerXY.y, easingFn);
+                self.updateOffset(centerXY.x, centerXY.y, easingFn, easingDuration, callback);
                 self.trigger("wake");
 
                 // trigger a bounds change event
@@ -7660,7 +7683,7 @@ T5.Map = function(params) {
                 } // if
 
                 // if we have a callback defined, then run it
-                if (callback) {
+                if (callback && (typeof easingFn === 'undefined')) {
                     callback(self);
                 } // if
             } // if

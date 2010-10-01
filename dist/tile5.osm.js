@@ -13,6 +13,7 @@ T5.Geo.OpenStreetMap = (function() {
         MapProvider: function(params) {
             params = T5.ex({
                 drawGrid: false,
+                flipY: false,
                 urlFiller: null,
                 getServerDetails: function() {
                     return {
@@ -23,7 +24,8 @@ T5.Geo.OpenStreetMap = (function() {
             }, params);
             
             // initialise parent
-            var parent = new T5.Geo.MapProvider();
+            var parent = new T5.Geo.MapProvider(),
+                flipY = params.flipY;
 
             function buildTileGrid(tileOffset, container_dimensions, centerPos) {
                 // initialise the first tile origin
@@ -55,7 +57,7 @@ T5.Geo.OpenStreetMap = (function() {
                             GT.formatStr("{0}/{1}/{2}.png",
                                 self.zoomLevel,
                                 topLeftOffset.x + col,
-                                topLeftOffset.y + row);
+                                flipY ? Math.abs(topLeftOffset.y + row - (Math.pow(2,self.zoomLevel) - 1)) : topLeftOffset.y + row);
                     }
                     else {
                         tileUrl = params.urlFiller(self.zoomLevel, topLeftOffset.x + col, topLeftOffset.y + row);

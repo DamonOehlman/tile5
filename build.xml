@@ -132,6 +132,8 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		<concat destfile="${dist}/${LIBNAME}.bing.js">
 			<fileset file="src/js/geo/providers/bing.js" />
 		</concat>
+		
+		<copy tofile="${dist}/${LIBNAME}.mapbox.js" file="src/js/geo/providers/mapbox.js" />
 	</target>
 	
 	<target name="build-lite" description="Build the lite version of the library">

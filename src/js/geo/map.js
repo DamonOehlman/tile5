@@ -383,7 +383,17 @@ T5.Map = function(params) {
         
         gotoPosition: gotoPosition,
 
-        panToPosition: function(position, callback, easingFn) {
+        /**
+        - `panToPosition(position, callback, easingFn)`
+        
+        This method is used to tell the map to pan (not zoom) to the specified 
+        T5.Geo.Position.  An optional callback can be passed as the second
+        parameter to the function and this fires a notification once the map is
+        at the new specified position.  Additionally, an optional easingFn parameter
+        can be supplied if the pan operation should ease to the specified location 
+        rather than just shift immediately.  An easingDuration can also be supplied.
+        */
+        panToPosition: function(position, callback, easingFn, easingDuration) {
             var grid = self.getTileLayer();
             if (grid) {
                 // determine the tile offset for the 
@@ -401,7 +411,7 @@ T5.Map = function(params) {
                     guideOffset = null;
                 } // if
 
-                self.updateOffset(centerXY.x, centerXY.y, easingFn);
+                self.updateOffset(centerXY.x, centerXY.y, easingFn, easingDuration, callback);
                 self.trigger("wake");
 
                 // trigger a bounds change event
@@ -410,7 +420,7 @@ T5.Map = function(params) {
                 } // if
 
                 // if we have a callback defined, then run it
-                if (callback) {
+                if (callback && (typeof easingFn === 'undefined')) {
                     callback(self);
                 } // if
             } // if

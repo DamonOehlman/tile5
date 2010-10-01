@@ -3603,6 +3603,7 @@ T5.View = function(params) {
         idleTimeout = 0,
         rescaleTimeout = 0,
         zoomCenter = null,
+        prepContextCallback = null,
         tickCount = 0,
         scaling = false,
         startRect = null,
@@ -3733,6 +3734,10 @@ T5.View = function(params) {
         // attach to the new canvas
         attachToCanvas();
     } // handleContainerUpdate
+    
+    function handlePrepContextCallback(name, value) {
+        prepContextCallback = value;
+    } // handlePrepCanvasCallback
     
     /* private functions */
     
@@ -3907,7 +3912,7 @@ T5.View = function(params) {
     
     function drawView(context, offset) {
         var changeCount = 0,
-            drawState = frozen ? T5.viewState('FROZEN') : state,
+            drawState = panimating ? statePan : (frozen ? T5.viewState('FROZEN') : state),
             startTicks = T5.time(),
             isPinchZoom = (drawState & statePinch) !== 0,
             delayDrawLayers = [];
@@ -3942,7 +3947,11 @@ T5.View = function(params) {
             else if (isPinchZoom) {
                 context.translate(endCenter.x, endCenter.y);
                 context.scale(scaleFactor, scaleFactor);
-            }
+            } // if..else
+            
+            if (prepContextCallback) {
+                prepContextCallback(context, drawState);
+            } // if
             
             for (ii = layers.length; ii--; ) {
                 // draw the layer output to the main canvas
@@ -4190,6 +4199,9 @@ T5.View = function(params) {
                     tweens[ii].cancelOnInteract = true;
                     tweens[ii].requestUpdates(wake);
                 } // for
+
+                // set the panimating flag to true
+                panimating = true;
             }
             else {
                 self.setOffset(x, y);
@@ -4262,9 +4274,10 @@ T5.View = function(params) {
     // make the view configurable
     GT.configurable(
         self, 
-        ["inertia", "container"], 
+        ["inertia", "container", 'prepContext'], 
         GT.paramTweaker(params, null, {
-            "container": handleContainerUpdate
+            "container": handleContainerUpdate,
+            'prepContext': handlePrepContextCallback
         }),
         true);
     
