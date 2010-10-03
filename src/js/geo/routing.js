@@ -1,13 +1,20 @@
 /**
-@module
+# MODULE: Geo.Routing
 
 Define functionality to enable routing for mapping
+
+## Functions
 */
 T5.Geo.Routing = (function() {
     // define the module
     var module = {
         /* module functions */
         
+        /**
+        - `calculate(args)`
+        
+        TODO
+        */
         calculate: function(args) {
             args = T5.ex({
                 engineId: "",
@@ -50,6 +57,11 @@ T5.Geo.Routing = (function() {
             } // if
         },
         
+        /**
+        - `createMapOverlay(map, routeData)`
+        
+        TODO
+        */
         createMapOverlay: function(map, routeData) {
             // get the map dimensions
             var dimensions = map.getDimensions();
@@ -67,6 +79,11 @@ T5.Geo.Routing = (function() {
             map.setLayer("route", overlay);
         },
         
+        /**
+        - `parseTurnType(text)`
+        
+        TODO
+        */
         parseTurnType: function(text) {
             var turnType = module.TurnType.Unknown,
                 rules = T5.Geo.Routing.TurnTypeRules;
@@ -94,6 +111,10 @@ T5.Geo.Routing = (function() {
             return turnType;
         },
         
+        /**
+        # Geo.Routing.TurnType
+        
+        */
         TurnType: {
             Unknown: "turn-unknown",
             
@@ -127,6 +148,10 @@ T5.Geo.Routing = (function() {
             RampExit: "ramp-exit"
         },
         
+        /**
+        # Geo.Routing.Instruction
+        
+        */
         Instruction: function(params) {
             params = T5.ex({
                 position: null,
@@ -143,6 +168,10 @@ T5.Geo.Routing = (function() {
         },
         
         
+        /**
+        # Geo.Routing.RouteData
+        
+        */
         RouteData: function(params) {
             params = T5.ex({
                 geometry: [],

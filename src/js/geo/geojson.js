@@ -8,6 +8,6 @@ T5.Geo.JSON = (function() {
     
     
     var module = {
-        Overlay: GeoJSONOverlay
     };
 })();
+

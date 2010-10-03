@@ -1,10 +1,11 @@
-/*
-File:   T5.geo.js
-File is used to define geo namespace and classes for implementing GIS classes and operations
+/**
+# MODULE: Geo
+
+The Geo module contains classes and functionality to support geospatial 
+operations and calculations that are required when drawing maps, routes, etc.
+
+## Functions
 */
-
-/* GEO Basic Type definitions */
-
 T5.Geo = (function() {
     // define constants
     var LAT_VARIABILITIES = [
@@ -40,6 +41,145 @@ T5.Geo = (function() {
         },
         DEFAULT_GENERALIZATION_DISTANCE = 250;
         
+    var exportedFunctions = {
+        /**
+        - `getEngine(requiredCapability)`
+
+        Returns the engine that provides the required functionality.  If preferred engines are supplied
+        as additional arguments, then those are looked for first
+        */
+        getEngine: function(requiredCapability) {
+            // initialise variables
+            var fnresult = null;
+
+            // iterate through the arguments beyond the capabililty for the preferred engine
+            for (var ii = 1; (! fnresult) && (ii < arguments.length); ii++) {
+                fnresult = findEngine(requiredCapability, arguments[ii]);
+            } // for
+
+            // if we found an engine using preferences, return that otherwise return an alternative
+            fnresult = fnresult ? fnresult : findEngine(requiredCapability);
+
+            // if no engine was found, then throw an exception
+            if (! fnresult) {
+                throw new Error("Unable to find GEO engine with " + requiredCapability + " capability");
+            }
+
+            return fnresult;
+        },
+
+        /**
+        - `rankGeocodeResponses(requestAddress, responseAddress, engine)`
+        
+        TODO
+        */
+        rankGeocodeResponses: function(requestAddress, responseAddresses, engine) {
+            var matches = [],
+                compareFns = module.AddressCompareFns;
+
+            // if the engine is specified and the engine has compare fns, then extend them
+            if (engine && engine.compareFns) {
+                compareFns = T5.ex({}, compareFns, engine.compareFns);
+            } // if
+
+            // iterate through the response addresses and compare against the request address
+            for (var ii = 0; ii < responseAddresses.length; ii++) {
+                matches.push(new module.GeoSearchResult({
+                    caption: addrTools.toString(responseAddresses[ii]),
+                    data: responseAddresses[ii],
+                    pos: responseAddresses[ii].pos,
+                    matchWeight: plainTextAddressMatch(requestAddress, responseAddresses[ii], compareFns, module.GeocodeFieldWeights)
+                }));
+            } // for
+
+            // TODO: sort the matches
+            matches.sort(function(itemA, itemB) {
+                return itemB.matchWeight - itemA.matchWeight;
+            });
+
+            return matches;
+        },
+
+        /**
+        - `dist2rad(distance)`
+        
+        TODO
+        */
+        dist2rad: function(distance) {
+            return distance / KM_PER_RAD;
+        },
+
+        /**
+        - `lat2pix(lat)`
+        
+        TODO
+        */
+        lat2pix: function(lat) {
+            var radLat = parseFloat(lat) * DEGREES_TO_RADIANS; // *(2*Math.PI))/360;
+            var sinPhi = Math.sin(radLat);
+            var eSinPhi = ECC * sinPhi;
+            var retVal = Math.log(((1.0 + sinPhi) / (1.0 - sinPhi)) * Math.pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
+
+            return retVal;
+        },
+
+        /**
+        - `lon2pix(lon)`
+        
+        TODO
+        */
+        lon2pix: function(lon) {
+            return parseFloat(lon) * DEGREES_TO_RADIANS; // /180)*Math.PI;
+        },
+
+        /**
+        - `pix2lon(mercX)`
+        
+        TODO
+        */
+        pix2lon: function(mercX) {
+            return module.normalizeLon(mercX) * RADIANS_TO_DEGREES;
+        },
+
+        /**
+        - `pix2lat`
+        
+        TODO
+        */
+        pix2lat: function(mercY) {
+            var t = Math.pow(Math.E, -mercY),
+                prevPhi = mercatorUnproject(t),
+                newPhi = findRadPhi(prevPhi, t),
+                iterCount = 0;
+
+            while (iterCount < PHI_MAXITER && Math.abs(prevPhi - newPhi) > PHI_EPSILON) {
+                prevPhi = newPhi;
+                newPhi = findRadPhi(prevPhi, t);
+                iterCount++;
+            } // while
+
+            return newPhi * RADIANS_TO_DEGREES;
+        },
+
+        /**
+        - `normalizeLon(lon)`
+        
+        TODO
+        */
+        normalizeLon: function (lon) {
+            // return lon;
+            while (lon < -180) {
+                lon += 360;
+            } // while
+
+            while (lon > 180) {
+                lon -= 360;
+            } // while
+
+            return lon;
+        }        
+    }; // exportedFunctions
+        
     /* define the geo simple types */
     
     var Radius = function(init_dist, init_uom) {
@@ -49,6 +189,40 @@ T5.Geo = (function() {
         }; 
     }; // Radius
     
+    /**
+    # Geo.Position
+    
+    The position class is simply a data-storage class that is used to store 
+    a latitude and longitude pair.  While this class used to contain methods 
+    to support manipulation on these objects, these have been moved to the 
+    Geo.P submodule for performance optimization reasons.
+
+    ## Properties
+
+    - lat
+    The latitude of the position
+
+    - lon
+    The longitude of the position
+
+    ## Usage
+
+    Creating a new position object can be done by either specifically creating 
+    a new Position object, by specifying the lat and lon as arguments:
+
+    <pre>
+    var pos = new T5.Geo.Position(-27.468, 153.028);
+    </pre>
+
+    Alternative, the T5.Geo.P submodule can be used to parse a 
+    latitude / longitude pair from a string value
+
+    <pre>
+    var pos = T5.Geo.P.parse("-27.468 153.028");
+    </pre>
+
+    The parse function supports both space-separated, and comma-separated syntaxes.    
+    */
     var Position = function(initLat, initLon) {
         // initialise self
         return {
@@ -57,15 +231,57 @@ T5.Geo = (function() {
         };
     }; // Position
     
+    /**
+    # Geo.BoundingBox
+
+    The BoundingBox class is used to store the min and max Geo.Position 
+    that represents a bounding box.  For support functions for manipulating 
+    a bounding box, see the Geo.B submodule.
+    
+    ## Properties
+
+    - min
+    The T5.Geo.Position object representing the minimum of the bounding box.  
+    The minimum position of the bounding box is the south-western (or 
+    bottom-left) corner of the bounding box.
+
+    - max
+    The T5.Geo.Position object representing the maximum position of the bounding 
+    box.  The maximum position is the north-eastern (or top-right) corner of 
+    the bounding box.
+
+    ## Usage
+
+    Creating a new Geo.BoundingBox is done by specifying either 
+    a Geo.Position objects or parsable strings to the constructor:
+
+    Created position objects example:
+    
+    <pre>
+    var minPos = T5.Geo.P.parse("-27.587 152.876"),
+        maxPos = T5.Geo.P.parse("-27.468 153.028"),
+        bounds = new T5.Geo.BoundingBox(minPos, maxPos);
+    </pre>
+
+    Creating from latlon string pairs example (constructor arguments 
+    automatically passed through the T5.Geo.P.parse function):
+
+    <pre>
+    var bounds = new T5.Geo.BoundingBox("-27.587 152.876", "-27.468 153.028");
+    </pre>
+    */
     var BoundingBox = function(initMin, initMax) {
         return {
             min: posTools.parse(initMin),
             max: posTools.parse(initMax)
         };
     }; // BoundingBox
+
+    /**
+    # Geo.Address
     
-    /* address types */
-    
+    TODO
+    */
     var Address = function(params) {
         params = T5.ex({
             streetDetails: "",
@@ -79,10 +295,22 @@ T5.Geo = (function() {
         return params;
     }; // Address
     
-    /* define the position tools */
+    /**
+    # Geo.P
+
+    The Geo.P submodule is used to perform operations on Geo.Position objects rather 
+    than have those operations bundled with the object.
     
+    ## Functions
+    */
     var posTools = (function() {
         var subModule = {
+            /**
+            - `calcDistance(pos1, pos2)`
+
+            Calculate the distance between two Geo.Position objects, pos1 and pos2.  The 
+            distance returned is measured in kilometers.
+            */
             calcDistance: function(pos1, pos2) {
                 if (subModule.empty(pos1) || subModule.empty(pos2)) {
                     return 0;
@@ -103,14 +331,30 @@ T5.Geo = (function() {
                 return KM_PER_RAD * c;
             },
             
+            /**
+            - `copy(src)`
+
+            Create a copy of the specified T5.Geo.Position object.
+            */
             copy: function(src) {
                 return src ? new Position(src.lat, src.lon) : null;
             },
 
+            /**
+            - `empty(pos)`
+
+            Returns true if the T5.Geo.Position object is empty, false if not.
+            */
             empty: function(pos) {
                 return (! pos) || ((pos.lat === 0) && (pos.lon === 0));
             },
             
+            /**
+            - `equal(pos1, pos2)`
+
+            Compares to T5.Geo.Position objects and returns true if they 
+            have the same latitude and longitude values
+            */
             equal: function(pos1, pos2) {
                 return pos1 && pos2 && (pos1.lat == pos2.lat) && (pos1.lon == pos2.lon);
             },
@@ -123,6 +367,12 @@ T5.Geo = (function() {
                     (Math.floor(pos1.lon * multiplier) === Math.floor(pos2.lon * multiplier));
             },
             
+            /**
+            - `inArray(pos, testArray)`
+
+            Checks to see whether the specified T5.Geo.Position is contained within 
+            the array of position objects passed in the testArray.
+            */
             inArray: function(pos, testArray) {
                 var arrayLen = testArray.length,
                     testFn = posTools.equal;
@@ -136,6 +386,12 @@ T5.Geo = (function() {
                 return false;
             },
             
+            /**
+            - `inBounds(pos, bounds)`
+
+            Returns true if the specified Geo.Position object is within the 
+            Geo.BoundingBox specified by the bounds argument.
+            */
             inBounds: function(pos, bounds) {
                 // initialise variables
                 var fnresult = ! (posTools.empty(pos) || posTools.empty(bounds));
@@ -149,6 +405,15 @@ T5.Geo = (function() {
                 return fnresult;
             },
             
+            /**
+            - `parse(object)`
+
+            This function is used to take a latitude and longitude String 
+            pair (either space or comma delimited) and return a new Geo.Position 
+            value.  The function is also tolerant of being passed an existing 
+            Geo.Position object as the object argument, and in these cases 
+            returns a copy of the position.
+            */
             parse: function(pos) {
                 // first case, null value, create a new empty position
                 if (! pos) {
@@ -170,7 +435,12 @@ T5.Geo = (function() {
 
                 return null;
             },
-            
+
+            /**
+            - `parseArray(sourceData)`
+
+            Fust like parse, but with lots of em'
+            */
             parseArray: function(sourceData) {
                 var sourceLen = sourceData.length,
                     positions = new Array(sourceLen);
@@ -183,6 +453,13 @@ T5.Geo = (function() {
                 return positions;
             },
             
+            /**
+            - `fromMercatorPixels(x, y, radsPerPixel)`
+
+            This function is used to take x and y mercator pixels values, 
+            and using the value passed in the radsPerPixel value convert 
+            that to a Geo.Position object.
+            */
             fromMercatorPixels: function(mercX, mercY) {
                 // return the new position
                 return new Position(
@@ -191,10 +468,22 @@ T5.Geo = (function() {
                 );
             },
 
+            /**
+            - `toMercatorPixels(pos, radsPerPixel)`
+
+            Basically, the reverse of the fromMercatorPixels function - 
+            pass it a Geo.Position object and get a Vector object back 
+            with x and y mercator pixel values back.
+            */
             toMercatorPixels: function(pos) {
                 return new T5.Vector(T5.Geo.lon2pix(pos.lon), T5.Geo.lat2pix(pos.lat));
             },
             
+            /**
+            - `generalize(sourceData, requiredPositions, minDist)`
+            
+            TODO
+            */
             generalize: function(sourceData, requiredPositions, minDist) {
                 var sourceLen = sourceData.length,
                     positions = [],
@@ -233,6 +522,11 @@ T5.Geo = (function() {
                 return positions;
             },                
 
+            /**
+            - `toString(pos)`
+            
+            Return a string representation of the Geo.Position object
+            */
             toString: function(pos) {
                 return pos ? pos.lat + " " + pos.lon : "";
             }
@@ -241,8 +535,16 @@ T5.Geo = (function() {
         return subModule;
     })();
     
-    /* define the bounding box tools */
     
+    /**
+    # Geo.B
+    
+    A collection of utilities that are primarily designed to help with working 
+    with Geo.BoundingBox objects.  The functions are implemented here rather 
+    than with the actual object itself to ensure that the object remains lightweight.
+    
+    ## Functions
+    */
     var boundsTools = (function() {
         var MIN_LAT = -HALF_PI,
             MAX_LAT = HALF_PI,
@@ -250,6 +552,15 @@ T5.Geo = (function() {
             MAX_LON = TWO_PI;
         
         var subModule = {
+            /**
+            - `calcSize(min, max, normalize)`
+
+            The calcSize function is used to determine the size of a Geo.BoundingBox given 
+            a minimum position (relates to the bottom-left / south-western corner) and 
+            maximum position (top-right / north-eastern corner) of the bounding box.  
+            The 3rd parameter specifies whether the size calculations should normalize the 
+            calculation in cases where the bounding box crosses the 360 degree boundary.
+            */
             calcSize: function(min, max, normalize) {
                 var size = new T5.Vector(0, max.lat - min.lat);
                 if (typeof normalize === 'undefined') {
@@ -266,7 +577,16 @@ T5.Geo = (function() {
                 return size;
             },
 
-            // adapted from: http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates
+            /**
+            - `createBoundsFromCenter(centerPos, distance)`
+
+            This function is very useful for creating a Geo.BoundingBox given a 
+            center position and a radial distance (specified in KM) from the center 
+            position.  Basically, imagine a circle is drawn around the center 
+            position with a radius of distance from the center position, and then 
+            a box is drawn to surround that circle.  Adapted from the [functions written 
+            in Java by Jan Philip Matuschek](http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates)
+            */
             createBoundsFromCenter: function(centerPos, distance) {
                 var radDist = distance / KM_PER_RAD,
                     radLat = centerPos.lat * DEGREES_TO_RADIANS,
@@ -306,12 +626,26 @@ T5.Geo = (function() {
                     new Position(maxLat * RADIANS_TO_DEGREES, maxLon * RADIANS_TO_DEGREES));
             },
             
+            /**
+            - `expand(bounds, amount)`
+
+            A simple function that is used to expand a Geo.BoundingBox 
+            by the specified amount (in degrees).
+            */
             expand: function(bounds, amount) {
                 return new BoundingBox(
                     new Position(bounds.min.lat - amount, bounds.min.lon - module.normalizeLon(amount)),
                     new Position(bounds.max.lat + amount, bounds.max.lon + module.normalizeLon(amount)));
             },
             
+            /**
+            - `forPositions(positions, padding)`
+
+            This function is very useful when you need to create a 
+            Geo.BoundingBox to contain an array of T5.Geo.Position.  
+            The optional second parameter allows you to specify an amount of 
+            padding (in degrees) to apply to the bounding box that is created.
+            */
             forPositions: function(positions, padding) {
                 var bounds = null,
                     startTicks = T5.time();
@@ -352,6 +686,11 @@ T5.Geo = (function() {
                 return bounds;
             },
             
+            /**
+            - `getCenter(bounds)`
+
+            Returns a Geo.Position for the center position of the bounding box.
+            */
             getCenter: function(bounds) {
                 // calculate the bounds size
                 var size = boundsTools.calcSize(bounds.min, bounds.max);
@@ -360,6 +699,11 @@ T5.Geo = (function() {
                 return new T5.Geo.Position(bounds.min.lat + (size.y / 2), bounds.min.lon + (size.x / 2));
             },
             
+            /**
+            - `getGeohash(bounds)`
+            
+            TODO
+            */
             getGeoHash: function(bounds) {
                 var minHash = T5.Geo.GeoHash.encode(bounds.min.lat, bounds.min.lon),
                     maxHash = T5.Geo.GeoHash.encode(bounds.max.lat, bounds.max.lon);
@@ -368,8 +712,15 @@ T5.Geo = (function() {
             },
 
             /** 
-            Function adapted from the following code:
-            http://groups.google.com/group/google-maps-js-api-v3/browse_thread/thread/43958790eafe037f/66e889029c555bee
+            - `getZoomLevel(bounds, displaySize)`
+
+            This function is used to return the zoom level (seems consistent across 
+            mapping providers at this stage) that is required to properly display 
+            the specified T5.Geo.BoundingBox given the screen dimensions (specified as 
+            a Dimensions object) of the map display.
+            
+            Adapted from the following code:
+            [http://groups.google.com/group/google-maps-js-api-v3/browse_thread/thread/43958790eafe037f/66e889029c555bee]
             */
             getZoomLevel: function(bounds, displaySize) {
                 // get the constant index for the center of the bounds
@@ -392,10 +743,20 @@ T5.Geo = (function() {
                 return Math.min(isNaN(bestZoomH) ? maxZoom : bestZoomH, isNaN(bestZoomW) ? maxZoom : bestZoomW);
             },
 
+            /**
+            - `isEmpty(bounds)`
+
+            Returns true if the specified Geo.BoundingBox is empty.
+            */
             isEmpty: function(bounds) {
                 return (! bounds) || posTools.empty(bounds.min) || posTools.empty(bounds.max);
             },
             
+            /**
+            - `toString(bounds)`
+
+            Returns a string representation of a Geo.BoundingBox
+            */
             toString: function(bounds) {
                 return "min: " + posTools.toString(bounds.min) + ", max: " + posTools.toString(bounds.max);
             }
@@ -406,11 +767,23 @@ T5.Geo = (function() {
     
     /* define the address tools */
     
+    /**
+    # Geo.A
+    
+    A collection of utilities for working with Geo.Address objects
+    
+    ## Functions
+    */
     var addrTools = (function() {
         var REGEX_BUILDINGNO = /^(\d+).*$/,
             REGEX_NUMBERRANGE = /(\d+)\s?\-\s?(\d+)/;
         
         var subModule = {
+            /**
+            - `buildingMatch(freeForm, numberRange, name)`
+            
+            TODO
+            */
             buildingMatch: function(freeform, numberRange, name) {
                 // from the freeform address extract the building number
                 REGEX_BUILDINGNO.lastIndex = -1;
@@ -437,7 +810,9 @@ T5.Geo = (function() {
             },
             
             /**
-            The normalizeAddress function is used to take an address that could be in a variety of formats
+            - `normalize(addressText)`
+            
+            Used to take an address that could be in a variety of formats
             and normalize as many details as possible.  Text is uppercased, road types are replaced, etc.
             */
             normalize: function(addressText) {
@@ -469,6 +844,11 @@ T5.Geo = (function() {
                 return addressText;
             },
             
+            /**
+            - `toString(address)`
+            
+            Returns a string representation of the Geo.Address object
+            */
             toString: function(address) {
                 return address.streetDetails + " " + address.location;
             }
@@ -551,34 +931,39 @@ T5.Geo = (function() {
         return value * DEGREES_TO_RADIANS;
     } // toRad
     
+    /* public functions */
+    
     // define the module
     var module = {
-        /* geo engine class */
-        
-        Engine: function(params) {
-            // if the id for the engine is not specified, throw an exception
-            if (! params.id) {
-                throw new Error("A GEO.Engine cannot be registered without providing an id.");
-            } // if
+        /* position, bounds and address utility modules */
 
-            // map the parameters directly to self
-            var self = T5.ex({
-                remove: function() {
-                    delete engines[self.id];
-                }
-            }, params);
-            
-            // register the engine
-            engines[self.id] = self;
-            
-            return self;
-        },
-        
+        P: posTools,
+        B: boundsTools,
+        A: addrTools,
+
         /* geo type definitions */
         
         Radius: Radius,
         Position: Position,
         BoundingBox: BoundingBox,
+        
+        GeoVector: function(pos) {
+            var self = new T5.Vector();
+            
+            T5.ex(self, {
+                pos: pos,
+                
+                calcXY: function(grid) {
+                    GT.Log.info('calculating XY - it\'s busted');
+                    var xy = grid.getGridXYForPosition(self.pos);
+                    
+                    self.x = xy.x;
+                    self.y = xy.y;
+                }
+            });
+            
+            return self;
+        },
         
         /* addressing and geocoding support */
         
@@ -593,6 +978,35 @@ T5.Geo = (function() {
         AddressCompareFns: {
         },
         
+        /**
+        # Geo.Engine
+
+        TODO
+        */
+        Engine: function(params) {
+            // if the id for the engine is not specified, throw an exception
+            if (! params.id) {
+                throw new Error("A GEO.Engine cannot be registered without providing an id.");
+            } // if
+
+            // map the parameters directly to self
+            var self = T5.ex({
+                remove: function() {
+                    delete engines[self.id];
+                }
+            }, params);
+
+            // register the engine
+            engines[self.id] = self;
+
+            return self;
+        },
+        
+        /**
+        # Geo.GeoSearchResult
+        
+        TODO
+        */
         GeoSearchResult: function(params) {
             params = T5.ex({
                 id: null,
@@ -610,10 +1024,20 @@ T5.Geo = (function() {
             });
         },
         
+        /**
+        # Geo.GeoSearchAgent
+        
+        TODO
+        */
         GeoSearchAgent: function(params) {
             return new T5.Dispatcher.Agent(params);
         },
         
+        /**
+        # Geo.GeocodingAgent
+        
+        TODO
+        */
         GeocodingAgent: function(params) {
             
             function rankResults(searchParams, results) {
@@ -662,379 +1086,8 @@ T5.Geo = (function() {
             var self = new module.GeoSearchAgent(params);
             
             return self;
-        },
-        
-        /* Point of Interest Objects */
-        
-        PointOfInterest: function(params) {
-            params = T5.ex({
-                id: 0,
-                title: "",
-                pos: null,
-                lat: "",
-                lon: "",
-                group: "",
-                retrieved: 0,
-                isNew: true
-            }, params);
-
-            // if the position is not defined, but we have a lat and lon, create a new position
-            if ((! params.pos) && params.lat && params.lon) {
-                params.pos = new T5.Geo.Position(params.lat, params.lon);
-            } // if
-            
-            return T5.ex({
-                toString: function() {
-                    return params.id + ": '" + params.title + "'";
-                }
-            }, params);
-        },
-        
-        POIStorage: function(params) {
-            params = T5.ex({
-                visibilityChange: null,
-                onPOIDeleted: null,
-                onPOIAdded: null
-            }, params);
-
-            // initialise variables
-            var storageGroups = {},
-                visible = true;
-                
-            function getStorageGroup(groupName) {
-                // first get storage group for the poi based on type
-                var groupKey = groupName ? groupName : "default";
-                
-                // if the storage group does not exist, then create it
-                if (! storageGroups[groupKey]) {
-                    storageGroups[groupKey] = [];
-                } // if                
-                
-                return storageGroups[groupKey];
-            } // getStorageGroup
-                
-            function findExisting(poi) {
-                if (! poi) { return null; }
-                
-                // iterate through the specified group and look for the key by matching the id
-                var group = getStorageGroup(poi.group);
-                for (var ii = 0; ii < group.length; ii++) {
-                    if (group[ii].id == poi.id) {
-                        return group[ii];
-                    } // if
-                } // for
-                
-                return null;
-            } // findExisting
-            
-            function addPOI(poi) {
-                getStorageGroup(poi.group).push(poi);
-            } // addPOI
-            
-            function removeFromStorage(poi) {
-                var group = getStorageGroup(poi.group);
-                
-                for (var ii = 0; ii < group.length; ii++) {
-                    if (group[ii].id == poi.id) {
-                        group.splice(ii, 1);
-                        break;
-                    }
-                } // for
-            } // removeFromStorage
-            
-            function poiGrabber(test) {
-                var matchingPOIs = [];
-                
-                // iterate through the groups and pois within each group
-                for (var groupKey in storageGroups) {
-                    for (var ii = 0; ii < storageGroups[groupKey].length; ii++) {
-                        if ((! test) || test(storageGroups[groupKey][ii])) {
-                            matchingPOIs.push(storageGroups[groupKey][ii]);
-                        } // if
-                    } // for
-                } // for
-                
-                return matchingPOIs;
-            } // poiGrabber
-            
-            function triggerUpdate() {
-                GT.say("geo.pois-updated", {
-                    srcID: self.id,
-                    pois: self.getPOIs()
-                });
-            } // triggerUpdate
-
-            // initialise self
-            var self = {
-                id: GT.objId(),
-                
-                getPOIs: function() {
-                    return poiGrabber();
-                },
-
-                getOldPOIs: function(groupName, testTime) {
-                    return poiGrabber(function(testPOI) {
-                        return (testPOI.group == groupName) && (testPOI.retrieved < testTime);
-                    });
-                },
-
-                getVisible: function() {
-                    return visible;
-                },
-
-                setVisible: function(value) {
-                    if (value != visible) {
-                        visible = value;
-
-                        // fire the visibility change event
-                        if (params.visibilityChange) {
-                            params.visibilityChange();
-                        } // if
-                    } // if
-                },
-
-                findById: function(searchId) {
-                    var matches = poiGrabber(function(testPOI) {
-                        return testPOI.id == searchId;
-                    });
-                    
-                    return matches.length > 0 ? matches[0] : null;
-                },
-
-                /*
-                Method:  findByBounds
-                Returns an array of the points of interest that have been located within
-                the bounds of the specified bounding box
-                */
-                findByBounds: function(searchBounds) {
-                    return poiGrabber(function(testPOI) {
-                        return T5.Geo.P.inBounds(testPOI.pos, searchBounds);
-                    });
-                },
-
-                addPOIs: function(newPOIs, clearExisting) {
-                    // if we need to clear existing, then reset the storage
-                    if (clearExisting) {
-                        storageGroups = {};
-                    } // if
-
-                    // iterate through the new pois and put into storage
-                    for (var ii = 0; newPOIs && (ii < newPOIs.length); ii++) {
-                        newPOIs[ii].retrieved = T5.time();
-                        addPOI(newPOIs[ii]);
-                    } // for
-                },
-                
-                removeGroup: function(group) {
-                    if (storageGroups[group]) {
-                        delete storageGroups[group];
-                        triggerUpdate();
-                    } // if
-                },
-                
-                update: function(refreshedPOIs) {
-                    // initialise arrays to receive the pois
-                    var newPOIs = [],
-                        ii = 0,
-                        groupName = refreshedPOIs.length > 0 ? refreshedPOIs[0].group : '',
-                        timeRetrieved = T5.time();
-                        
-                    // iterate through the pois and determine state
-                    for (ii = 0; ii < refreshedPOIs.length; ii++) {
-                        // look for the poi in the poi layer
-                        var foundPOI = findExisting(refreshedPOIs[ii]);
-
-                        // add the poi to either the update or new array according to whether it was found
-                        if (foundPOI) {
-                            // GT.Log.info("FOUND EXISTING POI");
-                            foundPOI.retrieved = timeRetrieved;
-                            foundPOI.isNew = false;
-                        }
-                        else {
-                            newPOIs.push(refreshedPOIs[ii]);
-                        }
-                    } // for
-                    
-                    // now all we have left are deleted pois transpose those into the deleted list
-                    var deletedPOIs = self.getOldPOIs(groupName, timeRetrieved);
-
-                    // add new pois to the poi layer
-                    self.addPOIs(newPOIs);
-                    // GT.Log.info(GT.formatStr("POI-UPDATE: {0} new, {1} deleted", newPOIs.length, deletedPOIs.length));
-
-                    // fire the on poi added event when appropriate
-                    for (ii = 0; params.onPOIAdded && (ii < newPOIs.length); ii++) {
-                        params.onPOIAdded(newPOIs[ii]);
-                    } // for
-
-                    for (ii = 0; ii < deletedPOIs.length; ii++) {
-                        // trigger the event if assigned
-                        if (params.onPOIDeleted) {
-                            params.onPOIDeleted(deletedPOIs[ii]);
-                        } // if
-
-                        // remove the poi from storage
-                        removeFromStorage(deletedPOIs[ii]);
-                    } // for
-                    
-                    // if we have made updates, then fire the geo pois updated event
-                    if (newPOIs.length + deletedPOIs.length > 0) {
-                        triggerUpdate();
-                    } // if
-                }
-            };
-
-            return self;
-        },
-          
-        MapProvider: function() {
-            var zoomMin = 1,
-                zoomMax = 20;
-            
-            // initailise self
-            var self = {
-                zoomLevel: 0,
-                
-                checkZoomLevel: function(zoomLevel) {
-                    return Math.min(Math.max(zoomLevel, zoomMin), zoomMax);
-                },
-                
-                getCopyright: function() {
-                },
-                
-                getLogoUrl: function() {
-                },
-
-                getMapTiles: function(tiler, position, callback) {
-
-                },
-
-                getZoomRange: function() {
-                    return {
-                        min: zoomMin,
-                        max: zoomMax
-                    };
-                },
-                
-                setZoomRange: function(min, max) {
-                    zoomMin = min;
-                    zoomMax = max;
-                }
-            };
-
-            return self;
-        }, // MapProvider
-        
-        /* static functions */
-        
-        /**
-        Returns the engine that provides the required functionality.  If preferred engines are supplied
-        as additional arguments, then those are looked for first
-        */
-        getEngine: function(requiredCapability) {
-            // initialise variables
-            var fnresult = null;
-            
-            // iterate through the arguments beyond the capabililty for the preferred engine
-            for (var ii = 1; (! fnresult) && (ii < arguments.length); ii++) {
-                fnresult = findEngine(requiredCapability, arguments[ii]);
-            } // for
-            
-            // if we found an engine using preferences, return that otherwise return an alternative
-            fnresult = fnresult ? fnresult : findEngine(requiredCapability);
-            
-            // if no engine was found, then throw an exception
-            if (! fnresult) {
-                throw new Error("Unable to find GEO engine with " + requiredCapability + " capability");
-            }
-            
-            return fnresult;
-        },
-        
-        rankGeocodeResponses: function(requestAddress, responseAddresses, engine) {
-            var matches = [],
-                compareFns = module.AddressCompareFns;
-                
-            // if the engine is specified and the engine has compare fns, then extend them
-            if (engine && engine.compareFns) {
-                compareFns = T5.ex({}, compareFns, engine.compareFns);
-            } // if
-            
-            // iterate through the response addresses and compare against the request address
-            for (var ii = 0; ii < responseAddresses.length; ii++) {
-                matches.push(new module.GeoSearchResult({
-                    caption: addrTools.toString(responseAddresses[ii]),
-                    data: responseAddresses[ii],
-                    pos: responseAddresses[ii].pos,
-                    matchWeight: plainTextAddressMatch(requestAddress, responseAddresses[ii], compareFns, module.GeocodeFieldWeights)
-                }));
-            } // for
-            
-            // TODO: sort the matches
-            matches.sort(function(itemA, itemB) {
-                return itemB.matchWeight - itemA.matchWeight;
-            });
-            
-            return matches;
-        },
-        
-        /* position, bounds and address utility modules */
-        
-        P: posTools,
-        B: boundsTools,
-        A: addrTools,
-        
-        /* general utilities */
-        
-        dist2rad: function(distance) {
-            return distance / KM_PER_RAD;
-        },
-        
-        lat2pix: function(lat) {
-            var radLat = parseFloat(lat) * DEGREES_TO_RADIANS; // *(2*Math.PI))/360;
-            var sinPhi = Math.sin(radLat);
-            var eSinPhi = ECC * sinPhi;
-            var retVal = Math.log(((1.0 + sinPhi) / (1.0 - sinPhi)) * Math.pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
-
-            return retVal;
-        },
-
-        lon2pix: function(lon) {
-            return parseFloat(lon) * DEGREES_TO_RADIANS; // /180)*Math.PI;
-        },
-
-        pix2lon: function(mercX) {
-            return module.normalizeLon(mercX) * RADIANS_TO_DEGREES;
-        },
-
-        pix2lat: function(mercY) {
-            var t = Math.pow(Math.E, -mercY),
-                prevPhi = mercatorUnproject(t),
-                newPhi = findRadPhi(prevPhi, t),
-                iterCount = 0;
-
-            while (iterCount < PHI_MAXITER && Math.abs(prevPhi - newPhi) > PHI_EPSILON) {
-                prevPhi = newPhi;
-                newPhi = findRadPhi(prevPhi, t);
-                iterCount++;
-            } // while
-
-            return newPhi * RADIANS_TO_DEGREES;
-        },
-
-        normalizeLon: function(lon) {
-            // return lon;
-            while (lon < -180) {
-                lon += 360;
-            } // while
-            
-            while (lon > 180) {
-                lon -= 360;
-            } // while
-            
-            return lon;
-        }        
+        }
     }; // module
 
-    return module;
+    return T5.ex(module, exportedFunctions);
 })();

@@ -1,5 +1,7 @@
-T5.AnimatedPathLayer
-====================
+AnimatedPathLayer
+=================
+
+**Module**: T5
 
 The AnimatedPathLayer is way cool :)  This layer allows you to supply an array of screen / grid coordinates and have that animated using the functionality T5.Animation module.  One of the primary purposes of this layer is displaying animation for the T5.Geo.UI.RouteOverlay but in reality you could generate animations for any type of path.
 

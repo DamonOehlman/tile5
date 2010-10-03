@@ -3582,6 +3582,35 @@ T5.Tween = function(params) {
         return result;
     }; // T5.viewState
 })();
+/**
+ViewLayer
+=========
+
+In and of itself, a View does nothing.  Not without a 
+ViewLayer at least.  A view is made up of one or more of these 
+layers and they are drawn in order of *zindex*.
+
+## Constructor Parameters
+
+- `id` - the id that has been assigned to the layer, this value
+can be used when later accessing the layer from a View.
+
+- `zindex` (default: 0) - a zindex in Tile5 means the same thing it does in CSS
+
+- `supportsFastDraw` (default: false) - The supportsFastDraw parameter specifies 
+whether a layer will be drawn on in particular graphic states on devices that 
+require fastDraw mode to perform at an optimal level.  For instance, if a layer does 
+not support fastDraw and the View is panning or scaling, the layer will not be drawn 
+so it's important when defining new layer classes to set this parameter to true if you 
+want the layer visible during these operations.  Be aware though that layers that require 
+some time to render will impact performance on slower devices.
+
+- `validStates` - the a bitmask of DisplayState that the layer will be drawn
+for
+
+## Methods
+
+*/
 T5.ViewLayer = function(params) {
     params = T5.ex({
         id: "",
@@ -3595,10 +3624,23 @@ T5.ViewLayer = function(params) {
         activeState = T5.viewState("ACTIVE");
     
     var self = T5.ex({
+        /**
+        - `addToView(view)`
+        
+        */
         addToView: function(view) {
             view.setLayer(id, self);
         },
         
+        /**
+        - `shouldDraw(displayState)`
+        
+        Called by a View that contains the layer to determine 
+        whether or not the layer should be drawn for the current display state.  
+        The default implementation of this method first checks the fastDraw status, 
+        and then continues to do a bitmask operation against the validStates property 
+        to see if the current display state is acceptable.
+        */
         shouldDraw: function(displayState) {
             var stateValid = (displayState & params.validStates) !== 0,
                 fastDraw = parent ? (parent.fastDraw && (displayState !== activeState)) : false;
@@ -3606,14 +3648,34 @@ T5.ViewLayer = function(params) {
             return stateValid && (fastDraw ? params.supportFastDraw : true);
         },
         
+        /**
+        - `cycle(tickCount, offset, state)`
+        
+        Called in the View method of the same name, each layer has an opportunity 
+        to update itself in the current animation cycle before it is drawn.
+        */
         cycle: function(tickCount, offset, state) {
             return 0;
         },
         
+        /**
+        - `draw(context, offset, dimensions, state, view)`
+        
+        The business end of layer drawing.  This method is called when a layer needs to be 
+        drawn and the following parameters are passed to the method:
+
+            - context - the canvas context that we are drawing to
+            - offset - a Vector object containing the current virtual canvas offset
+            - dimensions - a Dimensions object specifying the actual size of the drawing surface
+            - state - the current DisplayState of the view
+            - view - a reference to the View
+        */
         draw: function(context, offset, dimensions, state, view) {
         },
         
         /**
+        - `remove()`
+        
         The remove method enables a view to flag that it is ready or should be removed
         from any views that it is contained in.  This was introduced specifically for
         animation layers that should only exist as long as an animation is active.
@@ -3622,24 +3684,47 @@ T5.ViewLayer = function(params) {
             GT.say("layer.remove", { id: id });
         },
         
+        /**
+        - `wakeParent()`
+        
+        Another method that uses the WaterCooler event system to tell the containing view 
+        that it needs to wake up and redraw itself.  This method is often called when a 
+        ViewLayer knows it needs to redraw but it isn't able to communicate this another way.
+        */
         wakeParent: function() {
             if (parent) {
                 parent.trigger("wake");
             } // if
         },
         
+        /**
+        - `getId()`
+        
+        */
         getId: function() {
             return id;
         },
         
+        /**
+        - `setId(string)`
+        
+        */
         setId: function(value) {
             id = value;
         },
 
+        /**
+        - `getParent()`
+        
+        */
         getParent: function() {
             return parent;
         },
         
+        /**
+        - `setParent(view: View)
+        
+        */
         setParent: function(view) {
             parent = view;
         }
@@ -3650,10 +3735,10 @@ T5.ViewLayer = function(params) {
     return self;
 }; // T5.ViewLayer
 /**
-T5.View
-=======
+View
+====
 
-The Tile5 View is the fundamental building block for tiling and 
+The View is the fundamental building block for tiling and 
 mapping interface.  Which this class does not implement any of 
 the logic required for tiling, it does handle the redraw logic.  
 Applications implementing Tile5 maps will not need to be aware of 
@@ -3662,6 +3747,35 @@ in building extensions or customizations should definitely take a look.
 Additionally, it is worth being familiar with the core methods that 
 are implemented here around the layering as these are used extensively 
 when creating overlays and the like for the map implementations.
+
+## Constructor Parameters (Required)
+
+- `container` 
+
+## Constructor Parameters (Optional)
+
+- `id`
+
+- `autoSize`
+
+- `fastDraw`
+
+- `intertia`
+
+- `pannable`
+
+- `scalable`
+
+- `panAnimationEasing`
+
+- `panAnimationDuration`
+
+- `pinchZoomAnimateTrigger`
+
+- `adjustScaleFactor`
+
+## Methods
+
 */
 T5.View = function(params) {
     // initialise defaults
@@ -3694,7 +3808,6 @@ T5.View = function(params) {
         idle = false,
         panimating = false,
         paintTimeout = 0,
-        repaint = false,
         idleTimeout = 0,
         rescaleTimeout = 0,
         zoomCenter = null,
@@ -4065,7 +4178,6 @@ T5.View = function(params) {
         
         GT.Log.trace("draw complete", startTicks);
         
-        repaint = false;
         return changeCount;
     } // drawView
     
@@ -4129,10 +4241,6 @@ T5.View = function(params) {
         });
     } // wake
     
-    function invalidate() {
-        repaint = true;
-    } // invalidate
-    
     function layerContextChanged(layer) {
         layer.trigger("contextChanged", mainContext);
     } // layerContextChanged
@@ -4156,22 +4264,41 @@ T5.View = function(params) {
                 callback);
         },
         
+        /**
+        - `centerOn(offset: Vector)`
+        
+        Move the center of the view to the specified offset
+        */
         centerOn: function(offset) {
             self.setOffset(offset.x - (canvas.width / 2), offset.y - (canvas.height / 2));
         },
+
+        /**
+        - `getDimensions()`
         
+        Return the Dimensions of the View
+        */
         getDimensions: function() {
             if (canvas) {
                 return new T5.Dimensions(canvas.width, canvas.height);
             } // if
         },
         
+        /**
+        - `getZoomCenter()`
+        
+        */
         getZoomCenter: function() {
             return zoomCenter;
         },
         
         /* layer getter and setters */
         
+        /**
+        - `getLayer(id: String)`
+        
+        Get the ViewLayer with the specified id, return null if not found
+        */
         getLayer: function(id) {
             // look for the matching layer, and return when found
             for (var ii = 0; ii < layers.length; ii++) {
@@ -4183,6 +4310,11 @@ T5.View = function(params) {
             return null;
         },
         
+        /**
+        - `setLayer(id: String, value: ViewLayer)`
+        
+        Either add or update the specified view layer
+        */
         setLayer: function(id, value) {
             // if the layer already exists, then remove it
             for (var ii = 0; ii < layers.length; ii++) {
@@ -4199,6 +4331,12 @@ T5.View = function(params) {
             wake();
         },
         
+        /**
+        - `eachLayer(callback: Function)`
+        
+        Iterate through each of the ViewLayers and pass each to the callback function 
+        supplied.
+        */
         eachLayer: function(callback) {
             // iterate through each of the layers and fire the callback for each 
             for (var ii = 0; ii < layers.length; ii++) {
@@ -4206,27 +4344,37 @@ T5.View = function(params) {
             } // for
         },
         
+        /**
+        - `clearBackground()`
+        
+        */
         clearBackground: function() {
             clearBackground = true;
+            wake();
         },
         
+        /**
+        - `freeze()`
+        
+        */
         freeze: function() {
             frozen = true;
         },
         
+        /**
+        - `unfreeze()`
+        
+        */
         unfreeze: function() {
             frozen = false;
             
             wake();
         },
         
-        needRepaint: function() {
-            return repaint;
-        },
+        /**
+        - `scale(targetScaling, tweenFn, callback, startXY, targetXY)`
         
-        snapshot: function(zindex) {
-        },
-        
+        */
         scale: function(targetScaling, tweenFn, callback, startXY, targetXY) {
             // if the start XY is not defined, used the center
             if (! startXY) {
@@ -4248,6 +4396,11 @@ T5.View = function(params) {
             return self;
         },
         
+        /**
+        - `removeLayer(id: String)`
+        
+        Remove the ViewLayer specified by the id
+        */
         removeLayer: function(id) {
             var layerIndex = getLayerIndex(id);
             if ((layerIndex >= 0) && (layerIndex < layers.length)) {
@@ -4259,15 +4412,28 @@ T5.View = function(params) {
         
         /* offset methods */
         
+        /**
+        - `getOffset()`
+        
+        Return a Vector containing the current view offset
+        */
         getOffset: function() {
             return T5.V.copy(offset);
         },
         
+        /**
+        - `setOffset(x: Integer, y: Integer)`
+        
+        */
         setOffset: function(x, y) {
             offset.x = x; 
             offset.y = y;
         },
         
+        /**
+        - `updateOffset(x, y, tweenFn, tweenDuration, callback)`
+        
+        */
         updateOffset: function(x, y, tweenFn, tweenDuration, callback) {
             
             function updateOffsetAnimationEnd() {
@@ -4302,6 +4468,10 @@ T5.View = function(params) {
             } // if..else
         },
         
+        /**
+        - `zoom(targetXY, newScaleFactor, rescaleAfter)`
+        
+        */
         zoom: function(targetXY, newScaleFactor, rescaleAfter) {
             panimating = false;
             scaleFactor = newScaleFactor;
@@ -4343,7 +4513,7 @@ T5.View = function(params) {
     self.bind("wake", wake);
     
     // handle invalidation
-    self.bind("invalidate", invalidate);
+    self.bind("invalidate", self.clearBackground);
     
     // if this is pannable, then attach event handlers
     if (params.pannable) {
@@ -4484,6 +4654,157 @@ T5.AnimatedPathLayer = function(params) {
 
     return self;
 }; // T5.AnimatedPathLayer
+/**
+# T5.Annotation
+
+*/
+T5.Annotation = function(params) {
+    params = T5.ex({
+        xy: null,
+        tweenIn: T5.easing('sine.out'),
+        animationSpeed: null
+    }, params);
+    
+    var animating = false;
+    
+    var self = T5.ex(params, {
+        xy: params.xy,
+        isNew: true,
+        
+        isAnimating: function() {
+            return animating;
+        },
+        
+        draw: function(context, offset, state, overlay, view) {
+            if (! self.xy) { return; }
+            
+            if (self.isNew && (params.tweenIn)) {
+                // get the end value and update the y value
+                var endValue = self.xy.y;
+
+                // set the y to offscreen
+                self.xy.y = offset.y - 20;
+                
+                // animate the annotation
+                animating = true;
+                
+                T5.tween(
+                    self.xy, 
+                    'y',
+                    endValue, 
+                    params.tweenIn, 
+                    function() {
+                        self.xy.y = endValue;
+                        animating = false;
+                    }, 
+                    params.animationSpeed ? 
+                        params.animationSpeed : 
+                        250 + (Math.random() * 500)
+                );
+            } // if
+            
+            self.drawMarker(
+                context, 
+                offset, 
+                new T5.Vector(
+                    self.xy.x - offset.x, 
+                    self.xy.y - offset.y
+                ), 
+                state, 
+                overlay, 
+                view);
+            
+            self.isNew = false;
+        },
+        
+        drawMarker: function(context, offset, xy, state, overlay, view) {
+            context.beginPath();
+            context.arc(
+                xy.x, 
+                xy.y,
+                4,
+                0,
+                Math.PI * 2,
+                false);                    
+            context.fill();
+        }
+    }); // self
+    
+    return self;
+};
+
+/**
+# T5.ImageAnnotation
+
+*/
+T5.ImageAnnotation = function(params) {
+    params = T5.ex({
+        imageUrl: null,
+        animatingImageUrl: null,
+        imageAnchor: null
+    }, params);
+    
+    var imageOffset = params.imageAnchor ?
+            T5.V.invert(params.imageAnchor) : 
+            null;
+    
+    function getImageUrl() {
+        if (params.animatingImageUrl && self.isAnimating()) {
+            // we want a smooth transition, so make 
+            // sure the end image is loaded
+            T5.Images.load(params.imageUrl);
+            
+            // return the animating image url
+            return params.animatingImageUrl;
+        }
+        else {
+            return params.imageUrl;
+        } // if..else
+    } // getImageUrl
+    
+    function drawImage(context, offset, xy, state, overlay, view) {
+        // get the image
+        var imageUrl = getImageUrl(),
+            image = T5.Images.get(imageUrl);
+            
+        if (! image) {
+            T5.Images.load(
+                imageUrl, 
+                function(loadedImage, fromCache) {
+                    overlay.wakeParent();
+                }
+            );
+        }
+        else if (image.complete && (image.width > 0)) {
+            if (! imageOffset) {
+                imageOffset = new T5.Vector(
+                    -image.width >> 1, 
+                    -image.height >> 1
+                );
+            } // if
+            
+            // determine the position to draw the image
+            var imageXY = T5.V.offset(
+                                xy,
+                                imageOffset.x,
+                                imageOffset.y);
+
+            // draw the image
+            context.drawImage(
+                image,
+                imageXY.x,
+                imageXY.y,
+                image.width,
+                image.height);
+        } // if
+    } // drawImage
+    
+    var self = T5.ex(new T5.Annotation(params), {
+        drawMarker: drawImage
+    });
+    
+    return self;
+};
 (function() {
     // set the default tile size to 256 pixels
     T5.tileSize = 256;
@@ -4811,7 +5132,7 @@ T5.AnimatedPathLayer = function(params) {
                 xShift = offset.x,
                 yShift = offset.y,
                 tilesDrawn = true,
-                redraw = view.needRepaint() || (state === T5.viewState('PAN')) || (state === T5.viewState('PINCH')) || T5.isTweening();
+                redraw = (state === T5.viewState('PAN')) || (state === T5.viewState('PINCH')) || T5.isTweening();
                 
             if (! centerPos) {
                 tileCols = Math.ceil(dimensions.width * invTileSize) + 1;

@@ -1,8 +1,7 @@
 /**
-T5.Map
-======
+# Map
 
-The T5.Map class is the entry point for creating a tiling map.  Creating a 
+The Map class is the entry point for creating a tiling map.  Creating a 
 map is quite simple and requires two things to operate.  A containing HTML5 canvas
 that will be used to display the map and a T5.Geo.MapProvider that will populate 
 the map.
@@ -17,9 +16,11 @@ map = new T5.Map({
 });
 </pre>
     
-Like all T5.View descendants the map supports features such as intertial scrolling and
+Like all View descendants the map supports features such as intertial scrolling and
 the like and is configurable through implementing the GRUNT.configurable interface. For 
-more information on view level features check out the T5.View documentation.
+more information on view level features check out the View documentation.
+
+## Methods
 */
 T5.Map = function(params) {
     params = T5.ex({
@@ -339,6 +340,11 @@ T5.Map = function(params) {
         pois: params.pois,
         annotations: null,
         
+        /** 
+        - `getBoundingBox()`
+        
+        Return a Geo.BoundingBox for the current map view area
+        */
         getBoundingBox: function() {
             var grid = self.getTileLayer(),
                 offset = self.getOffset(),
@@ -355,17 +361,33 @@ T5.Map = function(params) {
             return null;
         },
 
+        /**
+        - `getCenterPosition()`
+        
+        Return a Geo.Position for the center position of the map
+        */
         getCenterPosition: function() {
             // get the position for the grid position
             return self.getXYPosition(
                 T5.D.getCenter(self.getDimensions()));
         },
         
+        /**
+        - `getXYPosition(xy)`
+        
+        Convert the Vector that has been passed to the function to a
+        Geo.Position object
+        */
         getXYPosition: function(xy) {
             return self.getTileLayer().pixelsToPos(
                 self.viewPixToGridPix(xy));
         },
         
+        /**
+        - `gotoBounds(bounds, callback)`
+        
+        TODO
+        */
         gotoBounds: function(bounds, callback) {
             // calculate the zoom level required for the 
             // specified bounds
@@ -381,6 +403,11 @@ T5.Map = function(params) {
                 callback);
         },
         
+        /**
+        - `gotoPosition(position, zoomLevel, callback)`
+        
+        TODO
+        */
         gotoPosition: gotoPosition,
 
         /**
@@ -426,6 +453,11 @@ T5.Map = function(params) {
             } // if
         },
         
+        /**
+        - `locate()`
+        
+        TODO
+        */
         locate: function() {
             // run a track start, but only allow 
             // it to run for a maximum of 30s 
@@ -435,6 +467,11 @@ T5.Map = function(params) {
             setTimeout(self.trackCancel, 10000);
         },
         
+        /**
+        - `trackStart(mode)`
+        
+        TODO
+        */
         trackStart: function(mode) {
             if (navigator.geolocation && (! geoWatchId)) {
                 locateMode = mode ? mode : LOCATE_MODE.WATCH;
@@ -450,6 +487,11 @@ T5.Map = function(params) {
             } // if
         },
         
+        /**
+        - `trackCancel()`
+        
+        TODO
+        */
         trackCancel: function() {
             if (geoWatchId && navigator.geolocation) {
                 navigator.geolocation.clearWatch(geoWatchId);
@@ -468,10 +510,20 @@ T5.Map = function(params) {
             geoWatchId = 0;
         },
         
+        /**
+        - `getZoomLevel()`
+        
+        Get the current zoom level for the map
+        */
         getZoomLevel: function() {
             return zoomLevel;
         },
 
+        /**
+        - `setZoomLevel(value: Integer)`
+        
+        Update the map's zoom level to the specified zoom level
+        */
         setZoomLevel: function(value) {
             // if the current position is set, 
             // then goto the updated position
@@ -483,6 +535,11 @@ T5.Map = function(params) {
             }
         },
 
+        /**
+        - `zoomIn()`
+        
+        Zoom in one zoom level
+        */
         zoomIn: function() {
             // determine the required scaling
             var scalingNeeded = radsPerPixelAtZoom(1, zoomLevel) / 
@@ -493,6 +550,11 @@ T5.Map = function(params) {
             } // if
         },
 
+        /**
+        - `zoomOut()`
+        
+        Zoom out one zoom level
+        */
         zoomOut: function() {
             var scalingNeeded = radsPerPixelAtZoom(1, zoomLevel) / 
                     radsPerPixelAtZoom(1, zoomLevel - 1);
@@ -502,8 +564,11 @@ T5.Map = function(params) {
             } // if
         },
 
-        /* route methods */
+        /**
+        - `animateRoute(easing, duration, callback, center)`
         
+        TODO
+        */
         animateRoute: function(easing, duration, callback, center) {
             // get the routing layer
             var routeLayer = self.getLayer('route');

@@ -1,5 +1,5 @@
-T5.DisplayState
-===============
+DisplayState
+============
 The DisplayState member of the T5.Graphics module is an enumerated type (well, kind of) that is used to flag the current display state of a Graphics.View object.
 
 Valid values of the display state are:

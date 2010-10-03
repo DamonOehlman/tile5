@@ -1,8 +1,8 @@
 /**
-T5.View
-=======
+View
+====
 
-The Tile5 View is the fundamental building block for tiling and 
+The View is the fundamental building block for tiling and 
 mapping interface.  Which this class does not implement any of 
 the logic required for tiling, it does handle the redraw logic.  
 Applications implementing Tile5 maps will not need to be aware of 
@@ -11,6 +11,35 @@ in building extensions or customizations should definitely take a look.
 Additionally, it is worth being familiar with the core methods that 
 are implemented here around the layering as these are used extensively 
 when creating overlays and the like for the map implementations.
+
+## Constructor Parameters (Required)
+
+- `container` 
+
+## Constructor Parameters (Optional)
+
+- `id`
+
+- `autoSize`
+
+- `fastDraw`
+
+- `intertia`
+
+- `pannable`
+
+- `scalable`
+
+- `panAnimationEasing`
+
+- `panAnimationDuration`
+
+- `pinchZoomAnimateTrigger`
+
+- `adjustScaleFactor`
+
+## Methods
+
 */
 T5.View = function(params) {
     // initialise defaults
@@ -43,7 +72,6 @@ T5.View = function(params) {
         idle = false,
         panimating = false,
         paintTimeout = 0,
-        repaint = false,
         idleTimeout = 0,
         rescaleTimeout = 0,
         zoomCenter = null,
@@ -414,7 +442,6 @@ T5.View = function(params) {
         
         GT.Log.trace("draw complete", startTicks);
         
-        repaint = false;
         return changeCount;
     } // drawView
     
@@ -478,10 +505,6 @@ T5.View = function(params) {
         });
     } // wake
     
-    function invalidate() {
-        repaint = true;
-    } // invalidate
-    
     function layerContextChanged(layer) {
         layer.trigger("contextChanged", mainContext);
     } // layerContextChanged
@@ -505,22 +528,41 @@ T5.View = function(params) {
                 callback);
         },
         
+        /**
+        - `centerOn(offset: Vector)`
+        
+        Move the center of the view to the specified offset
+        */
         centerOn: function(offset) {
             self.setOffset(offset.x - (canvas.width / 2), offset.y - (canvas.height / 2));
         },
+
+        /**
+        - `getDimensions()`
         
+        Return the Dimensions of the View
+        */
         getDimensions: function() {
             if (canvas) {
                 return new T5.Dimensions(canvas.width, canvas.height);
             } // if
         },
         
+        /**
+        - `getZoomCenter()`
+        
+        */
         getZoomCenter: function() {
             return zoomCenter;
         },
         
         /* layer getter and setters */
         
+        /**
+        - `getLayer(id: String)`
+        
+        Get the ViewLayer with the specified id, return null if not found
+        */
         getLayer: function(id) {
             // look for the matching layer, and return when found
             for (var ii = 0; ii < layers.length; ii++) {
@@ -532,6 +574,11 @@ T5.View = function(params) {
             return null;
         },
         
+        /**
+        - `setLayer(id: String, value: ViewLayer)`
+        
+        Either add or update the specified view layer
+        */
         setLayer: function(id, value) {
             // if the layer already exists, then remove it
             for (var ii = 0; ii < layers.length; ii++) {
@@ -548,6 +595,12 @@ T5.View = function(params) {
             wake();
         },
         
+        /**
+        - `eachLayer(callback: Function)`
+        
+        Iterate through each of the ViewLayers and pass each to the callback function 
+        supplied.
+        */
         eachLayer: function(callback) {
             // iterate through each of the layers and fire the callback for each 
             for (var ii = 0; ii < layers.length; ii++) {
@@ -555,27 +608,37 @@ T5.View = function(params) {
             } // for
         },
         
+        /**
+        - `clearBackground()`
+        
+        */
         clearBackground: function() {
             clearBackground = true;
+            wake();
         },
         
+        /**
+        - `freeze()`
+        
+        */
         freeze: function() {
             frozen = true;
         },
         
+        /**
+        - `unfreeze()`
+        
+        */
         unfreeze: function() {
             frozen = false;
             
             wake();
         },
         
-        needRepaint: function() {
-            return repaint;
-        },
+        /**
+        - `scale(targetScaling, tweenFn, callback, startXY, targetXY)`
         
-        snapshot: function(zindex) {
-        },
-        
+        */
         scale: function(targetScaling, tweenFn, callback, startXY, targetXY) {
             // if the start XY is not defined, used the center
             if (! startXY) {
@@ -597,6 +660,11 @@ T5.View = function(params) {
             return self;
         },
         
+        /**
+        - `removeLayer(id: String)`
+        
+        Remove the ViewLayer specified by the id
+        */
         removeLayer: function(id) {
             var layerIndex = getLayerIndex(id);
             if ((layerIndex >= 0) && (layerIndex < layers.length)) {
@@ -608,15 +676,28 @@ T5.View = function(params) {
         
         /* offset methods */
         
+        /**
+        - `getOffset()`
+        
+        Return a Vector containing the current view offset
+        */
         getOffset: function() {
             return T5.V.copy(offset);
         },
         
+        /**
+        - `setOffset(x: Integer, y: Integer)`
+        
+        */
         setOffset: function(x, y) {
             offset.x = x; 
             offset.y = y;
         },
         
+        /**
+        - `updateOffset(x, y, tweenFn, tweenDuration, callback)`
+        
+        */
         updateOffset: function(x, y, tweenFn, tweenDuration, callback) {
             
             function updateOffsetAnimationEnd() {
@@ -651,6 +732,10 @@ T5.View = function(params) {
             } // if..else
         },
         
+        /**
+        - `zoom(targetXY, newScaleFactor, rescaleAfter)`
+        
+        */
         zoom: function(targetXY, newScaleFactor, rescaleAfter) {
             panimating = false;
             scaleFactor = newScaleFactor;
@@ -692,7 +777,7 @@ T5.View = function(params) {
     self.bind("wake", wake);
     
     // handle invalidation
-    self.bind("invalidate", invalidate);
+    self.bind("invalidate", self.clearBackground);
     
     // if this is pannable, then attach event handlers
     if (params.pannable) {

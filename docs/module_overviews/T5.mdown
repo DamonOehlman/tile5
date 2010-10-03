@@ -1,0 +1,6 @@
+T5
+==
+
+The T5 module is the top level module for the Tile5 libary.  Originally
+classes were heavily namespaced, however, that has been eased back in 
+order to make using the library more concise.

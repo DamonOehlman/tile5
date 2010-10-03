@@ -299,7 +299,7 @@ T5.TileGrid = function(params) {
                 xShift = offset.x,
                 yShift = offset.y,
                 tilesDrawn = true,
-                redraw = view.needRepaint() || (state === T5.viewState('PAN')) || (state === T5.viewState('PINCH')) || T5.isTweening();
+                redraw = (state === T5.viewState('PAN')) || (state === T5.viewState('PINCH')) || T5.isTweening();
                 
             if (! centerPos) {
                 tileCols = Math.ceil(dimensions.width * invTileSize) + 1;

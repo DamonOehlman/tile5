@@ -1,3 +1,7 @@
+/**
+# MODULE: Geo.UI
+
+*/
 T5.Geo.UI = (function() {
     var lastAnnotationTween = null,
         lastAnnotationTweenTicks = null,
@@ -90,6 +94,10 @@ T5.Geo.UI = (function() {
         // (eg. T5.easing('sineout'))
         AnnotationTween: null,
         
+        /**
+        # Geo.UI.GeoTileGrid
+        
+        */
         GeoTileGrid: function(params) {
             // extend the params with some defaults
             params = T5.ex({
@@ -148,7 +156,8 @@ T5.Geo.UI = (function() {
         },
         
         /** 
-        Route Overlay
+        # Geo.UI.RouteOverlay
+
         */
         RouteOverlay: function(params) {
             params = T5.ex({
@@ -349,164 +358,26 @@ T5.Geo.UI = (function() {
             
             return self;
         },
-
-        /* annotations and annotations overlay */
         
+        /**
+        # Geo.UI.Annotation
+        
+        __deprecated__
+        
+        */
         Annotation: function(params) {
             params = T5.ex({
-                xy: null,
-                pos: null,
-                draw: null,
-                calcXY: null,
-                tweenIn: module.AnnotationTween,
-                animationSpeed: null
+                pos: null
             }, params);
             
-            var animating = false;
-            
-            var self = {
-                xy: params.xy,
-                pos: params.pos,
-                isNew: true,
-                
-                isAnimating: function() {
-                    return animating;
-                },
-                
-                calcXY: function(grid) {
-                    self.xy = grid.getGridXYForPosition(self.pos);
-                    if (params.calcXY) {
-                        params.calcXY(grid);
-                    } // if
-                },
-                
-                draw: function(context, offset, state, overlay, view) {
-                    if (! self.xy) { return; }
-                    
-                    if (self.isNew && (params.tweenIn)) {
-                        // get the end value and update the y value
-                        var endValue = self.xy.y;
-
-                        // set the y to offscreen
-                        self.xy.y = offset.y - 20;
-                        
-                        // animate the annotation
-                        animating = true;
-                        
-                        T5.tween(
-                            self.xy, 
-                            'y',
-                            endValue, 
-                            params.tweenIn, 
-                            function() {
-                                self.xy.y = endValue;
-                                animating = false;
-                            }, 
-                            params.animationSpeed ? 
-                                params.animationSpeed : 
-                                250 + (Math.random() * 500)
-                        );
-                    } // if
-                    
-                    if (params.draw) {
-                        params.draw(
-                            context, 
-                            offset, 
-                            new T5.Vector(
-                                self.xy.x - offset.x, 
-                                self.xy.y - offset.y
-                            ), 
-                            state, 
-                            overlay, 
-                            view);
-                    }
-                    else {
-                        context.beginPath();
-                        context.arc(
-                            self.xy.x - offset.x, 
-                            self.xy.y - offset.y,
-                            4,
-                            0,
-                            Math.PI * 2,
-                            false);                    
-                        context.fill();                    
-                    }
-                    
-                    self.isNew = false;
-                }
-            }; // self
-            
-            return self;
+            params.xy = new T5.Geo.GeoVector(params.pos);
+            return new T5.ImageAnnotation(params);
         },
         
-        ImageAnnotation: function(params) {
-            params = T5.ex({
-                imageUrl: null,
-                animatingImageUrl: null,
-                imageAnchor: null
-            }, params);
-            
-            var imageOffset = params.imageAnchor ?
-                    T5.V.invert(params.imageAnchor) : 
-                    null;
-            
-            function getImageUrl() {
-                if (params.animatingImageUrl && self.isAnimating()) {
-                    // we want a smooth transition, so make 
-                    // sure the end image is loaded
-                    T5.Images.load(params.imageUrl);
-                    
-                    // return the animating image url
-                    return params.animatingImageUrl;
-                }
-                else {
-                    return params.imageUrl;
-                } // if..else
-            } // getImageUrl
-            
-            function drawImage(context, offset, xy, state, overlay, view) {
-                // get the image
-                var imageUrl = getImageUrl(),
-                    image = T5.Images.get(imageUrl);
-                    
-                if (! image) {
-                    T5.Images.load(
-                        imageUrl, 
-                        function(loadedImage, fromCache) {
-                            overlay.wakeParent();
-                        }
-                    );
-                }
-                else if (image.complete && (image.width > 0)) {
-                    if (! imageOffset) {
-                        imageOffset = new T5.Vector(
-                            -image.width >> 1, 
-                            -image.height >> 1
-                        );
-                    } // if
-                    
-                    // determine the position to draw the image
-                    var imageXY = T5.V.offset(
-                                        xy,
-                                        imageOffset.x,
-                                        imageOffset.y);
-
-                    // draw the image
-                    context.drawImage(
-                        image,
-                        imageXY.x,
-                        imageXY.y,
-                        image.width,
-                        image.height);
-                } // if
-            } // drawImage
-            
-            params.draw = drawImage;
-
-            var self = new module.Annotation(params);
-            return self;
-        },
+        /**
+        # Geo.UI.LocationAnnotation
         
+        */
         LocationAnnotation: function(params) {
             params = T5.ex({
                 accuracy: null
@@ -569,6 +440,10 @@ T5.Geo.UI = (function() {
             return self;
         },
         
+        /**
+        # Geo.UI.AnnotationsOverlay
+        
+        */
         AnnotationsOverlay: function(params) {
             params = T5.ex({
                 pois: null,
@@ -592,8 +467,8 @@ T5.Geo.UI = (function() {
                     } // if
                         
                     if (! evt.annotation) {
-                        evt.annotation = new module.Annotation({
-                            pos: poi.pos
+                        evt.annotation = new T5.Annotation({
+                            xy: new T5.Geo.GeoVector(poi.pos)
                         });
                     } // if
                     
@@ -639,7 +514,7 @@ T5.Geo.UI = (function() {
                 if (grid) {
                     for (var ii = annotationsCount; ii--; ) {
                         // update the annotation xy coordinates
-                        annotationsArray[ii].calcXY(grid);
+                        annotationsArray[ii].xy.calcXY(grid);
                     } // for
                 } // if
                 
@@ -738,6 +613,9 @@ T5.Geo.UI = (function() {
             return self;
         }
     };
+    
+    // TODO: remove this once clients have removed references
+    module.ImageAnnotation = module.Annotation;
     
     return module;
 })();

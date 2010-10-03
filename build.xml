@@ -50,7 +50,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		<ant dir="lib/grunt" />
 	</target>
 	
-	<target name="build-core" depends="grunt-build" description="Core JS File build">
+	<target name="build-core" depends="build-lite" description="Core JS File build">
 		<echo message="BUILDING TILE5 CORE" />
 		<mkdir dir="${dist}" />
 		
@@ -58,44 +58,11 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		<!-- TODO: create more logical separation in the core library -->
 		<concat destfile="${TILE5}">
 			<!-- include the header -->
-			<fileset file="src/js/template/header.js" />
-			
-			<!-- include dependencies -->
-			<fileset file="lib/grunt/dist/grunt.js" />
-			
-			<!-- include core functionality -->
-			<fileset file="src/js/core.js" />
-			<fileset file="src/js/device.js" />
-			<fileset file="src/js/resources.js" />
-			<fileset file="src/js/images.js" />
-			<fileset file="src/js/touch.js" />
-			<fileset file="src/js/dispatcher.js" />
-			
-			<!-- include the animation functionality -->
-			<fileset file="src/js/animation/easing.js" />
-			<fileset file="src/js/animation/tween.js" />
-			<fileset file="src/js/animation/core.js" />
-			
-			<!-- include the graphics functionality -->
-			<fileset file="src/js/graphics/viewstate.js" />
-			<fileset file="src/js/graphics/viewlayer.js" />
-			<fileset file="src/js/graphics/view.js" />
-			<fileset file="src/js/graphics/animatedpathlayer.js" />
-			
-			<!-- include tiling -->
-			<fileset file="src/js/tiling/core.js" />
-			<fileset file="src/js/tiling/tilegrid.js" />
-			<fileset file="src/js/tiling/imagetilegrid.js" />
-			<fileset file="src/js/tiling/tiler.js" />
+			<fileset file="${dist}/${LIBNAME}.lite.js" />
 
 			<!-- include geo and mapping -->
-			<fileset file="src/js/geo/core.js" />
-			<fileset file="src/js/geo/geohash.js" />
-			<fileset file="src/js/geo/search.js" />
-			<fileset file="src/js/geo/routing.js" />
+			<fileset file="src/js/geo/*.js" />
 			<fileset file="src/js/geo/localization/turntype-rules.en.js" />
-			<fileset file="src/js/geo/ui.js" />
-			<fileset file="src/js/geo/map.js" />
 		</concat>
 		
 		<!-- TODO: if the strip logging property is set, then strip it -->
@@ -136,7 +103,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		<copy tofile="${dist}/${LIBNAME}.mapbox.js" file="src/js/geo/providers/mapbox.js" />
 	</target>
 	
-	<target name="build-lite" description="Build the lite version of the library">
+	<target name="build-lite" depends="grunt-build" description="Build the lite version of the library">
 		<echo message="BUILDING TILE5 LITE" />
 		
 		<!-- build the lite version of tile5 -->
@@ -165,6 +132,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/graphics/viewlayer.js" />
 			<fileset file="src/js/graphics/view.js" />
 			<fileset file="src/js/graphics/animatedpathlayer.js" />
+			<fileset file="src/js/graphics/annotation.js" />
 
 			<!-- include tiling -->
 			<fileset file="src/js/tiling/core.js" />

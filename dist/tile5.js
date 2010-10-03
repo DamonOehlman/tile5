@@ -2227,6 +2227,144 @@ T5 = (function() {
     }; // T5.getConfig
 })();
 
+T5.Dispatcher = (function() {
+    // initialise variables
+    var registeredActions = [];
+    
+    // initialise the module
+    var module = {
+        
+        /* actions */
+        
+        execute: function(actionId) {
+            // find the requested action
+            var action = module.findAction(actionId);
+            if (action) {
+                action.execute.apply(action, Array.prototype.slice.call(arguments, 1));
+            } // if
+        },
+        
+        findAction: function(actionId) {
+            for (var ii = registeredActions.length; ii--; ) {
+                if (registeredActions[ii].id == actionId) {
+                    return registeredActions[ii];
+                } // if
+            } // for
+            
+            return null;
+        },
+        
+        getRegisteredActions: function() {
+            return [].concat(registeredActions);
+        },
+        
+        getRegisteredActionIds: function() {
+            var actionIds = [];
+            
+            // get the action ids
+            for (var ii = registeredActions.length; ii--; ) {
+                registeredActions[ii].id ? actionIds.push(registeredActions[ii].id) : null;
+            } // for
+            
+            return actionIds;
+        },
+        
+        registerAction: function(action) {
+            if (action && action.id) {
+                registeredActions.push(action);
+            } // if
+        },
+        
+        Action: function(params) {
+            // use default parameter when insufficient are provided
+            params = T5.ex({
+                autoRegister: true,
+                id: '',
+                title: '',
+                icon: '',
+                execute: null
+            }, params);
+            
+            // initialise self
+            var self = {
+                id: params.id,
+                
+                execute: function() {
+                    if (params.execute) {
+                        params.execute.apply(this, arguments);
+                    } // if
+                },
+                
+                getParam: function(paramId) {
+                    return params[paramId] ? params[paramId] : "";
+                },
+                
+                toString: function() {
+                    return GT.formatStr("{0} [title = {1}, icon = {2}]", self.id, params.title, params.icon);
+                }
+            };
+            
+            // if the action has been set to auto register, then add it to the registry
+            if (params.autoRegister) {
+                module.registerAction(self);
+            } // if
+            
+            return self;
+        },
+        
+        /* agents */
+        
+        Agent: function(params) {
+            params = GT.extend({
+                name: "Untitled",
+                translator: null,
+                execute: null
+            }, params);
+            
+            // define the wrapper for the agent
+            var self = {
+                getName: function() {
+                    return params.name;
+                },
+                
+                getParam: function(key) {
+                    return params[key];
+                },
+                
+                getId: function() {
+                    return GT.toID(self.getName());
+                },
+                
+                run: function(args, callback) {
+                    if (params.execute) {
+                        // save the run instance ticks to a local variable so we can check it in the callback
+                        // SEARCH ARGS changed
+                        var searchArgs = params.translator ? params.translator(args) : args;
+                        
+                        // execute the agent
+                        params.execute.call(self, searchArgs, function(data, agentParams) {
+                            if (callback) {
+                                callback(data, agentParams, searchArgs);
+                            } // if
+                        });
+                    } // if
+                } // run
+            };
+            
+            return self;
+        },
+        
+        runAgents: function(agents, args, callback) {
+            // iterate through the agents and run them
+            for (var ii = 0; ii < agents.length; ii++) {
+                agents[ii].run(args, callback);
+            } // for
+        }
+    };
+    
+    return module;
+})();
+
 T5.Resources = (function() {
     var basePath = "",
         cachedSnippets = {},
@@ -3041,144 +3179,6 @@ T5.Images = (function() {
         } // if
     }; // T5.resetTouch
 })();
-T5.Dispatcher = (function() {
-    // initialise variables
-    var registeredActions = [];
-    
-    // initialise the module
-    var module = {
-        
-        /* actions */
-        
-        execute: function(actionId) {
-            // find the requested action
-            var action = module.findAction(actionId);
-            if (action) {
-                action.execute.apply(action, Array.prototype.slice.call(arguments, 1));
-            } // if
-        },
-        
-        findAction: function(actionId) {
-            for (var ii = registeredActions.length; ii--; ) {
-                if (registeredActions[ii].id == actionId) {
-                    return registeredActions[ii];
-                } // if
-            } // for
-            
-            return null;
-        },
-        
-        getRegisteredActions: function() {
-            return [].concat(registeredActions);
-        },
-        
-        getRegisteredActionIds: function() {
-            var actionIds = [];
-            
-            // get the action ids
-            for (var ii = registeredActions.length; ii--; ) {
-                registeredActions[ii].id ? actionIds.push(registeredActions[ii].id) : null;
-            } // for
-            
-            return actionIds;
-        },
-        
-        registerAction: function(action) {
-            if (action && action.id) {
-                registeredActions.push(action);
-            } // if
-        },
-        
-        Action: function(params) {
-            // use default parameter when insufficient are provided
-            params = T5.ex({
-                autoRegister: true,
-                id: '',
-                title: '',
-                icon: '',
-                execute: null
-            }, params);
-            
-            // initialise self
-            var self = {
-                id: params.id,
-                
-                execute: function() {
-                    if (params.execute) {
-                        params.execute.apply(this, arguments);
-                    } // if
-                },
-                
-                getParam: function(paramId) {
-                    return params[paramId] ? params[paramId] : "";
-                },
-                
-                toString: function() {
-                    return GT.formatStr("{0} [title = {1}, icon = {2}]", self.id, params.title, params.icon);
-                }
-            };
-            
-            // if the action has been set to auto register, then add it to the registry
-            if (params.autoRegister) {
-                module.registerAction(self);
-            } // if
-            
-            return self;
-        },
-        
-        /* agents */
-        
-        Agent: function(params) {
-            params = GT.extend({
-                name: "Untitled",
-                translator: null,
-                execute: null
-            }, params);
-            
-            // define the wrapper for the agent
-            var self = {
-                getName: function() {
-                    return params.name;
-                },
-                
-                getParam: function(key) {
-                    return params[key];
-                },
-                
-                getId: function() {
-                    return GT.toID(self.getName());
-                },
-                
-                run: function(args, callback) {
-                    if (params.execute) {
-                        // save the run instance ticks to a local variable so we can check it in the callback
-                        // SEARCH ARGS changed
-                        var searchArgs = params.translator ? params.translator(args) : args;
-                        
-                        // execute the agent
-                        params.execute.call(self, searchArgs, function(data, agentParams) {
-                            if (callback) {
-                                callback(data, agentParams, searchArgs);
-                            } // if
-                        });
-                    } // if
-                } // run
-            };
-            
-            return self;
-        },
-        
-        runAgents: function(agents, args, callback) {
-            // iterate through the agents and run them
-            for (var ii = 0; ii < agents.length; ii++) {
-                agents[ii].run(args, callback);
-            } // for
-        }
-    };
-    
-    return module;
-})();
-
 /**
 Easing functions
 
@@ -3583,6 +3583,35 @@ T5.Tween = function(params) {
         return result;
     }; // T5.viewState
 })();
+/**
+ViewLayer
+=========
+
+In and of itself, a View does nothing.  Not without a 
+ViewLayer at least.  A view is made up of one or more of these 
+layers and they are drawn in order of *zindex*.
+
+## Constructor Parameters
+
+- `id` - the id that has been assigned to the layer, this value
+can be used when later accessing the layer from a View.
+
+- `zindex` (default: 0) - a zindex in Tile5 means the same thing it does in CSS
+
+- `supportsFastDraw` (default: false) - The supportsFastDraw parameter specifies 
+whether a layer will be drawn on in particular graphic states on devices that 
+require fastDraw mode to perform at an optimal level.  For instance, if a layer does 
+not support fastDraw and the View is panning or scaling, the layer will not be drawn 
+so it's important when defining new layer classes to set this parameter to true if you 
+want the layer visible during these operations.  Be aware though that layers that require 
+some time to render will impact performance on slower devices.
+
+- `validStates` - the a bitmask of DisplayState that the layer will be drawn
+for
+
+## Methods
+
+*/
 T5.ViewLayer = function(params) {
     params = T5.ex({
         id: "",
@@ -3596,10 +3625,23 @@ T5.ViewLayer = function(params) {
         activeState = T5.viewState("ACTIVE");
     
     var self = T5.ex({
+        /**
+        - `addToView(view)`
+        
+        */
         addToView: function(view) {
             view.setLayer(id, self);
         },
         
+        /**
+        - `shouldDraw(displayState)`
+        
+        Called by a View that contains the layer to determine 
+        whether or not the layer should be drawn for the current display state.  
+        The default implementation of this method first checks the fastDraw status, 
+        and then continues to do a bitmask operation against the validStates property 
+        to see if the current display state is acceptable.
+        */
         shouldDraw: function(displayState) {
             var stateValid = (displayState & params.validStates) !== 0,
                 fastDraw = parent ? (parent.fastDraw && (displayState !== activeState)) : false;
@@ -3607,14 +3649,34 @@ T5.ViewLayer = function(params) {
             return stateValid && (fastDraw ? params.supportFastDraw : true);
         },
         
+        /**
+        - `cycle(tickCount, offset, state)`
+        
+        Called in the View method of the same name, each layer has an opportunity 
+        to update itself in the current animation cycle before it is drawn.
+        */
         cycle: function(tickCount, offset, state) {
             return 0;
         },
         
+        /**
+        - `draw(context, offset, dimensions, state, view)`
+        
+        The business end of layer drawing.  This method is called when a layer needs to be 
+        drawn and the following parameters are passed to the method:
+
+            - context - the canvas context that we are drawing to
+            - offset - a Vector object containing the current virtual canvas offset
+            - dimensions - a Dimensions object specifying the actual size of the drawing surface
+            - state - the current DisplayState of the view
+            - view - a reference to the View
+        */
         draw: function(context, offset, dimensions, state, view) {
         },
         
         /**
+        - `remove()`
+        
         The remove method enables a view to flag that it is ready or should be removed
         from any views that it is contained in.  This was introduced specifically for
         animation layers that should only exist as long as an animation is active.
@@ -3623,24 +3685,47 @@ T5.ViewLayer = function(params) {
             GT.say("layer.remove", { id: id });
         },
         
+        /**
+        - `wakeParent()`
+        
+        Another method that uses the WaterCooler event system to tell the containing view 
+        that it needs to wake up and redraw itself.  This method is often called when a 
+        ViewLayer knows it needs to redraw but it isn't able to communicate this another way.
+        */
         wakeParent: function() {
             if (parent) {
                 parent.trigger("wake");
             } // if
         },
         
+        /**
+        - `getId()`
+        
+        */
         getId: function() {
             return id;
         },
         
+        /**
+        - `setId(string)`
+        
+        */
         setId: function(value) {
             id = value;
         },
 
+        /**
+        - `getParent()`
+        
+        */
         getParent: function() {
             return parent;
         },
         
+        /**
+        - `setParent(view: View)
+        
+        */
         setParent: function(view) {
             parent = view;
         }
@@ -3651,10 +3736,10 @@ T5.ViewLayer = function(params) {
     return self;
 }; // T5.ViewLayer
 /**
-T5.View
-=======
+View
+====
 
-The Tile5 View is the fundamental building block for tiling and 
+The View is the fundamental building block for tiling and 
 mapping interface.  Which this class does not implement any of 
 the logic required for tiling, it does handle the redraw logic.  
 Applications implementing Tile5 maps will not need to be aware of 
@@ -3663,6 +3748,35 @@ in building extensions or customizations should definitely take a look.
 Additionally, it is worth being familiar with the core methods that 
 are implemented here around the layering as these are used extensively 
 when creating overlays and the like for the map implementations.
+
+## Constructor Parameters (Required)
+
+- `container` 
+
+## Constructor Parameters (Optional)
+
+- `id`
+
+- `autoSize`
+
+- `fastDraw`
+
+- `intertia`
+
+- `pannable`
+
+- `scalable`
+
+- `panAnimationEasing`
+
+- `panAnimationDuration`
+
+- `pinchZoomAnimateTrigger`
+
+- `adjustScaleFactor`
+
+## Methods
+
 */
 T5.View = function(params) {
     // initialise defaults
@@ -3695,7 +3809,6 @@ T5.View = function(params) {
         idle = false,
         panimating = false,
         paintTimeout = 0,
-        repaint = false,
         idleTimeout = 0,
         rescaleTimeout = 0,
         zoomCenter = null,
@@ -4066,7 +4179,6 @@ T5.View = function(params) {
         
         GT.Log.trace("draw complete", startTicks);
         
-        repaint = false;
         return changeCount;
     } // drawView
     
@@ -4130,10 +4242,6 @@ T5.View = function(params) {
         });
     } // wake
     
-    function invalidate() {
-        repaint = true;
-    } // invalidate
-    
     function layerContextChanged(layer) {
         layer.trigger("contextChanged", mainContext);
     } // layerContextChanged
@@ -4157,22 +4265,41 @@ T5.View = function(params) {
                 callback);
         },
         
+        /**
+        - `centerOn(offset: Vector)`
+        
+        Move the center of the view to the specified offset
+        */
         centerOn: function(offset) {
             self.setOffset(offset.x - (canvas.width / 2), offset.y - (canvas.height / 2));
         },
+
+        /**
+        - `getDimensions()`
         
+        Return the Dimensions of the View
+        */
         getDimensions: function() {
             if (canvas) {
                 return new T5.Dimensions(canvas.width, canvas.height);
             } // if
         },
         
+        /**
+        - `getZoomCenter()`
+        
+        */
         getZoomCenter: function() {
             return zoomCenter;
         },
         
         /* layer getter and setters */
         
+        /**
+        - `getLayer(id: String)`
+        
+        Get the ViewLayer with the specified id, return null if not found
+        */
         getLayer: function(id) {
             // look for the matching layer, and return when found
             for (var ii = 0; ii < layers.length; ii++) {
@@ -4184,6 +4311,11 @@ T5.View = function(params) {
             return null;
         },
         
+        /**
+        - `setLayer(id: String, value: ViewLayer)`
+        
+        Either add or update the specified view layer
+        */
         setLayer: function(id, value) {
             // if the layer already exists, then remove it
             for (var ii = 0; ii < layers.length; ii++) {
@@ -4200,6 +4332,12 @@ T5.View = function(params) {
             wake();
         },
         
+        /**
+        - `eachLayer(callback: Function)`
+        
+        Iterate through each of the ViewLayers and pass each to the callback function 
+        supplied.
+        */
         eachLayer: function(callback) {
             // iterate through each of the layers and fire the callback for each 
             for (var ii = 0; ii < layers.length; ii++) {
@@ -4207,27 +4345,37 @@ T5.View = function(params) {
             } // for
         },
         
+        /**
+        - `clearBackground()`
+        
+        */
         clearBackground: function() {
             clearBackground = true;
+            wake();
         },
         
+        /**
+        - `freeze()`
+        
+        */
         freeze: function() {
             frozen = true;
         },
         
+        /**
+        - `unfreeze()`
+        
+        */
         unfreeze: function() {
             frozen = false;
             
             wake();
         },
         
-        needRepaint: function() {
-            return repaint;
-        },
+        /**
+        - `scale(targetScaling, tweenFn, callback, startXY, targetXY)`
         
-        snapshot: function(zindex) {
-        },
-        
+        */
         scale: function(targetScaling, tweenFn, callback, startXY, targetXY) {
             // if the start XY is not defined, used the center
             if (! startXY) {
@@ -4249,6 +4397,11 @@ T5.View = function(params) {
             return self;
         },
         
+        /**
+        - `removeLayer(id: String)`
+        
+        Remove the ViewLayer specified by the id
+        */
         removeLayer: function(id) {
             var layerIndex = getLayerIndex(id);
             if ((layerIndex >= 0) && (layerIndex < layers.length)) {
@@ -4260,15 +4413,28 @@ T5.View = function(params) {
         
         /* offset methods */
         
+        /**
+        - `getOffset()`
+        
+        Return a Vector containing the current view offset
+        */
         getOffset: function() {
             return T5.V.copy(offset);
         },
         
+        /**
+        - `setOffset(x: Integer, y: Integer)`
+        
+        */
         setOffset: function(x, y) {
             offset.x = x; 
             offset.y = y;
         },
         
+        /**
+        - `updateOffset(x, y, tweenFn, tweenDuration, callback)`
+        
+        */
         updateOffset: function(x, y, tweenFn, tweenDuration, callback) {
             
             function updateOffsetAnimationEnd() {
@@ -4303,6 +4469,10 @@ T5.View = function(params) {
             } // if..else
         },
         
+        /**
+        - `zoom(targetXY, newScaleFactor, rescaleAfter)`
+        
+        */
         zoom: function(targetXY, newScaleFactor, rescaleAfter) {
             panimating = false;
             scaleFactor = newScaleFactor;
@@ -4344,7 +4514,7 @@ T5.View = function(params) {
     self.bind("wake", wake);
     
     // handle invalidation
-    self.bind("invalidate", invalidate);
+    self.bind("invalidate", self.clearBackground);
     
     // if this is pannable, then attach event handlers
     if (params.pannable) {
@@ -4485,6 +4655,157 @@ T5.AnimatedPathLayer = function(params) {
 
     return self;
 }; // T5.AnimatedPathLayer
+/**
+# T5.Annotation
+
+*/
+T5.Annotation = function(params) {
+    params = T5.ex({
+        xy: null,
+        tweenIn: T5.easing('sine.out'),
+        animationSpeed: null
+    }, params);
+    
+    var animating = false;
+    
+    var self = T5.ex(params, {
+        xy: params.xy,
+        isNew: true,
+        
+        isAnimating: function() {
+            return animating;
+        },
+        
+        draw: function(context, offset, state, overlay, view) {
+            if (! self.xy) { return; }
+            
+            if (self.isNew && (params.tweenIn)) {
+                // get the end value and update the y value
+                var endValue = self.xy.y;
+
+                // set the y to offscreen
+                self.xy.y = offset.y - 20;
+                
+                // animate the annotation
+                animating = true;
+                
+                T5.tween(
+                    self.xy, 
+                    'y',
+                    endValue, 
+                    params.tweenIn, 
+                    function() {
+                        self.xy.y = endValue;
+                        animating = false;
+                    }, 
+                    params.animationSpeed ? 
+                        params.animationSpeed : 
+                        250 + (Math.random() * 500)
+                );
+            } // if
+            
+            self.drawMarker(
+                context, 
+                offset, 
+                new T5.Vector(
+                    self.xy.x - offset.x, 
+                    self.xy.y - offset.y
+                ), 
+                state, 
+                overlay, 
+                view);
+            
+            self.isNew = false;
+        },
+        
+        drawMarker: function(context, offset, xy, state, overlay, view) {
+            context.beginPath();
+            context.arc(
+                xy.x, 
+                xy.y,
+                4,
+                0,
+                Math.PI * 2,
+                false);                    
+            context.fill();
+        }
+    }); // self
+    
+    return self;
+};
+
+/**
+# T5.ImageAnnotation
+
+*/
+T5.ImageAnnotation = function(params) {
+    params = T5.ex({
+        imageUrl: null,
+        animatingImageUrl: null,
+        imageAnchor: null
+    }, params);
+    
+    var imageOffset = params.imageAnchor ?
+            T5.V.invert(params.imageAnchor) : 
+            null;
+    
+    function getImageUrl() {
+        if (params.animatingImageUrl && self.isAnimating()) {
+            // we want a smooth transition, so make 
+            // sure the end image is loaded
+            T5.Images.load(params.imageUrl);
+            
+            // return the animating image url
+            return params.animatingImageUrl;
+        }
+        else {
+            return params.imageUrl;
+        } // if..else
+    } // getImageUrl
+    
+    function drawImage(context, offset, xy, state, overlay, view) {
+        // get the image
+        var imageUrl = getImageUrl(),
+            image = T5.Images.get(imageUrl);
+            
+        if (! image) {
+            T5.Images.load(
+                imageUrl, 
+                function(loadedImage, fromCache) {
+                    overlay.wakeParent();
+                }
+            );
+        }
+        else if (image.complete && (image.width > 0)) {
+            if (! imageOffset) {
+                imageOffset = new T5.Vector(
+                    -image.width >> 1, 
+                    -image.height >> 1
+                );
+            } // if
+            
+            // determine the position to draw the image
+            var imageXY = T5.V.offset(
+                                xy,
+                                imageOffset.x,
+                                imageOffset.y);
+
+            // draw the image
+            context.drawImage(
+                image,
+                imageXY.x,
+                imageXY.y,
+                image.width,
+                image.height);
+        } // if
+    } // drawImage
+    
+    var self = T5.ex(new T5.Annotation(params), {
+        drawMarker: drawImage
+    });
+    
+    return self;
+};
 (function() {
     // set the default tile size to 256 pixels
     T5.tileSize = 256;
@@ -4812,7 +5133,7 @@ T5.AnimatedPathLayer = function(params) {
                 xShift = offset.x,
                 yShift = offset.y,
                 tilesDrawn = true,
-                redraw = view.needRepaint() || (state === T5.viewState('PAN')) || (state === T5.viewState('PINCH')) || T5.isTweening();
+                redraw = (state === T5.viewState('PAN')) || (state === T5.viewState('PINCH')) || T5.isTweening();
                 
             if (! centerPos) {
                 tileCols = Math.ceil(dimensions.width * invTileSize) + 1;
@@ -5163,13 +5484,14 @@ T5.Tiler = function(params) {
 
     return self;
 }; // Tiler
-/*
-File:   T5.geo.js
-File is used to define geo namespace and classes for implementing GIS classes and operations
+/**
+# MODULE: Geo
+
+The Geo module contains classes and functionality to support geospatial 
+operations and calculations that are required when drawing maps, routes, etc.
+
+## Functions
 */
-
-/* GEO Basic Type definitions */
-
 T5.Geo = (function() {
     // define constants
     var LAT_VARIABILITIES = [
@@ -5205,6 +5527,145 @@ T5.Geo = (function() {
         },
         DEFAULT_GENERALIZATION_DISTANCE = 250;
         
+    var exportedFunctions = {
+        /**
+        - `getEngine(requiredCapability)`
+
+        Returns the engine that provides the required functionality.  If preferred engines are supplied
+        as additional arguments, then those are looked for first
+        */
+        getEngine: function(requiredCapability) {
+            // initialise variables
+            var fnresult = null;
+
+            // iterate through the arguments beyond the capabililty for the preferred engine
+            for (var ii = 1; (! fnresult) && (ii < arguments.length); ii++) {
+                fnresult = findEngine(requiredCapability, arguments[ii]);
+            } // for
+
+            // if we found an engine using preferences, return that otherwise return an alternative
+            fnresult = fnresult ? fnresult : findEngine(requiredCapability);
+
+            // if no engine was found, then throw an exception
+            if (! fnresult) {
+                throw new Error("Unable to find GEO engine with " + requiredCapability + " capability");
+            }
+
+            return fnresult;
+        },
+
+        /**
+        - `rankGeocodeResponses(requestAddress, responseAddress, engine)`
+        
+        TODO
+        */
+        rankGeocodeResponses: function(requestAddress, responseAddresses, engine) {
+            var matches = [],
+                compareFns = module.AddressCompareFns;
+
+            // if the engine is specified and the engine has compare fns, then extend them
+            if (engine && engine.compareFns) {
+                compareFns = T5.ex({}, compareFns, engine.compareFns);
+            } // if
+
+            // iterate through the response addresses and compare against the request address
+            for (var ii = 0; ii < responseAddresses.length; ii++) {
+                matches.push(new module.GeoSearchResult({
+                    caption: addrTools.toString(responseAddresses[ii]),
+                    data: responseAddresses[ii],
+                    pos: responseAddresses[ii].pos,
+                    matchWeight: plainTextAddressMatch(requestAddress, responseAddresses[ii], compareFns, module.GeocodeFieldWeights)
+                }));
+            } // for
+
+            // TODO: sort the matches
+            matches.sort(function(itemA, itemB) {
+                return itemB.matchWeight - itemA.matchWeight;
+            });
+
+            return matches;
+        },
+
+        /**
+        - `dist2rad(distance)`
+        
+        TODO
+        */
+        dist2rad: function(distance) {
+            return distance / KM_PER_RAD;
+        },
+
+        /**
+        - `lat2pix(lat)`
+        
+        TODO
+        */
+        lat2pix: function(lat) {
+            var radLat = parseFloat(lat) * DEGREES_TO_RADIANS; // *(2*Math.PI))/360;
+            var sinPhi = Math.sin(radLat);
+            var eSinPhi = ECC * sinPhi;
+            var retVal = Math.log(((1.0 + sinPhi) / (1.0 - sinPhi)) * Math.pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
+
+            return retVal;
+        },
+
+        /**
+        - `lon2pix(lon)`
+        
+        TODO
+        */
+        lon2pix: function(lon) {
+            return parseFloat(lon) * DEGREES_TO_RADIANS; // /180)*Math.PI;
+        },
+
+        /**
+        - `pix2lon(mercX)`
+        
+        TODO
+        */
+        pix2lon: function(mercX) {
+            return module.normalizeLon(mercX) * RADIANS_TO_DEGREES;
+        },
+
+        /**
+        - `pix2lat`
+        
+        TODO
+        */
+        pix2lat: function(mercY) {
+            var t = Math.pow(Math.E, -mercY),
+                prevPhi = mercatorUnproject(t),
+                newPhi = findRadPhi(prevPhi, t),
+                iterCount = 0;
+
+            while (iterCount < PHI_MAXITER && Math.abs(prevPhi - newPhi) > PHI_EPSILON) {
+                prevPhi = newPhi;
+                newPhi = findRadPhi(prevPhi, t);
+                iterCount++;
+            } // while
+
+            return newPhi * RADIANS_TO_DEGREES;
+        },
+
+        /**
+        - `normalizeLon(lon)`
+        
+        TODO
+        */
+        normalizeLon: function (lon) {
+            // return lon;
+            while (lon < -180) {
+                lon += 360;
+            } // while
+
+            while (lon > 180) {
+                lon -= 360;
+            } // while
+
+            return lon;
+        }        
+    }; // exportedFunctions
+        
     /* define the geo simple types */
     
     var Radius = function(init_dist, init_uom) {
@@ -5214,6 +5675,40 @@ T5.Geo = (function() {
         }; 
     }; // Radius
     
+    /**
+    # Geo.Position
+    
+    The position class is simply a data-storage class that is used to store 
+    a latitude and longitude pair.  While this class used to contain methods 
+    to support manipulation on these objects, these have been moved to the 
+    Geo.P submodule for performance optimization reasons.
+
+    ## Properties
+
+    - lat
+    The latitude of the position
+
+    - lon
+    The longitude of the position
+
+    ## Usage
+
+    Creating a new position object can be done by either specifically creating 
+    a new Position object, by specifying the lat and lon as arguments:
+
+    <pre>
+    var pos = new T5.Geo.Position(-27.468, 153.028);
+    </pre>
+
+    Alternative, the T5.Geo.P submodule can be used to parse a 
+    latitude / longitude pair from a string value
+
+    <pre>
+    var pos = T5.Geo.P.parse("-27.468 153.028");
+    </pre>
+
+    The parse function supports both space-separated, and comma-separated syntaxes.    
+    */
     var Position = function(initLat, initLon) {
         // initialise self
         return {
@@ -5222,15 +5717,57 @@ T5.Geo = (function() {
         };
     }; // Position
     
+    /**
+    # Geo.BoundingBox
+
+    The BoundingBox class is used to store the min and max Geo.Position 
+    that represents a bounding box.  For support functions for manipulating 
+    a bounding box, see the Geo.B submodule.
+    
+    ## Properties
+
+    - min
+    The T5.Geo.Position object representing the minimum of the bounding box.  
+    The minimum position of the bounding box is the south-western (or 
+    bottom-left) corner of the bounding box.
+
+    - max
+    The T5.Geo.Position object representing the maximum position of the bounding 
+    box.  The maximum position is the north-eastern (or top-right) corner of 
+    the bounding box.
+
+    ## Usage
+
+    Creating a new Geo.BoundingBox is done by specifying either 
+    a Geo.Position objects or parsable strings to the constructor:
+
+    Created position objects example:
+    
+    <pre>
+    var minPos = T5.Geo.P.parse("-27.587 152.876"),
+        maxPos = T5.Geo.P.parse("-27.468 153.028"),
+        bounds = new T5.Geo.BoundingBox(minPos, maxPos);
+    </pre>
+
+    Creating from latlon string pairs example (constructor arguments 
+    automatically passed through the T5.Geo.P.parse function):
+
+    <pre>
+    var bounds = new T5.Geo.BoundingBox("-27.587 152.876", "-27.468 153.028");
+    </pre>
+    */
     var BoundingBox = function(initMin, initMax) {
         return {
             min: posTools.parse(initMin),
             max: posTools.parse(initMax)
         };
     }; // BoundingBox
+
+    /**
+    # Geo.Address
     
-    /* address types */
-    
+    TODO
+    */
     var Address = function(params) {
         params = T5.ex({
             streetDetails: "",
@@ -5244,10 +5781,22 @@ T5.Geo = (function() {
         return params;
     }; // Address
     
-    /* define the position tools */
+    /**
+    # Geo.P
+
+    The Geo.P submodule is used to perform operations on Geo.Position objects rather 
+    than have those operations bundled with the object.
     
+    ## Functions
+    */
     var posTools = (function() {
         var subModule = {
+            /**
+            - `calcDistance(pos1, pos2)`
+
+            Calculate the distance between two Geo.Position objects, pos1 and pos2.  The 
+            distance returned is measured in kilometers.
+            */
             calcDistance: function(pos1, pos2) {
                 if (subModule.empty(pos1) || subModule.empty(pos2)) {
                     return 0;
@@ -5268,14 +5817,30 @@ T5.Geo = (function() {
                 return KM_PER_RAD * c;
             },
             
+            /**
+            - `copy(src)`
+
+            Create a copy of the specified T5.Geo.Position object.
+            */
             copy: function(src) {
                 return src ? new Position(src.lat, src.lon) : null;
             },
 
+            /**
+            - `empty(pos)`
+
+            Returns true if the T5.Geo.Position object is empty, false if not.
+            */
             empty: function(pos) {
                 return (! pos) || ((pos.lat === 0) && (pos.lon === 0));
             },
             
+            /**
+            - `equal(pos1, pos2)`
+
+            Compares to T5.Geo.Position objects and returns true if they 
+            have the same latitude and longitude values
+            */
             equal: function(pos1, pos2) {
                 return pos1 && pos2 && (pos1.lat == pos2.lat) && (pos1.lon == pos2.lon);
             },
@@ -5288,6 +5853,12 @@ T5.Geo = (function() {
                     (Math.floor(pos1.lon * multiplier) === Math.floor(pos2.lon * multiplier));
             },
             
+            /**
+            - `inArray(pos, testArray)`
+
+            Checks to see whether the specified T5.Geo.Position is contained within 
+            the array of position objects passed in the testArray.
+            */
             inArray: function(pos, testArray) {
                 var arrayLen = testArray.length,
                     testFn = posTools.equal;
@@ -5301,6 +5872,12 @@ T5.Geo = (function() {
                 return false;
             },
             
+            /**
+            - `inBounds(pos, bounds)`
+
+            Returns true if the specified Geo.Position object is within the 
+            Geo.BoundingBox specified by the bounds argument.
+            */
             inBounds: function(pos, bounds) {
                 // initialise variables
                 var fnresult = ! (posTools.empty(pos) || posTools.empty(bounds));
@@ -5314,6 +5891,15 @@ T5.Geo = (function() {
                 return fnresult;
             },
             
+            /**
+            - `parse(object)`
+
+            This function is used to take a latitude and longitude String 
+            pair (either space or comma delimited) and return a new Geo.Position 
+            value.  The function is also tolerant of being passed an existing 
+            Geo.Position object as the object argument, and in these cases 
+            returns a copy of the position.
+            */
             parse: function(pos) {
                 // first case, null value, create a new empty position
                 if (! pos) {
@@ -5335,7 +5921,12 @@ T5.Geo = (function() {
 
                 return null;
             },
-            
+
+            /**
+            - `parseArray(sourceData)`
+
+            Fust like parse, but with lots of em'
+            */
             parseArray: function(sourceData) {
                 var sourceLen = sourceData.length,
                     positions = new Array(sourceLen);
@@ -5348,6 +5939,13 @@ T5.Geo = (function() {
                 return positions;
             },
             
+            /**
+            - `fromMercatorPixels(x, y, radsPerPixel)`
+
+            This function is used to take x and y mercator pixels values, 
+            and using the value passed in the radsPerPixel value convert 
+            that to a Geo.Position object.
+            */
             fromMercatorPixels: function(mercX, mercY) {
                 // return the new position
                 return new Position(
@@ -5356,10 +5954,22 @@ T5.Geo = (function() {
                 );
             },
 
+            /**
+            - `toMercatorPixels(pos, radsPerPixel)`
+
+            Basically, the reverse of the fromMercatorPixels function - 
+            pass it a Geo.Position object and get a Vector object back 
+            with x and y mercator pixel values back.
+            */
             toMercatorPixels: function(pos) {
                 return new T5.Vector(T5.Geo.lon2pix(pos.lon), T5.Geo.lat2pix(pos.lat));
             },
             
+            /**
+            - `generalize(sourceData, requiredPositions, minDist)`
+            
+            TODO
+            */
             generalize: function(sourceData, requiredPositions, minDist) {
                 var sourceLen = sourceData.length,
                     positions = [],
@@ -5398,6 +6008,11 @@ T5.Geo = (function() {
                 return positions;
             },                
 
+            /**
+            - `toString(pos)`
+            
+            Return a string representation of the Geo.Position object
+            */
             toString: function(pos) {
                 return pos ? pos.lat + " " + pos.lon : "";
             }
@@ -5406,8 +6021,16 @@ T5.Geo = (function() {
         return subModule;
     })();
     
-    /* define the bounding box tools */
     
+    /**
+    # Geo.B
+    
+    A collection of utilities that are primarily designed to help with working 
+    with Geo.BoundingBox objects.  The functions are implemented here rather 
+    than with the actual object itself to ensure that the object remains lightweight.
+    
+    ## Functions
+    */
     var boundsTools = (function() {
         var MIN_LAT = -HALF_PI,
             MAX_LAT = HALF_PI,
@@ -5415,6 +6038,15 @@ T5.Geo = (function() {
             MAX_LON = TWO_PI;
         
         var subModule = {
+            /**
+            - `calcSize(min, max, normalize)`
+
+            The calcSize function is used to determine the size of a Geo.BoundingBox given 
+            a minimum position (relates to the bottom-left / south-western corner) and 
+            maximum position (top-right / north-eastern corner) of the bounding box.  
+            The 3rd parameter specifies whether the size calculations should normalize the 
+            calculation in cases where the bounding box crosses the 360 degree boundary.
+            */
             calcSize: function(min, max, normalize) {
                 var size = new T5.Vector(0, max.lat - min.lat);
                 if (typeof normalize === 'undefined') {
@@ -5431,7 +6063,16 @@ T5.Geo = (function() {
                 return size;
             },
 
-            // adapted from: http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates
+            /**
+            - `createBoundsFromCenter(centerPos, distance)`
+
+            This function is very useful for creating a Geo.BoundingBox given a 
+            center position and a radial distance (specified in KM) from the center 
+            position.  Basically, imagine a circle is drawn around the center 
+            position with a radius of distance from the center position, and then 
+            a box is drawn to surround that circle.  Adapted from the [functions written 
+            in Java by Jan Philip Matuschek](http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates)
+            */
             createBoundsFromCenter: function(centerPos, distance) {
                 var radDist = distance / KM_PER_RAD,
                     radLat = centerPos.lat * DEGREES_TO_RADIANS,
@@ -5471,12 +6112,26 @@ T5.Geo = (function() {
                     new Position(maxLat * RADIANS_TO_DEGREES, maxLon * RADIANS_TO_DEGREES));
             },
             
+            /**
+            - `expand(bounds, amount)`
+
+            A simple function that is used to expand a Geo.BoundingBox 
+            by the specified amount (in degrees).
+            */
             expand: function(bounds, amount) {
                 return new BoundingBox(
                     new Position(bounds.min.lat - amount, bounds.min.lon - module.normalizeLon(amount)),
                     new Position(bounds.max.lat + amount, bounds.max.lon + module.normalizeLon(amount)));
             },
             
+            /**
+            - `forPositions(positions, padding)`
+
+            This function is very useful when you need to create a 
+            Geo.BoundingBox to contain an array of T5.Geo.Position.  
+            The optional second parameter allows you to specify an amount of 
+            padding (in degrees) to apply to the bounding box that is created.
+            */
             forPositions: function(positions, padding) {
                 var bounds = null,
                     startTicks = T5.time();
@@ -5517,6 +6172,11 @@ T5.Geo = (function() {
                 return bounds;
             },
             
+            /**
+            - `getCenter(bounds)`
+
+            Returns a Geo.Position for the center position of the bounding box.
+            */
             getCenter: function(bounds) {
                 // calculate the bounds size
                 var size = boundsTools.calcSize(bounds.min, bounds.max);
@@ -5525,6 +6185,11 @@ T5.Geo = (function() {
                 return new T5.Geo.Position(bounds.min.lat + (size.y / 2), bounds.min.lon + (size.x / 2));
             },
             
+            /**
+            - `getGeohash(bounds)`
+            
+            TODO
+            */
             getGeoHash: function(bounds) {
                 var minHash = T5.Geo.GeoHash.encode(bounds.min.lat, bounds.min.lon),
                     maxHash = T5.Geo.GeoHash.encode(bounds.max.lat, bounds.max.lon);
@@ -5533,8 +6198,15 @@ T5.Geo = (function() {
             },
 
             /** 
-            Function adapted from the following code:
-            http://groups.google.com/group/google-maps-js-api-v3/browse_thread/thread/43958790eafe037f/66e889029c555bee
+            - `getZoomLevel(bounds, displaySize)`
+
+            This function is used to return the zoom level (seems consistent across 
+            mapping providers at this stage) that is required to properly display 
+            the specified T5.Geo.BoundingBox given the screen dimensions (specified as 
+            a Dimensions object) of the map display.
+            
+            Adapted from the following code:
+            [http://groups.google.com/group/google-maps-js-api-v3/browse_thread/thread/43958790eafe037f/66e889029c555bee]
             */
             getZoomLevel: function(bounds, displaySize) {
                 // get the constant index for the center of the bounds
@@ -5557,10 +6229,20 @@ T5.Geo = (function() {
                 return Math.min(isNaN(bestZoomH) ? maxZoom : bestZoomH, isNaN(bestZoomW) ? maxZoom : bestZoomW);
             },
 
+            /**
+            - `isEmpty(bounds)`
+
+            Returns true if the specified Geo.BoundingBox is empty.
+            */
             isEmpty: function(bounds) {
                 return (! bounds) || posTools.empty(bounds.min) || posTools.empty(bounds.max);
             },
             
+            /**
+            - `toString(bounds)`
+
+            Returns a string representation of a Geo.BoundingBox
+            */
             toString: function(bounds) {
                 return "min: " + posTools.toString(bounds.min) + ", max: " + posTools.toString(bounds.max);
             }
@@ -5571,11 +6253,23 @@ T5.Geo = (function() {
     
     /* define the address tools */
     
+    /**
+    # Geo.A
+    
+    A collection of utilities for working with Geo.Address objects
+    
+    ## Functions
+    */
     var addrTools = (function() {
         var REGEX_BUILDINGNO = /^(\d+).*$/,
             REGEX_NUMBERRANGE = /(\d+)\s?\-\s?(\d+)/;
         
         var subModule = {
+            /**
+            - `buildingMatch(freeForm, numberRange, name)`
+            
+            TODO
+            */
             buildingMatch: function(freeform, numberRange, name) {
                 // from the freeform address extract the building number
                 REGEX_BUILDINGNO.lastIndex = -1;
@@ -5602,7 +6296,9 @@ T5.Geo = (function() {
             },
             
             /**
-            The normalizeAddress function is used to take an address that could be in a variety of formats
+            - `normalize(addressText)`
+            
+            Used to take an address that could be in a variety of formats
             and normalize as many details as possible.  Text is uppercased, road types are replaced, etc.
             */
             normalize: function(addressText) {
@@ -5634,6 +6330,11 @@ T5.Geo = (function() {
                 return addressText;
             },
             
+            /**
+            - `toString(address)`
+            
+            Returns a string representation of the Geo.Address object
+            */
             toString: function(address) {
                 return address.streetDetails + " " + address.location;
             }
@@ -5716,34 +6417,39 @@ T5.Geo = (function() {
         return value * DEGREES_TO_RADIANS;
     } // toRad
     
+    /* public functions */
+    
     // define the module
     var module = {
-        /* geo engine class */
-        
-        Engine: function(params) {
-            // if the id for the engine is not specified, throw an exception
-            if (! params.id) {
-                throw new Error("A GEO.Engine cannot be registered without providing an id.");
-            } // if
+        /* position, bounds and address utility modules */
 
-            // map the parameters directly to self
-            var self = T5.ex({
-                remove: function() {
-                    delete engines[self.id];
-                }
-            }, params);
-            
-            // register the engine
-            engines[self.id] = self;
-            
-            return self;
-        },
-        
+        P: posTools,
+        B: boundsTools,
+        A: addrTools,
+
         /* geo type definitions */
         
         Radius: Radius,
         Position: Position,
         BoundingBox: BoundingBox,
+        
+        GeoVector: function(pos) {
+            var self = new T5.Vector();
+            
+            T5.ex(self, {
+                pos: pos,
+                
+                calcXY: function(grid) {
+                    GT.Log.info('calculating XY - it\'s busted');
+                    var xy = grid.getGridXYForPosition(self.pos);
+                    
+                    self.x = xy.x;
+                    self.y = xy.y;
+                }
+            });
+            
+            return self;
+        },
         
         /* addressing and geocoding support */
         
@@ -5758,6 +6464,35 @@ T5.Geo = (function() {
         AddressCompareFns: {
         },
         
+        /**
+        # Geo.Engine
+
+        TODO
+        */
+        Engine: function(params) {
+            // if the id for the engine is not specified, throw an exception
+            if (! params.id) {
+                throw new Error("A GEO.Engine cannot be registered without providing an id.");
+            } // if
+
+            // map the parameters directly to self
+            var self = T5.ex({
+                remove: function() {
+                    delete engines[self.id];
+                }
+            }, params);
+
+            // register the engine
+            engines[self.id] = self;
+
+            return self;
+        },
+        
+        /**
+        # Geo.GeoSearchResult
+        
+        TODO
+        */
         GeoSearchResult: function(params) {
             params = T5.ex({
                 id: null,
@@ -5775,10 +6510,20 @@ T5.Geo = (function() {
             });
         },
         
+        /**
+        # Geo.GeoSearchAgent
+        
+        TODO
+        */
         GeoSearchAgent: function(params) {
             return new T5.Dispatcher.Agent(params);
         },
         
+        /**
+        # Geo.GeocodingAgent
+        
+        TODO
+        */
         GeocodingAgent: function(params) {
             
             function rankResults(searchParams, results) {
@@ -5827,381 +6572,10 @@ T5.Geo = (function() {
             var self = new module.GeoSearchAgent(params);
             
             return self;
-        },
-        
-        /* Point of Interest Objects */
-        
-        PointOfInterest: function(params) {
-            params = T5.ex({
-                id: 0,
-                title: "",
-                pos: null,
-                lat: "",
-                lon: "",
-                group: "",
-                retrieved: 0,
-                isNew: true
-            }, params);
-
-            // if the position is not defined, but we have a lat and lon, create a new position
-            if ((! params.pos) && params.lat && params.lon) {
-                params.pos = new T5.Geo.Position(params.lat, params.lon);
-            } // if
-            
-            return T5.ex({
-                toString: function() {
-                    return params.id + ": '" + params.title + "'";
-                }
-            }, params);
-        },
-        
-        POIStorage: function(params) {
-            params = T5.ex({
-                visibilityChange: null,
-                onPOIDeleted: null,
-                onPOIAdded: null
-            }, params);
-
-            // initialise variables
-            var storageGroups = {},
-                visible = true;
-                
-            function getStorageGroup(groupName) {
-                // first get storage group for the poi based on type
-                var groupKey = groupName ? groupName : "default";
-                
-                // if the storage group does not exist, then create it
-                if (! storageGroups[groupKey]) {
-                    storageGroups[groupKey] = [];
-                } // if                
-                
-                return storageGroups[groupKey];
-            } // getStorageGroup
-                
-            function findExisting(poi) {
-                if (! poi) { return null; }
-                
-                // iterate through the specified group and look for the key by matching the id
-                var group = getStorageGroup(poi.group);
-                for (var ii = 0; ii < group.length; ii++) {
-                    if (group[ii].id == poi.id) {
-                        return group[ii];
-                    } // if
-                } // for
-                
-                return null;
-            } // findExisting
-            
-            function addPOI(poi) {
-                getStorageGroup(poi.group).push(poi);
-            } // addPOI
-            
-            function removeFromStorage(poi) {
-                var group = getStorageGroup(poi.group);
-                
-                for (var ii = 0; ii < group.length; ii++) {
-                    if (group[ii].id == poi.id) {
-                        group.splice(ii, 1);
-                        break;
-                    }
-                } // for
-            } // removeFromStorage
-            
-            function poiGrabber(test) {
-                var matchingPOIs = [];
-                
-                // iterate through the groups and pois within each group
-                for (var groupKey in storageGroups) {
-                    for (var ii = 0; ii < storageGroups[groupKey].length; ii++) {
-                        if ((! test) || test(storageGroups[groupKey][ii])) {
-                            matchingPOIs.push(storageGroups[groupKey][ii]);
-                        } // if
-                    } // for
-                } // for
-                
-                return matchingPOIs;
-            } // poiGrabber
-            
-            function triggerUpdate() {
-                GT.say("geo.pois-updated", {
-                    srcID: self.id,
-                    pois: self.getPOIs()
-                });
-            } // triggerUpdate
-
-            // initialise self
-            var self = {
-                id: GT.objId(),
-                
-                getPOIs: function() {
-                    return poiGrabber();
-                },
-
-                getOldPOIs: function(groupName, testTime) {
-                    return poiGrabber(function(testPOI) {
-                        return (testPOI.group == groupName) && (testPOI.retrieved < testTime);
-                    });
-                },
-
-                getVisible: function() {
-                    return visible;
-                },
-
-                setVisible: function(value) {
-                    if (value != visible) {
-                        visible = value;
-
-                        // fire the visibility change event
-                        if (params.visibilityChange) {
-                            params.visibilityChange();
-                        } // if
-                    } // if
-                },
-
-                findById: function(searchId) {
-                    var matches = poiGrabber(function(testPOI) {
-                        return testPOI.id == searchId;
-                    });
-                    
-                    return matches.length > 0 ? matches[0] : null;
-                },
-
-                /*
-                Method:  findByBounds
-                Returns an array of the points of interest that have been located within
-                the bounds of the specified bounding box
-                */
-                findByBounds: function(searchBounds) {
-                    return poiGrabber(function(testPOI) {
-                        return T5.Geo.P.inBounds(testPOI.pos, searchBounds);
-                    });
-                },
-
-                addPOIs: function(newPOIs, clearExisting) {
-                    // if we need to clear existing, then reset the storage
-                    if (clearExisting) {
-                        storageGroups = {};
-                    } // if
-
-                    // iterate through the new pois and put into storage
-                    for (var ii = 0; newPOIs && (ii < newPOIs.length); ii++) {
-                        newPOIs[ii].retrieved = T5.time();
-                        addPOI(newPOIs[ii]);
-                    } // for
-                },
-                
-                removeGroup: function(group) {
-                    if (storageGroups[group]) {
-                        delete storageGroups[group];
-                        triggerUpdate();
-                    } // if
-                },
-                
-                update: function(refreshedPOIs) {
-                    // initialise arrays to receive the pois
-                    var newPOIs = [],
-                        ii = 0,
-                        groupName = refreshedPOIs.length > 0 ? refreshedPOIs[0].group : '',
-                        timeRetrieved = T5.time();
-                        
-                    // iterate through the pois and determine state
-                    for (ii = 0; ii < refreshedPOIs.length; ii++) {
-                        // look for the poi in the poi layer
-                        var foundPOI = findExisting(refreshedPOIs[ii]);
-
-                        // add the poi to either the update or new array according to whether it was found
-                        if (foundPOI) {
-                            // GT.Log.info("FOUND EXISTING POI");
-                            foundPOI.retrieved = timeRetrieved;
-                            foundPOI.isNew = false;
-                        }
-                        else {
-                            newPOIs.push(refreshedPOIs[ii]);
-                        }
-                    } // for
-                    
-                    // now all we have left are deleted pois transpose those into the deleted list
-                    var deletedPOIs = self.getOldPOIs(groupName, timeRetrieved);
-
-                    // add new pois to the poi layer
-                    self.addPOIs(newPOIs);
-                    // GT.Log.info(GT.formatStr("POI-UPDATE: {0} new, {1} deleted", newPOIs.length, deletedPOIs.length));
-
-                    // fire the on poi added event when appropriate
-                    for (ii = 0; params.onPOIAdded && (ii < newPOIs.length); ii++) {
-                        params.onPOIAdded(newPOIs[ii]);
-                    } // for
-
-                    for (ii = 0; ii < deletedPOIs.length; ii++) {
-                        // trigger the event if assigned
-                        if (params.onPOIDeleted) {
-                            params.onPOIDeleted(deletedPOIs[ii]);
-                        } // if
-
-                        // remove the poi from storage
-                        removeFromStorage(deletedPOIs[ii]);
-                    } // for
-                    
-                    // if we have made updates, then fire the geo pois updated event
-                    if (newPOIs.length + deletedPOIs.length > 0) {
-                        triggerUpdate();
-                    } // if
-                }
-            };
-
-            return self;
-        },
-          
-        MapProvider: function() {
-            var zoomMin = 1,
-                zoomMax = 20;
-            
-            // initailise self
-            var self = {
-                zoomLevel: 0,
-                
-                checkZoomLevel: function(zoomLevel) {
-                    return Math.min(Math.max(zoomLevel, zoomMin), zoomMax);
-                },
-                
-                getCopyright: function() {
-                },
-                
-                getLogoUrl: function() {
-                },
-
-                getMapTiles: function(tiler, position, callback) {
-
-                },
-
-                getZoomRange: function() {
-                    return {
-                        min: zoomMin,
-                        max: zoomMax
-                    };
-                },
-                
-                setZoomRange: function(min, max) {
-                    zoomMin = min;
-                    zoomMax = max;
-                }
-            };
-
-            return self;
-        }, // MapProvider
-        
-        /* static functions */
-        
-        /**
-        Returns the engine that provides the required functionality.  If preferred engines are supplied
-        as additional arguments, then those are looked for first
-        */
-        getEngine: function(requiredCapability) {
-            // initialise variables
-            var fnresult = null;
-            
-            // iterate through the arguments beyond the capabililty for the preferred engine
-            for (var ii = 1; (! fnresult) && (ii < arguments.length); ii++) {
-                fnresult = findEngine(requiredCapability, arguments[ii]);
-            } // for
-            
-            // if we found an engine using preferences, return that otherwise return an alternative
-            fnresult = fnresult ? fnresult : findEngine(requiredCapability);
-            
-            // if no engine was found, then throw an exception
-            if (! fnresult) {
-                throw new Error("Unable to find GEO engine with " + requiredCapability + " capability");
-            }
-            
-            return fnresult;
-        },
-        
-        rankGeocodeResponses: function(requestAddress, responseAddresses, engine) {
-            var matches = [],
-                compareFns = module.AddressCompareFns;
-                
-            // if the engine is specified and the engine has compare fns, then extend them
-            if (engine && engine.compareFns) {
-                compareFns = T5.ex({}, compareFns, engine.compareFns);
-            } // if
-            
-            // iterate through the response addresses and compare against the request address
-            for (var ii = 0; ii < responseAddresses.length; ii++) {
-                matches.push(new module.GeoSearchResult({
-                    caption: addrTools.toString(responseAddresses[ii]),
-                    data: responseAddresses[ii],
-                    pos: responseAddresses[ii].pos,
-                    matchWeight: plainTextAddressMatch(requestAddress, responseAddresses[ii], compareFns, module.GeocodeFieldWeights)
-                }));
-            } // for
-            
-            // TODO: sort the matches
-            matches.sort(function(itemA, itemB) {
-                return itemB.matchWeight - itemA.matchWeight;
-            });
-            
-            return matches;
-        },
-        
-        /* position, bounds and address utility modules */
-        
-        P: posTools,
-        B: boundsTools,
-        A: addrTools,
-        
-        /* general utilities */
-        
-        dist2rad: function(distance) {
-            return distance / KM_PER_RAD;
-        },
-        
-        lat2pix: function(lat) {
-            var radLat = parseFloat(lat) * DEGREES_TO_RADIANS; // *(2*Math.PI))/360;
-            var sinPhi = Math.sin(radLat);
-            var eSinPhi = ECC * sinPhi;
-            var retVal = Math.log(((1.0 + sinPhi) / (1.0 - sinPhi)) * Math.pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
-
-            return retVal;
-        },
-
-        lon2pix: function(lon) {
-            return parseFloat(lon) * DEGREES_TO_RADIANS; // /180)*Math.PI;
-        },
-
-        pix2lon: function(mercX) {
-            return module.normalizeLon(mercX) * RADIANS_TO_DEGREES;
-        },
-
-        pix2lat: function(mercY) {
-            var t = Math.pow(Math.E, -mercY),
-                prevPhi = mercatorUnproject(t),
-                newPhi = findRadPhi(prevPhi, t),
-                iterCount = 0;
-
-            while (iterCount < PHI_MAXITER && Math.abs(prevPhi - newPhi) > PHI_EPSILON) {
-                prevPhi = newPhi;
-                newPhi = findRadPhi(prevPhi, t);
-                iterCount++;
-            } // while
-
-            return newPhi * RADIANS_TO_DEGREES;
-        },
-
-        normalizeLon: function(lon) {
-            // return lon;
-            while (lon < -180) {
-                lon += 360;
-            } // while
-            
-            while (lon > 180) {
-                lon -= 360;
-            } // while
-            
-            return lon;
-        }        
+        }
     }; // module
 
-    return module;
+    return T5.ex(module, exportedFunctions);
 })();/**
 Geohash module c/o and copyright David Troy 2008 (http://davetroy.com/)
 Original codebase available on github @ http://github.com/davetroy/geohash-js/
@@ -6332,1034 +6706,23 @@ T5.Geo.GeoHash = (function() {
     };
 })();
 
-T5.Geo.Search = (function() {
-    var DEFAULT_MAXDIFF = 20;
-    
-    var module = {
-        bestResults: function(searchResults, maxDifference) {
-            // if the threshold is not defined, use the default 
-            if (! maxDifference) {
-                maxDifference = DEFAULT_MAXDIFF;
-            }
-            
-            // initialise variables
-            var bestMatch = searchResults.length > 0 ? searchResults[0] : null,
-                fnresult = [];
-                
-            // iterate through the search results and cull those that are 
-            for (var ii = 0; ii < searchResults.length; ii++) {
-                if (bestMatch && searchResults[ii] && 
-                    (bestMatch.matchWeight - searchResults[ii].matchWeight <= maxDifference)) {
-                        
-                    fnresult.push(searchResults[ii]);
-                }
-                else {
-                    break;
-                } // if..else
-            } // for
-            
-            return fnresult;
-        }
-    };
-    
-    return module;
-})();
-
 /**
-@module
+T5.Geo.JSON
+-----------
 
-Define functionality to enable routing for mapping
+This module provides GeoJSON support for Tile5.
 */
-T5.Geo.Routing = (function() {
-    // define the module
-    var module = {
-        /* module functions */
-        
-        calculate: function(args) {
-            args = T5.ex({
-                engineId: "",
-                waypoints: [],
-                map: null,
-                error: null,
-                autoFit: true,
-                success: null,
-                // TODO: reimplement generalization...
-                generalize: false
-            }, args);
-            
-            GT.Log.info("attempting to calculate route");
-            
-            // find an available routing engine
-            var engine = T5.Geo.getEngine("route");
-            if (engine) {
-                engine.route(args, function(routeData) {
-                    if (args.generalize) {
-                        routeData.geometry = T5.Geo.P.generalize(routeData.geometry, routeData.getInstructionPositions());
-                    } // if
-                    
-                    // firstly, if we have a map defined, then let's place the route on the map
-                    // you know, just because we are nice like that
-                    if (args.map) {
-                        module.createMapOverlay(args.map, routeData);
-                        
-                        // if we are to auto fit the map to the bounds, then do that now
-                        if (args.autoFit) {
-                            GT.Log.info("AUTOFITTING MAP TO ROUTE: bounds = " + routeData.boundingBox);
-                            args.map.gotoBounds(routeData.boundingBox);
-                        } // if
-                    } // if
-                    
-                    // if we have a success handler, then call it
-                    if (args.success) {
-                        args.success(routeData);
-                    } // if
-                });
-            } // if
-        },
-        
-        createMapOverlay: function(map, routeData) {
-            // get the map dimensions
-            var dimensions = map.getDimensions();
-
-            // GT.Log.info("creating route overlay with route data: ", routeData);
-
-            // create a new route overlay for the specified data
-            var overlay = new T5.Geo.UI.RouteOverlay({
-                data: routeData,
-                width: dimensions.width,
-                height: dimensions.height
-            });
-
-            // add the overlay to the map
-            map.setLayer("route", overlay);
-        },
-        
-        parseTurnType: function(text) {
-            var turnType = module.TurnType.Unknown,
-                rules = T5.Geo.Routing.TurnTypeRules;
-            
-            // run the text through the manuever rules
-            for (var ii = 0; ii < rules.length; ii++) {
-                rules[ii].regex.lastIndex = -1;
-                
-                var matches = rules[ii].regex.exec(text);
-                if (matches) {
-                    // if we have a custom check defined for the rule, then pass the text in 
-                    // for the manuever result
-                    if (rules[ii].customCheck) {
-                        turnType = rules[ii].customCheck(text, matches);
-                    }
-                    // otherwise, take the manuever provided by the rule
-                    else {
-                        turnType = rules[ii].turnType;
-                    } // if..else
-                    
-                    break;
-                } // if
-            } // for
-            
-            return turnType;
-        },
-        
-        TurnType: {
-            Unknown: "turn-unknown",
-            
-            // continue maneuver
-            Start: "turn-none-start",
-            Continue: "turn-none",
-            Arrive: "turn-none-arrive",
-            
-            // turn left maneuvers
-            TurnLeft: "turn-left",
-            TurnLeftSlight: "turn-left-slight",
-            TurnLeftSharp: "turn-left-sharp",
-            
-            // turn right maneuvers
-            TurnRight: "turn-right",
-            TurnRightSlight: "turn-right-slight",
-            TurnRightSharp: "turn-right-sharp",
-            
-            // merge maneuvers
-            Merge: "merge",
-            
-            // uturn
-            UTurnLeft:  "uturn-left",
-            UTurnRight: "uturn-right",
-            
-            // enter roundabout maneuver
-            EnterRoundabout: "roundabout-enter",
-            
-            // ramp maneuvers
-            Ramp: "ramp",
-            RampExit: "ramp-exit"
-        },
-        
-        Instruction: function(params) {
-            params = T5.ex({
-                position: null,
-                description: "",
-                turnType: null
-            }, params);
-            
-            // if the manuever has not been defined, then attempt to parse the description
-            if (! params.turnType) {
-                params.turnType = module.parseTurnType(params.description);
-            } // if
-            
-            return params;
-        },
-        
-        
-        RouteData: function(params) {
-            params = T5.ex({
-                geometry: [],
-                instructions: [],
-                boundingBox: null
-            }, params);
-            
-            // update the bounding box
-            if (! params.boundingBox) {
-                params.boundingBox = T5.Geo.B.forPositions(params.geometry);
-            } // if
-            
-            var self = T5.ex({
-                getInstructionPositions: function() {
-                    var positions = [];
-                        
-                    for (var ii = 0; ii < params.instructions.length; ii++) {
-                        if (params.instructions[ii].position) {
-                            positions.push(params.instructions[ii].position);
-                        } // if
-                    } // for
-                    
-                    return positions;
-                }
-            }, params);
-            
-            return self;
-        }
-    };
+T5.Geo.JSON = (function() {
     
-    return module;
-})();
-
-// EN-* manuever text matching rules 
-T5.Geo.Routing.TurnTypeRules = (function() {
-    var m = T5.Geo.Routing.TurnType,
-        rules = [];
-        
-    rules.push({
-        regex: /continue/i,
-        turnType: m.Continue
-    });
-    
-    rules.push({
-        regex: /(take|bear|turn)(.*?)left/i,
-        customCheck: function(text, matches) {
-            var isSlight = (/bear/i).test(matches[1]);
-            
-            return isSlight ? m.TurnLeftSlight : m.TurnLeft;
-        }
-    });
-    
-    rules.push({
-        regex: /(take|bear|turn)(.*?)right/i,
-        customCheck: function(text, matches) {
-            var isSlight = (/bear/i).test(matches[1]);
-            
-            return isSlight ? m.TurnRightSlight : m.TurnRight;
-        }
-    });
-    
-    rules.push({
-        regex: /enter\s(roundabout|rotaty)/i,
-        turnType: m.EnterRoundabout
-    });
-    
-    rules.push({
-        regex: /take.*?ramp/i,
-        turnType: m.Ramp
-    });
-    
-    rules.push({
-        regex: /take.*?exit/i,
-        turnType: m.RampExit
-    });
-    
-    rules.push({
-        regex: /make(.*?)u\-turn/i,
-        customCheck: function(text, matches) {
-            return (/right/i).test(matches[1]) ? m.UTurnRight : m.UTurnLeft;
-        }
-    });
-    
-    rules.push({
-        regex: /proceed/i,
-        turnType: m.Start
-    });
-    
-    rules.push({
-        regex: /arrive/i,
-        turnType: m.Arrive
-    });
-    
-    // "FELL THROUGH" - WTF!
-    rules.push({
-        regex: /fell\sthrough/i,
-        turnType: m.Merge
-    });
-    
-    return rules;
-})();
-
-T5.Geo.UI = (function() {
-    var lastAnnotationTween = null,
-        lastAnnotationTweenTicks = null,
-        routeAnimationCounter = 0;
-    
-    // some base64 images
-    var LOCATOR_IMAGE = 
-    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAA' +
-    'BHNCSVQICAgIfAhkiAAAAAlwSFlzAAACIQAAAiEBPhEQkwAAABl0RVh0U29mdHdhcmUAd3' +
-    'd3Lmlua3NjYXBlLm9yZ5vuPBoAAAG+SURBVCiRlZHNahNRAIW/O7mTTJPahLZBA1YUyriI' +
-    'NRAE3bQIKm40m8K8gLj0CRQkO32ELHUlKbgoIu4EqeJPgtCaoBuNtjXt5LeTMZk0mbmuWi' +
-    'uuPLsD3+HAOUIpxf9IHjWmaUbEyWv5ROrsVULhcHP761rUfnN3Y2Otc8CIg4YT85lzuVsP' +
-    'P+Qupw1vpPjRCvhS9ymvV0e77x7nNj+uvADQAIQQ+uLyvdfLV9JGZi7EdEwQlqBpEJ019f' +
-    '0z1mo2u5Q8DMydv25lshemmj1FueZTawbs7inarqLbV7Qjab1upB9YlhWSAHLavLHZCvg1' +
-    'VEhN0PMU9W7At4bPVidg7CtkLLXkut+lBPD6/Ub155jJiADAHSpaLmx3ApyBQoYEUd0PBo' +
-    'OBkAC6+3llvda/YxgGgYL+UNHf/zN3KiExGlsvTdP0NYDkhPdWrz35ZDsBzV5wCMuQwEyF' +
-    'mXFeeadjzfuFQmGkAZRKpdGC/n7x+M6jqvA9Zo6FWDhlcHE+wqT93J1tP7vpOE7rrx8ALM' +
-    'uasPf8S12St4WmJ6bYWTUC52k8Hm8Vi0X/nwBAPp/XKpWKdF1X2LYdlMvlsToC/QYTls7D' +
-    'LFr/PAAAAABJRU5ErkJggg%3D%3D';
-    
-    function CrosshairOverlay(params) {
-        params = T5.ex({
-            size: 12,
-            zindex: 150
-        }, params);
-        
-        function drawCrosshair(context, centerPos, size) {
-            var strokeStyles = ['#FFFFFF', '#333333'],
-                lineWidths = [3, 1.5];
-                
-            context.lineCap = 'round';
-                
-            for (var ii = 0; ii < strokeStyles.length; ii++) {
-                var lineSize = size; //  - (ii*2);
-                
-                // initialise the context line style
-                context.lineWidth = lineWidths[ii];
-                context.strokeStyle = strokeStyles[ii];
-
-                context.beginPath();
-                context.moveTo(centerPos.x, centerPos.y - lineSize);
-                context.lineTo(centerPos.x, centerPos.y + lineSize);
-                context.moveTo(centerPos.x - lineSize, centerPos.y);
-                context.lineTo(centerPos.x + lineSize, centerPos.y);
-                
-                context.arc(
-                    centerPos.x, 
-                    centerPos.y, 
-                    size * 0.6666, 
-                    0, 
-                    2 * Math.PI, 
-                    false);
-                    
-                context.stroke();
-            } // for
-        } // drawCrosshair
-        
-        function createCrosshair() { 
-            var newCanvas = T5.newCanvas(params.size * 4, params.size * 4);
-
-            // draw the cross hair
-            drawCrosshair(
-                newCanvas.getContext('2d'), 
-                new T5.Vector(newCanvas.width / 2, newCanvas.height / 2), 
-                params.size);
-            
-            // return the cross hair canvas
-            return newCanvas;
-        }
-        
-        var drawPos = null,
-            crosshair = createCrosshair();
-        
-        return T5.ex(new T5.ViewLayer(params), {
-            draw: function(context, offset, dimensions, state, view) {
-                if (! drawPos) {
-                    drawPos = T5.D.getCenter(dimensions);
-                    drawPos = new T5.Vector(
-                        Math.round(drawPos.x - crosshair.width / 2), 
-                        Math.round(drawPos.y - crosshair.height / 2));
-                } // if
-
-                context.drawImage(crosshair, drawPos.x, drawPos.y);
-            }
-        });
-    } // CrosshairOverlay
     
     var module = {
-        // change this value to have the annotations tween in 
-        // (eg. T5.easing('sineout'))
-        AnnotationTween: null,
-        
-        GeoTileGrid: function(params) {
-            // extend the params with some defaults
-            params = T5.ex({
-                grid: null,
-                centerPos: new T5.Geo.Position(),
-                centerXY: new T5.Vector(),
-                radsPerPixel: 0
-            }, params);
-            
-            // determine the mercator 
-            var radsPerPixel = params.radsPerPixel,
-                centerMercatorPix = T5.Geo.P.toMercatorPixels(params.centerPos);
-                
-            GT.Log.info("tile grid created, rads per pixel = " + radsPerPixel);
-            
-            // calculate the bottom left mercator pix
-            // the position of the bottom left mercator pixel is 
-            // determined by params.subtracting the actual 
-            var blPixX = (centerMercatorPix.x / radsPerPixel) - params.centerXY.x,
-                blPixY = (centerMercatorPix.y / radsPerPixel) - params.centerXY.y;
-            
-            // initialise self
-            var self = T5.ex({}, params.grid, {
-                getBoundingBox: function(x, y, width, height) {
-                    return new T5.Geo.BoundingBox(
-                        self.pixelsToPos(new T5.Vector(x, y + height)),
-                        self.pixelsToPos(new T5.Vector(x + width, y)));
-                },
-                
-                getGridXYForPosition: function(pos) {
-                    // determine the mercator pixels for teh position
-                    var posPixels = T5.Geo.P.toMercatorPixels(pos);
-
-                    // calculate the offsets
-                    var offsetX = (posPixels.x / radsPerPixel) - blPixX;
-                    var offsetY = self.gridDimensions.height - 
-                            ((posPixels.y / radsPerPixel) - blPixY);
-
-                    return new T5.Vector(offsetX, offsetY);
-                },
-                
-                getPixelDistance: function(distance) {
-                    var radians = T5.Geo.dist2rad(distance);
-                    return Math.floor(radians / params.radsPerPixel);
-                },
-                
-                pixelsToPos: function(vector) {
-                    return T5.Geo.P.fromMercatorPixels(
-                        (blPixX + vector.x) * radsPerPixel, 
-                        ((blPixY + self.gridDimensions.height) -
-                            vector.y) * radsPerPixel);
-                }
-            });
-            
-            return self;
-        },
-        
-        /** 
-        Route Overlay
-        */
-        RouteOverlay: function(params) {
-            params = T5.ex({
-                data: null,
-                pixelGeneralization: 8,
-                calculationsPerCycle: 250,
-                partialDraw: false,
-                strokeStyle: 'rgba(0, 51, 119, 0.9)',
-                waypointFillStyle: '#FFFFFF',
-                lineWidth: 4,
-                zindex: 50
-            }, params);
-            
-            var recalc = true,
-                last = null,
-                coordinates = [],
-                geometryCalcIndex = 0,
-                instructionCoords = [],
-                spawnedAnimations = [];
-                
-            function calcCoordinates(grid) {
-                instructionCoords = [];
-                if (! grid) { return; }
-                
-                var startTicks = GT.Log.getTraceTicks(),
-                    ii, current, include,
-                    geometry = params.data ? params.data.geometry : [],
-                    geometryLen = geometry.length,
-                    instructions = params.data ? 
-                        params.data.instructions : 
-                        [],
-                        
-                    instructionsLength = instructions.length,
-                    calculationsPerCycle = params.calculationsPerCycle,
-                    currentCalculations = 0;
-                    
-                // iterate through the position geometry 
-                // and determine xy coordinates
-                for (ii = geometryCalcIndex; ii < geometryLen; ii++) {
-                    // calculate the current position
-                    current = grid.getGridXYForPosition(geometry[ii]);
-
-                    // determine whether the current point should be included
-                    include = 
-                        (! last) || 
-                        (ii === 0) || 
-                        (Math.abs(current.x - last.x) + 
-                            Math.abs(current.y - last.y) >
-                            params.pixelGeneralization);
-                        
-                    if (include) {
-                        coordinates.push(current);
-                        
-                        // update the last
-                        last = current;
-                    } // if
-                    
-                    currentCalculations++;
-                    if (currentCalculations >= calculationsPerCycle) {
-                        geometryCalcIndex = ii;
-                        return;
-                    } // if
-                } // for
-                
-                geometryCalcIndex = geometryLen;
-                GT.Log.trace(
-                    geometryLen + ' geometry points generalized to ' + 
-                    coordinates.length + ' coordinates', startTicks);
-                
-                // iterate throught the instructions and add any 
-                // points to the instruction coordinates array
-                last = null;
-                for (ii = instructionsLength; ii--; ) {
-                    if (instructions[ii].position) {
-                        // calculate the current position
-                        current = grid.getGridXYForPosition(
-                            instructions[ii].position);
-
-                        // determine whether the current point 
-                        // should be included
-                        include = 
-                            (! last) || 
-                            (ii === 0) || 
-                            (Math.abs(current.x - last.x) + 
-                                Math.abs(current.y - last.y) >
-                                params.pixelGeneralization);
-
-                        if (include) {
-                            instructionCoords.push(current);
-
-                            // update the last
-                            last = current;
-                        } // if
-                    } // if
-                } // for
-            } // calcCoordinates
-            
-            // create the view layer the we will draw the view
-            var self = T5.ex(new T5.ViewLayer(params), {
-                getAnimation: function(easingFn, duration, drawCallback, autoCenter) {
-                    if (recalc) {
-                        return null;
-                    } // if
-                    
-                    // define the layer id
-                    var layerId = 'routeAnimation' + routeAnimationCounter++;
-                    spawnedAnimations.push(layerId);
-
-                    // create a new animation layer based on the coordinates
-                    return new T5.AnimatedPathLayer({
-                        id: layerId,
-                        path: coordinates,
-                        zindex: params.zindex + 1,
-                        easing: easingFn ? 
-                            easingFn : 
-                            T5.T5.easing('sine.inout'),
-                            
-                        duration: duration ? duration : 5000,
-                        drawIndicator: drawCallback,
-                        autoCenter: autoCenter ? autoCenter : false
-                    });
-                },
-
-                draw: function(context, offset, dimensions, state, view) {
-                    var changes = 0,
-                        geometry = params.data ? params.data.geometry : null;
-                    
-                    if (recalc) {
-                        recalc = false;
-                        last = null;
-                        coordinates = [];
-                        geometryCalcIndex = 0;
-                    } // if
-                    
-                    if (geometry && (geometryCalcIndex < geometry.length)) {
-                        calcCoordinates(view.getTileLayer());
-                        changes++;
-                    } // if
-                    
-                    var ii,
-                        coordLength = coordinates.length;
-                        
-                    if ((coordLength > 0) && ((! changes) || params.partialDraw)) {
-                        // update the context stroke style and line width
-                        context.strokeStyle = params.strokeStyle;
-                        context.lineWidth = params.lineWidth;
-                        
-                        // start drawing the path
-                        context.beginPath();
-                        context.moveTo(
-                            coordinates[coordLength - 1].x - offset.x, 
-                            coordinates[coordLength - 1].y - offset.y);
-
-                        for (ii = coordLength; ii--; ) {
-                            context.lineTo(
-                                coordinates[ii].x - offset.x,
-                                coordinates[ii].y - offset.y);
-                        } // for
-
-                        context.stroke();
-                        context.fillStyle = params.waypointFillStyle;
-
-                        // draw the instruction coordinates
-                        for (ii = instructionCoords.length; ii--; ) {
-                            context.beginPath();
-                            context.arc(
-                                instructionCoords[ii].x - offset.x, 
-                                instructionCoords[ii].y - offset.y,
-                                2,
-                                0,
-                                Math.PI * 2,
-                                false);
-
-                            context.stroke();
-                            context.fill();
-                        } // for
-                    } // if
-                    
-                    return changes;
-                }
-            });
-            
-            // listed for grid updates
-            GT.listen('grid.updated', function(args) {
-                // tell all the spawned animations to remove themselves
-                for (var ii = spawnedAnimations.length; ii--; ) {
-                    GT.say(
-                        'layer.remove', { id: spawnedAnimations[ii] });
-                } // for
-                
-                // reset the spawned animations array
-                spawnedAnimations = [];
-                
-                // trigger a recalculation
-                recalc = true;
-                self.wakeParent();
-            });
-            
-            return self;
-        },
-
-        /* annotations and annotations overlay */
-        
-        Annotation: function(params) {
-            params = T5.ex({
-                xy: null,
-                pos: null,
-                draw: null,
-                calcXY: null,
-                tweenIn: module.AnnotationTween,
-                animationSpeed: null
-            }, params);
-            
-            var animating = false;
-            
-            var self = {
-                xy: params.xy,
-                pos: params.pos,
-                isNew: true,
-                
-                isAnimating: function() {
-                    return animating;
-                },
-                
-                calcXY: function(grid) {
-                    self.xy = grid.getGridXYForPosition(self.pos);
-                    if (params.calcXY) {
-                        params.calcXY(grid);
-                    } // if
-                },
-                
-                draw: function(context, offset, state, overlay, view) {
-                    if (! self.xy) { return; }
-                    
-                    if (self.isNew && (params.tweenIn)) {
-                        // get the end value and update the y value
-                        var endValue = self.xy.y;
-
-                        // set the y to offscreen
-                        self.xy.y = offset.y - 20;
-                        
-                        // animate the annotation
-                        animating = true;
-                        
-                        T5.tween(
-                            self.xy, 
-                            'y',
-                            endValue, 
-                            params.tweenIn, 
-                            function() {
-                                self.xy.y = endValue;
-                                animating = false;
-                            }, 
-                            params.animationSpeed ? 
-                                params.animationSpeed : 
-                                250 + (Math.random() * 500)
-                        );
-                    } // if
-                    
-                    if (params.draw) {
-                        params.draw(
-                            context, 
-                            offset, 
-                            new T5.Vector(
-                                self.xy.x - offset.x, 
-                                self.xy.y - offset.y
-                            ), 
-                            state, 
-                            overlay, 
-                            view);
-                    }
-                    else {
-                        context.beginPath();
-                        context.arc(
-                            self.xy.x - offset.x, 
-                            self.xy.y - offset.y,
-                            4,
-                            0,
-                            Math.PI * 2,
-                            false);                    
-                        context.fill();                    
-                    }
-                    
-                    self.isNew = false;
-                }
-            }; // self
-            
-            return self;
-        },
-        
-        ImageAnnotation: function(params) {
-            params = T5.ex({
-                imageUrl: null,
-                animatingImageUrl: null,
-                imageAnchor: null
-            }, params);
-            
-            var imageOffset = params.imageAnchor ?
-                    T5.V.invert(params.imageAnchor) : 
-                    null;
-            
-            function getImageUrl() {
-                if (params.animatingImageUrl && self.isAnimating()) {
-                    // we want a smooth transition, so make 
-                    // sure the end image is loaded
-                    T5.Images.load(params.imageUrl);
-                    
-                    // return the animating image url
-                    return params.animatingImageUrl;
-                }
-                else {
-                    return params.imageUrl;
-                } // if..else
-            } // getImageUrl
-            
-            function drawImage(context, offset, xy, state, overlay, view) {
-                // get the image
-                var imageUrl = getImageUrl(),
-                    image = T5.Images.get(imageUrl);
-                    
-                if (! image) {
-                    T5.Images.load(
-                        imageUrl, 
-                        function(loadedImage, fromCache) {
-                            overlay.wakeParent();
-                        }
-                    );
-                }
-                else if (image.complete && (image.width > 0)) {
-                    if (! imageOffset) {
-                        imageOffset = new T5.Vector(
-                            -image.width >> 1, 
-                            -image.height >> 1
-                        );
-                    } // if
-                    
-                    // determine the position to draw the image
-                    var imageXY = T5.V.offset(
-                                        xy,
-                                        imageOffset.x,
-                                        imageOffset.y);
-
-                    // draw the image
-                    context.drawImage(
-                        image,
-                        imageXY.x,
-                        imageXY.y,
-                        image.width,
-                        image.height);
-                } // if
-            } // drawImage
-            
-            params.draw = drawImage;
-
-            var self = new module.Annotation(params);
-            return self;
-        },
-        
-        LocationAnnotation: function(params) {
-            params = T5.ex({
-                accuracy: null
-            }, params);
-            
-            // initialise the locator icon image
-            var iconImage = new Image(),
-                iconOffset = new T5.Vector(),
-                indicatorRadius = null;
-                
-            // load the image
-            iconImage.src = LOCATOR_IMAGE;
-            iconImage.onload = function() {
-                iconOffset = new T5.Vector(
-                    iconImage.width / 2, 
-                    iconImage.height / 2);
-            };
-            
-            var self = new module.Annotation(T5.ex({
-                calcXY: function(grid) {
-                    indicatorRadius = 
-                    Math.floor(grid.getPixelDistance(self.accuracy) * 0.5);
-                },
-                
-                draw: function(context, offset, xy, state, overlay, view) {
-                    var centerX = xy.x - iconOffset.x,
-                        centerY = xy.y - iconOffset.y;
-
-                    if (indicatorRadius && self.drawAccuracyIndicator) {
-                        context.fillStyle = 'rgba(30, 30, 30, 0.2)';
-                        
-                        context.beginPath();
-                        context.arc(
-                            xy.x, 
-                            xy.y, 
-                            indicatorRadius, 
-                            0, 
-                            Math.PI * 2, 
-                            false);
-                        context.fill();
-                    } // if
-
-                    if (iconImage.complete && iconImage.width > 0) {
-                        context.drawImage(
-                            iconImage, 
-                            centerX, 
-                            centerY, 
-                            iconImage.width, 
-                            iconImage.height);
-                    } // if
-
-                    view.trigger('invalidate');
-                }
-            }, params));
-            
-            // initialise the indicator radius
-            self.accuracy = params.accuracy;
-            self.drawAccuracyIndicator = false;
-            
-            return self;
-        },
-        
-        AnnotationsOverlay: function(params) {
-            params = T5.ex({
-                pois: null,
-                map: null,
-                zindex: 100
-            }, params);
-            
-            var annotations = [],
-                animating = false,
-                staticAnnotations = [];
-                
-            function createAnnotationForPOI(poi) {
-                if (poi && poi.pos) {
-                    var evt = {
-                        poi: poi,
-                        annotation: null
-                    };
-                    
-                    if (params.map) {
-                        params.map.trigger('getAnnotationForPOI', evt);
-                    } // if
-                        
-                    if (! evt.annotation) {
-                        evt.annotation = new module.Annotation({
-                            pos: poi.pos
-                        });
-                    } // if
-                    
-                    if (evt.annotation) {
-                        evt.annotation.isNew = poi.isNew;
-                        poi.isNew = false;
-                    } // if
-                    
-                    return evt.annotation;
-                } // if
-            } // createAnnotationForPOI
-            
-            function updateAnnotations(newPOIs) {
-                try {
-                    // reset the annotations array
-                    annotations = [];
-                    
-                    // iterate through the pois and generate the annotations
-                    for (var ii = 0; ii < newPOIs.length; ii++) {
-                        if (newPOIs[ii].pos) {
-                            var newAnnotation =
-                                createAnnotationForPOI(newPOIs[ii]);
-                                
-                            if (newAnnotation) {
-                                annotations.push(newAnnotation); 
-                            } // if
-                        } // if
-                    } // for
-                    
-                    updateAnnotationCoordinates(annotations);
-                }
-                catch (e) {
-                    GT.Log.exception(e);
-                }
-            } // updateAnnotations
-            
-            function updateAnnotationCoordinates(annotationsArray) {
-                var grid = params.map ? params.map.getTileLayer() : null,
-                    annotationsCount = annotationsArray.length;
-                
-                // iterate through the annotations and 
-                // calculate the xy coordinates
-                if (grid) {
-                    for (var ii = annotationsCount; ii--; ) {
-                        // update the annotation xy coordinates
-                        annotationsArray[ii].calcXY(grid);
-                    } // for
-                } // if
-                
-                // sort the array in the appropriate order
-                annotationsArray.sort(function(itemA, itemB) {
-                    var diff = itemB.xy.y - itemA.xy.y;
-                    if (diff === 0) {
-                        diff = itemB.xy.x - itemA.xy.x;
-                    } // if
-                    
-                    return diff;
-                });
-            }
-
-            // create the view layer the we will draw the view
-            var self = T5.ex(new T5.ViewLayer(params), {
-                cycle: function(tickCount, offset, state) {
-                    return animating ? 1 : 0;
-                },
-                
-                draw: function(context, offset, dimensions, state, view) {
-                    // initialise variables
-                    var ii;
-                
-                    // reset animating to false
-                    animating = false;
-                    context.fillStyle = 'rgba(255, 0, 0, 0.75)';
-                    context.globalCompositeOperation = 'source-over';
-                
-                    // iterate through the annotations and draw them
-                    for (ii = annotations.length; ii--; ) {
-                        annotations[ii].draw(
-                            context, 
-                            offset, 
-                            state, 
-                            self, 
-                            view);
-                            
-                        animating = animating ||
-                            annotations[ii].isAnimating();
-                    } // for
-
-                    for (ii = staticAnnotations.length; ii--; ) {
-                        staticAnnotations[ii].draw(
-                            context, 
-                            offset, 
-                            state, 
-                            self, 
-                            view);
-                            
-                        animating = animating ||
-                            staticAnnotations[ii].isAnimating();
-                    } // for
-                    
-                    return animating ? 1 : 0;
-                },
-                
-                add: function(annotation) {
-                    staticAnnotations.push(annotation);
-                    updateAnnotationCoordinates(staticAnnotations);
-                    self.wakeParent();
-                },
-                
-                clear: function(includeNonStatic) {
-                    staticAnnotations = [];
-                    updateAnnotationCoordinates(staticAnnotations);
-                    
-                    // if non static annotations should be cleared 
-                    // also, then do it
-                    if (includeNonStatic) {
-                        annotations = [];
-                        updateAnnotationCoordinates(annotations);
-                    } // if
-                    
-                    // wake the parent
-                    self.wakeParent();
-                }
-            });
-
-            GT.listen('geo.pois-updated', function(args) {
-                // if the event source id matches our current 
-                // poi storage, then apply updates
-                if (params.pois && (params.pois.id == args.srcID)) {
-                    updateAnnotations(args.pois);
-                    self.wakeParent();
-                } // if
-            });
-            
-            // list for grid updates
-            GT.listen('grid.updated', function(args) {
-                updateAnnotationCoordinates(annotations);
-                updateAnnotationCoordinates(staticAnnotations);
-                self.wakeParent();
-            });
-            
-            return self;
-        }
     };
-    
-    return module;
 })();
+
 /**
-T5.Map
-======
+# Map
 
-The T5.Map class is the entry point for creating a tiling map.  Creating a 
+The Map class is the entry point for creating a tiling map.  Creating a 
 map is quite simple and requires two things to operate.  A containing HTML5 canvas
 that will be used to display the map and a T5.Geo.MapProvider that will populate 
 the map.
@@ -7374,9 +6737,11 @@ map = new T5.Map({
 });
 </pre>
     
-Like all T5.View descendants the map supports features such as intertial scrolling and
+Like all View descendants the map supports features such as intertial scrolling and
 the like and is configurable through implementing the GRUNT.configurable interface. For 
-more information on view level features check out the T5.View documentation.
+more information on view level features check out the View documentation.
+
+## Methods
 */
 T5.Map = function(params) {
     params = T5.ex({
@@ -7696,6 +7061,11 @@ T5.Map = function(params) {
         pois: params.pois,
         annotations: null,
         
+        /** 
+        - `getBoundingBox()`
+        
+        Return a Geo.BoundingBox for the current map view area
+        */
         getBoundingBox: function() {
             var grid = self.getTileLayer(),
                 offset = self.getOffset(),
@@ -7712,17 +7082,33 @@ T5.Map = function(params) {
             return null;
         },
 
+        /**
+        - `getCenterPosition()`
+        
+        Return a Geo.Position for the center position of the map
+        */
         getCenterPosition: function() {
             // get the position for the grid position
             return self.getXYPosition(
                 T5.D.getCenter(self.getDimensions()));
         },
         
+        /**
+        - `getXYPosition(xy)`
+        
+        Convert the Vector that has been passed to the function to a
+        Geo.Position object
+        */
         getXYPosition: function(xy) {
             return self.getTileLayer().pixelsToPos(
                 self.viewPixToGridPix(xy));
         },
         
+        /**
+        - `gotoBounds(bounds, callback)`
+        
+        TODO
+        */
         gotoBounds: function(bounds, callback) {
             // calculate the zoom level required for the 
             // specified bounds
@@ -7738,6 +7124,11 @@ T5.Map = function(params) {
                 callback);
         },
         
+        /**
+        - `gotoPosition(position, zoomLevel, callback)`
+        
+        TODO
+        */
         gotoPosition: gotoPosition,
 
         /**
@@ -7783,6 +7174,11 @@ T5.Map = function(params) {
             } // if
         },
         
+        /**
+        - `locate()`
+        
+        TODO
+        */
         locate: function() {
             // run a track start, but only allow 
             // it to run for a maximum of 30s 
@@ -7792,6 +7188,11 @@ T5.Map = function(params) {
             setTimeout(self.trackCancel, 10000);
         },
         
+        /**
+        - `trackStart(mode)`
+        
+        TODO
+        */
         trackStart: function(mode) {
             if (navigator.geolocation && (! geoWatchId)) {
                 locateMode = mode ? mode : LOCATE_MODE.WATCH;
@@ -7807,6 +7208,11 @@ T5.Map = function(params) {
             } // if
         },
         
+        /**
+        - `trackCancel()`
+        
+        TODO
+        */
         trackCancel: function() {
             if (geoWatchId && navigator.geolocation) {
                 navigator.geolocation.clearWatch(geoWatchId);
@@ -7825,10 +7231,20 @@ T5.Map = function(params) {
             geoWatchId = 0;
         },
         
+        /**
+        - `getZoomLevel()`
+        
+        Get the current zoom level for the map
+        */
         getZoomLevel: function() {
             return zoomLevel;
         },
 
+        /**
+        - `setZoomLevel(value: Integer)`
+        
+        Update the map's zoom level to the specified zoom level
+        */
         setZoomLevel: function(value) {
             // if the current position is set, 
             // then goto the updated position
@@ -7840,6 +7256,11 @@ T5.Map = function(params) {
             }
         },
 
+        /**
+        - `zoomIn()`
+        
+        Zoom in one zoom level
+        */
         zoomIn: function() {
             // determine the required scaling
             var scalingNeeded = radsPerPixelAtZoom(1, zoomLevel) / 
@@ -7850,6 +7271,11 @@ T5.Map = function(params) {
             } // if
         },
 
+        /**
+        - `zoomOut()`
+        
+        Zoom out one zoom level
+        */
         zoomOut: function() {
             var scalingNeeded = radsPerPixelAtZoom(1, zoomLevel) / 
                     radsPerPixelAtZoom(1, zoomLevel - 1);
@@ -7859,8 +7285,11 @@ T5.Map = function(params) {
             } // if
         },
 
-        /* route methods */
+        /**
+        - `animateRoute(easing, duration, callback, center)`
         
+        TODO
+        */
         animateRoute: function(easing, duration, callback, center) {
             // get the routing layer
             var routeLayer = self.getLayer('route');
@@ -7915,3 +7344,1244 @@ T5.Map = function(params) {
 
     return self;
 }; // T5.Map
+/**
+# Geo.MapProvider
+
+The MapProvider class is the base class from which all map providers are implemented.
+The class provides a number of common functions that can be expected in most 
+implementations of a GIS map provider.
+
+## Properties
+
+- `zoomLevel`
+
+## Methods
+*/
+T5.Geo.MapProvider = function() {
+    var zoomMin = 1,
+        zoomMax = 20;
+    
+    // initailise self
+    var self = {
+        zoomLevel: 0,
+        
+        /**
+        - `checkZoomLevel(zoomLevel)`
+        
+        Return the passed in zoom level if valid for the map provider, otherwise
+        return a zoom level that is valid
+        */
+        checkZoomLevel: function(zoomLevel) {
+            return Math.min(Math.max(zoomLevel, zoomMin), zoomMax);
+        },
+        
+        /**
+        - `getCopyright()`
+        
+        Return the copyright message for this map provider
+        */
+        getCopyright: function() {
+        },
+        
+        /**
+        - `getLogoUrl()`
+        
+        Return the url for an image logo that can be used with this map provider
+        */
+        getLogoUrl: function() {
+        },
+
+        /**
+        - `getMapTiles(tiler, position, callback)`
+        
+        This is the engine room of a map provider.  An implementation of a map
+        provider will provide an implementation of this method to fill a grid
+        of map tiles for the specified tiler at the specified position.  The _callback_
+        that is supplied to the function will be called once a Geo.GeoTileGrid has been 
+        created from the map provider and that tilegrid will be passed through as the 
+        only parameter to the callback
+        */
+        getMapTiles: function(tiler, position, callback) {
+
+        },
+
+        /**
+        - `getZoomRange()`
+        
+        Return an object containing the .min and .max for the zoom of the map provider
+        */
+        getZoomRange: function() {
+            return {
+                min: zoomMin,
+                max: zoomMax
+            };
+        },
+        
+        /**
+        - `setZoomRange(min, max)`
+        
+        Set the min and max zoom range
+        */
+        setZoomRange: function(min, max) {
+            zoomMin = min;
+            zoomMax = max;
+        }
+    };
+
+    return self;
+}; // MapProvider
+
+/**
+# Geo.PointOfInterest
+
+TODO
+*/
+T5.Geo.PointOfInterest = function(params) {
+    params = T5.ex({
+        id: 0,
+        title: "",
+        pos: null,
+        lat: "",
+        lon: "",
+        group: "",
+        retrieved: 0,
+        isNew: true
+    }, params);
+
+    // if the position is not defined, but we have a lat and lon, create a new position
+    if ((! params.pos) && params.lat && params.lon) {
+        params.pos = new T5.Geo.Position(params.lat, params.lon);
+    } // if
+    
+    return T5.ex({
+        toString: function() {
+            return params.id + ": '" + params.title + "'";
+        }
+    }, params);
+}; 
+
+/**
+# Geo.POIStorage
+
+TODO
+*/
+T5.Geo.POIStorage = function(params) {
+    params = T5.ex({
+        visibilityChange: null,
+        onPOIDeleted: null,
+        onPOIAdded: null
+    }, params);
+
+    // initialise variables
+    var storageGroups = {},
+        visible = true;
+        
+    function getStorageGroup(groupName) {
+        // first get storage group for the poi based on type
+        var groupKey = groupName ? groupName : "default";
+        
+        // if the storage group does not exist, then create it
+        if (! storageGroups[groupKey]) {
+            storageGroups[groupKey] = [];
+        } // if                
+        
+        return storageGroups[groupKey];
+    } // getStorageGroup
+        
+    function findExisting(poi) {
+        if (! poi) { return null; }
+        
+        // iterate through the specified group and look for the key by matching the id
+        var group = getStorageGroup(poi.group);
+        for (var ii = 0; ii < group.length; ii++) {
+            if (group[ii].id == poi.id) {
+                return group[ii];
+            } // if
+        } // for
+        
+        return null;
+    } // findExisting
+    
+    function addPOI(poi) {
+        getStorageGroup(poi.group).push(poi);
+    } // addPOI
+    
+    function removeFromStorage(poi) {
+        var group = getStorageGroup(poi.group);
+        
+        for (var ii = 0; ii < group.length; ii++) {
+            if (group[ii].id == poi.id) {
+                group.splice(ii, 1);
+                break;
+            }
+        } // for
+    } // removeFromStorage
+    
+    function poiGrabber(test) {
+        var matchingPOIs = [];
+        
+        // iterate through the groups and pois within each group
+        for (var groupKey in storageGroups) {
+            for (var ii = 0; ii < storageGroups[groupKey].length; ii++) {
+                if ((! test) || test(storageGroups[groupKey][ii])) {
+                    matchingPOIs.push(storageGroups[groupKey][ii]);
+                } // if
+            } // for
+        } // for
+        
+        return matchingPOIs;
+    } // poiGrabber
+    
+    function triggerUpdate() {
+        GT.say("geo.pois-updated", {
+            srcID: self.id,
+            pois: self.getPOIs()
+        });
+    } // triggerUpdate
+
+    // initialise self
+    var self = {
+        id: GT.objId(),
+        
+        getPOIs: function() {
+            return poiGrabber();
+        },
+
+        getOldPOIs: function(groupName, testTime) {
+            return poiGrabber(function(testPOI) {
+                return (testPOI.group == groupName) && (testPOI.retrieved < testTime);
+            });
+        },
+
+        getVisible: function() {
+            return visible;
+        },
+
+        setVisible: function(value) {
+            if (value != visible) {
+                visible = value;
+
+                // fire the visibility change event
+                if (params.visibilityChange) {
+                    params.visibilityChange();
+                } // if
+            } // if
+        },
+
+        findById: function(searchId) {
+            var matches = poiGrabber(function(testPOI) {
+                return testPOI.id == searchId;
+            });
+            
+            return matches.length > 0 ? matches[0] : null;
+        },
+
+        /*
+        Method:  findByBounds
+        Returns an array of the points of interest that have been located within
+        the bounds of the specified bounding box
+        */
+        findByBounds: function(searchBounds) {
+            return poiGrabber(function(testPOI) {
+                return T5.Geo.P.inBounds(testPOI.pos, searchBounds);
+            });
+        },
+
+        addPOIs: function(newPOIs, clearExisting) {
+            // if we need to clear existing, then reset the storage
+            if (clearExisting) {
+                storageGroups = {};
+            } // if
+
+            // iterate through the new pois and put into storage
+            for (var ii = 0; newPOIs && (ii < newPOIs.length); ii++) {
+                newPOIs[ii].retrieved = T5.time();
+                addPOI(newPOIs[ii]);
+            } // for
+        },
+        
+        removeGroup: function(group) {
+            if (storageGroups[group]) {
+                delete storageGroups[group];
+                triggerUpdate();
+            } // if
+        },
+        
+        update: function(refreshedPOIs) {
+            // initialise arrays to receive the pois
+            var newPOIs = [],
+                ii = 0,
+                groupName = refreshedPOIs.length > 0 ? refreshedPOIs[0].group : '',
+                timeRetrieved = T5.time();
+                
+            // iterate through the pois and determine state
+            for (ii = 0; ii < refreshedPOIs.length; ii++) {
+                // look for the poi in the poi layer
+                var foundPOI = findExisting(refreshedPOIs[ii]);
+
+                // add the poi to either the update or new array according to whether it was found
+                if (foundPOI) {
+                    // GT.Log.info("FOUND EXISTING POI");
+                    foundPOI.retrieved = timeRetrieved;
+                    foundPOI.isNew = false;
+                }
+                else {
+                    newPOIs.push(refreshedPOIs[ii]);
+                }
+            } // for
+            
+            // now all we have left are deleted pois transpose those into the deleted list
+            var deletedPOIs = self.getOldPOIs(groupName, timeRetrieved);
+
+            // add new pois to the poi layer
+            self.addPOIs(newPOIs);
+            // GT.Log.info(GT.formatStr("POI-UPDATE: {0} new, {1} deleted", newPOIs.length, deletedPOIs.length));
+
+            // fire the on poi added event when appropriate
+            for (ii = 0; params.onPOIAdded && (ii < newPOIs.length); ii++) {
+                params.onPOIAdded(newPOIs[ii]);
+            } // for
+
+            for (ii = 0; ii < deletedPOIs.length; ii++) {
+                // trigger the event if assigned
+                if (params.onPOIDeleted) {
+                    params.onPOIDeleted(deletedPOIs[ii]);
+                } // if
+
+                // remove the poi from storage
+                removeFromStorage(deletedPOIs[ii]);
+            } // for
+            
+            // if we have made updates, then fire the geo pois updated event
+            if (newPOIs.length + deletedPOIs.length > 0) {
+                triggerUpdate();
+            } // if
+        }
+    };
+
+    return self;
+};
+/**
+# MODULE: Geo.Routing
+
+Define functionality to enable routing for mapping
+
+## Functions
+*/
+T5.Geo.Routing = (function() {
+    // define the module
+    var module = {
+        /* module functions */
+        
+        /**
+        - `calculate(args)`
+        
+        TODO
+        */
+        calculate: function(args) {
+            args = T5.ex({
+                engineId: "",
+                waypoints: [],
+                map: null,
+                error: null,
+                autoFit: true,
+                success: null,
+                // TODO: reimplement generalization...
+                generalize: false
+            }, args);
+            
+            GT.Log.info("attempting to calculate route");
+            
+            // find an available routing engine
+            var engine = T5.Geo.getEngine("route");
+            if (engine) {
+                engine.route(args, function(routeData) {
+                    if (args.generalize) {
+                        routeData.geometry = T5.Geo.P.generalize(routeData.geometry, routeData.getInstructionPositions());
+                    } // if
+                    
+                    // firstly, if we have a map defined, then let's place the route on the map
+                    // you know, just because we are nice like that
+                    if (args.map) {
+                        module.createMapOverlay(args.map, routeData);
+                        
+                        // if we are to auto fit the map to the bounds, then do that now
+                        if (args.autoFit) {
+                            GT.Log.info("AUTOFITTING MAP TO ROUTE: bounds = " + routeData.boundingBox);
+                            args.map.gotoBounds(routeData.boundingBox);
+                        } // if
+                    } // if
+                    
+                    // if we have a success handler, then call it
+                    if (args.success) {
+                        args.success(routeData);
+                    } // if
+                });
+            } // if
+        },
+        
+        /**
+        - `createMapOverlay(map, routeData)`
+        
+        TODO
+        */
+        createMapOverlay: function(map, routeData) {
+            // get the map dimensions
+            var dimensions = map.getDimensions();
+
+            // GT.Log.info("creating route overlay with route data: ", routeData);
+
+            // create a new route overlay for the specified data
+            var overlay = new T5.Geo.UI.RouteOverlay({
+                data: routeData,
+                width: dimensions.width,
+                height: dimensions.height
+            });
+
+            // add the overlay to the map
+            map.setLayer("route", overlay);
+        },
+        
+        /**
+        - `parseTurnType(text)`
+        
+        TODO
+        */
+        parseTurnType: function(text) {
+            var turnType = module.TurnType.Unknown,
+                rules = T5.Geo.Routing.TurnTypeRules;
+            
+            // run the text through the manuever rules
+            for (var ii = 0; ii < rules.length; ii++) {
+                rules[ii].regex.lastIndex = -1;
+                
+                var matches = rules[ii].regex.exec(text);
+                if (matches) {
+                    // if we have a custom check defined for the rule, then pass the text in 
+                    // for the manuever result
+                    if (rules[ii].customCheck) {
+                        turnType = rules[ii].customCheck(text, matches);
+                    }
+                    // otherwise, take the manuever provided by the rule
+                    else {
+                        turnType = rules[ii].turnType;
+                    } // if..else
+                    
+                    break;
+                } // if
+            } // for
+            
+            return turnType;
+        },
+        
+        /**
+        # Geo.Routing.TurnType
+        
+        */
+        TurnType: {
+            Unknown: "turn-unknown",
+            
+            // continue maneuver
+            Start: "turn-none-start",
+            Continue: "turn-none",
+            Arrive: "turn-none-arrive",
+            
+            // turn left maneuvers
+            TurnLeft: "turn-left",
+            TurnLeftSlight: "turn-left-slight",
+            TurnLeftSharp: "turn-left-sharp",
+            
+            // turn right maneuvers
+            TurnRight: "turn-right",
+            TurnRightSlight: "turn-right-slight",
+            TurnRightSharp: "turn-right-sharp",
+            
+            // merge maneuvers
+            Merge: "merge",
+            
+            // uturn
+            UTurnLeft:  "uturn-left",
+            UTurnRight: "uturn-right",
+            
+            // enter roundabout maneuver
+            EnterRoundabout: "roundabout-enter",
+            
+            // ramp maneuvers
+            Ramp: "ramp",
+            RampExit: "ramp-exit"
+        },
+        
+        /**
+        # Geo.Routing.Instruction
+        
+        */
+        Instruction: function(params) {
+            params = T5.ex({
+                position: null,
+                description: "",
+                turnType: null
+            }, params);
+            
+            // if the manuever has not been defined, then attempt to parse the description
+            if (! params.turnType) {
+                params.turnType = module.parseTurnType(params.description);
+            } // if
+            
+            return params;
+        },
+        
+        
+        /**
+        # Geo.Routing.RouteData
+        
+        */
+        RouteData: function(params) {
+            params = T5.ex({
+                geometry: [],
+                instructions: [],
+                boundingBox: null
+            }, params);
+            
+            // update the bounding box
+            if (! params.boundingBox) {
+                params.boundingBox = T5.Geo.B.forPositions(params.geometry);
+            } // if
+            
+            var self = T5.ex({
+                getInstructionPositions: function() {
+                    var positions = [];
+                        
+                    for (var ii = 0; ii < params.instructions.length; ii++) {
+                        if (params.instructions[ii].position) {
+                            positions.push(params.instructions[ii].position);
+                        } // if
+                    } // for
+                    
+                    return positions;
+                }
+            }, params);
+            
+            return self;
+        }
+    };
+    
+    return module;
+})();
+
+T5.Geo.Search = (function() {
+    var DEFAULT_MAXDIFF = 20;
+    
+    var module = {
+        bestResults: function(searchResults, maxDifference) {
+            // if the threshold is not defined, use the default 
+            if (! maxDifference) {
+                maxDifference = DEFAULT_MAXDIFF;
+            }
+            
+            // initialise variables
+            var bestMatch = searchResults.length > 0 ? searchResults[0] : null,
+                fnresult = [];
+                
+            // iterate through the search results and cull those that are 
+            for (var ii = 0; ii < searchResults.length; ii++) {
+                if (bestMatch && searchResults[ii] && 
+                    (bestMatch.matchWeight - searchResults[ii].matchWeight <= maxDifference)) {
+                        
+                    fnresult.push(searchResults[ii]);
+                }
+                else {
+                    break;
+                } // if..else
+            } // for
+            
+            return fnresult;
+        }
+    };
+    
+    return module;
+})();
+
+/**
+# MODULE: Geo.UI
+
+*/
+T5.Geo.UI = (function() {
+    var lastAnnotationTween = null,
+        lastAnnotationTweenTicks = null,
+        routeAnimationCounter = 0;
+    
+    // some base64 images
+    var LOCATOR_IMAGE = 
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAA' +
+    'BHNCSVQICAgIfAhkiAAAAAlwSFlzAAACIQAAAiEBPhEQkwAAABl0RVh0U29mdHdhcmUAd3' +
+    'd3Lmlua3NjYXBlLm9yZ5vuPBoAAAG+SURBVCiRlZHNahNRAIW/O7mTTJPahLZBA1YUyriI' +
+    'NRAE3bQIKm40m8K8gLj0CRQkO32ELHUlKbgoIu4EqeJPgtCaoBuNtjXt5LeTMZk0mbmuWi' +
+    'uuPLsD3+HAOUIpxf9IHjWmaUbEyWv5ROrsVULhcHP761rUfnN3Y2Otc8CIg4YT85lzuVsP' +
+    'P+Qupw1vpPjRCvhS9ymvV0e77x7nNj+uvADQAIQQ+uLyvdfLV9JGZi7EdEwQlqBpEJ019f' +
+    '0z1mo2u5Q8DMydv25lshemmj1FueZTawbs7inarqLbV7Qjab1upB9YlhWSAHLavLHZCvg1' +
+    'VEhN0PMU9W7At4bPVidg7CtkLLXkut+lBPD6/Ub155jJiADAHSpaLmx3ApyBQoYEUd0PBo' +
+    'OBkAC6+3llvda/YxgGgYL+UNHf/zN3KiExGlsvTdP0NYDkhPdWrz35ZDsBzV5wCMuQwEyF' +
+    'mXFeeadjzfuFQmGkAZRKpdGC/n7x+M6jqvA9Zo6FWDhlcHE+wqT93J1tP7vpOE7rrx8ALM' +
+    'uasPf8S12St4WmJ6bYWTUC52k8Hm8Vi0X/nwBAPp/XKpWKdF1X2LYdlMvlsToC/QYTls7D' +
+    'LFr/PAAAAABJRU5ErkJggg%3D%3D';
+    
+    function CrosshairOverlay(params) {
+        params = T5.ex({
+            size: 12,
+            zindex: 150
+        }, params);
+        
+        function drawCrosshair(context, centerPos, size) {
+            var strokeStyles = ['#FFFFFF', '#333333'],
+                lineWidths = [3, 1.5];
+                
+            context.lineCap = 'round';
+                
+            for (var ii = 0; ii < strokeStyles.length; ii++) {
+                var lineSize = size; //  - (ii*2);
+                
+                // initialise the context line style
+                context.lineWidth = lineWidths[ii];
+                context.strokeStyle = strokeStyles[ii];
+
+                context.beginPath();
+                context.moveTo(centerPos.x, centerPos.y - lineSize);
+                context.lineTo(centerPos.x, centerPos.y + lineSize);
+                context.moveTo(centerPos.x - lineSize, centerPos.y);
+                context.lineTo(centerPos.x + lineSize, centerPos.y);
+                
+                context.arc(
+                    centerPos.x, 
+                    centerPos.y, 
+                    size * 0.6666, 
+                    0, 
+                    2 * Math.PI, 
+                    false);
+                    
+                context.stroke();
+            } // for
+        } // drawCrosshair
+        
+        function createCrosshair() { 
+            var newCanvas = T5.newCanvas(params.size * 4, params.size * 4);
+
+            // draw the cross hair
+            drawCrosshair(
+                newCanvas.getContext('2d'), 
+                new T5.Vector(newCanvas.width / 2, newCanvas.height / 2), 
+                params.size);
+            
+            // return the cross hair canvas
+            return newCanvas;
+        }
+        
+        var drawPos = null,
+            crosshair = createCrosshair();
+        
+        return T5.ex(new T5.ViewLayer(params), {
+            draw: function(context, offset, dimensions, state, view) {
+                if (! drawPos) {
+                    drawPos = T5.D.getCenter(dimensions);
+                    drawPos = new T5.Vector(
+                        Math.round(drawPos.x - crosshair.width / 2), 
+                        Math.round(drawPos.y - crosshair.height / 2));
+                } // if
+
+                context.drawImage(crosshair, drawPos.x, drawPos.y);
+            }
+        });
+    } // CrosshairOverlay
+    
+    var module = {
+        // change this value to have the annotations tween in 
+        // (eg. T5.easing('sineout'))
+        AnnotationTween: null,
+        
+        /**
+        # Geo.UI.GeoTileGrid
+        
+        */
+        GeoTileGrid: function(params) {
+            // extend the params with some defaults
+            params = T5.ex({
+                grid: null,
+                centerPos: new T5.Geo.Position(),
+                centerXY: new T5.Vector(),
+                radsPerPixel: 0
+            }, params);
+            
+            // determine the mercator 
+            var radsPerPixel = params.radsPerPixel,
+                centerMercatorPix = T5.Geo.P.toMercatorPixels(params.centerPos);
+                
+            GT.Log.info("tile grid created, rads per pixel = " + radsPerPixel);
+            
+            // calculate the bottom left mercator pix
+            // the position of the bottom left mercator pixel is 
+            // determined by params.subtracting the actual 
+            var blPixX = (centerMercatorPix.x / radsPerPixel) - params.centerXY.x,
+                blPixY = (centerMercatorPix.y / radsPerPixel) - params.centerXY.y;
+            
+            // initialise self
+            var self = T5.ex({}, params.grid, {
+                getBoundingBox: function(x, y, width, height) {
+                    return new T5.Geo.BoundingBox(
+                        self.pixelsToPos(new T5.Vector(x, y + height)),
+                        self.pixelsToPos(new T5.Vector(x + width, y)));
+                },
+                
+                getGridXYForPosition: function(pos) {
+                    // determine the mercator pixels for teh position
+                    var posPixels = T5.Geo.P.toMercatorPixels(pos);
+
+                    // calculate the offsets
+                    var offsetX = (posPixels.x / radsPerPixel) - blPixX;
+                    var offsetY = self.gridDimensions.height - 
+                            ((posPixels.y / radsPerPixel) - blPixY);
+
+                    return new T5.Vector(offsetX, offsetY);
+                },
+                
+                getPixelDistance: function(distance) {
+                    var radians = T5.Geo.dist2rad(distance);
+                    return Math.floor(radians / params.radsPerPixel);
+                },
+                
+                pixelsToPos: function(vector) {
+                    return T5.Geo.P.fromMercatorPixels(
+                        (blPixX + vector.x) * radsPerPixel, 
+                        ((blPixY + self.gridDimensions.height) -
+                            vector.y) * radsPerPixel);
+                }
+            });
+            
+            return self;
+        },
+        
+        /** 
+        # Geo.UI.RouteOverlay
+
+        */
+        RouteOverlay: function(params) {
+            params = T5.ex({
+                data: null,
+                pixelGeneralization: 8,
+                calculationsPerCycle: 250,
+                partialDraw: false,
+                strokeStyle: 'rgba(0, 51, 119, 0.9)',
+                waypointFillStyle: '#FFFFFF',
+                lineWidth: 4,
+                zindex: 50
+            }, params);
+            
+            var recalc = true,
+                last = null,
+                coordinates = [],
+                geometryCalcIndex = 0,
+                instructionCoords = [],
+                spawnedAnimations = [];
+                
+            function calcCoordinates(grid) {
+                instructionCoords = [];
+                if (! grid) { return; }
+                
+                var startTicks = GT.Log.getTraceTicks(),
+                    ii, current, include,
+                    geometry = params.data ? params.data.geometry : [],
+                    geometryLen = geometry.length,
+                    instructions = params.data ? 
+                        params.data.instructions : 
+                        [],
+                        
+                    instructionsLength = instructions.length,
+                    calculationsPerCycle = params.calculationsPerCycle,
+                    currentCalculations = 0;
+                    
+                // iterate through the position geometry 
+                // and determine xy coordinates
+                for (ii = geometryCalcIndex; ii < geometryLen; ii++) {
+                    // calculate the current position
+                    current = grid.getGridXYForPosition(geometry[ii]);
+
+                    // determine whether the current point should be included
+                    include = 
+                        (! last) || 
+                        (ii === 0) || 
+                        (Math.abs(current.x - last.x) + 
+                            Math.abs(current.y - last.y) >
+                            params.pixelGeneralization);
+                        
+                    if (include) {
+                        coordinates.push(current);
+                        
+                        // update the last
+                        last = current;
+                    } // if
+                    
+                    currentCalculations++;
+                    if (currentCalculations >= calculationsPerCycle) {
+                        geometryCalcIndex = ii;
+                        return;
+                    } // if
+                } // for
+                
+                geometryCalcIndex = geometryLen;
+                GT.Log.trace(
+                    geometryLen + ' geometry points generalized to ' + 
+                    coordinates.length + ' coordinates', startTicks);
+                
+                // iterate throught the instructions and add any 
+                // points to the instruction coordinates array
+                last = null;
+                for (ii = instructionsLength; ii--; ) {
+                    if (instructions[ii].position) {
+                        // calculate the current position
+                        current = grid.getGridXYForPosition(
+                            instructions[ii].position);
+
+                        // determine whether the current point 
+                        // should be included
+                        include = 
+                            (! last) || 
+                            (ii === 0) || 
+                            (Math.abs(current.x - last.x) + 
+                                Math.abs(current.y - last.y) >
+                                params.pixelGeneralization);
+
+                        if (include) {
+                            instructionCoords.push(current);
+
+                            // update the last
+                            last = current;
+                        } // if
+                    } // if
+                } // for
+            } // calcCoordinates
+            
+            // create the view layer the we will draw the view
+            var self = T5.ex(new T5.ViewLayer(params), {
+                getAnimation: function(easingFn, duration, drawCallback, autoCenter) {
+                    if (recalc) {
+                        return null;
+                    } // if
+                    
+                    // define the layer id
+                    var layerId = 'routeAnimation' + routeAnimationCounter++;
+                    spawnedAnimations.push(layerId);
+
+                    // create a new animation layer based on the coordinates
+                    return new T5.AnimatedPathLayer({
+                        id: layerId,
+                        path: coordinates,
+                        zindex: params.zindex + 1,
+                        easing: easingFn ? 
+                            easingFn : 
+                            T5.T5.easing('sine.inout'),
+                            
+                        duration: duration ? duration : 5000,
+                        drawIndicator: drawCallback,
+                        autoCenter: autoCenter ? autoCenter : false
+                    });
+                },
+
+                draw: function(context, offset, dimensions, state, view) {
+                    var changes = 0,
+                        geometry = params.data ? params.data.geometry : null;
+                    
+                    if (recalc) {
+                        recalc = false;
+                        last = null;
+                        coordinates = [];
+                        geometryCalcIndex = 0;
+                    } // if
+                    
+                    if (geometry && (geometryCalcIndex < geometry.length)) {
+                        calcCoordinates(view.getTileLayer());
+                        changes++;
+                    } // if
+                    
+                    var ii,
+                        coordLength = coordinates.length;
+                        
+                    if ((coordLength > 0) && ((! changes) || params.partialDraw)) {
+                        // update the context stroke style and line width
+                        context.strokeStyle = params.strokeStyle;
+                        context.lineWidth = params.lineWidth;
+                        
+                        // start drawing the path
+                        context.beginPath();
+                        context.moveTo(
+                            coordinates[coordLength - 1].x - offset.x, 
+                            coordinates[coordLength - 1].y - offset.y);
+
+                        for (ii = coordLength; ii--; ) {
+                            context.lineTo(
+                                coordinates[ii].x - offset.x,
+                                coordinates[ii].y - offset.y);
+                        } // for
+
+                        context.stroke();
+                        context.fillStyle = params.waypointFillStyle;
+
+                        // draw the instruction coordinates
+                        for (ii = instructionCoords.length; ii--; ) {
+                            context.beginPath();
+                            context.arc(
+                                instructionCoords[ii].x - offset.x, 
+                                instructionCoords[ii].y - offset.y,
+                                2,
+                                0,
+                                Math.PI * 2,
+                                false);
+
+                            context.stroke();
+                            context.fill();
+                        } // for
+                    } // if
+                    
+                    return changes;
+                }
+            });
+            
+            // listed for grid updates
+            GT.listen('grid.updated', function(args) {
+                // tell all the spawned animations to remove themselves
+                for (var ii = spawnedAnimations.length; ii--; ) {
+                    GT.say(
+                        'layer.remove', { id: spawnedAnimations[ii] });
+                } // for
+                
+                // reset the spawned animations array
+                spawnedAnimations = [];
+                
+                // trigger a recalculation
+                recalc = true;
+                self.wakeParent();
+            });
+            
+            return self;
+        },
+        
+        Annotation: function(params) {
+            params = T5.ex({
+                pos: null
+            }, params);
+            
+            params.xy = new T5.Geo.GeoVector(params.pos);
+            return new T5.ImageAnnotation(params);
+        },
+        
+        /**
+        # Geo.UI.LocationAnnotation
+        
+        */
+        LocationAnnotation: function(params) {
+            params = T5.ex({
+                accuracy: null
+            }, params);
+            
+            // initialise the locator icon image
+            var iconImage = new Image(),
+                iconOffset = new T5.Vector(),
+                indicatorRadius = null;
+                
+            // load the image
+            iconImage.src = LOCATOR_IMAGE;
+            iconImage.onload = function() {
+                iconOffset = new T5.Vector(
+                    iconImage.width / 2, 
+                    iconImage.height / 2);
+            };
+            
+            var self = new module.Annotation(T5.ex({
+                calcXY: function(grid) {
+                    indicatorRadius = 
+                    Math.floor(grid.getPixelDistance(self.accuracy) * 0.5);
+                },
+                
+                draw: function(context, offset, xy, state, overlay, view) {
+                    var centerX = xy.x - iconOffset.x,
+                        centerY = xy.y - iconOffset.y;
+
+                    if (indicatorRadius && self.drawAccuracyIndicator) {
+                        context.fillStyle = 'rgba(30, 30, 30, 0.2)';
+                        
+                        context.beginPath();
+                        context.arc(
+                            xy.x, 
+                            xy.y, 
+                            indicatorRadius, 
+                            0, 
+                            Math.PI * 2, 
+                            false);
+                        context.fill();
+                    } // if
+
+                    if (iconImage.complete && iconImage.width > 0) {
+                        context.drawImage(
+                            iconImage, 
+                            centerX, 
+                            centerY, 
+                            iconImage.width, 
+                            iconImage.height);
+                    } // if
+
+                    view.trigger('invalidate');
+                }
+            }, params));
+            
+            // initialise the indicator radius
+            self.accuracy = params.accuracy;
+            self.drawAccuracyIndicator = false;
+            
+            return self;
+        },
+        
+        /**
+        # Geo.UI.AnnotationsOverlay
+        
+        */
+        AnnotationsOverlay: function(params) {
+            params = T5.ex({
+                pois: null,
+                map: null,
+                zindex: 100
+            }, params);
+            
+            var annotations = [],
+                animating = false,
+                staticAnnotations = [];
+                
+            function createAnnotationForPOI(poi) {
+                if (poi && poi.pos) {
+                    var evt = {
+                        poi: poi,
+                        annotation: null
+                    };
+                    
+                    if (params.map) {
+                        params.map.trigger('getAnnotationForPOI', evt);
+                    } // if
+                        
+                    if (! evt.annotation) {
+                        evt.annotation = new T5.Annotation({
+                            pos: poi.pos
+                        });
+                    } // if
+                    
+                    if (evt.annotation) {
+                        evt.annotation.isNew = poi.isNew;
+                        poi.isNew = false;
+                    } // if
+                    
+                    return evt.annotation;
+                } // if
+            } // createAnnotationForPOI
+            
+            function updateAnnotations(newPOIs) {
+                try {
+                    // reset the annotations array
+                    annotations = [];
+                    
+                    // iterate through the pois and generate the annotations
+                    for (var ii = 0; ii < newPOIs.length; ii++) {
+                        if (newPOIs[ii].pos) {
+                            var newAnnotation =
+                                createAnnotationForPOI(newPOIs[ii]);
+                                
+                            if (newAnnotation) {
+                                annotations.push(newAnnotation); 
+                            } // if
+                        } // if
+                    } // for
+                    
+                    updateAnnotationCoordinates(annotations);
+                }
+                catch (e) {
+                    GT.Log.exception(e);
+                }
+            } // updateAnnotations
+            
+            function updateAnnotationCoordinates(annotationsArray) {
+                var grid = params.map ? params.map.getTileLayer() : null,
+                    annotationsCount = annotationsArray.length;
+                
+                // iterate through the annotations and 
+                // calculate the xy coordinates
+                if (grid) {
+                    for (var ii = annotationsCount; ii--; ) {
+                        // update the annotation xy coordinates
+                        annotationsArray[ii].xy.calcXY(grid);
+                    } // for
+                } // if
+                
+                // sort the array in the appropriate order
+                annotationsArray.sort(function(itemA, itemB) {
+                    var diff = itemB.xy.y - itemA.xy.y;
+                    if (diff === 0) {
+                        diff = itemB.xy.x - itemA.xy.x;
+                    } // if
+                    
+                    return diff;
+                });
+            }
+
+            // create the view layer the we will draw the view
+            var self = T5.ex(new T5.ViewLayer(params), {
+                cycle: function(tickCount, offset, state) {
+                    return animating ? 1 : 0;
+                },
+                
+                draw: function(context, offset, dimensions, state, view) {
+                    // initialise variables
+                    var ii;
+                
+                    // reset animating to false
+                    animating = false;
+                    context.fillStyle = 'rgba(255, 0, 0, 0.75)';
+                    context.globalCompositeOperation = 'source-over';
+                
+                    // iterate through the annotations and draw them
+                    for (ii = annotations.length; ii--; ) {
+                        annotations[ii].draw(
+                            context, 
+                            offset, 
+                            state, 
+                            self, 
+                            view);
+                            
+                        animating = animating ||
+                            annotations[ii].isAnimating();
+                    } // for
+
+                    for (ii = staticAnnotations.length; ii--; ) {
+                        staticAnnotations[ii].draw(
+                            context, 
+                            offset, 
+                            state, 
+                            self, 
+                            view);
+                            
+                        animating = animating ||
+                            staticAnnotations[ii].isAnimating();
+                    } // for
+                    
+                    return animating ? 1 : 0;
+                },
+                
+                add: function(annotation) {
+                    staticAnnotations.push(annotation);
+                    updateAnnotationCoordinates(staticAnnotations);
+                    self.wakeParent();
+                },
+                
+                clear: function(includeNonStatic) {
+                    staticAnnotations = [];
+                    updateAnnotationCoordinates(staticAnnotations);
+                    
+                    // if non static annotations should be cleared 
+                    // also, then do it
+                    if (includeNonStatic) {
+                        annotations = [];
+                        updateAnnotationCoordinates(annotations);
+                    } // if
+                    
+                    // wake the parent
+                    self.wakeParent();
+                }
+            });
+
+            GT.listen('geo.pois-updated', function(args) {
+                // if the event source id matches our current 
+                // poi storage, then apply updates
+                if (params.pois && (params.pois.id == args.srcID)) {
+                    updateAnnotations(args.pois);
+                    self.wakeParent();
+                } // if
+            });
+            
+            // list for grid updates
+            GT.listen('grid.updated', function(args) {
+                updateAnnotationCoordinates(annotations);
+                updateAnnotationCoordinates(staticAnnotations);
+                self.wakeParent();
+            });
+            
+            return self;
+        }
+    };
+    
+    // TODO: remove this once clients have removed references
+    module.ImageAnnotation = module.Annotation;
+    
+    return module;
+})();
+// EN-* manuever text matching rules 
+T5.Geo.Routing.TurnTypeRules = (function() {
+    var m = T5.Geo.Routing.TurnType,
+        rules = [];
+        
+    rules.push({
+        regex: /continue/i,
+        turnType: m.Continue
+    });
+    
+    rules.push({
+        regex: /(take|bear|turn)(.*?)left/i,
+        customCheck: function(text, matches) {
+            var isSlight = (/bear/i).test(matches[1]);
+            
+            return isSlight ? m.TurnLeftSlight : m.TurnLeft;
+        }
+    });
+    
+    rules.push({
+        regex: /(take|bear|turn)(.*?)right/i,
+        customCheck: function(text, matches) {
+            var isSlight = (/bear/i).test(matches[1]);
+            
+            return isSlight ? m.TurnRightSlight : m.TurnRight;
+        }
+    });
+    
+    rules.push({
+        regex: /enter\s(roundabout|rotaty)/i,
+        turnType: m.EnterRoundabout
+    });
+    
+    rules.push({
+        regex: /take.*?ramp/i,
+        turnType: m.Ramp
+    });
+    
+    rules.push({
+        regex: /take.*?exit/i,
+        turnType: m.RampExit
+    });
+    
+    rules.push({
+        regex: /make(.*?)u\-turn/i,
+        customCheck: function(text, matches) {
+            return (/right/i).test(matches[1]) ? m.UTurnRight : m.UTurnLeft;
+        }
+    });
+    
+    rules.push({
+        regex: /proceed/i,
+        turnType: m.Start
+    });
+    
+    rules.push({
+        regex: /arrive/i,
+        turnType: m.Arrive
+    });
+    
+    // "FELL THROUGH" - WTF!
+    rules.push({
+        regex: /fell\sthrough/i,
+        turnType: m.Merge
+    });
+    
+    return rules;
+})();
+
