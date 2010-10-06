@@ -954,7 +954,6 @@ T5.Geo = (function() {
                 pos: pos,
                 
                 calcXY: function(grid) {
-                    GT.Log.info('calculating XY - it\'s busted');
                     var xy = grid.getGridXYForPosition(self.pos);
                     
                     self.x = xy.x;
