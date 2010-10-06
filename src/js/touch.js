@@ -401,9 +401,9 @@
             },
             
             release: function() {
-                config.eventTarget.removeEventListener(supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
-                config.eventTarget.removeEventListener(supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
-                config.eventTarget.removeEventListener(supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
+                config.unbindEvent(supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
+                config.unbindEvent(supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
+                config.unbindEvent(supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
                 
                 // handle mouse wheel events by
                 if (! supportsTouch) {
@@ -425,14 +425,14 @@
         };
         
         // wire up the events
-        config.eventTarget.addEventListener(supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
-        config.eventTarget.addEventListener(supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
-        config.eventTarget.addEventListener(supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
+        config.bindEvent(supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
+        config.bindEvent(supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
+        config.bindEvent(supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
         
         // handle mouse wheel events by
         if (! supportsTouch) {
-            window.addEventListener("mousewheel", wheelie, false);
-            window.addEventListener("DOMMouseScroll", wheelie, false);
+            config.bindEvent("mousewheel", wheelie, window);
+            config.bindEvent("DOMMouseScroll", wheelie, window);
         } // if
 
         return self;

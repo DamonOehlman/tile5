@@ -52,11 +52,43 @@
         } // if
     } // bridgeNotifyUrlScheme
     
+    /* event binding functions */
+    
+    function genBindDoc(useBody) {
+        return function(evtName, callback, customTarget) {
+            var target = customTarget ? customTarget : (useBody ? document.body : document);
+
+            target.addEventListener(evtName, callback, false);
+        };
+    } // bindDoc
+    
+    function genUnbindDoc(useBody) {
+        return function(evtName, callback, customTarget) {
+            var target = customTarget ? customTarget : (useBody ? document.body : document);
+
+            target.removeEventListener(evtName, callback, false);
+        };
+    } // unbindDoc
+    
+    function bindIE(evtName, callback, customTarget) {
+        (customTarget ? customTarget : document).attachEvent('on' + evtName, callback);
+    } // bindIE
+    
+    function unbindIE(evtName, callback, customTarget) {
+        (customTarget ? customTarget : document).detachEvent('on' + evtName, callback);
+    } // unbindIE
+    
+    /* load the device config */
+    
     function loadDeviceConfigs() {
         deviceConfigs = {
             base: {
                 name: "Unknown",
-                eventTarget: document,
+                
+                /* default event binding implementation */
+                bindEvent: genBindDoc(),
+                unbindEvent: genUnbindDoc(),
+                
                 supportsTouch: "createTouch" in document,
                 imageCacheMaxSize: null, 
                 getScaling: function() {
@@ -66,6 +98,17 @@
                 requireFastDraw: false,
                 bridgeNotify: bridgeNotifyLog,
                 targetFps: null
+            },
+            
+            ie: {
+                name: "MSIE",
+                regex: /msie/i,
+                
+                bindEvent: bindIE,
+                unbindEvent: unbindIE,
+                
+                requireFastDraw: false,
+                targetFps: 25
             },
             
             ipod: {
@@ -97,7 +140,11 @@
             android: {
                 name: "Android OS <= 2.1",
                 regex: /android/i,
-                eventTarget: document.body,
+                
+                /* document event binding (use body) */
+                bindEvent: genBindDoc(true),
+                unbindEvent: genUnbindDoc(true),
+                
                 supportsTouch: true,
                 getScaling: function() {
                     // TODO: need to detect what device dpi we have instructed the browser to use in the viewport tag
@@ -121,7 +168,8 @@
             deviceConfigs.android,
             deviceConfigs.ipod,
             deviceConfigs.iphone,
-            deviceConfigs.ipad
+            deviceConfigs.ipad,
+            deviceConfigs.ie
         ];
     } // loadDeviceConfigs
     
