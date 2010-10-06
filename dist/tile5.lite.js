@@ -2040,8 +2040,8 @@ T5 = (function() {
             var tmpCanvas = document.createElement('canvas');
 
             // initialise the canvas element if using explorercanvas
-            if (typeof(G_vmlCanvasManager) !== "undefined") {
-                G_vmlCanvasManager.initElement(tmpCanvas);
+            if (typeof FlashCanvas !== 'undefined') {
+                FlashCanvas.initElement(tmpCanvas);
             } // if
 
             // set the size of the canvas if specified
@@ -2121,11 +2121,43 @@ T5 = (function() {
         } // if
     } // bridgeNotifyUrlScheme
     
+    /* event binding functions */
+    
+    function genBindDoc(useBody) {
+        return function(evtName, callback, customTarget) {
+            var target = customTarget ? customTarget : (useBody ? document.body : document);
+
+            target.addEventListener(evtName, callback, false);
+        };
+    } // bindDoc
+    
+    function genUnbindDoc(useBody) {
+        return function(evtName, callback, customTarget) {
+            var target = customTarget ? customTarget : (useBody ? document.body : document);
+
+            target.removeEventListener(evtName, callback, false);
+        };
+    } // unbindDoc
+    
+    function bindIE(evtName, callback, customTarget) {
+        (customTarget ? customTarget : document).attachEvent('on' + evtName, callback);
+    } // bindIE
+    
+    function unbindIE(evtName, callback, customTarget) {
+        (customTarget ? customTarget : document).detachEvent('on' + evtName, callback);
+    } // unbindIE
+    
+    /* load the device config */
+    
     function loadDeviceConfigs() {
         deviceConfigs = {
             base: {
                 name: "Unknown",
-                eventTarget: document,
+                
+                /* default event binding implementation */
+                bindEvent: genBindDoc(),
+                unbindEvent: genUnbindDoc(),
+                
                 supportsTouch: "createTouch" in document,
                 imageCacheMaxSize: null, 
                 getScaling: function() {
@@ -2135,6 +2167,17 @@ T5 = (function() {
                 requireFastDraw: false,
                 bridgeNotify: bridgeNotifyLog,
                 targetFps: null
+            },
+            
+            ie: {
+                name: "MSIE",
+                regex: /msie/i,
+                
+                bindEvent: bindIE,
+                unbindEvent: unbindIE,
+                
+                requireFastDraw: false,
+                targetFps: 25
             },
             
             ipod: {
@@ -2166,7 +2209,11 @@ T5 = (function() {
             android: {
                 name: "Android OS <= 2.1",
                 regex: /android/i,
-                eventTarget: document.body,
+                
+                /* document event binding (use body) */
+                bindEvent: genBindDoc(true),
+                unbindEvent: genUnbindDoc(true),
+                
                 supportsTouch: true,
                 getScaling: function() {
                     // TODO: need to detect what device dpi we have instructed the browser to use in the viewport tag
@@ -2190,7 +2237,8 @@ T5 = (function() {
             deviceConfigs.android,
             deviceConfigs.ipod,
             deviceConfigs.iphone,
-            deviceConfigs.ipad
+            deviceConfigs.ipad,
+            deviceConfigs.ie
         ];
     } // loadDeviceConfigs
     
@@ -3098,9 +3146,9 @@ T5.Images = (function() {
             },
             
             release: function() {
-                config.eventTarget.removeEventListener(supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
-                config.eventTarget.removeEventListener(supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
-                config.eventTarget.removeEventListener(supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
+                config.unbindEvent(supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
+                config.unbindEvent(supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
+                config.unbindEvent(supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
                 
                 // handle mouse wheel events by
                 if (! supportsTouch) {
@@ -3122,14 +3170,14 @@ T5.Images = (function() {
         };
         
         // wire up the events
-        config.eventTarget.addEventListener(supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
-        config.eventTarget.addEventListener(supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
-        config.eventTarget.addEventListener(supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
+        config.bindEvent(supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
+        config.bindEvent(supportsTouch ? 'touchmove' : 'mousemove', touchMove, false);
+        config.bindEvent(supportsTouch ? 'touchend' : 'mouseup', touchEnd, false);
         
         // handle mouse wheel events by
         if (! supportsTouch) {
-            window.addEventListener("mousewheel", wheelie, false);
-            window.addEventListener("DOMMouseScroll", wheelie, false);
+            config.bindEvent("mousewheel", wheelie, window);
+            config.bindEvent("DOMMouseScroll", wheelie, window);
         } // if
 
         return self;
@@ -3583,8 +3631,7 @@ T5.Tween = function(params) {
     }; // T5.viewState
 })();
 /**
-ViewLayer
-=========
+# ViewLayer
 
 In and of itself, a View does nothing.  Not without a 
 ViewLayer at least.  A view is made up of one or more of these 
@@ -4228,7 +4275,6 @@ T5.View = function(params) {
     function wake() {
         wakeTriggers++;
         if (frozen || cycleWorker) { return; }
-        GT.Log.info("actually woken up");
         
         // create the cycle worker
         cycleWorker = GT.Loopage.join({
@@ -4550,6 +4596,7 @@ T5.View = function(params) {
     
     return self;
 }; // T5.View
+
 T5.AnimatedPathLayer = function(params) {
     params = T5.ex({
         path: [],
@@ -4839,7 +4886,8 @@ T5.ImageAnnotation = function(params) {
         center: new T5.Vector(),
         gridSize: 25,
         shiftOrigin: null,
-        supportFastDraw: true
+        supportFastDraw: true,
+        allowShift: true
     }, params);
     
     // initialise tile store related information
@@ -4996,7 +5044,7 @@ T5.ImageAnnotation = function(params) {
     
     function shift(shiftDelta, shiftOriginCallback) {
         // if the shift delta x and the shift delta y are both 0, then return
-        if ((shiftDelta.x === 0) && (shiftDelta.y === 0)) { return; }
+        if ((! params.allowShift) || ((shiftDelta.x === 0) && (shiftDelta.y === 0))) { return; }
         
         var ii, startTicks = GT.Log.getTraceTicks();
         // GT.Log.info("need to shift tile store grid, " + shiftDelta.x + " cols and " + shiftDelta.y + " rows.");

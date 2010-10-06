@@ -1,6 +1,5 @@
 /**
-ViewLayer
-=========
+# ViewLayer
 
 In and of itself, a View does nothing.  Not without a 
 ViewLayer at least.  A view is made up of one or more of these 

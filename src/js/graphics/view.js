@@ -492,7 +492,6 @@ T5.View = function(params) {
     function wake() {
         wakeTriggers++;
         if (frozen || cycleWorker) { return; }
-        GT.Log.info("actually woken up");
         
         // create the cycle worker
         cycleWorker = GT.Loopage.join({
@@ -814,3 +813,4 @@ T5.View = function(params) {
     
     return self;
 }; // T5.View
+
