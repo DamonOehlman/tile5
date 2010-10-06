@@ -6,7 +6,8 @@ T5.TileGrid = function(params) {
         center: new T5.Vector(),
         gridSize: 25,
         shiftOrigin: null,
-        supportFastDraw: true
+        supportFastDraw: true,
+        allowShift: true
     }, params);
     
     // initialise tile store related information
@@ -163,7 +164,7 @@ T5.TileGrid = function(params) {
     
     function shift(shiftDelta, shiftOriginCallback) {
         // if the shift delta x and the shift delta y are both 0, then return
-        if ((shiftDelta.x === 0) && (shiftDelta.y === 0)) { return; }
+        if ((! params.allowShift) || ((shiftDelta.x === 0) && (shiftDelta.y === 0))) { return; }
         
         var ii, startTicks = GT.Log.getTraceTicks();
         // GT.Log.info("need to shift tile store grid, " + shiftDelta.x + " cols and " + shiftDelta.y + " rows.");
