@@ -1,0 +1,96 @@
+<!doctype html> 
+<html lang="en" class="no-js"> 
+<head> 
+  <meta charset="utf-8"> 
+  <title>Tile5 | Demo - Pin Drops</title> 
+  <link rel="stylesheet" href="media/css/style.css"> 
+</head>
+<body> 
+	<header> 
+		<a id="logo" href="http://www.tile5.org/"><img src="media/img/tile5-logo.png" title="Tile5 Official Site" /></a> 
+		<h1>HTML5 Mapping - Tile5 Demos - Pin Drops</h1> 
+	</header>
+	<div id="main"> 
+		<div id="mapContainer"> 
+			<canvas id="mapCanvas" width="768" height="450"></canvas><br /> 
+			<div id="copyright"></div> 
+		</div> 
+		<div class="clear"></div>
+		<div id="sample-controls"></div>
+			<footer> 
+				<p> 
+	Tile5 is an initiative of cross-platform mobile development firm, <a href="http://www.sidelab.com/">Sidelab</a>. If you 
+	would like assistance with developing a solution, please feel free 
+	to <a href="http://www.sidelab.com/contact">contact Sidelab</a>.  
+	Tile5 is licensed under the MIT license, though, so you are free to use it 
+	however you please.
+				</p> 
+			</footer>
+	</div> 
+   
+  <!-- Javascript at the bottom for fast page loading --> 
+	<script src="media/js/jquery-1.4.2.min.js"></script> 
+	<script src="../dist/tile5.js"></script> 
+	<script src="../dist/tile5.osm.js"></script>
+	<script src="../dist/tile5.cloudmade.js"></script>
+ 
+<!-- Generate Map and Scripts Here -->   
+<script>
+	var mapProvider = new T5.Geo.Cloudmade.MapProvider({
+		// Insert your own API key here
+		apikey: "7960daaf55f84bfdb166014d0b9f8d41"
+	});
+	var pinType = "multiple";
+	
+	map = T5.Map({
+		// Point to which canvas element to draw in
+		container: 'mapCanvas',
+		// Select the mapProvider
+		provider: mapProvider
+	});
+// ---------------------------- Essential! If the starting point is not set the map will not draw --------------------------------
+	map.gotoPosition(T5.Geo.P.parse("-27.468 153.028"), 6);
+	
+		var cid = map.bind("geotap", function(absXY, relXY, touchPos, touchBounds) {
+			var annotation = new T5.Geo.UI.ImageAnnotation({
+				// set the image you wish to use for the touch Pin
+				imageUrl: "media/img/pins/pin-158935-1-24.png",
+				// set the image as the pin enters
+				animatingImageUrl: "media/img/pins/pin-158935-1-noshadow-24.png",
+				imageAnchor: new T5.Vector(8, 24),
+				pos: touchPos,
+				tweenIn: T5.easing('bounce.out'),
+				animationSpeed: 1000
+			});
+			if (pinType == "single"){
+				map.annotations.clear();
+				map.annotations.add(annotation);
+			}
+			else if (pinType == "multiple"){
+				map.annotations.add(annotation);
+			}
+			// Outputs the pins location
+			console.debug(touchPos.lat, touchPos.lon);
+			});
+
+		$("#sample-controls").html(
+		'<button id ="clear">Clear pins</button>' +
+		'<button id ="single">Drop single pin</button>' +
+		'<button id ="multiple">Drop many pins</button>');
+
+		$("#sample-controls #clear").click(function(){
+			map.annotations.clear();
+		});
+
+		$("#sample-controls #single").click(function(){
+			pinType = "single";
+		});
+
+		$("#sample-controls #multiple").click(function(){
+			pinType = "multiple";
+		});
+
+</script> 
+
+</body> 
+</html>
