@@ -226,11 +226,20 @@ T5 = (function() {
     
     - origin - the top left point of the rectangle
     - dimensions - the width and height of the rectangle
+    - invalid - used to indicate that the rect dimensions are irrelevant
+    
+    ## Notes
+    
+    The invalid property was added and is used for assisting with managing
+    the clip rect that will be drawn in a View.  If marked invalid then
+    detailed checking of the draw area is skipped, and no clip() will be
+    applied when drawing the canvas (the whole thing is drawn).
     */
     var Rect = function(x, y, width, height) {
         return {
             origin: new Vector(x, y),
-            dimensions: new Dimensions(width, height)
+            dimensions: new Dimensions(width, height),
+            invalid: false
         };
     }; // Rect
     
@@ -240,6 +249,17 @@ T5 = (function() {
     */
     var rectTools = (function() {
         var subModule = {
+            bottomRight: function(src) {
+                return vectorTools.offset(
+                            src.origin, 
+                            src.dimensions.width, 
+                            src.dimensions.height);
+            },
+
+            empty: function() {
+                return new Rect(0, 0, 0, 0);
+            },
+            
             copy: function(src) {
                 return src ? 
                     new Rect(
@@ -254,6 +274,47 @@ T5 = (function() {
                 return new Vector(
                             rect.origin.x + (rect.dimensions.width / 2), 
                             rect.origin.y + (rect.dimensions.height / 2));
+            },
+            
+            isEmpty: function(rect) {
+                return rect.dimensions.width === 0 || rect.dimensions.height === 0;
+            },
+            
+            /**
+            - `union(dst, src)`
+            
+            This function takes the Rect values passed to the function and determines
+            the required rect to contain all of those values. This origin and dimensions
+            of this resulting Rect are then used to replace the first Rect passed to 
+            the function.
+            */
+            union: function() {
+                if (arguments.length < 2) { return; }
+
+                var top = arguments[0].origin.y,
+                    left = arguments[0].origin.x, 
+                    bottom = top + arguments[0].dimensions.height,
+                    right = left + arguments[0].dimensions.width,
+                    rects = Array.prototype.slice.call(arguments, 1);
+                    
+                // iterate through the other rects and find the max bounds
+                for (var ii = rects.length; ii--; ) {
+                    var testTop = rects[ii].origin.y,
+                        testLeft = rects[ii].origin.x,
+                        testBottom = testTop + rects[ii].dimensions.height,
+                        testRight = testLeft + rects[ii].dimensions.width;
+                        
+                    top = top < testTop ? top : testTop;
+                    left = left < testLeft ? left : testLeft;
+                    bottom = bottom > testBottom ? bottom : testBottom;
+                    right = right > testRight ? right : testRight;
+                } // for
+                
+                // update the first rect with the max bounds
+                arguments[0].origin.x = left;
+                arguments[0].origin.y = top;
+                arguments[0].dimensions.width = right - left;
+                arguments[0].dimensions.height = bottom - top;
             }
         };
         
@@ -299,21 +360,6 @@ T5 = (function() {
 
     var module = {
         ex: GT.extend,
-        
-        newCanvas: function(width, height) {
-            var tmpCanvas = document.createElement('canvas');
-
-            // initialise the canvas element if using explorercanvas
-            if (typeof FlashCanvas !== 'undefined') {
-                FlashCanvas.initElement(tmpCanvas);
-            } // if
-
-            // set the size of the canvas if specified
-            tmpCanvas.width = width ? width : 0;
-            tmpCanvas.height = height ? height : 0;
-            
-            return tmpCanvas;
-        },
         
         time: function() {
             return new Date().getTime();
