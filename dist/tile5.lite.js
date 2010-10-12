@@ -1587,6 +1587,10 @@ GT.Loopage = (function() {
     function LoopWorker(params) {
         var self = GT.extend({
             id: workerCount++,
+            frequency: 0,
+            after: 0,
+            single: false,
+            lastTick: 0,
             execute: function() {}
         }, params);
         
@@ -1599,6 +1603,9 @@ GT.Loopage = (function() {
     function joinLoop(params) {
         // create the worker
         var worker = new LoopWorker(params);
+        if (worker.after > 0) {
+            worker.lastTick = new Date().getTime() + worker.after;
+        } // if
         
         // make the worker observable
         GT.observable(worker);
@@ -1640,7 +1647,16 @@ GT.Loopage = (function() {
         
         // iterate through the workers and run
         for (ii = workers.length; ii--; ) {
-            workers[ii].execute(tickCount, workers[ii]);
+            var workerDiff = tickCount - workers[ii].lastTick;
+            
+            if (workerDiff >= workers[ii].frequency) {
+                workers[ii].execute(tickCount, workers[ii]);
+                workers[ii].lastTick = tickCount;
+                
+                if (workers[ii].single) {
+                    workers[ii].trigger('complete');
+                } // if
+            } // if
         } // for
         
         // update the loop timeout
@@ -1962,11 +1978,20 @@ T5 = (function() {
     
     - origin - the top left point of the rectangle
     - dimensions - the width and height of the rectangle
+    - invalid - used to indicate that the rect dimensions are irrelevant
+    
+    ## Notes
+    
+    The invalid property was added and is used for assisting with managing
+    the clip rect that will be drawn in a View.  If marked invalid then
+    detailed checking of the draw area is skipped, and no clip() will be
+    applied when drawing the canvas (the whole thing is drawn).
     */
     var Rect = function(x, y, width, height) {
         return {
             origin: new Vector(x, y),
-            dimensions: new Dimensions(width, height)
+            dimensions: new Dimensions(width, height),
+            invalid: false
         };
     }; // Rect
     
@@ -1976,6 +2001,17 @@ T5 = (function() {
     */
     var rectTools = (function() {
         var subModule = {
+            bottomRight: function(src) {
+                return vectorTools.offset(
+                            src.origin, 
+                            src.dimensions.width, 
+                            src.dimensions.height);
+            },
+
+            empty: function() {
+                return new Rect(0, 0, 0, 0);
+            },
+            
             copy: function(src) {
                 return src ? 
                     new Rect(
@@ -1990,6 +2026,47 @@ T5 = (function() {
                 return new Vector(
                             rect.origin.x + (rect.dimensions.width / 2), 
                             rect.origin.y + (rect.dimensions.height / 2));
+            },
+            
+            isEmpty: function(rect) {
+                return rect.dimensions.width === 0 || rect.dimensions.height === 0;
+            },
+            
+            /**
+            - `union(dst, src)`
+            
+            This function takes the Rect values passed to the function and determines
+            the required rect to contain all of those values. This origin and dimensions
+            of this resulting Rect are then used to replace the first Rect passed to 
+            the function.
+            */
+            union: function() {
+                if (arguments.length < 2) { return; }
+
+                var top = arguments[0].origin.y,
+                    left = arguments[0].origin.x, 
+                    bottom = top + arguments[0].dimensions.height,
+                    right = left + arguments[0].dimensions.width,
+                    rects = Array.prototype.slice.call(arguments, 1);
+                    
+                // iterate through the other rects and find the max bounds
+                for (var ii = rects.length; ii--; ) {
+                    var testTop = rects[ii].origin.y,
+                        testLeft = rects[ii].origin.x,
+                        testBottom = testTop + rects[ii].dimensions.height,
+                        testRight = testLeft + rects[ii].dimensions.width;
+                        
+                    top = top < testTop ? top : testTop;
+                    left = left < testLeft ? left : testLeft;
+                    bottom = bottom > testBottom ? bottom : testBottom;
+                    right = right > testRight ? right : testRight;
+                } // for
+                
+                // update the first rect with the max bounds
+                arguments[0].origin.x = left;
+                arguments[0].origin.y = top;
+                arguments[0].dimensions.width = right - left;
+                arguments[0].dimensions.height = bottom - top;
             }
         };
         
@@ -2035,21 +2112,6 @@ T5 = (function() {
 
     var module = {
         ex: GT.extend,
-        
-        newCanvas: function(width, height) {
-            var tmpCanvas = document.createElement('canvas');
-
-            // initialise the canvas element if using explorercanvas
-            if (typeof FlashCanvas !== 'undefined') {
-                FlashCanvas.initElement(tmpCanvas);
-            } // if
-
-            // set the size of the canvas if specified
-            tmpCanvas.width = width ? width : 0;
-            tmpCanvas.height = height ? height : 0;
-            
-            return tmpCanvas;
-        },
         
         time: function() {
             return new Date().getTime();
@@ -2494,6 +2556,7 @@ T5.Resources = (function() {
 T5.Images = (function() {
     // initialise image loader internal variables
     var images = {},
+        canvasCounter = 0,
         loadWatchers = {},
         imageCounter = 0,
         queuedImages = [],
@@ -2503,12 +2566,32 @@ T5.Images = (function() {
         imageCacheFullness = 0,
         clearingCache = false;
         
+    function newCanvas(width, height) {
+        var tmpCanvas = document.createElement('canvas');
+
+        // set the size of the canvas if specified
+        tmpCanvas.width = width ? width : 0;
+        tmpCanvas.height = height ? height : 0;
+
+        // initialise the canvas element if using explorercanvas
+        if (typeof FlashCanvas !== 'undefined') {
+            tmpCanvas.id = 'tmpCanvas' + (canvasCounter++);
+            tmpCanvas.style.cssText = 'position: absolute; top: -' + (height-1) + 'px; left: -' + (width-1) + 'px;';
+
+            document.body.appendChild(tmpCanvas);
+
+            FlashCanvas.initElement(tmpCanvas);
+        } // if
+
+        return tmpCanvas;
+    } // newCanvas
+        
     function postProcess(imageData) {
         if (! imageData.image) { return; }
         
         var width = imageData.realSize ? imageData.realSize.width : image.width,
             height = imageData.realSize ? imageData.realSize.height : image.height,
-            canvas = T5.newCanvas(width, height),
+            canvas = newCanvas(width, height),
             context = canvas.getContext('2d'),
             offset = imageData.offset ? imageData.offset : new T5.Vector();
             
@@ -2625,10 +2708,11 @@ T5.Images = (function() {
         GT.say("imagecache.cleared");
     } // cleanupImageCache
 
-    function checkTimeoutsAndCache() {
-        var currentTickCount = T5.time(),
-            timedOutLoad = false, ii = 0,
+    function checkTimeoutsAndCache(currentTickCount) {
+        var timedOutLoad = false, ii = 0,
             config = T5.getConfig();
+            
+        GT.Log.info("checking cache");
         
         // iterate through the loading images, and check if any of them have been active too long
         while (ii < loadingImages.length) {
@@ -2729,6 +2813,7 @@ T5.Images = (function() {
         
         get: getImage,
         load: loadImage,
+        newCanvas: newCanvas,
         
         stats: function() {
             return {
@@ -2739,7 +2824,10 @@ T5.Images = (function() {
         }
     }; // 
     
-    setInterval(checkTimeoutsAndCache, 1000);
+    GT.Loopage.join({
+        execute: checkTimeoutsAndCache,
+        frequency: 20000
+    });
     
     return module;
 })();
@@ -2780,10 +2868,15 @@ T5.Images = (function() {
         return null;
     } // calcChange
     
-    function preventDefaultTouch(evt) {
-        evt.preventDefault();
-        evt.stopPropagation();
-    } // preventDefaultTouch
+    function preventDefault(evt) {
+        if (evt.preventDefault) {
+            evt.preventDefault();
+            evt.stopPropagation();
+        }
+        else if (evt.cancelBubble) {
+            evt.cancelBubble();
+        } // if..else
+    } // preventDefault
     
     function getTouchPoints(touches) {
         var fnresult = new Array(touches.length);
@@ -2795,7 +2888,9 @@ T5.Images = (function() {
     } // getTouchPoints
     
     function getMousePos(evt) {
-        return [createVector(evt.pageX, evt.pageY)];
+        return [createVector(
+            evt.pageX ? evt.pageX : evt.screenX, 
+            evt.pageY ? evt.pageY : evt.screenY)];
     } // getMousePos
     
     function debugTouchEvent(evt, title) {
@@ -2850,6 +2945,7 @@ T5.Images = (function() {
             ticksLast = 0,
             targetElement = params.element,
             observable = params.observable,
+            aggressiveCapture = typeof FlashCanvas !== 'undefined',
             BENCHMARK_INTERVAL = 300;
             
         function calculateInertia(upXY, currentXY, distance, tickDiff) {
@@ -2913,6 +3009,7 @@ T5.Images = (function() {
         } // relativeTouches
         
         function triggerEvent() {
+            // GT.Log.info("triggering event: " + arguments[0]);
             if (observable) {
                 observable.trigger.apply(null, arguments);
             } // if
@@ -2931,7 +3028,9 @@ T5.Images = (function() {
         } // triggerPositionEvent
 
         function touchStart(evt) {
-            if (evt.target && (evt.target === targetElement)) {
+            var targ = evt.target ? evt.target : evt.srcElement;
+            
+            if (aggressiveCapture || targ && (targ === targetElement)) {
                 touchesStart = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt);
                 touchDelta = createVector();
                 totalDelta = createVector();
@@ -2940,8 +3039,8 @@ T5.Images = (function() {
                 touchStartTick = T5.time();
 
                 // cancel event propogation
-                preventDefaultTouch(evt);
-                evt.target.style.cursor = 'move';
+                preventDefault(evt);
+                targ.style.cursor = 'move';
 
                 // trigger the inertia cancel event
                 triggerEvent("inertiaCancel");
@@ -2979,14 +3078,16 @@ T5.Images = (function() {
         } // touchStart
         
         function touchMove(evt) {
-            if (evt.target && (evt.target === targetElement)) {
+            var targ = evt.target ? evt.target : evt.srcElement;
+            
+            if (aggressiveCapture || targ && (targ === targetElement)) {
                 lastXY = (supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt))[0];
                 
                 if (! touchDown) { return; }
 
                 // cancel event propogation
                 if (supportsTouch) {
-                    preventDefaultTouch(evt);
+                    preventDefault(evt);
                 } // if
 
                 // get the current touches
@@ -3053,12 +3154,14 @@ T5.Images = (function() {
         } // touchMove
         
         function touchEnd(evt) {
-            if (evt.target && (evt.target === targetElement)) {
+            var targ = evt.target ? evt.target : evt.srcElement;
+            
+            if (aggressiveCapture || targ && (targ === targetElement)) {
                 var touchUpXY = (supportsTouch ? getTouchPoints(evt.changedTouches) : getMousePos(evt))[0];
                 
                 // cancel event propogation
                 if (supportsTouch) {
-                    preventDefaultTouch(evt);
+                    preventDefault(evt);
                 } // if
 
                 // get the end tick
@@ -3093,7 +3196,7 @@ T5.Images = (function() {
                     triggerEvent('pinchZoomEnd', relativeTouches(touchesStart), relativeTouches(touchesLast), endTick - touchStartTick);
                 } // if..else
                 
-                evt.target.style.cursor = 'default';
+                targ.style.cursor = 'default';
                 touchDown = false;
             } // if
         } // touchEnd
@@ -3110,7 +3213,9 @@ T5.Images = (function() {
         } // getWheelDelta
         
         function wheelie(evt) {
-            if (evt.target && (evt.target === targetElement)) {
+            var targ = evt.target ? evt.target : evt.srcElement;
+            
+            if (aggressiveCapture || targ && (targ === targetElement)) {
                 var delta = getWheelDelta(evt), 
                     zoomAmount = delta.y !== 0 ? Math.abs(delta.y / WHEEL_DELTA_STEP) : 0;
 
@@ -3120,7 +3225,7 @@ T5.Images = (function() {
                     triggerEvent("wheelZoom", xy, Math.pow(2, delta.y > 0 ? zoomAmount : -zoomAmount));
                 } // if
                 
-                evt.preventDefault();
+                preventDefault(evt);
             } // if
         } // wheelie
 
@@ -3600,7 +3705,8 @@ T5.Tween = function(params) {
         
         // create a tween worker
         tweenWorker = GT.Loopage.join({
-            execute: update
+            execute: update,
+            frequency: 20
         });
         
         tweenWorker.bind('complete', function() {
@@ -3701,8 +3807,7 @@ T5.ViewLayer = function(params) {
         Called in the View method of the same name, each layer has an opportunity 
         to update itself in the current animation cycle before it is drawn.
         */
-        cycle: function(tickCount, offset, state) {
-            return 0;
+        cycle: function(tickCount, offset, state, updateRect) {
         },
         
         /**
@@ -3738,9 +3843,9 @@ T5.ViewLayer = function(params) {
         that it needs to wake up and redraw itself.  This method is often called when a 
         ViewLayer knows it needs to redraw but it isn't able to communicate this another way.
         */
-        wakeParent: function() {
+        wakeParent: function(invalidate) {
             if (parent) {
-                parent.trigger("wake");
+                parent.trigger(invalidate ? 'invalidate' : 'wake');
             } // if
         },
         
@@ -3868,6 +3973,7 @@ T5.View = function(params) {
         aniProgress = null,
         tweenStart = null,
         startCenter = null,
+        isFlash = typeof FlashCanvas !== 'undefined',
         touchHelper = null,
         
         /* state shortcuts */
@@ -3903,7 +4009,12 @@ T5.View = function(params) {
     function panEnd(x, y) {
         state = stateActive;
         panimating = false;
-        setTimeout(wake, 50);
+        
+        GT.Loopage.join({
+            execute: wake,
+            after: 50,
+            single: true
+        });
     } // panEnd
     
     /* scaling functions */
@@ -4165,13 +4276,13 @@ T5.View = function(params) {
         idleTimeout = 0;
     } // idle
     
-    function drawView(context, offset) {
+    function drawView(context, offset, updateRect) {
         var changeCount = 0,
             drawState = panimating ? statePan : (frozen ? T5.viewState('FROZEN') : state),
             startTicks = T5.time(),
             isPinchZoom = (drawState & statePinch) !== 0,
             delayDrawLayers = [];
-        
+            
         var savedDrawn = false,
             ii = 0;
             
@@ -4204,6 +4315,18 @@ T5.View = function(params) {
                 context.scale(scaleFactor, scaleFactor);
             } // if..else
             
+            // constrain the draw area where appropriate
+            if (! updateRect.invalid) {
+                context.beginPath();
+                // GT.Log.info("applying clip rect:", updateRect);
+                context.rect(
+                    updateRect.origin.x, 
+                    updateRect.origin.y, 
+                    updateRect.dimensions.width,
+                    updateRect.dimensions.height);
+                context.clip();
+            } // if
+            
             for (ii = layers.length; ii--; ) {
                 // draw the layer output to the main canvas
                 // but only if we don't have a scale buffer or the layer is a draw on scale layer
@@ -4230,7 +4353,8 @@ T5.View = function(params) {
     
     function cycle(tickCount, worker) {
         // check to see if we are panning
-        var changeCount = 0,
+        var changed = false,
+            updateRect = T5.R.empty(),
             interacting = (! panimating) && 
                 ((state === statePinch) || (state === statePan));
                 
@@ -4251,17 +4375,25 @@ T5.View = function(params) {
                 idleTimeout = 0;
             } // if
         }  // if
+        
+        // if any of the following are true, then we need to draw the whole canvas so just
+        // ignore the rect checking
+        updateRect.invalid = clearBackground || 
+            (state === T5.viewState('PAN')) || (state === T5.viewState('PINCH')) || 
+            T5.isTweening();
 
         // check that all is right with each layer
         for (var ii = layers.length; ii--; ) {
-            var cycleChanges = layers[ii].cycle(tickCount, offset, state);
-            changeCount += cycleChanges ? cycleChanges : 0;
+            layers[ii].cycle(tickCount, offset, state, updateRect);
         } // for
         
-        changeCount += drawView(mainContext, offset);
+        if (updateRect.invalid || (! T5.R.isEmpty(updateRect))) {
+            drawView(mainContext, offset, updateRect);
+            changed = true;
+        } // if
 
         // include wake triggers in the change count
-        if (wakeTriggers + changeCount === 0) {
+        if ((! changed) && (wakeTriggers === 0) && (! isFlash)) {
             worker.trigger('complete');
         } 
         else if ((! idle) && (idleTimeout === 0)) {
@@ -4278,7 +4410,8 @@ T5.View = function(params) {
         
         // create the cycle worker
         cycleWorker = GT.Loopage.join({
-            execute: cycle
+            execute: cycle,
+            frequency: 5
         });
         
         // bind to the complete method
@@ -4395,6 +4528,7 @@ T5.View = function(params) {
         
         */
         clearBackground: function() {
+            GT.Log.info("clear background requested");
             clearBackground = true;
             wake();
         },
@@ -4655,7 +4789,7 @@ T5.AnimatedPathLayer = function(params) {
     
     // initialise self
     var self =  T5.ex(new T5.ViewLayer(params), {
-        cycle: function(tickCount, offset, state) {
+        cycle: function(tickCount, offset, state, updateRect) {
             var edgeIndex = 0;
 
             // iterate through the edge data and determine the current journey coordinate index
@@ -4682,8 +4816,10 @@ T5.AnimatedPathLayer = function(params) {
                     } // if
                 } // if
             } // if
-
-            return indicatorXY ? 1 : 0;
+            
+            if (indicatorXY) {
+                updateRect.invalid = true;
+            }
         },
         
         draw: function(context, offset, dimensions, state, view) {
@@ -4862,7 +4998,7 @@ T5.ImageAnnotation = function(params) {
             y: 0,
             gridX: 0,
             gridY: 0,
-            dirty: false
+            dirty: true
         }, params);
         
         return params;
@@ -4873,6 +5009,7 @@ T5.ImageAnnotation = function(params) {
         params = T5.ex({
             url: "",
             sessionParamRegex: null,
+            loading: false,
             loaded: false
         }, params);
         
@@ -4907,6 +5044,7 @@ T5.ImageAnnotation = function(params) {
         tileDrawQueue = null,
         loadedTileCount = 0,
         lastTilesDrawn = false,
+        lastQueueUpdate = 0,
         lastCheckOffset = new T5.Vector(),
         shiftDelta = new T5.Vector(),
         repaintDistance = T5.getConfig().repaintDistance,
@@ -5038,7 +5176,6 @@ T5.ImageAnnotation = function(params) {
         GT.Log.trace("tile grid populated", startTicks);
         
         // if we have an onpopulate listener defined, let them know
-        self.dirty = true;
         self.wakeParent();
     } // populate
     
@@ -5075,13 +5212,19 @@ T5.ImageAnnotation = function(params) {
         populate(lastTileCreator, lastNotifyListener);
     } // shift
     
-    function updateDrawQueue(offset, state) {
-        if (! centerPos) { return; }
-        
+    function updateDrawQueue(offset, state, fullRedraw) {
         var tile, tmpQueue = [],
             tileStart = new T5.Vector(
                             Math.floor((offset.x + tileShift.x) * invTileSize), 
                             Math.floor((offset.y + tileShift.y) * invTileSize));
+
+        if (! centerPos) {
+            var dimensions = self.getParent().getDimensions();
+            
+            tileCols = Math.ceil(dimensions.width * invTileSize) + 1;
+            tileRows = Math.ceil(dimensions.height * invTileSize) + 1;
+            centerPos = new T5.Vector(Math.floor((tileCols-1) / 2), Math.floor((tileRows-1) / 2));
+        } // if
 
         // reset the tile draw queue
         tilesNeeded = false;
@@ -5100,6 +5243,9 @@ T5.ImageAnnotation = function(params) {
                     // TODO: replace the tile with a temporary draw tile here
                     tile = createTempTile(xx + tileStart.x, yy + tileStart.y);
                 } // if
+                
+                // update the tile dirty state
+                tile.dirty = fullRedraw || tile.dirty;
                 
                 // add the tile and position to the tile draw queue
                 tmpQueue[tmpQueue.length] = {
@@ -5123,6 +5269,8 @@ T5.ImageAnnotation = function(params) {
             tileDrawQueue[ii] = tmpQueue[ii].tile;
             self.prepTile(tileDrawQueue[ii], state);
         } // for
+        
+        lastQueueUpdate = new Date().getTime();
     } // updateDrawQueue
     
     /* external object definition */
@@ -5130,11 +5278,12 @@ T5.ImageAnnotation = function(params) {
     // initialise self
     var self = T5.ex(new T5.ViewLayer(params), {
         gridDimensions: new T5.Dimensions(gridHeightWidth, gridHeightWidth),
-        dirty: false,
         
-        cycle: function(tickCount, offset, state) {
+        cycle: function(tickCount, offset, state, updateRect) {
             var needTiles = shiftDelta.x !== 0 || shiftDelta.y !== 0,
-                changeCount = 0;
+                xShift = offset.x,
+                yShift = offset.y,
+                tileSize = T5.tileSize;
 
             if (needTiles) {
                 shift(shiftDelta, params.shiftOrigin);
@@ -5142,16 +5291,34 @@ T5.ImageAnnotation = function(params) {
                 // reset the delta
                 shiftDelta = new T5.Vector();
                 
-                // things need to happen
-                changeCount++;
+                // we need to do a complete redraw
+                updateRect.invalid = true;;
             } // if
             
             if (state !== T5.viewState('PINCH')) {
-                updateDrawQueue(offset, state);
+                updateDrawQueue(offset, state, updateRect.invalid);
             } // if
             
-            // if the grid is dirty let the calling view know
-            return changeCount + self.dirty ? 1 : 0;
+            if (tileDrawQueue && (! updateRect.invalid)) {
+                var testRects = [updateRect];
+                
+                // iterate through the tiles in the draw queue
+                for (var ii = tileDrawQueue.length; ii--; ) {
+                    var tile = tileDrawQueue[ii];
+
+                    // if the tile is loaded, then draw, otherwise load
+                    if (tile && tile.dirty) {
+                        testRects[testRects.length] = new T5.Rect(
+                            tile.gridX - xShift,
+                            tile.gridY - yShift,
+                            tileSize,
+                            tileSize);
+                    } // if..else
+                } // for
+                
+                // get the union of the test rects
+                T5.R.union.apply(null, testRects);
+            }
         },
         
         deactivate: function() {
@@ -5182,12 +5349,6 @@ T5.ImageAnnotation = function(params) {
                 tilesDrawn = true,
                 redraw = (state === T5.viewState('PAN')) || (state === T5.viewState('PINCH')) || T5.isTweening();
                 
-            if (! centerPos) {
-                tileCols = Math.ceil(dimensions.width * invTileSize) + 1;
-                tileRows = Math.ceil(dimensions.height * invTileSize) + 1;
-                centerPos = new T5.Vector(Math.floor((tileCols-1) / 2), Math.floor((tileRows-1) / 2));
-            } // if
-            
             // if we don't have a draq queue return
             if (! tileDrawQueue) { return; }
             
@@ -5238,7 +5399,6 @@ T5.ImageAnnotation = function(params) {
             
             // flag the grid as not dirty
             lastTilesDrawn = tilesDrawn;
-            self.dirty = false;
         },
         
         getTileAtXY: function(x, y) {
@@ -5332,11 +5492,11 @@ T5.ImageTileGrid = function(params) {
     
     function getEmptyTile(tileSize) {
         if ((! emptyTile) || (tileSize !== emptyTile.width)) {
-            emptyTile = T5.newCanvas(tileSize, tileSize);
+            emptyTile = T5.Images.newCanvas(tileSize, tileSize);
 
             var tileContext = emptyTile.getContext('2d');
 
-            tileContext.fillStyle = "rgba(150, 150, 150, 0.01)";
+            tileContext.fillStyle = "rgba(150, 150, 150, 0.1)";
             tileContext.fillRect(0, 0, emptyTile.width, emptyTile.height);
         } // if
 
@@ -5348,7 +5508,7 @@ T5.ImageTileGrid = function(params) {
         function getPattern() {
             var patternSize = 32,
                 halfSize = patternSize / 2,
-                patternCanvas = T5.newCanvas(patternSize, patternSize);
+                patternCanvas = T5.Images.newCanvas(patternSize, patternSize);
 
             // get the canvas context
             var context = patternCanvas.getContext("2d");
@@ -5366,24 +5526,21 @@ T5.ImageTileGrid = function(params) {
         } // getPattern
 
         if ((! panningTile) || (tileSize !== panningTile.width)) {
-            panningTile = T5.newCanvas(tileSize, tileSize);
+            panningTile = T5.Images.newCanvas(tileSize, tileSize);
 
             var tileContext = panningTile.getContext('2d');
 
             // fill the panning tile with the pattern
-            tileContext.fillStyle = tileContext.createPattern(getPattern(), "repeat");
+            tileContext.fillStyle = 
+                typeof FlashCanvas !== 'undefined' ? 
+                    '#666666' : 
+                    tileContext.createPattern(getPattern(), "repeat");
+                    
             tileContext.fillRect(0, 0, panningTile.width, panningTile.height);
         } // if
 
         return panningTile;
     } // getPanningTile
-    
-    function handleImageLoad(loadedImage, fromCache) {
-        self.getParent().trigger("invalidate");
-
-        self.dirty = true;
-        self.wakeParent();
-    } // handleImageLoad
     
     // initialise variables
     var emptyTile = params.emptyTile,
@@ -5415,8 +5572,6 @@ T5.ImageTileGrid = function(params) {
                 
             if (image) {
                 context.drawImage(image, x, y);
-                tile.dirty = false;
-
                 drawn = true;
             }
             else if (state === statePan) {
@@ -5426,18 +5581,25 @@ T5.ImageTileGrid = function(params) {
                 context.drawImage(emptyTile, x, y);
             } // if..else
             
+            tile.dirty = false;
             return drawn;
         },
         
         prepTile: function(tile, state) {
-            if (tile) {
-                tile.dirty = true;
-            } // if
-            
-            if (tile && ((! fastDraw) || (state === stateActive))) {
+            if (tile && (! tile.loading) && ((! fastDraw) || (state === stateActive))) {
                 var image = getImage(tile.url);
                 if (! image) {
-                    loadImage(tile.url, handleImageLoad, tileDrawArgs);
+                    tile.loading = true;
+
+                    loadImage(
+                        tile.url, 
+                        function() {
+                            tile.loaded = true;
+                            tile.dirty = true;
+                            
+                            self.wakeParent();
+                        }, 
+                        tileDrawArgs);
                 } // if
             } // if
         }
