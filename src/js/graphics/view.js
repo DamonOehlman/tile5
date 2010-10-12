@@ -85,6 +85,7 @@ T5.View = function(params) {
         aniProgress = null,
         tweenStart = null,
         startCenter = null,
+        isFlash = typeof FlashCanvas !== 'undefined',
         touchHelper = null,
         
         /* state shortcuts */
@@ -120,7 +121,12 @@ T5.View = function(params) {
     function panEnd(x, y) {
         state = stateActive;
         panimating = false;
-        setTimeout(wake, 50);
+        
+        GT.Loopage.join({
+            execute: wake,
+            after: 50,
+            single: true
+        });
     } // panEnd
     
     /* scaling functions */
@@ -382,13 +388,13 @@ T5.View = function(params) {
         idleTimeout = 0;
     } // idle
     
-    function drawView(context, offset) {
+    function drawView(context, offset, updateRect) {
         var changeCount = 0,
             drawState = panimating ? statePan : (frozen ? T5.viewState('FROZEN') : state),
             startTicks = T5.time(),
             isPinchZoom = (drawState & statePinch) !== 0,
             delayDrawLayers = [];
-        
+            
         var savedDrawn = false,
             ii = 0;
             
@@ -421,6 +427,18 @@ T5.View = function(params) {
                 context.scale(scaleFactor, scaleFactor);
             } // if..else
             
+            // constrain the draw area where appropriate
+            if (! updateRect.invalid) {
+                context.beginPath();
+                // GT.Log.info("applying clip rect:", updateRect);
+                context.rect(
+                    updateRect.origin.x, 
+                    updateRect.origin.y, 
+                    updateRect.dimensions.width,
+                    updateRect.dimensions.height);
+                context.clip();
+            } // if
+            
             for (ii = layers.length; ii--; ) {
                 // draw the layer output to the main canvas
                 // but only if we don't have a scale buffer or the layer is a draw on scale layer
@@ -447,7 +465,8 @@ T5.View = function(params) {
     
     function cycle(tickCount, worker) {
         // check to see if we are panning
-        var changeCount = 0,
+        var changed = false,
+            updateRect = T5.R.empty(),
             interacting = (! panimating) && 
                 ((state === statePinch) || (state === statePan));
                 
@@ -468,17 +487,25 @@ T5.View = function(params) {
                 idleTimeout = 0;
             } // if
         }  // if
+        
+        // if any of the following are true, then we need to draw the whole canvas so just
+        // ignore the rect checking
+        updateRect.invalid = clearBackground || 
+            (state === T5.viewState('PAN')) || (state === T5.viewState('PINCH')) || 
+            T5.isTweening();
 
         // check that all is right with each layer
         for (var ii = layers.length; ii--; ) {
-            var cycleChanges = layers[ii].cycle(tickCount, offset, state);
-            changeCount += cycleChanges ? cycleChanges : 0;
+            layers[ii].cycle(tickCount, offset, state, updateRect);
         } // for
         
-        changeCount += drawView(mainContext, offset);
+        if (updateRect.invalid || (! T5.R.isEmpty(updateRect))) {
+            drawView(mainContext, offset, updateRect);
+            changed = true;
+        } // if
 
         // include wake triggers in the change count
-        if (wakeTriggers + changeCount === 0) {
+        if ((! changed) && (wakeTriggers === 0) && (! isFlash)) {
             worker.trigger('complete');
         } 
         else if ((! idle) && (idleTimeout === 0)) {
@@ -495,7 +522,8 @@ T5.View = function(params) {
         
         // create the cycle worker
         cycleWorker = GT.Loopage.join({
-            execute: cycle
+            execute: cycle,
+            frequency: 5
         });
         
         // bind to the complete method
@@ -612,6 +640,7 @@ T5.View = function(params) {
         
         */
         clearBackground: function() {
+            GT.Log.info("clear background requested");
             clearBackground = true;
             wake();
         },

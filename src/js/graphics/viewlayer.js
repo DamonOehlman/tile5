@@ -69,8 +69,7 @@ T5.ViewLayer = function(params) {
         Called in the View method of the same name, each layer has an opportunity 
         to update itself in the current animation cycle before it is drawn.
         */
-        cycle: function(tickCount, offset, state) {
-            return 0;
+        cycle: function(tickCount, offset, state, updateRect) {
         },
         
         /**
@@ -106,9 +105,9 @@ T5.ViewLayer = function(params) {
         that it needs to wake up and redraw itself.  This method is often called when a 
         ViewLayer knows it needs to redraw but it isn't able to communicate this another way.
         */
-        wakeParent: function() {
+        wakeParent: function(invalidate) {
             if (parent) {
-                parent.trigger("wake");
+                parent.trigger(invalidate ? 'invalidate' : 'wake');
             } // if
         },
         
