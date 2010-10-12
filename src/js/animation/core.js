@@ -121,7 +121,8 @@
         
         // create a tween worker
         tweenWorker = GT.Loopage.join({
-            execute: update
+            execute: update,
+            frequency: 20
         });
         
         tweenWorker.bind('complete', function() {
