@@ -8,11 +8,11 @@ T5.ImageTileGrid = function(params) {
     
     function getEmptyTile(tileSize) {
         if ((! emptyTile) || (tileSize !== emptyTile.width)) {
-            emptyTile = T5.newCanvas(tileSize, tileSize);
+            emptyTile = T5.Images.newCanvas(tileSize, tileSize);
 
             var tileContext = emptyTile.getContext('2d');
 
-            tileContext.fillStyle = "rgba(150, 150, 150, 0.01)";
+            tileContext.fillStyle = "rgba(150, 150, 150, 0.1)";
             tileContext.fillRect(0, 0, emptyTile.width, emptyTile.height);
         } // if
 
@@ -24,7 +24,7 @@ T5.ImageTileGrid = function(params) {
         function getPattern() {
             var patternSize = 32,
                 halfSize = patternSize / 2,
-                patternCanvas = T5.newCanvas(patternSize, patternSize);
+                patternCanvas = T5.Images.newCanvas(patternSize, patternSize);
 
             // get the canvas context
             var context = patternCanvas.getContext("2d");
@@ -42,24 +42,21 @@ T5.ImageTileGrid = function(params) {
         } // getPattern
 
         if ((! panningTile) || (tileSize !== panningTile.width)) {
-            panningTile = T5.newCanvas(tileSize, tileSize);
+            panningTile = T5.Images.newCanvas(tileSize, tileSize);
 
             var tileContext = panningTile.getContext('2d');
 
             // fill the panning tile with the pattern
-            tileContext.fillStyle = tileContext.createPattern(getPattern(), "repeat");
+            tileContext.fillStyle = 
+                typeof FlashCanvas !== 'undefined' ? 
+                    '#666666' : 
+                    tileContext.createPattern(getPattern(), "repeat");
+                    
             tileContext.fillRect(0, 0, panningTile.width, panningTile.height);
         } // if
 
         return panningTile;
     } // getPanningTile
-    
-    function handleImageLoad(loadedImage, fromCache) {
-        self.getParent().trigger("invalidate");
-
-        self.dirty = true;
-        self.wakeParent();
-    } // handleImageLoad
     
     // initialise variables
     var emptyTile = params.emptyTile,
@@ -91,8 +88,6 @@ T5.ImageTileGrid = function(params) {
                 
             if (image) {
                 context.drawImage(image, x, y);
-                tile.dirty = false;
-
                 drawn = true;
             }
             else if (state === statePan) {
@@ -102,18 +97,25 @@ T5.ImageTileGrid = function(params) {
                 context.drawImage(emptyTile, x, y);
             } // if..else
             
+            tile.dirty = false;
             return drawn;
         },
         
         prepTile: function(tile, state) {
-            if (tile) {
-                tile.dirty = true;
-            } // if
-            
-            if (tile && ((! fastDraw) || (state === stateActive))) {
+            if (tile && (! tile.loading) && ((! fastDraw) || (state === stateActive))) {
                 var image = getImage(tile.url);
                 if (! image) {
-                    loadImage(tile.url, handleImageLoad, tileDrawArgs);
+                    tile.loading = true;
+
+                    loadImage(
+                        tile.url, 
+                        function() {
+                            tile.loaded = true;
+                            tile.dirty = true;
+                            
+                            self.wakeParent();
+                        }, 
+                        tileDrawArgs);
                 } // if
             } // if
         }

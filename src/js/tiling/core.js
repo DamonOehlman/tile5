@@ -8,7 +8,7 @@
             y: 0,
             gridX: 0,
             gridY: 0,
-            dirty: false
+            dirty: true
         }, params);
         
         return params;
@@ -19,6 +19,7 @@
         params = T5.ex({
             url: "",
             sessionParamRegex: null,
+            loading: false,
             loaded: false
         }, params);
         

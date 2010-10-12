@@ -27,6 +27,7 @@ T5.TileGrid = function(params) {
         tileDrawQueue = null,
         loadedTileCount = 0,
         lastTilesDrawn = false,
+        lastQueueUpdate = 0,
         lastCheckOffset = new T5.Vector(),
         shiftDelta = new T5.Vector(),
         repaintDistance = T5.getConfig().repaintDistance,
@@ -158,7 +159,6 @@ T5.TileGrid = function(params) {
         GT.Log.trace("tile grid populated", startTicks);
         
         // if we have an onpopulate listener defined, let them know
-        self.dirty = true;
         self.wakeParent();
     } // populate
     
@@ -195,13 +195,19 @@ T5.TileGrid = function(params) {
         populate(lastTileCreator, lastNotifyListener);
     } // shift
     
-    function updateDrawQueue(offset, state) {
-        if (! centerPos) { return; }
-        
+    function updateDrawQueue(offset, state, fullRedraw) {
         var tile, tmpQueue = [],
             tileStart = new T5.Vector(
                             Math.floor((offset.x + tileShift.x) * invTileSize), 
                             Math.floor((offset.y + tileShift.y) * invTileSize));
+
+        if (! centerPos) {
+            var dimensions = self.getParent().getDimensions();
+            
+            tileCols = Math.ceil(dimensions.width * invTileSize) + 1;
+            tileRows = Math.ceil(dimensions.height * invTileSize) + 1;
+            centerPos = new T5.Vector(Math.floor((tileCols-1) / 2), Math.floor((tileRows-1) / 2));
+        } // if
 
         // reset the tile draw queue
         tilesNeeded = false;
@@ -220,6 +226,9 @@ T5.TileGrid = function(params) {
                     // TODO: replace the tile with a temporary draw tile here
                     tile = createTempTile(xx + tileStart.x, yy + tileStart.y);
                 } // if
+                
+                // update the tile dirty state
+                tile.dirty = fullRedraw || tile.dirty;
                 
                 // add the tile and position to the tile draw queue
                 tmpQueue[tmpQueue.length] = {
@@ -243,6 +252,8 @@ T5.TileGrid = function(params) {
             tileDrawQueue[ii] = tmpQueue[ii].tile;
             self.prepTile(tileDrawQueue[ii], state);
         } // for
+        
+        lastQueueUpdate = new Date().getTime();
     } // updateDrawQueue
     
     /* external object definition */
@@ -250,11 +261,12 @@ T5.TileGrid = function(params) {
     // initialise self
     var self = T5.ex(new T5.ViewLayer(params), {
         gridDimensions: new T5.Dimensions(gridHeightWidth, gridHeightWidth),
-        dirty: false,
         
-        cycle: function(tickCount, offset, state) {
+        cycle: function(tickCount, offset, state, updateRect) {
             var needTiles = shiftDelta.x !== 0 || shiftDelta.y !== 0,
-                changeCount = 0;
+                xShift = offset.x,
+                yShift = offset.y,
+                tileSize = T5.tileSize;
 
             if (needTiles) {
                 shift(shiftDelta, params.shiftOrigin);
@@ -262,16 +274,34 @@ T5.TileGrid = function(params) {
                 // reset the delta
                 shiftDelta = new T5.Vector();
                 
-                // things need to happen
-                changeCount++;
+                // we need to do a complete redraw
+                updateRect.invalid = true;;
             } // if
             
             if (state !== T5.viewState('PINCH')) {
-                updateDrawQueue(offset, state);
+                updateDrawQueue(offset, state, updateRect.invalid);
             } // if
             
-            // if the grid is dirty let the calling view know
-            return changeCount + self.dirty ? 1 : 0;
+            if (tileDrawQueue && (! updateRect.invalid)) {
+                var testRects = [updateRect];
+                
+                // iterate through the tiles in the draw queue
+                for (var ii = tileDrawQueue.length; ii--; ) {
+                    var tile = tileDrawQueue[ii];
+
+                    // if the tile is loaded, then draw, otherwise load
+                    if (tile && tile.dirty) {
+                        testRects[testRects.length] = new T5.Rect(
+                            tile.gridX - xShift,
+                            tile.gridY - yShift,
+                            tileSize,
+                            tileSize);
+                    } // if..else
+                } // for
+                
+                // get the union of the test rects
+                T5.R.union.apply(null, testRects);
+            }
         },
         
         deactivate: function() {
@@ -302,12 +332,6 @@ T5.TileGrid = function(params) {
                 tilesDrawn = true,
                 redraw = (state === T5.viewState('PAN')) || (state === T5.viewState('PINCH')) || T5.isTweening();
                 
-            if (! centerPos) {
-                tileCols = Math.ceil(dimensions.width * invTileSize) + 1;
-                tileRows = Math.ceil(dimensions.height * invTileSize) + 1;
-                centerPos = new T5.Vector(Math.floor((tileCols-1) / 2), Math.floor((tileRows-1) / 2));
-            } // if
-            
             // if we don't have a draq queue return
             if (! tileDrawQueue) { return; }
             
@@ -358,7 +382,6 @@ T5.TileGrid = function(params) {
             
             // flag the grid as not dirty
             lastTilesDrawn = tilesDrawn;
-            self.dirty = false;
         },
         
         getTileAtXY: function(x, y) {
