@@ -60,7 +60,7 @@ T5.Geo.UI = (function() {
         } // drawCrosshair
         
         function createCrosshair() { 
-            var newCanvas = T5.newCanvas(params.size * 4, params.size * 4);
+            var newCanvas = T5.Images.newCanvas(params.size * 4, params.size * 4);
 
             // draw the cross hair
             drawCrosshair(
@@ -353,7 +353,7 @@ T5.Geo.UI = (function() {
                 
                 // trigger a recalculation
                 recalc = true;
-                self.wakeParent();
+                self.wakeParent(true);
             });
             
             return self;
@@ -531,8 +531,10 @@ T5.Geo.UI = (function() {
 
             // create the view layer the we will draw the view
             var self = T5.ex(new T5.ViewLayer(params), {
-                cycle: function(tickCount, offset, state) {
-                    return animating ? 1 : 0;
+                cycle: function(tickCount, offset, state, updateRect) {
+                    if (animating) {
+                        updateRect.invalid = true;
+                    } // if
                 },
                 
                 draw: function(context, offset, dimensions, state, view) {
@@ -575,7 +577,8 @@ T5.Geo.UI = (function() {
                 add: function(annotation) {
                     staticAnnotations.push(annotation);
                     updateAnnotationCoordinates(staticAnnotations);
-                    self.wakeParent();
+                    
+                    self.wakeParent(true);
                 },
                 
                 clear: function(includeNonStatic) {
@@ -590,7 +593,7 @@ T5.Geo.UI = (function() {
                     } // if
                     
                     // wake the parent
-                    self.wakeParent();
+                    self.wakeParent(true);
                 }
             });
 
@@ -599,7 +602,7 @@ T5.Geo.UI = (function() {
                 // poi storage, then apply updates
                 if (params.pois && (params.pois.id == args.srcID)) {
                     updateAnnotations(args.pois);
-                    self.wakeParent();
+                    self.wakeParent(true);
                 } // if
             });
             
