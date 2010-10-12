@@ -35,10 +35,15 @@
         return null;
     } // calcChange
     
-    function preventDefaultTouch(evt) {
-        evt.preventDefault();
-        evt.stopPropagation();
-    } // preventDefaultTouch
+    function preventDefault(evt) {
+        if (evt.preventDefault) {
+            evt.preventDefault();
+            evt.stopPropagation();
+        }
+        else if (evt.cancelBubble) {
+            evt.cancelBubble();
+        } // if..else
+    } // preventDefault
     
     function getTouchPoints(touches) {
         var fnresult = new Array(touches.length);
@@ -50,7 +55,9 @@
     } // getTouchPoints
     
     function getMousePos(evt) {
-        return [createVector(evt.pageX, evt.pageY)];
+        return [createVector(
+            evt.pageX ? evt.pageX : evt.screenX, 
+            evt.pageY ? evt.pageY : evt.screenY)];
     } // getMousePos
     
     function debugTouchEvent(evt, title) {
@@ -105,6 +112,7 @@
             ticksLast = 0,
             targetElement = params.element,
             observable = params.observable,
+            aggressiveCapture = typeof FlashCanvas !== 'undefined',
             BENCHMARK_INTERVAL = 300;
             
         function calculateInertia(upXY, currentXY, distance, tickDiff) {
@@ -168,6 +176,7 @@
         } // relativeTouches
         
         function triggerEvent() {
+            // GT.Log.info("triggering event: " + arguments[0]);
             if (observable) {
                 observable.trigger.apply(null, arguments);
             } // if
@@ -186,7 +195,9 @@
         } // triggerPositionEvent
 
         function touchStart(evt) {
-            if (evt.target && (evt.target === targetElement)) {
+            var targ = evt.target ? evt.target : evt.srcElement;
+            
+            if (aggressiveCapture || targ && (targ === targetElement)) {
                 touchesStart = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt);
                 touchDelta = createVector();
                 totalDelta = createVector();
@@ -195,8 +206,8 @@
                 touchStartTick = T5.time();
 
                 // cancel event propogation
-                preventDefaultTouch(evt);
-                evt.target.style.cursor = 'move';
+                preventDefault(evt);
+                targ.style.cursor = 'move';
 
                 // trigger the inertia cancel event
                 triggerEvent("inertiaCancel");
@@ -234,14 +245,16 @@
         } // touchStart
         
         function touchMove(evt) {
-            if (evt.target && (evt.target === targetElement)) {
+            var targ = evt.target ? evt.target : evt.srcElement;
+            
+            if (aggressiveCapture || targ && (targ === targetElement)) {
                 lastXY = (supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt))[0];
                 
                 if (! touchDown) { return; }
 
                 // cancel event propogation
                 if (supportsTouch) {
-                    preventDefaultTouch(evt);
+                    preventDefault(evt);
                 } // if
 
                 // get the current touches
@@ -308,12 +321,14 @@
         } // touchMove
         
         function touchEnd(evt) {
-            if (evt.target && (evt.target === targetElement)) {
+            var targ = evt.target ? evt.target : evt.srcElement;
+            
+            if (aggressiveCapture || targ && (targ === targetElement)) {
                 var touchUpXY = (supportsTouch ? getTouchPoints(evt.changedTouches) : getMousePos(evt))[0];
                 
                 // cancel event propogation
                 if (supportsTouch) {
-                    preventDefaultTouch(evt);
+                    preventDefault(evt);
                 } // if
 
                 // get the end tick
@@ -348,7 +363,7 @@
                     triggerEvent('pinchZoomEnd', relativeTouches(touchesStart), relativeTouches(touchesLast), endTick - touchStartTick);
                 } // if..else
                 
-                evt.target.style.cursor = 'default';
+                targ.style.cursor = 'default';
                 touchDown = false;
             } // if
         } // touchEnd
@@ -365,7 +380,9 @@
         } // getWheelDelta
         
         function wheelie(evt) {
-            if (evt.target && (evt.target === targetElement)) {
+            var targ = evt.target ? evt.target : evt.srcElement;
+            
+            if (aggressiveCapture || targ && (targ === targetElement)) {
                 var delta = getWheelDelta(evt), 
                     zoomAmount = delta.y !== 0 ? Math.abs(delta.y / WHEEL_DELTA_STEP) : 0;
 
@@ -375,7 +392,7 @@
                     triggerEvent("wheelZoom", xy, Math.pow(2, delta.y > 0 ? zoomAmount : -zoomAmount));
                 } // if
                 
-                evt.preventDefault();
+                preventDefault(evt);
             } // if
         } // wheelie
 
