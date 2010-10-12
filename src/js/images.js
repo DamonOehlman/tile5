@@ -1,6 +1,7 @@
 T5.Images = (function() {
     // initialise image loader internal variables
     var images = {},
+        canvasCounter = 0,
         loadWatchers = {},
         imageCounter = 0,
         queuedImages = [],
@@ -10,12 +11,32 @@ T5.Images = (function() {
         imageCacheFullness = 0,
         clearingCache = false;
         
+    function newCanvas(width, height) {
+        var tmpCanvas = document.createElement('canvas');
+
+        // set the size of the canvas if specified
+        tmpCanvas.width = width ? width : 0;
+        tmpCanvas.height = height ? height : 0;
+
+        // initialise the canvas element if using explorercanvas
+        if (typeof FlashCanvas !== 'undefined') {
+            tmpCanvas.id = 'tmpCanvas' + (canvasCounter++);
+            tmpCanvas.style.cssText = 'position: absolute; top: -' + (height-1) + 'px; left: -' + (width-1) + 'px;';
+
+            document.body.appendChild(tmpCanvas);
+
+            FlashCanvas.initElement(tmpCanvas);
+        } // if
+
+        return tmpCanvas;
+    } // newCanvas
+        
     function postProcess(imageData) {
         if (! imageData.image) { return; }
         
         var width = imageData.realSize ? imageData.realSize.width : image.width,
             height = imageData.realSize ? imageData.realSize.height : image.height,
-            canvas = T5.newCanvas(width, height),
+            canvas = newCanvas(width, height),
             context = canvas.getContext('2d'),
             offset = imageData.offset ? imageData.offset : new T5.Vector();
             
@@ -132,10 +153,11 @@ T5.Images = (function() {
         GT.say("imagecache.cleared");
     } // cleanupImageCache
 
-    function checkTimeoutsAndCache() {
-        var currentTickCount = T5.time(),
-            timedOutLoad = false, ii = 0,
+    function checkTimeoutsAndCache(currentTickCount) {
+        var timedOutLoad = false, ii = 0,
             config = T5.getConfig();
+            
+        GT.Log.info("checking cache");
         
         // iterate through the loading images, and check if any of them have been active too long
         while (ii < loadingImages.length) {
@@ -236,6 +258,7 @@ T5.Images = (function() {
         
         get: getImage,
         load: loadImage,
+        newCanvas: newCanvas,
         
         stats: function() {
             return {
@@ -246,7 +269,10 @@ T5.Images = (function() {
         }
     }; // 
     
-    setInterval(checkTimeoutsAndCache, 1000);
+    GT.Loopage.join({
+        execute: checkTimeoutsAndCache,
+        frequency: 20000
+    });
     
     return module;
 })();
