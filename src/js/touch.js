@@ -198,7 +198,16 @@
             var targ = evt.target ? evt.target : evt.srcElement;
             
             if (aggressiveCapture || targ && (targ === targetElement)) {
-                touchesStart = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt);
+                if (supportsTouch) {
+                    touchesStart = getTouchPoints(evt.touches);
+                }
+                else if (evt.button === 0) {
+                    touchesStart = getMousePos(evt);
+                }
+                else {
+                    return;
+                } // if//else
+                
                 touchDelta = createVector();
                 totalDelta = createVector();
                 touchDown = true;
@@ -323,7 +332,7 @@
         function touchEnd(evt) {
             var targ = evt.target ? evt.target : evt.srcElement;
             
-            if (aggressiveCapture || targ && (targ === targetElement)) {
+            if (touchDown && (aggressiveCapture || targ && (targ === targetElement))) {
                 var touchUpXY = (supportsTouch ? getTouchPoints(evt.changedTouches) : getMousePos(evt))[0];
                 
                 // cancel event propogation
