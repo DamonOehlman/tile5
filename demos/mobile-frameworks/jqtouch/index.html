@@ -1,0 +1,133 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <title>TILE5 - jQTouch Demo</title>
+        <style type="text/css" media="screen">@import "../../media/css/jqtouch.css";</style>
+        <style type="text/css" media="screen">@import "themes/apple/theme.css";</style>
+        <style type="text/css" media="screen">@import "../../media/css/jqtouchdemo.css";</style>
+    </head>
+    
+    <body>
+        <div id="jqt">
+            <div id="main">
+                <div class="toolbar">
+                    <h1>TILE5+jQTouch</h1>
+                </div>
+                <ul>
+                    <li><a href="#map">TILE5 Map</a></li>
+                    <li><a href="#about">About</a></li>
+                </ul>
+            </div>
+                
+            <div id="map">
+                <div class="toolbar">
+                    <h1>Map</h1>
+                    <a href="#" class="back">Back</a>
+                </div>
+                <div id = "map-container">
+                    <canvas id="mapCanvas"></canvas>
+                </div>
+            </div>
+            
+            <div id="about">
+                <a href="http://www.tile5.org"><img src="../../media/img/tile5-logo.png"></a>
+                <p>is an opensource HTML5 mapping javascript library that provides developers the ability to integrate  existing mapping platforms to provide a rich HTML5 experience.</p>
+                <p>Tile5 is an initiative of cross-platform mobile development firm,</p><p><a href="http://www.sidelab.com"><img src="../../media/img/sidelab-logo.png"></a></p><p>
+                <br /><br /><br /><a href="#" class="whiteButton goback">Close</a></p>
+            </div>
+        </div>
+        
+    <script src="../../media/js/jquery-1.4.2.min.js" type="text/javascript" charset="utf-8"></script>
+    <script src="../../media/js/jqtouch.js" type="application/x-javascript" charset="utf-8"></script>
+    <script src="../../../dist/tile5.js"></script> 
+    <script src="../../../dist/tile5.osm.js"></script>
+    <script src="../../../dist/tile5.cloudmade.js"></script>
+    <script type="text/javascript" charset="utf-8">
+    var jQT = new $.jQTouch({
+        icon: '../../media/img/tile5-logo-50px.png',
+        addGlossToIcon: false,
+        startupScreen: '../../media/img/tile5-splash.png',
+        statusBar: 'white'
+    });
+
+    function setCanvas() {
+    // Determine the screen size of the device and set the canvas size accordingly allowing for a title bar
+        var screenHeight = $(window).height();
+        var screenWidth = $(window).width();
+        $("#mapCanvas").attr("height", (screenHeight - 45));
+        $("#mapCanvas").attr("width", screenWidth);
+        drawMap();
+    }
+        
+    function drawMap() {
+        // Set the map proivder
+        var mapProvider =  new T5.Geo.Cloudmade.MapProvider({
+            // Insert your own API key here
+            apikey: "7960daaf55f84bfdb166014d0b9f8d41"
+        });
+
+        map = T5.Map({
+            // Point to which canvas element to draw in
+            container: 'mapCanvas',
+            // Select the mapProvider
+            provider: mapProvider,
+        });
+            
+        map.gotoPosition(T5.Geo.P.parse("-27.468 153.028"), 6);
+        pullData();
+    } // drawMap
+                    
+    function pullData() {
+    // Populate the map with some sample pins
+        var SEARCH_URL = 'http://ws.geonames.org/searchJSON?country=AU&maxRows=100';
+        var cities = [];
+
+        function dropPin() {
+            for (var ii = 0; ii < cities.length; ii++){
+                // Set the position each time for the next element in the array
+                var position = new T5.Geo.Position(cities[ii].lat, cities[ii].lng);
+                // Add in the pin to the map
+                map.annotations.add(T5.Geo.UI.ImageAnnotation({
+                    // set the image you wish to use for the touch Pinå
+                    imageUrl: "../../media/img/pins/pin-158935-1-24.png",
+                    // set the image as the pin enters
+                    animatingImageUrl: "../../media/img/pins/pin-158935-1-noshadow-24.png",
+                    imageAnchor: new T5.Vector(8, 24),
+                    pos: position,
+                    tweenIn: T5.easing('bounce.out'),
+                    // Randomise the animation speed
+                    animationSpeed: 500 + (5000 * Math.random())
+                }));
+            }
+        }
+        
+     
+        function loadCities(geoInfo) {
+        // Pull the required information from the geonames JS
+            for (var ii = 0; ii < geoInfo.length; ii++){
+                if (geoInfo[ii].fclName == "city, village,..."){
+                    cities[cities.length] = {
+                        name : geoInfo[ii].toponymName,
+                        lat : geoInfo[ii].lat,
+                        lng : geoInfo[ii].lng,
+                        pop : geoInfo[ii].population
+                    };
+                }
+            }
+            dropPin();
+        }
+
+        function loadData(data) {
+            // Parse the information to loadCities in a usable format
+            loadCities(data.geonames);
+        }
+
+        // Initiate a request using GRUNTS jsonp call and send the returned information to loadData();
+        GT.jsonp(SEARCH_URL, loadData);
+    } // pullData
+    
+    $(document).ready(setCanvas);
+    </script>
+    </body>
+</html>
