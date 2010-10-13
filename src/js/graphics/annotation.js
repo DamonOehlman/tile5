@@ -5,7 +5,7 @@
 T5.Annotation = function(params) {
     params = T5.ex({
         xy: null,
-        tweenIn: T5.easing('sine.out'),
+        tweenIn: null,
         animationSpeed: null
     }, params);
     
