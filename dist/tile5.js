@@ -1579,11 +1579,16 @@ jobs draw loops, animation calculations, partial calculations for GT.Job
 instances, etc.
 */
 GT.Loopage = (function() {
+    // initialise some defaults (to once per minute)
+    var MIN_SLEEP = 60 * 1000;
+    
     // initialise variables
     var workerCount = 0,
         workers = [],
         removalQueue = [],
-        loopTimeout = 0;
+        loopTimeout = 0,
+        sleepFrequency = MIN_SLEEP,
+        recalcSleepFrequency = true;
     
     function LoopWorker(params) {
         var self = GT.extend({
@@ -1616,9 +1621,7 @@ GT.Loopage = (function() {
         
         // add the worker to the array
         workers.unshift(worker);
-        
-        // if the loop is not running, then set it running
-        loopTimeout = loopTimeout ? loopTimeout : setTimeout(runLoop, 0);
+        reschedule();
         
         // return the newly created worker
         return worker;
@@ -1626,42 +1629,68 @@ GT.Loopage = (function() {
     
     function leaveLoop(workerId) {
         removalQueue.push(workerId);
+        reschedule();
     } // leaveLoop
+    
+    function reschedule() {
+        // if the loop is not running, then set it running
+        if (loopTimeout) {
+            clearTimeout(loopTimeout);
+        } // if
+        
+        // reschedule the loop
+        loopTimeout = setTimeout(runLoop, 0);
+        
+        // return the newly created worker
+        recalcSleepFrequency = true;
+    } // reschedule
     
     function runLoop() {
         // get the current tick count
         var ii,
-            tickCount = new Date().getTime();
-        
+            tickCount = new Date().getTime(),
+            workerCount = workers.length;
+    
         // iterate through removal queue
         while (removalQueue.length > 0) {
             var workerId = removalQueue.shift();
-            
+        
             // look for the worker and remove it
-            for (ii = workers.length; ii--; ) {
+            for (ii = workerCount; ii--; ) {
                 if (workers[ii].id === workerId) {
                     workers.splice(ii, 1);
                     break;
                 } // if
             } // for
-        } // while
         
+            recalcSleepFrequency = true;
+            workerCount = workers.length;
+        } // while
+    
+        // if the sleep frequency needs to be calculated then do that now
+        if (recalcSleepFrequency) {
+            sleepFrequency = MIN_SLEEP;
+            for (ii = workerCount; ii--; ) {
+                sleepFrequency = workers[ii].frequency < sleepFrequency ? workers[ii].frequency : sleepFrequency;
+            } // for
+        } // if
+    
         // iterate through the workers and run
-        for (ii = workers.length; ii--; ) {
+        for (ii = workerCount; ii--; ) {
             var workerDiff = tickCount - workers[ii].lastTick;
-            
+        
             if (workerDiff >= workers[ii].frequency) {
                 workers[ii].execute(tickCount, workers[ii]);
                 workers[ii].lastTick = tickCount;
-                
+            
                 if (workers[ii].single) {
                     workers[ii].trigger('complete');
                 } // if
             } // if
         } // for
-        
+    
         // update the loop timeout
-        loopTimeout = workers.length ? setTimeout(runLoop, 0) : 0;
+        loopTimeout = workerCount ? setTimeout(runLoop, sleepFrequency) : 0;
     } // runLoop
     
     var module = {
@@ -2958,7 +2987,7 @@ T5.Images = (function() {
             theta = currentXY.x > upXY.x ? theta : Math.PI - theta;
             distanceVector = createVector(Math.cos(theta) * -extraDistance, Math.sin(theta) * extraDistance);
                 
-            triggerEvent("inertiaPan", distanceVector.x, distanceVector.y);
+            triggerEvent("pan", distanceVector.x, distanceVector.y, true);
         } // calculateInertia
         
         function checkInertia(upXY, currentTick) {
@@ -2970,6 +2999,10 @@ T5.Images = (function() {
                 GT.Loopage.join({
                     execute: function(tickCount, worker) {
                         tickDiff = tickCount - currentTick;
+                        
+                        // calculate the distance from the upXY (which doesn't change) and the
+                        // lastXY (which changes as the mouse continues to move) if we move over
+                        // a certain distance then trigger the intertia
                         distance = vectorDistance([upXY, lastXY]);
 
                         // calculate the inertia
@@ -2980,7 +3013,8 @@ T5.Images = (function() {
                         else if (tickDiff > INERTIA_TIMEOUT_MOUSE) {
                             worker.trigger('complete');
                         } // if..else
-                    }
+                    },
+                    frequency: 10
                 });
             }
             else {
@@ -4004,20 +4038,19 @@ T5.View = function(params) {
         
     /* panning functions */
     
-    function pan(x, y, tweenFn, tweenDuration) {
-        // update the offset by the specified amount
-        panimating = typeof(tweenFn) !== "undefined";
-
+    function pan(x, y, inertia) {
         state = statePan;
         wake();
-        self.updateOffset(offset.x + x, offset.y + y, tweenFn, tweenDuration);
+        
+        if (inertia && params.inertia) {
+            // update the offset by the specified amount
+            panimating = true;
+            updateOffset(offset.x + x, offset.y + y, params.panAnimationEasing, params.panAnimationDuration);
+        }
+        else {
+            updateOffset(offset.x + x, offset.y + y);
+        } // if..else
     } // pan
-    
-    function panInertia(x, y) {
-        if (params.inertia) {
-            pan(x, y, params.panAnimationEasing, params.panAnimationDuration);
-        } // if
-    } // panIntertia
     
     function panEnd(x, y) {
         state = stateActive;
@@ -4117,6 +4150,45 @@ T5.View = function(params) {
     function handleRotationUpdate(name, value) {
         rotation = value;
     } // handlePrepCanvasCallback
+    
+    function setOffset(x, y) {
+        offset.x = x; 
+        offset.y = y;
+    } // setOffset
+        
+    function updateOffset(x, y, tweenFn, tweenDuration, callback) {
+        
+        function updateOffsetAnimationEnd() {
+            panEnd(0, 0);
+            if (callback) {
+                callback();
+            } // if
+        } // updateOffsetAnimationEnd
+        
+        if (tweenFn) {
+            var endPosition = new T5.Vector(x, y);
+
+            var tweens = T5.tweenVector(
+                            offset, 
+                            endPosition.x, 
+                            endPosition.y, 
+                            tweenFn, 
+                            updateOffsetAnimationEnd,
+                            tweenDuration);
+
+            // set the tweens to cancel on interact
+            for (var ii = tweens.length; ii--; ) {
+                tweens[ii].cancelOnInteract = true;
+                tweens[ii].requestUpdates(wake);
+            } // for
+
+            // set the panimating flag to true
+            panimating = true;
+        }
+        else {
+            setOffset(x, y);
+        } // if..else
+    } // updateOffset
     
     /* private functions */
     
@@ -4462,7 +4534,7 @@ T5.View = function(params) {
         Move the center of the view to the specified offset
         */
         centerOn: function(offset) {
-            self.setOffset(offset.x - (canvas.width / 2), offset.y - (canvas.height / 2));
+            setOffset(offset.x - (canvas.width / 2), offset.y - (canvas.height / 2));
         },
 
         /**
@@ -4618,48 +4690,13 @@ T5.View = function(params) {
         - `setOffset(x: Integer, y: Integer)`
         
         */
-        setOffset: function(x, y) {
-            offset.x = x; 
-            offset.y = y;
-        },
+        setOffset: setOffset,
         
         /**
         - `updateOffset(x, y, tweenFn, tweenDuration, callback)`
         
         */
-        updateOffset: function(x, y, tweenFn, tweenDuration, callback) {
-            
-            function updateOffsetAnimationEnd() {
-                panEnd(0, 0);
-                if (callback) {
-                    callback();
-                } // if
-            } // updateOffsetAnimationEnd
-            
-            if (tweenFn) {
-                var endPosition = new T5.Vector(x, y);
-
-                var tweens = T5.tweenVector(
-                                offset, 
-                                endPosition.x, 
-                                endPosition.y, 
-                                tweenFn, 
-                                updateOffsetAnimationEnd,
-                                tweenDuration);
-
-                // set the tweens to cancel on interact
-                for (var ii = tweens.length; ii--; ) {
-                    tweens[ii].cancelOnInteract = true;
-                    tweens[ii].requestUpdates(wake);
-                } // for
-
-                // set the panimating flag to true
-                panimating = true;
-            }
-            else {
-                self.setOffset(x, y);
-            } // if..else
-        },
+        updateOffset: updateOffset,
         
         /**
         - `zoom(targetXY, newScaleFactor, rescaleAfter)`
@@ -4714,7 +4751,6 @@ T5.View = function(params) {
         self.bind("panEnd", panEnd);
 
         // handle intertia events
-        self.bind("inertiaPan", panInertia);
         self.bind("inertiaCancel", function() {
             panimating = false;
             wake();

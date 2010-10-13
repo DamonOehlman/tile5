@@ -103,20 +103,19 @@ T5.View = function(params) {
         
     /* panning functions */
     
-    function pan(x, y, tweenFn, tweenDuration) {
-        // update the offset by the specified amount
-        panimating = typeof(tweenFn) !== "undefined";
-
+    function pan(x, y, inertia) {
         state = statePan;
         wake();
-        self.updateOffset(offset.x + x, offset.y + y, tweenFn, tweenDuration);
+        
+        if (inertia && params.inertia) {
+            // update the offset by the specified amount
+            panimating = true;
+            updateOffset(offset.x + x, offset.y + y, params.panAnimationEasing, params.panAnimationDuration);
+        }
+        else {
+            updateOffset(offset.x + x, offset.y + y);
+        } // if..else
     } // pan
-    
-    function panInertia(x, y) {
-        if (params.inertia) {
-            pan(x, y, params.panAnimationEasing, params.panAnimationDuration);
-        } // if
-    } // panIntertia
     
     function panEnd(x, y) {
         state = stateActive;
@@ -216,6 +215,45 @@ T5.View = function(params) {
     function handleRotationUpdate(name, value) {
         rotation = value;
     } // handlePrepCanvasCallback
+    
+    function setOffset(x, y) {
+        offset.x = x; 
+        offset.y = y;
+    } // setOffset
+        
+    function updateOffset(x, y, tweenFn, tweenDuration, callback) {
+        
+        function updateOffsetAnimationEnd() {
+            panEnd(0, 0);
+            if (callback) {
+                callback();
+            } // if
+        } // updateOffsetAnimationEnd
+        
+        if (tweenFn) {
+            var endPosition = new T5.Vector(x, y);
+
+            var tweens = T5.tweenVector(
+                            offset, 
+                            endPosition.x, 
+                            endPosition.y, 
+                            tweenFn, 
+                            updateOffsetAnimationEnd,
+                            tweenDuration);
+
+            // set the tweens to cancel on interact
+            for (var ii = tweens.length; ii--; ) {
+                tweens[ii].cancelOnInteract = true;
+                tweens[ii].requestUpdates(wake);
+            } // for
+
+            // set the panimating flag to true
+            panimating = true;
+        }
+        else {
+            setOffset(x, y);
+        } // if..else
+    } // updateOffset
     
     /* private functions */
     
@@ -561,7 +599,7 @@ T5.View = function(params) {
         Move the center of the view to the specified offset
         */
         centerOn: function(offset) {
-            self.setOffset(offset.x - (canvas.width / 2), offset.y - (canvas.height / 2));
+            setOffset(offset.x - (canvas.width / 2), offset.y - (canvas.height / 2));
         },
 
         /**
@@ -717,48 +755,13 @@ T5.View = function(params) {
         - `setOffset(x: Integer, y: Integer)`
         
         */
-        setOffset: function(x, y) {
-            offset.x = x; 
-            offset.y = y;
-        },
+        setOffset: setOffset,
         
         /**
         - `updateOffset(x, y, tweenFn, tweenDuration, callback)`
         
         */
-        updateOffset: function(x, y, tweenFn, tweenDuration, callback) {
-            
-            function updateOffsetAnimationEnd() {
-                panEnd(0, 0);
-                if (callback) {
-                    callback();
-                } // if
-            } // updateOffsetAnimationEnd
-            
-            if (tweenFn) {
-                var endPosition = new T5.Vector(x, y);
-
-                var tweens = T5.tweenVector(
-                                offset, 
-                                endPosition.x, 
-                                endPosition.y, 
-                                tweenFn, 
-                                updateOffsetAnimationEnd,
-                                tweenDuration);
-
-                // set the tweens to cancel on interact
-                for (var ii = tweens.length; ii--; ) {
-                    tweens[ii].cancelOnInteract = true;
-                    tweens[ii].requestUpdates(wake);
-                } // for
-
-                // set the panimating flag to true
-                panimating = true;
-            }
-            else {
-                self.setOffset(x, y);
-            } // if..else
-        },
+        updateOffset: updateOffset,
         
         /**
         - `zoom(targetXY, newScaleFactor, rescaleAfter)`
@@ -813,7 +816,6 @@ T5.View = function(params) {
         self.bind("panEnd", panEnd);
 
         // handle intertia events
-        self.bind("inertiaPan", panInertia);
         self.bind("inertiaCancel", function() {
             panimating = false;
             wake();

@@ -124,7 +124,7 @@
             theta = currentXY.x > upXY.x ? theta : Math.PI - theta;
             distanceVector = createVector(Math.cos(theta) * -extraDistance, Math.sin(theta) * extraDistance);
                 
-            triggerEvent("inertiaPan", distanceVector.x, distanceVector.y);
+            triggerEvent("pan", distanceVector.x, distanceVector.y, true);
         } // calculateInertia
         
         function checkInertia(upXY, currentTick) {
@@ -136,6 +136,10 @@
                 GT.Loopage.join({
                     execute: function(tickCount, worker) {
                         tickDiff = tickCount - currentTick;
+                        
+                        // calculate the distance from the upXY (which doesn't change) and the
+                        // lastXY (which changes as the mouse continues to move) if we move over
+                        // a certain distance then trigger the intertia
                         distance = vectorDistance([upXY, lastXY]);
 
                         // calculate the inertia
@@ -146,7 +150,8 @@
                         else if (tickDiff > INERTIA_TIMEOUT_MOUSE) {
                             worker.trigger('complete');
                         } // if..else
-                    }
+                    },
+                    frequency: 10
                 });
             }
             else {
