@@ -272,8 +272,24 @@ h3 {
     margin: 0 0 8px 0;
 }
 
+#poibox {
+	width : 150px;
+	position : absolute;
+	left : 300px;
+	top: 200px;
+	-webkit-border-image : url("../../media/img/tile5-bubble.png") 15 15 25 30;
+	border-width : 15px 15px 25px 30px;
+	
+}
+
+#sidebar {
+	background: white;
+	width: 18%;
+	float: right;
+	position : absolute;
+}
+
 #main {
-    clear: left;
     padding: 5px;
     margin: 5px auto 10px auto;
     -webkit-border-image: url(../../media/img/lightgray-borderimage.png) 10 stretch stretch;
