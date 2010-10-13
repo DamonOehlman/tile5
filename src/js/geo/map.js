@@ -80,14 +80,9 @@ T5.Map = function(params) {
                 if (! locationAnnotation) {
                     locationAnnotation = 
                         new T5.Geo.UI.LocationAnnotation({
-                            pos: currentPos,
+                            xy: new T5.Geo.GeoVector(currentPos),
                             accuracy: accuracy
                         });
-
-                    self.bind('tileDrawComplete', function() {
-                        locationAnnotation.drawAccuracyIndicator =
-                            true;
-                    });
                 } // if
 
                 // if we want to display the location annotation, t
@@ -106,12 +101,12 @@ T5.Map = function(params) {
             // otherwise, animate to the new position
             else {
                 // update location annotation details
-                locationAnnotation.pos = currentPos;
+                locationAnnotation.xy = new T5.Geo.GeoVector(currentPos);
                 locationAnnotation.accuracy = accuracy;
 
                 // tell the location annotation to update 
                 // it's xy coordinate
-                locationAnnotation.calcXY(self.getTileLayer());
+                locationAnnotation.update(self.getTileLayer());
 
                 // pan to the position
                 self.panToPosition(

@@ -400,17 +400,17 @@ T5.Geo.UI = (function() {
                     iconImage.height / 2);
             };
             
-            var self = new module.Annotation(T5.ex({
-                calcXY: function(grid) {
-                    indicatorRadius = 
-                    Math.floor(grid.getPixelDistance(self.accuracy) * 0.5);
+            var self = T5.ex(new T5.Annotation(params), {
+                cycle: function(tickCount, offset, state, updateRect) {
+                    // TODO: make this work properly (after annotation refactor 0.9.4)
+                    updateRect.invalid = true;
                 },
                 
-                draw: function(context, offset, xy, state, overlay, view) {
+                drawMarker: function(context, offset, xy, state, overlay, view) {
                     var centerX = xy.x - iconOffset.x,
                         centerY = xy.y - iconOffset.y;
 
-                    if (indicatorRadius && self.drawAccuracyIndicator) {
+                    if (indicatorRadius) {
                         context.fillStyle = 'rgba(30, 30, 30, 0.2)';
                         
                         context.beginPath();
@@ -434,8 +434,13 @@ T5.Geo.UI = (function() {
                     } // if
 
                     view.trigger('invalidate');
+                },
+                
+                update: function(grid) {
+                    indicatorRadius = Math.floor(grid.getPixelDistance(self.accuracy) * 0.5);
+                    self.xy.calcXY(grid);
                 }
-            }, params));
+            });
             
             // initialise the indicator radius
             self.accuracy = params.accuracy;
