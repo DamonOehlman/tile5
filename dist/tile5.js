@@ -3320,16 +3320,19 @@ T5.Images = (function() {
             touchHelpers[element.id] = touchHelper;
         } // if
         
-        // if we already have an association with listeners, then remove first
-        if (params.listenerId) {
-            touchHelper.decoupleListeners(params.listenerId);
-        } // if
-        
-        // flag the parameters with touch listener ids so they can be removed later
-        params.listenerId = (++listenerCount);
+        // if we have params, then perform extra initialization
+        if (params) {
+            // if we already have an association with listeners, then remove first
+            if (params.listenerId) {
+                touchHelper.decoupleListeners(params.listenerId);
+            } // if
 
-        // add the listeners to the helper
-        touchHelper.addListeners(params);
+            // flag the parameters with touch listener ids so they can be removed later
+            params.listenerId = (++listenerCount);
+
+            // add the listeners to the helper
+            touchHelper.addListeners(params);
+        } // if
         
         return touchHelper;
     }; // T5.captureTouch
