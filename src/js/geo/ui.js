@@ -253,6 +253,9 @@ T5.Geo.UI = (function() {
                         } // if
                     } // if
                 } // for
+                
+                // woohoo, we got to the end, trigger a redraw
+                self.wakeParent();
             } // calcCoordinates
             
             // create the view layer the we will draw the view
@@ -281,9 +284,8 @@ T5.Geo.UI = (function() {
                     });
                 },
 
-                draw: function(context, offset, dimensions, state, view) {
-                    var changes = 0,
-                        geometry = params.data ? params.data.geometry : null;
+                cycle: function(tickCount, offset, state, updateRect) {
+                    var geometry = params.data ? params.data.geometry : null;
                     
                     if (recalc) {
                         recalc = false;
@@ -293,14 +295,18 @@ T5.Geo.UI = (function() {
                     } // if
                     
                     if (geometry && (geometryCalcIndex < geometry.length)) {
-                        calcCoordinates(view.getTileLayer());
-                        changes++;
+                        calcCoordinates(self.getParent().getTileLayer());
+                        updateRect.invalid = true;
                     } // if
-                    
-                    var ii,
+                },
+
+                draw: function(context, offset, dimensions, state, view) {
+                    var geometry = params.data ? params.data.geometry : null,
+                        ii,
+                        calcComplete = geometryCalcIndex + 1 >= geometry.length,
                         coordLength = coordinates.length;
                         
-                    if ((coordLength > 0) && ((! changes) || params.partialDraw)) {
+                    if ((coordLength > 0) && (calcComplete || params.partialDraw)) {
                         // update the context stroke style and line width
                         context.strokeStyle = params.strokeStyle;
                         context.lineWidth = params.lineWidth;
@@ -335,8 +341,6 @@ T5.Geo.UI = (function() {
                             context.fill();
                         } // for
                     } // if
-                    
-                    return changes;
                 }
             });
             
