@@ -49,15 +49,19 @@ T5 = (function() {
 
     */
     var vectorTools = (function() {
-        function edges(vectors) {
-            if ((! vectors) || (vectors.length <= 1)) {
+        function edges(vectors, count) {
+            if (! count) {
+                count = vectors.length;
+            } // if
+            
+            if (count <= 1) {
                 throw new Error("Cannot determine edge " +
                     "distances for a vector array of only one vector");
             } // if
             
             var fnresult = {
-                edges: new Array(vectors.length - 1),
-                accrued: new Array(vectors.length - 1),
+                edges: new Array(count - 1),
+                accrued: new Array(count - 1),
                 total: 0
             };
             
@@ -65,7 +69,7 @@ T5 = (function() {
             
             // iterate through the vectors and calculate the edges
             // OPTMIZE: look for speed up opportunities
-            for (var ii = 0; ii < vectors.length - 1; ii++) {
+            for (var ii = 0; ii < count - 1; ii++) {
                 var diff = diffFn(vectors[ii], vectors[ii + 1]);
                 
                 fnresult.edges[ii] = 
@@ -151,8 +155,8 @@ T5 = (function() {
             Return the total euclidean distance between all the points of the
             vectors supplied to the function
             */
-            distance: function(vectors) {
-                return edges(vectors).total;
+            distance: function(vectors, count) {
+                return edges(vectors, count).total;
             },
             
             /**

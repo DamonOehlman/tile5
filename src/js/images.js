@@ -7,8 +7,8 @@ T5.Images = (function() {
         queuedImages = [],
         loadingImages = [],
         cachedImages = [],
-        interceptors = [],
         imageCacheFullness = 0,
+        loadWorker = null,
         clearingCache = false;
         
     function newCanvas(width, height) {
@@ -94,38 +94,41 @@ T5.Images = (function() {
     } // handleImageLoad
     
     function loadNextImage() {
+        if (loadWorker) { 
+            return;
+        }
+        
+        // get the max image loads
         var maxImageLoads = T5.getConfig().maxImageLoads;
+        
+        // initialise the load worker
+        loadWorker = GT.Loopage.join({
+            execute: function(tickCount, worker) {
+                if ((! maxImageLoads) || (loadingImages.length < maxImageLoads)) {
+                    var imageData = queuedImages.shift();
+                    
+                    if (! imageData) {
+                        worker.trigger('complete');
+                    }
+                    else {
+                        // add the image data to the loading images
+                        loadingImages[loadingImages.length] = imageData;
 
-        // if we have queued images and a loading slot available, then start a load operation
-        while ((queuedImages.length > 0) && ((! maxImageLoads) || (loadingImages.length < maxImageLoads))) {
-            var imageData = queuedImages.shift();
-            
-            if (imageData.imageLoader) {
-                // add the image data to the loading images
-                loadingImages[loadingImages.length] = imageData;
-                
-                // run the image loader
-                imageData.imageLoader(imageData, handleImageLoad);
-            } // if
-        } // if
+                        // reset the queued flag and attempt to load the image
+                        imageData.image.onload = handleImageLoad;
+                        imageData.image.src = T5.Resources.getPath(imageData.url);
+                        imageData.requested = T5.time();
+                    } // if..else
+                } // if
+            },
+            frequency: 10
+        });
+        
+        // handle the load worker finishing
+        loadWorker.bind('complete', function() {
+            loadWorker = null;
+        });
     } // loadNextImage
-    
-    function getImageLoader(url) {
-        var loaderFn = null;
-        
-        // iterate through the interceptors and see if any of them want it
-        for (var ii = interceptors.length; ii-- && (! loaderFn); ) {
-            loaderFn = interceptors[ii](url);
-        } // for
-        
-        // if one of the interceptors provided an image loader, then use that otherwise provide the default
-        return loaderFn ? loaderFn : function(imageData, onLoadCallback) {
-            // reset the queued flag and attempt to load the image
-            imageData.image.onload = onLoadCallback;
-            imageData.image.src = T5.Resources.getPath(imageData.url);
-            imageData.requested = T5.time();
-        };
-    } // getImageLoader
     
     function cleanupImageCache() {
         clearingCache = true;
@@ -212,7 +215,6 @@ T5.Images = (function() {
                 url: url,
                 image: new Image(),
                 loaded: false,
-                imageLoader: getImageLoader(url),
                 created: T5.time(),
                 requested: null,
                 hitCount: 0,
@@ -247,10 +249,6 @@ T5.Images = (function() {
     var module = {
         avgImageSize: 25,
         loadTimeout: 10,
-        
-        addInterceptor: function(callback) {
-            interceptors.push(callback);
-        },
         
         cancelLoad: function() {
             loadingImages = [];

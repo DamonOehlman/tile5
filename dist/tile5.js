@@ -1831,15 +1831,19 @@ T5 = (function() {
 
     */
     var vectorTools = (function() {
-        function edges(vectors) {
-            if ((! vectors) || (vectors.length <= 1)) {
+        function edges(vectors, count) {
+            if (! count) {
+                count = vectors.length;
+            } // if
+            
+            if (count <= 1) {
                 throw new Error("Cannot determine edge " +
                     "distances for a vector array of only one vector");
             } // if
             
             var fnresult = {
-                edges: new Array(vectors.length - 1),
-                accrued: new Array(vectors.length - 1),
+                edges: new Array(count - 1),
+                accrued: new Array(count - 1),
                 total: 0
             };
             
@@ -1847,7 +1851,7 @@ T5 = (function() {
             
             // iterate through the vectors and calculate the edges
             // OPTMIZE: look for speed up opportunities
-            for (var ii = 0; ii < vectors.length - 1; ii++) {
+            for (var ii = 0; ii < count - 1; ii++) {
                 var diff = diffFn(vectors[ii], vectors[ii + 1]);
                 
                 fnresult.edges[ii] = 
@@ -1933,8 +1937,8 @@ T5 = (function() {
             Return the total euclidean distance between all the points of the
             vectors supplied to the function
             */
-            distance: function(vectors) {
-                return edges(vectors).total;
+            distance: function(vectors, count) {
+                return edges(vectors, count).total;
             },
             
             /**
@@ -2592,8 +2596,8 @@ T5.Images = (function() {
         queuedImages = [],
         loadingImages = [],
         cachedImages = [],
-        interceptors = [],
         imageCacheFullness = 0,
+        loadWorker = null,
         clearingCache = false;
         
     function newCanvas(width, height) {
@@ -2679,38 +2683,41 @@ T5.Images = (function() {
     } // handleImageLoad
     
     function loadNextImage() {
+        if (loadWorker) { 
+            return;
+        }
+        
+        // get the max image loads
         var maxImageLoads = T5.getConfig().maxImageLoads;
+        
+        // initialise the load worker
+        loadWorker = GT.Loopage.join({
+            execute: function(tickCount, worker) {
+                if ((! maxImageLoads) || (loadingImages.length < maxImageLoads)) {
+                    var imageData = queuedImages.shift();
+                    
+                    if (! imageData) {
+                        worker.trigger('complete');
+                    }
+                    else {
+                        // add the image data to the loading images
+                        loadingImages[loadingImages.length] = imageData;
 
-        // if we have queued images and a loading slot available, then start a load operation
-        while ((queuedImages.length > 0) && ((! maxImageLoads) || (loadingImages.length < maxImageLoads))) {
-            var imageData = queuedImages.shift();
-            
-            if (imageData.imageLoader) {
-                // add the image data to the loading images
-                loadingImages[loadingImages.length] = imageData;
-                
-                // run the image loader
-                imageData.imageLoader(imageData, handleImageLoad);
-            } // if
-        } // if
+                        // reset the queued flag and attempt to load the image
+                        imageData.image.onload = handleImageLoad;
+                        imageData.image.src = T5.Resources.getPath(imageData.url);
+                        imageData.requested = T5.time();
+                    } // if..else
+                } // if
+            },
+            frequency: 10
+        });
+        
+        // handle the load worker finishing
+        loadWorker.bind('complete', function() {
+            loadWorker = null;
+        });
     } // loadNextImage
-    
-    function getImageLoader(url) {
-        var loaderFn = null;
-        
-        // iterate through the interceptors and see if any of them want it
-        for (var ii = interceptors.length; ii-- && (! loaderFn); ) {
-            loaderFn = interceptors[ii](url);
-        } // for
-        
-        // if one of the interceptors provided an image loader, then use that otherwise provide the default
-        return loaderFn ? loaderFn : function(imageData, onLoadCallback) {
-            // reset the queued flag and attempt to load the image
-            imageData.image.onload = onLoadCallback;
-            imageData.image.src = T5.Resources.getPath(imageData.url);
-            imageData.requested = T5.time();
-        };
-    } // getImageLoader
     
     function cleanupImageCache() {
         clearingCache = true;
@@ -2797,7 +2804,6 @@ T5.Images = (function() {
                 url: url,
                 image: new Image(),
                 loaded: false,
-                imageLoader: getImageLoader(url),
                 created: T5.time(),
                 requested: null,
                 hitCount: 0,
@@ -2833,10 +2839,6 @@ T5.Images = (function() {
         avgImageSize: 25,
         loadTimeout: 10,
         
-        addInterceptor: function(callback) {
-            interceptors.push(callback);
-        },
-        
         cancelLoad: function() {
             loadingImages = [];
         },
@@ -2863,7 +2865,8 @@ T5.Images = (function() {
 })();
 (function() {
     // initialise constants
-    var WHEEL_DELTA_STEP = 120,
+    var MAX_TOUCHES = 10,
+        WHEEL_DELTA_STEP = 120,
         DEFAULT_INERTIA_MAX = 500,
         INERTIA_TIMEOUT_MOUSE = 100,
         INERTIA_TIMEOUT_TOUCH = 250,
@@ -2883,20 +2886,45 @@ T5.Images = (function() {
         listenerCount = 0,
         createVector = T5.V.create,
         vectorDistance = T5.V.distance,
+        supportsTouch = undefined,
         vectorDiff = T5.V.diff;
-    
-    function calcDistance(touches) {
-        return vectorDistance(touches);
+        
+    function calcDistance(touchData) {
+        return vectorDistance(touchData.touches, touchData.count);
     } // calcDistance
     
     function calcChange(first, second) {
-        var srcVector = (first && (first.length > 0)) ? first[0] : null;
-        if (srcVector && second && (second.length > 0)) {
-            return vectorDiff(srcVector, second[0]);
+        var srcVector = (first && (first.count > 0)) ? first.touches[0] : null;
+        if (srcVector && second && (second.count > 0)) {
+            return vectorDiff(srcVector, second.touches[0]);
         } // if
         
         return null;
     } // calcChange
+    
+    function copyTouchData(dst, src) {
+        dst.count = src.count;
+        
+        for (var ii = MAX_TOUCHES; ii--; ) {
+            dst.touches[ii].x = src.touches[ii].x;
+            dst.touches[ii].y = src.touches[ii].y;
+        } // for
+    } // copyTouchData
+    
+    function initTouchData() {
+        // initialise some empty touch data
+        var touchData = {
+            count: 0,
+            touches: new Array(MAX_TOUCHES)
+        }; 
+        
+        // create ten touch points
+        for (var ii = MAX_TOUCHES; ii--; ) {
+            touchData.touches[ii] = new T5.Vector();
+        } // for
+        
+        return touchData;
+    } // initTouchData
     
     function preventDefault(evt) {
         if (evt.preventDefault) {
@@ -2908,20 +2936,26 @@ T5.Images = (function() {
         } // if..else
     } // preventDefault
     
-    function getTouchPoints(touches) {
-        var fnresult = new Array(touches.length);
-        for (var ii = touches.length; ii--; ) {
-            fnresult[ii] = createVector(touches[ii].pageX, touches[ii].pageY);
-        } // for
-        
-        return fnresult;
-    } // getTouchPoints
-    
-    function getMousePos(evt) {
-        return [createVector(
-            evt.pageX ? evt.pageX : evt.screenX, 
-            evt.pageY ? evt.pageY : evt.screenY)];
-    } // getMousePos
+    function fillTouchData(touchData, evt, evtProp) {
+        if (supportsTouch) {
+            var touches = evt[evtProp ? evtProp : 'touches'],
+                touchCount = touches.length;
+            
+            touchData.count = touchCount;
+            for (var ii = touchCount; ii--; ) {
+                touchData.touches[ii].x = touches[ii].pageX;
+                touchData.touches[ii].y = touches[ii].pageY;
+            } // for
+        }
+        else if (evt.button === 0) {
+            touchData.count = 1;
+            touchData.touches[0].x = evt.pageX ? evt.pageX : evt.screenX;
+            touchData.touches[0].y = evt.pageY ? evt.pageY : evt.screenY;
+        }
+        else {
+            touchData.count = 0;
+        } // if//else
+    } // fillTouchPoints
     
     function debugTouchEvent(evt, title) {
         GT.Log.info("TOUCH EVENT '" + title + "':", evt);
@@ -2959,9 +2993,10 @@ T5.Images = (function() {
         var doubleTap = false,
             tapTimer = 0,
             config = T5.getConfig(),
-            supportsTouch = T5.getConfig().supportsTouch,
-            touchesStart = null,
-            touchesLast = null,
+            touchesStart = initTouchData(),
+            touchesCurrent = initTouchData(),
+            touchesLast = initTouchData(),
+            touchesEnd = initTouchData(),
             touchDelta = null,
             totalDelta = null,
             panDelta = createVector(),
@@ -2969,7 +3004,7 @@ T5.Images = (function() {
             touchDown = false,
             touchStartTick = 0,
             listeners = [],
-            lastXY = null,
+            lastXY = new T5.Vector(),
             inertiaSettings = null,
             ticksCurrent = 0,
             ticksLast = 0,
@@ -2994,7 +3029,8 @@ T5.Images = (function() {
             var tickDiff, distance;
             
             if (! supportsTouch) {
-                lastXY = upXY;
+                lastXY.x = upXY.x;
+                lastXY.y = upXY.y;
                 
                 GT.Loopage.join({
                     execute: function(tickCount, worker) {
@@ -3021,10 +3057,10 @@ T5.Images = (function() {
                 tickDiff = currentTick - touchStartTick;
                 
                 if ((tickDiff < INERTIA_TIMEOUT_TOUCH)) {
-                    distance = vectorDistance([touchesStart[0], upXY]);
+                    distance = vectorDistance([touchesStart.touches[0], upXY]);
                     
                     if (distance > params.inertiaTrigger) {
-                        calculateInertia(touchesStart[0], upXY, distance, tickDiff);
+                        calculateInertia(touchesStart.touches[0], upXY, distance, tickDiff);
                     } // if
                 } // if
             } // if..else                
@@ -3066,15 +3102,10 @@ T5.Images = (function() {
             var targ = evt.target ? evt.target : evt.srcElement;
             
             if (aggressiveCapture || targ && (targ === targetElement)) {
-                if (supportsTouch) {
-                    touchesStart = getTouchPoints(evt.touches);
-                }
-                else if (evt.button === 0) {
-                    touchesStart = getMousePos(evt);
-                }
-                else {
+                fillTouchData(touchesStart, evt);
+                if (touchesStart.count === 0) {
                     return;
-                } // if//else
+                } // if
                 
                 touchDelta = createVector();
                 totalDelta = createVector();
@@ -3093,7 +3124,7 @@ T5.Images = (function() {
                 ticksCurrent = touchStartTick;
         
                 // fire the touch start event handler
-                var touchVector = touchesStart.length > 0 ? touchesStart[0] : null;
+                var touchVector = touchesStart.count > 0 ? touchesStart.touches[0] : null;
         
                 // if we don't have a touch vector, then log a warning, and exit
                 if (! touchVector) {
@@ -3107,7 +3138,7 @@ T5.Images = (function() {
                 // check to see whether this is a double tap (if we are watching for them)
                 if (ticksCurrent - ticksLast < THRESHOLD_DOUBLETAP) {
                     // calculate the difference between this and the last touch point
-                    var touchChange = touchesLast ? T5.V.diff(touchesStart[0], touchesLast[0]) : null;
+                    var touchChange = T5.V.diff(touchesStart.touches[0], touchesLast.touches[0]);
                     if (touchChange && (Math.abs(touchChange.x) < params.maxDistDoubleTap) && (Math.abs(touchChange.y) < params.maxDistDoubleTap)) {
                         doubleTap = true;
                     } // if
@@ -3117,15 +3148,23 @@ T5.Images = (function() {
                 touchMode = TOUCH_MODE_TAP;
         
                 // update the last touches
-                touchesLast = [].concat(touchesStart);
+                copyTouchData(touchesLast, touchesStart);
             } // if
         } // touchStart
         
         function touchMove(evt) {
-            var targ = evt.target ? evt.target : evt.srcElement;
+            var targ = evt.target ? evt.target : evt.srcElement,
+                zoomDistance = 0;
             
             if (aggressiveCapture || targ && (targ === targetElement)) {
-                lastXY = (supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt))[0];
+                // fill the touch data
+                fillTouchData(touchesCurrent, evt);
+                
+                // update the last xy
+                if (touchesCurrent.count > 0) {
+                    lastXY.x = touchesCurrent.touches[0].x;
+                    lastXY.y = touchesCurrent.touches[0].y;
+                } // if
                 
                 if (! touchDown) { return; }
 
@@ -3134,15 +3173,11 @@ T5.Images = (function() {
                     preventDefault(evt);
                 } // if
 
-                // get the current touches
-                var touchesCurrent = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt),
-                    zoomDistance = 0;
-
                 // check to see if we are pinching or zooming
-                if (touchesCurrent.length > 1) {
+                if (touchesCurrent.count > 1) {
                     // if the start touches does have two touch points, then reset to the current
-                    if (touchesStart.length === 1) {
-                        touchesStart = [].concat(touchesCurrent);
+                    if (touchesStart.count === 1) {
+                        copyTouchData(touchesStart, touchesCurrent);
                     } // if
 
                     zoomDistance = calcDistance(touchesStart) - calcDistance(touchesCurrent);
@@ -3186,14 +3221,14 @@ T5.Images = (function() {
                         touchMode = TOUCH_MODE_MOVE;
                     }
                     else {
-                        triggerEvent('pinchZoom', relativeTouches(touchesStart), relativeTouches(touchesCurrent));
+                        triggerEvent('pinchZoom', relativeTouches(touchesStart.touches), relativeTouches(touchesCurrent.touches));
 
                         // set the touch mode to pinch zoom
                         touchMode = TOUCH_MODE_PINCH;
                     } // if..else
                 } // if..else
 
-                touchesLast = [].concat(touchesCurrent);                        
+                copyTouchData(touchesLast, touchesCurrent);
             } // if
         } // touchMove
         
@@ -3201,7 +3236,9 @@ T5.Images = (function() {
             var targ = evt.target ? evt.target : evt.srcElement;
             
             if (touchDown && (aggressiveCapture || targ && (targ === targetElement))) {
-                var touchUpXY = (supportsTouch ? getTouchPoints(evt.changedTouches) : getMousePos(evt))[0];
+                fillTouchData(touchesEnd, evt, 'changedTouches');
+                
+                var touchUpXY = touchesEnd.touches[0];
                 
                 // cancel event propogation
                 if (supportsTouch) {
@@ -3223,7 +3260,7 @@ T5.Images = (function() {
                             tapTimer = 0;
 
                             // fire the appropriate tap event
-                            triggerPositionEvent(doubleTap ? 'doubleTap' : 'tap', touchesStart[0]);
+                            triggerPositionEvent(doubleTap ? 'doubleTap' : 'tap', touchesStart.touches[0]);
                         }, THRESHOLD_DOUBLETAP + 50);
                     }
                 }
@@ -3237,7 +3274,7 @@ T5.Images = (function() {
                 }
                 // if pinchzooming, then fire the pinch zoom end
                 else if (touchMode == TOUCH_MODE_PINCH) {
-                    triggerEvent('pinchZoomEnd', relativeTouches(touchesStart), relativeTouches(touchesLast), endTick - touchStartTick);
+                    triggerEvent('pinchZoomEnd', relativeTouches(touchesStart.touches), relativeTouches(touchesLast.touches), endTick - touchStartTick);
                 } // if..else
                 
                 targ.style.cursor = 'default';
@@ -3317,6 +3354,10 @@ T5.Images = (function() {
                 inertiaSettings = null;
             }
         };
+        
+        if (typeof supportsTouch === 'undefined') {
+            supportsTouch = T5.getConfig().supportsTouch;
+        } // if
         
         // wire up the events
         config.bindEvent(supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
@@ -3996,12 +4037,14 @@ T5.View = function(params) {
     var layers = [],
         canvas = document.getElementById(params.container),
         mainContext = null,
-        offset = new T5.Vector(),
+        offsetX = 0,
+        offsetY = 0,
+        cycleOffset = new T5.Vector(),
         clearBackground = false,
         cycleWorker = null,
         frozen = false,
         deviceScaling = 1,
-        dimensions = null,
+        dimensions = new T5.Dimensions(),
         wakeTriggers = 0,
         endCenter = null,
         idle = false,
@@ -4009,7 +4052,7 @@ T5.View = function(params) {
         paintTimeout = 0,
         idleTimeout = 0,
         rescaleTimeout = 0,
-        zoomCenter = null,
+        zoomCenter = new T5.Vector(),
         rotation = 0,
         tickCount = 0,
         scaling = false,
@@ -4045,10 +4088,10 @@ T5.View = function(params) {
         if (inertia && params.inertia) {
             // update the offset by the specified amount
             panimating = true;
-            updateOffset(offset.x + x, offset.y + y, params.panAnimationEasing, params.panAnimationDuration);
+            updateOffset(offsetX + x, offsetY + y, params.panAnimationEasing, params.panAnimationDuration);
         }
         else {
-            updateOffset(offset.x + x, offset.y + y);
+            updateOffset(offsetX + x, offsetY + y);
         } // if..else
     } // pan
     
@@ -4151,42 +4194,48 @@ T5.View = function(params) {
         rotation = value;
     } // handlePrepCanvasCallback
     
-    function setOffset(x, y) {
-        offset.x = x; 
-        offset.y = y;
-    } // setOffset
-        
     function updateOffset(x, y, tweenFn, tweenDuration, callback) {
         
+        // initialise variables
+        var tweensComplete = 0;
+        
         function updateOffsetAnimationEnd() {
-            panEnd(0, 0);
-            if (callback) {
-                callback();
+            tweensComplete += 1;
+            
+            if (tweensComplete >= 2) {
+                panEnd(0, 0);
+                if (callback) {
+                    callback();
+                } // if
             } // if
         } // updateOffsetAnimationEnd
         
         if (tweenFn) {
-            var endPosition = new T5.Vector(x, y);
-
-            var tweens = T5.tweenVector(
-                            offset, 
-                            endPosition.x, 
-                            endPosition.y, 
-                            tweenFn, 
-                            updateOffsetAnimationEnd,
-                            tweenDuration);
-
-            // set the tweens to cancel on interact
-            for (var ii = tweens.length; ii--; ) {
-                tweens[ii].cancelOnInteract = true;
-                tweens[ii].requestUpdates(wake);
-            } // for
-
+            var tweenX = T5.tweenValue(offsetX, x, tweenFn, 
+                    updateOffsetAnimationEnd, tweenDuration),
+                    
+                tweenY = T5.tweenValue(offsetY, y, tweenFn, 
+                    updateOffsetAnimationEnd, tweenDuration);
+                    
+            // attach update listeners
+            tweenX.cancelOnInteract = true;
+            tweenX.requestUpdates(function(updatedValue) {
+                offsetX = updatedValue;
+                wake();
+            });
+            
+            tweenY.cancelOnInteract = true;
+            tweenY.requestUpdates(function(updatedValue) {
+                offsetY = updatedValue;
+                wake();
+            });
+            
             // set the panimating flag to true
             panimating = true;
         }
         else {
-            setOffset(x, y);
+            offsetX = x;
+            offsetY = y;
         } // if..else
     } // updateOffset
     
@@ -4217,13 +4266,13 @@ T5.View = function(params) {
                 observable: self
             });
             
+            // get the dimensions
+            dimensions = new T5.Dimensions(canvas.width, canvas.height);
+            
             // enable inertia if configured
             if (params.inertia) {
                 touchHelper.inertiaEnable(params.panAnimationDuration, dimensions);
             } // if
-            
-            // get the dimensions
-            dimensions = self.getDimensions();
             
             // iterate through the layers, and change the context
             for (var ii = layers.length; ii--; ) {
@@ -4343,14 +4392,12 @@ T5.View = function(params) {
             centerOffset = T5.V.diff(startCenter, endCenter);
 
         if (startRect) {
-            zoomCenter = new T5.Vector(
-                            endCenter.x + centerOffset.x, 
-                            endCenter.y + centerOffset.y);
+            zoomCenter.x = endCenter.x + centerOffset.x;
+            zoomCenter.y = endCenter.y + centerOffset.y;
         } 
         else {
-            zoomCenter = new T5.Vector(
-                            endCenter.x - centerOffset.x * shiftFactor, 
-                            endCenter.y - centerOffset.y * shiftFactor);
+            zoomCenter.x = endCenter.x - centerOffset.x * shiftFactor;
+            zoomCenter.y = endCenter.y - centerOffset.y * shiftFactor;
         } // if..else
     } // calcZoomCenter
     
@@ -4442,12 +4489,13 @@ T5.View = function(params) {
             updateRect = T5.R.empty(),
             interacting = (! panimating) && 
                 ((state === statePinch) || (state === statePan));
-                
-        // conver the offset x and y to integer values
+
+        // convert the offset x and y to integer values
         // while canvas implementations work fine with real numbers, the actual drawing of images
         // will not look crisp when a real number is used rather than an integer (or so I've found)
-        offset.x = Math.floor(offset.x);
-        offset.y = Math.floor(offset.y);
+        cycleOffset.x = Math.floor(offsetX);
+        cycleOffset.y = Math.floor(offsetY);
+            
         
         if (interacting) {
             T5.cancelAnimation(function(tweenInstance) {
@@ -4469,11 +4517,11 @@ T5.View = function(params) {
 
         // check that all is right with each layer
         for (var ii = layers.length; ii--; ) {
-            layers[ii].cycle(tickCount, offset, state, updateRect);
+            layers[ii].cycle(tickCount, cycleOffset, state, updateRect);
         } // for
         
         if (updateRect.invalid || (! T5.R.isEmpty(updateRect))) {
-            drawView(mainContext, offset, updateRect);
+            drawView(mainContext, cycleOffset, updateRect);
             changed = true;
         } // if
 
@@ -4534,7 +4582,8 @@ T5.View = function(params) {
         Move the center of the view to the specified offset
         */
         centerOn: function(offset) {
-            setOffset(offset.x - (canvas.width / 2), offset.y - (canvas.height / 2));
+            offsetX = offset.x - (canvas.width / 2);
+            offsetY = offset.y - (canvas.height / 2);
         },
 
         /**
@@ -4543,9 +4592,7 @@ T5.View = function(params) {
         Return the Dimensions of the View
         */
         getDimensions: function() {
-            if (canvas) {
-                return new T5.Dimensions(canvas.width, canvas.height);
-            } // if
+            return dimensions;
         },
         
         /**
@@ -4683,14 +4730,9 @@ T5.View = function(params) {
         Return a Vector containing the current view offset
         */
         getOffset: function() {
-            return T5.V.copy(offset);
+            // return the last calculated cycle offset
+            return cycleOffset;
         },
-        
-        /**
-        - `setOffset(x: Integer, y: Integer)`
-        
-        */
-        setOffset: setOffset,
         
         /**
         - `updateOffset(x, y, tweenFn, tweenDuration, callback)`
@@ -4707,8 +4749,8 @@ T5.View = function(params) {
             scaleFactor = newScaleFactor;
             scaling = scaleFactor !== 1;
 
-            startCenter = T5.D.getCenter(self.getDimensions());
-            endCenter = scaleFactor > 1 ? T5.V.copy(targetXY) : T5.D.getCenter(self.getDimensions());
+            startCenter = T5.D.getCenter(dimensions);
+            endCenter = scaleFactor > 1 ? T5.V.copy(targetXY) : T5.D.getCenter(dimensions);
             startRect = null;
             
             clearTimeout(rescaleTimeout);

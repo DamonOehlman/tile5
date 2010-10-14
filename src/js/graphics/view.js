@@ -61,12 +61,14 @@ T5.View = function(params) {
     var layers = [],
         canvas = document.getElementById(params.container),
         mainContext = null,
-        offset = new T5.Vector(),
+        offsetX = 0,
+        offsetY = 0,
+        cycleOffset = new T5.Vector(),
         clearBackground = false,
         cycleWorker = null,
         frozen = false,
         deviceScaling = 1,
-        dimensions = null,
+        dimensions = new T5.Dimensions(),
         wakeTriggers = 0,
         endCenter = null,
         idle = false,
@@ -74,7 +76,7 @@ T5.View = function(params) {
         paintTimeout = 0,
         idleTimeout = 0,
         rescaleTimeout = 0,
-        zoomCenter = null,
+        zoomCenter = new T5.Vector(),
         rotation = 0,
         tickCount = 0,
         scaling = false,
@@ -110,10 +112,10 @@ T5.View = function(params) {
         if (inertia && params.inertia) {
             // update the offset by the specified amount
             panimating = true;
-            updateOffset(offset.x + x, offset.y + y, params.panAnimationEasing, params.panAnimationDuration);
+            updateOffset(offsetX + x, offsetY + y, params.panAnimationEasing, params.panAnimationDuration);
         }
         else {
-            updateOffset(offset.x + x, offset.y + y);
+            updateOffset(offsetX + x, offsetY + y);
         } // if..else
     } // pan
     
@@ -216,42 +218,48 @@ T5.View = function(params) {
         rotation = value;
     } // handlePrepCanvasCallback
     
-    function setOffset(x, y) {
-        offset.x = x; 
-        offset.y = y;
-    } // setOffset
-        
     function updateOffset(x, y, tweenFn, tweenDuration, callback) {
         
+        // initialise variables
+        var tweensComplete = 0;
+        
         function updateOffsetAnimationEnd() {
-            panEnd(0, 0);
-            if (callback) {
-                callback();
+            tweensComplete += 1;
+            
+            if (tweensComplete >= 2) {
+                panEnd(0, 0);
+                if (callback) {
+                    callback();
+                } // if
             } // if
         } // updateOffsetAnimationEnd
         
         if (tweenFn) {
-            var endPosition = new T5.Vector(x, y);
-
-            var tweens = T5.tweenVector(
-                            offset, 
-                            endPosition.x, 
-                            endPosition.y, 
-                            tweenFn, 
-                            updateOffsetAnimationEnd,
-                            tweenDuration);
-
-            // set the tweens to cancel on interact
-            for (var ii = tweens.length; ii--; ) {
-                tweens[ii].cancelOnInteract = true;
-                tweens[ii].requestUpdates(wake);
-            } // for
-
+            var tweenX = T5.tweenValue(offsetX, x, tweenFn, 
+                    updateOffsetAnimationEnd, tweenDuration),
+                    
+                tweenY = T5.tweenValue(offsetY, y, tweenFn, 
+                    updateOffsetAnimationEnd, tweenDuration);
+                    
+            // attach update listeners
+            tweenX.cancelOnInteract = true;
+            tweenX.requestUpdates(function(updatedValue) {
+                offsetX = updatedValue;
+                wake();
+            });
+            
+            tweenY.cancelOnInteract = true;
+            tweenY.requestUpdates(function(updatedValue) {
+                offsetY = updatedValue;
+                wake();
+            });
+            
             // set the panimating flag to true
             panimating = true;
         }
         else {
-            setOffset(x, y);
+            offsetX = x;
+            offsetY = y;
         } // if..else
     } // updateOffset
     
@@ -282,13 +290,13 @@ T5.View = function(params) {
                 observable: self
             });
             
+            // get the dimensions
+            dimensions = new T5.Dimensions(canvas.width, canvas.height);
+            
             // enable inertia if configured
             if (params.inertia) {
                 touchHelper.inertiaEnable(params.panAnimationDuration, dimensions);
             } // if
-            
-            // get the dimensions
-            dimensions = self.getDimensions();
             
             // iterate through the layers, and change the context
             for (var ii = layers.length; ii--; ) {
@@ -408,14 +416,12 @@ T5.View = function(params) {
             centerOffset = T5.V.diff(startCenter, endCenter);
 
         if (startRect) {
-            zoomCenter = new T5.Vector(
-                            endCenter.x + centerOffset.x, 
-                            endCenter.y + centerOffset.y);
+            zoomCenter.x = endCenter.x + centerOffset.x;
+            zoomCenter.y = endCenter.y + centerOffset.y;
         } 
         else {
-            zoomCenter = new T5.Vector(
-                            endCenter.x - centerOffset.x * shiftFactor, 
-                            endCenter.y - centerOffset.y * shiftFactor);
+            zoomCenter.x = endCenter.x - centerOffset.x * shiftFactor;
+            zoomCenter.y = endCenter.y - centerOffset.y * shiftFactor;
         } // if..else
     } // calcZoomCenter
     
@@ -507,12 +513,13 @@ T5.View = function(params) {
             updateRect = T5.R.empty(),
             interacting = (! panimating) && 
                 ((state === statePinch) || (state === statePan));
-                
-        // conver the offset x and y to integer values
+
+        // convert the offset x and y to integer values
         // while canvas implementations work fine with real numbers, the actual drawing of images
         // will not look crisp when a real number is used rather than an integer (or so I've found)
-        offset.x = Math.floor(offset.x);
-        offset.y = Math.floor(offset.y);
+        cycleOffset.x = Math.floor(offsetX);
+        cycleOffset.y = Math.floor(offsetY);
+            
         
         if (interacting) {
             T5.cancelAnimation(function(tweenInstance) {
@@ -534,11 +541,11 @@ T5.View = function(params) {
 
         // check that all is right with each layer
         for (var ii = layers.length; ii--; ) {
-            layers[ii].cycle(tickCount, offset, state, updateRect);
+            layers[ii].cycle(tickCount, cycleOffset, state, updateRect);
         } // for
         
         if (updateRect.invalid || (! T5.R.isEmpty(updateRect))) {
-            drawView(mainContext, offset, updateRect);
+            drawView(mainContext, cycleOffset, updateRect);
             changed = true;
         } // if
 
@@ -599,7 +606,8 @@ T5.View = function(params) {
         Move the center of the view to the specified offset
         */
         centerOn: function(offset) {
-            setOffset(offset.x - (canvas.width / 2), offset.y - (canvas.height / 2));
+            offsetX = offset.x - (canvas.width / 2);
+            offsetY = offset.y - (canvas.height / 2);
         },
 
         /**
@@ -608,9 +616,7 @@ T5.View = function(params) {
         Return the Dimensions of the View
         */
         getDimensions: function() {
-            if (canvas) {
-                return new T5.Dimensions(canvas.width, canvas.height);
-            } // if
+            return dimensions;
         },
         
         /**
@@ -748,14 +754,9 @@ T5.View = function(params) {
         Return a Vector containing the current view offset
         */
         getOffset: function() {
-            return T5.V.copy(offset);
+            // return the last calculated cycle offset
+            return cycleOffset;
         },
-        
-        /**
-        - `setOffset(x: Integer, y: Integer)`
-        
-        */
-        setOffset: setOffset,
         
         /**
         - `updateOffset(x, y, tweenFn, tweenDuration, callback)`
@@ -772,8 +773,8 @@ T5.View = function(params) {
             scaleFactor = newScaleFactor;
             scaling = scaleFactor !== 1;
 
-            startCenter = T5.D.getCenter(self.getDimensions());
-            endCenter = scaleFactor > 1 ? T5.V.copy(targetXY) : T5.D.getCenter(self.getDimensions());
+            startCenter = T5.D.getCenter(dimensions);
+            endCenter = scaleFactor > 1 ? T5.V.copy(targetXY) : T5.D.getCenter(dimensions);
             startRect = null;
             
             clearTimeout(rescaleTimeout);

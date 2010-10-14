@@ -1,6 +1,7 @@
 (function() {
     // initialise constants
-    var WHEEL_DELTA_STEP = 120,
+    var MAX_TOUCHES = 10,
+        WHEEL_DELTA_STEP = 120,
         DEFAULT_INERTIA_MAX = 500,
         INERTIA_TIMEOUT_MOUSE = 100,
         INERTIA_TIMEOUT_TOUCH = 250,
@@ -20,20 +21,45 @@
         listenerCount = 0,
         createVector = T5.V.create,
         vectorDistance = T5.V.distance,
+        supportsTouch = undefined,
         vectorDiff = T5.V.diff;
-    
-    function calcDistance(touches) {
-        return vectorDistance(touches);
+        
+    function calcDistance(touchData) {
+        return vectorDistance(touchData.touches, touchData.count);
     } // calcDistance
     
     function calcChange(first, second) {
-        var srcVector = (first && (first.length > 0)) ? first[0] : null;
-        if (srcVector && second && (second.length > 0)) {
-            return vectorDiff(srcVector, second[0]);
+        var srcVector = (first && (first.count > 0)) ? first.touches[0] : null;
+        if (srcVector && second && (second.count > 0)) {
+            return vectorDiff(srcVector, second.touches[0]);
         } // if
         
         return null;
     } // calcChange
+    
+    function copyTouchData(dst, src) {
+        dst.count = src.count;
+        
+        for (var ii = MAX_TOUCHES; ii--; ) {
+            dst.touches[ii].x = src.touches[ii].x;
+            dst.touches[ii].y = src.touches[ii].y;
+        } // for
+    } // copyTouchData
+    
+    function initTouchData() {
+        // initialise some empty touch data
+        var touchData = {
+            count: 0,
+            touches: new Array(MAX_TOUCHES)
+        }; 
+        
+        // create ten touch points
+        for (var ii = MAX_TOUCHES; ii--; ) {
+            touchData.touches[ii] = new T5.Vector();
+        } // for
+        
+        return touchData;
+    } // initTouchData
     
     function preventDefault(evt) {
         if (evt.preventDefault) {
@@ -45,20 +71,26 @@
         } // if..else
     } // preventDefault
     
-    function getTouchPoints(touches) {
-        var fnresult = new Array(touches.length);
-        for (var ii = touches.length; ii--; ) {
-            fnresult[ii] = createVector(touches[ii].pageX, touches[ii].pageY);
-        } // for
-        
-        return fnresult;
-    } // getTouchPoints
-    
-    function getMousePos(evt) {
-        return [createVector(
-            evt.pageX ? evt.pageX : evt.screenX, 
-            evt.pageY ? evt.pageY : evt.screenY)];
-    } // getMousePos
+    function fillTouchData(touchData, evt, evtProp) {
+        if (supportsTouch) {
+            var touches = evt[evtProp ? evtProp : 'touches'],
+                touchCount = touches.length;
+            
+            touchData.count = touchCount;
+            for (var ii = touchCount; ii--; ) {
+                touchData.touches[ii].x = touches[ii].pageX;
+                touchData.touches[ii].y = touches[ii].pageY;
+            } // for
+        }
+        else if (evt.button === 0) {
+            touchData.count = 1;
+            touchData.touches[0].x = evt.pageX ? evt.pageX : evt.screenX;
+            touchData.touches[0].y = evt.pageY ? evt.pageY : evt.screenY;
+        }
+        else {
+            touchData.count = 0;
+        } // if//else
+    } // fillTouchPoints
     
     function debugTouchEvent(evt, title) {
         GT.Log.info("TOUCH EVENT '" + title + "':", evt);
@@ -96,9 +128,10 @@
         var doubleTap = false,
             tapTimer = 0,
             config = T5.getConfig(),
-            supportsTouch = T5.getConfig().supportsTouch,
-            touchesStart = null,
-            touchesLast = null,
+            touchesStart = initTouchData(),
+            touchesCurrent = initTouchData(),
+            touchesLast = initTouchData(),
+            touchesEnd = initTouchData(),
             touchDelta = null,
             totalDelta = null,
             panDelta = createVector(),
@@ -106,7 +139,7 @@
             touchDown = false,
             touchStartTick = 0,
             listeners = [],
-            lastXY = null,
+            lastXY = new T5.Vector(),
             inertiaSettings = null,
             ticksCurrent = 0,
             ticksLast = 0,
@@ -131,7 +164,8 @@
             var tickDiff, distance;
             
             if (! supportsTouch) {
-                lastXY = upXY;
+                lastXY.x = upXY.x;
+                lastXY.y = upXY.y;
                 
                 GT.Loopage.join({
                     execute: function(tickCount, worker) {
@@ -158,10 +192,10 @@
                 tickDiff = currentTick - touchStartTick;
                 
                 if ((tickDiff < INERTIA_TIMEOUT_TOUCH)) {
-                    distance = vectorDistance([touchesStart[0], upXY]);
+                    distance = vectorDistance([touchesStart.touches[0], upXY]);
                     
                     if (distance > params.inertiaTrigger) {
-                        calculateInertia(touchesStart[0], upXY, distance, tickDiff);
+                        calculateInertia(touchesStart.touches[0], upXY, distance, tickDiff);
                     } // if
                 } // if
             } // if..else                
@@ -203,15 +237,10 @@
             var targ = evt.target ? evt.target : evt.srcElement;
             
             if (aggressiveCapture || targ && (targ === targetElement)) {
-                if (supportsTouch) {
-                    touchesStart = getTouchPoints(evt.touches);
-                }
-                else if (evt.button === 0) {
-                    touchesStart = getMousePos(evt);
-                }
-                else {
+                fillTouchData(touchesStart, evt);
+                if (touchesStart.count === 0) {
                     return;
-                } // if//else
+                } // if
                 
                 touchDelta = createVector();
                 totalDelta = createVector();
@@ -230,7 +259,7 @@
                 ticksCurrent = touchStartTick;
         
                 // fire the touch start event handler
-                var touchVector = touchesStart.length > 0 ? touchesStart[0] : null;
+                var touchVector = touchesStart.count > 0 ? touchesStart.touches[0] : null;
         
                 // if we don't have a touch vector, then log a warning, and exit
                 if (! touchVector) {
@@ -244,7 +273,7 @@
                 // check to see whether this is a double tap (if we are watching for them)
                 if (ticksCurrent - ticksLast < THRESHOLD_DOUBLETAP) {
                     // calculate the difference between this and the last touch point
-                    var touchChange = touchesLast ? T5.V.diff(touchesStart[0], touchesLast[0]) : null;
+                    var touchChange = T5.V.diff(touchesStart.touches[0], touchesLast.touches[0]);
                     if (touchChange && (Math.abs(touchChange.x) < params.maxDistDoubleTap) && (Math.abs(touchChange.y) < params.maxDistDoubleTap)) {
                         doubleTap = true;
                     } // if
@@ -254,15 +283,23 @@
                 touchMode = TOUCH_MODE_TAP;
         
                 // update the last touches
-                touchesLast = [].concat(touchesStart);
+                copyTouchData(touchesLast, touchesStart);
             } // if
         } // touchStart
         
         function touchMove(evt) {
-            var targ = evt.target ? evt.target : evt.srcElement;
+            var targ = evt.target ? evt.target : evt.srcElement,
+                zoomDistance = 0;
             
             if (aggressiveCapture || targ && (targ === targetElement)) {
-                lastXY = (supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt))[0];
+                // fill the touch data
+                fillTouchData(touchesCurrent, evt);
+                
+                // update the last xy
+                if (touchesCurrent.count > 0) {
+                    lastXY.x = touchesCurrent.touches[0].x;
+                    lastXY.y = touchesCurrent.touches[0].y;
+                } // if
                 
                 if (! touchDown) { return; }
 
@@ -271,15 +308,11 @@
                     preventDefault(evt);
                 } // if
 
-                // get the current touches
-                var touchesCurrent = supportsTouch ? getTouchPoints(evt.touches) : getMousePos(evt),
-                    zoomDistance = 0;
-
                 // check to see if we are pinching or zooming
-                if (touchesCurrent.length > 1) {
+                if (touchesCurrent.count > 1) {
                     // if the start touches does have two touch points, then reset to the current
-                    if (touchesStart.length === 1) {
-                        touchesStart = [].concat(touchesCurrent);
+                    if (touchesStart.count === 1) {
+                        copyTouchData(touchesStart, touchesCurrent);
                     } // if
 
                     zoomDistance = calcDistance(touchesStart) - calcDistance(touchesCurrent);
@@ -323,14 +356,14 @@
                         touchMode = TOUCH_MODE_MOVE;
                     }
                     else {
-                        triggerEvent('pinchZoom', relativeTouches(touchesStart), relativeTouches(touchesCurrent));
+                        triggerEvent('pinchZoom', relativeTouches(touchesStart.touches), relativeTouches(touchesCurrent.touches));
 
                         // set the touch mode to pinch zoom
                         touchMode = TOUCH_MODE_PINCH;
                     } // if..else
                 } // if..else
 
-                touchesLast = [].concat(touchesCurrent);                        
+                copyTouchData(touchesLast, touchesCurrent);
             } // if
         } // touchMove
         
@@ -338,7 +371,9 @@
             var targ = evt.target ? evt.target : evt.srcElement;
             
             if (touchDown && (aggressiveCapture || targ && (targ === targetElement))) {
-                var touchUpXY = (supportsTouch ? getTouchPoints(evt.changedTouches) : getMousePos(evt))[0];
+                fillTouchData(touchesEnd, evt, 'changedTouches');
+                
+                var touchUpXY = touchesEnd.touches[0];
                 
                 // cancel event propogation
                 if (supportsTouch) {
@@ -360,7 +395,7 @@
                             tapTimer = 0;
 
                             // fire the appropriate tap event
-                            triggerPositionEvent(doubleTap ? 'doubleTap' : 'tap', touchesStart[0]);
+                            triggerPositionEvent(doubleTap ? 'doubleTap' : 'tap', touchesStart.touches[0]);
                         }, THRESHOLD_DOUBLETAP + 50);
                     }
                 }
@@ -374,7 +409,7 @@
                 }
                 // if pinchzooming, then fire the pinch zoom end
                 else if (touchMode == TOUCH_MODE_PINCH) {
-                    triggerEvent('pinchZoomEnd', relativeTouches(touchesStart), relativeTouches(touchesLast), endTick - touchStartTick);
+                    triggerEvent('pinchZoomEnd', relativeTouches(touchesStart.touches), relativeTouches(touchesLast.touches), endTick - touchStartTick);
                 } // if..else
                 
                 targ.style.cursor = 'default';
@@ -454,6 +489,10 @@
                 inertiaSettings = null;
             }
         };
+        
+        if (typeof supportsTouch === 'undefined') {
+            supportsTouch = T5.getConfig().supportsTouch;
+        } // if
         
         // wire up the events
         config.bindEvent(supportsTouch ? 'touchstart' : 'mousedown', touchStart, false);
