@@ -111,7 +111,7 @@ T5.Geo.UI = (function() {
             var radsPerPixel = params.radsPerPixel,
                 centerMercatorPix = T5.Geo.P.toMercatorPixels(params.centerPos);
                 
-            GT.Log.info("tile grid created, rads per pixel = " + radsPerPixel);
+            // GT.Log.info("tile grid created, rads per pixel = " + radsPerPixel);
             
             // calculate the bottom left mercator pix
             // the position of the bottom left mercator pixel is 
@@ -255,7 +255,9 @@ T5.Geo.UI = (function() {
                 } // for
                 
                 // woohoo, we got to the end, trigger a redraw
-                self.wakeParent();
+                setTimeout(function() {
+                    self.wakeParent(true);
+                }, 30);
             } // calcCoordinates
             
             // create the view layer the we will draw the view
@@ -284,7 +286,7 @@ T5.Geo.UI = (function() {
                     });
                 },
 
-                cycle: function(tickCount, offset, state, updateRect) {
+                cycle: function(tickCount, offset, state, redraw) {
                     var geometry = params.data ? params.data.geometry : null;
                     
                     if (recalc) {
@@ -296,7 +298,8 @@ T5.Geo.UI = (function() {
                     
                     if (geometry && (geometryCalcIndex < geometry.length)) {
                         calcCoordinates(self.getParent().getTileLayer());
-                        updateRect.invalid = true;
+                        
+                        return true;
                     } // if
                 },
 
@@ -379,17 +382,20 @@ T5.Geo.UI = (function() {
         },
         
         /**
-        # Geo.UI.LocationAnnotation
+        # Geo.UI.LocationOverlay
         
         */
-        LocationAnnotation: function(params) {
+        LocationOverlay: function(params) {
             params = T5.ex({
-                accuracy: null
+                pos: null,
+                accuracy: null,
+                zindex: 90
             }, params);
             
             // initialise the locator icon image
             var iconImage = new Image(),
                 iconOffset = new T5.Vector(),
+                centerXY = new T5.Vector(),
                 indicatorRadius = null;
                 
             // load the image
@@ -400,23 +406,22 @@ T5.Geo.UI = (function() {
                     iconImage.height / 2);
             };
             
-            var self = T5.ex(new T5.Annotation(params), {
-                cycle: function(tickCount, offset, state, updateRect) {
-                    // TODO: make this work properly (after annotation refactor 0.9.4)
-                    updateRect.invalid = true;
-                },
+            var self = T5.ex(new T5.ViewLayer(params), {
+                pos: params.pos,
+                accuracy: params.accuracy,
+                drawAccuracyIndicator: false,
                 
-                drawMarker: function(context, offset, xy, state, overlay, view) {
-                    var centerX = xy.x - iconOffset.x,
-                        centerY = xy.y - iconOffset.y;
+                draw: function(context, offset, dimensions, state, view) {
+                    var centerX = centerXY.x - offset.x,
+                        centerY = centerXY.y - offset.y;
 
                     if (indicatorRadius) {
                         context.fillStyle = 'rgba(30, 30, 30, 0.2)';
                         
                         context.beginPath();
                         context.arc(
-                            xy.x, 
-                            xy.y, 
+                            centerX, 
+                            centerY, 
                             indicatorRadius, 
                             0, 
                             Math.PI * 2, 
@@ -427,24 +432,29 @@ T5.Geo.UI = (function() {
                     if (iconImage.complete && iconImage.width > 0) {
                         context.drawImage(
                             iconImage, 
-                            centerX, 
-                            centerY, 
+                            centerX - iconOffset.x, 
+                            centerY - iconOffset.y, 
                             iconImage.width, 
                             iconImage.height);
                     } // if
-
-                    view.trigger('invalidate');
+                    
+                    self.wakeParent(true);
                 },
                 
                 update: function(grid) {
-                    indicatorRadius = Math.floor(grid.getPixelDistance(self.accuracy) * 0.5);
-                    self.xy.calcXY(grid);
+                    if (grid) {
+                        indicatorRadius = Math.floor(grid.getPixelDistance(self.accuracy) * 0.5);
+                        centerXY = grid.getGridXYForPosition(self.pos);
+                        
+                        self.wakeParent(true);
+                    } // if
                 }
             });
             
-            // initialise the indicator radius
-            self.accuracy = params.accuracy;
-            self.drawAccuracyIndicator = false;
+            // list for grid updates
+            GT.listen('grid.updated', function(args) {
+                self.update(self.getParent().getTileLayer());
+            });
             
             return self;
         },
@@ -540,10 +550,8 @@ T5.Geo.UI = (function() {
 
             // create the view layer the we will draw the view
             var self = T5.ex(new T5.ViewLayer(params), {
-                cycle: function(tickCount, offset, state, updateRect) {
-                    if (animating) {
-                        updateRect.invalid = true;
-                    } // if
+                cycle: function(tickCount, offset, state, redraw) {
+                    return animating;
                 },
                 
                 draw: function(context, offset, dimensions, state, view) {
@@ -619,7 +627,7 @@ T5.Geo.UI = (function() {
             GT.listen('grid.updated', function(args) {
                 updateAnnotationCoordinates(annotations);
                 updateAnnotationCoordinates(staticAnnotations);
-                self.wakeParent();
+                self.wakeParent(true);
             });
             
             return self;
