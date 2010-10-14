@@ -2748,8 +2748,6 @@ T5.Images = (function() {
         var timedOutLoad = false, ii = 0,
             config = T5.getConfig();
             
-        GT.Log.info("checking cache");
-        
         // iterate through the loading images, and check if any of them have been active too long
         while (ii < loadingImages.length) {
             var loadingTime = currentTickCount - loadingImages[ii].requested;
@@ -3890,12 +3888,12 @@ T5.ViewLayer = function(params) {
         },
         
         /**
-        - `cycle(tickCount, offset, state)`
+        - `cycle(tickCount, offset, state, redraw)`
         
         Called in the View method of the same name, each layer has an opportunity 
         to update itself in the current animation cycle before it is drawn.
         */
-        cycle: function(tickCount, offset, state, updateRect) {
+        cycle: function(tickCount, offset, state, redraw) {
         },
         
         /**
@@ -4035,6 +4033,7 @@ T5.View = function(params) {
     
     // get the container context
     var layers = [],
+        layerCount = 0,
         canvas = document.getElementById(params.container),
         mainContext = null,
         offsetX = 0,
@@ -4058,7 +4057,10 @@ T5.View = function(params) {
         scaling = false,
         startRect = null,
         endRect = null,
+        redraw = false,
+        redrawEvery = 40,
         scaleFactor = 1,
+        lastScaleFactor = 0,
         lastDrawScaleFactor = 1,
         aniProgress = null,
         tweenStart = null,
@@ -4253,7 +4255,6 @@ T5.View = function(params) {
 
             try {
                 mainContext = canvas.getContext('2d');
-                mainContext.globalCompositeOperation = 'source-over';
                 mainContext.clearRect(0, 0, canvas.width, canvas.height);
             } 
             catch (e) {
@@ -4275,7 +4276,7 @@ T5.View = function(params) {
             } // if
             
             // iterate through the layers, and change the context
-            for (var ii = layers.length; ii--; ) {
+            for (var ii = layerCount; ii--; ) {
                 layerContextChange(layers[ii]);
             } // for
 
@@ -4306,10 +4307,13 @@ T5.View = function(params) {
             
             return result;
         });
+        
+        // update the layer count
+        layerCount = layers.length;
     } // addLayer
     
     function getLayerIndex(id) {
-        for (var ii = layers.length; ii--; ) {
+        for (var ii = layerCount; ii--; ) {
             if (layers[ii].getId() == id) {
                 return ii;
             } // if
@@ -4408,10 +4412,9 @@ T5.View = function(params) {
         idleTimeout = 0;
     } // idle
     
-    function drawView(context, offset, updateRect) {
+    function drawView(context, offset, tickCount) {
         var changeCount = 0,
             drawState = panimating ? statePan : (frozen ? T5.viewState('FROZEN') : state),
-            startTicks = T5.time(),
             isPinchZoom = (drawState & statePinch) !== 0,
             delayDrawLayers = [];
             
@@ -4445,19 +4448,7 @@ T5.View = function(params) {
                 context.scale(scaleFactor, scaleFactor);
             } // if..else
             
-            // constrain the draw area where appropriate
-            if (! updateRect.invalid) {
-                context.beginPath();
-                // GT.Log.info("applying clip rect:", updateRect);
-                context.rect(
-                    updateRect.origin.x, 
-                    updateRect.origin.y, 
-                    updateRect.dimensions.width,
-                    updateRect.dimensions.height);
-                context.clip();
-            } // if
-            
-            for (ii = layers.length; ii--; ) {
+            for (ii = layerCount; ii--; ) {
                 // draw the layer output to the main canvas
                 // but only if we don't have a scale buffer or the layer is a draw on scale layer
                 if (layers[ii].shouldDraw(drawState)) {
@@ -4476,15 +4467,18 @@ T5.View = function(params) {
             context.restore();
         } // try..finally
         
-        GT.Log.trace("draw complete", startTicks);
+        GT.Log.trace("draw complete", tickCount);
         
+        // reset draw monitoring variables
+        redraw = false;
+        
+        // return the updated change count
         return changeCount;
     } // drawView
     
     function cycle(tickCount, worker) {
         // check to see if we are panning
-        var changed = false,
-            updateRect = T5.R.empty(),
+        var draw = false,
             interacting = (! panimating) && 
                 ((state === statePinch) || (state === statePan));
 
@@ -4509,22 +4503,22 @@ T5.View = function(params) {
         
         // if any of the following are true, then we need to draw the whole canvas so just
         // ignore the rect checking
-        updateRect.invalid = clearBackground || 
-            (state === T5.viewState('PAN')) || (state === T5.viewState('PINCH')) || 
-            T5.isTweening();
+        draw = redraw || state === T5.viewState('PAN') || T5.isTweening();
+        
+        // if we are scaling and at the same scale factor, don't redraw as its a waste of time
+        draw = draw || ((scaleFactor !== 1) && (scaleFactor !== lastScaleFactor));
 
-        // check that all is right with each layer
-        for (var ii = layers.length; ii--; ) {
-            layers[ii].cycle(tickCount, cycleOffset, state, updateRect);
+        for (var ii = layerCount; ii--; ) {
+            draw = layers[ii].cycle(tickCount, cycleOffset, state, redraw) || draw;
         } // for
         
-        if (updateRect.invalid || (! T5.R.isEmpty(updateRect))) {
-            drawView(mainContext, cycleOffset, updateRect);
-            changed = true;
+        if (draw) {
+            drawView(mainContext, cycleOffset);
+            lastScaleFactor = scaleFactor;
         } // if
 
         // include wake triggers in the change count
-        if ((! changed) && (wakeTriggers === 0) && (! isFlash)) {
+        if ((! draw) && (wakeTriggers === 0) && (! isFlash)) {
             worker.trigger('complete');
         } 
         else if ((! idle) && (idleTimeout === 0)) {
@@ -4535,6 +4529,11 @@ T5.View = function(params) {
         GT.Log.trace("Completed draw cycle", tickCount);
     } // cycle
     
+    function invalidate() {
+        redraw = true;
+        wake();
+    } // invalidate
+    
     function wake() {
         wakeTriggers++;
         if (frozen || cycleWorker) { return; }
@@ -4542,7 +4541,7 @@ T5.View = function(params) {
         // create the cycle worker
         cycleWorker = GT.Loopage.join({
             execute: cycle,
-            frequency: 5
+            frequency: 30
         });
         
         // bind to the complete method
@@ -4610,7 +4609,7 @@ T5.View = function(params) {
         */
         getLayer: function(id) {
             // look for the matching layer, and return when found
-            for (var ii = 0; ii < layers.length; ii++) {
+            for (var ii = 0; ii < layerCount; ii++) {
                 if (layers[ii].getId() == id) {
                     return layers[ii];
                 } // if
@@ -4626,7 +4625,7 @@ T5.View = function(params) {
         */
         setLayer: function(id, value) {
             // if the layer already exists, then remove it
-            for (var ii = 0; ii < layers.length; ii++) {
+            for (var ii = 0; ii < layerCount; ii++) {
                 if (layers[ii].getId() === id) {
                     layers.splice(ii, 1);
                     break;
@@ -4648,7 +4647,7 @@ T5.View = function(params) {
         */
         eachLayer: function(callback) {
             // iterate through each of the layers and fire the callback for each 
-            for (var ii = 0; ii < layers.length; ii++) {
+            for (var ii = 0; ii < layerCount; ii++) {
                 callback(layers[ii]);
             } // for
         },
@@ -4658,9 +4657,8 @@ T5.View = function(params) {
         
         */
         clearBackground: function() {
-            GT.Log.info("clear background requested");
             clearBackground = true;
-            wake();
+            invalidate();
         },
         
         /**
@@ -4713,11 +4711,14 @@ T5.View = function(params) {
         */
         removeLayer: function(id) {
             var layerIndex = getLayerIndex(id);
-            if ((layerIndex >= 0) && (layerIndex < layers.length)) {
+            if ((layerIndex >= 0) && (layerIndex < layerCount)) {
                 GT.say("layer.removed", { layer: layers[layerIndex] });
 
                 layers.splice(layerIndex, 1);
             } // if
+            
+            // update the layer count
+            layerCount = layers.length;
         },
         
         /* offset methods */
@@ -4781,9 +4782,7 @@ T5.View = function(params) {
     
     // listen for being woken up
     self.bind("wake", wake);
-    
-    // handle invalidation
-    self.bind("invalidate", self.clearBackground);
+    self.bind("invalidate", invalidate);
     
     // if this is pannable, then attach event handlers
     if (params.pannable) {
@@ -4878,7 +4877,7 @@ T5.AnimatedPathLayer = function(params) {
     
     // initialise self
     var self =  T5.ex(new T5.ViewLayer(params), {
-        cycle: function(tickCount, offset, state, updateRect) {
+        cycle: function(tickCount, offset, state, redraw) {
             var edgeIndex = 0;
 
             // iterate through the edge data and determine the current journey coordinate index
@@ -4906,9 +4905,7 @@ T5.AnimatedPathLayer = function(params) {
                 } // if
             } // if
             
-            if (indicatorXY) {
-                updateRect.invalid = true;
-            }
+            return indicatorXY;
         },
         
         draw: function(context, offset, dimensions, state, view) {
@@ -5108,7 +5105,6 @@ T5.ImageAnnotation = function(params) {
     // extend the params with the defaults
     params = T5.ex({
         tileSize: T5.tileSize,
-        drawGrid: false,
         center: new T5.Vector(),
         gridSize: 25,
         shiftOrigin: null,
@@ -5301,8 +5297,9 @@ T5.ImageAnnotation = function(params) {
         populate(lastTileCreator, lastNotifyListener);
     } // shift
     
-    function updateDrawQueue(offset, state, fullRedraw) {
+    function updateDrawQueue(offset, state, fullRedraw, tickCount) {
         var tile, tmpQueue = [],
+            dirtyTiles = false,
             tileStart = new T5.Vector(
                             Math.floor((offset.x + tileShift.x) * invTileSize), 
                             Math.floor((offset.y + tileShift.y) * invTileSize));
@@ -5334,7 +5331,7 @@ T5.ImageAnnotation = function(params) {
                 } // if
                 
                 // update the tile dirty state
-                tile.dirty = fullRedraw || tile.dirty;
+                dirtyTiles = (tile.dirty = fullRedraw || tile.dirty) || dirtyTiles;
                 
                 // add the tile and position to the tile draw queue
                 tmpQueue[tmpQueue.length] = {
@@ -5359,7 +5356,8 @@ T5.ImageAnnotation = function(params) {
             self.prepTile(tileDrawQueue[ii], state);
         } // for
         
-        lastQueueUpdate = new Date().getTime();
+        lastQueueUpdate = tickCount;
+        return dirtyTiles;
     } // updateDrawQueue
     
     /* external object definition */
@@ -5368,10 +5366,11 @@ T5.ImageAnnotation = function(params) {
     var self = T5.ex(new T5.ViewLayer(params), {
         gridDimensions: new T5.Dimensions(gridHeightWidth, gridHeightWidth),
         
-        cycle: function(tickCount, offset, state, updateRect) {
+        cycle: function(tickCount, offset, state, redraw) {
             var needTiles = shiftDelta.x !== 0 || shiftDelta.y !== 0,
                 xShift = offset.x,
                 yShift = offset.y,
+                haveDirtyTiles = false,
                 tileSize = T5.tileSize;
 
             if (needTiles) {
@@ -5381,33 +5380,14 @@ T5.ImageAnnotation = function(params) {
                 shiftDelta = new T5.Vector();
                 
                 // we need to do a complete redraw
-                updateRect.invalid = true;;
+                redraw = true;
             } // if
             
             if (state !== T5.viewState('PINCH')) {
-                updateDrawQueue(offset, state, updateRect.invalid);
+                haveDirtyTiles = updateDrawQueue(offset, state, redraw, tickCount);
             } // if
             
-            if (tileDrawQueue && (! updateRect.invalid)) {
-                var testRects = [updateRect];
-                
-                // iterate through the tiles in the draw queue
-                for (var ii = tileDrawQueue.length; ii--; ) {
-                    var tile = tileDrawQueue[ii];
-
-                    // if the tile is loaded, then draw, otherwise load
-                    if (tile && tile.dirty) {
-                        testRects[testRects.length] = new T5.Rect(
-                            tile.gridX - xShift,
-                            tile.gridY - yShift,
-                            tileSize,
-                            tileSize);
-                    } // if..else
-                } // for
-                
-                // get the union of the test rects
-                T5.R.union.apply(null, testRects);
-            }
+            return haveDirtyTiles;
         },
         
         deactivate: function() {
@@ -5435,20 +5415,15 @@ T5.ImageAnnotation = function(params) {
             var startTicks = T5.time(),
                 xShift = offset.x,
                 yShift = offset.y,
+                drawCount = 0,
                 tilesDrawn = true,
                 redraw = (state === T5.viewState('PAN')) || (state === T5.viewState('PINCH')) || T5.isTweening();
                 
             // if we don't have a draq queue return
             if (! tileDrawQueue) { return; }
             
-            // set the context stroke style for the border
-            if (params.drawGrid) {
-                context.strokeStyle = "rgba(50, 50, 50, 0.3)";
-            } // if
-            
-            // begin the path for the tile borders
             context.beginPath();
-
+            
             // iterate through the tiles in the draw queue
             for (var ii = tileDrawQueue.length; ii--; ) {
                 var tile = tileDrawQueue[ii];
@@ -5456,30 +5431,29 @@ T5.ImageAnnotation = function(params) {
                 // if the tile is loaded, then draw, otherwise load
                 if (tile) {
                     var x = tile.gridX - xShift,
-                        y = tile.gridY - yShift,
-                        drawn = redraw ? false : (! tile.dirty);
+                        y = tile.gridY - yShift;
                         
                     // draw the tile
-                    if (! drawn) {
-                        tilesDrawn =  self.drawTile(context, tile, x, y, state) && tilesDrawn;
+                    if (redraw || tile.dirty) {
+                        tilesDrawn = self.drawTile(context, tile, x, y, state) && tilesDrawn;
                         
                         tile.x = x;
                         tile.y = y;
+                        drawCount = drawCount + 1;
+                        
+                        context.rect(x, y, params.tileSize, params.tileSize);
                     } // if
                 } 
                 else {
                     tilesDrawn = false;
                 } // if..else
-
-                // if we are drawing borders, then draw that now
-                if (params.drawGrid) {
-                    context.rect(x, y, params.tileSize, params.tileSize);
-                } // if
             } // for
-
+            
+            // clip the context to only draw where the tiles have been drawn
+            context.clip();
+            
             // draw the borders if we have them...
-            context.stroke();
-            GT.Log.trace("drawn tiles", startTicks);
+            GT.Log.trace("drew " + drawCount + " tiles at x: " + offset.x + ", y: " + offset.y, startTicks);
             
             // if the tiles have been drawn and previously haven't then fire the tiles drawn event
             if (tilesDrawn && (! lastTilesDrawn)) {

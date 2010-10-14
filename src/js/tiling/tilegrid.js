@@ -2,7 +2,6 @@ T5.TileGrid = function(params) {
     // extend the params with the defaults
     params = T5.ex({
         tileSize: T5.tileSize,
-        drawGrid: false,
         center: new T5.Vector(),
         gridSize: 25,
         shiftOrigin: null,
@@ -195,8 +194,9 @@ T5.TileGrid = function(params) {
         populate(lastTileCreator, lastNotifyListener);
     } // shift
     
-    function updateDrawQueue(offset, state, fullRedraw) {
+    function updateDrawQueue(offset, state, fullRedraw, tickCount) {
         var tile, tmpQueue = [],
+            dirtyTiles = false,
             tileStart = new T5.Vector(
                             Math.floor((offset.x + tileShift.x) * invTileSize), 
                             Math.floor((offset.y + tileShift.y) * invTileSize));
@@ -228,7 +228,7 @@ T5.TileGrid = function(params) {
                 } // if
                 
                 // update the tile dirty state
-                tile.dirty = fullRedraw || tile.dirty;
+                dirtyTiles = (tile.dirty = fullRedraw || tile.dirty) || dirtyTiles;
                 
                 // add the tile and position to the tile draw queue
                 tmpQueue[tmpQueue.length] = {
@@ -253,7 +253,8 @@ T5.TileGrid = function(params) {
             self.prepTile(tileDrawQueue[ii], state);
         } // for
         
-        lastQueueUpdate = new Date().getTime();
+        lastQueueUpdate = tickCount;
+        return dirtyTiles;
     } // updateDrawQueue
     
     /* external object definition */
@@ -262,10 +263,11 @@ T5.TileGrid = function(params) {
     var self = T5.ex(new T5.ViewLayer(params), {
         gridDimensions: new T5.Dimensions(gridHeightWidth, gridHeightWidth),
         
-        cycle: function(tickCount, offset, state, updateRect) {
+        cycle: function(tickCount, offset, state, redraw) {
             var needTiles = shiftDelta.x !== 0 || shiftDelta.y !== 0,
                 xShift = offset.x,
                 yShift = offset.y,
+                haveDirtyTiles = false,
                 tileSize = T5.tileSize;
 
             if (needTiles) {
@@ -275,33 +277,14 @@ T5.TileGrid = function(params) {
                 shiftDelta = new T5.Vector();
                 
                 // we need to do a complete redraw
-                updateRect.invalid = true;;
+                redraw = true;
             } // if
             
             if (state !== T5.viewState('PINCH')) {
-                updateDrawQueue(offset, state, updateRect.invalid);
+                haveDirtyTiles = updateDrawQueue(offset, state, redraw, tickCount);
             } // if
             
-            if (tileDrawQueue && (! updateRect.invalid)) {
-                var testRects = [updateRect];
-                
-                // iterate through the tiles in the draw queue
-                for (var ii = tileDrawQueue.length; ii--; ) {
-                    var tile = tileDrawQueue[ii];
-
-                    // if the tile is loaded, then draw, otherwise load
-                    if (tile && tile.dirty) {
-                        testRects[testRects.length] = new T5.Rect(
-                            tile.gridX - xShift,
-                            tile.gridY - yShift,
-                            tileSize,
-                            tileSize);
-                    } // if..else
-                } // for
-                
-                // get the union of the test rects
-                T5.R.union.apply(null, testRects);
-            }
+            return haveDirtyTiles;
         },
         
         deactivate: function() {
@@ -329,20 +312,15 @@ T5.TileGrid = function(params) {
             var startTicks = T5.time(),
                 xShift = offset.x,
                 yShift = offset.y,
+                drawCount = 0,
                 tilesDrawn = true,
                 redraw = (state === T5.viewState('PAN')) || (state === T5.viewState('PINCH')) || T5.isTweening();
                 
             // if we don't have a draq queue return
             if (! tileDrawQueue) { return; }
             
-            // set the context stroke style for the border
-            if (params.drawGrid) {
-                context.strokeStyle = "rgba(50, 50, 50, 0.3)";
-            } // if
-            
-            // begin the path for the tile borders
             context.beginPath();
-
+            
             // iterate through the tiles in the draw queue
             for (var ii = tileDrawQueue.length; ii--; ) {
                 var tile = tileDrawQueue[ii];
@@ -350,30 +328,29 @@ T5.TileGrid = function(params) {
                 // if the tile is loaded, then draw, otherwise load
                 if (tile) {
                     var x = tile.gridX - xShift,
-                        y = tile.gridY - yShift,
-                        drawn = redraw ? false : (! tile.dirty);
+                        y = tile.gridY - yShift;
                         
                     // draw the tile
-                    if (! drawn) {
-                        tilesDrawn =  self.drawTile(context, tile, x, y, state) && tilesDrawn;
+                    if (redraw || tile.dirty) {
+                        tilesDrawn = self.drawTile(context, tile, x, y, state) && tilesDrawn;
                         
                         tile.x = x;
                         tile.y = y;
+                        drawCount = drawCount + 1;
+                        
+                        context.rect(x, y, params.tileSize, params.tileSize);
                     } // if
                 } 
                 else {
                     tilesDrawn = false;
                 } // if..else
-
-                // if we are drawing borders, then draw that now
-                if (params.drawGrid) {
-                    context.rect(x, y, params.tileSize, params.tileSize);
-                } // if
             } // for
-
+            
+            // clip the context to only draw where the tiles have been drawn
+            context.clip();
+            
             // draw the borders if we have them...
-            context.stroke();
-            GT.Log.trace("drawn tiles", startTicks);
+            GT.Log.trace("drew " + drawCount + " tiles at x: " + offset.x + ", y: " + offset.y, startTicks);
             
             // if the tiles have been drawn and previously haven't then fire the tiles drawn event
             if (tilesDrawn && (! lastTilesDrawn)) {

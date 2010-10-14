@@ -160,8 +160,6 @@ T5.Images = (function() {
         var timedOutLoad = false, ii = 0,
             config = T5.getConfig();
             
-        GT.Log.info("checking cache");
-        
         // iterate through the loading images, and check if any of them have been active too long
         while (ii < loadingImages.length) {
             var loadingTime = currentTickCount - loadingImages[ii].requested;

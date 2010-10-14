@@ -56,7 +56,7 @@ T5.AnimatedPathLayer = function(params) {
     
     // initialise self
     var self =  T5.ex(new T5.ViewLayer(params), {
-        cycle: function(tickCount, offset, state, updateRect) {
+        cycle: function(tickCount, offset, state, redraw) {
             var edgeIndex = 0;
 
             // iterate through the edge data and determine the current journey coordinate index
@@ -84,9 +84,7 @@ T5.AnimatedPathLayer = function(params) {
                 } // if
             } // if
             
-            if (indicatorXY) {
-                updateRect.invalid = true;
-            }
+            return indicatorXY;
         },
         
         draw: function(context, offset, dimensions, state, view) {

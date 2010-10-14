@@ -30,7 +30,6 @@ T5.Map = function(params) {
         zoomLevel: 0,
         boundsChangeThreshold: 30,
         pois: new T5.Geo.POIStorage(),
-        displayLocationAnnotation: true,
         zoomAnimation: T5.easing('quad.out')
     }, params);
 
@@ -50,7 +49,7 @@ T5.Map = function(params) {
         annotations = null, // annotations layer
         guideOffset = null,
         gridLayerId = null,
-        locationAnnotation = null,
+        locationOverlay = null,
         geoWatchId = 0,
         initialTrackingUpdate = true,
         zoomLevel = params.zoomLevel;
@@ -77,18 +76,16 @@ T5.Map = function(params) {
             if (initialTrackingUpdate) {
                 // if the geolocation annotation has not 
                 // been created then do that now
-                if (! locationAnnotation) {
-                    locationAnnotation = 
-                        new T5.Geo.UI.LocationAnnotation({
-                            xy: new T5.Geo.GeoVector(currentPos),
-                            accuracy: accuracy
-                        });
-                } // if
+                if (! locationOverlay) {
+                    locationOverlay = new T5.Geo.UI.LocationOverlay({
+                        pos: currentPos,
+                        accuracy: accuracy
+                    });
 
-                // if we want to display the location annotation, t
-                // then put it onscreen
-                if (params.displayLocationAnnotation) {
-                    annotations.add(locationAnnotation);
+                    // if we want to display the location annotation, t
+                    // then put it onscreen
+                    locationOverlay.update(self.getTileLayer());
+                    self.setLayer('location', locationOverlay);
                 } // if
 
                 // TODO: fix the magic number
@@ -101,12 +98,12 @@ T5.Map = function(params) {
             // otherwise, animate to the new position
             else {
                 // update location annotation details
-                locationAnnotation.xy = new T5.Geo.GeoVector(currentPos);
-                locationAnnotation.accuracy = accuracy;
+                locationOverlay.pos = currentPos;
+                locationOverlay.accuracy = accuracy;
 
                 // tell the location annotation to update 
                 // it's xy coordinate
-                locationAnnotation.update(self.getTileLayer());
+                locationOverlay.update(self.getTileLayer());
 
                 // pan to the position
                 self.panToPosition(
@@ -286,12 +283,6 @@ T5.Map = function(params) {
         if (reset || (zoomLevel !== currentZoomLevel)) {
             // remove the grid layer
             T5.Images.cancelLoad();
-            
-            // if we have a location annotation tell 
-            // it not to draw the accuracy ring
-            if (locationAnnotation) {
-                locationAnnotation.drawAccuracyIndicator = false;
-            } // if
             
             // get the grid and if available, then 
             // deactivate to prevent further image draws

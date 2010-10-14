@@ -64,12 +64,12 @@ T5.ViewLayer = function(params) {
         },
         
         /**
-        - `cycle(tickCount, offset, state)`
+        - `cycle(tickCount, offset, state, redraw)`
         
         Called in the View method of the same name, each layer has an opportunity 
         to update itself in the current animation cycle before it is drawn.
         */
-        cycle: function(tickCount, offset, state, updateRect) {
+        cycle: function(tickCount, offset, state, redraw) {
         },
         
         /**

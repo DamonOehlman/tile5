@@ -59,6 +59,7 @@ T5.View = function(params) {
     
     // get the container context
     var layers = [],
+        layerCount = 0,
         canvas = document.getElementById(params.container),
         mainContext = null,
         offsetX = 0,
@@ -82,7 +83,10 @@ T5.View = function(params) {
         scaling = false,
         startRect = null,
         endRect = null,
+        redraw = false,
+        redrawEvery = 40,
         scaleFactor = 1,
+        lastScaleFactor = 0,
         lastDrawScaleFactor = 1,
         aniProgress = null,
         tweenStart = null,
@@ -277,7 +281,6 @@ T5.View = function(params) {
 
             try {
                 mainContext = canvas.getContext('2d');
-                mainContext.globalCompositeOperation = 'source-over';
                 mainContext.clearRect(0, 0, canvas.width, canvas.height);
             } 
             catch (e) {
@@ -299,7 +302,7 @@ T5.View = function(params) {
             } // if
             
             // iterate through the layers, and change the context
-            for (var ii = layers.length; ii--; ) {
+            for (var ii = layerCount; ii--; ) {
                 layerContextChange(layers[ii]);
             } // for
 
@@ -330,10 +333,13 @@ T5.View = function(params) {
             
             return result;
         });
+        
+        // update the layer count
+        layerCount = layers.length;
     } // addLayer
     
     function getLayerIndex(id) {
-        for (var ii = layers.length; ii--; ) {
+        for (var ii = layerCount; ii--; ) {
             if (layers[ii].getId() == id) {
                 return ii;
             } // if
@@ -432,10 +438,9 @@ T5.View = function(params) {
         idleTimeout = 0;
     } // idle
     
-    function drawView(context, offset, updateRect) {
+    function drawView(context, offset, tickCount) {
         var changeCount = 0,
             drawState = panimating ? statePan : (frozen ? T5.viewState('FROZEN') : state),
-            startTicks = T5.time(),
             isPinchZoom = (drawState & statePinch) !== 0,
             delayDrawLayers = [];
             
@@ -469,19 +474,7 @@ T5.View = function(params) {
                 context.scale(scaleFactor, scaleFactor);
             } // if..else
             
-            // constrain the draw area where appropriate
-            if (! updateRect.invalid) {
-                context.beginPath();
-                // GT.Log.info("applying clip rect:", updateRect);
-                context.rect(
-                    updateRect.origin.x, 
-                    updateRect.origin.y, 
-                    updateRect.dimensions.width,
-                    updateRect.dimensions.height);
-                context.clip();
-            } // if
-            
-            for (ii = layers.length; ii--; ) {
+            for (ii = layerCount; ii--; ) {
                 // draw the layer output to the main canvas
                 // but only if we don't have a scale buffer or the layer is a draw on scale layer
                 if (layers[ii].shouldDraw(drawState)) {
@@ -500,15 +493,18 @@ T5.View = function(params) {
             context.restore();
         } // try..finally
         
-        GT.Log.trace("draw complete", startTicks);
+        GT.Log.trace("draw complete", tickCount);
         
+        // reset draw monitoring variables
+        redraw = false;
+        
+        // return the updated change count
         return changeCount;
     } // drawView
     
     function cycle(tickCount, worker) {
         // check to see if we are panning
-        var changed = false,
-            updateRect = T5.R.empty(),
+        var draw = false,
             interacting = (! panimating) && 
                 ((state === statePinch) || (state === statePan));
 
@@ -533,22 +529,22 @@ T5.View = function(params) {
         
         // if any of the following are true, then we need to draw the whole canvas so just
         // ignore the rect checking
-        updateRect.invalid = clearBackground || 
-            (state === T5.viewState('PAN')) || (state === T5.viewState('PINCH')) || 
-            T5.isTweening();
+        draw = redraw || state === T5.viewState('PAN') || T5.isTweening();
+        
+        // if we are scaling and at the same scale factor, don't redraw as its a waste of time
+        draw = draw || ((scaleFactor !== 1) && (scaleFactor !== lastScaleFactor));
 
-        // check that all is right with each layer
-        for (var ii = layers.length; ii--; ) {
-            layers[ii].cycle(tickCount, cycleOffset, state, updateRect);
+        for (var ii = layerCount; ii--; ) {
+            draw = layers[ii].cycle(tickCount, cycleOffset, state, redraw) || draw;
         } // for
         
-        if (updateRect.invalid || (! T5.R.isEmpty(updateRect))) {
-            drawView(mainContext, cycleOffset, updateRect);
-            changed = true;
+        if (draw) {
+            drawView(mainContext, cycleOffset);
+            lastScaleFactor = scaleFactor;
         } // if
 
         // include wake triggers in the change count
-        if ((! changed) && (wakeTriggers === 0) && (! isFlash)) {
+        if ((! draw) && (wakeTriggers === 0) && (! isFlash)) {
             worker.trigger('complete');
         } 
         else if ((! idle) && (idleTimeout === 0)) {
@@ -559,6 +555,11 @@ T5.View = function(params) {
         GT.Log.trace("Completed draw cycle", tickCount);
     } // cycle
     
+    function invalidate() {
+        redraw = true;
+        wake();
+    } // invalidate
+    
     function wake() {
         wakeTriggers++;
         if (frozen || cycleWorker) { return; }
@@ -566,7 +567,7 @@ T5.View = function(params) {
         // create the cycle worker
         cycleWorker = GT.Loopage.join({
             execute: cycle,
-            frequency: 5
+            frequency: 30
         });
         
         // bind to the complete method
@@ -634,7 +635,7 @@ T5.View = function(params) {
         */
         getLayer: function(id) {
             // look for the matching layer, and return when found
-            for (var ii = 0; ii < layers.length; ii++) {
+            for (var ii = 0; ii < layerCount; ii++) {
                 if (layers[ii].getId() == id) {
                     return layers[ii];
                 } // if
@@ -650,7 +651,7 @@ T5.View = function(params) {
         */
         setLayer: function(id, value) {
             // if the layer already exists, then remove it
-            for (var ii = 0; ii < layers.length; ii++) {
+            for (var ii = 0; ii < layerCount; ii++) {
                 if (layers[ii].getId() === id) {
                     layers.splice(ii, 1);
                     break;
@@ -672,7 +673,7 @@ T5.View = function(params) {
         */
         eachLayer: function(callback) {
             // iterate through each of the layers and fire the callback for each 
-            for (var ii = 0; ii < layers.length; ii++) {
+            for (var ii = 0; ii < layerCount; ii++) {
                 callback(layers[ii]);
             } // for
         },
@@ -682,9 +683,8 @@ T5.View = function(params) {
         
         */
         clearBackground: function() {
-            GT.Log.info("clear background requested");
             clearBackground = true;
-            wake();
+            invalidate();
         },
         
         /**
@@ -737,11 +737,14 @@ T5.View = function(params) {
         */
         removeLayer: function(id) {
             var layerIndex = getLayerIndex(id);
-            if ((layerIndex >= 0) && (layerIndex < layers.length)) {
+            if ((layerIndex >= 0) && (layerIndex < layerCount)) {
                 GT.say("layer.removed", { layer: layers[layerIndex] });
 
                 layers.splice(layerIndex, 1);
             } // if
+            
+            // update the layer count
+            layerCount = layers.length;
         },
         
         /* offset methods */
@@ -805,9 +808,7 @@ T5.View = function(params) {
     
     // listen for being woken up
     self.bind("wake", wake);
-    
-    // handle invalidation
-    self.bind("invalidate", self.clearBackground);
+    self.bind("invalidate", invalidate);
     
     // if this is pannable, then attach event handlers
     if (params.pannable) {
