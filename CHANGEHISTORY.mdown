@@ -7,12 +7,13 @@ the surface.
 
 ### Changes
 
-- Changes to drawing logic to apply `clip()` to restrict drawing area in each cycle
-- Modifications to touch.js to reuse T5.Vector arrays rather than create new each time
-- T5.View performance minor performance improvements
-- touch.js modified to no longer raise "panInertia" events but rather "pan" events with an additional parameter indicating pan due to inertia
+- Changes to drawing logic to apply the canvas context `clip()` to restrict drawing area in each cycle
+- Modifications to touch.js to reuse `T5.Vector` arrays rather than create new each time
+- `T5.View` performance minor performance improvements
+- touch.js modified to no longer raise `panInertia` events but rather `pan` events with an additional parameter indicating pan due to inertia
 - Fixed [issue](http://github.com/sidelab/tile5/issues/closed#issue/32) with pins dropping on right click.  Touch events now ignore right button on mouse.
-- Started making annotations more general so they can be applied without needing a T5.map (in progress though).
+- Started making annotations more general so they can be applied without needing a `T5.map` (still in progress though).
+- Added [MapBox](http://mapbox.com) map provider, see `tile5.mapbox.js`.
 
 ## 0.9.1 
 
