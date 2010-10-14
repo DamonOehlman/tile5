@@ -3066,14 +3066,15 @@ T5.Images = (function() {
             } // if..else                
         } // checkInertia
             
-        function relativeTouches(touches) {
-            var fnresult = [],
+        function relativeTouches(touchData) {
+            var touchCount = touchData.count,
+                fnresult = new Array(touchCount),
                 offsetX = targetElement ? -targetElement.offsetLeft : 0,
                 offsetY = targetElement ? -targetElement.offsetTop : 0;
             
             // apply the offset
-            for (var ii = touches.length; ii--; ) {
-                fnresult[fnresult.length] = T5.V.offset(touches[ii], offsetX, offsetY);
+            for (var ii = touchCount; ii--; ) {
+                fnresult[ii] = T5.V.offset(touchData.touches[ii], offsetX, offsetY);
             } // for
             
             return fnresult;
@@ -3221,7 +3222,7 @@ T5.Images = (function() {
                         touchMode = TOUCH_MODE_MOVE;
                     }
                     else {
-                        triggerEvent('pinchZoom', relativeTouches(touchesStart.touches), relativeTouches(touchesCurrent.touches));
+                        triggerEvent('pinchZoom', relativeTouches(touchesStart), relativeTouches(touchesCurrent));
 
                         // set the touch mode to pinch zoom
                         touchMode = TOUCH_MODE_PINCH;
@@ -3274,7 +3275,7 @@ T5.Images = (function() {
                 }
                 // if pinchzooming, then fire the pinch zoom end
                 else if (touchMode == TOUCH_MODE_PINCH) {
-                    triggerEvent('pinchZoomEnd', relativeTouches(touchesStart.touches), relativeTouches(touchesLast.touches), endTick - touchStartTick);
+                    triggerEvent('pinchZoomEnd', relativeTouches(touchesStart), relativeTouches(touchesLast), endTick - touchStartTick);
                 } // if..else
                 
                 targ.style.cursor = 'default';
@@ -4428,9 +4429,7 @@ T5.View = function(params) {
             calcZoomCenter();
             
             // offset the draw args
-            if (zoomCenter) {
-                offset = T5.V.offset(offset, zoomCenter.x, zoomCenter.y);
-            } // if
+            offset = T5.V.offset(offset, zoomCenter.x, zoomCenter.y);
         } // if
         
         context.save();

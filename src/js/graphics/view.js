@@ -452,9 +452,7 @@ T5.View = function(params) {
             calcZoomCenter();
             
             // offset the draw args
-            if (zoomCenter) {
-                offset = T5.V.offset(offset, zoomCenter.x, zoomCenter.y);
-            } // if
+            offset = T5.V.offset(offset, zoomCenter.x, zoomCenter.y);
         } // if
         
         context.save();
