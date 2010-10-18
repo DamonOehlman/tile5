@@ -6,8 +6,7 @@
         INERTIA_TIMEOUT_MOUSE = 100,
         INERTIA_TIMEOUT_TOUCH = 250,
         THRESHOLD_DOUBLETAP = 300,
-        THRESHOLD_PINCHZOOM = 5,
-        THRESHOLD_PAN_EVENT = 2;
+        THRESHOLD_PINCHZOOM = 5;
         
     // define the touch modes
     var TOUCH_MODE_TAP = 0,
@@ -19,19 +18,35 @@
 
     var elementCounter = 0,
         listenerCount = 0,
-        createVector = T5.V.create,
-        vectorDistance = T5.V.distance,
-        supportsTouch = undefined,
-        vectorDiff = T5.V.diff;
+        supportsTouch = undefined;
         
-    function calcDistance(touchData) {
-        return vectorDistance(touchData.touches, touchData.count);
+    function calcDiff(v1, v2) {
+        return {
+            x: v1.x - v2.x, 
+            y: v1.y - v2.y
+        };
+    } // calcDiff
+    
+    function calcDistance(v1, v2) {
+        var distV = calcDiff(v1, v2);
+            
+        return Math.sqrt(distV.x * distV.x + distV.y * distV.y);
+    } // calcDistance
+        
+    function touchDistance(touchData) {
+        if (touchData.count > 1) {
+            return calcDistance(
+                touchData.touches[0],
+                touchData.touches[1]);
+        } // if
+        
+        return 0;
     } // calcDistance
     
     function calcChange(first, second) {
         var srcVector = (first && (first.count > 0)) ? first.touches[0] : null;
         if (srcVector && second && (second.count > 0)) {
-            return vectorDiff(srcVector, second.touches[0]);
+            return calcDiff(srcVector, second.touches[0]);
         } // if
         
         return null;
@@ -55,7 +70,7 @@
         
         // create ten touch points
         for (var ii = MAX_TOUCHES; ii--; ) {
-            touchData.touches[ii] = new T5.Vector();
+            touchData.touches[ii] = createPoint();
         } // for
         
         return touchData;
@@ -99,10 +114,18 @@
         GT.Log.info("TOUCH EVENT '" + title + "': changedTouches = ", evt.changeTouches);
     } // debugTouchEvent
     
+    // used to return a composite xy value compatible with a T5.Vector
+    function createPoint(x, y) {
+        return {
+            x: x ? x : 0,
+            y: y ? y : 0
+        };
+    } // createPoint
+    
     /* touch helper */
     
     var TouchHelper =  function(params) {
-        params = T5.ex({
+        params = GT.extend({
             element: null,
             observable: null,
             inertiaTrigger: 20,
@@ -133,13 +156,13 @@
             touchesLast = initTouchData(),
             touchesEnd = initTouchData(),
             touchDelta = null,
-            totalDelta = null,
-            panDelta = createVector(),
+            totalDelta = createPoint(),
+            panDelta = createPoint(),
             touchMode = null,
             touchDown = false,
             touchStartTick = 0,
             listeners = [],
-            lastXY = new T5.Vector(),
+            lastXY = createPoint(),
             inertiaSettings = null,
             ticksCurrent = 0,
             ticksLast = 0,
@@ -155,7 +178,9 @@
                 distanceVector;
                 
             theta = currentXY.x > upXY.x ? theta : Math.PI - theta;
-            distanceVector = createVector(Math.cos(theta) * -extraDistance, Math.sin(theta) * extraDistance);
+            distanceVector = createPoint(
+                Math.cos(theta) * -extraDistance, 
+                Math.sin(theta) * extraDistance);
                 
             triggerEvent("pan", distanceVector.x, distanceVector.y, true);
         } // calculateInertia
@@ -174,7 +199,7 @@
                         // calculate the distance from the upXY (which doesn't change) and the
                         // lastXY (which changes as the mouse continues to move) if we move over
                         // a certain distance then trigger the intertia
-                        distance = vectorDistance([upXY, lastXY]);
+                        distance = calcDistance(upXY, lastXY);
 
                         // calculate the inertia
                         if ((tickDiff < INERTIA_TIMEOUT_MOUSE) && (distance > params.inertiaTrigger)) {
@@ -192,7 +217,7 @@
                 tickDiff = currentTick - touchStartTick;
                 
                 if ((tickDiff < INERTIA_TIMEOUT_TOUCH)) {
-                    distance = vectorDistance([touchesStart.touches[0], upXY]);
+                    distance = calcDistance(touchesStart.touches[0], upXY);
                     
                     if (distance > params.inertiaTrigger) {
                         calculateInertia(touchesStart.touches[0], upXY, distance, tickDiff);
@@ -209,7 +234,9 @@
             
             // apply the offset
             for (var ii = touchCount; ii--; ) {
-                fnresult[ii] = T5.V.offset(touchData.touches[ii], offsetX, offsetY);
+                fnresult[ii] = createPoint(
+                    touchData.touches[ii].x + offsetX, 
+                    touchData.touches[ii].y + offsetY);
             } // for
             
             return fnresult;
@@ -227,7 +254,9 @@
             
             // if an element is defined, then determine the element offset
             if (targetElement) {
-                offsetVector = T5.V.offset(absVector, -targetElement.offsetLeft, -targetElement.offsetTop);
+                offsetVector = createPoint(
+                    absVector.x - targetElement.offsetLeft, 
+                    absVector.y - targetElement.offsetTop);
             } // if
             
             // fire the event
@@ -243,11 +272,14 @@
                     return;
                 } // if
                 
-                touchDelta = createVector();
-                totalDelta = createVector();
+                // reset the touch and total vectors
+                touchDelta = null;
+                totalDelta.x = 0;
+                totalDelta.y = 0;
+                
                 touchDown = true;
                 doubleTap = false;
-                touchStartTick = T5.time();
+                touchStartTick = new Date().getTime();
 
                 // cancel event propogation
                 preventDefault(evt);
@@ -274,7 +306,7 @@
                 // check to see whether this is a double tap (if we are watching for them)
                 if (ticksCurrent - ticksLast < THRESHOLD_DOUBLETAP) {
                     // calculate the difference between this and the last touch point
-                    var touchChange = T5.V.diff(touchesStart.touches[0], touchesLast.touches[0]);
+                    var touchChange = calcDiff(touchesStart.touches[0], touchesLast.touches[0]);
                     if (touchChange && (Math.abs(touchChange.x) < params.maxDistDoubleTap) && (Math.abs(touchChange.y) < params.maxDistDoubleTap)) {
                         doubleTap = true;
                     } // if
@@ -316,7 +348,7 @@
                         copyTouchData(touchesStart, touchesCurrent);
                     } // if
 
-                    zoomDistance = calcDistance(touchesStart) - calcDistance(touchesCurrent);
+                    zoomDistance = touchDistance(touchesStart) - touchDistance(touchesCurrent);
                 } // if
 
                 // if the touch mode is tap, then check to see if we have gone beyond a move threshhold
@@ -347,11 +379,12 @@
                             panDelta.x -= touchDelta.x; panDelta.y -= touchDelta.y;
                         } // if
 
-                        // if the pan_delta is sufficient to fire an event, then do so
-                        if (T5.V.absSize(panDelta) > THRESHOLD_PAN_EVENT) {
-                            triggerEvent("pan", panDelta.x, panDelta.y);
-                            panDelta = createVector();
-                        } // if
+                        // trigger the pan event
+                        triggerEvent("pan", panDelta.x, panDelta.y);
+                        
+                        // reset the pan vector
+                        panDelta.x = 0;
+                        panDelta.y = 0;
 
                         // set the touch mode to move
                         touchMode = TOUCH_MODE_MOVE;
@@ -382,7 +415,7 @@
                 } // if
 
                 // get the end tick
-                var endTick = T5.time();
+                var endTick = new Date().getTime();
 
                 // save the current ticks to the last ticks
                 ticksLast = ticksCurrent;
@@ -422,10 +455,15 @@
             // process ff DOMMouseScroll event
             if (evt.detail) {
                 var delta = -evt.detail * WHEEL_DELTA_STEP;
-                return createVector(evt.axis === 1 ? delta : 0, evt.axis === 2 ? delta : 0);
+                
+                return createPoint(
+                    evt.axis === 1 ? delta : 0,
+                    evt.axis === 2 ? delta : 0);
             }
             else {
-                return createVector(evt.wheelDeltaX, evt.wheelDeltaY);
+                return createPoint(
+                    evt.wheelDeltaX,
+                    evt.wheelDeltaY);
             } // if..else
         } // getWheelDelta
         
@@ -438,7 +476,10 @@
 
                 if (lastXY && (zoomAmount !== 0)) {
                     // apply the offset to the xy
-                    var xy = T5.V.offset(lastXY, -targetElement.offsetLeft, -targetElement.offsetTop);
+                    var xy = createPoint(
+                        lastXY.x - targetElement.offsetLeft, 
+                        lastXY.y - targetElement.offsetTop);
+                    
                     triggerEvent("wheelZoom", xy, Math.pow(2, delta.y > 0 ? zoomAmount : -zoomAmount));
                 } // if
                 
@@ -527,7 +568,7 @@
         
         // if the touch helper has not been created, then create it and attach to events
         if (! touchHelper) {
-            touchHelper = new TouchHelper(T5.ex({ element: element}, params));
+            touchHelper = new TouchHelper(GT.extend({ element: element}, params));
             touchHelpers[element.id] = touchHelper;
         } // if
         
