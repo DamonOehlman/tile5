@@ -156,6 +156,10 @@ T5.Geo.Routing = (function() {
             params = T5.ex({
                 position: null,
                 description: "",
+                distance: 0,
+                distanceTotal: 0,
+                time: 0,
+                timeTotal: 0,
                 turnType: null
             }, params);
             

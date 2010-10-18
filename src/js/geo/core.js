@@ -859,8 +859,6 @@ T5.Geo = (function() {
 
     /* define the distance tools */
     
-    
-    
     // define the engines array
     var engines = {};
     

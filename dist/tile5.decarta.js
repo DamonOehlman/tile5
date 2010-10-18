@@ -42,6 +42,24 @@ T5.Geo.Decarta = (function() {
     };
     
     var lastZoom = null;
+
+    
+    /* internal decarta functions */
+    
+    /*
+    This function is used to convert from the deCarta distance JSON data
+    to an integer value representing the distance in meters
+    */
+    function distanceToMeters(distance) {
+        var uom = distance.uom ? distance.uom.toUpperCase() : 'M',
+            conversionFactors = {
+                'M': 1,
+                'KM': 1000
+            },
+            factor = conversionFactors[uom];
+            
+        return distance.value && factor ? distance.value * factor : 0;
+    } // uomToMeters
     
     // define the decarta internal types
     var types = {
@@ -659,17 +677,34 @@ T5.Geo.Decarta = (function() {
             var parent = new requestTypes.Request();
             
             function parseInstructions(instructionList) {
-                var fnresult = [];
-                var instructions = instructionList && instructionList.RouteInstruction ? instructionList.RouteInstruction : [];
+                var fnresult = [],
+                    instructions = instructionList && instructionList.RouteInstruction ? 
+                        instructionList.RouteInstruction : [],
+                    totalDistance = 0,
+                    totalTime = new T5.TimeLord.Duration();
 
-                // GT.Log.info("parsing " + instructions.length + " instructions");
+                GT.Log.info("parsing " + instructions.length + " instructions", instructions[0], instructions[1], instructions[2]);
                 for (var ii = 0; ii < instructions.length; ii++) {
+                    // initialise the time and duration for this instruction
+                    var distance = distanceToMeters(instructions[ii].distance),
+                        time = T5.TimeLord.parseDuration(instructions[ii].duration, '8601');
+                        
+                    // increment the total distance and total time
+                    totalDistance = totalDistance + distance;
+                    totalTime = T5.TimeLord.addDuration(totalTime, time);
+                    
                     fnresult.push(new T5.Geo.Routing.Instruction({
                         position: T5.Geo.P.parse(instructions[ii].Point),
-                        description: instructions[ii].Instruction
+                        description: instructions[ii].Instruction,
+                        distance: distance,
+                        distanceTotal: totalDistance,
+                        time: time,
+                        timeTotal: totalTime
                     }));
                 } // for
                 
+
+                GT.Log.info("parsed " + fnresult.length + " instructions", fnresult[0], fnresult[1], fnresult[2]);
                 return fnresult;
             } // parseInstructions
             

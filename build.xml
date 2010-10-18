@@ -121,6 +121,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/resources.js" />
 			<fileset file="src/js/images.js" />
 			<fileset file="src/js/touch.js" />
+			<fileset file="src/js/timelord.js" />
 			
 			<!-- include the animation functionality -->
 			<fileset file="src/js/animation/easing.js" />
