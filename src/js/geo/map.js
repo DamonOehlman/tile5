@@ -481,11 +481,8 @@ T5.Map = function(params) {
                 navigator.geolocation.clearWatch(geoWatchId);
             } // if
             
-            if (locateMode === LOCATE_MODE.WATCH) {
-                // TODO: fix this to only remove 
-                // the location annotation
-                annotations.clear();
-            } // if
+            self.removeLayer('location');
+            locationOverlay = null;
             
             // reset the locate mode
             locateMode = LOCATE_MODE.NONE;

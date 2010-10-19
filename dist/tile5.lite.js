@@ -4843,7 +4843,7 @@ T5.View = function(params) {
                 addLayer(id, value);
             } // if
 
-            wake();
+            invalidate();
         },
         
         /**
@@ -4922,6 +4922,7 @@ T5.View = function(params) {
                 GT.say("layer.removed", { layer: layers[layerIndex] });
 
                 layers.splice(layerIndex, 1);
+                invalidate();
             } // if
             
             // update the layer count

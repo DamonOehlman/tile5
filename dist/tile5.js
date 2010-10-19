@@ -4844,7 +4844,7 @@ T5.View = function(params) {
                 addLayer(id, value);
             } // if
 
-            wake();
+            invalidate();
         },
         
         /**
@@ -4923,6 +4923,7 @@ T5.View = function(params) {
                 GT.say("layer.removed", { layer: layers[layerIndex] });
 
                 layers.splice(layerIndex, 1);
+                invalidate();
             } // if
             
             // update the layer count
@@ -7762,11 +7763,8 @@ T5.Map = function(params) {
                 navigator.geolocation.clearWatch(geoWatchId);
             } // if
             
-            if (locateMode === LOCATE_MODE.WATCH) {
-                // TODO: fix this to only remove 
-                // the location annotation
-                annotations.clear();
-            } // if
+            self.removeLayer('location');
+            locationOverlay = null;
             
             // reset the locate mode
             locateMode = LOCATE_MODE.NONE;
