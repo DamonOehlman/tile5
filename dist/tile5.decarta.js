@@ -24,7 +24,7 @@ T5.Geo.Decarta = (function() {
     };
     
     var ZOOM_MAX = 18;
-    var ZOOM_MIN = 4;
+    var ZOOM_MIN = 3;
     
     var placeFormatters = {
         DEFAULT: function(params) {
