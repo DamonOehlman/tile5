@@ -4299,7 +4299,7 @@ T5.View = function(params) {
             panimating = true;
             updateOffset(offsetX + x, offsetY + y, params.panAnimationEasing, params.panAnimationDuration);
         }
-        else {
+        else if (! inertia) {
             updateOffset(offsetX + x, offsetY + y);
         } // if..else
     } // pan
@@ -5630,7 +5630,9 @@ T5.ImageAnnotation = function(params) {
             // if we don't have a draq queue return
             if (! tileDrawQueue) { return; }
             
-            context.beginPath();
+            if (! redraw) {
+                context.beginPath();
+            } // if
             
             // iterate through the tiles in the draw queue
             for (var ii = tileDrawQueue.length; ii--; ) {
@@ -5649,7 +5651,9 @@ T5.ImageAnnotation = function(params) {
                         tile.y = y;
                         drawCount = drawCount + 1;
                         
-                        context.rect(x, y, params.tileSize, params.tileSize);
+                        if (! redraw) {
+                            context.rect(x, y, params.tileSize, params.tileSize);
+                        } // if
                     } // if
                 } 
                 else {
@@ -5658,7 +5662,9 @@ T5.ImageAnnotation = function(params) {
             } // for
             
             // clip the context to only draw where the tiles have been drawn
-            context.clip();
+            if (! redraw) {
+                context.clip();
+            } // if
             
             // draw the borders if we have them...
             GT.Log.trace("drew " + drawCount + " tiles at x: " + offset.x + ", y: " + offset.y, startTicks);
@@ -7212,6 +7218,67 @@ T5.Geo.JSON = (function() {
     };
 })();
 
+T5.Geo.LocationSearch = function(params) {
+    params = T5.ex({
+        name: "Geolocation Search",
+        requiredAccuracy: null,
+        watch: false
+    }, params);
+    
+    var geoWatchId = 0;
+    
+    /* tracking functions */
+    
+    function parseSearchResults(position) {
+        var results = [],
+            currentPos = new T5.Geo.Position(
+                    position.coords.latitude, 
+                    position.coords.longitude),
+            accuracy = position.coords.accuracy / 1000;
+
+        if ((! params.requiredAccuracy) || (accuracy >= params.requiredAccuracy)) {
+            results = [new T5.Geo.GeoSearchResult({
+                id: 1,
+                caption: 'Current Location',
+                pos: currentPos,
+                matchWeight: 100
+            })];
+        } // if
+        
+        return results;
+    } // trackingUpdate
+    
+    function trackingError(error) {
+        GT.Log.info('caught location tracking error:', error);
+    } // trackingError
+    
+    // initialise the geosearch agent
+    var self = new T5.Geo.GeoSearchAgent(T5.ex({
+        execute: function(searchParams, callback) {
+            if (navigator.geolocation && (! geoWatchId)) {
+                geoWatchId = navigator.geolocation.watchPosition(
+                    function(position) {
+                        var results = parseSearchResults(position);
+                        if (results.length > 0) {
+                            navigator.geolocation.clearWatch(geoWatchId);
+                            geoWatchId = 0;
+
+                            if (callback) {
+                                callback(results, params, searchParams);
+                            } // if
+                        }
+                    }, 
+                    trackingError, {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 5000
+                    });
+            } // if
+        }
+    }, params));
+    
+    return self;
+};
 /**
 # Map
 
