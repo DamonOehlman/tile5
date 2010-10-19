@@ -118,7 +118,7 @@ T5.View = function(params) {
             panimating = true;
             updateOffset(offsetX + x, offsetY + y, params.panAnimationEasing, params.panAnimationDuration);
         }
-        else {
+        else if (! inertia) {
             updateOffset(offsetX + x, offsetY + y);
         } // if..else
     } // pan
