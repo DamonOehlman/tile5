@@ -319,7 +319,9 @@ T5.TileGrid = function(params) {
             // if we don't have a draq queue return
             if (! tileDrawQueue) { return; }
             
-            context.beginPath();
+            if (! redraw) {
+                context.beginPath();
+            } // if
             
             // iterate through the tiles in the draw queue
             for (var ii = tileDrawQueue.length; ii--; ) {
@@ -338,7 +340,9 @@ T5.TileGrid = function(params) {
                         tile.y = y;
                         drawCount = drawCount + 1;
                         
-                        context.rect(x, y, params.tileSize, params.tileSize);
+                        if (! redraw) {
+                            context.rect(x, y, params.tileSize, params.tileSize);
+                        } // if
                     } // if
                 } 
                 else {
@@ -347,7 +351,9 @@ T5.TileGrid = function(params) {
             } // for
             
             // clip the context to only draw where the tiles have been drawn
-            context.clip();
+            if (! redraw) {
+                context.clip();
+            } // if
             
             // draw the borders if we have them...
             GT.Log.trace("drew " + drawCount + " tiles at x: " + offset.x + ", y: " + offset.y, startTicks);
