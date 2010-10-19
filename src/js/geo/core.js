@@ -99,6 +99,22 @@ T5.Geo = (function() {
 
             return matches;
         },
+        
+        /**
+        - `distanceToString(distance)`
+        
+        This function simply formats a distance value (in meters) into a human readable string.
+        
+        ### TODO
+        - Add internationalization and other formatting support to this function
+        */
+        distanceToString: function(distance) {
+            if (distance > 1000) {
+                return (~~(distance / 10) / 100) + " km";
+            } // if
+            
+            return distance ? distance + " m" : '';
+        },
 
         /**
         - `dist2rad(distance)`

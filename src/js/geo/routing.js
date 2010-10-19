@@ -6,6 +6,21 @@ Define functionality to enable routing for mapping
 ## Functions
 */
 T5.Geo.Routing = (function() {
+    
+    /* internal functions */
+    
+    /*
+    This function is used to cleanup a turn instruction that has been passed
+    back from a routing engine.  At present it has been optimized to work with
+    decarta instructions but will be modified to work with others in time
+    */
+    function markupInstruction(text) {
+        // firstly replace all non breaking descriptions with suitable spaces
+        text = text.replace(/(\w)(\/)(\w)/g, '$1 $2 $3');
+        
+        return text;
+    } // markupInstruction
+    
     // define the module
     var module = {
         /* module functions */
@@ -162,6 +177,9 @@ T5.Geo.Routing = (function() {
                 timeTotal: 0,
                 turnType: null
             }, params);
+            
+            // parse the description
+            params.description = markupInstruction(params.description);
             
             // if the manuever has not been defined, then attempt to parse the description
             if (! params.turnType) {

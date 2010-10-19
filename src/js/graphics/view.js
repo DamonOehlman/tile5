@@ -545,11 +545,12 @@ T5.View = function(params) {
 
         // include wake triggers in the change count
         if ((! draw) && (wakeTriggers === 0) && (! isFlash)) {
+            if ((! idle) && (idleTimeout === 0)) {
+                idleTimeout = setTimeout(triggerIdle, 500);
+            } // if
+
             worker.trigger('complete');
-        } 
-        else if ((! idle) && (idleTimeout === 0)) {
-            idleTimeout = setTimeout(triggerIdle, 500);
-        } // if..else
+        } // if
         
         wakeTriggers = 0;
         GT.Log.trace("Completed draw cycle", tickCount);

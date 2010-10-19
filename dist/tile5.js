@@ -3506,6 +3506,63 @@ T5.TimeLord = (function() {
         
         return result;
     } // increaseDuration
+    
+    /**
+    - `formatDuration(duration)`
+    
+    This function is used to format the specified duration as a string value
+    
+    ### TODO
+    - Add formatting options and i18n support
+    */
+    function formatDuration(duration) {
+        // TODO: Im sure this can be implemented better....
+        
+        var days, hours, minutes, totalSeconds,
+            output = '';
+            
+        if (duration.days) {
+            output = duration.days + ' days ';
+        } // if
+        
+        if (duration.seconds) {
+            totalSeconds = duration.seconds;
+
+            // if we have hours, then get them
+            if (totalSeconds >= 3600) {
+                hours = ~~(totalSeconds / 3600);
+                totalSeconds = totalSeconds - (hours * 3600);
+            } // if
+            
+            // if we have minutes then extract those
+            if (totalSeconds >= 60) {
+                minutes = Math.round(totalSeconds / 60);
+                totalSeconds = totalSeconds - (minutes * 60);
+            } // if
+            
+            // format the result
+            if (hours) {
+                output = output + hours + 
+                    (hours > 1 ? ' hrs ' : ' hr ') + 
+                    (minutes ? 
+                        (minutes > 10 ? 
+                            minutes : 
+                            '0' + minutes) + ' min ' 
+                        : '');
+            }
+            else if (minutes) {
+                output = output + minutes + ' min';
+            }
+            else if (totalSeconds > 0) {
+                output = output + 
+                    (totalSeconds > 10 ? 
+                        totalSeconds : 
+                        '0' + totalSeconds) + ' sec';
+            } // if..else
+        } // if
+        
+        return output;
+    } // formatDuration
         
     /*
     Used to convert a ISO8601 duration value (not W3C subset)
@@ -3561,11 +3618,13 @@ T5.TimeLord = (function() {
         Duration: Duration,
         
         addDuration: addDuration,
-        parseDuration: parseDuration
+        parseDuration: parseDuration,
+        formatDuration: formatDuration
     };
     
     return module;
-})();/**
+})();
+/**
 Easing functions
 
 sourced from Robert Penner's excellent work:
@@ -4667,11 +4726,12 @@ T5.View = function(params) {
 
         // include wake triggers in the change count
         if ((! draw) && (wakeTriggers === 0) && (! isFlash)) {
+            if ((! idle) && (idleTimeout === 0)) {
+                idleTimeout = setTimeout(triggerIdle, 500);
+            } // if
+
             worker.trigger('complete');
-        } 
-        else if ((! idle) && (idleTimeout === 0)) {
-            idleTimeout = setTimeout(triggerIdle, 500);
-        } // if..else
+        } // if
         
         wakeTriggers = 0;
         GT.Log.trace("Completed draw cycle", tickCount);
@@ -6005,6 +6065,22 @@ T5.Geo = (function() {
 
             return matches;
         },
+        
+        /**
+        - `distanceToString(distance)`
+        
+        This function simply formats a distance value (in meters) into a human readable string.
+        
+        ### TODO
+        - Add internationalization and other formatting support to this function
+        */
+        distanceToString: function(distance) {
+            if (distance > 1000) {
+                return (~~(distance / 10) / 100) + " km";
+            } // if
+            
+            return distance ? distance + " m" : '';
+        },
 
         /**
         - `dist2rad(distance)`
@@ -7330,7 +7406,7 @@ T5.Map = function(params) {
                 lastBoundsChangeOffset, self.getOffset()));
         
         if (changeDelta > params.boundsChangeThreshold) {
-            lastBoundsChangeOffset = self.getOffset();
+            lastBoundsChangeOffset = T5.V.copy(self.getOffset());
             self.trigger("boundsChange", self.getBoundingBox());
         } // if
     } // handleIdle
@@ -7566,9 +7642,7 @@ T5.Map = function(params) {
                 self.trigger("wake");
 
                 // trigger a bounds change event
-                if (params.boundsChange) {
-                    params.boundsChange(self.getBoundingBox());
-                } // if
+                self.trigger("boundsChange", self.getBoundingBox());
 
                 // if we have a callback defined, then run it
                 if (callback && (typeof easingFn === 'undefined')) {
@@ -8072,6 +8146,21 @@ Define functionality to enable routing for mapping
 ## Functions
 */
 T5.Geo.Routing = (function() {
+    
+    /* internal functions */
+    
+    /*
+    This function is used to cleanup a turn instruction that has been passed
+    back from a routing engine.  At present it has been optimized to work with
+    decarta instructions but will be modified to work with others in time
+    */
+    function markupInstruction(text) {
+        // firstly replace all non breaking descriptions with suitable spaces
+        text = text.replace(/(\w)(\/)(\w)/g, '$1 $2 $3');
+        
+        return text;
+    } // markupInstruction
+    
     // define the module
     var module = {
         /* module functions */
@@ -8228,6 +8317,9 @@ T5.Geo.Routing = (function() {
                 timeTotal: 0,
                 turnType: null
             }, params);
+            
+            // parse the description
+            params.description = markupInstruction(params.description);
             
             // if the manuever has not been defined, then attempt to parse the description
             if (! params.turnType) {

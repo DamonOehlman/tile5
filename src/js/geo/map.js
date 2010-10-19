@@ -192,7 +192,7 @@ T5.Map = function(params) {
                 lastBoundsChangeOffset, self.getOffset()));
         
         if (changeDelta > params.boundsChangeThreshold) {
-            lastBoundsChangeOffset = self.getOffset();
+            lastBoundsChangeOffset = T5.V.copy(self.getOffset());
             self.trigger("boundsChange", self.getBoundingBox());
         } // if
     } // handleIdle
@@ -428,9 +428,7 @@ T5.Map = function(params) {
                 self.trigger("wake");
 
                 // trigger a bounds change event
-                if (params.boundsChange) {
-                    params.boundsChange(self.getBoundingBox());
-                } // if
+                self.trigger("boundsChange", self.getBoundingBox());
 
                 // if we have a callback defined, then run it
                 if (callback && (typeof easingFn === 'undefined')) {

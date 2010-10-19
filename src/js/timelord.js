@@ -45,6 +45,63 @@ T5.TimeLord = (function() {
         
         return result;
     } // increaseDuration
+    
+    /**
+    - `formatDuration(duration)`
+    
+    This function is used to format the specified duration as a string value
+    
+    ### TODO
+    - Add formatting options and i18n support
+    */
+    function formatDuration(duration) {
+        // TODO: Im sure this can be implemented better....
+        
+        var days, hours, minutes, totalSeconds,
+            output = '';
+            
+        if (duration.days) {
+            output = duration.days + ' days ';
+        } // if
+        
+        if (duration.seconds) {
+            totalSeconds = duration.seconds;
+
+            // if we have hours, then get them
+            if (totalSeconds >= 3600) {
+                hours = ~~(totalSeconds / 3600);
+                totalSeconds = totalSeconds - (hours * 3600);
+            } // if
+            
+            // if we have minutes then extract those
+            if (totalSeconds >= 60) {
+                minutes = Math.round(totalSeconds / 60);
+                totalSeconds = totalSeconds - (minutes * 60);
+            } // if
+            
+            // format the result
+            if (hours) {
+                output = output + hours + 
+                    (hours > 1 ? ' hrs ' : ' hr ') + 
+                    (minutes ? 
+                        (minutes > 10 ? 
+                            minutes : 
+                            '0' + minutes) + ' min ' 
+                        : '');
+            }
+            else if (minutes) {
+                output = output + minutes + ' min';
+            }
+            else if (totalSeconds > 0) {
+                output = output + 
+                    (totalSeconds > 10 ? 
+                        totalSeconds : 
+                        '0' + totalSeconds) + ' sec';
+            } // if..else
+        } // if
+        
+        return output;
+    } // formatDuration
         
     /*
     Used to convert a ISO8601 duration value (not W3C subset)
@@ -100,7 +157,8 @@ T5.TimeLord = (function() {
         Duration: Duration,
         
         addDuration: addDuration,
-        parseDuration: parseDuration
+        parseDuration: parseDuration,
+        formatDuration: formatDuration
     };
     
     return module;
