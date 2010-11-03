@@ -17,7 +17,7 @@ T5.Geo.MapBox = (function() {
                 
                 getServerDetails: function() {
                     return {
-                        baseUrl: GT.formatStr("http://{2}.tile.mapbox.com/{0}/{1}/", params.version, params.dataset, "{0}"),
+                        baseUrl: COG.formatStr("http://{2}.tile.mapbox.com/{0}/{1}/", params.version, params.dataset, "{0}"),
                         subDomains: ['a', 'b', 'c', 'd']
                     };
                 }

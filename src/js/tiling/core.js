@@ -14,6 +14,13 @@
         return params;
     }; // T5.Tile
     
+    T5.EmptyTile = function(params) {
+        var self = new T5.Tile(params);
+        self.empty = true;
+        
+        return self;
+    }; // T5.EmptyTile
+    
     T5.ImageTile = function(params) {
         // initialise parameters with defaults
         params = T5.ex({

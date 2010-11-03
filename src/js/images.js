@@ -44,7 +44,16 @@ T5.Images = (function() {
             context.drawImage(imageData.background, 0, 0);
         } // if
         
-        context.drawImage(imageData.image, offset.x, offset.y);
+        if (imageData.drawBackground) {
+            imageData.drawBackground(context);
+        } // if
+        
+        if (imageData.customDraw) {
+            imageData.customDraw(context, imageData);
+        }
+        else {
+            context.drawImage(imageData.image, offset.x, offset.y);
+        } // if..else
         
         if (imageData.postProcess) {
             imageData.postProcess(context, imageData);
@@ -70,7 +79,7 @@ T5.Images = (function() {
             } // for
             
             // if we have an image background, or overlay then apply
-            if (imageData.background || imageData.postProcess) {
+            if (imageData.background || imageData.postProcess || imageData.drawBackground || imageData.customDraw) {
                 postProcess(imageData);
             } // if
             
@@ -102,7 +111,7 @@ T5.Images = (function() {
         var maxImageLoads = T5.getConfig().maxImageLoads;
         
         // initialise the load worker
-        loadWorker = GT.Loopage.join({
+        loadWorker = COG.Loopage.join({
             execute: function(tickCount, worker) {
                 if ((! maxImageLoads) || (loadingImages.length < maxImageLoads)) {
                     var imageData = queuedImages.shift();
@@ -117,7 +126,7 @@ T5.Images = (function() {
                         // reset the queued flag and attempt to load the image
                         imageData.image.onload = handleImageLoad;
                         imageData.image.src = T5.Resources.getPath(imageData.url);
-                        imageData.requested = T5.time();
+                        imageData.requested = Date.now();
                     } // if..else
                 } // if
             },
@@ -125,7 +134,7 @@ T5.Images = (function() {
         });
         
         // handle the load worker finishing
-        loadWorker.bind('complete', function() {
+        loadWorker.bind('complete', function(evt) {
             loadWorker = null;
         });
     } // loadNextImage
@@ -133,7 +142,7 @@ T5.Images = (function() {
     function cleanupImageCache() {
         clearingCache = true;
         try {
-            var halfLen = Math.floor(cachedImages.length / 2);
+            var halfLen = cachedImages.length / 2 >> 0;
             if (halfLen > 0) {
                 // TODO: make this more selective... currently some images on screen may be removed :/
                 cachedImages.sort(function(itemA, itemB) {
@@ -153,7 +162,7 @@ T5.Images = (function() {
             clearingCache = false;
         } // try..finally
         
-        GT.say("imagecache.cleared");
+        COG.say("imagecache.cleared");
     } // cleanupImageCache
 
     function checkTimeoutsAndCache(currentTickCount) {
@@ -213,13 +222,13 @@ T5.Images = (function() {
                 url: url,
                 image: new Image(),
                 loaded: false,
-                created: T5.time(),
+                created: Date.now(),
                 requested: null,
                 hitCount: 0,
                 loadCallback: callback
             }, loadArgs);
             
-            // GT.Log.info("loading image, image args = ", loadArgs);
+            // COG.Log.info("loading image, image args = ", loadArgs);
             
             // initialise the image id
             imageData.image.id = "resourceLoaderImage" + (imageCounter++);
@@ -265,7 +274,7 @@ T5.Images = (function() {
         }
     }; // 
     
-    GT.Loopage.join({
+    COG.Loopage.join({
         execute: checkTimeoutsAndCache,
         frequency: 20000
     });

@@ -83,8 +83,10 @@ T5.ViewLayer = function(params) {
             - dimensions - a Dimensions object specifying the actual size of the drawing surface
             - state - the current DisplayState of the view
             - view - a reference to the View
+            - redraw - whether a redraw is required
+            - tickCount - the current tick count
         */
-        draw: function(context, offset, dimensions, state, view) {
+        draw: function(context, offset, dimensions, state, view, redraw, tickCount) {
         },
         
         /**
@@ -95,7 +97,7 @@ T5.ViewLayer = function(params) {
         animation layers that should only exist as long as an animation is active.
         */
         remove: function() {
-            GT.say("layer.remove", { id: id });
+            COG.say("layer.remove", { id: id });
         },
         
         /**
@@ -144,7 +146,7 @@ T5.ViewLayer = function(params) {
         }
     }, params); // self
     
-    GT.observable(self);
-    
+    // make view layers observable
+    COG.observable(self);
     return self;
 }; // T5.ViewLayer

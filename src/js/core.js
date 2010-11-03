@@ -363,11 +363,7 @@ T5 = (function() {
     })(); // dimensionTools
 
     var module = {
-        ex: GT.extend,
-        
-        time: function() {
-            return new Date().getTime();
-        },
+        ex: COG.extend,
         
         Vector: Vector, // Vector
         V: vectorTools,

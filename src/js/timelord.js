@@ -148,7 +148,7 @@ T5.TimeLord = (function() {
             return parser(duration);
         }
         
-        GT.Log.warn('Could not find duration parser for specified format: ' + format);
+        COG.Log.warn('Could not find duration parser for specified format: ' + format);
         return new Duration();
     } // durationToSeconds            
     

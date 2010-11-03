@@ -17,11 +17,9 @@ T5.TileGrid = function(params) {
         topLeftOffset = T5.V.offset(params.center, -gridHalfWidth),
         lastTileCreator = null,
         tileShift = new T5.Vector(),
-        lastNotifyListener = null;    
-    
-    // initialise varibles
-    var halfTileSize = Math.round(params.tileSize / 2),
-        invTileSize = params.tileSize ? 1 / params.tileSize : 0,
+        lastNotifyListener = null,
+        halfTileSize = Math.round(tileSize / 2),
+        invTileSize = tileSize ? 1 / tileSize : 0,
         active = true,
         tileDrawQueue = null,
         loadedTileCount = 0,
@@ -31,7 +29,7 @@ T5.TileGrid = function(params) {
         shiftDelta = new T5.Vector(),
         repaintDistance = T5.getConfig().repaintDistance,
         reloadTimeout = 0,
-        gridHeightWidth = gridSize * params.tileSize,
+        gridHeightWidth = gridSize * tileSize,
         tileCols, tileRows, centerPos;
         
     /* internal functions */
@@ -40,8 +38,8 @@ T5.TileGrid = function(params) {
         // set the length of the destination to match the source
         dst.length = src.length;
 
-        for (var xx = 0; xx < params.gridSize; xx++) {
-            for (var yy = 0; yy < params.gridSize; yy++) {
+        for (var xx = 0; xx < gridSize; xx++) {
+            for (var yy = 0; yy < gridSize; yy++) {
                 dst[getTileIndex(xx, yy)] = getTile(xx + delta.x, yy + delta.y);
             } // for
         } // for
@@ -49,9 +47,10 @@ T5.TileGrid = function(params) {
 
     function createTempTile(col, row) {
         var gridXY = getGridXY(col, row);
-        return new T5.ImageTile({
+        return new T5.EmptyTile({
             gridX: gridXY.x,
-            gridY: gridXY.y
+            gridY: gridXY.y,
+            empty: true
         });
     } // createTempTile
     
@@ -80,16 +79,16 @@ T5.TileGrid = function(params) {
     
     function getShiftDelta(topLeftX, topLeftY, cols, rows) {
         // initialise variables
-        var shiftAmount = Math.floor(params.gridSize * 0.2),
+        var shiftAmount = gridSize * 0.2 >> 0,
             shiftDelta = new T5.Vector();
             
         // test the x
-        if (topLeftX < 0 || topLeftX + cols > params.gridSize) {
+        if (topLeftX < 0 || topLeftX + cols > gridSize) {
             shiftDelta.x = topLeftX < 0 ? -shiftAmount : shiftAmount;
         } // if
 
         // test the y
-        if (topLeftY < 0 || topLeftY + rows > params.gridSize) {
+        if (topLeftY < 0 || topLeftY + rows > gridSize) {
             shiftDelta.y = topLeftY < 0 ? -shiftAmount : shiftAmount;
         } // if
         
@@ -97,7 +96,7 @@ T5.TileGrid = function(params) {
     } // getShiftDelta
     
     function getTile(col, row) {
-        return (col >= 0 && col < params.gridSize) ? storage[getTileIndex(col, row)] : null;
+        return (col >= 0 && col < gridSize) ? storage[getTileIndex(col, row)] : null;
     } // getTile
     
     function setTile(col, row, tile) {
@@ -105,7 +104,7 @@ T5.TileGrid = function(params) {
     } // setTile
     
     function getTileIndex(col, row) {
-        return (row * params.gridSize) + col;
+        return (row * gridSize) + col;
     } // getTileIndex
     
     /*
@@ -117,10 +116,8 @@ T5.TileGrid = function(params) {
     */
     function populate(tileCreator, notifyListener, resetStorage) {
         // take a tick count as we want to time this
-        var startTicks = GT.Log.getTraceTicks(),
+        var startTicks = COG.Log.getTraceTicks(),
             tileIndex = 0,
-            gridSize = params.gridSize,
-            tileSize = params.tileSize,
             centerPos = new T5.Vector(gridSize / 2, gridSize / 2);
             
         // if the storage is to be reset, then do that now
@@ -129,7 +126,7 @@ T5.TileGrid = function(params) {
         } // if
         
         if (tileCreator) {
-            // GT.Log.info("populating grid, x shift = " + tileShift.x + ", y shift = " + tileShift.y);
+            // COG.Log.info("populating grid, size = " + gridSize + ", x shift = " + tileShift.x + ", y shift = " + tileShift.y);
             
             for (var row = 0; row < gridSize; row++) {
                 for (var col = 0; col < gridSize; col++) {
@@ -155,7 +152,7 @@ T5.TileGrid = function(params) {
         lastNotifyListener = notifyListener;
 
         // log how long it took
-        GT.Log.trace("tile grid populated", startTicks);
+        COG.Log.trace("tile grid populated", startTicks);
         
         // if we have an onpopulate listener defined, let them know
         self.wakeParent();
@@ -165,8 +162,8 @@ T5.TileGrid = function(params) {
         // if the shift delta x and the shift delta y are both 0, then return
         if ((! params.allowShift) || ((shiftDelta.x === 0) && (shiftDelta.y === 0))) { return; }
         
-        var ii, startTicks = GT.Log.getTraceTicks();
-        // GT.Log.info("need to shift tile store grid, " + shiftDelta.x + " cols and " + shiftDelta.y + " rows.");
+        var ii, startTicks = COG.Log.getTraceTicks();
+        // COG.Log.info("need to shift tile store grid, " + shiftDelta.x + " cols and " + shiftDelta.y + " rows.");
 
         // create new storage
         var newStorage = Array(storage.length);
@@ -186,9 +183,9 @@ T5.TileGrid = function(params) {
         } // if..else
 
         // create the tile shift offset
-        tileShift.x += (-shiftDelta.x * params.tileSize);
-        tileShift.y += (-shiftDelta.y * params.tileSize);
-        GT.Log.trace("tile storage shifted", startTicks);
+        tileShift.x += (-shiftDelta.x * tileSize);
+        tileShift.y += (-shiftDelta.y * tileSize);
+        COG.Log.trace("tile storage shifted", startTicks);
 
         // populate with the last tile creator (crazy talk)
         populate(lastTileCreator, lastNotifyListener);
@@ -198,17 +195,17 @@ T5.TileGrid = function(params) {
         var tile, tmpQueue = [],
             dirtyTiles = false,
             tileStart = new T5.Vector(
-                            Math.floor((offset.x + tileShift.x) * invTileSize), 
-                            Math.floor((offset.y + tileShift.y) * invTileSize));
+                            (offset.x + tileShift.x) * invTileSize >> 0, 
+                            (offset.y + tileShift.y) * invTileSize >> 0);
 
         if (! centerPos) {
             var dimensions = self.getParent().getDimensions();
             
             tileCols = Math.ceil(dimensions.width * invTileSize) + 1;
             tileRows = Math.ceil(dimensions.height * invTileSize) + 1;
-            centerPos = new T5.Vector(Math.floor((tileCols-1) / 2), Math.floor((tileRows-1) / 2));
+            centerPos = new T5.Vector((tileCols-1) / 2 >> 0, (tileRows-1) / 2 >> 0);
         } // if
-
+        
         // reset the tile draw queue
         tilesNeeded = false;
 
@@ -228,7 +225,7 @@ T5.TileGrid = function(params) {
                 } // if
                 
                 // update the tile dirty state
-                dirtyTiles = (tile.dirty = fullRedraw || tile.dirty) || dirtyTiles;
+                dirtyTiles = tile ? ((tile.dirty = fullRedraw || tile.dirty) || dirtyTiles) : dirtyTiles;
                 
                 // add the tile and position to the tile draw queue
                 tmpQueue[tmpQueue.length] = {
@@ -302,19 +299,23 @@ T5.TileGrid = function(params) {
         
         // TODO: convert to a configurable implementation
         getTileSize: function() {
-            return params.tileSize;
+            return tileSize;
         },
         
-        draw: function(context, offset, dimensions, state, view) {
+        clearTileRect: function(context, x, y, tileSize, state) {
+            context.clearRect(x, y, tileSize, tileSize);
+        },
+        
+        draw: function(context, offset, dimensions, state, view, redraw, tickCount) {
             if (! active) { return; }
             
             // initialise variables
-            var startTicks = T5.time(),
-                xShift = offset.x,
+            var xShift = offset.x,
                 yShift = offset.y,
+                minX = dimensions.width,
+                minY = dimensions.height,
                 drawCount = 0,
-                tilesDrawn = true,
-                redraw = (state === T5.viewState('PAN')) || (state === T5.viewState('PINCH')) || T5.isTweening();
+                tilesDrawn = true;
                 
             // if we don't have a draq queue return
             if (! tileDrawQueue) { return; }
@@ -325,29 +326,36 @@ T5.TileGrid = function(params) {
             
             // iterate through the tiles in the draw queue
             for (var ii = tileDrawQueue.length; ii--; ) {
-                var tile = tileDrawQueue[ii];
+                var tile = tileDrawQueue[ii],
+                    x = tile.gridX - xShift,
+                    y = tile.gridY - yShift;
+
+                if (! redraw) {
+                    context.rect(x, y, tileSize, tileSize);
+                } // if
+
+                // update the tile x and y
+                tile.x = x;
+                tile.y = y;
 
                 // if the tile is loaded, then draw, otherwise load
-                if (tile) {
-                    var x = tile.gridX - xShift,
-                        y = tile.gridY - yShift;
-                        
+                if (! tile.empty) {
                     // draw the tile
                     if (redraw || tile.dirty) {
                         tilesDrawn = self.drawTile(context, tile, x, y, state) && tilesDrawn;
                         
-                        tile.x = x;
-                        tile.y = y;
                         drawCount = drawCount + 1;
-                        
-                        if (! redraw) {
-                            context.rect(x, y, params.tileSize, params.tileSize);
-                        } // if
                     } // if
                 } 
                 else {
+                    COG.Log.info("empty tile @ x: " + x + ", y: " + y);
+                    self.clearTileRect(context, x, y, tileSize, state);
                     tilesDrawn = false;
                 } // if..else
+                
+                // update the minx and miny
+                minX = x < minX ? x : minX;
+                minY = y < minY ? y : minY;
             } // for
             
             // clip the context to only draw where the tiles have been drawn
@@ -355,8 +363,18 @@ T5.TileGrid = function(params) {
                 context.clip();
             } // if
             
+            /* clean the display where required */
+            
+            if (minX > 0) {
+                context.clearRect(0, 0, minX, dimensions.height);
+            } // if
+            
+            if (minY > 0) {
+                context.clearRect(0, 0, dimensions.width, minY);
+            } // if
+            
             // draw the borders if we have them...
-            GT.Log.trace("drew " + drawCount + " tiles at x: " + offset.x + ", y: " + offset.y, startTicks);
+            // COG.Log.trace("drew " + drawCount + " tiles at x: " + offset.x + ", y: " + offset.y, startTicks);
             
             // if the tiles have been drawn and previously haven't then fire the tiles drawn event
             if (tilesDrawn && (! lastTilesDrawn)) {
@@ -368,8 +386,8 @@ T5.TileGrid = function(params) {
         },
         
         getTileAtXY: function(x, y) {
-            var queueLength = tileDrawQueue ? tileDrawQueue.length : 0,
-                tileSize = params.tileSize;
+            var queueLength = tileDrawQueue ? tileDrawQueue.length : 0;
+            COG.Log.info("looking for tile @ x: " + x + ", y: " + y);
             
             for (var ii = queueLength; ii--; ) {
                 var tile = tileDrawQueue[ii];
@@ -387,7 +405,7 @@ T5.TileGrid = function(params) {
         getTileVirtualXY: function(col, row, getCenter) {
             // get the normalized position from the tile store
             var pos = getNormalizedPos(col, row),
-                fnresult = new T5.Vector(pos.x * params.tileSize, pos.y * params.tileSize);
+                fnresult = new T5.Vector(pos.x * tileSize, pos.y * tileSize);
             
             if (getCenter) {
                 fnresult.x += halfTileSize;
@@ -402,7 +420,7 @@ T5.TileGrid = function(params) {
         }
     });
     
-    GT.listen("imagecache.cleared", function(args) {
+    COG.listen("imagecache.cleared", function(args) {
         // reset all the tiles loaded state
         for (var ii = storage.length; ii--; ) {
             if (storage[ii]) {
@@ -411,7 +429,7 @@ T5.TileGrid = function(params) {
         } // for
     });
     
-    GT.listen("tiler.repaint", function(args) {
+    COG.listen("tiler.repaint", function(args) {
         for (var ii = storage.length; ii--; ) {
             if (storage[ii]) {
                 storage[ii].x = null;

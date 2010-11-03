@@ -44,7 +44,7 @@ when creating overlays and the like for the map implementations.
 T5.View = function(params) {
     // initialise defaults
     params = T5.ex({
-        id: GT.objId('view'),
+        id: COG.objId('view'),
         container: "",
         fastDraw: false,
         inertia: true,
@@ -54,7 +54,8 @@ T5.View = function(params) {
         panAnimationDuration: 750,
         pinchZoomAnimateTrigger: 400,
         adjustScaleFactor: null,
-        autoSize: false
+        autoSize: false,
+        tapExtent: 10
     }, params);
     
     // get the container context
@@ -109,7 +110,7 @@ T5.View = function(params) {
         
     /* panning functions */
     
-    function pan(x, y, inertia) {
+    function pan(evt, x, y, inertia) {
         state = statePan;
         wake();
         
@@ -123,11 +124,11 @@ T5.View = function(params) {
         } // if..else
     } // pan
     
-    function panEnd(x, y) {
+    function panEnd(evt, x, y) {
         state = stateActive;
         panimating = false;
         
-        GT.Loopage.join({
+        COG.Loopage.join({
             execute: wake,
             after: 50,
             single: true
@@ -156,7 +157,7 @@ T5.View = function(params) {
         scaleFactor = (startRect && (startSize !== 0)) ? (endSize / startSize) : 1;
     } // checkTouches            
     
-    function pinchZoom(touchesStart, touchesCurrent) {
+    function pinchZoom(evt, touchesStart, touchesCurrent) {
         checkTouches(touchesStart, touchesCurrent);
         scaling = scaleFactor !== 1;
         
@@ -166,12 +167,12 @@ T5.View = function(params) {
         } // if
     } // pinchZoom
     
-    function pinchZoomEnd(touchesStart, touchesEnd, pinchZoomTime) {
+    function pinchZoomEnd(evt, touchesStart, touchesEnd, pinchZoomTime) {
         checkTouches(touchesStart, touchesEnd);
         
         if (params.adjustScaleFactor) {
             scaleFactor = params.adjustScaleFactor(scaleFactor);
-            GT.Log.info("scale factor adjusted to: " + scaleFactor);
+            COG.Log.info("scale factor adjusted to: " + scaleFactor);
         } // if
 
         if (pinchZoomTime < params.pinchZoomAnimateTrigger) {
@@ -199,7 +200,7 @@ T5.View = function(params) {
         } // if..else
     } // pinchZoomEnd
     
-    function wheelZoom(relXY, zoom) {
+    function wheelZoom(evt, relXY, zoom) {
         self.zoom(relXY, Math.min(Math.pow(2, Math.round(Math.log(zoom))), 8), 500);
     } // wheelZoom
     
@@ -222,6 +223,17 @@ T5.View = function(params) {
         rotation = value;
     } // handlePrepCanvasCallback
     
+    function handleTap(evt, absXY, relXY) {
+        // calculate the grid xy
+        var gridXY = T5.V.offset(relXY, offsetX, offsetY);
+        
+        // iterate through the layers, and inform of the tap event
+        for (var ii = layers.length; ii--; ) {
+            evt.cancel = evt.cancel || 
+                layers[ii].trigger('tap', absXY, relXY, gridXY).cancel;
+        } // for
+    } // handleTap
+        
     function updateOffset(x, y, tweenFn, tweenDuration, callback) {
         
         // initialise variables
@@ -247,19 +259,18 @@ T5.View = function(params) {
                     
             // attach update listeners
             tweenX.cancelOnInteract = true;
-            tweenX.requestUpdates(function(updatedValue) {
-                offsetX = updatedValue;
+            tweenX.requestUpdates(function(updatedVal) {
+                offsetX = updatedVal;
+                panimating = true;
                 wake();
             });
             
             tweenY.cancelOnInteract = true;
-            tweenY.requestUpdates(function(updatedValue) {
-                offsetY = updatedValue;
+            tweenY.requestUpdates(function(updatedVal) {
+                offsetY = updatedVal;
+                panimating = true;
                 wake();
             });
-            
-            // set the panimating flag to true
-            panimating = true;
         }
         else {
             offsetX = x;
@@ -271,7 +282,7 @@ T5.View = function(params) {
     
     function attachToCanvas() {
         if (canvas) {
-            T5.resetTouch(canvas);
+            COG.Touch.release(canvas);
 
             // if we are autosizing the set the size
             if (params.autoSize) {
@@ -284,12 +295,12 @@ T5.View = function(params) {
                 mainContext.clearRect(0, 0, canvas.width, canvas.height);
             } 
             catch (e) {
-                GT.Log.exception(e);
+                COG.Log.exception(e);
                 throw new Error("Could not initialise canvas on specified view element");
             }
             
             // capture touch events
-            touchHelper = T5.captureTouch(canvas, {
+            touchHelper = COG.Touch.capture(canvas, {
                 observable: self
             });
             
@@ -303,7 +314,7 @@ T5.View = function(params) {
             
             // iterate through the layers, and change the context
             for (var ii = layerCount; ii--; ) {
-                layerContextChange(layers[ii]);
+                layerContextChanged(layers[ii]);
             } // for
 
             // tell the view to redraw
@@ -314,7 +325,7 @@ T5.View = function(params) {
     function addLayer(id, value) {
         // make sure the layer has the correct id
         value.setId(id);
-        value.added = T5.time();
+        value.added = Date.now();
         
         layerContextChanged(value);
         
@@ -336,6 +347,7 @@ T5.View = function(params) {
         
         // update the layer count
         layerCount = layers.length;
+        return value;
     } // addLayer
     
     function getLayerIndex(id) {
@@ -438,7 +450,7 @@ T5.View = function(params) {
         idleTimeout = 0;
     } // idle
     
-    function drawView(context, offset, tickCount) {
+    function drawView(context, offset, redraw, tickCount) {
         var changeCount = 0,
             drawState = panimating ? statePan : (frozen ? T5.viewState('FROZEN') : state),
             isPinchZoom = (drawState & statePinch) !== 0,
@@ -459,6 +471,8 @@ T5.View = function(params) {
             // offset the draw args
             offset = T5.V.offset(offset, zoomCenter.x, zoomCenter.y);
         } // if
+        
+        // COG.Log.info("draw state = " + drawState);
         
         context.save();
         try {
@@ -483,7 +497,9 @@ T5.View = function(params) {
                                             offset, 
                                             dimensions, 
                                             drawState, 
-                                            self);
+                                            self,
+                                            redraw,
+                                            tickCount);
 
                     changeCount += layerChanges ? layerChanges : 0;
                 } // if
@@ -493,10 +509,7 @@ T5.View = function(params) {
             context.restore();
         } // try..finally
         
-        GT.Log.trace("draw complete", tickCount);
-        
-        // reset draw monitoring variables
-        redraw = false;
+        COG.Log.trace("draw complete", tickCount);
         
         // return the updated change count
         return changeCount;
@@ -506,13 +519,18 @@ T5.View = function(params) {
         // check to see if we are panning
         var draw = false,
             interacting = (! panimating) && 
-                ((state === statePinch) || (state === statePan));
+                ((state === statePinch) || (state === statePan)),
+            // if any of the following are true, then we need to draw the whole canvas so just
+            requireRedraw = redraw || 
+                        state === T5.viewState('PAN') || 
+                        state === T5.viewState('PINCH') || 
+                        T5.isTweening();
 
         // convert the offset x and y to integer values
         // while canvas implementations work fine with real numbers, the actual drawing of images
         // will not look crisp when a real number is used rather than an integer (or so I've found)
-        cycleOffset.x = Math.floor(offsetX);
-        cycleOffset.y = Math.floor(offsetY);
+        cycleOffset.x = offsetX >> 0;
+        cycleOffset.y = offsetY >> 0;
             
         
         if (interacting) {
@@ -527,20 +545,19 @@ T5.View = function(params) {
             } // if
         }  // if
         
-        // if any of the following are true, then we need to draw the whole canvas so just
-        // ignore the rect checking
-        draw = redraw || state === T5.viewState('PAN') || T5.isTweening();
-        
         // if we are scaling and at the same scale factor, don't redraw as its a waste of time
-        draw = draw || ((scaleFactor !== 1) && (scaleFactor !== lastScaleFactor));
+        draw = requireRedraw || ((scaleFactor !== 1) && (scaleFactor !== lastScaleFactor));
 
         for (var ii = layerCount; ii--; ) {
-            draw = layers[ii].cycle(tickCount, cycleOffset, state, redraw) || draw;
+            draw = layers[ii].cycle(tickCount, cycleOffset, state, requireRedraw) || draw;
         } // for
         
         if (draw) {
-            drawView(mainContext, cycleOffset);
+            drawView(mainContext, cycleOffset, requireRedraw, tickCount);
             lastScaleFactor = scaleFactor;
+            
+            // reset draw monitoring variables
+            redraw = false;
         } // if
 
         // include wake triggers in the change count
@@ -553,7 +570,7 @@ T5.View = function(params) {
         } // if
         
         wakeTriggers = 0;
-        GT.Log.trace("Completed draw cycle", tickCount);
+        COG.Log.trace("Completed draw cycle", tickCount);
     } // cycle
     
     function invalidate() {
@@ -566,13 +583,13 @@ T5.View = function(params) {
         if (frozen || cycleWorker) { return; }
         
         // create the cycle worker
-        cycleWorker = GT.Loopage.join({
+        cycleWorker = COG.Loopage.join({
             execute: cycle,
             frequency: 30
         });
         
         // bind to the complete method
-        cycleWorker.bind('complete', function() {
+        cycleWorker.bind('complete', function(evt) {
             cycleWorker = null;
         });
     } // wake
@@ -673,8 +690,8 @@ T5.View = function(params) {
         supplied.
         */
         eachLayer: function(callback) {
-            // iterate through each of the layers and fire the callback for each 
-            for (var ii = 0; ii < layerCount; ii++) {
+            // iterate through each of the layers and fire the callback for each
+            for (var ii = layerCount; ii--; ) {
                 callback(layers[ii]);
             } // for
         },
@@ -704,6 +721,17 @@ T5.View = function(params) {
             frozen = false;
             
             wake();
+        },
+        
+        resize: function(width, height) {
+            // if the canvas is assigned, then update the height and width and reattach
+            if (canvas) {
+                canvas.width = width;
+                canvas.height = height;
+                
+                attachToCanvas();
+                invalidate();
+            } // if
         },
         
         /**
@@ -739,7 +767,7 @@ T5.View = function(params) {
         removeLayer: function(id) {
             var layerIndex = getLayerIndex(id);
             if ((layerIndex >= 0) && (layerIndex < layerCount)) {
-                GT.say("layer.removed", { layer: layers[layerIndex] });
+                COG.say("layer.removed", { layer: layers[layerIndex] });
 
                 layers.splice(layerIndex, 1);
                 invalidate();
@@ -797,7 +825,7 @@ T5.View = function(params) {
     };
 
     // listen for layer removals
-    GT.listen("layer.remove", function(args) {
+    COG.listen("layer.remove", function(args) {
         if (args.id) {
             self.removeLayer(args.id);
         } // if
@@ -805,8 +833,11 @@ T5.View = function(params) {
     
     deviceScaling = T5.getConfig().getScaling();
     
+    // add the markers layer
+    self.markers = addLayer('markers', new T5.MarkerLayer());
+    
     // make the view observable
-    GT.observable(self);
+    COG.observable(self);
     
     // listen for being woken up
     self.bind("wake", wake);
@@ -818,7 +849,7 @@ T5.View = function(params) {
         self.bind("panEnd", panEnd);
 
         // handle intertia events
-        self.bind("inertiaCancel", function() {
+        self.bind("inertiaCancel", function(evt) {
             panimating = false;
             wake();
         });
@@ -831,11 +862,14 @@ T5.View = function(params) {
         self.bind("wheelZoom", wheelZoom);
     } // if
     
+    // handle tap events
+    self.bind('tap', handleTap);
+    
     // make the view configurable
-    GT.configurable(
+    COG.configurable(
         self, 
-        ["inertia", "container", 'rotation'], 
-        GT.paramTweaker(params, null, {
+        ["inertia", "container", 'rotation', 'tapExtent'], 
+        COG.paramTweaker(params, null, {
             "container": handleContainerUpdate,
             'rotation':  handleRotationUpdate
         }),

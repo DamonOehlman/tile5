@@ -111,13 +111,14 @@ T5.Geo.UI = (function() {
             var radsPerPixel = params.radsPerPixel,
                 centerMercatorPix = T5.Geo.P.toMercatorPixels(params.centerPos);
                 
-            // GT.Log.info("tile grid created, rads per pixel = " + radsPerPixel);
+            // COG.Log.info("tile grid created, rads per pixel = " + radsPerPixel);
             
             // calculate the bottom left mercator pix
             // the position of the bottom left mercator pixel is 
             // determined by params.subtracting the actual 
-            var blPixX = (centerMercatorPix.x / radsPerPixel) - params.centerXY.x,
-                blPixY = (centerMercatorPix.y / radsPerPixel) - params.centerXY.y;
+            var blPixX = ((centerMercatorPix.x / radsPerPixel) - params.centerXY.x) >> 0,
+                blPixY = ((centerMercatorPix.y / radsPerPixel) - params.centerXY.y) >> 0,
+                tlPixY = null;
             
             // initialise self
             var self = T5.ex({}, params.grid, {
@@ -128,20 +129,23 @@ T5.Geo.UI = (function() {
                 },
                 
                 getGridXYForPosition: function(pos) {
-                    // determine the mercator pixels for teh position
-                    var posPixels = T5.Geo.P.toMercatorPixels(pos);
-
-                    // calculate the offsets
-                    var offsetX = (posPixels.x / radsPerPixel) - blPixX;
-                    var offsetY = self.gridDimensions.height - 
-                            ((posPixels.y / radsPerPixel) - blPixY);
-
-                    return new T5.Vector(offsetX, offsetY);
+                    var vector = new T5.Geo.GeoVector(pos);
+                    self.syncVectors([vector]);
+                    
+                    return vector;
+                },
+                
+                syncVectors: function(vectors) {
+                    for (var ii = vectors.length; ii--; ) {
+                        if (vectors[ii].setRadsPerPixel) {
+                            vectors[ii].setRadsPerPixel(radsPerPixel, -blPixX, -tlPixY);
+                        } // if
+                    }
                 },
                 
                 getPixelDistance: function(distance) {
                     var radians = T5.Geo.dist2rad(distance);
-                    return Math.floor(radians / params.radsPerPixel);
+                    return radians / radsPerPixel >> 0;
                 },
                 
                 pixelsToPos: function(vector) {
@@ -152,6 +156,7 @@ T5.Geo.UI = (function() {
                 }
             });
             
+            tlPixY = blPixY + self.gridDimensions.height;
             return self;
         },
         
@@ -163,7 +168,6 @@ T5.Geo.UI = (function() {
             params = T5.ex({
                 data: null,
                 pixelGeneralization: 8,
-                calculationsPerCycle: 250,
                 partialDraw: false,
                 strokeStyle: 'rgba(0, 51, 119, 0.9)',
                 waypointFillStyle: '#FFFFFF',
@@ -171,198 +175,42 @@ T5.Geo.UI = (function() {
                 zindex: 50
             }, params);
             
-            var recalc = true,
-                last = null,
-                coordinates = [],
-                geometryCalcIndex = 0,
-                instructionCoords = [],
-                spawnedAnimations = [];
-                
-            function calcCoordinates(grid) {
+            var coordinates = [],
                 instructionCoords = [];
-                if (! grid) { return; }
-                
-                var startTicks = GT.Log.getTraceTicks(),
-                    ii, current, include,
-                    geometry = params.data ? params.data.geometry : [],
-                    geometryLen = geometry.length,
-                    instructions = params.data ? 
-                        params.data.instructions : 
-                        [],
-                        
-                    instructionsLength = instructions.length,
-                    calculationsPerCycle = params.calculationsPerCycle,
-                    currentCalculations = 0;
+            
+            function vectorizeRoute() {
+                if (params.data && params.data.instructions) {
+                    var instructions = params.data.instructions,
+                        positions = new Array(instructions.length);
                     
-                // iterate through the position geometry 
-                // and determine xy coordinates
-                for (ii = geometryCalcIndex; ii < geometryLen; ii++) {
-                    // calculate the current position
-                    current = grid.getGridXYForPosition(geometry[ii]);
+                    for (var ii = instructions.length; ii--; ) {
+                        positions[ii] = instructions[ii].position;
+                    } // for
 
-                    // determine whether the current point should be included
-                    include = 
-                        (! last) || 
-                        (ii === 0) || 
-                        (Math.abs(current.x - last.x) + 
-                            Math.abs(current.y - last.y) >
-                            params.pixelGeneralization);
-                        
-                    if (include) {
-                        coordinates.push(current);
-                        
-                        // update the last
-                        last = current;
-                    } // if
-                    
-                    currentCalculations++;
-                    if (currentCalculations >= calculationsPerCycle) {
-                        geometryCalcIndex = ii;
-                        return;
-                    } // if
-                } // for
+                    T5.Geo.P.vectorize(positions).bind(
+                        'complete',
+                        function(evt, coords) {
+                            instructionCoords = coords;
+                        });
+                } // if
                 
-                geometryCalcIndex = geometryLen;
-                GT.Log.trace(
-                    geometryLen + ' geometry points generalized to ' + 
-                    coordinates.length + ' coordinates', startTicks);
-                
-                // iterate throught the instructions and add any 
-                // points to the instruction coordinates array
-                last = null;
-                for (ii = instructionsLength; ii--; ) {
-                    if (instructions[ii].position) {
-                        // calculate the current position
-                        current = grid.getGridXYForPosition(
-                            instructions[ii].position);
-
-                        // determine whether the current point 
-                        // should be included
-                        include = 
-                            (! last) || 
-                            (ii === 0) || 
-                            (Math.abs(current.x - last.x) + 
-                                Math.abs(current.y - last.y) >
-                                params.pixelGeneralization);
-
-                        if (include) {
-                            instructionCoords.push(current);
-
-                            // update the last
-                            last = current;
-                        } // if
-                    } // if
-                } // for
-                
-                // woohoo, we got to the end, trigger a redraw
-                setTimeout(function() {
-                    self.wakeParent(true);
-                }, 30);
-            } // calcCoordinates
+                if (params.data && params.data.geometry) {
+                    T5.Geo.P.vectorize(params.data.geometry).bind(
+                        'complete', 
+                        function(evt, coords) {
+                            coordinates = coords;
+                            
+                            // now update the coordinates
+                            self.updateCoordinates(coordinates, instructionCoords, true);
+                        });
+                } // if
+            } // vectorizeRoute
             
             // create the view layer the we will draw the view
-            var self = T5.ex(new T5.ViewLayer(params), {
-                getAnimation: function(easingFn, duration, drawCallback, autoCenter) {
-                    if (recalc) {
-                        return null;
-                    } // if
-                    
-                    // define the layer id
-                    var layerId = 'routeAnimation' + routeAnimationCounter++;
-                    spawnedAnimations.push(layerId);
-
-                    // create a new animation layer based on the coordinates
-                    return new T5.AnimatedPathLayer({
-                        id: layerId,
-                        path: coordinates,
-                        zindex: params.zindex + 1,
-                        easing: easingFn ? 
-                            easingFn : 
-                            T5.T5.easing('sine.inout'),
-                            
-                        duration: duration ? duration : 5000,
-                        drawIndicator: drawCallback,
-                        autoCenter: autoCenter ? autoCenter : false
-                    });
-                },
-
-                cycle: function(tickCount, offset, state, redraw) {
-                    var geometry = params.data ? params.data.geometry : null;
-                    
-                    if (recalc) {
-                        recalc = false;
-                        last = null;
-                        coordinates = [];
-                        geometryCalcIndex = 0;
-                    } // if
-                    
-                    if (geometry && (geometryCalcIndex < geometry.length)) {
-                        calcCoordinates(self.getParent().getTileLayer());
-                        
-                        return true;
-                    } // if
-                },
-
-                draw: function(context, offset, dimensions, state, view) {
-                    var geometry = params.data ? params.data.geometry : null,
-                        ii,
-                        calcComplete = geometryCalcIndex + 1 >= geometry.length,
-                        coordLength = coordinates.length;
-                        
-                    if ((coordLength > 0) && (calcComplete || params.partialDraw)) {
-                        // update the context stroke style and line width
-                        context.strokeStyle = params.strokeStyle;
-                        context.lineWidth = params.lineWidth;
-                        
-                        // start drawing the path
-                        context.beginPath();
-                        context.moveTo(
-                            coordinates[coordLength - 1].x - offset.x, 
-                            coordinates[coordLength - 1].y - offset.y);
-
-                        for (ii = coordLength; ii--; ) {
-                            context.lineTo(
-                                coordinates[ii].x - offset.x,
-                                coordinates[ii].y - offset.y);
-                        } // for
-
-                        context.stroke();
-                        context.fillStyle = params.waypointFillStyle;
-
-                        // draw the instruction coordinates
-                        for (ii = instructionCoords.length; ii--; ) {
-                            context.beginPath();
-                            context.arc(
-                                instructionCoords[ii].x - offset.x, 
-                                instructionCoords[ii].y - offset.y,
-                                2,
-                                0,
-                                Math.PI * 2,
-                                false);
-
-                            context.stroke();
-                            context.fill();
-                        } // for
-                    } // if
-                }
-            });
+            var self = new T5.PathLayer(params);
             
-            // listed for grid updates
-            GT.listen('grid.updated', function(args) {
-                // tell all the spawned animations to remove themselves
-                for (var ii = spawnedAnimations.length; ii--; ) {
-                    GT.say(
-                        'layer.remove', { id: spawnedAnimations[ii] });
-                } // for
-                
-                // reset the spawned animations array
-                spawnedAnimations = [];
-                
-                // trigger a recalculation
-                recalc = true;
-                self.wakeParent(true);
-            });
-            
+            // vectorize the data
+            vectorizeRoute();
             return self;
         },
         
@@ -451,9 +299,8 @@ T5.Geo.UI = (function() {
                 }
             });
             
-            // list for grid updates
-            GT.listen('grid.updated', function(args) {
-                self.update(self.getParent().getTileLayer());
+            self.bind('gridUpdate', function(evt, grid) {
+                self.update(grid);
             });
             
             return self;
@@ -461,6 +308,8 @@ T5.Geo.UI = (function() {
         
         /**
         # Geo.UI.AnnotationsOverlay
+        
+        __deprecated__
         
         */
         AnnotationsOverlay: function(params) {
@@ -520,20 +369,22 @@ T5.Geo.UI = (function() {
                     updateAnnotationCoordinates(annotations);
                 }
                 catch (e) {
-                    GT.Log.exception(e);
+                    COG.Log.exception(e);
                 }
             } // updateAnnotations
             
-            function updateAnnotationCoordinates(annotationsArray) {
-                var grid = params.map ? params.map.getTileLayer() : null,
-                    annotationsCount = annotationsArray.length;
+            function updateAnnotationCoordinates(annotationsArray, grid) {
+                var annotationsCount = annotationsArray.length,
+                    parent = self.getParent();
+                
+                grid = grid ? grid : (parent ? parent.getTileLayer() : null);
                 
                 // iterate through the annotations and 
                 // calculate the xy coordinates
                 if (grid) {
                     for (var ii = annotationsCount; ii--; ) {
                         // update the annotation xy coordinates
-                        annotationsArray[ii].xy.calcXY(grid);
+                        grid.syncVectors([annotationsArray[ii].xy]);
                     } // for
                 } // if
                 
@@ -557,7 +408,7 @@ T5.Geo.UI = (function() {
                 draw: function(context, offset, dimensions, state, view) {
                     // initialise variables
                     var ii;
-                
+                    
                     // reset animating to false
                     animating = false;
                     context.fillStyle = 'rgba(255, 0, 0, 0.75)';
@@ -592,9 +443,20 @@ T5.Geo.UI = (function() {
                 },
                 
                 add: function(annotation) {
-                    staticAnnotations.push(annotation);
+                    // if annotation is an array, then iterate through and add them
+                    if (annotation && annotation.length) {
+                        for (var ii = annotation.length; ii--; ) {
+                            staticAnnotations[staticAnnotations.length] = annotation[ii];
+                        } // for
+                    }
+                    else if (annotation) {
+                        staticAnnotations[staticAnnotations.length] = annotation;
+                    } // if..else
+                    
+                    // update the annotation coordinates
                     updateAnnotationCoordinates(staticAnnotations);
                     
+                    // wake and invalidate the parent
                     self.wakeParent(true);
                 },
                 
@@ -614,7 +476,7 @@ T5.Geo.UI = (function() {
                 }
             });
 
-            GT.listen('geo.pois-updated', function(args) {
+            COG.listen('geo.pois-updated', function(args) {
                 // if the event source id matches our current 
                 // poi storage, then apply updates
                 if (params.pois && (params.pois.id == args.srcID)) {
@@ -623,10 +485,10 @@ T5.Geo.UI = (function() {
                 } // if
             });
             
-            // list for grid updates
-            GT.listen('grid.updated', function(args) {
-                updateAnnotationCoordinates(annotations);
-                updateAnnotationCoordinates(staticAnnotations);
+            self.bind('gridUpdate', function(evt, grid) {
+                updateAnnotationCoordinates(annotations, grid);
+                updateAnnotationCoordinates(staticAnnotations, grid);
+                
                 self.wakeParent(true);
             });
             

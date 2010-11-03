@@ -11,7 +11,7 @@ T5.Tween = function(params) {
     }, params);
     
     // get the start ticks
-    var startTicks = T5.time(),
+    var startTicks = Date.now(),
         updateListeners = [],
         complete = false,
         beginningValue = 0.0,
@@ -65,7 +65,7 @@ T5.Tween = function(params) {
                 } // if
             }
             catch (e) {
-                GT.Log.exception(e);
+                COG.Log.exception(e);
             } // try..catch
         },
         

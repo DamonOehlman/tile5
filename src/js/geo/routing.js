@@ -42,8 +42,6 @@ T5.Geo.Routing = (function() {
                 generalize: false
             }, args);
             
-            GT.Log.info("attempting to calculate route");
-            
             // find an available routing engine
             var engine = T5.Geo.getEngine("route");
             if (engine) {
@@ -59,7 +57,7 @@ T5.Geo.Routing = (function() {
                         
                         // if we are to auto fit the map to the bounds, then do that now
                         if (args.autoFit) {
-                            GT.Log.info("AUTOFITTING MAP TO ROUTE: bounds = " + routeData.boundingBox);
+                            // COG.Log.info("AUTOFITTING MAP TO ROUTE: bounds = " + routeData.boundingBox);
                             args.map.gotoBounds(routeData.boundingBox);
                         } // if
                     } // if
@@ -81,7 +79,7 @@ T5.Geo.Routing = (function() {
             // get the map dimensions
             var dimensions = map.getDimensions();
 
-            // GT.Log.info("creating route overlay with route data: ", routeData);
+            // COG.Log.info("creating route overlay with route data: ", routeData);
 
             // create a new route overlay for the specified data
             var overlay = new T5.Geo.UI.RouteOverlay({

@@ -71,7 +71,7 @@ T5.Dispatcher = (function() {
                 },
                 
                 toString: function() {
-                    return GT.formatStr("{0} [title = {1}, icon = {2}]", self.id, params.title, params.icon);
+                    return COG.formatStr("{0} [title = {1}, icon = {2}]", self.id, params.title, params.icon);
                 }
             };
             
@@ -86,7 +86,7 @@ T5.Dispatcher = (function() {
         /* agents */
         
         Agent: function(params) {
-            params = GT.extend({
+            params = COG.extend({
                 name: "Untitled",
                 translator: null,
                 execute: null
@@ -103,7 +103,7 @@ T5.Dispatcher = (function() {
                 },
                 
                 getId: function() {
-                    return GT.toID(self.getName());
+                    return COG.toID(self.getName());
                 },
                 
                 run: function(args, callback) {

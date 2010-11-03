@@ -24,7 +24,7 @@ more information on view level features check out the View documentation.
 */
 T5.Map = function(params) {
     params = T5.ex({
-        tapExtent: 10,
+        tapExtent: 10, // TODO: remove and use the inherited value
         provider: null,
         crosshair: false,
         zoomLevel: 0,
@@ -48,7 +48,6 @@ T5.Map = function(params) {
         tappedPOIs = [],
         annotations = null, // annotations layer
         guideOffset = null,
-        gridLayerId = null,
         locationOverlay = null,
         geoWatchId = 0,
         initialTrackingUpdate = true,
@@ -115,23 +114,31 @@ T5.Map = function(params) {
             initialTrackingUpdate = false;
         }
         catch (e) {
-            GT.Log.exception(e);
+            COG.Log.exception(e);
         }
     } // trackingUpdate
     
     function trackingError(error) {
-        GT.Log.info('caught location tracking error:', error);
+        COG.Log.info('caught location tracking error:', error);
     } // trackingError
     
     /* event handlers */
     
-    function handlePan(x, y) {
+    function handleMarkerUpdate(evt, markers) {
+        var grid = self.getTileLayer();
+        
+        for (var ii = markers.length; ii--; ) {
+            grid.syncVectors([markers[ii].xy]);
+        } // for
+    } // handleMarkerUpdate
+    
+    function handlePan(evt, x, y) {
         if (locateMode === LOCATE_MODE.SINGLE) {
             self.trackCancel();
         } // if
     } // handlePan
     
-    function handleTap(absXY, relXY) {
+    function handleTap(evt, absXY, relXY) {
         var grid = self.getTileLayer();
         var tapBounds = null;
 
@@ -155,21 +162,21 @@ T5.Map = function(params) {
 
             // find the pois in the bounds area
             tappedPOIs = self.pois.findByBounds(tapBounds);
-            // GT.Log.info('TAPPED POIS = ', tappedPOIs);
+            // COG.Log.info('TAPPED POIS = ', tappedPOIs);
             
             self.trigger('geotap', absXY, relXY, tapPos, tapBounds);
             self.trigger('tapPOI', tappedPOIs);
         } // if
     } // handleTap
     
-    function handleDoubleTap(absXY, relXY) {
+    function handleDoubleTap(evt, absXY, relXY) {
         self.animate(2, 
             T5.D.getCenter(self.getDimensions()), 
             new T5.Vector(relXY.x, relXY.y), 
             params.zoomAnimation);
     } // handleDoubleTap
     
-    function handleScale(scaleAmount, zoomXY) {
+    function handleScale(evt, scaleAmount, zoomXY) {
         var zoomChange = 0;
 
         // damp the scale amount
@@ -184,10 +191,10 @@ T5.Map = function(params) {
 
         self.gotoPosition(
             self.getXYPosition(zoomXY), 
-            zoomLevel + Math.floor(zoomChange));
+            zoomLevel + zoomChange >> 0);
     } // handleScale
     
-    function handleIdle() {
+    function handleIdle(evt) {
         var changeDelta = T5.V.absSize(T5.V.diff(
                 lastBoundsChangeOffset, self.getOffset()));
         
@@ -225,9 +232,6 @@ T5.Map = function(params) {
         function updateTileGrid(tileGrid) {
             // update the tile layer to the use the new layer
             self.setTileLayer(tileGrid);
-
-            // update the grid layer id
-            gridLayerId = tileGrid.getId();
 
             // pan to the correct position
             self.panToPosition(position, function() {
@@ -423,7 +427,7 @@ T5.Map = function(params) {
                 if (guideOffset) {
                     guideOffset = null;
                 } // if
-
+                
                 self.updateOffset(centerXY.x, centerXY.y, easingFn, easingDuration, callback);
                 self.trigger("wake");
 
@@ -512,7 +516,7 @@ T5.Map = function(params) {
                 self.gotoPosition(self.getCenterPosition(), value);
             }
             catch (e) {
-                GT.Log.exception(e);
+                COG.Log.exception(e);
             }
         },
 
@@ -574,13 +578,18 @@ T5.Map = function(params) {
     self.bind('tap', handleTap);
     self.bind('doubleTap', handleDoubleTap);
     self.bind('scale', handleScale);
+    
+    // watch for marker updates
+    self.markers.bind('markersChanged', handleMarkerUpdate);
+    
+    /* ANNOTATIONS LAYER TO BE DEPRECATED */
 
     // create an annotations layer
     annotations = new T5.Geo.UI.AnnotationsOverlay({
         pois: self.pois,
         map: self
     });
-
+    
     // add the annotations layer
     self.annotations = annotations;
     self.setLayer('annotations', annotations);
@@ -594,10 +603,10 @@ T5.Map = function(params) {
     self.bind("idle", handleIdle);
     
     // make a few parameter configurable
-    GT.configurable(
+    COG.configurable(
         self, 
         ["provider"], 
-        GT.paramTweaker(params, null, {
+        COG.paramTweaker(params, null, {
             "provider": handleProviderUpdate
         }), 
         true);

@@ -9,6 +9,9 @@ T5.Annotation = function(params) {
         animationSpeed: null
     }, params);
     
+    // initialise defaults
+    var MARKER_SIZE = 4;
+    
     var animating = false;
     
     var self = T5.ex(params, {
@@ -66,11 +69,16 @@ T5.Annotation = function(params) {
             context.arc(
                 xy.x, 
                 xy.y,
-                4,
+                MARKER_SIZE,
                 0,
                 Math.PI * 2,
                 false);                    
             context.fill();
+        },
+        
+        hitTest: function(gridXY) {
+            return Math.abs(gridXY.x - self.xy.x) <= MARKER_SIZE && 
+                Math.abs(gridXY.y - self.xy.y) <= MARKER_SIZE;
         }
     }); // self
     
@@ -83,14 +91,18 @@ T5.Annotation = function(params) {
 */
 T5.ImageAnnotation = function(params) {
     params = T5.ex({
+        image: null,
         imageUrl: null,
+        animatingImage: null,
         animatingImageUrl: null,
         imageAnchor: null
     }, params);
     
     var imageOffset = params.imageAnchor ?
             T5.V.invert(params.imageAnchor) : 
-            null;
+            null,
+        staticImage = params.image,
+        animatingImage = params.animatingImage;
     
     function getImageUrl() {
         if (params.animatingImageUrl && self.isAnimating()) {
@@ -108,18 +120,8 @@ T5.ImageAnnotation = function(params) {
     
     function drawImage(context, offset, xy, state, overlay, view) {
         // get the image
-        var imageUrl = getImageUrl(),
-            image = T5.Images.get(imageUrl);
-            
-        if (! image) {
-            T5.Images.load(
-                imageUrl, 
-                function(loadedImage, fromCache) {
-                    overlay.wakeParent();
-                }
-            );
-        }
-        else if (image.complete && (image.width > 0)) {
+        var image = self.isAnimating() && animatingImage ? animatingImage : staticImage;
+        if (image && image.complete && (image.width > 0)) {
             if (! imageOffset) {
                 imageOffset = new T5.Vector(
                     -image.width >> 1, 
@@ -143,8 +145,37 @@ T5.ImageAnnotation = function(params) {
         } // if
     } // drawImage
     
+    if (! staticImage) {
+        staticImage = T5.Images.get(params.imageUrl);
+        if (! staticImage) {
+            T5.Images.load(params.imageUrl, function(image) {
+                staticImage = image;
+            });
+        } // if
+    } // if
+    
+    if (! animatingImage) {
+        animatingImage = T5.Images.get(params.imageUrl);
+        if (! animatingImage) {
+            T5.Images.load(params.animatingImageUrl, function(image) {
+                animatingImage = image;
+            });
+        } // if
+    } // if    
+    
     var self = T5.ex(new T5.Annotation(params), {
-        drawMarker: drawImage
+        drawMarker: drawImage,
+        
+        hitTest: function(gridXY) {
+            var markerX = self.xy.x,
+                markerY = self.xy.y;
+                
+            // check for a hit test (image offsets are negative numbers)
+            return (gridXY.x >= markerX + imageOffset.x) && 
+                (gridXY.x <= markerX + (staticImage.width + imageOffset.x)) && 
+                (gridXY.y >= markerY + imageOffset.y) && 
+                (gridXY.y <= markerY + (staticImage.height + imageOffset.y));
+        }
     });
     
     return self;

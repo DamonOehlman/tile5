@@ -193,7 +193,7 @@ T5.Geo = (function() {
             } // while
 
             return lon;
-        }        
+        }
     }; // exportedFunctions
         
     /* define the geo simple types */
@@ -320,6 +320,8 @@ T5.Geo = (function() {
     ## Functions
     */
     var posTools = (function() {
+        var DEFAULT_VECTORIZE_CHUNK_SIZE = 100;
+        
         var subModule = {
             /**
             - `calcDistance(pos1, pos2)`
@@ -373,14 +375,6 @@ T5.Geo = (function() {
             */
             equal: function(pos1, pos2) {
                 return pos1 && pos2 && (pos1.lat == pos2.lat) && (pos1.lon == pos2.lon);
-            },
-            
-            almostEqual: function(pos1, pos2) {
-                var multiplier = 1000;
-                
-                return pos1 && pos2 && 
-                    (Math.floor(pos1.lat * multiplier) === Math.floor(pos2.lat * multiplier)) &&
-                    (Math.floor(pos1.lon * multiplier) === Math.floor(pos2.lon * multiplier));
             },
             
             /**
@@ -465,7 +459,7 @@ T5.Geo = (function() {
                     positions[ii] = subModule.parse(sourceData[ii]);
                 } // for
 
-                GT.Log.info("parsed " + positions.length + " positions");
+                // COG.Log.info("parsed " + positions.length + " positions");
                 return positions;
             },
             
@@ -512,7 +506,7 @@ T5.Geo = (function() {
                 // convert min distance to km
                 minDist = minDist / 1000;
 
-                GT.Log.info("generalizing positions, must include " + requiredPositions.length + " positions");
+                COG.Log.info("generalizing positions, must include " + requiredPositions.length + " positions");
 
                 // iterate thorugh the source data and add positions the differ by the required amount to 
                 // the result positions
@@ -534,9 +528,49 @@ T5.Geo = (function() {
                     } // if..else
                 } // for
 
-                GT.Log.info("generalized " + sourceLen + " positions into " + positions.length + " positions");
+                COG.Log.info("generalized " + sourceLen + " positions into " + positions.length + " positions");
                 return positions;
-            },                
+            },
+            
+            vectorize: function(positions, options) {
+                var posIndex = positions.length,
+                    vectors = new Array(posIndex);
+                    
+                // initialise options
+                options = T5.ex({
+                    chunkSize: DEFAULT_VECTORIZE_CHUNK_SIZE
+                }, options);
+                
+                // create a new loopage worker to manage the conversion 
+                // as there could be a lot of positions...
+                return COG.Loopage.join({
+                    frequency: 10,
+                    execute: function(tickCount, worker) {
+                        // initialise variables
+                        var chunkCounter = 0,
+                            chunkSize = options.chunkSize,
+                            ii = posIndex;
+                        
+                        // process from the last position index
+                        for (; ii--;) {
+                            vectors[ii] = new T5.Geo.GeoVector(positions[ii]);
+                            
+                            // increase the chunk counter
+                            chunkCounter += 1;
+                            
+                            // if we have hit the chunk size, then break
+                            if (chunkCounter > chunkSize) {
+                                break;
+                            } // if
+                        } // for
+                        
+                        posIndex = ii;
+                        if (posIndex <= 0) {
+                            worker.trigger('complete', vectors);
+                        } // if
+                    }
+                });
+            },
 
             /**
             - `toString(pos)`
@@ -611,9 +645,9 @@ T5.Geo = (function() {
                     maxLat = radLat + radDist,
                     minLon, maxLon;
                     
-                // GT.Log.info("rad distance = " + radDist);
-                // GT.Log.info("rad lat = " + radLat + ", lon = " + radLon);
-                // GT.Log.info("min lat = " + minLat + ", max lat = " + maxLat);
+                // COG.Log.info("rad distance = " + radDist);
+                // COG.Log.info("rad lat = " + radLat + ", lon = " + radLon);
+                // COG.Log.info("min lat = " + minLat + ", max lat = " + maxLat);
                     
                 if ((minLat > MIN_LAT) && (maxLat < MAX_LAT)) {
                     var deltaLon = Math.asin(Math.sin(radDist) / Math.cos(radLat));
@@ -664,7 +698,7 @@ T5.Geo = (function() {
             */
             forPositions: function(positions, padding) {
                 var bounds = null,
-                    startTicks = T5.time();
+                    startTicks = Date.now();
 
                 // if padding is not specified, then set to auto
                 if (! padding) {
@@ -698,7 +732,7 @@ T5.Geo = (function() {
                     bounds = subModule.expand(bounds, padding);
                 } // if
 
-                GT.Log.trace("calculated bounds for " + positions.length + " positions", startTicks);
+                COG.Log.trace("calculated bounds for " + positions.length + " positions", startTicks);
                 return bounds;
             },
             
@@ -724,7 +758,7 @@ T5.Geo = (function() {
                 var minHash = T5.Geo.GeoHash.encode(bounds.min.lat, bounds.min.lon),
                     maxHash = T5.Geo.GeoHash.encode(bounds.max.lat, bounds.max.lon);
                     
-                GT.Log.info("min hash = " + minHash + ", max hash = " + maxHash);
+                COG.Log.info("min hash = " + minHash + ", max hash = " + maxHash);
             },
 
             /** 
@@ -751,9 +785,9 @@ T5.Geo = (function() {
                     bestZoomH = Math.ceil(Math.log(LAT_VARIABILITIES[3] * displaySize.height / delta.y) / Math.log(2)),
                     bestZoomW = Math.ceil(Math.log(variability * displaySize.width / delta.x) / Math.log(2));
 
-                // GT.Log.info("constant index for bbox: " + bounds + " (center = " + boundsCenter + ") is " + variabilityIndex);
-                // GT.Log.info("distances  = " + delta);
-                // GT.Log.info("optimal zoom levels: height = " + bestZoomH + ", width = " + bestZoomW);
+                // COG.Log.info("constant index for bbox: " + bounds + " (center = " + boundsCenter + ") is " + variabilityIndex);
+                // COG.Log.info("distances  = " + delta);
+                // COG.Log.info("optimal zoom levels: height = " + bestZoomH + ", width = " + bestZoomW);
 
                 // return the lower of the two zoom levels
                 return Math.min(isNaN(bestZoomH) ? maxZoom : bestZoomH, isNaN(bestZoomW) ? maxZoom : bestZoomW);
@@ -920,7 +954,7 @@ T5.Geo = (function() {
         // uppercase the request for comparisons
         request = request.toUpperCase();
         
-        // GT.Log.info("CALCULATING MATCH WEIGHT FOR [" + request + "] = [" + response + "]");
+        // COG.Log.info("CALCULATING MATCH WEIGHT FOR [" + request + "] = [" + response + "]");
         
         // iterate through the field weights
         for (var fieldId in fieldWeights) {
@@ -931,7 +965,7 @@ T5.Geo = (function() {
             if (fieldVal) {
                 // get the field comparison function
                 var compareFn = compareFns[fieldId],
-                    matchStrength = compareFn ? compareFn(request, fieldVal) : (GT.wordExists(request, fieldVal) ? 1 : 0);
+                    matchStrength = compareFn ? compareFn(request, fieldVal) : (COG.wordExists(request, fieldVal) ? 1 : 0);
 
                 // increment the match weight
                 matchWeight += (matchStrength * fieldWeights[fieldId]);
@@ -961,20 +995,37 @@ T5.Geo = (function() {
         Position: Position,
         BoundingBox: BoundingBox,
         
-        GeoVector: function(pos) {
+        GeoVector: function(initPos) {
             var self = new T5.Vector();
+                
+            function updatePos(newPos) {
+                // update the internal variables
+                self.pos = newPos;
+                self.mercXY = posTools.toMercatorPixels(newPos);
+            } // updatePos
             
             T5.ex(self, {
-                pos: pos,
+                radsPerPixel: null,
                 
-                calcXY: function(grid) {
-                    var xy = grid.getGridXYForPosition(self.pos);
-                    
-                    self.x = xy.x;
-                    self.y = xy.y;
+                setRadsPerPixel: function(radsPerPixel, offsetX, offsetY) {
+                    var mercXY = self.mercXY;
+
+                    // calculate the x and y
+                    self.x = Math.abs(
+                        ((mercXY.x / radsPerPixel) >> 0) + 
+                        (offsetX ? offsetX : 0));
+                        
+                    self.y = Math.abs(
+                        ((mercXY.y / radsPerPixel) >> 0) + 
+                        (offsetY ? offsetY : 0));
+
+                    // update the rads per pixel
+                    self.radsPerPixel = radsPerPixel;
                 }
             });
             
+            // initialise the position
+            updatePos(initPos);
             return self;
         },
         
@@ -1091,7 +1142,7 @@ T5.Geo = (function() {
                         } // if
                     } 
                     catch (e) {
-                        GT.Log.exception(e);
+                        COG.Log.exception(e);
                     } // try..catch
                 }
             }, params);

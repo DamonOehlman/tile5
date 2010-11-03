@@ -1,6 +1,7 @@
 dist
 apidoc
 lib/grunt
+lib/cog
 lib/sylvester
 .settings
 *~

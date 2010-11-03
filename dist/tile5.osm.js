@@ -54,7 +54,7 @@ T5.Geo.OpenStreetMap = (function() {
                     // initialise the image url
                     if (! params.urlFiller) {
                         tileUrl = (serverDetails ? serverDetails.baseUrl : "") + 
-                            GT.formatStr("{0}/{1}/{2}.png",
+                            COG.formatStr("{0}/{1}/{2}.png",
                                 self.zoomLevel,
                                 topLeftOffset.x + col,
                                 flipY ? Math.abs(topLeftOffset.y + row - (Math.pow(2,self.zoomLevel) - 1)) : topLeftOffset.y + row);
@@ -73,7 +73,7 @@ T5.Geo.OpenStreetMap = (function() {
                         } // if                     
 
                         return new T5.ImageTile({ 
-                            url: GT.formatStr(tileUrl, subDomains[subdomain_idx++])
+                            url: COG.formatStr(tileUrl, subDomains[subdomain_idx++])
                         });
                     }
                     else {

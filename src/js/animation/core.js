@@ -120,12 +120,12 @@
         if (tweenWorker) { return; }
         
         // create a tween worker
-        tweenWorker = GT.Loopage.join({
+        tweenWorker = COG.Loopage.join({
             execute: update,
             frequency: 20
         });
         
-        tweenWorker.bind('complete', function() {
+        tweenWorker.bind('complete', function(evt) {
             tweenWorker = null;
         });
     };

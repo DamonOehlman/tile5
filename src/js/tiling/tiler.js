@@ -19,7 +19,7 @@ T5.Tiler = function(params) {
     
     /* event handlers */
     
-    function handleTap(absXY, relXY) {
+    function handleTap(evt, absXY, relXY) {
         var grid = self.getTileLayer();
         if (grid) {
             var tile = grid.getTileAtXY(relXY.x, relXY.y);
@@ -39,9 +39,12 @@ T5.Tiler = function(params) {
 
         setTileLayer: function(value) {
             self.setLayer("grid" + gridIndex, value);
+            self.trigger('gridUpdate', value);
             
-            // update the tile load threshold
-            GT.say("grid.updated", { id: "grid" + gridIndex });
+            // iterate through the other layers and let them know
+            self.eachLayer(function(layer) {
+                layer.trigger('gridUpdate', value);
+            });
         },
 
         viewPixToGridPix: function(vector) {
@@ -56,8 +59,8 @@ T5.Tiler = function(params) {
                 
             if (tileSize) {
                 self.updateOffset(
-                    tile.gridX - Math.floor((dimensions.width - tileSize) * 0.5), 
-                    tile.gridY - Math.floor((dimensions.height - tileSize) * 0.5),
+                    tile.gridX - (dimensions.width - tileSize) * 0.5 >> 0, 
+                    tile.gridY - (dimensions.height - tileSize) * 0.5 >> 0,
                     easing,
                     duration,
                     callback);
@@ -70,7 +73,7 @@ T5.Tiler = function(params) {
         
         repaint: function() {
             // flag to the tile store to reset the image positions
-            GT.say("tiler.repaint");
+            COG.say("tiler.repaint");
             
             self.trigger("wake");
         },

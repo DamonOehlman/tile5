@@ -1,7 +1,7 @@
 T5.AnimatedPathLayer = function(params) {
     params = T5.ex({
         path: [],
-        id: GT.objId('pathAni'),
+        id: COG.objId('pathAni'),
         easing: T5.easing('sine.inout'),
         validStates: T5.viewState("ACTIVE", "PAN", "PINCH"),
         drawIndicator: null,

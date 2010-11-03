@@ -100,7 +100,7 @@ T5.Geo.POIStorage = function(params) {
     } // poiGrabber
     
     function triggerUpdate() {
-        GT.say("geo.pois-updated", {
+        COG.say("geo.pois-updated", {
             srcID: self.id,
             pois: self.getPOIs()
         });
@@ -108,7 +108,7 @@ T5.Geo.POIStorage = function(params) {
 
     // initialise self
     var self = {
-        id: GT.objId(),
+        id: COG.objId(),
         
         getPOIs: function() {
             return poiGrabber();
@@ -162,7 +162,7 @@ T5.Geo.POIStorage = function(params) {
 
             // iterate through the new pois and put into storage
             for (var ii = 0; newPOIs && (ii < newPOIs.length); ii++) {
-                newPOIs[ii].retrieved = T5.time();
+                newPOIs[ii].retrieved = Date.now();
                 addPOI(newPOIs[ii]);
             } // for
         },
@@ -179,7 +179,7 @@ T5.Geo.POIStorage = function(params) {
             var newPOIs = [],
                 ii = 0,
                 groupName = refreshedPOIs.length > 0 ? refreshedPOIs[0].group : '',
-                timeRetrieved = T5.time();
+                timeRetrieved = Date.now();
                 
             // iterate through the pois and determine state
             for (ii = 0; ii < refreshedPOIs.length; ii++) {
@@ -188,7 +188,7 @@ T5.Geo.POIStorage = function(params) {
 
                 // add the poi to either the update or new array according to whether it was found
                 if (foundPOI) {
-                    // GT.Log.info("FOUND EXISTING POI");
+                    // COG.Log.info("FOUND EXISTING POI");
                     foundPOI.retrieved = timeRetrieved;
                     foundPOI.isNew = false;
                 }
@@ -202,7 +202,7 @@ T5.Geo.POIStorage = function(params) {
 
             // add new pois to the poi layer
             self.addPOIs(newPOIs);
-            // GT.Log.info(GT.formatStr("POI-UPDATE: {0} new, {1} deleted", newPOIs.length, deletedPOIs.length));
+            // COG.Log.info(COG.formatStr("POI-UPDATE: {0} new, {1} deleted", newPOIs.length, deletedPOIs.length));
 
             // fire the on poi added event when appropriate
             for (ii = 0; params.onPOIAdded && (ii < newPOIs.length); ii++) {

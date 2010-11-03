@@ -30,7 +30,7 @@ T5.Resources = (function() {
             
             var callback = function(data) {
                 if (params.callback) {
-                    GT.Log.watch("CALLING RESOURCE CALLBACK", function() {
+                    COG.Log.watch("CALLING RESOURCE CALLBACK", function() {
                         params.callback(data);
                     });
                 } // if
@@ -40,11 +40,11 @@ T5.Resources = (function() {
                 callback(cachedResources[params.filename]); 
             }
             else {
-                GT.xhr({
+                COG.xhr({
                     url: module.getPath(params.filename),
                     dataType: params.dataType,
                     success: function(data) {
-                        // GT.Log.info("got data: " + data);
+                        // COG.Log.info("got data: " + data);
                         // add the snippet to the cache
                         if (params.cacheable) {
                             cachedResources[params.filename] = data;
@@ -54,7 +54,7 @@ T5.Resources = (function() {
                         callback(data);
                     },
                     error: function(raw_request, textStatus, error_thrown) {
-                        GT.Log.error("error loading resource [" + params.filename + "], error = " + error_thrown);
+                        COG.Log.error("error loading resource [" + params.filename + "], error = " + error_thrown);
                     }
                 });
             } // if..else

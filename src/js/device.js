@@ -38,7 +38,7 @@
         
     function bridgeNotifyLog(message, args) {
         if (shouldBridgeMessage(message)) {
-            GT.Log.info("would push url: " + messageToUrl(message, args));
+            COG.Log.info("would push url: " + messageToUrl(message, args));
         } // if
     } // bridgeCommandEmpty
     
@@ -89,7 +89,7 @@
                 bindEvent: genBindDoc(),
                 unbindEvent: genUnbindDoc(),
                 
-                supportsTouch: "createTouch" in document,
+                supportsTouch: false, // something weird with chrome... "createTouch" in document,
                 imageCacheMaxSize: null, 
                 getScaling: function() {
                     return 1;
@@ -118,7 +118,9 @@
                 maxImageLoads: 4,
                 requireFastDraw: false,
                 bridgeNotify: bridgeNotifyUrl,
-                targetFps: 25
+                targetFps: 25,
+                
+                supportsTouch: true
             },
 
             // TODO: can we detect the 3G ???
@@ -127,11 +129,13 @@
                 regex: /iphone/i,
                 imageCacheMaxSize: 6 * 1024,
                 maxImageLoads: 4,
-                bridgeNotify: bridgeNotifyUrl
+                bridgeNotify: bridgeNotifyUrl,
+                supportsTouch: true
             },
 
             ipad: {
                 name: "iPad",
+                supportsTouch: true,
                 regex: /ipad/i,
                 imageCacheMaxSize: 6 * 1024,
                 bridgeNotify: bridgeNotifyUrl
@@ -180,7 +184,7 @@
         
         // if the device configuration hasn't already been detected do that now
         if (! detectedConfig) {
-            GT.Log.info("ATTEMPTING TO DETECT PLATFORM: UserAgent = " + navigator.userAgent);
+            COG.Log.info("ATTEMPTING TO DETECT PLATFORM: UserAgent = " + navigator.userAgent);
 
             // iterate through the platforms and run detection on the platform
             for (var ii = 0; ii < deviceCheckOrder.length; ii++) {
@@ -188,17 +192,17 @@
 
                 if (testPlatform.regex && testPlatform.regex.test(navigator.userAgent)) {
                     detectedConfig = T5.ex({}, deviceConfigs.base, testPlatform);
-                    GT.Log.info("PLATFORM DETECTED AS: " + detectedConfig.name);
+                    COG.Log.info("PLATFORM DETECTED AS: " + detectedConfig.name);
                     break;
                 } // if
             } // for
 
             if (! detectedConfig) {
-                GT.Log.warn("UNABLE TO DETECT PLATFORM, REVERTING TO BASE CONFIGURATION");
+                COG.Log.warn("UNABLE TO DETECT PLATFORM, REVERTING TO BASE CONFIGURATION");
                 detectedConfig = deviceConfigs.base;
             }
             
-            GT.Log.info("CURRENT DEVICE PIXEL RATIO = " + window.devicePixelRatio);
+            COG.Log.info("CURRENT DEVICE PIXEL RATIO = " + window.devicePixelRatio);
         } // if
         
         return detectedConfig;        

@@ -28,26 +28,26 @@ http://github.com/jquery/jquery/blob/master/build.xml
 	<property name="TESTRUNNER.HOST" value="10.1.1.100" />
 	<property name="TESTRUNNER.PORT" value="9100" />
 	
-	<!-- grunt cloning code -->
+	<!-- cog cloning code -->
 	
-	<available property="grunt" file="lib/grunt" />
+	<available property="cog" file="lib/cog" />
 	
-	<target name="grunt-clone" unless="grunt">
-		<exec executable="git" outputproperty="git-grunt" >  
-			<arg line="clone git://github.com/sidelab/grunt.git lib/grunt"/>  
+	<target name="cog-clone" unless="cog">
+		<exec executable="git" outputproperty="git-cog" >  
+			<arg line="clone git://github.com/sidelab/cog.git lib/cog"/>  
 		</exec>
-		<echo message="git clone grunt: ${git-grunt}" />
+		<echo message="git clone cog: ${git-cog}" />
 	</target>
 
-	<target name="grunt-pull" if="grunt">
-		<exec executable="git" outputproperty="git-grunt" dir="lib/grunt" >  
+	<target name="cog-pull" if="cog">
+		<exec executable="git" outputproperty="git-cog" dir="lib/cog" >  
 			<arg line="pull origin master"/>  
 		</exec> 
-		<echo message="git pull grunt: ${git-grunt}" />
+		<echo message="git pull cog: ${git-cog}" />
 	</target>
 	
-	<target name="grunt-build" depends="grunt-clone,grunt-pull">
-		<ant dir="lib/grunt" />
+	<target name="cog-build" depends="cog-clone,cog-pull">
+		<ant dir="lib/cog" />
 	</target>
 	
 	<target name="build-core" depends="build-lite" description="Core JS File build">
@@ -103,7 +103,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		<copy tofile="${dist}/${LIBNAME}.mapbox.js" file="src/js/geo/providers/mapbox.js" />
 	</target>
 	
-	<target name="build-lite" depends="grunt-build" description="Build the lite version of the library">
+	<target name="build-lite" depends="cog-build" description="Build the lite version of the library">
 		<echo message="BUILDING TILE5 LITE" />
 		
 		<!-- build the lite version of tile5 -->
@@ -112,7 +112,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/template/header.js" />
 			
 			<!-- include dependencies -->
-			<fileset file="lib/grunt/dist/grunt.js" />
+			<fileset file="lib/cog/dist/cog.js" />
 			
 			<!-- include core functionality -->
 			<fileset file="src/js/core.js" />
@@ -120,7 +120,6 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/dispatcher.js" />
 			<fileset file="src/js/resources.js" />
 			<fileset file="src/js/images.js" />
-			<fileset file="src/js/touch.js" />
 			<fileset file="src/js/timelord.js" />
 			
 			<!-- include the animation functionality -->
@@ -132,8 +131,10 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/graphics/viewstate.js" />
 			<fileset file="src/js/graphics/viewlayer.js" />
 			<fileset file="src/js/graphics/view.js" />
+			<fileset file="src/js/graphics/pathlayer.js" />
 			<fileset file="src/js/graphics/animatedpathlayer.js" />
 			<fileset file="src/js/graphics/annotation.js" />
+			<fileset file="src/js/graphics/markerlayer.js" />
 
 			<!-- include tiling -->
 			<fileset file="src/js/tiling/core.js" />
@@ -151,7 +152,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 	
 	<target name="build-tests" description="Build the tests">
 		<concat destfile="${dist}/tests.${LIBNAME}.js">
-			<fileset file="lib/grunt/dist/grunt.test.js" />
+			<fileset file="lib/cog/dist/cog.test.js" />
 			<fileset file="test/unit/core.js" />
 			<fileset file="test/unit/geo.js" />
 			<fileset file="test/unit/mapping.js" />

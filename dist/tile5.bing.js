@@ -26,9 +26,9 @@ T5.Geo.Bing = (function() {
             var parent = new T5.Geo.MapProvider();
             
             function authenticate(callback) {
-                var serverUrl = GT.formatStr("http://dev.virtualearth.net/REST/V1/Imagery/Metadata/{0}?key={1}", params.style, params.apikey);
+                var serverUrl = COG.formatStr("http://dev.virtualearth.net/REST/V1/Imagery/Metadata/{0}?key={1}", params.style, params.apikey);
                 
-                GT.jsonp(serverUrl, function(data) {
+                COG.jsonp(serverUrl, function(data) {
                     // FIXME: very hacky...
                     var resourceData = data.resourceSets[0].resources[0];
                     
