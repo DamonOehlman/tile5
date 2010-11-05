@@ -143,6 +143,7 @@ T5.ViewLayer = function(params) {
         */
         setParent: function(view) {
             parent = view;
+            self.trigger('parentChange', parent);
         }
     }, params); // self
     

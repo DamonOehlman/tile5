@@ -40,6 +40,14 @@ T5.Geo = (function() {
             MWY: "MOTORWAY"
         },
         DEFAULT_GENERALIZATION_DISTANCE = 250;
+    
+    /* define some module constants */
+    
+    var moduleConstants = {
+        VECTORIZE_PER_CYCLE: 500
+    };
+    
+    /* define the exported functions */
         
     var exportedFunctions = {
         /**
@@ -538,8 +546,18 @@ T5.Geo = (function() {
                     
                 // initialise options
                 options = T5.ex({
-                    chunkSize: DEFAULT_VECTORIZE_CHUNK_SIZE
+                    chunkSize: moduleConstants.VECTORIZE_PER_CYCLE,
+                    async: true
                 }, options);
+                
+                // if we are not processing async, then do it right now
+                if (! options.async) {
+                    for (var ii = posIndex; ii--; ) {
+                        vectors[ii] = new T5.Geo.GeoVector(positions[ii]);
+                    } // for
+                    
+                    return vectors;
+                } // if
                 
                 // create a new loopage worker to manage the conversion 
                 // as there could be a lot of positions...
@@ -1153,5 +1171,5 @@ T5.Geo = (function() {
         }
     }; // module
 
-    return T5.ex(module, exportedFunctions);
+    return T5.ex(module, moduleConstants, exportedFunctions);
 })();

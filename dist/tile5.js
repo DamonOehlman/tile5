@@ -2488,6 +2488,8 @@ T5 = (function() {
         } // edges
 
         return {
+            VECTOR_SIMPLIFICATION: 4,
+            
             create: function(x, y) {
                 return new Vector(x, y);
             },
@@ -2561,6 +2563,42 @@ T5 = (function() {
             */
             distance: function(vectors, count) {
                 return edges(vectors, count).total;
+            },
+            
+            /**
+            - `simplify(v*, generalization)`
+            
+            This function is used to simplify a vector array by removing what would be considered
+            'redundant' vector positions by elimitating at a similar position (based on the supplied
+            generalization factor)
+            */
+            simplify: function(vectors, generalization) {
+                if (! vectors) {
+                    return null;
+                } // if
+                
+                // set the the default generalization
+                generalization = generalization ? generalization : vectorTools.VECTOR_SIMPLIFICATION;
+
+                var tidyVectors = [],
+                    last = null;
+
+                for (var ii = vectors.length; ii--; ) {
+                    var current = vectors[ii];
+
+                    // determine whether the current point should be included
+                    include = !last || ii === 0 || 
+                        (Math.abs(current.x - last.x) + 
+                            Math.abs(current.y - last.y) >
+                            generalization);
+
+                    if (include) {
+                        tidyVectors.unshift(current);
+                        last = current;
+                    }
+                } // for
+
+                return tidyVectors;
             },
             
             /**
@@ -4207,6 +4245,7 @@ T5.ViewLayer = function(params) {
         */
         setParent: function(view) {
             parent = view;
+            self.trigger('parentChange', parent);
         }
     }, params); // self
     
@@ -5134,35 +5173,6 @@ T5.PathLayer = function(params) {
         spawnedAnimations = [];
     };
         
-    function tidy(vectors) {
-        if (! vectors) {
-            return null;
-        } // if
-        
-        var tidyVectors = [],
-            generalization = params.pixelGeneralization,
-            last = null;
-            
-        COG.Log.info('tidying vectors (length = ' + vectors.length + '), generalization = ' + generalization);
-            
-        for (var ii = vectors.length; ii--; ) {
-            var current = vectors[ii];
-            
-            // determine whether the current point should be included
-            include = !last || ii === 0 || 
-                (Math.abs(current.x - last.x) + 
-                    Math.abs(current.y - last.y) >
-                    generalization);
-                    
-            if (include) {
-                tidyVectors.unshift(current);
-                last = current;
-            }
-        } // for
-        
-        return tidyVectors;
-    } // tidy
-    
     function resyncPath(grid) {
         // update the vectors
         grid.syncVectors(rawCoords);
@@ -5261,8 +5271,8 @@ T5.PathLayer = function(params) {
     
     self.bind('gridUpdate', handleGridUpdate);
     self.bind('tidy', function(evt) {
-        coordinates = tidy(rawCoords);
-        markerCoordinates = tidy(rawMarkers);
+        coordinates = T5.V.simplify(rawCoords, params.pixelGeneralization);
+        markerCoordinates = T5.V.simplify(rawMarkers, params.pixelGeneralization);
 
         // wake the parent
         redraw = true;
@@ -5271,6 +5281,161 @@ T5.PathLayer = function(params) {
     
     return self;
 };
+T5.Poly = function(vectors, params) {
+    params = T5.ex({
+        fill: false
+    }, params);
+
+    // initialise variables
+    var haveData = false,
+        fill = params.fill,
+        drawVectors = [];
+    
+    /* exported functions */
+    
+    function drawPoly(context, offsetX, offsetY, state) {
+        if (haveData) {
+            var first = true;
+            
+            context.beginPath();
+            
+            // now draw the lines
+            // COG.Log.info('drawing poly: have ' + drawVectors.length + ' vectors');
+            for (var ii = drawVectors.length; ii--; ) {
+                var x = drawVectors[ii].x - offsetX,
+                    y = drawVectors[ii].y - offsetY;
+                
+                if (first) {
+                    context.moveTo(x, y);
+                    first = false;
+                }
+                else {
+                    context.lineTo(x, y);
+                }
+            } // for
+            
+            if (fill) {
+                context.fill();
+            } // if
+            
+            context.stroke();
+        } // if
+    } // drawPoly
+    
+    function resyncToGrid(grid) {
+        grid.syncVectors(vectors);
+        
+        // simplify the vectors for drawing (if required)
+        drawVectors = vectors.length <= 3 ? vectors : T5.V.simplify(vectors);
+    } // resyncToGrid
+    
+    /* define self */
+    
+    var self = {
+        draw: drawPoly,
+        resync: resyncToGrid
+    };
+
+    // initialise the first item to the first element in the array
+    haveData = vectors && (vectors.length >= 2);
+    
+    return self;
+};
+
+/**
+# PolyLayer
+
+The PolyLayer is designed to facilitate the storage and display of multiple 
+geometric shapes.  This is particularly useful for displaying GeoJSON data and 
+the like
+*/
+T5.PolyLayer = function(params) {
+    params = T5.ex({
+        zindex: 80,
+        style: null
+    }, params);
+    
+    // initialise variables
+    var children = [],
+        forceRedraw = false,
+        lastOffsetX, lastOffsetY;
+        
+    /* private functions */
+    
+    function handleGridUpdate(evt, grid) {
+        // iterate through the children and resync to the grid
+        for (var ii = children.length; ii--; ) {
+            children[ii].resync(grid);
+        } // for
+        
+        forceRedraw = true;
+        self.wakeParent(true);
+    }
+    
+    function handleParentChange(evt, parent) {
+        var grid = parent ? parent.getTileLayer() : null;
+        
+        if (grid) {
+            // iterate through the children and resync to the grid
+            for (var ii = children.length; ii--; ) {
+                children[ii].resync(grid);
+            } // for
+        } // if
+    } // handleParentChange
+    
+    /* initialise self */
+    
+    var self = T5.ex(new T5.ViewLayer(params), {
+        add: function(poly) {
+            // children.push(poly);
+            children.unshift(poly);
+        },
+        
+        cycle: function(tickCount, offset, state, redraw) {
+            return forceRedraw;
+        },
+
+        draw: function(context, offset, dimensions, state, view, redraw) {
+            // TODO: this seems like a sensible thing to include in any view layer
+            var shouldDraw = redraw || (lastOffsetX !== offset.x) || (lastOffsetY !== offset.y);
+            
+            if (shouldDraw) {
+                lastOffsetX = offset.x;
+                lastOffsetY = offset.y;
+                
+                context.save();
+                try {
+                    T5.applyStyle(context, params.style);
+                    /*
+                    context.lineWidth = 3;
+                    context.lineCap = 'round';
+                    context.lineJoin = 'round';
+                    context.miterLimit = 4;
+                    context.strokeStyle = 'rgb(0, 0, 255)';
+                    context.fillStyle = 'rgba(30, 30, 30, 0.3)';
+                    */
+
+                    // iterate through the children and draw the layers
+                    for (var ii = children.length; ii--; ) {
+                        children[ii].draw(context, lastOffsetX, lastOffsetY, state);
+                    } // for
+                }
+                finally {
+                    context.restore();
+                } // try..finally
+                
+                forceRedraw = false;
+            } // if
+        }
+    });
+    
+    // handle grid updates
+    self.bind('gridUpdate', handleGridUpdate);
+    self.bind('parentChange', handleParentChange);
+
+    return self;
+};
+
 T5.AnimatedPathLayer = function(params) {
     params = T5.ex({
         path: [],
@@ -5663,7 +5828,90 @@ T5.MarkerLayer = function(params) {
     
     return self;
 };
-(function() {
+/**
+# Style
+
+*/
+T5.Style = function(params) {
+    params = T5.ex({
+        // line styles
+        lineWidth: undefined,
+        lineCap: undefined,
+        lineJoin: undefined,
+        miterLimit: undefined,
+        lineStyle: undefined,
+
+        // fill styles
+        fillStyle: undefined
+    }, params);
+    
+    // initialise variables
+    var mods = [];
+    
+    /* internal functions */
+    
+    function fillMods(keyName) {
+        var paramVal = params[keyName];
+        
+        if (typeof paramVal !== 'undefined') {
+            mods.push(function(context) {
+                context[keyName] = paramVal;
+            });
+        } // if
+    } // fillMods
+    
+    /* define self */
+    
+    var self = {
+        applyToContext: function(context) {
+            // iterate through the mods and apply to the context
+            for (var ii = mods.length; ii--; ) {
+                mods[ii](context);
+            } // for
+        }
+    };
+   
+    /* initialize */
+   
+    for (var keyName in params) {
+        fillMods(keyName);
+    } // for
+    
+    
+    return self;
+};
+
+/* define the apply style function */
+
+T5.applyStyle = function(context, styleId) {
+    COG.Log.info('applying style: ' + styleId);
+    var style = T5.styles[styleId] ? T5.styles[styleId] : T5.styles.basic;
+
+    // apply the style
+    style.applyToContext(context);
+};
+
+/* define the style library */
+
+T5.styles = (function() {
+    
+    var basicStyle = new T5.Style({
+            lineWidth: 1,
+            strokeStyle: '#000',
+            fillStyle: '#fff'
+        }),
+        
+        grassStyle = new T5.Style({
+            lineWidth: 1,
+            strokeStyle: 'rgb(0, 255, 0)',
+            fillStyle: 'rgba(0, 255, 0, 0.3)'
+        });
+    
+    return {
+        basic: basicStyle,
+        grass: grassStyle
+    };
+})();(function() {
     // set the default tile size to 256 pixels
     T5.tileSize = 256;
     
@@ -6439,6 +6687,14 @@ T5.Geo = (function() {
             MWY: "MOTORWAY"
         },
         DEFAULT_GENERALIZATION_DISTANCE = 250;
+    
+    /* define some module constants */
+    
+    var moduleConstants = {
+        VECTORIZE_PER_CYCLE: 500
+    };
+    
+    /* define the exported functions */
         
     var exportedFunctions = {
         /**
@@ -6937,8 +7193,18 @@ T5.Geo = (function() {
                     
                 // initialise options
                 options = T5.ex({
-                    chunkSize: DEFAULT_VECTORIZE_CHUNK_SIZE
+                    chunkSize: moduleConstants.VECTORIZE_PER_CYCLE,
+                    async: true
                 }, options);
+                
+                // if we are not processing async, then do it right now
+                if (! options.async) {
+                    for (var ii = posIndex; ii--; ) {
+                        vectors[ii] = new T5.Geo.GeoVector(positions[ii]);
+                    } // for
+                    
+                    return vectors;
+                } // if
                 
                 // create a new loopage worker to manage the conversion 
                 // as there could be a lot of positions...
@@ -7552,7 +7818,7 @@ T5.Geo = (function() {
         }
     }; // module
 
-    return T5.ex(module, exportedFunctions);
+    return T5.ex(module, moduleConstants, exportedFunctions);
 })();/**
 Geohash module c/o and copyright David Troy 2008 (http://davetroy.com/)
 Original codebase available on github @ http://github.com/davetroy/geohash-js/
@@ -7691,9 +7957,194 @@ This module provides GeoJSON support for Tile5.
 */
 T5.Geo.JSON = (function() {
     
+    // define some constants
+    var FEATURE_TYPE_COLLECTION = 'geometrycollection',
+        VECTORIZE_OPTIONS = {
+            async: false
+        };
+    
+    // define the feature processors
+    // TODO: think about the most efficient way to handle points...
+    var featureProcessors = {
+        linestring: processLineString,
+        multilinestring: processMultiLineString,
+        polygon: processPolygon,
+        multipolygon: processMultiPolygon
+    };
+    
+    /* feature processor functions */
+    // TODO: consider supporting continuations here...
+    
+    function processLineString(layer, coordinates) {
+        // TODO: check this is ok...
+        var vectors = readVectors(coordinates);
+        
+        layer.add(new T5.Poly(vectors));        
+    } // processLineString
+    
+    function processMultiLineString(layer, coordinates) {
+        for (var ii = 0; ii < coordinates.length; ii++) {
+            processLineString(layer, coordinates[ii]);
+        } // for
+    } // processMultiLineString
+    
+    function processPolygon(layer, coordinates) {
+        // TODO: check this is ok...
+        var vectors = readVectors(coordinates[0]);
+        layer.add(new T5.Poly(vectors, {
+            fill: true
+        }));
+    } // processPolygon
+    
+    function processMultiPolygon(layer, coordinates) {
+        for (var ii = 0; ii < coordinates.length; ii++) {
+            processPolygon(layer, coordinates[ii]);
+        } // for
+    } // processMultiPolygon
+    
+    /* other module level functions */
+    
+    function readVectors(coordinates) {
+        // iterate through the coordinates and create a vector array
+        var positions = readCoordinates(coordinates);
+        
+        return T5.Geo.P.vectorize(positions, VECTORIZE_OPTIONS);
+    } // getLineStringVectors
+    
+    function readCoordinates(coordinates) {
+        var count = coordinates.length,
+            positions = new Array(count);
+            
+        // COG.Log.info('read ' + count + ' positions');
+            
+        for (var ii = count; ii--; ) {
+            positions[ii] = new T5.Geo.Position(coordinates[ii][1], coordinates[ii][0]);
+        } // for
+        
+        return positions;
+    } // coordinates
+    
+    /* define the GeoJSON parser */
+    
+    var GeoJSONParser = function(data, callback, options) {
+        options = T5.ex({
+            vectorsPerCycle: T5.Geo.VECTORIZE_PER_CYCLE,
+            rowPreParse: null,
+            targetLayer: null
+        }, options);
+        
+        // initialise variables
+        var vectorsPerCycle = options.vectorsPerCycle,
+            targetLayer = options.targetLayer,
+            rowPreParse = options.rowPreParse,
+            featureIndex = 0,
+            totalFeatures = 0,
+            childWorker = null,
+            worker;
+
+        // if we have no data, then exit
+        if (! data) {
+            return null;
+        } // if
+        
+        // check that the data is in an array, if not, then make one
+        if (typeof data.length === 'undefined') {
+            data = [data];
+        } // if
+            
+        /* parser functions */
+        
+        function featureToPoly(feature, callback) {
+        } // featureToPrimitives
+
+        function processData(tickCount, worker) {
+            var cycleCount = 0,
+                ii = featureIndex;
+                
+            // if we have a child worker active, then don't do anything in this worker
+            if (childWorker) {
+                return;
+            }
+            
+            // COG.Log.info('processing data, featureIndex = ' + featureIndex + ', total features = ' + totalFeatures);
+            for (; ii < totalFeatures; ii++) {
+                // get the feature data
+                // if a row preparser is defined, then use that
+                var featureData = rowPreParse ? 
+                        rowPreParse(data[ii]) : 
+                        data[ii],
+                    featureType = featureData.type ? featureData.type.toLowerCase() : null,
+                    isCollection = featureType ? 
+                        featureType === FEATURE_TYPE_COLLECTION :
+                        false,
+                    processor = featureProcessors[featureType],
+                    processedCount = null;
+                
+                // COG.Log.info('processing feature ' + ii + ', type = ' + featureData.type + ', id = ' + featureData.id);
+                
+                // if the processor is defined, then run it
+                if (processor) {
+                    processedCount = processor(targetLayer, featureData.coordinates);
+                } // if
+                
+                // increment the cycle count
+                cycleCount += processedCount ? processedCount : 1;
+                
+                // increase the cycle counter and check that we haven't processed too many
+                if (cycleCount >= vectorsPerCycle) {
+                    break;
+                } // if
+            } // for
+            
+            // increment the feature index to the next feature after this loop
+            featureIndex = ii + 1;
+            
+            // if we have finished, then tell the worker we are done
+            if (featureIndex >= totalFeatures) {
+                worker.trigger('complete');
+            } // if
+        } // processData
+        
+        /* run the parser */
+        
+        // save the total feature count
+        totalFeatures = data.length;
+        
+        // if we don't have a target layer, then create one
+        if (! targetLayer) {
+            targetLayer = new T5.PolyLayer();
+        } // if
+        
+        // create the worker
+        worker = COG.Loopage.join({
+            frequency: 10,
+            execute: processData
+        });
+        
+        // when the worker has completed, fire the callback
+        worker.bind('complete', function(evt) {
+            if (callback) {
+                callback(targetLayer);
+            } // if
+        });
+        
+        return worker;
+    };
+    
+    
+    /* exported functions */
+    
+    function parse(data, callback, options) {
+        return new GeoJSONParser(data, callback, options);
+    } // parse
+    
+    /* module definition */
     
     var module = {
+        parse: parse
     };
+    
+    return module;
 })();
 
 T5.Geo.LocationSearch = function(params) {

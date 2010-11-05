@@ -132,9 +132,11 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/graphics/viewlayer.js" />
 			<fileset file="src/js/graphics/view.js" />
 			<fileset file="src/js/graphics/pathlayer.js" />
+			<fileset file="src/js/graphics/poly.js" />
 			<fileset file="src/js/graphics/animatedpathlayer.js" />
 			<fileset file="src/js/graphics/annotation.js" />
 			<fileset file="src/js/graphics/markerlayer.js" />
+			<fileset file="src/js/graphics/style.js" />
 
 			<!-- include tiling -->
 			<fileset file="src/js/tiling/core.js" />

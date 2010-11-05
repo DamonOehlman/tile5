@@ -84,6 +84,8 @@ T5 = (function() {
         } // edges
 
         return {
+            VECTOR_SIMPLIFICATION: 4,
+            
             create: function(x, y) {
                 return new Vector(x, y);
             },
@@ -157,6 +159,42 @@ T5 = (function() {
             */
             distance: function(vectors, count) {
                 return edges(vectors, count).total;
+            },
+            
+            /**
+            - `simplify(v*, generalization)`
+            
+            This function is used to simplify a vector array by removing what would be considered
+            'redundant' vector positions by elimitating at a similar position (based on the supplied
+            generalization factor)
+            */
+            simplify: function(vectors, generalization) {
+                if (! vectors) {
+                    return null;
+                } // if
+                
+                // set the the default generalization
+                generalization = generalization ? generalization : vectorTools.VECTOR_SIMPLIFICATION;
+
+                var tidyVectors = [],
+                    last = null;
+
+                for (var ii = vectors.length; ii--; ) {
+                    var current = vectors[ii];
+
+                    // determine whether the current point should be included
+                    include = !last || ii === 0 || 
+                        (Math.abs(current.x - last.x) + 
+                            Math.abs(current.y - last.y) >
+                            generalization);
+
+                    if (include) {
+                        tidyVectors.unshift(current);
+                        last = current;
+                    }
+                } // for
+
+                return tidyVectors;
             },
             
             /**

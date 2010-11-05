@@ -2487,6 +2487,8 @@ T5 = (function() {
         } // edges
 
         return {
+            VECTOR_SIMPLIFICATION: 4,
+            
             create: function(x, y) {
                 return new Vector(x, y);
             },
@@ -2560,6 +2562,42 @@ T5 = (function() {
             */
             distance: function(vectors, count) {
                 return edges(vectors, count).total;
+            },
+            
+            /**
+            - `simplify(v*, generalization)`
+            
+            This function is used to simplify a vector array by removing what would be considered
+            'redundant' vector positions by elimitating at a similar position (based on the supplied
+            generalization factor)
+            */
+            simplify: function(vectors, generalization) {
+                if (! vectors) {
+                    return null;
+                } // if
+                
+                // set the the default generalization
+                generalization = generalization ? generalization : vectorTools.VECTOR_SIMPLIFICATION;
+
+                var tidyVectors = [],
+                    last = null;
+
+                for (var ii = vectors.length; ii--; ) {
+                    var current = vectors[ii];
+
+                    // determine whether the current point should be included
+                    include = !last || ii === 0 || 
+                        (Math.abs(current.x - last.x) + 
+                            Math.abs(current.y - last.y) >
+                            generalization);
+
+                    if (include) {
+                        tidyVectors.unshift(current);
+                        last = current;
+                    }
+                } // for
+
+                return tidyVectors;
             },
             
             /**
@@ -4206,6 +4244,7 @@ T5.ViewLayer = function(params) {
         */
         setParent: function(view) {
             parent = view;
+            self.trigger('parentChange', parent);
         }
     }, params); // self
     
@@ -5133,35 +5172,6 @@ T5.PathLayer = function(params) {
         spawnedAnimations = [];
     };
         
-    function tidy(vectors) {
-        if (! vectors) {
-            return null;
-        } // if
-        
-        var tidyVectors = [],
-            generalization = params.pixelGeneralization,
-            last = null;
-            
-        COG.Log.info('tidying vectors (length = ' + vectors.length + '), generalization = ' + generalization);
-            
-        for (var ii = vectors.length; ii--; ) {
-            var current = vectors[ii];
-            
-            // determine whether the current point should be included
-            include = !last || ii === 0 || 
-                (Math.abs(current.x - last.x) + 
-                    Math.abs(current.y - last.y) >
-                    generalization);
-                    
-            if (include) {
-                tidyVectors.unshift(current);
-                last = current;
-            }
-        } // for
-        
-        return tidyVectors;
-    } // tidy
-    
     function resyncPath(grid) {
         // update the vectors
         grid.syncVectors(rawCoords);
@@ -5260,8 +5270,8 @@ T5.PathLayer = function(params) {
     
     self.bind('gridUpdate', handleGridUpdate);
     self.bind('tidy', function(evt) {
-        coordinates = tidy(rawCoords);
-        markerCoordinates = tidy(rawMarkers);
+        coordinates = T5.V.simplify(rawCoords, params.pixelGeneralization);
+        markerCoordinates = T5.V.simplify(rawMarkers, params.pixelGeneralization);
 
         // wake the parent
         redraw = true;
@@ -5270,6 +5280,161 @@ T5.PathLayer = function(params) {
     
     return self;
 };
+T5.Poly = function(vectors, params) {
+    params = T5.ex({
+        fill: false
+    }, params);
+
+    // initialise variables
+    var haveData = false,
+        fill = params.fill,
+        drawVectors = [];
+    
+    /* exported functions */
+    
+    function drawPoly(context, offsetX, offsetY, state) {
+        if (haveData) {
+            var first = true;
+            
+            context.beginPath();
+            
+            // now draw the lines
+            // COG.Log.info('drawing poly: have ' + drawVectors.length + ' vectors');
+            for (var ii = drawVectors.length; ii--; ) {
+                var x = drawVectors[ii].x - offsetX,
+                    y = drawVectors[ii].y - offsetY;
+                
+                if (first) {
+                    context.moveTo(x, y);
+                    first = false;
+                }
+                else {
+                    context.lineTo(x, y);
+                }
+            } // for
+            
+            if (fill) {
+                context.fill();
+            } // if
+            
+            context.stroke();
+        } // if
+    } // drawPoly
+    
+    function resyncToGrid(grid) {
+        grid.syncVectors(vectors);
+        
+        // simplify the vectors for drawing (if required)
+        drawVectors = vectors.length <= 3 ? vectors : T5.V.simplify(vectors);
+    } // resyncToGrid
+    
+    /* define self */
+    
+    var self = {
+        draw: drawPoly,
+        resync: resyncToGrid
+    };
+
+    // initialise the first item to the first element in the array
+    haveData = vectors && (vectors.length >= 2);
+    
+    return self;
+};
+
+/**
+# PolyLayer
+
+The PolyLayer is designed to facilitate the storage and display of multiple 
+geometric shapes.  This is particularly useful for displaying GeoJSON data and 
+the like
+*/
+T5.PolyLayer = function(params) {
+    params = T5.ex({
+        zindex: 80,
+        style: null
+    }, params);
+    
+    // initialise variables
+    var children = [],
+        forceRedraw = false,
+        lastOffsetX, lastOffsetY;
+        
+    /* private functions */
+    
+    function handleGridUpdate(evt, grid) {
+        // iterate through the children and resync to the grid
+        for (var ii = children.length; ii--; ) {
+            children[ii].resync(grid);
+        } // for
+        
+        forceRedraw = true;
+        self.wakeParent(true);
+    }
+    
+    function handleParentChange(evt, parent) {
+        var grid = parent ? parent.getTileLayer() : null;
+        
+        if (grid) {
+            // iterate through the children and resync to the grid
+            for (var ii = children.length; ii--; ) {
+                children[ii].resync(grid);
+            } // for
+        } // if
+    } // handleParentChange
+    
+    /* initialise self */
+    
+    var self = T5.ex(new T5.ViewLayer(params), {
+        add: function(poly) {
+            // children.push(poly);
+            children.unshift(poly);
+        },
+        
+        cycle: function(tickCount, offset, state, redraw) {
+            return forceRedraw;
+        },
+
+        draw: function(context, offset, dimensions, state, view, redraw) {
+            // TODO: this seems like a sensible thing to include in any view layer
+            var shouldDraw = redraw || (lastOffsetX !== offset.x) || (lastOffsetY !== offset.y);
+            
+            if (shouldDraw) {
+                lastOffsetX = offset.x;
+                lastOffsetY = offset.y;
+                
+                context.save();
+                try {
+                    T5.applyStyle(context, params.style);
+                    /*
+                    context.lineWidth = 3;
+                    context.lineCap = 'round';
+                    context.lineJoin = 'round';
+                    context.miterLimit = 4;
+                    context.strokeStyle = 'rgb(0, 0, 255)';
+                    context.fillStyle = 'rgba(30, 30, 30, 0.3)';
+                    */
+
+                    // iterate through the children and draw the layers
+                    for (var ii = children.length; ii--; ) {
+                        children[ii].draw(context, lastOffsetX, lastOffsetY, state);
+                    } // for
+                }
+                finally {
+                    context.restore();
+                } // try..finally
+                
+                forceRedraw = false;
+            } // if
+        }
+    });
+    
+    // handle grid updates
+    self.bind('gridUpdate', handleGridUpdate);
+    self.bind('parentChange', handleParentChange);
+
+    return self;
+};
+
 T5.AnimatedPathLayer = function(params) {
     params = T5.ex({
         path: [],
@@ -5662,7 +5827,90 @@ T5.MarkerLayer = function(params) {
     
     return self;
 };
-(function() {
+/**
+# Style
+
+*/
+T5.Style = function(params) {
+    params = T5.ex({
+        // line styles
+        lineWidth: undefined,
+        lineCap: undefined,
+        lineJoin: undefined,
+        miterLimit: undefined,
+        lineStyle: undefined,
+
+        // fill styles
+        fillStyle: undefined
+    }, params);
+    
+    // initialise variables
+    var mods = [];
+    
+    /* internal functions */
+    
+    function fillMods(keyName) {
+        var paramVal = params[keyName];
+        
+        if (typeof paramVal !== 'undefined') {
+            mods.push(function(context) {
+                context[keyName] = paramVal;
+            });
+        } // if
+    } // fillMods
+    
+    /* define self */
+    
+    var self = {
+        applyToContext: function(context) {
+            // iterate through the mods and apply to the context
+            for (var ii = mods.length; ii--; ) {
+                mods[ii](context);
+            } // for
+        }
+    };
+   
+    /* initialize */
+   
+    for (var keyName in params) {
+        fillMods(keyName);
+    } // for
+    
+    
+    return self;
+};
+
+/* define the apply style function */
+
+T5.applyStyle = function(context, styleId) {
+    COG.Log.info('applying style: ' + styleId);
+    var style = T5.styles[styleId] ? T5.styles[styleId] : T5.styles.basic;
+
+    // apply the style
+    style.applyToContext(context);
+};
+
+/* define the style library */
+
+T5.styles = (function() {
+    
+    var basicStyle = new T5.Style({
+            lineWidth: 1,
+            strokeStyle: '#000',
+            fillStyle: '#fff'
+        }),
+        
+        grassStyle = new T5.Style({
+            lineWidth: 1,
+            strokeStyle: 'rgb(0, 255, 0)',
+            fillStyle: 'rgba(0, 255, 0, 0.3)'
+        });
+    
+    return {
+        basic: basicStyle,
+        grass: grassStyle
+    };
+})();(function() {
     // set the default tile size to 256 pixels
     T5.tileSize = 256;
     

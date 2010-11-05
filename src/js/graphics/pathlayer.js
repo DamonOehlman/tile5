@@ -35,35 +35,6 @@ T5.PathLayer = function(params) {
         spawnedAnimations = [];
     };
         
-    function tidy(vectors) {
-        if (! vectors) {
-            return null;
-        } // if
-        
-        var tidyVectors = [],
-            generalization = params.pixelGeneralization,
-            last = null;
-            
-        COG.Log.info('tidying vectors (length = ' + vectors.length + '), generalization = ' + generalization);
-            
-        for (var ii = vectors.length; ii--; ) {
-            var current = vectors[ii];
-            
-            // determine whether the current point should be included
-            include = !last || ii === 0 || 
-                (Math.abs(current.x - last.x) + 
-                    Math.abs(current.y - last.y) >
-                    generalization);
-                    
-            if (include) {
-                tidyVectors.unshift(current);
-                last = current;
-            }
-        } // for
-        
-        return tidyVectors;
-    } // tidy
-    
     function resyncPath(grid) {
         // update the vectors
         grid.syncVectors(rawCoords);
@@ -162,8 +133,8 @@ T5.PathLayer = function(params) {
     
     self.bind('gridUpdate', handleGridUpdate);
     self.bind('tidy', function(evt) {
-        coordinates = tidy(rawCoords);
-        markerCoordinates = tidy(rawMarkers);
+        coordinates = T5.V.simplify(rawCoords, params.pixelGeneralization);
+        markerCoordinates = T5.V.simplify(rawMarkers, params.pixelGeneralization);
 
         // wake the parent
         redraw = true;
