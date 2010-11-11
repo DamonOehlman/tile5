@@ -3,8 +3,8 @@
 
 ## Events
 
-- `markersChanged`
-- `markersTapped`
+- `markerUpdate`
+- `markerTap`
 */
 T5.MarkerLayer = function(params) {
     params = T5.ex({
@@ -35,7 +35,7 @@ T5.MarkerLayer = function(params) {
         
         // if we have tapped markers, then cancel the tap event
         if (tappedMarkers.length > 0) {
-            evt.cancel = self.trigger('markersTapped', absXY, relXY, tappedMarkers).cancel;
+            evt.cancel = self.trigger('markerTap', absXY, relXY, tappedMarkers).cancel;
         } // if
     } // handleTap
 
@@ -44,13 +44,18 @@ T5.MarkerLayer = function(params) {
     involves informing other waking the parent view and having a redraw occur and 
     additionally, firing the markers changed event
     */
-    function markersChanged() {
+    function markerUpdate() {
+        var grid = self.getParent().getTileLayer();
+        if (grid) {
+            handleGridUpdate(null, grid);
+        } // if
+        
         // trigger the markers changed event
-        self.trigger('markersChanged', markers);
+        self.trigger('markerUpdate', markers);
         
         // wake and invalidate the parent
         self.wakeParent(true);
-    } // markersChanged
+    } // markerUpdate
 
     // create the view layer the we will draw the view
     var self = T5.ex(new T5.ViewLayer(params), {
@@ -79,22 +84,24 @@ T5.MarkerLayer = function(params) {
         
         add: function(newItems) {
             // if annotation is an array, then iterate through and add them
-            if (newItems && newItems.length) {
+            if (newItems && (typeof newItems.length !== 'undefined')) {
                 for (var ii = newItems.length; ii--; ) {
-                    markers[markers.length] = newItems[ii];
+                    if (newItems[ii]) {
+                        markers[markers.length] = newItems[ii];
+                    } // if
                 } // for
             }
             else if (newItems) {
                 markers[markers.length] = newItems;
             } // if..else
             
-            markersChanged();
+            markerUpdate();
         },
         
         clear: function() {
             // reset the markers
             markers = [];
-            markersChanged();
+            markerUpdate();
         }
     });
     

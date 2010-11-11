@@ -149,5 +149,6 @@ T5.ViewLayer = function(params) {
     
     // make view layers observable
     COG.observable(self);
+
     return self;
 }; // T5.ViewLayer

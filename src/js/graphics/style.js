@@ -12,7 +12,11 @@ T5.Style = function(params) {
         lineStyle: undefined,
 
         // fill styles
-        fillStyle: undefined
+        fillStyle: undefined,
+        
+        // context globals
+        globalAlpha: undefined,
+        globalCompositeOperation: undefined
     }, params);
     
     // initialise variables
@@ -51,34 +55,55 @@ T5.Style = function(params) {
     return self;
 };
 
-/* define the apply style function */
-
-T5.applyStyle = function(context, styleId) {
-    COG.Log.info('applying style: ' + styleId);
-    var style = T5.styles[styleId] ? T5.styles[styleId] : T5.styles.basic;
-
-    // apply the style
-    style.applyToContext(context);
-};
-
-/* define the style library */
-
-T5.styles = (function() {
+(function() {
     
-    var basicStyle = new T5.Style({
+    /* define the core styles */
+    
+    var coreStyles = {
+        basic: new T5.Style({
             lineWidth: 1,
             strokeStyle: '#000',
             fillStyle: '#fff'
         }),
         
-        grassStyle = new T5.Style({
-            lineWidth: 1,
-            strokeStyle: 'rgb(0, 255, 0)',
-            fillStyle: 'rgba(0, 255, 0, 0.3)'
-        });
-    
-    return {
-        basic: basicStyle,
-        grass: grassStyle
+        waypoints: new T5.Style({
+            lineWidth: 4,
+            strokeStyle: 'rgba(0, 51, 119, 0.9)',
+            fillStyle: '#FFF'
+        })        
     };
+    
+    /* define the apply style function */
+
+    T5.applyStyle = function(context, styleId) {
+        var style = T5.styles[styleId] ? T5.styles[styleId] : T5.styles.basic;
+
+        // apply the style
+        style.applyToContext(context);
+    };
+
+    T5.loadStyles = function(path, callback) {
+        COG.jsonp(path, function(data) {
+            T5.resetStyles(data);
+        });
+    };
+
+    T5.resetStyles = function(data) {
+        // initialise variables 
+        // NOTE: I'm not calling this a stylesheet on purpose
+        var styleGroup = {};
+
+        // iterate through each of the items defined in the retured style definition and create
+        // T5 styles
+        for (var styleId in data) {
+            styleGroup[styleId] = new T5.Style(data[styleId]);
+        } // for
+
+        // we have made it this far, so replace the T5.styles object
+        T5.styles = T5.ex({}, coreStyles, styleGroup);
+    };
+
+    // export the core styles as the styles object (to start with)
+    T5.styles = coreStyles;
 })();
+

@@ -89,7 +89,7 @@
                 bindEvent: genBindDoc(),
                 unbindEvent: genUnbindDoc(),
                 
-                supportsTouch: false, // something weird with chrome... "createTouch" in document,
+                supportsTouch: 'ontouchstart' in window,
                 imageCacheMaxSize: null, 
                 getScaling: function() {
                     return 1;
@@ -118,9 +118,7 @@
                 maxImageLoads: 4,
                 requireFastDraw: false,
                 bridgeNotify: bridgeNotifyUrl,
-                targetFps: 25,
-                
-                supportsTouch: true
+                targetFps: 25
             },
 
             // TODO: can we detect the 3G ???
@@ -129,13 +127,11 @@
                 regex: /iphone/i,
                 imageCacheMaxSize: 6 * 1024,
                 maxImageLoads: 4,
-                bridgeNotify: bridgeNotifyUrl,
-                supportsTouch: true
+                bridgeNotify: bridgeNotifyUrl
             },
 
             ipad: {
                 name: "iPad",
-                supportsTouch: true,
                 regex: /ipad/i,
                 imageCacheMaxSize: 6 * 1024,
                 bridgeNotify: bridgeNotifyUrl

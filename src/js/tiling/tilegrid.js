@@ -17,6 +17,7 @@ T5.TileGrid = function(params) {
         topLeftOffset = T5.V.offset(params.center, -gridHalfWidth),
         lastTileCreator = null,
         tileShift = new T5.Vector(),
+        isTweening = false,
         lastNotifyListener = null,
         halfTileSize = Math.round(tileSize / 2),
         invTileSize = tileSize ? 1 / tileSize : 0,
@@ -281,6 +282,9 @@ T5.TileGrid = function(params) {
                 haveDirtyTiles = updateDrawQueue(offset, state, redraw, tickCount);
             } // if
             
+            // update the tweening flag
+            isTweening = T5.isTweening();
+            
             return haveDirtyTiles;
         },
         
@@ -314,7 +318,6 @@ T5.TileGrid = function(params) {
                 yShift = offset.y,
                 minX = dimensions.width,
                 minY = dimensions.height,
-                drawCount = 0,
                 tilesDrawn = true;
                 
             // if we don't have a draq queue return
@@ -342,9 +345,13 @@ T5.TileGrid = function(params) {
                 if (! tile.empty) {
                     // draw the tile
                     if (redraw || tile.dirty) {
-                        tilesDrawn = self.drawTile(context, tile, x, y, state) && tilesDrawn;
+                        // if the interface is tweening, then clear the tile rect first
+                        if (isTweening) {
+                            self.clearTileRect(context, x, y, tileSize, state);
+                        } // if
                         
-                        drawCount = drawCount + 1;
+                        // draw the tile
+                        tilesDrawn = self.drawTile(context, tile, x, y, state) && tilesDrawn;
                     } // if
                 } 
                 else {
@@ -374,7 +381,7 @@ T5.TileGrid = function(params) {
             } // if
             
             // draw the borders if we have them...
-            // COG.Log.trace("drew " + drawCount + " tiles at x: " + offset.x + ", y: " + offset.y, startTicks);
+            // COG.Log.trace("drew tiles at x: " + offset.x + ", y: " + offset.y, startTicks);
             
             // if the tiles have been drawn and previously haven't then fire the tiles drawn event
             if (tilesDrawn && (! lastTilesDrawn)) {
@@ -386,20 +393,22 @@ T5.TileGrid = function(params) {
         },
         
         getTileAtXY: function(x, y) {
-            var queueLength = tileDrawQueue ? tileDrawQueue.length : 0;
-            COG.Log.info("looking for tile @ x: " + x + ", y: " + y);
+            var queueLength = tileDrawQueue ? tileDrawQueue.length : 0,
+                locatedTile = null;
             
             for (var ii = queueLength; ii--; ) {
                 var tile = tileDrawQueue[ii];
                 
                 if (tile && (x >= tile.x) && (y >= tile.y)) {
                     if ((x <= tile.x + tileSize) && (y <= tile.y + tileSize)) {
-                        return tile;
+                        locatedTile = tile;
+                        break; 
                     } // if
                 } // if
             } // for
             
-            return null;
+            COG.Log.info("looking for tile @ x: " + x + ", y: " + y + ', found: ' + locatedTile);
+            return locatedTile;
         },
         
         getTileVirtualXY: function(col, row, getCenter) {

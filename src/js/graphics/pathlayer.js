@@ -1,13 +1,14 @@
 /**
 # PathLayer
 
+## TODO
+
+Consider how to effectively convert this use a poly layer under the hood...
 */
 T5.PathLayer = function(params) {
     params = T5.ex({
-        strokeStyle: 'rgba(0, 51, 119, 0.9)',
+        style: 'waypoints',
         pixelGeneralization: 8,
-        waypointFillStyle: '#FFFFFF',
-        lineWidth: 4,
         zindex: 50
     }, params);
     
@@ -72,45 +73,49 @@ T5.PathLayer = function(params) {
             var ii,
                 coordLength = coordinates.length;
                 
-            // update the context stroke style and line width
-            context.strokeStyle = params.strokeStyle;
-            context.lineWidth = params.lineWidth;
-            
-            if (coordLength > 0) {
-                // start drawing the path
-                context.beginPath();
-                context.moveTo(
-                    coordinates[coordLength - 1].x - offset.x, 
-                    coordinates[coordLength - 1].y - offset.y);
-
-                for (ii = coordLength; ii--; ) {
-                    context.lineTo(
-                        coordinates[ii].x - offset.x,
-                        coordinates[ii].y - offset.y);
-                } // for
-
-                context.stroke();
+            context.save();
+            try {
+                T5.applyStyle(context, params.style);
                 
-                // if we have marker coordinates draw those also
-                if (markerCoordinates) {
-                    context.fillStyle = params.waypointFillStyle;
+                if (coordLength > 0) {
+                    // start drawing the path
+                    context.beginPath();
+                    context.moveTo(
+                        coordinates[coordLength - 1].x - offset.x, 
+                        coordinates[coordLength - 1].y - offset.y);
 
-                    // draw the instruction coordinates
-                    for (ii = markerCoordinates.length; ii--; ) {
-                        context.beginPath();
-                        context.arc(
-                            markerCoordinates[ii].x - offset.x, 
-                            markerCoordinates[ii].y - offset.y,
-                            2,
-                            0,
-                            Math.PI * 2,
-                            false);
-
-                        context.stroke();
-                        context.fill();
+                    for (ii = coordLength; ii--; ) {
+                        context.lineTo(
+                            coordinates[ii].x - offset.x,
+                            coordinates[ii].y - offset.y);
                     } // for
+
+                    context.stroke();
+
+                    // if we have marker coordinates draw those also
+                    if (markerCoordinates) {
+                        context.fillStyle = params.waypointFillStyle;
+
+                        // draw the instruction coordinates
+                        for (ii = markerCoordinates.length; ii--; ) {
+                            context.beginPath();
+                            context.arc(
+                                markerCoordinates[ii].x - offset.x, 
+                                markerCoordinates[ii].y - offset.y,
+                                2,
+                                0,
+                                Math.PI * 2,
+                                false);
+
+                            context.stroke();
+                            context.fill();
+                        } // for
+                    } // if
                 } // if
-            } // if
+            }
+            finally {
+                context.restore();
+            }
             
             redraw = false;
         },

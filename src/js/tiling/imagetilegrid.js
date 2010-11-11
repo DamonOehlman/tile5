@@ -83,11 +83,8 @@ T5.ImageTileGrid = function(params) {
     // initialise self
     var self = T5.ex(new T5.TileGrid(params), {
         clearTileRect: function(context, x, y, tileSize, state) {
-            if ((state & statePan) !== 0) {
-                COG.Log.info("drawing panning tile for empty tile");
-                
-            }
-            else {
+            // if the state is not the panning state, then clear the rect
+            if ((state & statePan) === 0) {
                 context.clearRect(x, y, tileSize, tileSize);
             } // if..else
         },

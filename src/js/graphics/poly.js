@@ -123,14 +123,6 @@ T5.PolyLayer = function(params) {
                 context.save();
                 try {
                     T5.applyStyle(context, params.style);
-                    /*
-                    context.lineWidth = 3;
-                    context.lineCap = 'round';
-                    context.lineJoin = 'round';
-                    context.miterLimit = 4;
-                    context.strokeStyle = 'rgb(0, 0, 255)';
-                    context.fillStyle = 'rgba(30, 30, 30, 0.3)';
-                    */
 
                     // iterate through the children and draw the layers
                     for (var ii = children.length; ii--; ) {
@@ -149,6 +141,13 @@ T5.PolyLayer = function(params) {
     // handle grid updates
     self.bind('gridUpdate', handleGridUpdate);
     self.bind('parentChange', handleParentChange);
+    
+    // set the style attribute to be configurable
+    COG.configurable(
+        self, 
+        ['style'], 
+        COG.paramTweaker(params, null, null),
+        true);    
 
     return self;
 };

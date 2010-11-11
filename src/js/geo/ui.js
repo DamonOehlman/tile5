@@ -137,7 +137,7 @@ T5.Geo.UI = (function() {
                 
                 syncVectors: function(vectors) {
                     for (var ii = vectors.length; ii--; ) {
-                        if (vectors[ii].setRadsPerPixel) {
+                        if (vectors[ii] && vectors[ii].setRadsPerPixel) {
                             vectors[ii].setRadsPerPixel(radsPerPixel, -blPixX, -tlPixY);
                         } // if
                     }

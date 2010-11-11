@@ -2909,7 +2909,7 @@ T5 = (function() {
                 bindEvent: genBindDoc(),
                 unbindEvent: genUnbindDoc(),
                 
-                supportsTouch: false, // something weird with chrome... "createTouch" in document,
+                supportsTouch: 'ontouchstart' in window,
                 imageCacheMaxSize: null, 
                 getScaling: function() {
                     return 1;
@@ -2938,9 +2938,7 @@ T5 = (function() {
                 maxImageLoads: 4,
                 requireFastDraw: false,
                 bridgeNotify: bridgeNotifyUrl,
-                targetFps: 25,
-                
-                supportsTouch: true
+                targetFps: 25
             },
 
             // TODO: can we detect the 3G ???
@@ -2949,13 +2947,11 @@ T5 = (function() {
                 regex: /iphone/i,
                 imageCacheMaxSize: 6 * 1024,
                 maxImageLoads: 4,
-                bridgeNotify: bridgeNotifyUrl,
-                supportsTouch: true
+                bridgeNotify: bridgeNotifyUrl
             },
 
             ipad: {
                 name: "iPad",
-                supportsTouch: true,
                 regex: /ipad/i,
                 imageCacheMaxSize: 6 * 1024,
                 bridgeNotify: bridgeNotifyUrl
@@ -4250,6 +4246,7 @@ T5.ViewLayer = function(params) {
     
     // make view layers observable
     COG.observable(self);
+
     return self;
 }; // T5.ViewLayer
 /**
@@ -5138,13 +5135,14 @@ T5.View = function(params) {
 /**
 # PathLayer
 
+## TODO
+
+Consider how to effectively convert this use a poly layer under the hood...
 */
 T5.PathLayer = function(params) {
     params = T5.ex({
-        strokeStyle: 'rgba(0, 51, 119, 0.9)',
+        style: 'waypoints',
         pixelGeneralization: 8,
-        waypointFillStyle: '#FFFFFF',
-        lineWidth: 4,
         zindex: 50
     }, params);
     
@@ -5209,45 +5207,49 @@ T5.PathLayer = function(params) {
             var ii,
                 coordLength = coordinates.length;
                 
-            // update the context stroke style and line width
-            context.strokeStyle = params.strokeStyle;
-            context.lineWidth = params.lineWidth;
-            
-            if (coordLength > 0) {
-                // start drawing the path
-                context.beginPath();
-                context.moveTo(
-                    coordinates[coordLength - 1].x - offset.x, 
-                    coordinates[coordLength - 1].y - offset.y);
-
-                for (ii = coordLength; ii--; ) {
-                    context.lineTo(
-                        coordinates[ii].x - offset.x,
-                        coordinates[ii].y - offset.y);
-                } // for
-
-                context.stroke();
+            context.save();
+            try {
+                T5.applyStyle(context, params.style);
                 
-                // if we have marker coordinates draw those also
-                if (markerCoordinates) {
-                    context.fillStyle = params.waypointFillStyle;
+                if (coordLength > 0) {
+                    // start drawing the path
+                    context.beginPath();
+                    context.moveTo(
+                        coordinates[coordLength - 1].x - offset.x, 
+                        coordinates[coordLength - 1].y - offset.y);
 
-                    // draw the instruction coordinates
-                    for (ii = markerCoordinates.length; ii--; ) {
-                        context.beginPath();
-                        context.arc(
-                            markerCoordinates[ii].x - offset.x, 
-                            markerCoordinates[ii].y - offset.y,
-                            2,
-                            0,
-                            Math.PI * 2,
-                            false);
-
-                        context.stroke();
-                        context.fill();
+                    for (ii = coordLength; ii--; ) {
+                        context.lineTo(
+                            coordinates[ii].x - offset.x,
+                            coordinates[ii].y - offset.y);
                     } // for
+
+                    context.stroke();
+
+                    // if we have marker coordinates draw those also
+                    if (markerCoordinates) {
+                        context.fillStyle = params.waypointFillStyle;
+
+                        // draw the instruction coordinates
+                        for (ii = markerCoordinates.length; ii--; ) {
+                            context.beginPath();
+                            context.arc(
+                                markerCoordinates[ii].x - offset.x, 
+                                markerCoordinates[ii].y - offset.y,
+                                2,
+                                0,
+                                Math.PI * 2,
+                                false);
+
+                            context.stroke();
+                            context.fill();
+                        } // for
+                    } // if
                 } // if
-            } // if
+            }
+            finally {
+                context.restore();
+            }
             
             redraw = false;
         },
@@ -5405,14 +5407,6 @@ T5.PolyLayer = function(params) {
                 context.save();
                 try {
                     T5.applyStyle(context, params.style);
-                    /*
-                    context.lineWidth = 3;
-                    context.lineCap = 'round';
-                    context.lineJoin = 'round';
-                    context.miterLimit = 4;
-                    context.strokeStyle = 'rgb(0, 0, 255)';
-                    context.fillStyle = 'rgba(30, 30, 30, 0.3)';
-                    */
 
                     // iterate through the children and draw the layers
                     for (var ii = children.length; ii--; ) {
@@ -5431,6 +5425,13 @@ T5.PolyLayer = function(params) {
     // handle grid updates
     self.bind('gridUpdate', handleGridUpdate);
     self.bind('parentChange', handleParentChange);
+    
+    // set the style attribute to be configurable
+    COG.configurable(
+        self, 
+        ['style'], 
+        COG.paramTweaker(params, null, null),
+        true);    
 
     return self;
 };
@@ -5726,8 +5727,8 @@ T5.ImageAnnotation = function(params) {
 
 ## Events
 
-- `markersChanged`
-- `markersTapped`
+- `markerUpdate`
+- `markerTap`
 */
 T5.MarkerLayer = function(params) {
     params = T5.ex({
@@ -5758,7 +5759,7 @@ T5.MarkerLayer = function(params) {
         
         // if we have tapped markers, then cancel the tap event
         if (tappedMarkers.length > 0) {
-            evt.cancel = self.trigger('markersTapped', absXY, relXY, tappedMarkers).cancel;
+            evt.cancel = self.trigger('markerTap', absXY, relXY, tappedMarkers).cancel;
         } // if
     } // handleTap
 
@@ -5767,13 +5768,18 @@ T5.MarkerLayer = function(params) {
     involves informing other waking the parent view and having a redraw occur and 
     additionally, firing the markers changed event
     */
-    function markersChanged() {
+    function markerUpdate() {
+        var grid = self.getParent().getTileLayer();
+        if (grid) {
+            handleGridUpdate(null, grid);
+        } // if
+        
         // trigger the markers changed event
-        self.trigger('markersChanged', markers);
+        self.trigger('markerUpdate', markers);
         
         // wake and invalidate the parent
         self.wakeParent(true);
-    } // markersChanged
+    } // markerUpdate
 
     // create the view layer the we will draw the view
     var self = T5.ex(new T5.ViewLayer(params), {
@@ -5802,22 +5808,24 @@ T5.MarkerLayer = function(params) {
         
         add: function(newItems) {
             // if annotation is an array, then iterate through and add them
-            if (newItems && newItems.length) {
+            if (newItems && (typeof newItems.length !== 'undefined')) {
                 for (var ii = newItems.length; ii--; ) {
-                    markers[markers.length] = newItems[ii];
+                    if (newItems[ii]) {
+                        markers[markers.length] = newItems[ii];
+                    } // if
                 } // for
             }
             else if (newItems) {
                 markers[markers.length] = newItems;
             } // if..else
             
-            markersChanged();
+            markerUpdate();
         },
         
         clear: function() {
             // reset the markers
             markers = [];
-            markersChanged();
+            markerUpdate();
         }
     });
     
@@ -5841,7 +5849,11 @@ T5.Style = function(params) {
         lineStyle: undefined,
 
         // fill styles
-        fillStyle: undefined
+        fillStyle: undefined,
+        
+        // context globals
+        globalAlpha: undefined,
+        globalCompositeOperation: undefined
     }, params);
     
     // initialise variables
@@ -5880,37 +5892,59 @@ T5.Style = function(params) {
     return self;
 };
 
-/* define the apply style function */
-
-T5.applyStyle = function(context, styleId) {
-    COG.Log.info('applying style: ' + styleId);
-    var style = T5.styles[styleId] ? T5.styles[styleId] : T5.styles.basic;
-
-    // apply the style
-    style.applyToContext(context);
-};
-
-/* define the style library */
-
-T5.styles = (function() {
+(function() {
     
-    var basicStyle = new T5.Style({
+    /* define the core styles */
+    
+    var coreStyles = {
+        basic: new T5.Style({
             lineWidth: 1,
             strokeStyle: '#000',
             fillStyle: '#fff'
         }),
         
-        grassStyle = new T5.Style({
-            lineWidth: 1,
-            strokeStyle: 'rgb(0, 255, 0)',
-            fillStyle: 'rgba(0, 255, 0, 0.3)'
-        });
-    
-    return {
-        basic: basicStyle,
-        grass: grassStyle
+        waypoints: new T5.Style({
+            lineWidth: 4,
+            strokeStyle: 'rgba(0, 51, 119, 0.9)',
+            fillStyle: '#FFF'
+        })        
     };
-})();(function() {
+    
+    /* define the apply style function */
+
+    T5.applyStyle = function(context, styleId) {
+        var style = T5.styles[styleId] ? T5.styles[styleId] : T5.styles.basic;
+
+        // apply the style
+        style.applyToContext(context);
+    };
+
+    T5.loadStyles = function(path, callback) {
+        COG.jsonp(path, function(data) {
+            T5.resetStyles(data);
+        });
+    };
+
+    T5.resetStyles = function(data) {
+        // initialise variables 
+        // NOTE: I'm not calling this a stylesheet on purpose
+        var styleGroup = {};
+
+        // iterate through each of the items defined in the retured style definition and create
+        // T5 styles
+        for (var styleId in data) {
+            styleGroup[styleId] = new T5.Style(data[styleId]);
+        } // for
+
+        // we have made it this far, so replace the T5.styles object
+        T5.styles = T5.ex({}, coreStyles, styleGroup);
+    };
+
+    // export the core styles as the styles object (to start with)
+    T5.styles = coreStyles;
+})();
+
+(function() {
     // set the default tile size to 256 pixels
     T5.tileSize = 256;
     
@@ -5963,6 +5997,7 @@ T5.styles = (function() {
         topLeftOffset = T5.V.offset(params.center, -gridHalfWidth),
         lastTileCreator = null,
         tileShift = new T5.Vector(),
+        isTweening = false,
         lastNotifyListener = null,
         halfTileSize = Math.round(tileSize / 2),
         invTileSize = tileSize ? 1 / tileSize : 0,
@@ -6227,6 +6262,9 @@ T5.styles = (function() {
                 haveDirtyTiles = updateDrawQueue(offset, state, redraw, tickCount);
             } // if
             
+            // update the tweening flag
+            isTweening = T5.isTweening();
+            
             return haveDirtyTiles;
         },
         
@@ -6260,7 +6298,6 @@ T5.styles = (function() {
                 yShift = offset.y,
                 minX = dimensions.width,
                 minY = dimensions.height,
-                drawCount = 0,
                 tilesDrawn = true;
                 
             // if we don't have a draq queue return
@@ -6288,9 +6325,13 @@ T5.styles = (function() {
                 if (! tile.empty) {
                     // draw the tile
                     if (redraw || tile.dirty) {
-                        tilesDrawn = self.drawTile(context, tile, x, y, state) && tilesDrawn;
+                        // if the interface is tweening, then clear the tile rect first
+                        if (isTweening) {
+                            self.clearTileRect(context, x, y, tileSize, state);
+                        } // if
                         
-                        drawCount = drawCount + 1;
+                        // draw the tile
+                        tilesDrawn = self.drawTile(context, tile, x, y, state) && tilesDrawn;
                     } // if
                 } 
                 else {
@@ -6320,7 +6361,7 @@ T5.styles = (function() {
             } // if
             
             // draw the borders if we have them...
-            // COG.Log.trace("drew " + drawCount + " tiles at x: " + offset.x + ", y: " + offset.y, startTicks);
+            // COG.Log.trace("drew tiles at x: " + offset.x + ", y: " + offset.y, startTicks);
             
             // if the tiles have been drawn and previously haven't then fire the tiles drawn event
             if (tilesDrawn && (! lastTilesDrawn)) {
@@ -6332,20 +6373,22 @@ T5.styles = (function() {
         },
         
         getTileAtXY: function(x, y) {
-            var queueLength = tileDrawQueue ? tileDrawQueue.length : 0;
-            COG.Log.info("looking for tile @ x: " + x + ", y: " + y);
+            var queueLength = tileDrawQueue ? tileDrawQueue.length : 0,
+                locatedTile = null;
             
             for (var ii = queueLength; ii--; ) {
                 var tile = tileDrawQueue[ii];
                 
                 if (tile && (x >= tile.x) && (y >= tile.y)) {
                     if ((x <= tile.x + tileSize) && (y <= tile.y + tileSize)) {
-                        return tile;
+                        locatedTile = tile;
+                        break; 
                     } // if
                 } // if
             } // for
             
-            return null;
+            COG.Log.info("looking for tile @ x: " + x + ", y: " + y + ', found: ' + locatedTile);
+            return locatedTile;
         },
         
         getTileVirtualXY: function(col, row, getCenter) {
@@ -6497,11 +6540,8 @@ T5.ImageTileGrid = function(params) {
     // initialise self
     var self = T5.ex(new T5.TileGrid(params), {
         clearTileRect: function(context, x, y, tileSize, state) {
-            if ((state & statePan) !== 0) {
-                COG.Log.info("drawing panning tile for empty tile");
-                
-            }
-            else {
+            // if the state is not the panning state, then clear the rect
+            if ((state & statePan) === 0) {
                 context.clearRect(x, y, tileSize, tileSize);
             } // if..else
         },

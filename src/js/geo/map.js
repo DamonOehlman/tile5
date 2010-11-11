@@ -580,7 +580,7 @@ T5.Map = function(params) {
     self.bind('scale', handleScale);
     
     // watch for marker updates
-    self.markers.bind('markersChanged', handleMarkerUpdate);
+    self.markers.bind('markerUpdate', handleMarkerUpdate);
     
     /* ANNOTATIONS LAYER TO BE DEPRECATED */
 
