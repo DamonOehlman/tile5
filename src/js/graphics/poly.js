@@ -113,28 +113,20 @@ T5.PolyLayer = function(params) {
         },
 
         draw: function(context, offset, dimensions, state, view, redraw) {
-            // TODO: this seems like a sensible thing to include in any view layer
-            var shouldDraw = redraw || (lastOffsetX !== offset.x) || (lastOffsetY !== offset.y);
-            
-            if (shouldDraw) {
-                lastOffsetX = offset.x;
-                lastOffsetY = offset.y;
-                
-                context.save();
-                try {
-                    T5.applyStyle(context, params.style);
+            context.save();
+            try {
+                T5.applyStyle(context, params.style);
 
-                    // iterate through the children and draw the layers
-                    for (var ii = children.length; ii--; ) {
-                        children[ii].draw(context, lastOffsetX, lastOffsetY, state);
-                    } // for
-                }
-                finally {
-                    context.restore();
-                } // try..finally
-                
-                forceRedraw = false;
-            } // if
+                // iterate through the children and draw the layers
+                for (var ii = children.length; ii--; ) {
+                    children[ii].draw(context, lastOffsetX, lastOffsetY, state);
+                } // for
+            }
+            finally {
+                context.restore();
+            } // try..finally
+            
+            forceRedraw = false;
         }
     });
     

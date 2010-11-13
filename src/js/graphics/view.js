@@ -491,7 +491,7 @@ T5.View = function(params) {
             for (ii = layerCount; ii--; ) {
                 // draw the layer output to the main canvas
                 // but only if we don't have a scale buffer or the layer is a draw on scale layer
-                if (layers[ii].shouldDraw(drawState)) {
+                if (layers[ii].shouldDraw(drawState, offset, redraw)) {
                     var layerChanges = layers[ii].draw(
                                             context, 
                                             offset, 

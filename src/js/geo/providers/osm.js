@@ -3,8 +3,10 @@
 */
 T5.Geo.OpenStreetMap = (function() {
     // define some constants
-    var ZOOMLEVEL_MIN = 2;
-    var ZOOMLEVEL_MAX = 17;
+    var ZOOMLEVEL_MIN = 2,
+        ZOOMLEVEL_MAX = 17,
+        DEGREES_TO_RADIANS = Math.PI / 180,
+        RADIANS_TO_DEGREES = 180 / Math.PI;
     
     // define the module
     var module = {
@@ -32,7 +34,8 @@ T5.Geo.OpenStreetMap = (function() {
                 // TODO: think about whether to throw an error if not divisble
                 var subdomain_idx = 0,
                     serverDetails = params.getServerDetails ? params.getServerDetails() : null,
-                    subDomains = serverDetails ? serverDetails.subDomains : null;
+                    subDomains = serverDetails ? serverDetails.subDomains : null,
+                    maxTileX = 2 << (self.zoomLevel - 1);
                     
                 // get the server details
                 if (params.getServerDetails) {
@@ -53,10 +56,24 @@ T5.Geo.OpenStreetMap = (function() {
                     
                     // initialise the image url
                     if (! params.urlFiller) {
+                        var tileX = topLeftOffset.x + col;
+                        
+                        /* get the x position in range if it isn't already */
+                        
+                        while (tileX < 0) {
+                            tileX = tileX + maxTileX;
+                        } // while
+                        
+                        while (tileX >= maxTileX) {
+                            tileX = tileX - maxTileX;
+                        } // while
+
+                        /* determine the tile url */
+                        
                         tileUrl = (serverDetails ? serverDetails.baseUrl : "") + 
                             COG.formatStr("{0}/{1}/{2}.png",
                                 self.zoomLevel,
-                                topLeftOffset.x + col,
+                                tileX,
                                 flipY ? Math.abs(topLeftOffset.y + row - (Math.pow(2,self.zoomLevel) - 1)) : topLeftOffset.y + row);
                     }
                     else {
@@ -109,28 +126,25 @@ T5.Geo.OpenStreetMap = (function() {
             http://developers.cloudmade.com/projects/tiles/examples/convert-coordinates-to-tile-numbers
             */
             function calculateTileOffset(position, zoomLevel) {
-                // functions from the open street map wiki
-                // http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
-                function long2tile(lon,zoom) { return (Math.floor((lon+180)/360*Math.pow(2,zoom))); }
-                function lat2tile(lat,zoom)  { return (Math.floor((1-Math.log(Math.tan(lat*Math.PI/180) + 1/Math.cos(lat*Math.PI/180))/Math.PI)/2 *Math.pow(2,zoom))); }
-                
-                return new T5.Vector(long2tile(T5.Geo.normalizeLon(position.lon), zoomLevel), lat2tile(position.lat, zoomLevel));
+                var lon = T5.Geo.normalizeLon(position.lon),
+                    lat = position.lat,
+                    zoomFactor = 2 << (zoomLevel - 1),
+                    tileX, tileY;
+                    
+                tileX = ~~((lon+180) / 360 * zoomFactor);
+                tileY = ~~((1-Math.log(Math.tan(lat*DEGREES_TO_RADIANS) + 1/Math.cos(lat*DEGREES_TO_RADIANS))/Math.PI)/2 * zoomFactor);
+                    
+                COG.Log.info('getting tile offset for lon: ' + lon + ', x = ' + tileX);
+                return new T5.Vector(tileX, tileY);
             } // calculateTileOffset
             
             function calculatePositionFromTileOffset(x, y, zoomLevel) {
-                // functions from the open street map wiki
-                // http://wiki.openstreetmap.org/wiki/Slippy_map_tilenames
+                var zoomFactor = 2 << (zoomLevel - 1),
+                    n = Math.PI - 2*Math.PI * y / zoomFactor,
+                    lon = x / zoomFactor * 360 - 180,
+                    lat = RADIANS_TO_DEGREES * Math.atan(0.5*(Math.exp(n)-Math.exp(-n)));
                 
-                function tile2long(x,z) {
-                  return (x/Math.pow(2,z)*360-180);
-                }
-                 
-                function tile2lat(y,z) {
-                  var n=Math.PI-2*Math.PI*y/Math.pow(2,z);
-                  return (180/Math.PI*Math.atan(0.5*(Math.exp(n)-Math.exp(-n))));
-                }
-                
-                return new T5.Geo.Position(tile2lat(y, zoomLevel), tile2long(x, zoomLevel));
+                return new T5.Geo.Position(lat, lon);
             } // calculatePositionFromTileOffset
 
             // initialise self

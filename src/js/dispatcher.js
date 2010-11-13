@@ -53,6 +53,7 @@ T5.Dispatcher = (function() {
                 id: '',
                 title: '',
                 icon: '',
+                hidden: false,
                 execute: null
             }, params);
             

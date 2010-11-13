@@ -3080,6 +3080,7 @@ T5.Dispatcher = (function() {
                 id: '',
                 title: '',
                 icon: '',
+                hidden: false,
                 execute: null
             }, params);
             
@@ -4128,12 +4129,19 @@ T5.ViewLayer = function(params) {
         id: "",
         zindex: 0,
         supportFastDraw: false,
+        transparent: false,
         validStates: T5.viewState("ACTIVE", "ANIMATING", "PAN", "PINCH")
     }, params);
     
     var parent = null,
+        parentFastDraw = false,
+        supportFastDraw = params.supportFastDraw,
         id = params.id,
-        activeState = T5.viewState("ACTIVE");
+        activeState = T5.viewState("ACTIVE"),
+        validStates = params.validStates,
+        lastOffsetX = 0,
+        lastOffsetY = 0,
+        transparent = params.transparent;
     
     var self = T5.ex({
         /**
@@ -4153,11 +4161,24 @@ T5.ViewLayer = function(params) {
         and then continues to do a bitmask operation against the validStates property 
         to see if the current display state is acceptable.
         */
-        shouldDraw: function(displayState) {
-            var stateValid = (displayState & params.validStates) !== 0,
-                fastDraw = parent ? (parent.fastDraw && (displayState !== activeState)) : false;
-
-            return stateValid && (fastDraw ? params.supportFastDraw : true);
+        shouldDraw: function(displayState, offset, redraw) {
+            var drawOK = ((displayState & validStates) !== 0) && 
+                (parentFastDraw ? supportFastDraw: true);
+                
+            // if prior checks have been ok and this is a transparent layer
+            // check to see if a redraw is required
+            if (drawOK && transparent) {
+                // perform the check
+                drawOK = redraw || (lastOffsetX !== offset.x) || (lastOffsetY !== offset.y);
+                
+                // and if ok, update the last offsetX and lastOffsetY
+                if (drawOK) {
+                    lastOffsetX = offset.x;
+                    lastOffsetY = offset.y;
+                } // if
+            } // if
+            
+            return drawOK;
         },
         
         /**
@@ -4239,7 +4260,13 @@ T5.ViewLayer = function(params) {
         
         */
         setParent: function(view) {
+            // update the parent
             parent = view;
+            
+            // update the parent fast draw state
+            parentFastDraw = parent ? (parent.fastDraw && (displayState !== activeState)) : false;
+            
+            // trigger the parent change event
             self.trigger('parentChange', parent);
         }
     }, params); // self
@@ -4742,7 +4769,7 @@ T5.View = function(params) {
             for (ii = layerCount; ii--; ) {
                 // draw the layer output to the main canvas
                 // but only if we don't have a scale buffer or the layer is a draw on scale layer
-                if (layers[ii].shouldDraw(drawState)) {
+                if (layers[ii].shouldDraw(drawState, offset, redraw)) {
                     var layerChanges = layers[ii].draw(
                                             context, 
                                             offset, 
@@ -5397,28 +5424,20 @@ T5.PolyLayer = function(params) {
         },
 
         draw: function(context, offset, dimensions, state, view, redraw) {
-            // TODO: this seems like a sensible thing to include in any view layer
-            var shouldDraw = redraw || (lastOffsetX !== offset.x) || (lastOffsetY !== offset.y);
-            
-            if (shouldDraw) {
-                lastOffsetX = offset.x;
-                lastOffsetY = offset.y;
-                
-                context.save();
-                try {
-                    T5.applyStyle(context, params.style);
+            context.save();
+            try {
+                T5.applyStyle(context, params.style);
 
-                    // iterate through the children and draw the layers
-                    for (var ii = children.length; ii--; ) {
-                        children[ii].draw(context, lastOffsetX, lastOffsetY, state);
-                    } // for
-                }
-                finally {
-                    context.restore();
-                } // try..finally
-                
-                forceRedraw = false;
-            } // if
+                // iterate through the children and draw the layers
+                for (var ii = children.length; ii--; ) {
+                    children[ii].draw(context, lastOffsetX, lastOffsetY, state);
+                } // for
+            }
+            finally {
+                context.restore();
+            } // try..finally
+            
+            forceRedraw = false;
         }
     });
     
