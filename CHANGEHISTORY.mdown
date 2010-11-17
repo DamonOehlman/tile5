@@ -7,13 +7,19 @@ Some pretty cool stuff in this, plus some pretty major refactoring on a few thin
 ### Detailed Changes
 
 - `T5.View` autoSize parameter now instructs the view to attempt to autosize to it's parent's width and height (which makes much more sense).
-- Major refactoring of annotations and paths:
--- `T5.Annotation` and `T5.ImageAnnotation` promoted out of the geo sections of Tile5 into the core library.
--- `T5.MarkerLayer` created to replace `T5.Geo.UI.AnnotationsOverlay` and exposed through the `markers` property of a `T5.Map`.  Annotations property of the map still exists for the moment, but will be removed in 0.9.4
--- `T5.PathLayer` introduced to provide a more generic abstraction for drawing paths.  `T5.Geo.UI.RouteOverlay` is now a very thin wrapper on top of a path layer.
--- `T5.Poly` and `T5.PolyLayer` classes created.  These are used heavily in the implementation of the preliminary GeoJSON support.  Will possibly look at having the `T5.PathLayer` simply wrap a poly layer - not sure...
--- Added some basic styling support through the `T5.Style` class.  Similar to [cartagen's](http://cartagen.org) GSS but without the ability to execute javascript as part of the styles.  Pure JSON, no executable code.
+
+- `T5.Annotation` and `T5.ImageAnnotation` promoted out of the geo sections of Tile5 into the core library.
+
+- `T5.MarkerLayer` created to replace `T5.Geo.UI.AnnotationsOverlay` and exposed through the `markers` property of a `T5.Map`.  Annotations property of the map still exists for the moment, but will be removed in 0.9.4
+
+- `T5.PathLayer` introduced to provide a more generic abstraction for drawing paths.  `T5.Geo.UI.RouteOverlay` is now a very thin wrapper on top of a path layer.
+
+- `T5.Poly` and `T5.PolyLayer` classes created.  These are used heavily in the implementation of the preliminary GeoJSON support.  Will possibly look at having the `T5.PathLayer` simply wrap a poly layer - not sure...
+
+- Added some basic styling support through the `T5.Style` class.  Similar to [cartagen's](http://cartagen.org) GSS but without the ability to execute javascript as part of the styles.  Pure JSON, no executable code.
+
 - Some refactoring of `T5.ViewLayer` to provide more conservative drawing for transparent layers.  This has included the inclusion of a `transparent` initialization parameter to indicate that a view layer is transparent.  A little ugly but necessary at the moment.
+
 - Some other minor (and experimental) performance improvements, including clipping the canvas context to restrict the drawing area when only some tiles required drawing in a `T5.Tiler`
 
 ## 0.9.2 (released 2010-10-14)

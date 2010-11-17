@@ -5339,7 +5339,7 @@ T5.Poly = function(vectors, params) {
             for (var ii = drawVectors.length; ii--; ) {
                 var x = drawVectors[ii].x - offsetX,
                     y = drawVectors[ii].y - offsetY;
-                
+                    
                 if (first) {
                     context.moveTo(x, y);
                     first = false;
@@ -5387,13 +5387,13 @@ the like
 T5.PolyLayer = function(params) {
     params = T5.ex({
         zindex: 80,
+        transparent: true,
         style: null
     }, params);
     
     // initialise variables
     var children = [],
-        forceRedraw = false,
-        lastOffsetX, lastOffsetY;
+        forceRedraw = false;
         
     /* private functions */
     
@@ -5431,13 +5431,16 @@ T5.PolyLayer = function(params) {
         },
 
         draw: function(context, offset, dimensions, state, view, redraw) {
+            var offsetX = offset.x,
+                offsetY = offset.y;
+            
             context.save();
             try {
                 T5.applyStyle(context, params.style);
 
                 // iterate through the children and draw the layers
                 for (var ii = children.length; ii--; ) {
-                    children[ii].draw(context, lastOffsetX, lastOffsetY, state);
+                    children[ii].draw(context, offsetX, offsetY, state);
                 } // for
             }
             finally {
