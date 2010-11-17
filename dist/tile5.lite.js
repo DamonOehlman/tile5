@@ -4332,7 +4332,7 @@ T5.View = function(params) {
         panAnimationDuration: 750,
         pinchZoomAnimateTrigger: 400,
         adjustScaleFactor: null,
-        autoSize: false,
+        autoSize: true,
         tapExtent: 10
     }, params);
     
@@ -4497,6 +4497,10 @@ T5.View = function(params) {
         attachToCanvas();
     } // handleContainerUpdate
     
+    function handleResize(evt) {
+        COG.Log.info('window resized, should adjust the canvas size');
+    } // handleResize
+    
     function handleRotationUpdate(name, value) {
         rotation = value;
     } // handlePrepCanvasCallback
@@ -4563,9 +4567,12 @@ T5.View = function(params) {
             COG.Touch.release(canvas);
 
             // if we are autosizing the set the size
-            if (params.autoSize) {
-                canvas.height = window.innerHeight - canvas.offsetTop;
-                canvas.width = window.innerWidth - canvas.offsetLeft;
+            if (params.autoSize && canvas.parentNode) {
+                canvas.height = canvas.parentNode.offsetHeight;
+                canvas.width = canvas.parentNode.offsetWidth;
+                
+                // additionally monitor resizes on the window and resize the canvas when required
+                window.addEventListener('resize', handleResize, false);
             } // if
 
             try {
