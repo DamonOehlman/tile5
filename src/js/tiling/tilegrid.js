@@ -33,6 +33,13 @@ T5.TileGrid = function(params) {
         gridHeightWidth = gridSize * tileSize,
         tileCols, tileRows, centerPos;
         
+    /* event handlers */
+    
+    function handleResize(evt, width, height) {
+        COG.Log.info('captured resize');
+        centerPos = null;
+    } // handleResize
+        
     /* internal functions */
         
     function copyStorage(dst, src, delta) {
@@ -199,16 +206,16 @@ T5.TileGrid = function(params) {
                             (offset.x + tileShift.x) * invTileSize >> 0, 
                             (offset.y + tileShift.y) * invTileSize >> 0);
 
+        // reset the tile draw queue
+        tilesNeeded = false;
+        
         if (! centerPos) {
             var dimensions = self.getParent().getDimensions();
-            
+
             tileCols = Math.ceil(dimensions.width * invTileSize) + 1;
             tileRows = Math.ceil(dimensions.height * invTileSize) + 1;
             centerPos = new T5.Vector((tileCols-1) / 2 >> 0, (tileRows-1) / 2 >> 0);
         } // if
-        
-        // reset the tile draw queue
-        tilesNeeded = false;
 
         // right, let's draw some tiles (draw rows first)
         for (var yy = tileRows; yy--; ) {
@@ -429,6 +436,9 @@ T5.TileGrid = function(params) {
         }
     });
     
+    // bind to events
+    self.bind('resize', handleResize);
+    
     COG.listen("imagecache.cleared", function(args) {
         // reset all the tiles loaded state
         for (var ii = storage.length; ii--; ) {
@@ -449,29 +459,3 @@ T5.TileGrid = function(params) {
 
     return self;
 }; // T5.TileGrid
-
-/*
-
-(function() {
-    TileStore = function(params) {
-
-        
-        
-        // initialise self
-        var self = {
-            setOrigin: function(col, row) {
-                if (! tileOrigin) {
-                    topLeftOffset = T5.V.offset(new T5.Vector(col, row), -tileHalfWidth);
-                }
-                else {
-                    shiftOrigin(col, row);
-                } // if..else
-            }
-        };
-        
-        
-        return self;
-    };
-})();
-
-*/

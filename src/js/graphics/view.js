@@ -86,6 +86,7 @@ T5.View = function(params) {
         endRect = null,
         redraw = false,
         redrawEvery = 40,
+        resizeCanvasTimeout = 0,
         scaleFactor = 1,
         lastScaleFactor = 0,
         lastDrawScaleFactor = 1,
@@ -220,7 +221,8 @@ T5.View = function(params) {
     } // handleContainerUpdate
     
     function handleResize(evt) {
-        COG.Log.info('window resized, should adjust the canvas size');
+        clearTimeout(resizeCanvasTimeout);
+        resizeCanvasTimeout = setTimeout(attachToCanvas, 50);
     } // handleResize
     
     function handleRotationUpdate(name, value) {
@@ -285,16 +287,17 @@ T5.View = function(params) {
     /* private functions */
     
     function attachToCanvas() {
+        var ii;
+        
         if (canvas) {
             COG.Touch.release(canvas);
 
             // if we are autosizing the set the size
             if (params.autoSize && canvas.parentNode) {
-                canvas.height = canvas.parentNode.offsetHeight;
-                canvas.width = canvas.parentNode.offsetWidth;
+                var rect = canvas.parentNode.getBoundingClientRect();
                 
-                // additionally monitor resizes on the window and resize the canvas when required
-                window.addEventListener('resize', handleResize, false);
+                canvas.height = rect.height;
+                canvas.width = rect.width;
             } // if
 
             try {
@@ -311,8 +314,18 @@ T5.View = function(params) {
                 observable: self
             });
             
-            // get the dimensions
-            dimensions = new T5.Dimensions(canvas.width, canvas.height);
+            // initialise the dimensions
+            if (dimensions.height !== canvas.height || dimensions.width !== canvas.width) {
+                dimensions = new T5.Dimensions(canvas.width, canvas.height);
+                
+                // trigger the resize event for the view
+                self.trigger('resize', canvas.width, canvas.height);
+                
+                // and then tell all the layers
+                for (ii = layerCount; ii--; ) {
+                    layers[ii].trigger('resize', canvas.width, canvas.height);
+                } // for
+            } // if
             
             // enable inertia if configured
             if (params.inertia) {
@@ -320,12 +333,12 @@ T5.View = function(params) {
             } // if
             
             // iterate through the layers, and change the context
-            for (var ii = layerCount; ii--; ) {
+            for (ii = layerCount; ii--; ) {
                 layerContextChanged(layers[ii]);
             } // for
 
             // tell the view to redraw
-            wake();
+            invalidate();
         } // if        
     } // attachToCanvas
     
@@ -737,7 +750,6 @@ T5.View = function(params) {
                 canvas.height = height;
                 
                 attachToCanvas();
-                invalidate();
             } // if
         },
         
@@ -884,6 +896,11 @@ T5.View = function(params) {
     
     // attach the map to the canvas
     attachToCanvas();
+    
+    // if autosized, then listen for resize events
+    if (params.autoSize) {
+        window.addEventListener('resize', handleResize, false);
+    } // if
     
     return self;
 }; // T5.View

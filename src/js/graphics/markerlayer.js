@@ -96,6 +96,21 @@ T5.MarkerLayer = function(params) {
         
         markerUpdate();
     } // clear
+    
+    function find(testCallback) {
+        var results = [];
+        
+        // if we have a test callback, then run
+        if (testCallback) {
+            for (var ii = markers.length; ii--; ) {
+                if (testCallback(markers[ii])) {
+                    results[results.length] = markers[ii];
+                } // if
+            } // for
+        } // if
+        
+        return results;
+    } // testCallback
 
     // create the view layer the we will draw the view
     var self = T5.ex(new T5.ViewLayer(params), {
@@ -123,7 +138,8 @@ T5.MarkerLayer = function(params) {
         },
         
         add: add,
-        clear: clear
+        clear: clear,
+        find: find
     });
     
     // handle tap events
