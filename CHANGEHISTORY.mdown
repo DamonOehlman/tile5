@@ -1,5 +1,16 @@
 # Tile5 Change History
 
+## 0.9.4 (release TBA)
+
+Stabilization of the 0.9.3 release with bug fixes and refinements to the GeoJSON handling.  Additionally, complete removal of the poi functionality as this is well handled through good marker management techniques so it's just
+wasting space.
+
+### Detailed Changes
+
+- `T5.Geo.PointOfInterest` and `T5.Geo.POIStorage` removed. Not deprecated, just removed - apologies if anyone was using them, but if you were you really don't need to.  Additionally, the `pois` property of a `T5.Map` has been removed also.
+
+- As promised, the `annotations` property of a `T5.Map` has also been removed in line with the deprecation in the 0.9.3 release.
+
 ## 0.9.3 (released 2010-11-18)
 
 Some pretty cool stuff in this, plus some pretty major refactoring on a few things.  Essentially functionality that required a `T5.Map` previously has been made to work with a `T5.View` or `T5.Tiler` wherever possible.  This includes paths and annotations.  Additionally, GeoJSON support is in the works and some early support of this can be used with Tile5, however, there is still probably more work to do in this area.

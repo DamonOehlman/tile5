@@ -5767,6 +5767,8 @@ T5.MarkerLayer = function(params) {
     var markers = [],
         animating = false;
         
+    /* event handlers */
+        
     function handleGridUpdate(evt, grid) {
         // iterate through the markers and fire the callback
         for (var ii = markers.length; ii--; ) {
@@ -5791,6 +5793,8 @@ T5.MarkerLayer = function(params) {
             evt.cancel = self.trigger('markerTap', absXY, relXY, tappedMarkers).cancel;
         } // if
     } // handleTap
+    
+    /* internal functions */
 
     /*
     This function is used to provide updates when the markers have changed. This 
@@ -5809,6 +5813,42 @@ T5.MarkerLayer = function(params) {
         // wake and invalidate the parent
         self.wakeParent(true);
     } // markerUpdate
+    
+    /* exports */
+    
+    function add(newItems) {
+        // if annotation is an array, then iterate through and add them
+        if (newItems && (typeof newItems.length !== 'undefined')) {
+            for (var ii = newItems.length; ii--; ) {
+                if (newItems[ii]) {
+                    markers[markers.length] = newItems[ii];
+                } // if
+            } // for
+        }
+        else if (newItems) {
+            markers[markers.length] = newItems;
+        } // if..else
+        
+        markerUpdate();
+    } // add
+    
+    function clear(testCallback) {
+        // if we have a test callback, then iterate through the markers and 
+        // only remove ones that match the requirements
+        if (testCallback) {
+            for (var ii = 0; ii < markers.length; ii++) {
+                if (testCallback(markers[ii])) {
+                    markers.splice(ii, 1);
+                } // if
+            } // for
+        }
+        // otherwise, reset the markers
+        else {
+            markers = [];
+        } // if..else
+        
+        markerUpdate();
+    } // clear
 
     // create the view layer the we will draw the view
     var self = T5.ex(new T5.ViewLayer(params), {
@@ -5835,27 +5875,8 @@ T5.MarkerLayer = function(params) {
             return animating ? 1 : 0;
         },
         
-        add: function(newItems) {
-            // if annotation is an array, then iterate through and add them
-            if (newItems && (typeof newItems.length !== 'undefined')) {
-                for (var ii = newItems.length; ii--; ) {
-                    if (newItems[ii]) {
-                        markers[markers.length] = newItems[ii];
-                    } // if
-                } // for
-            }
-            else if (newItems) {
-                markers[markers.length] = newItems;
-            } // if..else
-            
-            markerUpdate();
-        },
-        
-        clear: function() {
-            // reset the markers
-            markers = [];
-            markerUpdate();
-        }
+        add: add,
+        clear: clear
     });
     
     // handle tap events

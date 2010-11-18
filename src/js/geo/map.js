@@ -29,7 +29,6 @@ T5.Map = function(params) {
         crosshair: false,
         zoomLevel: 0,
         boundsChangeThreshold: 30,
-        pois: new T5.Geo.POIStorage(),
         zoomAnimation: T5.easing('quad.out')
     }, params);
 
@@ -161,11 +160,11 @@ T5.Map = function(params) {
             tapBounds = new T5.Geo.BoundingBox(minPos, maxPos);
 
             // find the pois in the bounds area
-            tappedPOIs = self.pois.findByBounds(tapBounds);
+            // tappedPOIs = self.pois.findByBounds(tapBounds);
             // COG.Log.info('TAPPED POIS = ', tappedPOIs);
             
             self.trigger('geotap', absXY, relXY, tapPos, tapBounds);
-            self.trigger('tapPOI', tappedPOIs);
+            // self.trigger('tapPOI', tappedPOIs);
         } // if
     } // handleTap
     
@@ -327,7 +326,6 @@ T5.Map = function(params) {
     
     // initialise self
     var self = T5.ex({}, new T5.Tiler(params), {
-        pois: params.pois,
         annotations: null,
         
         /** 
@@ -584,16 +582,6 @@ T5.Map = function(params) {
     
     /* ANNOTATIONS LAYER TO BE DEPRECATED */
 
-    // create an annotations layer
-    annotations = new T5.Geo.UI.AnnotationsOverlay({
-        pois: self.pois,
-        map: self
-    });
-    
-    // add the annotations layer
-    self.annotations = annotations;
-    self.setLayer('annotations', annotations);
-    
     // if we are drawing the cross hair, then add a cross hair overlay
     if (params.crosshair) {
         self.setLayer('crosshair', new CrosshairOverlay());
