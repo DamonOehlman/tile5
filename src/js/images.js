@@ -18,7 +18,7 @@ T5.Images = (function() {
         tmpCanvas.width = width ? width : 0;
         tmpCanvas.height = height ? height : 0;
 
-        // initialise the canvas element if using explorercanvas
+        // flash canvas initialization
         if (typeof FlashCanvas !== 'undefined') {
             tmpCanvas.id = 'tmpCanvas' + (canvasCounter++);
             tmpCanvas.style.cssText = 'position: absolute; top: -' + (height-1) + 'px; left: -' + (width-1) + 'px;';
@@ -26,6 +26,11 @@ T5.Images = (function() {
             document.body.appendChild(tmpCanvas);
 
             FlashCanvas.initElement(tmpCanvas);
+        } // if
+        
+        // explorer canvas initialization
+        if (typeof G_vmlCanvasManager !== 'undefined') {
+            G_vmlCanvasManager.initElement(tmpCanvas);
         } // if
 
         return tmpCanvas;
@@ -126,7 +131,7 @@ T5.Images = (function() {
                         // reset the queued flag and attempt to load the image
                         imageData.image.onload = handleImageLoad;
                         imageData.image.src = T5.Resources.getPath(imageData.url);
-                        imageData.requested = Date.now();
+                        imageData.requested = T5.ticks();
                     } // if..else
                 } // if
             },
@@ -222,7 +227,7 @@ T5.Images = (function() {
                 url: url,
                 image: new Image(),
                 loaded: false,
-                created: Date.now(),
+                created: T5.ticks(),
                 requested: null,
                 hitCount: 0,
                 loadCallback: callback
