@@ -17,9 +17,10 @@ T5.TileGrid = function(params) {
         topLeftOffset = T5.V.offset(params.center, -gridHalfWidth),
         lastTileCreator = null,
         tileShift = new T5.Vector(),
-        isTweening = false,
+        animating = false,
         lastNotifyListener = null,
         halfTileSize = Math.round(tileSize / 2),
+        haveDirtyTiles = false,
         invTileSize = tileSize ? 1 / tileSize : 0,
         active = true,
         tileDrawQueue = null,
@@ -31,7 +32,11 @@ T5.TileGrid = function(params) {
         repaintDistance = T5.getConfig().repaintDistance,
         reloadTimeout = 0,
         gridHeightWidth = gridSize * tileSize,
-        tileCols, tileRows, centerPos;
+        tileCols, tileRows, centerPos,
+        
+        // initialise state short cuts
+        stateAnimating = T5.viewState('ANIMATING'),
+        statePinch = T5.viewState('PINCH');
         
     /* event handlers */
     
@@ -272,7 +277,6 @@ T5.TileGrid = function(params) {
             var needTiles = shiftDelta.x !== 0 || shiftDelta.y !== 0,
                 xShift = offset.x,
                 yShift = offset.y,
-                haveDirtyTiles = false,
                 tileSize = T5.tileSize;
 
             if (needTiles) {
@@ -285,12 +289,12 @@ T5.TileGrid = function(params) {
                 redraw = true;
             } // if
             
-            if (state !== T5.viewState('PINCH')) {
+            if ((! haveDirtyTiles) && ((state & statePinch) === 0)) {
                 haveDirtyTiles = updateDrawQueue(offset, state, redraw, tickCount);
             } // if
             
             // update the tweening flag
-            isTweening = T5.isTweening();
+            animating = ((state & stateAnimating) !== 0) || T5.isTweening();
             
             return haveDirtyTiles;
         },
@@ -304,7 +308,7 @@ T5.TileGrid = function(params) {
         prepTile: function(tile, state) {
         },
         
-        drawTile: function(context, tile, x, y, state) {
+        drawTile: function(context, tile, x, y, state, redraw, tickCount) {
             return false;
         },
         
@@ -353,12 +357,12 @@ T5.TileGrid = function(params) {
                     // draw the tile
                     if (redraw || tile.dirty) {
                         // if the interface is tweening, then clear the tile rect first
-                        if (isTweening) {
+                        if (animating) {
                             self.clearTileRect(context, x, y, tileSize, state);
                         } // if
                         
                         // draw the tile
-                        tilesDrawn = self.drawTile(context, tile, x, y, state) && tilesDrawn;
+                        tilesDrawn = self.drawTile(context, tile, x, y, state, redraw, tickCount) && tilesDrawn;
                     } // if
                 } 
                 else {
@@ -396,6 +400,9 @@ T5.TileGrid = function(params) {
             } // if
             
             // flag the grid as not dirty
+            haveDirtyTiles = false;
+            
+            // update the last tile drawn state
             lastTilesDrawn = tilesDrawn;
         },
         

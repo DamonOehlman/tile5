@@ -2,7 +2,7 @@
 T5.Geo.Decarta = (function() {
     // initialise the default configuration parameters
     var currentConfig = {
-        sessionID: Date.now(),
+        sessionID: T5.ticks(),
         server: "",
         clientName: "",
         clientPassword: "",

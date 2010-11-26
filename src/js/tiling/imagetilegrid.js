@@ -89,7 +89,7 @@ T5.ImageTileGrid = function(params) {
             } // if..else
         },
         
-        drawTile: function(context, tile, x, y, state) {
+        drawTile: function(context, tile, x, y, state, redraw, tickCount) {
             var image = tile.url ? getImage(tile.url) : null,
                 drawn = false;
                 
@@ -97,7 +97,7 @@ T5.ImageTileGrid = function(params) {
                 context.drawImage(image, x, y);
                 drawn = true;
             }
-            else if ((state & statePan) !== 0) {
+            else if (redraw || ((state & statePan) !== 0)) {
                 context.drawImage(panningTile, x, y);
             }
             else if (emptyTile && (! tile.drawnEmpty)) {

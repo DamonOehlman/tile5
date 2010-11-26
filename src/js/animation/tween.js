@@ -11,7 +11,7 @@ T5.Tween = function(params) {
     }, params);
     
     // get the start ticks
-    var startTicks = Date.now(),
+    var startTicks = T5.ticks(),
         updateListeners = [],
         complete = false,
         beginningValue = 0.0,

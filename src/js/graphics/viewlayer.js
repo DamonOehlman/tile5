@@ -32,6 +32,7 @@ T5.ViewLayer = function(params) {
         zindex: 0,
         supportFastDraw: false,
         transparent: false,
+        animated: false,
         validStates: T5.viewState("ACTIVE", "ANIMATING", "PAN", "PINCH")
     }, params);
     

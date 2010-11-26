@@ -716,7 +716,7 @@ T5.Geo = (function() {
             */
             forPositions: function(positions, padding) {
                 var bounds = null,
-                    startTicks = Date.now();
+                    startTicks = T5.ticks();
 
                 // if padding is not specified, then set to auto
                 if (! padding) {

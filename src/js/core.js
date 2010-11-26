@@ -399,9 +399,18 @@ T5 = (function() {
         
         return subModule;
     })(); // dimensionTools
+    
+    /* exports */
+    
+    function getTicks() {
+        return new Date().getTime();
+    } // getTicks
+    
+    /* module definition */
 
     var module = {
         ex: COG.extend,
+        ticks: getTicks,
         
         Vector: Vector, // Vector
         V: vectorTools,

@@ -101,6 +101,7 @@ T5.View = function(params) {
         stateActive = T5.viewState('ACTIVE'),
         statePan = T5.viewState('PAN'),
         statePinch = T5.viewState('PINCH'),
+        stateAnimating = T5.viewState('ANIMATING'),
         
         state = stateActive;
         
@@ -296,8 +297,10 @@ T5.View = function(params) {
             if (params.autoSize && canvas.parentNode) {
                 var rect = canvas.parentNode.getBoundingClientRect();
                 
-                canvas.height = rect.height;
-                canvas.width = rect.width;
+                if (rect.height !== 0 && rect.width !== 0) {
+                    canvas.height = rect.height;
+                    canvas.width = rect.width;
+                } // if
             } // if
 
             try {
@@ -345,7 +348,7 @@ T5.View = function(params) {
     function addLayer(id, value) {
         // make sure the layer has the correct id
         value.setId(id);
-        value.added = Date.now();
+        value.added = T5.ticks();
         
         layerContextChanged(value);
         
@@ -471,14 +474,13 @@ T5.View = function(params) {
     } // idle
     
     function drawView(context, offset, redraw, tickCount) {
-        var changeCount = 0,
-            drawState = panimating ? statePan : (frozen ? T5.viewState('FROZEN') : state),
+        var drawState = panimating ? statePan : (frozen ? T5.viewState('FROZEN') : state),
             isPinchZoom = (drawState & statePinch) !== 0,
-            delayDrawLayers = [];
-            
-        var savedDrawn = false,
+            delayDrawLayers = [],
             ii = 0;
-            
+
+        
+        COG.Log.info('drawing view');
         if (clearBackground || isPinchZoom) {
             context.clearRect(0, 0, canvas.width, canvas.height);
             clearBackground = false;
@@ -512,16 +514,14 @@ T5.View = function(params) {
                 // draw the layer output to the main canvas
                 // but only if we don't have a scale buffer or the layer is a draw on scale layer
                 if (layers[ii].shouldDraw(drawState, offset, redraw)) {
-                    var layerChanges = layers[ii].draw(
-                                            context, 
-                                            offset, 
-                                            dimensions, 
-                                            drawState, 
-                                            self,
-                                            redraw,
-                                            tickCount);
-
-                    changeCount += layerChanges ? layerChanges : 0;
+                    layers[ii].draw(
+                        context, 
+                        offset, 
+                        dimensions, 
+                        drawState, 
+                        self,
+                        redraw,
+                        tickCount);
                 } // if
             } // for
         }
@@ -530,9 +530,6 @@ T5.View = function(params) {
         } // try..finally
         
         COG.Log.trace("draw complete", tickCount);
-        
-        // return the updated change count
-        return changeCount;
     } // drawView
     
     function cycle(tickCount, worker) {
@@ -551,7 +548,6 @@ T5.View = function(params) {
         // will not look crisp when a real number is used rather than an integer (or so I've found)
         cycleOffset.x = offsetX >> 0;
         cycleOffset.y = offsetY >> 0;
-            
         
         if (interacting) {
             T5.cancelAnimation(function(tweenInstance) {
@@ -565,13 +561,21 @@ T5.View = function(params) {
             } // if
         }  // if
         
-        // if we are scaling and at the same scale factor, don't redraw as its a waste of time
-        draw = requireRedraw || ((scaleFactor !== 1) && (scaleFactor !== lastScaleFactor));
-
         for (var ii = layerCount; ii--; ) {
+            if (layers[ii].animated) {
+                // add the animating state to the current state
+                state = state | stateAnimating;
+            } // if
+            
             draw = layers[ii].cycle(tickCount, cycleOffset, state, requireRedraw) || draw;
         } // for
         
+        // update the require redraw state based on whether we are now in an animating state
+        requireRedraw = requireRedraw || ((state & stateAnimating) !== 0);
+        
+        // if we are scaling and at the same scale factor, don't redraw as its a waste of time
+        draw = draw || requireRedraw || ((scaleFactor !== 1) && (scaleFactor !== lastScaleFactor));
+
         if (draw) {
             drawView(mainContext, cycleOffset, requireRedraw, tickCount);
             lastScaleFactor = scaleFactor;
@@ -599,7 +603,7 @@ T5.View = function(params) {
     } // invalidate
     
     function wake() {
-        wakeTriggers++;
+        wakeTriggers += 1;
         if (frozen || cycleWorker) { return; }
         
         // create the cycle worker
@@ -721,9 +725,13 @@ T5.View = function(params) {
         
         */
         clearBackground: function() {
+            COG.Log.info('CALL OF DEPRECATED METHOD CLEAR BACKGROUND');
+            
             clearBackground = true;
             invalidate();
         },
+        
+        invalidate: invalidate,
         
         /**
         - `freeze()`

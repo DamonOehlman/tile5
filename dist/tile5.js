@@ -485,7 +485,7 @@ COG.Log = (function() {
                 var eventCallbacks = getHandlersForName(target, eventName),
                     evt = {
                         cancel: false,
-                        tickCount: Date.now()
+                        tickCount: new Date().getTime()
                     },
                     eventArgs;
 
@@ -2803,9 +2803,18 @@ T5 = (function() {
         
         return subModule;
     })(); // dimensionTools
+    
+    /* exports */
+    
+    function getTicks() {
+        return new Date().getTime();
+    } // getTicks
+    
+    /* module definition */
 
     var module = {
         ex: COG.extend,
+        ticks: getTicks,
         
         Vector: Vector, // Vector
         V: vectorTools,
@@ -3264,7 +3273,7 @@ T5.Images = (function() {
         tmpCanvas.width = width ? width : 0;
         tmpCanvas.height = height ? height : 0;
 
-        // initialise the canvas element if using explorercanvas
+        // flash canvas initialization
         if (typeof FlashCanvas !== 'undefined') {
             tmpCanvas.id = 'tmpCanvas' + (canvasCounter++);
             tmpCanvas.style.cssText = 'position: absolute; top: -' + (height-1) + 'px; left: -' + (width-1) + 'px;';
@@ -3272,6 +3281,11 @@ T5.Images = (function() {
             document.body.appendChild(tmpCanvas);
 
             FlashCanvas.initElement(tmpCanvas);
+        } // if
+        
+        // explorer canvas initialization
+        if (typeof G_vmlCanvasManager !== 'undefined') {
+            G_vmlCanvasManager.initElement(tmpCanvas);
         } // if
 
         return tmpCanvas;
@@ -3372,7 +3386,7 @@ T5.Images = (function() {
                         // reset the queued flag and attempt to load the image
                         imageData.image.onload = handleImageLoad;
                         imageData.image.src = T5.Resources.getPath(imageData.url);
-                        imageData.requested = Date.now();
+                        imageData.requested = T5.ticks();
                     } // if..else
                 } // if
             },
@@ -3468,7 +3482,7 @@ T5.Images = (function() {
                 url: url,
                 image: new Image(),
                 loaded: false,
-                created: Date.now(),
+                created: T5.ticks(),
                 requested: null,
                 hitCount: 0,
                 loadCallback: callback
@@ -3860,7 +3874,7 @@ T5.Tween = function(params) {
     }, params);
     
     // get the start ticks
-    var startTicks = Date.now(),
+    var startTicks = T5.ticks(),
         updateListeners = [],
         complete = false,
         beginningValue = 0.0,
@@ -4131,6 +4145,7 @@ T5.ViewLayer = function(params) {
         zindex: 0,
         supportFastDraw: false,
         transparent: false,
+        animated: false,
         validStates: T5.viewState("ACTIVE", "ANIMATING", "PAN", "PINCH")
     }, params);
     
@@ -4365,6 +4380,7 @@ T5.View = function(params) {
         endRect = null,
         redraw = false,
         redrawEvery = 40,
+        resizeCanvasTimeout = 0,
         scaleFactor = 1,
         lastScaleFactor = 0,
         lastDrawScaleFactor = 1,
@@ -4379,6 +4395,7 @@ T5.View = function(params) {
         stateActive = T5.viewState('ACTIVE'),
         statePan = T5.viewState('PAN'),
         statePinch = T5.viewState('PINCH'),
+        stateAnimating = T5.viewState('ANIMATING'),
         
         state = stateActive;
         
@@ -4499,7 +4516,8 @@ T5.View = function(params) {
     } // handleContainerUpdate
     
     function handleResize(evt) {
-        COG.Log.info('window resized, should adjust the canvas size');
+        clearTimeout(resizeCanvasTimeout);
+        resizeCanvasTimeout = setTimeout(attachToCanvas, 50);
     } // handleResize
     
     function handleRotationUpdate(name, value) {
@@ -4564,16 +4582,19 @@ T5.View = function(params) {
     /* private functions */
     
     function attachToCanvas() {
+        var ii;
+        
         if (canvas) {
             COG.Touch.release(canvas);
 
             // if we are autosizing the set the size
             if (params.autoSize && canvas.parentNode) {
-                canvas.height = canvas.parentNode.offsetHeight;
-                canvas.width = canvas.parentNode.offsetWidth;
+                var rect = canvas.parentNode.getBoundingClientRect();
                 
-                // additionally monitor resizes on the window and resize the canvas when required
-                window.addEventListener('resize', handleResize, false);
+                if (rect.height !== 0 && rect.width !== 0) {
+                    canvas.height = rect.height;
+                    canvas.width = rect.width;
+                } // if
             } // if
 
             try {
@@ -4590,8 +4611,18 @@ T5.View = function(params) {
                 observable: self
             });
             
-            // get the dimensions
-            dimensions = new T5.Dimensions(canvas.width, canvas.height);
+            // initialise the dimensions
+            if (dimensions.height !== canvas.height || dimensions.width !== canvas.width) {
+                dimensions = new T5.Dimensions(canvas.width, canvas.height);
+                
+                // trigger the resize event for the view
+                self.trigger('resize', canvas.width, canvas.height);
+                
+                // and then tell all the layers
+                for (ii = layerCount; ii--; ) {
+                    layers[ii].trigger('resize', canvas.width, canvas.height);
+                } // for
+            } // if
             
             // enable inertia if configured
             if (params.inertia) {
@@ -4599,19 +4630,19 @@ T5.View = function(params) {
             } // if
             
             // iterate through the layers, and change the context
-            for (var ii = layerCount; ii--; ) {
+            for (ii = layerCount; ii--; ) {
                 layerContextChanged(layers[ii]);
             } // for
 
             // tell the view to redraw
-            wake();
+            invalidate();
         } // if        
     } // attachToCanvas
     
     function addLayer(id, value) {
         // make sure the layer has the correct id
         value.setId(id);
-        value.added = Date.now();
+        value.added = T5.ticks();
         
         layerContextChanged(value);
         
@@ -4737,14 +4768,13 @@ T5.View = function(params) {
     } // idle
     
     function drawView(context, offset, redraw, tickCount) {
-        var changeCount = 0,
-            drawState = panimating ? statePan : (frozen ? T5.viewState('FROZEN') : state),
+        var drawState = panimating ? statePan : (frozen ? T5.viewState('FROZEN') : state),
             isPinchZoom = (drawState & statePinch) !== 0,
-            delayDrawLayers = [];
-            
-        var savedDrawn = false,
+            delayDrawLayers = [],
             ii = 0;
-            
+
+        
+        COG.Log.info('drawing view');
         if (clearBackground || isPinchZoom) {
             context.clearRect(0, 0, canvas.width, canvas.height);
             clearBackground = false;
@@ -4778,16 +4808,14 @@ T5.View = function(params) {
                 // draw the layer output to the main canvas
                 // but only if we don't have a scale buffer or the layer is a draw on scale layer
                 if (layers[ii].shouldDraw(drawState, offset, redraw)) {
-                    var layerChanges = layers[ii].draw(
-                                            context, 
-                                            offset, 
-                                            dimensions, 
-                                            drawState, 
-                                            self,
-                                            redraw,
-                                            tickCount);
-
-                    changeCount += layerChanges ? layerChanges : 0;
+                    layers[ii].draw(
+                        context, 
+                        offset, 
+                        dimensions, 
+                        drawState, 
+                        self,
+                        redraw,
+                        tickCount);
                 } // if
             } // for
         }
@@ -4796,9 +4824,6 @@ T5.View = function(params) {
         } // try..finally
         
         COG.Log.trace("draw complete", tickCount);
-        
-        // return the updated change count
-        return changeCount;
     } // drawView
     
     function cycle(tickCount, worker) {
@@ -4817,7 +4842,6 @@ T5.View = function(params) {
         // will not look crisp when a real number is used rather than an integer (or so I've found)
         cycleOffset.x = offsetX >> 0;
         cycleOffset.y = offsetY >> 0;
-            
         
         if (interacting) {
             T5.cancelAnimation(function(tweenInstance) {
@@ -4831,13 +4855,21 @@ T5.View = function(params) {
             } // if
         }  // if
         
-        // if we are scaling and at the same scale factor, don't redraw as its a waste of time
-        draw = requireRedraw || ((scaleFactor !== 1) && (scaleFactor !== lastScaleFactor));
-
         for (var ii = layerCount; ii--; ) {
+            if (layers[ii].animated) {
+                // add the animating state to the current state
+                state = state | stateAnimating;
+            } // if
+            
             draw = layers[ii].cycle(tickCount, cycleOffset, state, requireRedraw) || draw;
         } // for
         
+        // update the require redraw state based on whether we are now in an animating state
+        requireRedraw = requireRedraw || ((state & stateAnimating) !== 0);
+        
+        // if we are scaling and at the same scale factor, don't redraw as its a waste of time
+        draw = draw || requireRedraw || ((scaleFactor !== 1) && (scaleFactor !== lastScaleFactor));
+
         if (draw) {
             drawView(mainContext, cycleOffset, requireRedraw, tickCount);
             lastScaleFactor = scaleFactor;
@@ -4865,7 +4897,7 @@ T5.View = function(params) {
     } // invalidate
     
     function wake() {
-        wakeTriggers++;
+        wakeTriggers += 1;
         if (frozen || cycleWorker) { return; }
         
         // create the cycle worker
@@ -4987,9 +5019,13 @@ T5.View = function(params) {
         
         */
         clearBackground: function() {
+            COG.Log.info('CALL OF DEPRECATED METHOD CLEAR BACKGROUND');
+            
             clearBackground = true;
             invalidate();
         },
+        
+        invalidate: invalidate,
         
         /**
         - `freeze()`
@@ -5016,7 +5052,6 @@ T5.View = function(params) {
                 canvas.height = height;
                 
                 attachToCanvas();
-                invalidate();
             } // if
         },
         
@@ -5163,6 +5198,11 @@ T5.View = function(params) {
     
     // attach the map to the canvas
     attachToCanvas();
+    
+    // if autosized, then listen for resize events
+    if (params.autoSize) {
+        window.addEventListener('resize', handleResize, false);
+    } // if
     
     return self;
 }; // T5.View
@@ -5850,6 +5890,21 @@ T5.MarkerLayer = function(params) {
         
         markerUpdate();
     } // clear
+    
+    function find(testCallback) {
+        var results = [];
+        
+        // if we have a test callback, then run
+        if (testCallback) {
+            for (var ii = markers.length; ii--; ) {
+                if (testCallback(markers[ii])) {
+                    results[results.length] = markers[ii];
+                } // if
+            } // for
+        } // if
+        
+        return results;
+    } // testCallback
 
     // create the view layer the we will draw the view
     var self = T5.ex(new T5.ViewLayer(params), {
@@ -5877,7 +5932,8 @@ T5.MarkerLayer = function(params) {
         },
         
         add: add,
-        clear: clear
+        clear: clear,
+        find: find
     });
     
     // handle tap events
@@ -6048,9 +6104,10 @@ T5.Style = function(params) {
         topLeftOffset = T5.V.offset(params.center, -gridHalfWidth),
         lastTileCreator = null,
         tileShift = new T5.Vector(),
-        isTweening = false,
+        animating = false,
         lastNotifyListener = null,
         halfTileSize = Math.round(tileSize / 2),
+        haveDirtyTiles = false,
         invTileSize = tileSize ? 1 / tileSize : 0,
         active = true,
         tileDrawQueue = null,
@@ -6062,7 +6119,18 @@ T5.Style = function(params) {
         repaintDistance = T5.getConfig().repaintDistance,
         reloadTimeout = 0,
         gridHeightWidth = gridSize * tileSize,
-        tileCols, tileRows, centerPos;
+        tileCols, tileRows, centerPos,
+        
+        // initialise state short cuts
+        stateAnimating = T5.viewState('ANIMATING'),
+        statePinch = T5.viewState('PINCH');
+        
+    /* event handlers */
+    
+    function handleResize(evt, width, height) {
+        COG.Log.info('captured resize');
+        centerPos = null;
+    } // handleResize
         
     /* internal functions */
         
@@ -6230,16 +6298,16 @@ T5.Style = function(params) {
                             (offset.x + tileShift.x) * invTileSize >> 0, 
                             (offset.y + tileShift.y) * invTileSize >> 0);
 
+        // reset the tile draw queue
+        tilesNeeded = false;
+        
         if (! centerPos) {
             var dimensions = self.getParent().getDimensions();
-            
+
             tileCols = Math.ceil(dimensions.width * invTileSize) + 1;
             tileRows = Math.ceil(dimensions.height * invTileSize) + 1;
             centerPos = new T5.Vector((tileCols-1) / 2 >> 0, (tileRows-1) / 2 >> 0);
         } // if
-        
-        // reset the tile draw queue
-        tilesNeeded = false;
 
         // right, let's draw some tiles (draw rows first)
         for (var yy = tileRows; yy--; ) {
@@ -6296,7 +6364,6 @@ T5.Style = function(params) {
             var needTiles = shiftDelta.x !== 0 || shiftDelta.y !== 0,
                 xShift = offset.x,
                 yShift = offset.y,
-                haveDirtyTiles = false,
                 tileSize = T5.tileSize;
 
             if (needTiles) {
@@ -6309,12 +6376,12 @@ T5.Style = function(params) {
                 redraw = true;
             } // if
             
-            if (state !== T5.viewState('PINCH')) {
+            if ((! haveDirtyTiles) && ((state & statePinch) === 0)) {
                 haveDirtyTiles = updateDrawQueue(offset, state, redraw, tickCount);
             } // if
             
             // update the tweening flag
-            isTweening = T5.isTweening();
+            animating = ((state & stateAnimating) !== 0) || T5.isTweening();
             
             return haveDirtyTiles;
         },
@@ -6328,7 +6395,7 @@ T5.Style = function(params) {
         prepTile: function(tile, state) {
         },
         
-        drawTile: function(context, tile, x, y, state) {
+        drawTile: function(context, tile, x, y, state, redraw, tickCount) {
             return false;
         },
         
@@ -6377,12 +6444,12 @@ T5.Style = function(params) {
                     // draw the tile
                     if (redraw || tile.dirty) {
                         // if the interface is tweening, then clear the tile rect first
-                        if (isTweening) {
+                        if (animating) {
                             self.clearTileRect(context, x, y, tileSize, state);
                         } // if
                         
                         // draw the tile
-                        tilesDrawn = self.drawTile(context, tile, x, y, state) && tilesDrawn;
+                        tilesDrawn = self.drawTile(context, tile, x, y, state, redraw, tickCount) && tilesDrawn;
                     } // if
                 } 
                 else {
@@ -6420,6 +6487,9 @@ T5.Style = function(params) {
             } // if
             
             // flag the grid as not dirty
+            haveDirtyTiles = false;
+            
+            // update the last tile drawn state
             lastTilesDrawn = tilesDrawn;
         },
         
@@ -6460,6 +6530,9 @@ T5.Style = function(params) {
         }
     });
     
+    // bind to events
+    self.bind('resize', handleResize);
+    
     COG.listen("imagecache.cleared", function(args) {
         // reset all the tiles loaded state
         for (var ii = storage.length; ii--; ) {
@@ -6480,32 +6553,6 @@ T5.Style = function(params) {
 
     return self;
 }; // T5.TileGrid
-
-/*
-
-(function() {
-    TileStore = function(params) {
-
-        
-        
-        // initialise self
-        var self = {
-            setOrigin: function(col, row) {
-                if (! tileOrigin) {
-                    topLeftOffset = T5.V.offset(new T5.Vector(col, row), -tileHalfWidth);
-                }
-                else {
-                    shiftOrigin(col, row);
-                } // if..else
-            }
-        };
-        
-        
-        return self;
-    };
-})();
-
-*/
 T5.ImageTileGrid = function(params) {
     params = T5.ex({
         emptyTile: getEmptyTile(T5.tileSize),
@@ -6597,7 +6644,7 @@ T5.ImageTileGrid = function(params) {
             } // if..else
         },
         
-        drawTile: function(context, tile, x, y, state) {
+        drawTile: function(context, tile, x, y, state, redraw, tickCount) {
             var image = tile.url ? getImage(tile.url) : null,
                 drawn = false;
                 
@@ -6605,7 +6652,7 @@ T5.ImageTileGrid = function(params) {
                 context.drawImage(image, x, y);
                 drawn = true;
             }
-            else if ((state & statePan) !== 0) {
+            else if (redraw || ((state & statePan) !== 0)) {
                 context.drawImage(panningTile, x, y);
             }
             else if (emptyTile && (! tile.drawnEmpty)) {
@@ -7453,7 +7500,7 @@ T5.Geo = (function() {
             */
             forPositions: function(positions, padding) {
                 var bounds = null,
-                    startTicks = Date.now();
+                    startTicks = T5.ticks();
 
                 // if padding is not specified, then set to auto
                 if (! padding) {
