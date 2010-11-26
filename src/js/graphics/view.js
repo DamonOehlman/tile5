@@ -479,8 +479,6 @@ T5.View = function(params) {
             delayDrawLayers = [],
             ii = 0;
 
-        
-        COG.Log.info('drawing view');
         if (clearBackground || isPinchZoom) {
             context.clearRect(0, 0, canvas.width, canvas.height);
             clearBackground = false;
