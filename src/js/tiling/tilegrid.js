@@ -168,7 +168,7 @@ T5.TileGrid = function(params) {
         COG.Log.trace("tile grid populated", startTicks);
         
         // if we have an onpopulate listener defined, let them know
-        self.wakeParent();
+        self.changed();
     } // populate
     
     function shift(shiftDelta, shiftOriginCallback) {
@@ -334,19 +334,11 @@ T5.TileGrid = function(params) {
             // if we don't have a draq queue return
             if (! tileDrawQueue) { return; }
             
-            if (! redraw) {
-                context.beginPath();
-            } // if
-            
             // iterate through the tiles in the draw queue
             for (var ii = tileDrawQueue.length; ii--; ) {
                 var tile = tileDrawQueue[ii],
                     x = tile.gridX - xShift,
                     y = tile.gridY - yShift;
-
-                if (! redraw) {
-                    context.rect(x, y, tileSize, tileSize);
-                } // if
 
                 // update the tile x and y
                 tile.x = x;
@@ -375,11 +367,6 @@ T5.TileGrid = function(params) {
                 minX = x < minX ? x : minX;
                 minY = y < minY ? y : minY;
             } // for
-            
-            // clip the context to only draw where the tiles have been drawn
-            if (! redraw) {
-                context.clip();
-            } // if
             
             /* clean the display where required */
             

@@ -31,20 +31,19 @@ T5.ViewLayer = function(params) {
         id: "",
         zindex: 0,
         supportFastDraw: false,
-        transparent: false,
         animated: false,
         validStates: T5.viewState("ACTIVE", "ANIMATING", "PAN", "PINCH")
     }, params);
     
     var parent = null,
         parentFastDraw = false,
+        changed = false,
         supportFastDraw = params.supportFastDraw,
         id = params.id,
         activeState = T5.viewState("ACTIVE"),
         validStates = params.validStates,
         lastOffsetX = 0,
-        lastOffsetY = 0,
-        transparent = params.transparent;
+        lastOffsetY = 0;
     
     var self = T5.ex({
         /**
@@ -68,19 +67,9 @@ T5.ViewLayer = function(params) {
             var drawOK = ((displayState & validStates) !== 0) && 
                 (parentFastDraw ? supportFastDraw: true);
                 
-            // if prior checks have been ok and this is a transparent layer
-            // check to see if a redraw is required
-            if (drawOK && transparent) {
-                // perform the check
-                drawOK = redraw || (lastOffsetX !== offset.x) || (lastOffsetY !== offset.y);
-                
-                // and if ok, update the last offsetX and lastOffsetY
-                if (drawOK) {
-                    lastOffsetX = offset.x;
-                    lastOffsetY = offset.y;
-                } // if
-            } // if
-            
+            // perform the check
+            drawOK = changed || redraw || (lastOffsetX !== offset.x) || (lastOffsetY !== offset.y);
+
             return drawOK;
         },
         
@@ -122,15 +111,19 @@ T5.ViewLayer = function(params) {
         },
         
         /**
-        - `wakeParent()`
+        - `changed()`
         
-        Another method that uses the WaterCooler event system to tell the containing view 
-        that it needs to wake up and redraw itself.  This method is often called when a 
-        ViewLayer knows it needs to redraw but it isn't able to communicate this another way.
+        The changed method is used to flag the layer has been modified and will require 
+        a redraw
+        
         */
-        wakeParent: function(invalidate) {
+        changed: function() {
+            // flag as changed
+            changed = true;
+            
+            // invalidate the parent
             if (parent) {
-                parent.trigger(invalidate ? 'invalidate' : 'wake');
+                parent.trigger('invalidate');
             } // if
         },
         
@@ -176,6 +169,15 @@ T5.ViewLayer = function(params) {
     
     // make view layers observable
     COG.observable(self);
+    
+    // handle the draw complete
+    self.bind('drawComplete', function(evt, offset) {
+        changed = false;
+
+        // update the last offset
+        lastOffsetX = offset.x;
+        lastOffsetY = offset.y;
+    });
 
     return self;
 }; // T5.ViewLayer

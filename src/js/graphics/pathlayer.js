@@ -143,7 +143,7 @@ T5.PathLayer = function(params) {
 
         // wake the parent
         redraw = true;
-        self.wakeParent(true);
+        self.changed();
     });
     
     return self;

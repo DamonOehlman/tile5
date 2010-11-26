@@ -69,7 +69,6 @@ the like
 T5.PolyLayer = function(params) {
     params = T5.ex({
         zindex: 80,
-        transparent: true,
         style: null
     }, params);
     
@@ -86,7 +85,7 @@ T5.PolyLayer = function(params) {
         } // for
         
         forceRedraw = true;
-        self.wakeParent(true);
+        self.changed();
     }
     
     function handleParentChange(evt, parent) {

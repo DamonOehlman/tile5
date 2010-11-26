@@ -521,6 +521,9 @@ T5.View = function(params) {
                         self,
                         redraw,
                         tickCount);
+                        
+                    // trigger that the draw has been completed
+                    layers[ii].trigger('drawComplete', offset, tickCount);
                 } // if
             } // for
         }

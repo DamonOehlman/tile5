@@ -58,7 +58,7 @@ T5.MarkerLayer = function(params) {
         self.trigger('markerUpdate', markers);
         
         // wake and invalidate the parent
-        self.wakeParent(true);
+        self.changed();
     } // markerUpdate
     
     /* exports */

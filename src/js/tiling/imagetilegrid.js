@@ -128,7 +128,7 @@ T5.ImageTileGrid = function(params) {
                             tile.loaded = true;
                             tile.dirty = true;
                             
-                            self.wakeParent();
+                            self.changed();
                         }, 
                         tileDrawArgs);
                 } // if

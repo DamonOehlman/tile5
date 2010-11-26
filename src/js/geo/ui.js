@@ -286,7 +286,7 @@ T5.Geo.UI = (function() {
                             iconImage.height);
                     } // if
                     
-                    self.wakeParent(true);
+                    self.changed();
                 },
                 
                 update: function(grid) {
@@ -294,7 +294,7 @@ T5.Geo.UI = (function() {
                         indicatorRadius = Math.floor(grid.getPixelDistance(self.accuracy) * 0.5);
                         centerXY = grid.getGridXYForPosition(self.pos);
                         
-                        self.wakeParent(true);
+                        self.changed();
                     } // if
                 }
             });
@@ -457,7 +457,7 @@ T5.Geo.UI = (function() {
                     updateAnnotationCoordinates(staticAnnotations);
                     
                     // wake and invalidate the parent
-                    self.wakeParent(true);
+                    self.changed();
                 },
                 
                 clear: function(includeNonStatic) {
@@ -472,7 +472,7 @@ T5.Geo.UI = (function() {
                     } // if
                     
                     // wake the parent
-                    self.wakeParent(true);
+                    self.changed();
                 }
             });
 
@@ -481,7 +481,7 @@ T5.Geo.UI = (function() {
                 // poi storage, then apply updates
                 if (params.pois && (params.pois.id == args.srcID)) {
                     updateAnnotations(args.pois);
-                    self.wakeParent(true);
+                    self.changed();
                 } // if
             });
             
@@ -489,7 +489,7 @@ T5.Geo.UI = (function() {
                 updateAnnotationCoordinates(annotations, grid);
                 updateAnnotationCoordinates(staticAnnotations, grid);
                 
-                self.wakeParent(true);
+                self.changed();
             });
             
             return self;

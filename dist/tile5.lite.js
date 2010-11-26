@@ -4143,20 +4143,19 @@ T5.ViewLayer = function(params) {
         id: "",
         zindex: 0,
         supportFastDraw: false,
-        transparent: false,
         animated: false,
         validStates: T5.viewState("ACTIVE", "ANIMATING", "PAN", "PINCH")
     }, params);
     
     var parent = null,
         parentFastDraw = false,
+        changed = false,
         supportFastDraw = params.supportFastDraw,
         id = params.id,
         activeState = T5.viewState("ACTIVE"),
         validStates = params.validStates,
         lastOffsetX = 0,
-        lastOffsetY = 0,
-        transparent = params.transparent;
+        lastOffsetY = 0;
     
     var self = T5.ex({
         /**
@@ -4180,19 +4179,9 @@ T5.ViewLayer = function(params) {
             var drawOK = ((displayState & validStates) !== 0) && 
                 (parentFastDraw ? supportFastDraw: true);
                 
-            // if prior checks have been ok and this is a transparent layer
-            // check to see if a redraw is required
-            if (drawOK && transparent) {
-                // perform the check
-                drawOK = redraw || (lastOffsetX !== offset.x) || (lastOffsetY !== offset.y);
-                
-                // and if ok, update the last offsetX and lastOffsetY
-                if (drawOK) {
-                    lastOffsetX = offset.x;
-                    lastOffsetY = offset.y;
-                } // if
-            } // if
-            
+            // perform the check
+            drawOK = changed || redraw || (lastOffsetX !== offset.x) || (lastOffsetY !== offset.y);
+
             return drawOK;
         },
         
@@ -4234,15 +4223,19 @@ T5.ViewLayer = function(params) {
         },
         
         /**
-        - `wakeParent()`
+        - `changed()`
         
-        Another method that uses the WaterCooler event system to tell the containing view 
-        that it needs to wake up and redraw itself.  This method is often called when a 
-        ViewLayer knows it needs to redraw but it isn't able to communicate this another way.
+        The changed method is used to flag the layer has been modified and will require 
+        a redraw
+        
         */
-        wakeParent: function(invalidate) {
+        changed: function() {
+            // flag as changed
+            changed = true;
+            
+            // invalidate the parent
             if (parent) {
-                parent.trigger(invalidate ? 'invalidate' : 'wake');
+                parent.trigger('invalidate');
             } // if
         },
         
@@ -4288,6 +4281,15 @@ T5.ViewLayer = function(params) {
     
     // make view layers observable
     COG.observable(self);
+    
+    // handle the draw complete
+    self.bind('drawComplete', function(evt, offset) {
+        changed = false;
+
+        // update the last offset
+        lastOffsetX = offset.x;
+        lastOffsetY = offset.y;
+    });
 
     return self;
 }; // T5.ViewLayer
@@ -4772,8 +4774,7 @@ T5.View = function(params) {
             delayDrawLayers = [],
             ii = 0;
 
-        
-        COG.Log.info('drawing view');
+        // Change to force update
         if (clearBackground || isPinchZoom) {
             context.clearRect(0, 0, canvas.width, canvas.height);
             clearBackground = false;
@@ -4815,6 +4816,9 @@ T5.View = function(params) {
                         self,
                         redraw,
                         tickCount);
+                        
+                    // trigger that the draw has been completed
+                    layers[ii].trigger('drawComplete', offset, tickCount);
                 } // if
             } // for
         }
@@ -5351,7 +5355,7 @@ T5.PathLayer = function(params) {
 
         // wake the parent
         redraw = true;
-        self.wakeParent(true);
+        self.changed();
     });
     
     return self;
@@ -5427,7 +5431,6 @@ the like
 T5.PolyLayer = function(params) {
     params = T5.ex({
         zindex: 80,
-        transparent: true,
         style: null
     }, params);
     
@@ -5444,7 +5447,7 @@ T5.PolyLayer = function(params) {
         } // for
         
         forceRedraw = true;
-        self.wakeParent(true);
+        self.changed();
     }
     
     function handleParentChange(evt, parent) {
@@ -5851,7 +5854,7 @@ T5.MarkerLayer = function(params) {
         self.trigger('markerUpdate', markers);
         
         // wake and invalidate the parent
-        self.wakeParent(true);
+        self.changed();
     } // markerUpdate
     
     /* exports */
@@ -6254,7 +6257,7 @@ T5.Style = function(params) {
         COG.Log.trace("tile grid populated", startTicks);
         
         // if we have an onpopulate listener defined, let them know
-        self.wakeParent();
+        self.changed();
     } // populate
     
     function shift(shiftDelta, shiftOriginCallback) {
@@ -6420,19 +6423,11 @@ T5.Style = function(params) {
             // if we don't have a draq queue return
             if (! tileDrawQueue) { return; }
             
-            if (! redraw) {
-                context.beginPath();
-            } // if
-            
             // iterate through the tiles in the draw queue
             for (var ii = tileDrawQueue.length; ii--; ) {
                 var tile = tileDrawQueue[ii],
                     x = tile.gridX - xShift,
                     y = tile.gridY - yShift;
-
-                if (! redraw) {
-                    context.rect(x, y, tileSize, tileSize);
-                } // if
 
                 // update the tile x and y
                 tile.x = x;
@@ -6461,11 +6456,6 @@ T5.Style = function(params) {
                 minX = x < minX ? x : minX;
                 minY = y < minY ? y : minY;
             } // for
-            
-            // clip the context to only draw where the tiles have been drawn
-            if (! redraw) {
-                context.clip();
-            } // if
             
             /* clean the display where required */
             
@@ -6682,7 +6672,7 @@ T5.ImageTileGrid = function(params) {
                             tile.loaded = true;
                             tile.dirty = true;
                             
-                            self.wakeParent();
+                            self.changed();
                         }, 
                         tileDrawArgs);
                 } // if
