@@ -479,6 +479,7 @@ T5.View = function(params) {
             delayDrawLayers = [],
             ii = 0;
 
+        // Change to force update
         if (clearBackground || isPinchZoom) {
             context.clearRect(0, 0, canvas.width, canvas.height);
             clearBackground = false;
