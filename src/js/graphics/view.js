@@ -304,6 +304,12 @@ T5.View = function(params) {
             } // if
 
             try {
+                // ensure that the canvas has an id, as the styles reference it
+                if (! canvas.id) {
+                    canvas.id = params.id + '_canvas';
+                } // if
+                
+                // get the canvas context
                 mainContext = canvas.getContext('2d');
                 mainContext.clearRect(0, 0, canvas.width, canvas.height);
             } 

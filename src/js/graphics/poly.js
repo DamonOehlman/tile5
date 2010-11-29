@@ -1,18 +1,21 @@
 T5.Poly = function(vectors, params) {
     params = T5.ex({
-        fill: false
+        fill: false,
+        style: null
     }, params);
 
     // initialise variables
     var haveData = false,
         fill = params.fill,
+        styleOverride = params.style,
         drawVectors = [];
     
     /* exported functions */
     
     function drawPoly(context, offsetX, offsetY, state) {
         if (haveData) {
-            var first = true;
+            var first = true,
+                previousStyle = styleOverride ? T5.applyStyle(context, params.style) : null;
             
             context.beginPath();
             
@@ -36,6 +39,11 @@ T5.Poly = function(vectors, params) {
             } // if
             
             context.stroke();
+            
+            // if we had a previous style, then return to that style
+            if (previousStyle) {
+                T5.applyStyle(context, previousStyle);
+            } // if
         } // if
     } // drawPoly
     

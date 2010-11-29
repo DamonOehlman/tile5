@@ -214,6 +214,27 @@ T5.Geo.UI = (function() {
             return self;
         },
         
+        Poly: function(positions, params) {
+            params = T5.ex({
+                autoParse: true
+            }, params);
+            
+            // initialise variables
+            var vectors = new Array(positions.length),
+                autoParse = params.autoParse,
+                GeoVector = T5.Geo.GeoVector,
+                parse = T5.Geo.P.parse;
+
+            // iterate through the vectors and convert to geovectors
+            for (var ii = positions.length; ii--; ) {
+                vectors[ii] = new GeoVector(
+                    autoParse ? parse(positions[ii]) : positions[ii]
+                );
+            } // for
+            
+            return new T5.Poly(vectors, params);
+        },
+        
         /**
         # Geo.UI.Annotation
         

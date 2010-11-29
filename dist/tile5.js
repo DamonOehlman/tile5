@@ -4600,6 +4600,12 @@ T5.View = function(params) {
             } // if
 
             try {
+                // ensure that the canvas has an id, as the styles reference it
+                if (! canvas.id) {
+                    canvas.id = params.id + '_canvas';
+                } // if
+                
+                // get the canvas context
                 mainContext = canvas.getContext('2d');
                 mainContext.clearRect(0, 0, canvas.width, canvas.height);
             } 
@@ -5363,19 +5369,22 @@ T5.PathLayer = function(params) {
 };
 T5.Poly = function(vectors, params) {
     params = T5.ex({
-        fill: false
+        fill: false,
+        style: null
     }, params);
 
     // initialise variables
     var haveData = false,
         fill = params.fill,
+        styleOverride = params.style,
         drawVectors = [];
     
     /* exported functions */
     
     function drawPoly(context, offsetX, offsetY, state) {
         if (haveData) {
-            var first = true;
+            var first = true,
+                previousStyle = styleOverride ? T5.applyStyle(context, params.style) : null;
             
             context.beginPath();
             
@@ -5399,6 +5408,11 @@ T5.Poly = function(vectors, params) {
             } // if
             
             context.stroke();
+            
+            // if we had a previous style, then return to that style
+            if (previousStyle) {
+                T5.applyStyle(context, previousStyle);
+            } // if
         } // if
     } // drawPoly
     
@@ -6004,6 +6018,9 @@ T5.Style = function(params) {
 
 (function() {
     
+    // define variables
+    var previousStyles = {};
+    
     /* define the core styles */
     
     var coreStyles = {
@@ -6023,10 +6040,20 @@ T5.Style = function(params) {
     /* define the apply style function */
 
     T5.applyStyle = function(context, styleId) {
-        var style = T5.styles[styleId] ? T5.styles[styleId] : T5.styles.basic;
+        var style = T5.styles[styleId] ? T5.styles[styleId] : T5.styles.basic,
+            previousStyle;
+            
+        // if we have a context and context canvas, then update the previous style info
+        if (context && context.canvas) {
+            previousStyle = previousStyles[context.canvas.id];
+            previousStyles[context.canvas.id] = styleId;
+        } // if
 
         // apply the style
         style.applyToContext(context);
+
+        // return the previously selected style
+        return previousStyle;
     };
 
     T5.loadStyles = function(path, callback) {
@@ -9528,6 +9555,27 @@ T5.Geo.UI = (function() {
             // vectorize the data
             vectorizeRoute();
             return self;
+        },
+        
+        Poly: function(positions, params) {
+            params = T5.ex({
+                autoParse: true
+            }, params);
+            
+            // initialise variables
+            var vectors = new Array(positions.length),
+                autoParse = params.autoParse,
+                GeoVector = T5.Geo.GeoVector,
+                parse = T5.Geo.P.parse;
+
+            // iterate through the vectors and convert to geovectors
+            for (var ii = positions.length; ii--; ) {
+                vectors[ii] = new GeoVector(
+                    autoParse ? parse(positions[ii]) : positions[ii]
+                );
+            } // for
+            
+            return new T5.Poly(vectors, params);
         },
         
         /**

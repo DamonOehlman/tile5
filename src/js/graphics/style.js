@@ -57,6 +57,9 @@ T5.Style = function(params) {
 
 (function() {
     
+    // define variables
+    var previousStyles = {};
+    
     /* define the core styles */
     
     var coreStyles = {
@@ -76,10 +79,20 @@ T5.Style = function(params) {
     /* define the apply style function */
 
     T5.applyStyle = function(context, styleId) {
-        var style = T5.styles[styleId] ? T5.styles[styleId] : T5.styles.basic;
+        var style = T5.styles[styleId] ? T5.styles[styleId] : T5.styles.basic,
+            previousStyle;
+            
+        // if we have a context and context canvas, then update the previous style info
+        if (context && context.canvas) {
+            previousStyle = previousStyles[context.canvas.id];
+            previousStyles[context.canvas.id] = styleId;
+        } // if
 
         // apply the style
         style.applyToContext(context);
+
+        // return the previously selected style
+        return previousStyle;
     };
 
     T5.loadStyles = function(path, callback) {
