@@ -1,5 +1,7 @@
 /**
-# MODULE: Geo
+# T5.Geo
+_module_
+
 
 The Geo module contains classes and functionality to support geospatial 
 operations and calculations that are required when drawing maps, routes, etc.
@@ -51,8 +53,7 @@ T5.Geo = (function() {
         
     var exportedFunctions = {
         /**
-        - `getEngine(requiredCapability)`
-
+        ### getEngine(requiredCapability)
         Returns the engine that provides the required functionality.  If preferred engines are supplied
         as additional arguments, then those are looked for first
         */
@@ -77,9 +78,8 @@ T5.Geo = (function() {
         },
 
         /**
-        - `rankGeocodeResponses(requestAddress, responseAddress, engine)`
-        
-        TODO
+        ### rankGeocodeResponses(requestAddress, responseAddress, engine)
+        To be completed
         */
         rankGeocodeResponses: function(requestAddress, responseAddresses, engine) {
             var matches = [],
@@ -109,11 +109,10 @@ T5.Geo = (function() {
         },
         
         /**
-        - `distanceToString(distance)`
-        
+        ### distanceToString(distance)
         This function simply formats a distance value (in meters) into a human readable string.
         
-        ### TODO
+        #### TODO
         - Add internationalization and other formatting support to this function
         */
         distanceToString: function(distance) {
@@ -125,18 +124,16 @@ T5.Geo = (function() {
         },
 
         /**
-        - `dist2rad(distance)`
-        
-        TODO
+        ### dist2rad(distance)
+        To be completed
         */
         dist2rad: function(distance) {
             return distance / KM_PER_RAD;
         },
 
         /**
-        - `lat2pix(lat)`
-        
-        TODO
+        ### lat2pix(lat)
+        To be completed
         */
         lat2pix: function(lat) {
             var radLat = parseFloat(lat) * DEGREES_TO_RADIANS; // *(2*Math.PI))/360;
@@ -148,27 +145,24 @@ T5.Geo = (function() {
         },
 
         /**
-        - `lon2pix(lon)`
-        
-        TODO
+        ### lon2pix(lon)
+        To be completed
         */
         lon2pix: function(lon) {
             return parseFloat(lon) * DEGREES_TO_RADIANS; // /180)*Math.PI;
         },
 
         /**
-        - `pix2lon(mercX)`
-        
-        TODO
+        ### pix2lon(mercX)
+        To be completed
         */
         pix2lon: function(mercX) {
             return module.normalizeLon(mercX) * RADIANS_TO_DEGREES;
         },
 
         /**
-        - `pix2lat`
-        
-        TODO
+        ### pix2lat(mercY)
+        To be completed
         */
         pix2lat: function(mercY) {
             var t = Math.pow(Math.E, -mercY),
@@ -186,9 +180,8 @@ T5.Geo = (function() {
         },
 
         /**
-        - `normalizeLon(lon)`
-        
-        TODO
+        ### normalizeLon(lon)
+        To be completed
         */
         normalizeLon: function (lon) {
             // return lon;
@@ -214,7 +207,7 @@ T5.Geo = (function() {
     }; // Radius
     
     /**
-    # Geo.Position
+    # T5.Geo.Position
     
     The position class is simply a data-storage class that is used to store 
     a latitude and longitude pair.  While this class used to contain methods 
@@ -256,7 +249,7 @@ T5.Geo = (function() {
     }; // Position
     
     /**
-    # Geo.BoundingBox
+    # T5.Geo.BoundingBox
 
     The BoundingBox class is used to store the min and max Geo.Position 
     that represents a bounding box.  For support functions for manipulating 
@@ -302,9 +295,8 @@ T5.Geo = (function() {
     }; // BoundingBox
 
     /**
-    # Geo.Address
-    
-    TODO
+    # T5.Geo.Address
+    To be completed
     */
     var Address = function(params) {
         params = T5.ex({
@@ -320,7 +312,7 @@ T5.Geo = (function() {
     }; // Address
     
     /**
-    # Geo.P
+    # T5.Geo.P
 
     The Geo.P submodule is used to perform operations on Geo.Position objects rather 
     than have those operations bundled with the object.
@@ -332,9 +324,8 @@ T5.Geo = (function() {
         
         var subModule = {
             /**
-            - `calcDistance(pos1, pos2)`
-
-            Calculate the distance between two Geo.Position objects, pos1 and pos2.  The 
+            ### calcDistance(pos1, pos2)
+            Calculate the distance between two T5.Geo.Position objects, pos1 and pos2.  The 
             distance returned is measured in kilometers.
             */
             calcDistance: function(pos1, pos2) {
@@ -358,8 +349,7 @@ T5.Geo = (function() {
             },
             
             /**
-            - `copy(src)`
-
+            ### copy(src)
             Create a copy of the specified T5.Geo.Position object.
             */
             copy: function(src) {
@@ -367,8 +357,7 @@ T5.Geo = (function() {
             },
 
             /**
-            - `empty(pos)`
-
+            ### empty(pos)
             Returns true if the T5.Geo.Position object is empty, false if not.
             */
             empty: function(pos) {
@@ -376,8 +365,7 @@ T5.Geo = (function() {
             },
             
             /**
-            - `equal(pos1, pos2)`
-
+            ### equal(pos1, pos2)
             Compares to T5.Geo.Position objects and returns true if they 
             have the same latitude and longitude values
             */
@@ -386,8 +374,7 @@ T5.Geo = (function() {
             },
             
             /**
-            - `inArray(pos, testArray)`
-
+            ### inArray(pos, testArray)
             Checks to see whether the specified T5.Geo.Position is contained within 
             the array of position objects passed in the testArray.
             */
@@ -405,10 +392,9 @@ T5.Geo = (function() {
             },
             
             /**
-            - `inBounds(pos, bounds)`
-
+            ### inBounds(pos, bounds)
             Returns true if the specified Geo.Position object is within the 
-            Geo.BoundingBox specified by the bounds argument.
+            T5.Geo.BoundingBox specified by the bounds argument.
             */
             inBounds: function(pos, bounds) {
                 // initialise variables
@@ -424,12 +410,11 @@ T5.Geo = (function() {
             },
             
             /**
-            - `parse(object)`
-
+            ### parse(object)
             This function is used to take a latitude and longitude String 
-            pair (either space or comma delimited) and return a new Geo.Position 
+            pair (either space or comma delimited) and return a new T5.Geo.Position 
             value.  The function is also tolerant of being passed an existing 
-            Geo.Position object as the object argument, and in these cases 
+            T5.Geo.Position object as the object argument, and in these cases 
             returns a copy of the position.
             */
             parse: function(pos) {
@@ -455,9 +440,8 @@ T5.Geo = (function() {
             },
 
             /**
-            - `parseArray(sourceData)`
-
-            Fust like parse, but with lots of em'
+            ### parseArray(sourceData)
+            Just like parse, but with lots of em'
             */
             parseArray: function(sourceData) {
                 var sourceLen = sourceData.length,
@@ -472,8 +456,7 @@ T5.Geo = (function() {
             },
             
             /**
-            - `fromMercatorPixels(x, y, radsPerPixel)`
-
+            ### fromMercatorPixels(x, y, radsPerPixel)
             This function is used to take x and y mercator pixels values, 
             and using the value passed in the radsPerPixel value convert 
             that to a Geo.Position object.
@@ -487,8 +470,7 @@ T5.Geo = (function() {
             },
 
             /**
-            - `toMercatorPixels(pos, radsPerPixel)`
-
+            ### toMercatorPixels(pos, radsPerPixel)
             Basically, the reverse of the fromMercatorPixels function - 
             pass it a Geo.Position object and get a Vector object back 
             with x and y mercator pixel values back.
@@ -498,9 +480,8 @@ T5.Geo = (function() {
             },
             
             /**
-            - `generalize(sourceData, requiredPositions, minDist)`
-            
-            TODO
+            ### generalize(sourceData, requiredPositions, minDist)
+            To be completed
             */
             generalize: function(sourceData, requiredPositions, minDist) {
                 var sourceLen = sourceData.length,
@@ -540,6 +521,34 @@ T5.Geo = (function() {
                 return positions;
             },
             
+            /**
+            ### vectorize(positions, options)
+            The vectorize function is used to take an array of positions specified in the 
+            `positions` argument and convert these into T5.Geo.GeoVector objects. By default
+            the vectorize function will process these asyncronously and will return a 
+            COG Worker that will be taking care of chunking up and processing the request
+            in an efficient way.  It is, however, possible to specify that the conversion should
+            happen synchronously and in this case the array of vectors is returned rather
+            than a worker instance.
+            
+            #### Example Usage (Asyncronous)
+            <pre>
+            // default options are used (async + 500 conversions per cycle)
+            var worker = T5.Geo.P.vectorize(positions);
+            
+            // bind to the complete event for the worker
+            worker.bind('complete', function(vectors) {
+                // DO SOMETHING WITH YOUR VECTORS HERE
+            });
+            </pre>
+            
+            #### Example Usage (Synchronous)
+            <pre>
+            var vectors = T5.Geo.P.vectorize(positions, {
+                async: false
+            });
+            </pre>
+            */
             vectorize: function(positions, options) {
                 var posIndex = positions.length,
                     vectors = new Array(posIndex);
@@ -591,8 +600,7 @@ T5.Geo = (function() {
             },
 
             /**
-            - `toString(pos)`
-            
+            ### toString(pos)
             Return a string representation of the Geo.Position object
             */
             toString: function(pos) {
@@ -605,7 +613,7 @@ T5.Geo = (function() {
     
     
     /**
-    # Geo.B
+    # T5.Geo.B
     
     A collection of utilities that are primarily designed to help with working 
     with Geo.BoundingBox objects.  The functions are implemented here rather 
@@ -621,8 +629,7 @@ T5.Geo = (function() {
         
         var subModule = {
             /**
-            - `calcSize(min, max, normalize)`
-
+            ### calcSize(min, max, normalize)
             The calcSize function is used to determine the size of a Geo.BoundingBox given 
             a minimum position (relates to the bottom-left / south-western corner) and 
             maximum position (top-right / north-eastern corner) of the bounding box.  
@@ -646,8 +653,7 @@ T5.Geo = (function() {
             },
 
             /**
-            - `createBoundsFromCenter(centerPos, distance)`
-
+            ### createBoundsFromCenter(centerPos, distance)
             This function is very useful for creating a Geo.BoundingBox given a 
             center position and a radial distance (specified in KM) from the center 
             position.  Basically, imagine a circle is drawn around the center 
@@ -695,8 +701,7 @@ T5.Geo = (function() {
             },
             
             /**
-            - `expand(bounds, amount)`
-
+            ### expand(bounds, amount)
             A simple function that is used to expand a Geo.BoundingBox 
             by the specified amount (in degrees).
             */
@@ -707,7 +712,7 @@ T5.Geo = (function() {
             },
             
             /**
-            - `forPositions(positions, padding)`
+            ### forPositions(positions, padding)
 
             This function is very useful when you need to create a 
             Geo.BoundingBox to contain an array of T5.Geo.Position.  
@@ -755,8 +760,7 @@ T5.Geo = (function() {
             },
             
             /**
-            - `getCenter(bounds)`
-
+            ### getCenter(bounds)
             Returns a Geo.Position for the center position of the bounding box.
             */
             getCenter: function(bounds) {
@@ -768,9 +772,8 @@ T5.Geo = (function() {
             },
             
             /**
-            - `getGeohash(bounds)`
-            
-            TODO
+            ### getGeohash(bounds)
+            To be completed
             */
             getGeoHash: function(bounds) {
                 var minHash = T5.Geo.GeoHash.encode(bounds.min.lat, bounds.min.lon),
@@ -780,15 +783,13 @@ T5.Geo = (function() {
             },
 
             /** 
-            - `getZoomLevel(bounds, displaySize)`
+            ### getZoomLevel(bounds, displaySize)
 
             This function is used to return the zoom level (seems consistent across 
             mapping providers at this stage) that is required to properly display 
             the specified T5.Geo.BoundingBox given the screen dimensions (specified as 
-            a Dimensions object) of the map display.
-            
-            Adapted from the following code:
-            [http://groups.google.com/group/google-maps-js-api-v3/browse_thread/thread/43958790eafe037f/66e889029c555bee]
+            a Dimensions object) of the map display. Adapted from 
+            [this code](http://groups.google.com/group/google-maps-js-api-v3/browse_thread/thread/43958790eafe037f/66e889029c555bee)
             */
             getZoomLevel: function(bounds, displaySize) {
                 // get the constant index for the center of the bounds
@@ -812,17 +813,15 @@ T5.Geo = (function() {
             },
 
             /**
-            - `isEmpty(bounds)`
-
-            Returns true if the specified Geo.BoundingBox is empty.
+            ### isEmpty(bounds)
+            Returns true if the specified T5.Geo.BoundingBox is empty.
             */
             isEmpty: function(bounds) {
                 return (! bounds) || posTools.empty(bounds.min) || posTools.empty(bounds.max);
             },
             
             /**
-            - `toString(bounds)`
-
+            ### toString(bounds)
             Returns a string representation of a Geo.BoundingBox
             */
             toString: function(bounds) {
@@ -836,7 +835,7 @@ T5.Geo = (function() {
     /* define the address tools */
     
     /**
-    # Geo.A
+    # T5.Geo.A
     
     A collection of utilities for working with Geo.Address objects
     
@@ -848,9 +847,7 @@ T5.Geo = (function() {
         
         var subModule = {
             /**
-            - `buildingMatch(freeForm, numberRange, name)`
-            
-            TODO
+            ### buildingMatch(freeForm, numberRange, name)
             */
             buildingMatch: function(freeform, numberRange, name) {
                 // from the freeform address extract the building number
@@ -878,8 +875,7 @@ T5.Geo = (function() {
             },
             
             /**
-            - `normalize(addressText)`
-            
+            ### normalize(addressText)
             Used to take an address that could be in a variety of formats
             and normalize as many details as possible.  Text is uppercased, road types are replaced, etc.
             */
@@ -913,9 +909,8 @@ T5.Geo = (function() {
             },
             
             /**
-            - `toString(address)`
-            
-            Returns a string representation of the Geo.Address object
+            ### toString(address)
+            Returns a string representation of the T5.Geo.Address object
             */
             toString: function(address) {
                 return address.streetDetails + " " + address.location;
@@ -962,7 +957,7 @@ T5.Geo = (function() {
         return HALF_PI - 2 * Math.atan(t);
     } // mercatorUnproject
     
-    /**
+    /*
     This function is used to determine the match weight between a freeform geocoding
     request and it's structured response.
     */
@@ -1013,6 +1008,27 @@ T5.Geo = (function() {
         Position: Position,
         BoundingBox: BoundingBox,
         
+        /**
+        # T5.Geo.GeoVector
+        
+        The GeoVector class is used to convert a position (T5.Geo.Position) into a
+        T5.Vector that can be used to draw on the various T5.ViewLayer implementations.
+        This class provides the necessary mechanism that allows the view layers to 
+        assume operation using a simple vector (containing an x and y) with no need
+        geospatial awareness built in.  
+        
+        Layers are aware that particular events may 
+        require vector resynchronization which is facilitated by the `syncVectors` 
+        method of the T5.Geo.UI.GeoTileGrid (the T5.TileGrid has a placeholder 
+        implementation).
+        
+        ## Usage
+        
+        <pre>
+        var position = T5.Geo.P.parse("-27.468 153.028"),
+            vector = new T5.Geo.GeoVector(position);
+        </pre>
+        */
         GeoVector: function(initPos) {
             var self = new T5.Vector();
                 
@@ -1061,7 +1077,7 @@ T5.Geo = (function() {
         },
         
         /**
-        # Geo.Engine
+        # T5.Geo.Engine
 
         TODO
         */
@@ -1085,7 +1101,7 @@ T5.Geo = (function() {
         },
         
         /**
-        # Geo.GeoSearchResult
+        # T5.Geo.GeoSearchResult
         
         TODO
         */
@@ -1107,7 +1123,7 @@ T5.Geo = (function() {
         },
         
         /**
-        # Geo.GeoSearchAgent
+        # T5.Geo.GeoSearchAgent
         
         TODO
         */
@@ -1116,7 +1132,7 @@ T5.Geo = (function() {
         },
         
         /**
-        # Geo.GeocodingAgent
+        # T5.Geo.GeocodingAgent
         
         TODO
         */

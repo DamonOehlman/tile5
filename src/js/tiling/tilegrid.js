@@ -1,3 +1,48 @@
+/**
+# T5.TileGrid 
+_extends_: T5.ViewLayer
+
+
+The TileGrid implements functionality required to manage a virtual 
+grid of tiles and draw them to the parent T5.View canvas.
+
+## Constructor
+`new T5.TileGrid(params);`
+
+### Initialization Parameters
+
+- tileSize (int, default = T5.tileSize) - the size of the tiles that will be loaded
+into grid
+
+- center (T5.Vector, default = empty)
+
+- gridSize (int, default = 25) - the size of the grid.  Essentially, the grid will
+contain gridSize * gridSize tiles.
+
+- shiftOrigin
+
+- supportFastDraw (boolean, default = true) - overrides the T5.ViewLayer setting for fast draw.
+The grid should always be displayed, even if we are on a slow device.
+
+- allowShift (boolean, default = true) - whether or not the grid is allowed to shift. Shifting
+occurs when the TileGrid is getting to the edges of the grid and requires more image tiles to 
+ensure a fluid display.  Shifting can be disabled if desired (but this would be strange).
+
+
+## Events
+
+### tileDrawComplete
+This event is triggered once the tiles that are required to fill the current grid have
+been loaded and drawn to the display.
+
+<pre>
+tiler.bind('tileDrawComplete', function() {
+
+});
+</pre>
+
+## Methods
+*/
 T5.TileGrid = function(params) {
     // extend the params with the defaults
     params = T5.ex({
@@ -299,15 +344,34 @@ T5.TileGrid = function(params) {
             return haveDirtyTiles;
         },
         
+        /**
+        ## deactivate()
+        This method is used to instruct the grid to stop drawing (and more importantly) loading tiles 
+        in the background.  This is useful when one grid is no longer required and has been replaced 
+        by another (for example in the case in mapping, where one layer has replaced another).
+        */
         deactivate: function() {
             active = false;
         },
         
+        /**
+        ## find
+        */
         find: findTile,
         
+        /** 
+        ## prepTile(tile, state)
+        Used to prepare a tile for display.  In the T5.TileGrid implementation this does
+        nothing.
+        */
         prepTile: function(tile, state) {
         },
         
+        /**
+        ## drawTile(context, tile, x, y, state, redraw, tickCount)
+        This method is used to draw the tile to the specified context.  In the T5.TileGrid
+        implementation this does nothing.
+        */
         drawTile: function(context, tile, x, y, state, redraw, tickCount) {
             return false;
         },
@@ -317,6 +381,9 @@ T5.TileGrid = function(params) {
             return tileSize;
         },
         
+        /** 
+        ### clearTileRect(context, x, y, tileSize, state)
+        */
         clearTileRect: function(context, x, y, tileSize, state) {
             context.clearRect(x, y, tileSize, tileSize);
         },
@@ -392,7 +459,10 @@ T5.TileGrid = function(params) {
             // update the last tile drawn state
             lastTilesDrawn = tilesDrawn;
         },
-        
+
+        /** 
+        ### getTileAtXY(x, y)
+        */
         getTileAtXY: function(x, y) {
             var queueLength = tileDrawQueue ? tileDrawQueue.length : 0,
                 locatedTile = null;
@@ -412,6 +482,13 @@ T5.TileGrid = function(params) {
             return locatedTile;
         },
         
+        /** 
+        ### getTileVirtualXY(col, row, getCenter)
+        Returns a new T5.Vector that specifies the virtual X and Y coordinate of the tile as denoted 
+        by the col and row parameters.  If the getCenter parameter is passed through and set to true, 
+        then the X and Y coordinates are offset by half a tile to represent the center of the tile rather
+        than the top left corner.
+        */
         getTileVirtualXY: function(col, row, getCenter) {
             // get the normalized position from the tile store
             var pos = getNormalizedPos(col, row),
@@ -425,9 +502,18 @@ T5.TileGrid = function(params) {
             return fnresult;
         },
         
+        /** 
+        ### populate(tileCreator)
+        */
         populate: function(tileCreator) {
             populate(tileCreator, null, true);
-        }
+        },
+        
+        /**
+        ### syncVectors(vectors)
+        */
+        syncVectors: function(vectors) {
+        }        
     });
     
     // bind to events

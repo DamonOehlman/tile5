@@ -1,7 +1,5 @@
 /**
-View
-====
-
+# T5.View
 The View is the fundamental building block for tiling and 
 mapping interface.  Which this class does not implement any of 
 the logic required for tiling, it does handle the redraw logic.  
@@ -12,34 +10,84 @@ Additionally, it is worth being familiar with the core methods that
 are implemented here around the layering as these are used extensively 
 when creating overlays and the like for the map implementations.
 
-## Constructor Parameters (Required)
+## Constructor
+`T5.View(params)`
 
-- `container` 
+### Initialization Parameters
 
-## Constructor Parameters (Optional)
-
+- `container` (required)
 - `id`
-
 - `autoSize`
-
 - `fastDraw`
-
 - `intertia`
-
 - `pannable`
-
 - `scalable`
-
 - `panAnimationEasing`
-
 - `panAnimationDuration`
-
 - `pinchZoomAnimateTrigger`
-
 - `adjustScaleFactor`
 
-## Methods
 
+## Events
+
+### scale
+This event is fired when the view has been scaled.
+<pre>
+view.bind('scale', function(scaleFactor, scaleXY) {
+});
+</pre>
+
+- scaleFactor (Float) - the amount the view has been scaled by.
+When the view is being scaled down this will be a value less than
+1 and when it is being scaled up it will be greater than 1.
+- scaleXY (T5.Vector) - the relative position on the view where
+the scaling operation is centered.
+
+
+### tap
+This event is fired when the view has been tapped (or the left
+mouse button has been pressed)
+<pre>
+view.bind('tap', function(absXY, relXY, gridXY) {
+});
+</pre>
+
+- absXY (T5.Vector) - the absolute position of the tap
+- relXY (T5.Vector) - the position of the tap relative to the top left
+position of the view.
+- gridXY (T5.Vector) - the xy coordinates of the tap relative to the
+scrolling grid offset.
+
+
+### resize
+This event is fired when the view has been resized (either manually or
+automatically).
+<pre>
+view.bind('resize', function(width, height) {
+
+});
+</pre>
+
+### idle
+This event is fired once the view has gone into an idle state (once draw
+operations haven't been required for 500ms).
+<pre>
+view.bind('idle', function() {
+});
+</pre>
+
+### drawComplete
+Triggered when drawing the view has been completed (who would have thought).
+<pre>
+view.bind('drawComplete', function(offset, tickCount) {
+});
+</pre>
+
+- offset (T5.Vector) - the view offset that was used for the draw operation
+- tickCount - the tick count at the start of the draw operation.
+
+
+## Methods
 */
 T5.View = function(params) {
     // initialise defaults
@@ -537,6 +585,8 @@ T5.View = function(params) {
             context.restore();
         } // try..finally
         
+        // trigger the draw complete for the view
+        self.trigger('drawComplete', offset, tickCount);
         COG.Log.trace("draw complete", tickCount);
     } // drawView
     
@@ -637,8 +687,11 @@ T5.View = function(params) {
         id: params.id,
         deviceScaling: deviceScaling,
         fastDraw: params.fastDraw || T5.getConfig().requireFastDraw,
-        
-        // TODO: change name to be scaling related
+
+        /**
+        ### animate(targetScaleFactor, startXY, targetXY, tweenFn, callback)
+        Performs an animated zoom on the T5.View.
+        */
         animate: function(targetScaleFactor, startXY, targetXY, tweenFn, callback) {
             animateZoom(
                 scaleFactor, 
@@ -650,8 +703,7 @@ T5.View = function(params) {
         },
         
         /**
-        - `centerOn(offset: Vector)`
-        
+        ### centerOn(offset: Vector)
         Move the center of the view to the specified offset
         */
         centerOn: function(offset) {
@@ -660,8 +712,7 @@ T5.View = function(params) {
         },
 
         /**
-        - `getDimensions()`
-        
+        ### getDimensions()
         Return the Dimensions of the View
         */
         getDimensions: function() {
@@ -669,8 +720,7 @@ T5.View = function(params) {
         },
         
         /**
-        - `getZoomCenter()`
-        
+        ### getZoomCenter()
         */
         getZoomCenter: function() {
             return zoomCenter;
@@ -679,8 +729,7 @@ T5.View = function(params) {
         /* layer getter and setters */
         
         /**
-        - `getLayer(id: String)`
-        
+        ### getLayer(id: String)
         Get the ViewLayer with the specified id, return null if not found
         */
         getLayer: function(id) {
@@ -695,8 +744,7 @@ T5.View = function(params) {
         },
         
         /**
-        - `setLayer(id: String, value: ViewLayer)`
-        
+        ### setLayer(id: String, value: T5.ViewLayer)
         Either add or update the specified view layer
         */
         setLayer: function(id, value) {
@@ -716,8 +764,7 @@ T5.View = function(params) {
         },
         
         /**
-        - `eachLayer(callback: Function)`
-        
+        ### eachLayer(callback: Function)
         Iterate through each of the ViewLayers and pass each to the callback function 
         supplied.
         */
@@ -729,8 +776,8 @@ T5.View = function(params) {
         },
         
         /**
-        - `clearBackground()`
-        
+        ### clearBackground()
+        **deprecated**
         */
         clearBackground: function() {
             COG.Log.info('CALL OF DEPRECATED METHOD CLEAR BACKGROUND');
@@ -739,19 +786,25 @@ T5.View = function(params) {
             invalidate();
         },
         
+        /**
+        ### invalidate()
+        The `invalidate` method is used to inform the view that a full redraw
+        is required
+        */
         invalidate: invalidate,
         
         /**
-        - `freeze()`
-        
+        ### freeze()
+        Used to freeze the display (no updates are performed) until the view
+        is unfrozen using the `unfreeze` method.
         */
         freeze: function() {
             frozen = true;
         },
         
         /**
-        - `unfreeze()`
-        
+        ### unfreeze()
+        Renable updates to the display after a call to `freeze`
         */
         unfreeze: function() {
             frozen = false;
@@ -759,19 +812,29 @@ T5.View = function(params) {
             wake();
         },
         
+        /**
+        ### resize(width: Int, height: Int)
+        Perform a manual resize of the canvas associated with the view.  If the 
+        view was originally marked as `autosize` this will override that instruction.
+        */
         resize: function(width, height) {
             // if the canvas is assigned, then update the height and width and reattach
             if (canvas) {
+                // flag the canvas as not autosize
+                params.autoSize = false;
+                
+                // update the canvas width and height
                 canvas.width = width;
                 canvas.height = height;
-                
                 attachToCanvas();
+
+                // trigger the resize event for the view
+                self.trigger('resize', canvas.width, canvas.height);
             } // if
         },
         
         /**
-        - `scale(targetScaling, tweenFn, callback, startXY, targetXY)`
-        
+        ### scale(targetScaling, tweenFn, callback, startXY, targetXY)
         */
         scale: function(targetScaling, tweenFn, callback, startXY, targetXY) {
             // if the start XY is not defined, used the center
@@ -795,9 +858,8 @@ T5.View = function(params) {
         },
         
         /**
-        - `removeLayer(id: String)`
-        
-        Remove the ViewLayer specified by the id
+        ### removeLayer(id: String)
+        Remove the T5.ViewLayer specified by the id
         */
         removeLayer: function(id) {
             var layerIndex = getLayerIndex(id);
@@ -815,9 +877,8 @@ T5.View = function(params) {
         /* offset methods */
         
         /**
-        - `getOffset()`
-        
-        Return a Vector containing the current view offset
+        ### getOffset()
+        Return a T5.Vector containing the current view offset
         */
         getOffset: function() {
             // return the last calculated cycle offset
@@ -825,14 +886,12 @@ T5.View = function(params) {
         },
         
         /**
-        - `updateOffset(x, y, tweenFn, tweenDuration, callback)`
-        
+        ### updateOffset(x, y, tweenFn, tweenDuration, callback)
         */
         updateOffset: updateOffset,
         
         /**
-        - `zoom(targetXY, newScaleFactor, rescaleAfter)`
-        
+        ### zoom(targetXY, newScaleFactor, rescaleAfter)
         */
         zoom: function(targetXY, newScaleFactor, rescaleAfter) {
             panimating = false;

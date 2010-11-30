@@ -1,3 +1,12 @@
+/**
+# T5.Geo.Search
+_module_
+
+
+Define functions for geo search operations
+
+## Functions
+*/
 T5.Geo.Search = (function() {
     var DEFAULT_MAXDIFF = 20;
     

@@ -1,9 +1,9 @@
 /**
-# PathLayer
+# T5.PathLayer
+_extends:_ T5.ViewLayer
 
-## TODO
 
-Consider how to effectively convert this use a poly layer under the hood...
+The T5.PathLayer is used to display a single path on a T5.View
 */
 T5.PathLayer = function(params) {
     params = T5.ex({

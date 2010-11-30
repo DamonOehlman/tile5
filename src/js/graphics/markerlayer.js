@@ -1,10 +1,43 @@
 /**
-# MarkerLayer
+# T5.MarkerLayer
+_extends:_ T5.ViewLayer
+
+
+The T5.MarkerLayer provides a T5.ViewLayer that can be used to display one
+or more T5.Annotation on a T5.View.  Most commonly used with a T5.Map (which 
+includes a marker layer by default).
 
 ## Events
 
-- `markerUpdate`
-- `markerTap`
+### markerUpdate
+This event is triggered when the markers have been updated (new markers added, 
+markers cleared, etc)
+
+<pre>
+layer.bind('markerUpdate', function(markers) {
+});
+</pre>
+
+- markers (T5.Annotation[]) - the markers in the marker layer after the update has 
+been completed
+
+
+### markerTap
+The markerTap event is triggered when markers have been tapped in the marker layer.
+The T5.MarkerLayer listens for `tap` events on itself and when triggered looks for
+any markers within a tapExtent and if found fires the markerTap event.
+
+<pre>
+layer.bind('markerTap', function(absXY, relXY, markers) {
+});
+</pre>
+
+- absXY (T5.Vector) - the absolute tap position (as per T5.ViewLayer)
+- relXY (T5.Vector) - the relative tap position (as per T5.ViewLayer)
+- markers (T5.Annotation[]) - an array of the markers that have been _hit_ in the last tap
+
+
+## Methods
 */
 T5.MarkerLayer = function(params) {
     params = T5.ex({
@@ -63,6 +96,25 @@ T5.MarkerLayer = function(params) {
     
     /* exports */
     
+    /**
+    ### add(items)
+    The add method of the marker layer can accept either a single T5.Annotation to 
+    add to the layer or alternatively an array of annotations to add.
+    
+    #### Example Usage
+    ~ // adding a single marker 
+    ~ layer.add(new T5.Annotation({
+    ~     xy: T5.Geo.GeoVector(markerPos) // markerPos is a T5.Geo.Position
+    ~ }));
+    ~ 
+    ~ // adding multiple markers
+    ~ var markers = [];
+    ~ 
+    ~ // you would populate the markers array here...
+    ~ 
+    ~ // add the markers to the layer
+    ~ layer.add(markers);
+    */
     function add(newItems) {
         // if annotation is an array, then iterate through and add them
         if (newItems && (typeof newItems.length !== 'undefined')) {
@@ -79,6 +131,19 @@ T5.MarkerLayer = function(params) {
         markerUpdate();
     } // add
     
+    /**
+    ### clear(testCallback)
+    The clear method is used to clear markers from the marker layer.  The optional
+    `testCallback` argument can be specified to determine whether a marker should be 
+    removed or not.
+    
+    #### Example Usage
+    ~ layer.clear(function(marker) {
+    ~     // check an arbitrary property of the annotation
+    ~     // if Australia, then flag for removal
+    ~     return (marker.country === 'Australia');
+    ~ });
+    */
     function clear(testCallback) {
         // if we have a test callback, then iterate through the markers and 
         // only remove ones that match the requirements
@@ -97,6 +162,11 @@ T5.MarkerLayer = function(params) {
         markerUpdate();
     } // clear
     
+    /** 
+    ### find(testCallback)
+    Find markers that match the requirements of the test callback.  For an example
+    of test callback usage see the `clear` method.
+    */
     function find(testCallback) {
         var results = [];
         

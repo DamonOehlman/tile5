@@ -1,6 +1,5 @@
 /**
-# Geo.MapProvider
-
+# T5.Geo.MapProvider
 The MapProvider class is the base class from which all map providers are implemented.
 The class provides a number of common functions that can be expected in most 
 implementations of a GIS map provider.

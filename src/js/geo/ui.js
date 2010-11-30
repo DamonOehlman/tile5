@@ -1,6 +1,9 @@
 /**
-# MODULE: Geo.UI
+# T5.Geo.UI
+_module_
 
+
+This module defines user interface elements for Tile5 geo elements
 */
 T5.Geo.UI = (function() {
     var lastAnnotationTween = null,
@@ -95,8 +98,33 @@ T5.Geo.UI = (function() {
         AnnotationTween: null,
         
         /**
-        # Geo.UI.GeoTileGrid
+        # T5.Geo.UI.GeoTileGrid
+        _extends:_ T5.TileGrid
         
+        
+        The GeoTileGrid class is used to __wrap__ and extend a standard T5.TileGrid and make 
+        it "Geospatially aware".  Essentially a GeoTileGrid is initialized by passing an existing 
+        TileGrid and a center position (T5.Geo.Position) and center xy coordinate (T5.Vector) and 
+        this allows it to translate screen coordinates into latitude / longitude pairs.
+        
+        ## Constructor
+        `new T5.Geo.UI.GeoTileGrid(params);`
+        
+        ### Initialization Params
+        
+        - `grid` (T5.TileGrid, default = null) the grid to wrap and make Geospatial aware
+        
+        - `centerPos` (T5.Geo.Position, default = empty pos) the latitude and longitude of the 
+        center of the grid
+        
+        - `centerXY` (T5.Vector, default = empty vector) the center xy coordinate of the grid (relative 
+        to the top left tile, xy coordinate = 0,0)
+        
+        - `radsPerPixel` (float, default = 0) the number of radians per pixel.  This value is used in 
+        the calculation of screen coordinates to real world positions.  While for both the current map 
+        provider implementations this value is the same, I expect it could vary from provider to provider.
+        
+        ## Methods
         */
         GeoTileGrid: function(params) {
             // extend the params with some defaults
@@ -122,12 +150,22 @@ T5.Geo.UI = (function() {
             
             // initialise self
             var self = T5.ex({}, params.grid, {
+                /** 
+                ### getBoundingBox(x, y, width, height)
+                Return a T5.Geo.BoundingBox for specified area on the grid
+                */
                 getBoundingBox: function(x, y, width, height) {
                     return new T5.Geo.BoundingBox(
                         self.pixelsToPos(new T5.Vector(x, y + height)),
                         self.pixelsToPos(new T5.Vector(x + width, y)));
                 },
                 
+                /** 
+                ### getGridXYForPosition(pos)
+                Returns a T5.Vector that relates to the grid position of the T5.Geo.Position value passed in 
+                the pos parameter to the method.  This method is used extensively to calculate the position 
+                that shapes / points should be drawn to the grid based on their geospatial position.
+                */
                 getGridXYForPosition: function(pos) {
                     var vector = new T5.Geo.GeoVector(pos);
                     self.syncVectors([vector]);
@@ -135,6 +173,12 @@ T5.Geo.UI = (function() {
                     return vector;
                 },
                 
+                /**
+                ### syncVectors
+                This function iterates through the specified vectors and if they are
+                of type T5.Geo.GeoVector, they are provided the rads per pixel of the
+                grid so they can perform their calculations
+                */
                 syncVectors: function(vectors) {
                     for (var ii = vectors.length; ii--; ) {
                         if (vectors[ii] && vectors[ii].setRadsPerPixel) {
@@ -143,11 +187,23 @@ T5.Geo.UI = (function() {
                     }
                 },
                 
+                /**
+                ### getPixelDistance(distance)
+                Convert a pixel distance to a real world distance
+                */
                 getPixelDistance: function(distance) {
                     var radians = T5.Geo.dist2rad(distance);
                     return radians / radsPerPixel >> 0;
                 },
                 
+                /**
+                ### pixelsToPos(vector)
+                CBasically the opposite of the `getGridXYForPosition`.  Returns a T5.Geo.Position based on 
+                the xy value of the T5.Vector that is passed to the method.  Very useful when you need to 
+                translate screen / grid coordinates into a latitude longitude.  For instance, in the case 
+                where the user clicks on the map and you need to know the latitude and longitude of that 
+                click / touch.
+                */
                 pixelsToPos: function(vector) {
                     return T5.Geo.P.fromMercatorPixels(
                         (blPixX + vector.x) * radsPerPixel, 
@@ -161,8 +217,17 @@ T5.Geo.UI = (function() {
         },
         
         /** 
-        # Geo.UI.RouteOverlay
-
+        # T5.Geo.UI.RouteOverlay
+        _extends:_ T5.PathLayer
+        
+        
+        The RouteOverlay class is used to render the route geometry to the map.
+        
+        ## Constructor
+        `new T5.Geo.UI.RouteOverlay(params)`
+        
+        ### Initialization Parameters
+        To be completed
         */
         RouteOverlay: function(params) {
             params = T5.ex({

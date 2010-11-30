@@ -1,6 +1,7 @@
 /**
-T5.Geo.JSON
------------
+# T5.Geo.JSON
+_module_
+
 
 This module provides GeoJSON support for Tile5.
 */

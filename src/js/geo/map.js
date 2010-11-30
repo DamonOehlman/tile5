@@ -1,5 +1,7 @@
 /**
-# Map
+# T5.Map
+_extends:_ T5.Tiler
+
 
 The Map class is the entry point for creating a tiling map.  Creating a 
 map is quite simple and requires two things to operate.  A containing HTML5 canvas

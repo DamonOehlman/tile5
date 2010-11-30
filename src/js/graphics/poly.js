@@ -1,3 +1,25 @@
+/**
+# T5.Poly
+This class is used to represent individual poly(gon/line)s that are drawn within
+a T5.PolyLayer.  
+
+## Constructor
+
+`T5.Poly(vectors, params)`
+
+The constructor requires an array of vectors that represent the poly and 
+also accepts optional initialization parameters (see below).
+
+
+### Initialization Parameters
+
+- `fill` (default = true) - whether or not the poly should be filled.
+- `style` (default = null) - the style override for this poly.  If none
+is specified then the style of the T5.PolyLayer is used.
+
+
+## Methods
+*/
 T5.Poly = function(vectors, params) {
     params = T5.ex({
         fill: false,
@@ -12,6 +34,13 @@ T5.Poly = function(vectors, params) {
     
     /* exported functions */
     
+    /**
+    ### drawPoly(context, offsetX, offsetY, state)
+    This method is used to draw the poly to the specified `context`.  The 
+    `offsetX` and `offsetY` arguments specify the panning offset of the T5.View
+    which is taken into account when drawing the poly to the display.  The 
+    `state` argument specifies the current T5.ViewState of the view.
+    */
     function drawPoly(context, offsetX, offsetY, state) {
         if (haveData) {
             var first = true,
@@ -47,6 +76,10 @@ T5.Poly = function(vectors, params) {
         } // if
     } // drawPoly
     
+    /**
+    ### resync(grid)
+    Used to synchronize the vectors of the poly to the grid.
+    */
     function resyncToGrid(grid) {
         grid.syncVectors(vectors);
         
@@ -68,11 +101,15 @@ T5.Poly = function(vectors, params) {
 };
 
 /**
-# PolyLayer
+# T5.PolyLayer
+_extends:_ T5.ViewLayer
+
 
 The PolyLayer is designed to facilitate the storage and display of multiple 
-geometric shapes.  This is particularly useful for displaying GeoJSON data and 
-the like
+geometric shapes.  This is particularly useful for displaying [GeoJSON](http://geojson.org) 
+data and the like.
+
+## Methods
 */
 T5.PolyLayer = function(params) {
     params = T5.ex({
@@ -110,6 +147,10 @@ T5.PolyLayer = function(params) {
     /* initialise self */
     
     var self = T5.ex(new T5.ViewLayer(params), {
+        /**
+        ### add(poly)
+        Used to add a T5.Poly to the layer
+        */
         add: function(poly) {
             // children.push(poly);
             children.unshift(poly);

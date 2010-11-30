@@ -1,11 +1,14 @@
 /**
-# ViewLayer
+# T5.ViewLayer
 
 In and of itself, a View does nothing.  Not without a 
 ViewLayer at least.  A view is made up of one or more of these 
 layers and they are drawn in order of *zindex*.
 
-## Constructor Parameters
+## Constructor
+`T5.ViewLayer(params)`
+
+### Initialization Parameters
 
 - `id` - the id that has been assigned to the layer, this value
 can be used when later accessing the layer from a View.
@@ -20,8 +23,18 @@ so it's important when defining new layer classes to set this parameter to true 
 want the layer visible during these operations.  Be aware though that layers that require 
 some time to render will impact performance on slower devices.
 
-- `validStates` - the a bitmask of DisplayState that the layer will be drawn
-for
+- `validStates` - the a bitmask of DisplayState that the layer will be drawn for
+
+
+## Events
+
+### parentChange
+This event is fired with the parent of the layer has been changed
+
+<pre>
+layer.bind('parentChange', function(parent) {
+);
+</pre>
 
 ## Methods
 
@@ -47,15 +60,15 @@ T5.ViewLayer = function(params) {
     
     var self = T5.ex({
         /**
-        - `addToView(view)`
-        
+        ### addToView(view)
+        Used to add the layer to a view.  This simply calls T5.View.setLayer
         */
         addToView: function(view) {
             view.setLayer(id, self);
         },
         
         /**
-        - `shouldDraw(displayState)`
+        ### shouldDraw(displayState)
         
         Called by a View that contains the layer to determine 
         whether or not the layer should be drawn for the current display state.  
@@ -74,7 +87,7 @@ T5.ViewLayer = function(params) {
         },
         
         /**
-        - `cycle(tickCount, offset, state, redraw)`
+        ### cycle(tickCount, offset, state, redraw)
         
         Called in the View method of the same name, each layer has an opportunity 
         to update itself in the current animation cycle before it is drawn.
@@ -83,7 +96,7 @@ T5.ViewLayer = function(params) {
         },
         
         /**
-        - `draw(context, offset, dimensions, state, view)`
+        ### draw(context, offset, dimensions, state, view)
         
         The business end of layer drawing.  This method is called when a layer needs to be 
         drawn and the following parameters are passed to the method:
@@ -100,7 +113,7 @@ T5.ViewLayer = function(params) {
         },
         
         /**
-        - `remove()`
+        ### remove()
         
         The remove method enables a view to flag that it is ready or should be removed
         from any views that it is contained in.  This was introduced specifically for
@@ -111,7 +124,7 @@ T5.ViewLayer = function(params) {
         },
         
         /**
-        - `changed()`
+        ### changed()
         
         The changed method is used to flag the layer has been modified and will require 
         a redraw
@@ -128,7 +141,7 @@ T5.ViewLayer = function(params) {
         },
         
         /**
-        - `getId()`
+        ### getId()
         
         */
         getId: function() {
@@ -136,7 +149,7 @@ T5.ViewLayer = function(params) {
         },
         
         /**
-        - `setId(string)`
+        ### setId(string)
         
         */
         setId: function(value) {
@@ -144,7 +157,7 @@ T5.ViewLayer = function(params) {
         },
 
         /**
-        - `getParent()`
+        ### getParent()
         
         */
         getParent: function() {
@@ -152,7 +165,7 @@ T5.ViewLayer = function(params) {
         },
         
         /**
-        - `setParent(view: View)
+        ### setParent(view: View)
         
         */
         setParent: function(view) {

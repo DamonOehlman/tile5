@@ -15,7 +15,6 @@ T5.Annotation = function(params) {
     var animating = false;
     
     var self = T5.ex(params, {
-        xy: params.xy,
         isNew: true,
         
         isAnimating: function() {

@@ -1,4 +1,8 @@
 /**
+# T5.Geo.GeoHash
+_module_
+
+
 Geohash module c/o and copyright David Troy 2008 (http://davetroy.com/)
 Original codebase available on github @ http://github.com/davetroy/geohash-js/
 */

@@ -1,3 +1,30 @@
+/**
+# T5.ImageTileGrid 
+_extends_: T5.TileGrid
+
+
+The ImageTileGrid extends the T5.TileGrid and implements the 
+`drawTile` functionality to check the loaded state of image tiles, and treat them accordingly.  
+If the tile is already loaded, then it is drawn to the canvas, it not the T5.Images module is used to load the 
+tile and once loaded drawn.
+
+## Constructor
+`new T5.ImageTileGrid(params);`
+
+### Initialization Parameters
+
+- emptyTile (image, default = default empty tile) - specify an image here to be used as the empty tile
+which is displayed when the required tile is not available and the display is not panning
+
+- panningTile (image, default = default panning tile) - the image that is used to display a tile area
+when panning, **if** the tile image has not been loaded already
+
+- tileOffset - to be completed
+- tileDrawArgs - to be completed
+
+
+## Methods
+*/
 T5.ImageTileGrid = function(params) {
     params = T5.ex({
         emptyTile: getEmptyTile(T5.tileSize),
@@ -82,6 +109,9 @@ T5.ImageTileGrid = function(params) {
         
     // initialise self
     var self = T5.ex(new T5.TileGrid(params), {
+        /**
+        ### clearTileRect(context, x, y, tileSize, state)
+        */
         clearTileRect: function(context, x, y, tileSize, state) {
             // if the state is not the panning state, then clear the rect
             if ((state & statePan) === 0) {
@@ -89,6 +119,9 @@ T5.ImageTileGrid = function(params) {
             } // if..else
         },
         
+        /**
+        ### drawTile(context, tile, x, y, state, redraw, tickCount)
+        */
         drawTile: function(context, tile, x, y, state, redraw, tickCount) {
             var image = tile.url ? getImage(tile.url) : null,
                 drawn = false;
@@ -109,9 +142,15 @@ T5.ImageTileGrid = function(params) {
             return drawn;
         },
         
+        /**
+        ### initTileUrl(tile)
+        */
         initTileUrl: function(tile) {
         },
         
+        /**
+        ### prepTile: function(tile, state)
+        */
         prepTile: function(tile, state) {
             if (tile && (! tile.loading) && ((! fastDraw) || (state === stateActive))) {
                 if (! tile.url) {

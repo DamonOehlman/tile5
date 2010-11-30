@@ -1,22 +1,16 @@
 /**
-T5.Core
-=======
-
-The T5.Core module contains classes and functionality that support basic drawing 
+# T5
+The T5 core module contains classes and functionality that support basic drawing 
 operations and math that are used in managing and drawing the graphical and tiling interfaces 
 that are provided in the Tile5 library.
 
-Classes
--------
-
+## Classes
 - T5.Vector
 - T5.Dimensions
 - T5.Rect
 
 
-Submodules
-----------
-
+## Submodules
 - T5.Settings
 - T5.V
 - T5.D
@@ -25,12 +19,12 @@ Submodules
 T5 = (function() {
     /**
     # T5.Vector
-
     A vector is used to encapsulate X and Y coordinates for a point, and rather than 
     bundle it with methods it has been kept to just core data to ensure it has a 
     lightweight memory footprint.
 
-
+    ## Constructor
+    `T5.Vector(x, y)`
     */
     var Vector = function(initX, initY) {
         return {
@@ -41,12 +35,10 @@ T5 = (function() {
     
     /**
     # T5.V
-
     This module defines functions that are used to maintain T5.Vector objects and this
     is removed from the actual Vector class to keep the Vector object lightweight.
 
     ## Functions
-
     */
     var vectorTools = (function() {
         function edges(vectors, count) {
@@ -86,13 +78,16 @@ T5 = (function() {
         return {
             VECTOR_SIMPLIFICATION: 4,
             
+            /**
+            ### create(x, y)
+            Create a new vector with the specified `x` and `y` value
+            */
             create: function(x, y) {
                 return new Vector(x, y);
             },
             
             /**
-            - `add(v*)`
-            
+            ### add(v*)
             Return a new T5.Vector that is the total sum value of all the 
             vectors passed to the function.
             */
@@ -106,13 +101,15 @@ T5 = (function() {
                 return fnresult;
             },
             
+            /**
+            ### absSize(vector)
+            */
             absSize: function(vector) {
                 return Math.max(Math.abs(vector.x), Math.abs(vector.y));
             },
             
             /**
-            - `diff(v1, v2)`
-            
+            ### diff(v1, v2)
             Return a new T5.Vector that contains the result of v1 - v2.
             */
             diff: function(v1, v2) {
@@ -120,8 +117,7 @@ T5 = (function() {
             },
             
             /**
-            - `copy(src)`
-            
+            ### copy(src)
             Return a new T5.Vector copy of the vector passed to the function 
             */
             copy: function(src) {
@@ -129,8 +125,7 @@ T5 = (function() {
             },
             
             /**
-            - `invert(v)`
-            
+            ### invert(v)
             Return a new T5.Vector that contains the inverted values of the 
             vector passed to the function
             */
@@ -139,8 +134,7 @@ T5 = (function() {
             },
             
             /**
-            - `offset(vector, offsetX, offsetY)`
-            
+            ### offset(vector, offsetX, offsetY)
             Return a new T5.Vector that is offset by the specified x and y offset
             */
             offset: function(vector, offsetX, offsetY) {
@@ -152,8 +146,7 @@ T5 = (function() {
             edges: edges,
             
             /**
-            - `distance(v*)`
-            
+            ### distance(v*)
             Return the total euclidean distance between all the points of the
             vectors supplied to the function
             */
@@ -162,8 +155,7 @@ T5 = (function() {
             },
             
             /**
-            - `simplify(v*, generalization)`
-            
+            ### simplify(v*, generalization)
             This function is used to simplify a vector array by removing what would be considered
             'redundant' vector positions by elimitating at a similar position (based on the supplied
             generalization factor)
@@ -198,8 +190,7 @@ T5 = (function() {
             },
             
             /**
-            - `theta (v1, v2, distance)`
-            
+            ### theta (v1, v2, distance)
             */
             theta: function(v1, v2, distance) {
                 var theta = Math.asin((v1.y - v2.y) / distance);
@@ -208,8 +199,7 @@ T5 = (function() {
             
             
             /**
-            - `pointOnEdge(v1, v2, theta, delta)`
-            
+            ### pointOnEdge(v1, v2, theta, delta)
             */
             pointOnEdge: function(v1, v2, theta, delta) {
                 var xyDelta = new Vector(
@@ -222,8 +212,9 @@ T5 = (function() {
             },
             
             /**
-            - `getRect(v*)`
-            
+            ### getRect(v*)
+            Get a T5.Rect that is large enough to contain the vectors passed
+            to the function.
             */
             getRect: function(vectorArray) {
                 var arrayLen = vectorArray.length;
@@ -246,8 +237,8 @@ T5 = (function() {
             },
             
             /**
-            - `toString(vector)`
-            
+            ### toString(vector)
+            Return the string representation of the vector
             */
             toString: function(vector) {
                 return vector.x + ', ' + vector.y;
@@ -261,7 +252,6 @@ T5 = (function() {
     A class used to store details pertaining to a rectangular region.
     
     ## Constructor
-    
     `new T5.Rect(x, y, width, height)`
     
     ## Properties
@@ -270,8 +260,8 @@ T5 = (function() {
     - dimensions - the width and height of the rectangle
     - invalid - used to indicate that the rect dimensions are irrelevant
     
-    ## Notes
     
+    ## Notes
     The invalid property was added and is used for assisting with managing
     the clip rect that will be drawn in a View.  If marked invalid then
     detailed checking of the draw area is skipped, and no clip() will be
@@ -287,10 +277,16 @@ T5 = (function() {
     
     /**
     # T5.R
+    A module of utility functions for working with T5.Rect objects.
     
+    ## Functions
     */
     var rectTools = (function() {
         var subModule = {
+            /**
+            ## bottomRight(src)
+            Get the a T5.Vector for the bottom right position of the rect
+            */
             bottomRight: function(src) {
                 return vectorTools.offset(
                             src.origin, 
@@ -298,10 +294,18 @@ T5 = (function() {
                             src.dimensions.height);
             },
 
+            /**
+            ### empty()
+            Return a new empty T5.Rect
+            */
             empty: function() {
                 return new Rect(0, 0, 0, 0);
             },
             
+            /**
+            ### copy(src)
+            Return a new T5.Rect that is a copy of the specified `src` 
+            */
             copy: function(src) {
                 return src ? 
                     new Rect(
@@ -312,19 +316,26 @@ T5 = (function() {
                     null;
             },
             
+            /**
+            ### getCenter(rect)
+            Return the a T5.Vector for the center of the specified `rect`
+            */
             getCenter: function(rect) {
                 return new Vector(
                             rect.origin.x + (rect.dimensions.width / 2), 
                             rect.origin.y + (rect.dimensions.height / 2));
             },
             
+            /**
+            ### isEmpty(rect)
+            Return true if the `rect` has 0 width or 0 height.
+            */
             isEmpty: function(rect) {
                 return rect.dimensions.width === 0 || rect.dimensions.height === 0;
             },
             
             /**
-            - `union(dst, src)`
-            
+            ### union(dst, src)
             This function takes the Rect values passed to the function and determines
             the required rect to contain all of those values. This origin and dimensions
             of this resulting Rect are then used to replace the first Rect passed to 
@@ -376,21 +387,35 @@ T5 = (function() {
     
     /** 
     # T5.D
+    A module of utility functions for working with T5.Dimension objects
     
+    ## Functions
     */
     var dimensionTools = (function() {
         var subModule = {
+            /**
+            ### getAspectRatio(dimensions)
+            Return the aspect ratio for the `dimensions` (width / height)
+            */
             getAspectRatio: function(dimensions) {
                 return dimensions.height !== 0 ? 
                     dimensions.width / dimensions.height : 1;
             },
 
+            /**
+            ### getCenter(dimensions)
+            Get the a T5.Vector for the center of the `dimensions` (width / 2, height  / 2)
+            */
             getCenter: function(dimensions) {
                 return new Vector(
                             dimensions.width / 2, 
                             dimensions.height / 2);
             },
             
+            /**
+            ### getSize(dimensions)
+            Get the size for the diagonal for the `dimensions`
+            */
             getSize: function(dimensions) {
                 return Math.sqrt(Math.pow(dimensions.width, 2) + 
                         Math.pow(dimensions.height, 2));
