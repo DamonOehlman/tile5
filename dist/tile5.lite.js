@@ -6213,7 +6213,7 @@ T5.ImageMarker = function(params) {
             }
             else {
                 // draw the image
-                context.drawImage(image, drawX, drawY, drawHeight, drawHeight);
+                context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
             } // if..else
         } // if
     } // drawImage
