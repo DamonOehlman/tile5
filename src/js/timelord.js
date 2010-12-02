@@ -1,5 +1,5 @@
 /**
-# Module: T5.TimeLord
+# T5.TimeLord
 
 Time utilities for T5, will probably be moved out to it's own library as it really
 doesn't fit here...
@@ -23,8 +23,7 @@ T5.TimeLord = (function() {
         };
         
     /**
-    - `increase(duration*)`
-    
+    ### increase(duration*)
     This function is used to return a new duration that is the sum of the duration
     values passed to the function.
     */
@@ -47,12 +46,12 @@ T5.TimeLord = (function() {
     } // increaseDuration
     
     /**
-    - `formatDuration(duration)`
+    ### formatDuration(duration)
     
     This function is used to format the specified duration as a string value
     
-    ### TODO
-    - Add formatting options and i18n support
+    #### TODO
+    Add formatting options and i18n support
     */
     function formatDuration(duration) {
         // TODO: Im sure this can be implemented better....

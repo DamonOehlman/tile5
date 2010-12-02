@@ -55,13 +55,15 @@ T5.MarkerLayer = function(params) {
             grid.syncVectors([markers[ii].xy]);
         } // for
     } // handleGridUpdate
-        
+    
     function handleTap(evt, absXY, relXY, gridXY) {
-        var tappedMarkers = [];
+        var tappedMarkers = [],
+            gridX = gridXY.x,
+            gridY = gridXY.y;
         
         // iterate through the markers and look for matches
         for (var ii = markers.length; ii--; ) {
-            if (markers[ii].hitTest(gridXY)) {
+            if (markers[ii].hitTest(gridX, gridY)) {
                 tappedMarkers[tappedMarkers.length] = markers[ii];
             } // if
         } // for
@@ -75,24 +77,26 @@ T5.MarkerLayer = function(params) {
     } // handleTap
     
     /* internal functions */
-
+    
     /*
     This function is used to provide updates when the markers have changed. This 
     involves informing other waking the parent view and having a redraw occur and 
     additionally, firing the markers changed event
     */
     function markerUpdate() {
+        // wake and invalidate the parent
+        self.changed();
+        
+        // trigger the markers changed event
+        self.trigger('markerUpdate', markers);
+    } // markerUpdate
+    
+    function resyncMarkers() {
         var grid = self.getParent().getTileLayer();
         if (grid) {
             handleGridUpdate(null, grid);
         } // if
-        
-        // trigger the markers changed event
-        self.trigger('markerUpdate', markers);
-        
-        // wake and invalidate the parent
-        self.changed();
-    } // markerUpdate
+    } // resyncMarkers
     
     /* exports */
     
@@ -215,6 +219,7 @@ T5.MarkerLayer = function(params) {
     // handle tap events
     self.bind('tap', handleTap);
     self.bind('gridUpdate', handleGridUpdate);
+    self.bind('changed', resyncMarkers);
     
     return self;
 };

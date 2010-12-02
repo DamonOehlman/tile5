@@ -2403,24 +2403,18 @@ http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-l
 })();
 /* GRUNTJS END */
 /**
-T5.Core
-=======
-
-The T5.Core module contains classes and functionality that support basic drawing 
+# T5
+The T5 core module contains classes and functionality that support basic drawing 
 operations and math that are used in managing and drawing the graphical and tiling interfaces 
 that are provided in the Tile5 library.
 
-Classes
--------
-
+## Classes
 - T5.Vector
 - T5.Dimensions
 - T5.Rect
 
 
-Submodules
-----------
-
+## Submodules
 - T5.Settings
 - T5.V
 - T5.D
@@ -2429,12 +2423,12 @@ Submodules
 T5 = (function() {
     /**
     # T5.Vector
-
     A vector is used to encapsulate X and Y coordinates for a point, and rather than 
     bundle it with methods it has been kept to just core data to ensure it has a 
     lightweight memory footprint.
 
-
+    ## Constructor
+    `T5.Vector(x, y)`
     */
     var Vector = function(initX, initY) {
         return {
@@ -2445,12 +2439,10 @@ T5 = (function() {
     
     /**
     # T5.V
-
     This module defines functions that are used to maintain T5.Vector objects and this
     is removed from the actual Vector class to keep the Vector object lightweight.
 
     ## Functions
-
     */
     var vectorTools = (function() {
         function edges(vectors, count) {
@@ -2490,13 +2482,16 @@ T5 = (function() {
         return {
             VECTOR_SIMPLIFICATION: 4,
             
+            /**
+            ### create(x, y)
+            Create a new vector with the specified `x` and `y` value
+            */
             create: function(x, y) {
                 return new Vector(x, y);
             },
             
             /**
-            - `add(v*)`
-            
+            ### add(v*)
             Return a new T5.Vector that is the total sum value of all the 
             vectors passed to the function.
             */
@@ -2510,13 +2505,15 @@ T5 = (function() {
                 return fnresult;
             },
             
+            /**
+            ### absSize(vector)
+            */
             absSize: function(vector) {
                 return Math.max(Math.abs(vector.x), Math.abs(vector.y));
             },
             
             /**
-            - `diff(v1, v2)`
-            
+            ### diff(v1, v2)
             Return a new T5.Vector that contains the result of v1 - v2.
             */
             diff: function(v1, v2) {
@@ -2524,8 +2521,7 @@ T5 = (function() {
             },
             
             /**
-            - `copy(src)`
-            
+            ### copy(src)
             Return a new T5.Vector copy of the vector passed to the function 
             */
             copy: function(src) {
@@ -2533,8 +2529,7 @@ T5 = (function() {
             },
             
             /**
-            - `invert(v)`
-            
+            ### invert(v)
             Return a new T5.Vector that contains the inverted values of the 
             vector passed to the function
             */
@@ -2543,8 +2538,7 @@ T5 = (function() {
             },
             
             /**
-            - `offset(vector, offsetX, offsetY)`
-            
+            ### offset(vector, offsetX, offsetY)
             Return a new T5.Vector that is offset by the specified x and y offset
             */
             offset: function(vector, offsetX, offsetY) {
@@ -2556,8 +2550,7 @@ T5 = (function() {
             edges: edges,
             
             /**
-            - `distance(v*)`
-            
+            ### distance(v*)
             Return the total euclidean distance between all the points of the
             vectors supplied to the function
             */
@@ -2566,8 +2559,7 @@ T5 = (function() {
             },
             
             /**
-            - `simplify(v*, generalization)`
-            
+            ### simplify(v*, generalization)
             This function is used to simplify a vector array by removing what would be considered
             'redundant' vector positions by elimitating at a similar position (based on the supplied
             generalization factor)
@@ -2602,8 +2594,7 @@ T5 = (function() {
             },
             
             /**
-            - `theta (v1, v2, distance)`
-            
+            ### theta (v1, v2, distance)
             */
             theta: function(v1, v2, distance) {
                 var theta = Math.asin((v1.y - v2.y) / distance);
@@ -2612,8 +2603,7 @@ T5 = (function() {
             
             
             /**
-            - `pointOnEdge(v1, v2, theta, delta)`
-            
+            ### pointOnEdge(v1, v2, theta, delta)
             */
             pointOnEdge: function(v1, v2, theta, delta) {
                 var xyDelta = new Vector(
@@ -2626,8 +2616,9 @@ T5 = (function() {
             },
             
             /**
-            - `getRect(v*)`
-            
+            ### getRect(v*)
+            Get a T5.Rect that is large enough to contain the vectors passed
+            to the function.
             */
             getRect: function(vectorArray) {
                 var arrayLen = vectorArray.length;
@@ -2650,8 +2641,8 @@ T5 = (function() {
             },
             
             /**
-            - `toString(vector)`
-            
+            ### toString(vector)
+            Return the string representation of the vector
             */
             toString: function(vector) {
                 return vector.x + ', ' + vector.y;
@@ -2665,7 +2656,6 @@ T5 = (function() {
     A class used to store details pertaining to a rectangular region.
     
     ## Constructor
-    
     `new T5.Rect(x, y, width, height)`
     
     ## Properties
@@ -2674,8 +2664,8 @@ T5 = (function() {
     - dimensions - the width and height of the rectangle
     - invalid - used to indicate that the rect dimensions are irrelevant
     
-    ## Notes
     
+    ## Notes
     The invalid property was added and is used for assisting with managing
     the clip rect that will be drawn in a View.  If marked invalid then
     detailed checking of the draw area is skipped, and no clip() will be
@@ -2691,10 +2681,16 @@ T5 = (function() {
     
     /**
     # T5.R
+    A module of utility functions for working with T5.Rect objects.
     
+    ## Functions
     */
     var rectTools = (function() {
         var subModule = {
+            /**
+            ## bottomRight(src)
+            Get the a T5.Vector for the bottom right position of the rect
+            */
             bottomRight: function(src) {
                 return vectorTools.offset(
                             src.origin, 
@@ -2702,10 +2698,18 @@ T5 = (function() {
                             src.dimensions.height);
             },
 
+            /**
+            ### empty()
+            Return a new empty T5.Rect
+            */
             empty: function() {
                 return new Rect(0, 0, 0, 0);
             },
             
+            /**
+            ### copy(src)
+            Return a new T5.Rect that is a copy of the specified `src` 
+            */
             copy: function(src) {
                 return src ? 
                     new Rect(
@@ -2716,19 +2720,26 @@ T5 = (function() {
                     null;
             },
             
+            /**
+            ### getCenter(rect)
+            Return the a T5.Vector for the center of the specified `rect`
+            */
             getCenter: function(rect) {
                 return new Vector(
                             rect.origin.x + (rect.dimensions.width / 2), 
                             rect.origin.y + (rect.dimensions.height / 2));
             },
             
+            /**
+            ### isEmpty(rect)
+            Return true if the `rect` has 0 width or 0 height.
+            */
             isEmpty: function(rect) {
                 return rect.dimensions.width === 0 || rect.dimensions.height === 0;
             },
             
             /**
-            - `union(dst, src)`
-            
+            ### union(dst, src)
             This function takes the Rect values passed to the function and determines
             the required rect to contain all of those values. This origin and dimensions
             of this resulting Rect are then used to replace the first Rect passed to 
@@ -2780,21 +2791,35 @@ T5 = (function() {
     
     /** 
     # T5.D
+    A module of utility functions for working with T5.Dimension objects
     
+    ## Functions
     */
     var dimensionTools = (function() {
         var subModule = {
+            /**
+            ### getAspectRatio(dimensions)
+            Return the aspect ratio for the `dimensions` (width / height)
+            */
             getAspectRatio: function(dimensions) {
                 return dimensions.height !== 0 ? 
                     dimensions.width / dimensions.height : 1;
             },
 
+            /**
+            ### getCenter(dimensions)
+            Get the a T5.Vector for the center of the `dimensions` (width / 2, height  / 2)
+            */
             getCenter: function(dimensions) {
                 return new Vector(
                             dimensions.width / 2, 
                             dimensions.height / 2);
             },
             
+            /**
+            ### getSize(dimensions)
+            Get the size for the diagonal for the `dimensions`
+            */
             getSize: function(dimensions) {
                 return Math.sqrt(Math.pow(dimensions.width, 2) + 
                         Math.pow(dimensions.height, 2));
@@ -3542,7 +3567,7 @@ T5.Images = (function() {
     return module;
 })();
 /**
-# Module: T5.TimeLord
+# T5.TimeLord
 
 Time utilities for T5, will probably be moved out to it's own library as it really
 doesn't fit here...
@@ -3566,8 +3591,7 @@ T5.TimeLord = (function() {
         };
         
     /**
-    - `increase(duration*)`
-    
+    ### increase(duration*)
     This function is used to return a new duration that is the sum of the duration
     values passed to the function.
     */
@@ -3590,12 +3614,12 @@ T5.TimeLord = (function() {
     } // increaseDuration
     
     /**
-    - `formatDuration(duration)`
+    ### formatDuration(duration)
     
     This function is used to format the specified duration as a string value
     
-    ### TODO
-    - Add formatting options and i18n support
+    #### TODO
+    Add formatting options and i18n support
     */
     function formatDuration(duration) {
         // TODO: Im sure this can be implemented better....
@@ -4098,6 +4122,40 @@ T5.Tween = function(params) {
         FREEZE: 128
     };
     
+    /**
+    # T5.viewState
+    The T5.viewState function is used to return the value of the view state requested of the function.  The
+    function supports a request for multiple different states and in those cases, returns a bitwise-or of the 
+    states.
+    
+    ## View State Bitwise Values
+    
+    - NONE = 0
+    - ACTIVE = 1
+    - _UNUSED_ = 2
+    - ANIMATING = 4
+    - PAN = 8
+    - PINCH = 16
+    - _UNUSED_ = 32
+    - _UNUSED_ = 64
+    - FREEZE = 128
+    
+    
+    ## Example Usage
+    ~ // get the active state
+    ~ var stateActive = T5.viewState('active');
+    ~ 
+    ~ // get the bitmask for a view state of active or panning
+    ~ var stateActivePan = T5.viewState('active', 'pan');
+    ~
+    ~ // add the animating state to the stateActivePan variable
+    ~ stateActivePan = stateActivePan | T5.viewState('animating');
+    
+    ~ // now test whether the updated state is still considered activate
+    ~ if ((stateActive & stateActivePan) !== 0) {
+    ~     // yep, we are active
+    ~ } // if 
+    */
     T5.viewState = function() {
         var result = 0;
         
@@ -4112,13 +4170,16 @@ T5.Tween = function(params) {
     }; // T5.viewState
 })();
 /**
-# ViewLayer
+# T5.ViewLayer
 
 In and of itself, a View does nothing.  Not without a 
 ViewLayer at least.  A view is made up of one or more of these 
 layers and they are drawn in order of *zindex*.
 
-## Constructor Parameters
+## Constructor
+`T5.ViewLayer(params)`
+
+### Initialization Parameters
 
 - `id` - the id that has been assigned to the layer, this value
 can be used when later accessing the layer from a View.
@@ -4133,8 +4194,29 @@ so it's important when defining new layer classes to set this parameter to true 
 want the layer visible during these operations.  Be aware though that layers that require 
 some time to render will impact performance on slower devices.
 
-- `validStates` - the a bitmask of DisplayState that the layer will be drawn
-for
+- `validStates` - the a bitmask of DisplayState that the layer will be drawn for
+
+
+## Events
+
+### changed
+This event is fired in response to the `changed` method being called.  This method is
+called primarily when you have made modifications to the layer in code and need to 
+flag to the containing T5.View that an redraw is required.  Any objects that need to 
+perform updates in response to this layer changing (including overriden implementations)
+can do this by binding to the change method
+
+~ layer.bind('change', function(evt, layer) {
+~   // do your updates here...
+~ });
+
+### parentChange
+This event is fired with the parent of the layer has been changed
+
+<pre>
+layer.bind('parentChange', function(evt, parent) {
+);
+</pre>
 
 ## Methods
 
@@ -4160,15 +4242,15 @@ T5.ViewLayer = function(params) {
     
     var self = T5.ex({
         /**
-        - `addToView(view)`
-        
+        ### addToView(view)
+        Used to add the layer to a view.  This simply calls T5.View.setLayer
         */
         addToView: function(view) {
             view.setLayer(id, self);
         },
         
         /**
-        - `shouldDraw(displayState)`
+        ### shouldDraw(displayState)
         
         Called by a View that contains the layer to determine 
         whether or not the layer should be drawn for the current display state.  
@@ -4187,7 +4269,7 @@ T5.ViewLayer = function(params) {
         },
         
         /**
-        - `cycle(tickCount, offset, state, redraw)`
+        ### cycle(tickCount, offset, state, redraw)
         
         Called in the View method of the same name, each layer has an opportunity 
         to update itself in the current animation cycle before it is drawn.
@@ -4196,7 +4278,7 @@ T5.ViewLayer = function(params) {
         },
         
         /**
-        - `draw(context, offset, dimensions, state, view)`
+        ### draw(context, offset, dimensions, state, view)
         
         The business end of layer drawing.  This method is called when a layer needs to be 
         drawn and the following parameters are passed to the method:
@@ -4213,7 +4295,7 @@ T5.ViewLayer = function(params) {
         },
         
         /**
-        - `remove()`
+        ### remove()
         
         The remove method enables a view to flag that it is ready or should be removed
         from any views that it is contained in.  This was introduced specifically for
@@ -4224,7 +4306,7 @@ T5.ViewLayer = function(params) {
         },
         
         /**
-        - `changed()`
+        ### changed()
         
         The changed method is used to flag the layer has been modified and will require 
         a redraw
@@ -4233,6 +4315,7 @@ T5.ViewLayer = function(params) {
         changed: function() {
             // flag as changed
             changed = true;
+            self.trigger('changed', self);
             
             // invalidate the parent
             if (parent) {
@@ -4241,7 +4324,7 @@ T5.ViewLayer = function(params) {
         },
         
         /**
-        - `getId()`
+        ### getId()
         
         */
         getId: function() {
@@ -4249,7 +4332,7 @@ T5.ViewLayer = function(params) {
         },
         
         /**
-        - `setId(string)`
+        ### setId(string)
         
         */
         setId: function(value) {
@@ -4257,7 +4340,7 @@ T5.ViewLayer = function(params) {
         },
 
         /**
-        - `getParent()`
+        ### getParent()
         
         */
         getParent: function() {
@@ -4265,7 +4348,7 @@ T5.ViewLayer = function(params) {
         },
         
         /**
-        - `setParent(view: View)
+        ### setParent(view: View)
         
         */
         setParent: function(view) {
@@ -4295,9 +4378,7 @@ T5.ViewLayer = function(params) {
     return self;
 }; // T5.ViewLayer
 /**
-View
-====
-
+# T5.View
 The View is the fundamental building block for tiling and 
 mapping interface.  Which this class does not implement any of 
 the logic required for tiling, it does handle the redraw logic.  
@@ -4308,34 +4389,84 @@ Additionally, it is worth being familiar with the core methods that
 are implemented here around the layering as these are used extensively 
 when creating overlays and the like for the map implementations.
 
-## Constructor Parameters (Required)
+## Constructor
+`T5.View(params)`
 
-- `container` 
+### Initialization Parameters
 
-## Constructor Parameters (Optional)
-
+- `container` (required)
 - `id`
-
 - `autoSize`
-
 - `fastDraw`
-
 - `intertia`
-
 - `pannable`
-
 - `scalable`
-
 - `panAnimationEasing`
-
 - `panAnimationDuration`
-
 - `pinchZoomAnimateTrigger`
-
 - `adjustScaleFactor`
 
-## Methods
 
+## Events
+
+### scale
+This event is fired when the view has been scaled.
+<pre>
+view.bind('scale', function(scaleFactor, scaleXY) {
+});
+</pre>
+
+- scaleFactor (Float) - the amount the view has been scaled by.
+When the view is being scaled down this will be a value less than
+1 and when it is being scaled up it will be greater than 1.
+- scaleXY (T5.Vector) - the relative position on the view where
+the scaling operation is centered.
+
+
+### tap
+This event is fired when the view has been tapped (or the left
+mouse button has been pressed)
+<pre>
+view.bind('tap', function(absXY, relXY, gridXY) {
+});
+</pre>
+
+- absXY (T5.Vector) - the absolute position of the tap
+- relXY (T5.Vector) - the position of the tap relative to the top left
+position of the view.
+- gridXY (T5.Vector) - the xy coordinates of the tap relative to the
+scrolling grid offset.
+
+
+### resize
+This event is fired when the view has been resized (either manually or
+automatically).
+<pre>
+view.bind('resize', function(width, height) {
+
+});
+</pre>
+
+### idle
+This event is fired once the view has gone into an idle state (once draw
+operations haven't been required for 500ms).
+<pre>
+view.bind('idle', function() {
+});
+</pre>
+
+### drawComplete
+Triggered when drawing the view has been completed (who would have thought).
+<pre>
+view.bind('drawComplete', function(offset, tickCount) {
+});
+</pre>
+
+- offset (T5.Vector) - the view offset that was used for the draw operation
+- tickCount - the tick count at the start of the draw operation.
+
+
+## Methods
 */
 T5.View = function(params) {
     // initialise defaults
@@ -4833,6 +4964,8 @@ T5.View = function(params) {
             context.restore();
         } // try..finally
         
+        // trigger the draw complete for the view
+        self.trigger('drawComplete', offset, tickCount);
         COG.Log.trace("draw complete", tickCount);
     } // drawView
     
@@ -4933,8 +5066,11 @@ T5.View = function(params) {
         id: params.id,
         deviceScaling: deviceScaling,
         fastDraw: params.fastDraw || T5.getConfig().requireFastDraw,
-        
-        // TODO: change name to be scaling related
+
+        /**
+        ### animate(targetScaleFactor, startXY, targetXY, tweenFn, callback)
+        Performs an animated zoom on the T5.View.
+        */
         animate: function(targetScaleFactor, startXY, targetXY, tweenFn, callback) {
             animateZoom(
                 scaleFactor, 
@@ -4946,8 +5082,7 @@ T5.View = function(params) {
         },
         
         /**
-        - `centerOn(offset: Vector)`
-        
+        ### centerOn(offset: Vector)
         Move the center of the view to the specified offset
         */
         centerOn: function(offset) {
@@ -4956,8 +5091,7 @@ T5.View = function(params) {
         },
 
         /**
-        - `getDimensions()`
-        
+        ### getDimensions()
         Return the Dimensions of the View
         */
         getDimensions: function() {
@@ -4965,8 +5099,7 @@ T5.View = function(params) {
         },
         
         /**
-        - `getZoomCenter()`
-        
+        ### getZoomCenter()
         */
         getZoomCenter: function() {
             return zoomCenter;
@@ -4975,8 +5108,7 @@ T5.View = function(params) {
         /* layer getter and setters */
         
         /**
-        - `getLayer(id: String)`
-        
+        ### getLayer(id: String)
         Get the ViewLayer with the specified id, return null if not found
         */
         getLayer: function(id) {
@@ -4991,8 +5123,7 @@ T5.View = function(params) {
         },
         
         /**
-        - `setLayer(id: String, value: ViewLayer)`
-        
+        ### setLayer(id: String, value: T5.ViewLayer)
         Either add or update the specified view layer
         */
         setLayer: function(id, value) {
@@ -5012,8 +5143,7 @@ T5.View = function(params) {
         },
         
         /**
-        - `eachLayer(callback: Function)`
-        
+        ### eachLayer(callback: Function)
         Iterate through each of the ViewLayers and pass each to the callback function 
         supplied.
         */
@@ -5025,8 +5155,8 @@ T5.View = function(params) {
         },
         
         /**
-        - `clearBackground()`
-        
+        ### clearBackground()
+        **deprecated**
         */
         clearBackground: function() {
             COG.Log.info('CALL OF DEPRECATED METHOD CLEAR BACKGROUND');
@@ -5035,19 +5165,25 @@ T5.View = function(params) {
             invalidate();
         },
         
+        /**
+        ### invalidate()
+        The `invalidate` method is used to inform the view that a full redraw
+        is required
+        */
         invalidate: invalidate,
         
         /**
-        - `freeze()`
-        
+        ### freeze()
+        Used to freeze the display (no updates are performed) until the view
+        is unfrozen using the `unfreeze` method.
         */
         freeze: function() {
             frozen = true;
         },
         
         /**
-        - `unfreeze()`
-        
+        ### unfreeze()
+        Renable updates to the display after a call to `freeze`
         */
         unfreeze: function() {
             frozen = false;
@@ -5055,19 +5191,29 @@ T5.View = function(params) {
             wake();
         },
         
+        /**
+        ### resize(width: Int, height: Int)
+        Perform a manual resize of the canvas associated with the view.  If the 
+        view was originally marked as `autosize` this will override that instruction.
+        */
         resize: function(width, height) {
             // if the canvas is assigned, then update the height and width and reattach
             if (canvas) {
+                // flag the canvas as not autosize
+                params.autoSize = false;
+                
+                // update the canvas width and height
                 canvas.width = width;
                 canvas.height = height;
-                
                 attachToCanvas();
+
+                // trigger the resize event for the view
+                self.trigger('resize', canvas.width, canvas.height);
             } // if
         },
         
         /**
-        - `scale(targetScaling, tweenFn, callback, startXY, targetXY)`
-        
+        ### scale(targetScaling, tweenFn, callback, startXY, targetXY)
         */
         scale: function(targetScaling, tweenFn, callback, startXY, targetXY) {
             // if the start XY is not defined, used the center
@@ -5091,9 +5237,8 @@ T5.View = function(params) {
         },
         
         /**
-        - `removeLayer(id: String)`
-        
-        Remove the ViewLayer specified by the id
+        ### removeLayer(id: String)
+        Remove the T5.ViewLayer specified by the id
         */
         removeLayer: function(id) {
             var layerIndex = getLayerIndex(id);
@@ -5111,9 +5256,8 @@ T5.View = function(params) {
         /* offset methods */
         
         /**
-        - `getOffset()`
-        
-        Return a Vector containing the current view offset
+        ### getOffset()
+        Return a T5.Vector containing the current view offset
         */
         getOffset: function() {
             // return the last calculated cycle offset
@@ -5121,14 +5265,12 @@ T5.View = function(params) {
         },
         
         /**
-        - `updateOffset(x, y, tweenFn, tweenDuration, callback)`
-        
+        ### updateOffset(x, y, tweenFn, tweenDuration, callback)
         */
         updateOffset: updateOffset,
         
         /**
-        - `zoom(targetXY, newScaleFactor, rescaleAfter)`
-        
+        ### zoom(targetXY, newScaleFactor, rescaleAfter)
         */
         zoom: function(targetXY, newScaleFactor, rescaleAfter) {
             panimating = false;
@@ -5218,11 +5360,11 @@ T5.View = function(params) {
 }; // T5.View
 
 /**
-# PathLayer
+# T5.PathLayer
+_extends:_ T5.ViewLayer
 
-## TODO
 
-Consider how to effectively convert this use a poly layer under the hood...
+The T5.PathLayer is used to display a single path on a T5.View
 */
 T5.PathLayer = function(params) {
     params = T5.ex({
@@ -5367,6 +5509,28 @@ T5.PathLayer = function(params) {
     
     return self;
 };
+/**
+# T5.Poly
+This class is used to represent individual poly(gon/line)s that are drawn within
+a T5.PolyLayer.  
+
+## Constructor
+
+`T5.Poly(vectors, params)`
+
+The constructor requires an array of vectors that represent the poly and 
+also accepts optional initialization parameters (see below).
+
+
+### Initialization Parameters
+
+- `fill` (default = true) - whether or not the poly should be filled.
+- `style` (default = null) - the style override for this poly.  If none
+is specified then the style of the T5.PolyLayer is used.
+
+
+## Methods
+*/
 T5.Poly = function(vectors, params) {
     params = T5.ex({
         fill: false,
@@ -5381,6 +5545,13 @@ T5.Poly = function(vectors, params) {
     
     /* exported functions */
     
+    /**
+    ### drawPoly(context, offsetX, offsetY, state)
+    This method is used to draw the poly to the specified `context`.  The 
+    `offsetX` and `offsetY` arguments specify the panning offset of the T5.View
+    which is taken into account when drawing the poly to the display.  The 
+    `state` argument specifies the current T5.ViewState of the view.
+    */
     function drawPoly(context, offsetX, offsetY, state) {
         if (haveData) {
             var first = true,
@@ -5416,6 +5587,10 @@ T5.Poly = function(vectors, params) {
         } // if
     } // drawPoly
     
+    /**
+    ### resync(grid)
+    Used to synchronize the vectors of the poly to the grid.
+    */
     function resyncToGrid(grid) {
         grid.syncVectors(vectors);
         
@@ -5437,11 +5612,15 @@ T5.Poly = function(vectors, params) {
 };
 
 /**
-# PolyLayer
+# T5.PolyLayer
+_extends:_ T5.ViewLayer
+
 
 The PolyLayer is designed to facilitate the storage and display of multiple 
-geometric shapes.  This is particularly useful for displaying GeoJSON data and 
-the like
+geometric shapes.  This is particularly useful for displaying [GeoJSON](http://geojson.org) 
+data and the like.
+
+## Methods
 */
 T5.PolyLayer = function(params) {
     params = T5.ex({
@@ -5479,6 +5658,10 @@ T5.PolyLayer = function(params) {
     /* initialise self */
     
     var self = T5.ex(new T5.ViewLayer(params), {
+        /**
+        ### add(poly)
+        Used to add a T5.Poly to the layer
+        */
         add: function(poly) {
             // children.push(poly);
             children.unshift(poly);
@@ -5523,6 +5706,51 @@ T5.PolyLayer = function(params) {
     return self;
 };
 
+/**
+# T5.AnimatedPathLayer
+_extends:_ T5.ViewLayer
+
+
+The AnimatedPathLayer is way cool :)  This layer allows you to supply an array of 
+screen / grid coordinates and have that animated using the functionality T5.Animation module. 
+Any type of T5.PathLayer can generate an animation.
+
+## Constructor
+`new T5.AnimatedPathLayer(params);`
+
+### Initialization Parameters
+
+- `path` (T5.Vector[], default = []) - An array of screen / grid coordinates that will 
+be used as anchor points in the animation.
+
+- `id` (String, default = 'pathAni%autoinc') - The id of of the animation layer.  The id will start with 
+pathAni1 and then automatically increment each time a new AnimatedPathLayer is created unless the id is 
+manually specified in the constructor parameters.
+
+- `easing` (easing function, default = T5.easing('sine.inout')) - the easing function to use for the animation
+
+- `drawIndicator` (callback, default = defaultDraw) - A callback function that is called every time the indicator for 
+the animation needs to be drawn.  If the parameter is not specified in the constructor the default callback 
+is used, which simply draws a small circle at the current position of the animation.
+
+- `duration` (int, default = 2000) - The animation duration.  See T5.Animation module information for more details.
+
+- `autoCenter` (boolean, default = false) - Whether or not the T5.View should be panned with the animation.
+
+
+## Draw Indicator Callback Function
+`function(context, offset, xy, theta)`
+
+
+The drawIndicator parameter in the constructor allows you to specify a particular callback function that is 
+used when drawing the indicator.  The function takes the following arguments:
+
+
+- `context` - the canvas context to draw to when drawing the indicator
+- `offset` - the current tiling offset to take into account when drawing
+- `xy` - the xy position where the indicator should be drawn (offset accounted for)
+- `theta` - the current angle (in radians) given the path positioning.
+*/
 T5.AnimatedPathLayer = function(params) {
     params = T5.ex({
         path: [],
@@ -5628,12 +5856,34 @@ T5.AnimatedPathLayer = function(params) {
     return self;
 }; // T5.AnimatedPathLayer
 /**
-# T5.Annotation
+# T5.Marker
+This is a generic marker that can be applied via a T5.MarkerLayer
+to any T5.View, but is commonly used in a T5.Map.  An marker is able to 
+be animated and examples of this can be seen in the [Tile5 Sandbox](http://sandbox.tile5.org)
+
+## Constructor
+`new T5.Marker(params);`
+
+### Initialization Parameters
+
+- `xy` (T5.Vector) - a vector that specifies the grid position of the marker. When
+working with Geo data, the T5.Geo.GeoVector provides a simple way to specify this
+position.
+
+- `tweenIn` (easing function, default = null) - the easing function that is used to 
+animate the entry of the annotation.  When not provided, the annotation is simply
+displayed statically.
+
+- `animationSpeed` (int, default = 0) - the speed that the annotation should be animated
+in at.  Used in combination with the `tweenIn` parameter.
+
+
+## Methods
 
 */
-T5.Annotation = function(params) {
+T5.Marker = function(params) {
     params = T5.ex({
-        xy: null,
+        xy: new T5.Vector(),
         tweenIn: null,
         animationSpeed: null
     }, params);
@@ -5644,16 +5894,24 @@ T5.Annotation = function(params) {
     var animating = false;
     
     var self = T5.ex(params, {
-        xy: params.xy,
         isNew: true,
         
+        /* 
+        ### isAnimating()
+        Return true if we are currently animating the marker, false otherwise
+        */
         isAnimating: function() {
             return animating;
         },
         
+        /**
+        ### draw(context, offset, state, overlay, view)
+        The draw method is called by the T5.ViewLayer that contains the annotation
+        and is used to draw the annotation to the specified context.  When creating
+        a custom marker, you should provide a custom implementation of the `drawMarker`
+        method rather than this method.
+        */
         draw: function(context, offset, state, overlay, view) {
-            if (! self.xy) { return; }
-            
             if (self.isNew && (params.tweenIn)) {
                 // get the end value and update the y value
                 var endValue = self.xy.y;
@@ -5682,10 +5940,8 @@ T5.Annotation = function(params) {
             self.drawMarker(
                 context, 
                 offset, 
-                new T5.Vector(
-                    self.xy.x - offset.x, 
-                    self.xy.y - offset.y
-                ), 
+                self.xy.x - offset.x, 
+                self.xy.y - offset.y,
                 state, 
                 overlay, 
                 view);
@@ -5693,11 +5949,18 @@ T5.Annotation = function(params) {
             self.isNew = false;
         },
         
-        drawMarker: function(context, offset, xy, state, overlay, view) {
+        /**
+        ### drawMarker(context, offset, x, y, state, overlay, view)
+        The `drawMarker` method is the place holder implementation for drawing
+        markers.  In the case of a T5.Annotation a simple circle is drawn, but
+        extensions of T5.Annotation would normally replace this implementation
+        with their own modified implementation (such as T5.ImageAnnotation does).
+        */
+        drawMarker: function(context, offset, x, y, state, overlay, view) {
             context.beginPath();
             context.arc(
-                xy.x, 
-                xy.y,
+                x, 
+                y,
                 MARKER_SIZE,
                 0,
                 Math.PI * 2,
@@ -5705,26 +5968,75 @@ T5.Annotation = function(params) {
             context.fill();
         },
         
-        hitTest: function(gridXY) {
-            return Math.abs(gridXY.x - self.xy.x) <= MARKER_SIZE && 
-                Math.abs(gridXY.y - self.xy.y) <= MARKER_SIZE;
+        /**
+        ### hitTest(gridX, gridY)
+        This method is used to determine if the marker is located  at the specified 
+        x and y position.
+        */
+        hitTest: function(gridX, gridY) {
+            return Math.abs(gridX - self.xy.x) <= MARKER_SIZE && 
+                Math.abs(gridY - self.xy.y) <= MARKER_SIZE;
         }
     }); // self
     
+    // make a marker capable of triggering events
+    COG.observable(self);
+    
     return self;
 };
-
 /**
-# T5.ImageAnnotation
+# T5.ImageMarker
+_extends:_ T5.Marker
 
+
+An image annotation is simply a T5.Annotation that has been extended to 
+display an image rather than a simple circle.  Probably the most common type
+of annotation used.  Supports using either the `image` or `imageUrl` parameters
+to use preloaded or an imageurl for displaying the annotation.
+
+## Constructor
+`new T5.ImageMarker(params);`
+
+### Initialization Parameters
+
+- `image` (HTMLImage, default = null) - one of either this or the `imageUrl` parameter
+is required and the specified image is used to display the annotation.
+
+- `imageUrl` (String, default = null) - one of either this of the `image` parameter is
+required.  If specified, the image is obtained using T5.Images module and then drawn
+to the canvas.
+
+- `animatingImage` (HTMLImage, default = null) - an optional image that can be supplied, 
+and if so, the specified image will be used when the annotation is animating rather than
+the standard `image`.  If no `animatingImage` (or `animatingImageUrl`) is specified then
+the standard image is used as a fallback when the marker is animating.
+
+- `animatingImageUrl` (String, default = null) - as per the `animatingImage` but a url 
+for an image that will be loaded via T5.Images
+
+- `imageAnchor` (T5.Vector, default = null) - a T5.Vector that optionally specifies the 
+anchor position for an annotation.  Consider that your annotation is "pin-like" then you
+would want to provide an anchor vector that specified the pixel position in the image 
+around the center and base of the image.  If not `imageAnchor` parameter is provided, then 
+the center of the image is assumed for the anchor position.
+
+- `rotation` (float, default = 0) - the value of the rotation for the image marker 
+(in radians).  Be aware that applying rotation to a marker does add an extra processing
+overhead as the canvas context needs to be saved and restored as part of the operation.
+
+
+## Methods
 */
-T5.ImageAnnotation = function(params) {
+T5.ImageMarker = function(params) {
     params = T5.ex({
         image: null,
         imageUrl: null,
         animatingImage: null,
         animatingImageUrl: null,
-        imageAnchor: null
+        imageAnchor: null,
+        rotation: 0,
+        scale: 1,
+        opacity: 1
     }, params);
     
     var imageOffset = params.imageAnchor ?
@@ -5747,7 +6059,9 @@ T5.ImageAnnotation = function(params) {
         } // if..else
     } // getImageUrl
     
-    function drawImage(context, offset, xy, state, overlay, view) {
+    /* exports */
+    
+    function drawMarker(context, offset, x, y, state, overlay, view) {
         // get the image
         var image = self.isAnimating() && animatingImage ? animatingImage : staticImage;
         if (image && image.complete && (image.width > 0)) {
@@ -5758,19 +6072,35 @@ T5.ImageAnnotation = function(params) {
                 );
             } // if
             
-            // determine the position to draw the image
-            var imageXY = T5.V.offset(
-                                xy,
-                                imageOffset.x,
-                                imageOffset.y);
-
-            // draw the image
-            context.drawImage(
-                image,
-                imageXY.x,
-                imageXY.y,
-                image.width,
-                image.height);
+            // COG.Log.info('drawing image @ x: ' + x + ', y: ' + y);
+            if (self.rotation || (self.scale !== 1) || (self.opacity !== 1)) {
+                context.save();
+                try {
+                    context.globalAlpha = self.opacity;
+                    context.translate(x, y);
+                    context.rotate(self.rotation);
+                
+                    // draw the image
+                    context.drawImage(
+                        image,
+                        imageOffset.x * self.scale,
+                        imageOffset.y * self.scale,
+                        image.width * self.scale,
+                        image.height * self.scale);
+                }
+                finally {
+                    context.restore();
+                } // try..finally
+            }
+            else {
+                // draw the image
+                context.drawImage(
+                    image,
+                    x + imageOffset.x,
+                    y + imageOffset.y,
+                    image.width,
+                    image.height);                
+            } // if..else
         } // if
     } // drawImage
     
@@ -5792,30 +6122,101 @@ T5.ImageAnnotation = function(params) {
         } // if
     } // if    
     
-    var self = T5.ex(new T5.Annotation(params), {
-        drawMarker: drawImage,
+    var self = T5.ex(new T5.Marker(params), {
+        /**
+        ### drawMarker(context, offset, xy, state, overlay, view)
+        An overriden implementation of the T5.Annotation.drawMarker which 
+        draws an image to the canvas.
+        */
+        drawMarker: drawMarker,
         
-        hitTest: function(gridXY) {
+        hitTest: function(gridX, gridY) {
             var markerX = self.xy.x,
                 markerY = self.xy.y;
                 
             // check for a hit test (image offsets are negative numbers)
-            return (gridXY.x >= markerX + imageOffset.x) && 
-                (gridXY.x <= markerX + (staticImage.width + imageOffset.x)) && 
-                (gridXY.y >= markerY + imageOffset.y) && 
-                (gridXY.y <= markerY + (staticImage.height + imageOffset.y));
+            return (gridX >= markerX + imageOffset.x) && 
+                (gridX <= markerX + (staticImage.width + imageOffset.x)) && 
+                (gridY >= markerY + imageOffset.y) && 
+                (gridY <= markerY + (staticImage.height + imageOffset.y));
         }
     });
     
     return self;
 };
+/** 
+# T5.Annotation
+__deprecated__
+
+
+The T5.Annotation has been replaced by the T5.Marker, however, the T5.Annotation
+has been maintained for backwards compatibility but will be removed before a 
+stable 1.0 release of Tile5.
+*/
+T5.Annotation = function(params) {
+    params = T5.ex({
+        xy: null
+    }, params);
+    
+    return new T5.Marker(params.xy, params);
+};
+
 /**
-# MarkerLayer
+# T5.ImageAnnotation
+__deprecated__
+
+
+The T5.ImageAnnotation has been replaced by the T5.ImageMarker, however, the T5.ImageAnnotation
+has been maintained for backwards compatibility but will be removed before a 
+stable 1.0 release of Tile5.
+*/
+T5.ImageAnnotation = function(params) {
+    params = T5.ex({
+        xy: null
+    }, params);
+    
+    return new T5.ImageMarker(params.xy, params);
+};
+/**
+# T5.MarkerLayer
+_extends:_ T5.ViewLayer
+
+
+The T5.MarkerLayer provides a T5.ViewLayer that can be used to display one
+or more T5.Annotation on a T5.View.  Most commonly used with a T5.Map (which 
+includes a marker layer by default).
 
 ## Events
 
-- `markerUpdate`
-- `markerTap`
+### markerUpdate
+This event is triggered when the markers have been updated (new markers added, 
+markers cleared, etc)
+
+<pre>
+layer.bind('markerUpdate', function(markers) {
+});
+</pre>
+
+- markers (T5.Annotation[]) - the markers in the marker layer after the update has 
+been completed
+
+
+### markerTap
+The markerTap event is triggered when markers have been tapped in the marker layer.
+The T5.MarkerLayer listens for `tap` events on itself and when triggered looks for
+any markers within a tapExtent and if found fires the markerTap event.
+
+<pre>
+layer.bind('markerTap', function(absXY, relXY, markers) {
+});
+</pre>
+
+- absXY (T5.Vector) - the absolute tap position (as per T5.ViewLayer)
+- relXY (T5.Vector) - the relative tap position (as per T5.ViewLayer)
+- markers (T5.Annotation[]) - an array of the markers that have been _hit_ in the last tap
+
+
+## Methods
 */
 T5.MarkerLayer = function(params) {
     params = T5.ex({
@@ -5833,13 +6234,15 @@ T5.MarkerLayer = function(params) {
             grid.syncVectors([markers[ii].xy]);
         } // for
     } // handleGridUpdate
-        
+    
     function handleTap(evt, absXY, relXY, gridXY) {
-        var tappedMarkers = [];
+        var tappedMarkers = [],
+            gridX = gridXY.x,
+            gridY = gridXY.y;
         
         // iterate through the markers and look for matches
         for (var ii = markers.length; ii--; ) {
-            if (markers[ii].hitTest(gridXY)) {
+            if (markers[ii].hitTest(gridX, gridY)) {
                 tappedMarkers[tappedMarkers.length] = markers[ii];
             } // if
         } // for
@@ -5853,27 +6256,48 @@ T5.MarkerLayer = function(params) {
     } // handleTap
     
     /* internal functions */
-
+    
     /*
     This function is used to provide updates when the markers have changed. This 
     involves informing other waking the parent view and having a redraw occur and 
     additionally, firing the markers changed event
     */
     function markerUpdate() {
+        // wake and invalidate the parent
+        self.changed();
+        
+        // trigger the markers changed event
+        self.trigger('markerUpdate', markers);
+    } // markerUpdate
+    
+    function resyncMarkers() {
         var grid = self.getParent().getTileLayer();
         if (grid) {
             handleGridUpdate(null, grid);
         } // if
-        
-        // trigger the markers changed event
-        self.trigger('markerUpdate', markers);
-        
-        // wake and invalidate the parent
-        self.changed();
-    } // markerUpdate
+    } // resyncMarkers
     
     /* exports */
     
+    /**
+    ### add(items)
+    The add method of the marker layer can accept either a single T5.Annotation to 
+    add to the layer or alternatively an array of annotations to add.
+    
+    #### Example Usage
+    ~ // adding a single marker 
+    ~ layer.add(new T5.Annotation({
+    ~     xy: T5.Geo.GeoVector(markerPos) // markerPos is a T5.Geo.Position
+    ~ }));
+    ~ 
+    ~ // adding multiple markers
+    ~ var markers = [];
+    ~ 
+    ~ // you would populate the markers array here...
+    ~ 
+    ~ // add the markers to the layer
+    ~ layer.add(markers);
+    */
     function add(newItems) {
         // if annotation is an array, then iterate through and add them
         if (newItems && (typeof newItems.length !== 'undefined')) {
@@ -5890,6 +6314,19 @@ T5.MarkerLayer = function(params) {
         markerUpdate();
     } // add
     
+    /**
+    ### clear(testCallback)
+    The clear method is used to clear markers from the marker layer.  The optional
+    `testCallback` argument can be specified to determine whether a marker should be 
+    removed or not.
+    
+    #### Example Usage
+    ~ layer.clear(function(marker) {
+    ~     // check an arbitrary property of the annotation
+    ~     // if Australia, then flag for removal
+    ~     return (marker.country === 'Australia');
+    ~ });
+    */
     function clear(testCallback) {
         // if we have a test callback, then iterate through the markers and 
         // only remove ones that match the requirements
@@ -5908,6 +6345,11 @@ T5.MarkerLayer = function(params) {
         markerUpdate();
     } // clear
     
+    /** 
+    ### find(testCallback)
+    Find markers that match the requirements of the test callback.  For an example
+    of test callback usage see the `clear` method.
+    */
     function find(testCallback) {
         var results = [];
         
@@ -5956,11 +6398,14 @@ T5.MarkerLayer = function(params) {
     // handle tap events
     self.bind('tap', handleTap);
     self.bind('gridUpdate', handleGridUpdate);
+    self.bind('changed', resyncMarkers);
     
     return self;
 };
 /**
-# Style
+# T5.Style
+The T5.Style class is used to define the various attributes that should
+be applied to a canvas context when the style is selected.
 
 */
 T5.Style = function(params) {
@@ -6039,6 +6484,9 @@ T5.Style = function(params) {
     
     /* define the apply style function */
 
+    /** 
+    # T5.applyStyle
+    */
     T5.applyStyle = function(context, styleId) {
         var style = T5.styles[styleId] ? T5.styles[styleId] : T5.styles.basic,
             previousStyle;
@@ -6056,12 +6504,18 @@ T5.Style = function(params) {
         return previousStyle;
     };
 
+    /**
+    # T5.loadStyles
+    */
     T5.loadStyles = function(path, callback) {
         COG.jsonp(path, function(data) {
             T5.resetStyles(data);
         });
     };
 
+    /**
+    # T5.resetStyles
+    */
     T5.resetStyles = function(data) {
         // initialise variables 
         // NOTE: I'm not calling this a stylesheet on purpose
@@ -6085,6 +6539,37 @@ T5.Style = function(params) {
     // set the default tile size to 256 pixels
     T5.tileSize = 256;
     
+    /**
+    # T5.Tile
+    A very simple lightweight class that stores information relevant to a tile.
+    
+    ## Constructor 
+    ` new T5.Tile(params);`
+    
+    ### Initialization Parameters
+    
+    - x (default: 0) - the current x screen coordinate of the tile
+    - y (default: 0) - the current y screen coordinate of the tile
+    - gridX (default: 0) - 
+    - gridY (default: 0)
+    - size (default: 256) - the size of the tile
+    
+    
+    ## Properties
+    Initialization parameters mapped directly to properties
+    
+    ## Usage
+    A new tile is created using the following code:
+
+    ~ var tile = new T5.Tile();
+
+    or with specific initial property values:
+    ~ var tile = new T5.Tile({
+    ~     x: 10,
+    ~     y: 10,
+    ~     size: 128
+    ~ });
+    */    
     T5.Tile = function(params) {
         params = T5.ex({
             x: 0,
@@ -6104,6 +6589,27 @@ T5.Style = function(params) {
         return self;
     }; // T5.EmptyTile
     
+    /**
+    # T5.ImageTile
+    _extends:_ T5.Tile
+    
+    
+    The ImageTile adds some additional properties to the base so that a T5.ImageTileGrid knows where 
+    to load the tile from.
+    
+    ## Constructor 
+    `new T5.ImageTile(params);`
+    
+    ### Initialization Parameters
+    
+    - url (string) - the url of the image to load into the tile
+    
+
+    ## Example Usage
+    ~ new T5.Tiling.ImageTile({
+    ~     url: "http://testurl.com/exampleimage.png"
+    ~ });
+    */
     T5.ImageTile = function(params) {
         // initialise parameters with defaults
         params = T5.ex({
@@ -6115,7 +6621,52 @@ T5.Style = function(params) {
         
         return new T5.Tile(params);
     }; // T5.ImageTile
-})();T5.TileGrid = function(params) {
+})();/**
+# T5.TileGrid 
+_extends_: T5.ViewLayer
+
+
+The TileGrid implements functionality required to manage a virtual 
+grid of tiles and draw them to the parent T5.View canvas.
+
+## Constructor
+`new T5.TileGrid(params);`
+
+### Initialization Parameters
+
+- tileSize (int, default = T5.tileSize) - the size of the tiles that will be loaded
+into grid
+
+- center (T5.Vector, default = empty)
+
+- gridSize (int, default = 25) - the size of the grid.  Essentially, the grid will
+contain gridSize * gridSize tiles.
+
+- shiftOrigin
+
+- supportFastDraw (boolean, default = true) - overrides the T5.ViewLayer setting for fast draw.
+The grid should always be displayed, even if we are on a slow device.
+
+- allowShift (boolean, default = true) - whether or not the grid is allowed to shift. Shifting
+occurs when the TileGrid is getting to the edges of the grid and requires more image tiles to 
+ensure a fluid display.  Shifting can be disabled if desired (but this would be strange).
+
+
+## Events
+
+### tileDrawComplete
+This event is triggered once the tiles that are required to fill the current grid have
+been loaded and drawn to the display.
+
+<pre>
+tiler.bind('tileDrawComplete', function() {
+
+});
+</pre>
+
+## Methods
+*/
+T5.TileGrid = function(params) {
     // extend the params with the defaults
     params = T5.ex({
         tileSize: T5.tileSize,
@@ -6416,15 +6967,34 @@ T5.Style = function(params) {
             return haveDirtyTiles;
         },
         
+        /**
+        ## deactivate()
+        This method is used to instruct the grid to stop drawing (and more importantly) loading tiles 
+        in the background.  This is useful when one grid is no longer required and has been replaced 
+        by another (for example in the case in mapping, where one layer has replaced another).
+        */
         deactivate: function() {
             active = false;
         },
         
+        /**
+        ## find
+        */
         find: findTile,
         
+        /** 
+        ## prepTile(tile, state)
+        Used to prepare a tile for display.  In the T5.TileGrid implementation this does
+        nothing.
+        */
         prepTile: function(tile, state) {
         },
         
+        /**
+        ## drawTile(context, tile, x, y, state, redraw, tickCount)
+        This method is used to draw the tile to the specified context.  In the T5.TileGrid
+        implementation this does nothing.
+        */
         drawTile: function(context, tile, x, y, state, redraw, tickCount) {
             return false;
         },
@@ -6434,6 +7004,9 @@ T5.Style = function(params) {
             return tileSize;
         },
         
+        /** 
+        ### clearTileRect(context, x, y, tileSize, state)
+        */
         clearTileRect: function(context, x, y, tileSize, state) {
             context.clearRect(x, y, tileSize, tileSize);
         },
@@ -6509,7 +7082,10 @@ T5.Style = function(params) {
             // update the last tile drawn state
             lastTilesDrawn = tilesDrawn;
         },
-        
+
+        /** 
+        ### getTileAtXY(x, y)
+        */
         getTileAtXY: function(x, y) {
             var queueLength = tileDrawQueue ? tileDrawQueue.length : 0,
                 locatedTile = null;
@@ -6529,6 +7105,13 @@ T5.Style = function(params) {
             return locatedTile;
         },
         
+        /** 
+        ### getTileVirtualXY(col, row, getCenter)
+        Returns a new T5.Vector that specifies the virtual X and Y coordinate of the tile as denoted 
+        by the col and row parameters.  If the getCenter parameter is passed through and set to true, 
+        then the X and Y coordinates are offset by half a tile to represent the center of the tile rather
+        than the top left corner.
+        */
         getTileVirtualXY: function(col, row, getCenter) {
             // get the normalized position from the tile store
             var pos = getNormalizedPos(col, row),
@@ -6542,9 +7125,18 @@ T5.Style = function(params) {
             return fnresult;
         },
         
+        /** 
+        ### populate(tileCreator)
+        */
         populate: function(tileCreator) {
             populate(tileCreator, null, true);
-        }
+        },
+        
+        /**
+        ### syncVectors(vectors)
+        */
+        syncVectors: function(vectors) {
+        }        
     });
     
     // bind to events
@@ -6570,6 +7162,33 @@ T5.Style = function(params) {
 
     return self;
 }; // T5.TileGrid
+/**
+# T5.ImageTileGrid 
+_extends_: T5.TileGrid
+
+
+The ImageTileGrid extends the T5.TileGrid and implements the 
+`drawTile` functionality to check the loaded state of image tiles, and treat them accordingly.  
+If the tile is already loaded, then it is drawn to the canvas, it not the T5.Images module is used to load the 
+tile and once loaded drawn.
+
+## Constructor
+`new T5.ImageTileGrid(params);`
+
+### Initialization Parameters
+
+- emptyTile (image, default = default empty tile) - specify an image here to be used as the empty tile
+which is displayed when the required tile is not available and the display is not panning
+
+- panningTile (image, default = default panning tile) - the image that is used to display a tile area
+when panning, **if** the tile image has not been loaded already
+
+- tileOffset - to be completed
+- tileDrawArgs - to be completed
+
+
+## Methods
+*/
 T5.ImageTileGrid = function(params) {
     params = T5.ex({
         emptyTile: getEmptyTile(T5.tileSize),
@@ -6654,6 +7273,9 @@ T5.ImageTileGrid = function(params) {
         
     // initialise self
     var self = T5.ex(new T5.TileGrid(params), {
+        /**
+        ### clearTileRect(context, x, y, tileSize, state)
+        */
         clearTileRect: function(context, x, y, tileSize, state) {
             // if the state is not the panning state, then clear the rect
             if ((state & statePan) === 0) {
@@ -6661,6 +7283,9 @@ T5.ImageTileGrid = function(params) {
             } // if..else
         },
         
+        /**
+        ### drawTile(context, tile, x, y, state, redraw, tickCount)
+        */
         drawTile: function(context, tile, x, y, state, redraw, tickCount) {
             var image = tile.url ? getImage(tile.url) : null,
                 drawn = false;
@@ -6681,9 +7306,15 @@ T5.ImageTileGrid = function(params) {
             return drawn;
         },
         
+        /**
+        ### initTileUrl(tile)
+        */
         initTileUrl: function(tile) {
         },
         
+        /**
+        ### prepTile: function(tile, state)
+        */
         prepTile: function(tile, state) {
             if (tile && (! tile.loading) && ((! fastDraw) || (state === stateActive))) {
                 if (! tile.url) {
@@ -6710,6 +7341,39 @@ T5.ImageTileGrid = function(params) {
     
     return self;
 }; // T5.ImageTileGrid
+/** 
+# T5.Tiler
+_extends:_ T5.View
+
+
+The T5.Tiler is the base class upon which tiling views are built.
+
+## Constructor
+`new T5.Tiler(params);`
+
+## Events
+
+### selectTile
+This event is triggered when a tile in the tiler has been selected, which is
+triggered by a tap.
+
+<pre>
+tiler.bind('selectTile', function(tile) {
+});
+</pre>
+
+### gridUpdate
+The gridUpdate event is trigger with then tiler layer has been update through the 
+use of the `setTileLayer` method.  This event is also triggered on any T5.ViewLayer 
+that is a current child of the view.
+
+<pre>
+tiler.bind('gridUpdate', function(grid) {
+});
+</pre>
+
+## Methods
+*/
 T5.Tiler = function(params) {
     params = T5.ex({
         container: "",
@@ -6745,10 +7409,16 @@ T5.Tiler = function(params) {
     
     // initialise self
     var self = T5.ex(new T5.View(params), {
+        /**
+        ### getTileLayer
+        */
         getTileLayer: function() {
             return self.getLayer("grid" + gridIndex);
         },
 
+        /**
+        ### setTileLayer(value)
+        */
         setTileLayer: function(value) {
             self.setLayer("grid" + gridIndex, value);
             self.trigger('gridUpdate', value);
@@ -6759,11 +7429,17 @@ T5.Tiler = function(params) {
             });
         },
 
+        /**
+        ### viewPixToGridPix(vector)
+        */
         viewPixToGridPix: function(vector) {
             var offset = self.getOffset();
             return new T5.Vector(vector.x + offset.x, vector.y + offset.y);
         },
         
+        /**
+        ### centerPos(tile, easing, duration, callback)
+        */
         centerOn: function(tile, easing, duration, callback) {
             var grid = self.getTileLayer(),
                 dimensions = self.getDimensions(),
@@ -6779,6 +7455,9 @@ T5.Tiler = function(params) {
             } // if
         },
         
+        /**
+        ### cleanup()
+        */
         cleanup: function() {
             self.removeLayer("grid" + gridIndex);
         },
@@ -6790,6 +7469,10 @@ T5.Tiler = function(params) {
             self.trigger("wake");
         },
         
+        /**
+        ### select(tile)
+        Manually select the specified `tile`
+        */
         select: function(tile) {
             selectTile(tile);
         }
@@ -6800,7 +7483,9 @@ T5.Tiler = function(params) {
     return self;
 }; // Tiler
 /**
-# MODULE: Geo
+# T5.Geo
+_module_
+
 
 The Geo module contains classes and functionality to support geospatial 
 operations and calculations that are required when drawing maps, routes, etc.
@@ -6818,12 +7503,16 @@ T5.Geo = (function() {
     ];
     
     // define some constants
-    var M_PER_KM = 1000,
+    var HALF_PI = Math.PI / 2,
+        TWO_PI = Math.PI * 2,
+        MIN_LAT = -HALF_PI,
+        MAX_LAT = HALF_PI,
+        MIN_LON = -TWO_PI,
+        MAX_LON = TWO_PI,
+        M_PER_KM = 1000,
         KM_PER_RAD = 6371,
         DEGREES_TO_RADIANS = Math.PI / 180,
         RADIANS_TO_DEGREES = 180 / Math.PI,
-        HALF_PI = Math.PI / 2,
-        TWO_PI = Math.PI * 2,
         ECC = 0.08181919084262157,
         PHI_EPSILON = 1E-7,
         PHI_MAXITER = 12;
@@ -6852,8 +7541,7 @@ T5.Geo = (function() {
         
     var exportedFunctions = {
         /**
-        - `getEngine(requiredCapability)`
-
+        ### getEngine(requiredCapability)
         Returns the engine that provides the required functionality.  If preferred engines are supplied
         as additional arguments, then those are looked for first
         */
@@ -6878,9 +7566,8 @@ T5.Geo = (function() {
         },
 
         /**
-        - `rankGeocodeResponses(requestAddress, responseAddress, engine)`
-        
-        TODO
+        ### rankGeocodeResponses(requestAddress, responseAddress, engine)
+        To be completed
         */
         rankGeocodeResponses: function(requestAddress, responseAddresses, engine) {
             var matches = [],
@@ -6910,11 +7597,10 @@ T5.Geo = (function() {
         },
         
         /**
-        - `distanceToString(distance)`
-        
+        ### distanceToString(distance)
         This function simply formats a distance value (in meters) into a human readable string.
         
-        ### TODO
+        #### TODO
         - Add internationalization and other formatting support to this function
         */
         distanceToString: function(distance) {
@@ -6926,18 +7612,16 @@ T5.Geo = (function() {
         },
 
         /**
-        - `dist2rad(distance)`
-        
-        TODO
+        ### dist2rad(distance)
+        To be completed
         */
         dist2rad: function(distance) {
             return distance / KM_PER_RAD;
         },
 
         /**
-        - `lat2pix(lat)`
-        
-        TODO
+        ### lat2pix(lat)
+        To be completed
         */
         lat2pix: function(lat) {
             var radLat = parseFloat(lat) * DEGREES_TO_RADIANS; // *(2*Math.PI))/360;
@@ -6949,27 +7633,24 @@ T5.Geo = (function() {
         },
 
         /**
-        - `lon2pix(lon)`
-        
-        TODO
+        ### lon2pix(lon)
+        To be completed
         */
         lon2pix: function(lon) {
             return parseFloat(lon) * DEGREES_TO_RADIANS; // /180)*Math.PI;
         },
 
         /**
-        - `pix2lon(mercX)`
-        
-        TODO
+        ### pix2lon(mercX)
+        To be completed
         */
         pix2lon: function(mercX) {
             return module.normalizeLon(mercX) * RADIANS_TO_DEGREES;
         },
 
         /**
-        - `pix2lat`
-        
-        TODO
+        ### pix2lat(mercY)
+        To be completed
         */
         pix2lat: function(mercY) {
             var t = Math.pow(Math.E, -mercY),
@@ -6987,9 +7668,8 @@ T5.Geo = (function() {
         },
 
         /**
-        - `normalizeLon(lon)`
-        
-        TODO
+        ### normalizeLon(lon)
+        To be completed
         */
         normalizeLon: function (lon) {
             // return lon;
@@ -7015,7 +7695,7 @@ T5.Geo = (function() {
     }; // Radius
     
     /**
-    # Geo.Position
+    # T5.Geo.Position
     
     The position class is simply a data-storage class that is used to store 
     a latitude and longitude pair.  While this class used to contain methods 
@@ -7057,7 +7737,7 @@ T5.Geo = (function() {
     }; // Position
     
     /**
-    # Geo.BoundingBox
+    # T5.Geo.BoundingBox
 
     The BoundingBox class is used to store the min and max Geo.Position 
     that represents a bounding box.  For support functions for manipulating 
@@ -7103,9 +7783,8 @@ T5.Geo = (function() {
     }; // BoundingBox
 
     /**
-    # Geo.Address
-    
-    TODO
+    # T5.Geo.Address
+    To be completed
     */
     var Address = function(params) {
         params = T5.ex({
@@ -7121,7 +7800,7 @@ T5.Geo = (function() {
     }; // Address
     
     /**
-    # Geo.P
+    # T5.Geo.P
 
     The Geo.P submodule is used to perform operations on Geo.Position objects rather 
     than have those operations bundled with the object.
@@ -7133,9 +7812,8 @@ T5.Geo = (function() {
         
         var subModule = {
             /**
-            - `calcDistance(pos1, pos2)`
-
-            Calculate the distance between two Geo.Position objects, pos1 and pos2.  The 
+            ### calcDistance(pos1, pos2)
+            Calculate the distance between two T5.Geo.Position objects, pos1 and pos2.  The 
             distance returned is measured in kilometers.
             */
             calcDistance: function(pos1, pos2) {
@@ -7159,8 +7837,7 @@ T5.Geo = (function() {
             },
             
             /**
-            - `copy(src)`
-
+            ### copy(src)
             Create a copy of the specified T5.Geo.Position object.
             */
             copy: function(src) {
@@ -7168,8 +7845,7 @@ T5.Geo = (function() {
             },
 
             /**
-            - `empty(pos)`
-
+            ### empty(pos)
             Returns true if the T5.Geo.Position object is empty, false if not.
             */
             empty: function(pos) {
@@ -7177,8 +7853,7 @@ T5.Geo = (function() {
             },
             
             /**
-            - `equal(pos1, pos2)`
-
+            ### equal(pos1, pos2)
             Compares to T5.Geo.Position objects and returns true if they 
             have the same latitude and longitude values
             */
@@ -7187,8 +7862,7 @@ T5.Geo = (function() {
             },
             
             /**
-            - `inArray(pos, testArray)`
-
+            ### inArray(pos, testArray)
             Checks to see whether the specified T5.Geo.Position is contained within 
             the array of position objects passed in the testArray.
             */
@@ -7206,10 +7880,9 @@ T5.Geo = (function() {
             },
             
             /**
-            - `inBounds(pos, bounds)`
-
+            ### inBounds(pos, bounds)
             Returns true if the specified Geo.Position object is within the 
-            Geo.BoundingBox specified by the bounds argument.
+            T5.Geo.BoundingBox specified by the bounds argument.
             */
             inBounds: function(pos, bounds) {
                 // initialise variables
@@ -7225,12 +7898,50 @@ T5.Geo = (function() {
             },
             
             /**
-            - `parse(object)`
-
+            ### offset(pos, latOffset, lonOffset)
+            Return a new T5.Geo.Position which is the original `pos` offset by
+            the specified `latOffset` and `lonOffset` (which are specified in 
+            km distance)
+            */
+            offset: function(pos, latOffset, lonOffset) {
+                var radOffsetLat = latOffset / KM_PER_RAD,
+                    radOffsetLon = lonOffset / KM_PER_RAD,
+                    radLat = pos.lat * DEGREES_TO_RADIANS,
+                    radLon = pos.lon * DEGREES_TO_RADIANS,
+                    newLat = radLat + radOffsetLat,
+                    newLon;
+                    
+                COG.Log.info('calculating offset for position: ', pos);
+                COG.Log.info('rad offset lat = ' + radOffsetLat);
+                COG.Log.info('rad lat = ' + radLat);
+                COG.Log.info('new rad lat = ' + newLat);
+                COG.Log.info('min lat = ' + MIN_LAT + ', max lat = ' + MAX_LAT);
+                    
+                if ((newLat > MIN_LAT) && (newLat < MAX_LAT)) {
+                    var deltaLon = Math.asin(Math.sin(radOffsetLon) / Math.cos(radLat));
+                    
+                    // determine the max longitude
+                    newLon = radLon + deltaLon;
+                    if (newLon > MAX_LON) {
+                        newLon -= 2 * Math.PI;
+                    } // if
+                }
+                else {
+                    newLat = Math.min(Math.max(newLat, MIN_LAT), MAX_LAT);
+                    newLon = MIN_LON;
+                } // if..else
+                
+                return new Position(
+                    newLat * RADIANS_TO_DEGREES, 
+                    newLon * RADIANS_TO_DEGREES);
+            },
+            
+            /**
+            ### parse(object)
             This function is used to take a latitude and longitude String 
-            pair (either space or comma delimited) and return a new Geo.Position 
+            pair (either space or comma delimited) and return a new T5.Geo.Position 
             value.  The function is also tolerant of being passed an existing 
-            Geo.Position object as the object argument, and in these cases 
+            T5.Geo.Position object as the object argument, and in these cases 
             returns a copy of the position.
             */
             parse: function(pos) {
@@ -7256,9 +7967,8 @@ T5.Geo = (function() {
             },
 
             /**
-            - `parseArray(sourceData)`
-
-            Fust like parse, but with lots of em'
+            ### parseArray(sourceData)
+            Just like parse, but with lots of em'
             */
             parseArray: function(sourceData) {
                 var sourceLen = sourceData.length,
@@ -7273,8 +7983,7 @@ T5.Geo = (function() {
             },
             
             /**
-            - `fromMercatorPixels(x, y, radsPerPixel)`
-
+            ### fromMercatorPixels(x, y, radsPerPixel)
             This function is used to take x and y mercator pixels values, 
             and using the value passed in the radsPerPixel value convert 
             that to a Geo.Position object.
@@ -7288,8 +7997,7 @@ T5.Geo = (function() {
             },
 
             /**
-            - `toMercatorPixels(pos, radsPerPixel)`
-
+            ### toMercatorPixels(pos, radsPerPixel)
             Basically, the reverse of the fromMercatorPixels function - 
             pass it a Geo.Position object and get a Vector object back 
             with x and y mercator pixel values back.
@@ -7299,9 +8007,8 @@ T5.Geo = (function() {
             },
             
             /**
-            - `generalize(sourceData, requiredPositions, minDist)`
-            
-            TODO
+            ### generalize(sourceData, requiredPositions, minDist)
+            To be completed
             */
             generalize: function(sourceData, requiredPositions, minDist) {
                 var sourceLen = sourceData.length,
@@ -7341,6 +8048,30 @@ T5.Geo = (function() {
                 return positions;
             },
             
+            /**
+            ### vectorize(positions, options)
+            The vectorize function is used to take an array of positions specified in the 
+            `positions` argument and convert these into T5.Geo.GeoVector objects. By default
+            the vectorize function will process these asyncronously and will return a 
+            COG Worker that will be taking care of chunking up and processing the request
+            in an efficient way.  It is, however, possible to specify that the conversion should
+            happen synchronously and in this case the array of vectors is returned rather
+            than a worker instance.
+            
+            #### Example Usage (Asyncronous)
+            ~ // default options are used (async + 500 conversions per cycle)
+            ~ var worker = T5.Geo.P.vectorize(positions);
+            ~ 
+            ~ // bind to the complete event for the worker
+            ~ worker.bind('complete', function(vectors) {
+            ~     // DO SOMETHING WITH YOUR VECTORS HERE
+            ~ });
+            
+            #### Example Usage (Synchronous)
+            ~ var vectors = T5.Geo.P.vectorize(positions, {
+            ~     async: false
+            ~ });
+            */
             vectorize: function(positions, options) {
                 var posIndex = positions.length,
                     vectors = new Array(posIndex);
@@ -7392,8 +8123,7 @@ T5.Geo = (function() {
             },
 
             /**
-            - `toString(pos)`
-            
+            ### toString(pos)
             Return a string representation of the Geo.Position object
             */
             toString: function(pos) {
@@ -7406,7 +8136,7 @@ T5.Geo = (function() {
     
     
     /**
-    # Geo.B
+    # T5.Geo.B
     
     A collection of utilities that are primarily designed to help with working 
     with Geo.BoundingBox objects.  The functions are implemented here rather 
@@ -7415,15 +8145,9 @@ T5.Geo = (function() {
     ## Functions
     */
     var boundsTools = (function() {
-        var MIN_LAT = -HALF_PI,
-            MAX_LAT = HALF_PI,
-            MIN_LON = -TWO_PI,
-            MAX_LON = TWO_PI;
-        
         var subModule = {
             /**
-            - `calcSize(min, max, normalize)`
-
+            ### calcSize(min, max, normalize)
             The calcSize function is used to determine the size of a Geo.BoundingBox given 
             a minimum position (relates to the bottom-left / south-western corner) and 
             maximum position (top-right / north-eastern corner) of the bounding box.  
@@ -7447,8 +8171,7 @@ T5.Geo = (function() {
             },
 
             /**
-            - `createBoundsFromCenter(centerPos, distance)`
-
+            ### createBoundsFromCenter(centerPos, distance)
             This function is very useful for creating a Geo.BoundingBox given a 
             center position and a radial distance (specified in KM) from the center 
             position.  Basically, imagine a circle is drawn around the center 
@@ -7496,8 +8219,7 @@ T5.Geo = (function() {
             },
             
             /**
-            - `expand(bounds, amount)`
-
+            ### expand(bounds, amount)
             A simple function that is used to expand a Geo.BoundingBox 
             by the specified amount (in degrees).
             */
@@ -7508,7 +8230,7 @@ T5.Geo = (function() {
             },
             
             /**
-            - `forPositions(positions, padding)`
+            ### forPositions(positions, padding)
 
             This function is very useful when you need to create a 
             Geo.BoundingBox to contain an array of T5.Geo.Position.  
@@ -7556,8 +8278,7 @@ T5.Geo = (function() {
             },
             
             /**
-            - `getCenter(bounds)`
-
+            ### getCenter(bounds)
             Returns a Geo.Position for the center position of the bounding box.
             */
             getCenter: function(bounds) {
@@ -7569,9 +8290,8 @@ T5.Geo = (function() {
             },
             
             /**
-            - `getGeohash(bounds)`
-            
-            TODO
+            ### getGeohash(bounds)
+            To be completed
             */
             getGeoHash: function(bounds) {
                 var minHash = T5.Geo.GeoHash.encode(bounds.min.lat, bounds.min.lon),
@@ -7581,15 +8301,13 @@ T5.Geo = (function() {
             },
 
             /** 
-            - `getZoomLevel(bounds, displaySize)`
+            ### getZoomLevel(bounds, displaySize)
 
             This function is used to return the zoom level (seems consistent across 
             mapping providers at this stage) that is required to properly display 
             the specified T5.Geo.BoundingBox given the screen dimensions (specified as 
-            a Dimensions object) of the map display.
-            
-            Adapted from the following code:
-            [http://groups.google.com/group/google-maps-js-api-v3/browse_thread/thread/43958790eafe037f/66e889029c555bee]
+            a Dimensions object) of the map display. Adapted from 
+            [this code](http://groups.google.com/group/google-maps-js-api-v3/browse_thread/thread/43958790eafe037f/66e889029c555bee)
             */
             getZoomLevel: function(bounds, displaySize) {
                 // get the constant index for the center of the bounds
@@ -7613,17 +8331,15 @@ T5.Geo = (function() {
             },
 
             /**
-            - `isEmpty(bounds)`
-
-            Returns true if the specified Geo.BoundingBox is empty.
+            ### isEmpty(bounds)
+            Returns true if the specified T5.Geo.BoundingBox is empty.
             */
             isEmpty: function(bounds) {
                 return (! bounds) || posTools.empty(bounds.min) || posTools.empty(bounds.max);
             },
             
             /**
-            - `toString(bounds)`
-
+            ### toString(bounds)
             Returns a string representation of a Geo.BoundingBox
             */
             toString: function(bounds) {
@@ -7637,7 +8353,7 @@ T5.Geo = (function() {
     /* define the address tools */
     
     /**
-    # Geo.A
+    # T5.Geo.A
     
     A collection of utilities for working with Geo.Address objects
     
@@ -7649,9 +8365,7 @@ T5.Geo = (function() {
         
         var subModule = {
             /**
-            - `buildingMatch(freeForm, numberRange, name)`
-            
-            TODO
+            ### buildingMatch(freeForm, numberRange, name)
             */
             buildingMatch: function(freeform, numberRange, name) {
                 // from the freeform address extract the building number
@@ -7679,8 +8393,7 @@ T5.Geo = (function() {
             },
             
             /**
-            - `normalize(addressText)`
-            
+            ### normalize(addressText)
             Used to take an address that could be in a variety of formats
             and normalize as many details as possible.  Text is uppercased, road types are replaced, etc.
             */
@@ -7714,9 +8427,8 @@ T5.Geo = (function() {
             },
             
             /**
-            - `toString(address)`
-            
-            Returns a string representation of the Geo.Address object
+            ### toString(address)
+            Returns a string representation of the T5.Geo.Address object
             */
             toString: function(address) {
                 return address.streetDetails + " " + address.location;
@@ -7763,7 +8475,7 @@ T5.Geo = (function() {
         return HALF_PI - 2 * Math.atan(t);
     } // mercatorUnproject
     
-    /**
+    /*
     This function is used to determine the match weight between a freeform geocoding
     request and it's structured response.
     */
@@ -7814,6 +8526,27 @@ T5.Geo = (function() {
         Position: Position,
         BoundingBox: BoundingBox,
         
+        /**
+        # T5.Geo.GeoVector
+        
+        The GeoVector class is used to convert a position (T5.Geo.Position) into a
+        T5.Vector that can be used to draw on the various T5.ViewLayer implementations.
+        This class provides the necessary mechanism that allows the view layers to 
+        assume operation using a simple vector (containing an x and y) with no need
+        geospatial awareness built in.  
+        
+        Layers are aware that particular events may 
+        require vector resynchronization which is facilitated by the `syncVectors` 
+        method of the T5.Geo.UI.GeoTileGrid (the T5.TileGrid has a placeholder 
+        implementation).
+        
+        ## Usage
+        
+        <pre>
+        var position = T5.Geo.P.parse("-27.468 153.028"),
+            vector = new T5.Geo.GeoVector(position);
+        </pre>
+        */
         GeoVector: function(initPos) {
             var self = new T5.Vector();
                 
@@ -7862,7 +8595,7 @@ T5.Geo = (function() {
         },
         
         /**
-        # Geo.Engine
+        # T5.Geo.Engine
 
         TODO
         */
@@ -7886,7 +8619,7 @@ T5.Geo = (function() {
         },
         
         /**
-        # Geo.GeoSearchResult
+        # T5.Geo.GeoSearchResult
         
         TODO
         */
@@ -7908,7 +8641,7 @@ T5.Geo = (function() {
         },
         
         /**
-        # Geo.GeoSearchAgent
+        # T5.Geo.GeoSearchAgent
         
         TODO
         */
@@ -7917,7 +8650,7 @@ T5.Geo = (function() {
         },
         
         /**
-        # Geo.GeocodingAgent
+        # T5.Geo.GeocodingAgent
         
         TODO
         */
@@ -7974,6 +8707,10 @@ T5.Geo = (function() {
 
     return T5.ex(module, moduleConstants, exportedFunctions);
 })();/**
+# T5.Geo.GeoHash
+_module_
+
+
 Geohash module c/o and copyright David Troy 2008 (http://davetroy.com/)
 Original codebase available on github @ http://github.com/davetroy/geohash-js/
 */
@@ -8104,8 +8841,9 @@ T5.Geo.GeoHash = (function() {
 })();
 
 /**
-T5.Geo.JSON
------------
+# T5.Geo.JSON
+_module_
+
 
 This module provides GeoJSON support for Tile5.
 */
@@ -8392,7 +9130,9 @@ T5.Geo.LocationSearch = function(params) {
     return self;
 };
 /**
-# Map
+# T5.Map
+_extends:_ T5.Tiler
+
 
 The Map class is the entry point for creating a tiling map.  Creating a 
 map is quite simple and requires two things to operate.  A containing HTML5 canvas
@@ -8995,8 +9735,7 @@ T5.Map = function(params) {
     return self;
 }; // T5.Map
 /**
-# Geo.MapProvider
-
+# T5.Geo.MapProvider
 The MapProvider class is the base class from which all map providers are implemented.
 The class provides a number of common functions that can be expected in most 
 implementations of a GIS map provider.
@@ -9082,11 +9821,13 @@ T5.Geo.MapProvider = function() {
 }; // MapProvider
 
 /**
-# MODULE: Geo.Routing
+# T5.Geo.Routing
+_module_
+
 
 Define functionality to enable routing for mapping
 
-## Functions
+## Module Functions
 */
 T5.Geo.Routing = (function() {
     
@@ -9109,9 +9850,8 @@ T5.Geo.Routing = (function() {
         /* module functions */
         
         /**
-        - `calculate(args)`
-        
-        TODO
+        ### calculate(args)
+        To be completed
         */
         calculate: function(args) {
             args = T5.ex({
@@ -9154,9 +9894,8 @@ T5.Geo.Routing = (function() {
         },
         
         /**
-        - `createMapOverlay(map, routeData)`
-        
-        TODO
+        ### createMapOverlay(map, routeData)
+        To be completed
         */
         createMapOverlay: function(map, routeData) {
             // get the map dimensions
@@ -9176,9 +9915,8 @@ T5.Geo.Routing = (function() {
         },
         
         /**
-        - `parseTurnType(text)`
-        
-        TODO
+        ### parseTurnType(text)
+        To be completed
         */
         parseTurnType: function(text) {
             var turnType = module.TurnType.Unknown,
@@ -9208,7 +9946,7 @@ T5.Geo.Routing = (function() {
         },
         
         /**
-        # Geo.Routing.TurnType
+        # T5.Geo.Routing.TurnType
         
         */
         TurnType: {
@@ -9245,7 +9983,7 @@ T5.Geo.Routing = (function() {
         },
         
         /**
-        # Geo.Routing.Instruction
+        # T5.Geo.Routing.Instruction
         
         */
         Instruction: function(params) {
@@ -9272,7 +10010,7 @@ T5.Geo.Routing = (function() {
         
         
         /**
-        # Geo.Routing.RouteData
+        # T5.Geo.Routing.RouteData
         
         */
         RouteData: function(params) {
@@ -9308,6 +10046,15 @@ T5.Geo.Routing = (function() {
     return module;
 })();
 
+/**
+# T5.Geo.Search
+_module_
+
+
+Define functions for geo search operations
+
+## Functions
+*/
 T5.Geo.Search = (function() {
     var DEFAULT_MAXDIFF = 20;
     
@@ -9342,8 +10089,11 @@ T5.Geo.Search = (function() {
 })();
 
 /**
-# MODULE: Geo.UI
+# T5.Geo.UI
+_module_
 
+
+This module defines user interface elements for Tile5 geo elements
 */
 T5.Geo.UI = (function() {
     var lastAnnotationTween = null,
@@ -9438,8 +10188,33 @@ T5.Geo.UI = (function() {
         AnnotationTween: null,
         
         /**
-        # Geo.UI.GeoTileGrid
+        # T5.Geo.UI.GeoTileGrid
+        _extends:_ T5.TileGrid
         
+        
+        The GeoTileGrid class is used to __wrap__ and extend a standard T5.TileGrid and make 
+        it "Geospatially aware".  Essentially a GeoTileGrid is initialized by passing an existing 
+        TileGrid and a center position (T5.Geo.Position) and center xy coordinate (T5.Vector) and 
+        this allows it to translate screen coordinates into latitude / longitude pairs.
+        
+        ## Constructor
+        `new T5.Geo.UI.GeoTileGrid(params);`
+        
+        ### Initialization Params
+        
+        - `grid` (T5.TileGrid, default = null) the grid to wrap and make Geospatial aware
+        
+        - `centerPos` (T5.Geo.Position, default = empty pos) the latitude and longitude of the 
+        center of the grid
+        
+        - `centerXY` (T5.Vector, default = empty vector) the center xy coordinate of the grid (relative 
+        to the top left tile, xy coordinate = 0,0)
+        
+        - `radsPerPixel` (float, default = 0) the number of radians per pixel.  This value is used in 
+        the calculation of screen coordinates to real world positions.  While for both the current map 
+        provider implementations this value is the same, I expect it could vary from provider to provider.
+        
+        ## Methods
         */
         GeoTileGrid: function(params) {
             // extend the params with some defaults
@@ -9465,12 +10240,22 @@ T5.Geo.UI = (function() {
             
             // initialise self
             var self = T5.ex({}, params.grid, {
+                /** 
+                ### getBoundingBox(x, y, width, height)
+                Return a T5.Geo.BoundingBox for specified area on the grid
+                */
                 getBoundingBox: function(x, y, width, height) {
                     return new T5.Geo.BoundingBox(
                         self.pixelsToPos(new T5.Vector(x, y + height)),
                         self.pixelsToPos(new T5.Vector(x + width, y)));
                 },
                 
+                /** 
+                ### getGridXYForPosition(pos)
+                Returns a T5.Vector that relates to the grid position of the T5.Geo.Position value passed in 
+                the pos parameter to the method.  This method is used extensively to calculate the position 
+                that shapes / points should be drawn to the grid based on their geospatial position.
+                */
                 getGridXYForPosition: function(pos) {
                     var vector = new T5.Geo.GeoVector(pos);
                     self.syncVectors([vector]);
@@ -9478,6 +10263,12 @@ T5.Geo.UI = (function() {
                     return vector;
                 },
                 
+                /**
+                ### syncVectors
+                This function iterates through the specified vectors and if they are
+                of type T5.Geo.GeoVector, they are provided the rads per pixel of the
+                grid so they can perform their calculations
+                */
                 syncVectors: function(vectors) {
                     for (var ii = vectors.length; ii--; ) {
                         if (vectors[ii] && vectors[ii].setRadsPerPixel) {
@@ -9486,11 +10277,23 @@ T5.Geo.UI = (function() {
                     }
                 },
                 
+                /**
+                ### getPixelDistance(distance)
+                Convert a pixel distance to a real world distance
+                */
                 getPixelDistance: function(distance) {
                     var radians = T5.Geo.dist2rad(distance);
                     return radians / radsPerPixel >> 0;
                 },
                 
+                /**
+                ### pixelsToPos(vector)
+                CBasically the opposite of the `getGridXYForPosition`.  Returns a T5.Geo.Position based on 
+                the xy value of the T5.Vector that is passed to the method.  Very useful when you need to 
+                translate screen / grid coordinates into a latitude longitude.  For instance, in the case 
+                where the user clicks on the map and you need to know the latitude and longitude of that 
+                click / touch.
+                */
                 pixelsToPos: function(vector) {
                     return T5.Geo.P.fromMercatorPixels(
                         (blPixX + vector.x) * radsPerPixel, 
@@ -9504,8 +10307,17 @@ T5.Geo.UI = (function() {
         },
         
         /** 
-        # Geo.UI.RouteOverlay
-
+        # T5.Geo.UI.RouteOverlay
+        _extends:_ T5.PathLayer
+        
+        
+        The RouteOverlay class is used to render the route geometry to the map.
+        
+        ## Constructor
+        `new T5.Geo.UI.RouteOverlay(params)`
+        
+        ### Initialization Parameters
+        To be completed
         */
         RouteOverlay: function(params) {
             params = T5.ex({
@@ -9557,6 +10369,27 @@ T5.Geo.UI = (function() {
             return self;
         },
         
+        /**
+        # T5.Geo.UI.Poly
+        _extends:_ T5.Poly
+        
+        
+        This is a special type of T5.Poly that will take positions for the first
+        argument of the constructor rather than vectors.  If the initialization
+        parameter `autoParse` is set to true (which it is by default), this will 
+        parsed by the T5.Geo.P.parse function and converted into a T5.Geo.GeoVector.
+        
+        ## Constructor
+        `new T5.Geo.UI.Poly(positions, params);`
+        
+        ### Initialization Parameters
+        - autoParse (boolean, default = true) - whether or not the values in the 
+        positions array that is the first constructor argument should be run through
+        the T5.Geo.P.parse function or not.  Note that this function is capable of 
+        handling both string and T5.Geo.Position values as position values are
+        simply passed straight through.
+        
+        */
         Poly: function(positions, params) {
             params = T5.ex({
                 autoParse: true
@@ -9579,9 +10412,9 @@ T5.Geo.UI = (function() {
         },
         
         /**
-        # Geo.UI.Annotation
+        # T5.Geo.UI.Annotation
         
-        __deprecated__
+        __deprecated__ (see T5.ImageAnnotation)
         
         */
         Annotation: function(params) {
@@ -9594,7 +10427,7 @@ T5.Geo.UI = (function() {
         },
         
         /**
-        # Geo.UI.LocationOverlay
+        # T5.Geo.UI.LocationOverlay
         
         */
         LocationOverlay: function(params) {
@@ -9671,9 +10504,9 @@ T5.Geo.UI = (function() {
         },
         
         /**
-        # Geo.UI.AnnotationsOverlay
+        # T5.Geo.UI.AnnotationsOverlay
         
-        __deprecated__
+        __deprecated__ (see T5.MarkerLayer)
         
         */
         AnnotationsOverlay: function(params) {

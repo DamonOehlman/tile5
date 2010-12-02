@@ -1,3 +1,36 @@
+/** 
+# T5.Tiler
+_extends:_ T5.View
+
+
+The T5.Tiler is the base class upon which tiling views are built.
+
+## Constructor
+`new T5.Tiler(params);`
+
+## Events
+
+### selectTile
+This event is triggered when a tile in the tiler has been selected, which is
+triggered by a tap.
+
+<pre>
+tiler.bind('selectTile', function(tile) {
+});
+</pre>
+
+### gridUpdate
+The gridUpdate event is trigger with then tiler layer has been update through the 
+use of the `setTileLayer` method.  This event is also triggered on any T5.ViewLayer 
+that is a current child of the view.
+
+<pre>
+tiler.bind('gridUpdate', function(grid) {
+});
+</pre>
+
+## Methods
+*/
 T5.Tiler = function(params) {
     params = T5.ex({
         container: "",
@@ -33,10 +66,16 @@ T5.Tiler = function(params) {
     
     // initialise self
     var self = T5.ex(new T5.View(params), {
+        /**
+        ### getTileLayer
+        */
         getTileLayer: function() {
             return self.getLayer("grid" + gridIndex);
         },
 
+        /**
+        ### setTileLayer(value)
+        */
         setTileLayer: function(value) {
             self.setLayer("grid" + gridIndex, value);
             self.trigger('gridUpdate', value);
@@ -47,11 +86,17 @@ T5.Tiler = function(params) {
             });
         },
 
+        /**
+        ### viewPixToGridPix(vector)
+        */
         viewPixToGridPix: function(vector) {
             var offset = self.getOffset();
             return new T5.Vector(vector.x + offset.x, vector.y + offset.y);
         },
         
+        /**
+        ### centerPos(tile, easing, duration, callback)
+        */
         centerOn: function(tile, easing, duration, callback) {
             var grid = self.getTileLayer(),
                 dimensions = self.getDimensions(),
@@ -67,6 +112,9 @@ T5.Tiler = function(params) {
             } // if
         },
         
+        /**
+        ### cleanup()
+        */
         cleanup: function() {
             self.removeLayer("grid" + gridIndex);
         },
@@ -78,6 +126,10 @@ T5.Tiler = function(params) {
             self.trigger("wake");
         },
         
+        /**
+        ### select(tile)
+        Manually select the specified `tile`
+        */
         select: function(tile) {
             selectTile(tile);
         }

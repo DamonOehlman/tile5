@@ -1,5 +1,7 @@
 /**
-# Style
+# T5.Style
+The T5.Style class is used to define the various attributes that should
+be applied to a canvas context when the style is selected.
 
 */
 T5.Style = function(params) {
@@ -78,6 +80,9 @@ T5.Style = function(params) {
     
     /* define the apply style function */
 
+    /** 
+    # T5.applyStyle
+    */
     T5.applyStyle = function(context, styleId) {
         var style = T5.styles[styleId] ? T5.styles[styleId] : T5.styles.basic,
             previousStyle;
@@ -95,12 +100,18 @@ T5.Style = function(params) {
         return previousStyle;
     };
 
+    /**
+    # T5.loadStyles
+    */
     T5.loadStyles = function(path, callback) {
         COG.jsonp(path, function(data) {
             T5.resetStyles(data);
         });
     };
 
+    /**
+    # T5.resetStyles
+    */
     T5.resetStyles = function(data) {
         // initialise variables 
         // NOTE: I'm not calling this a stylesheet on purpose

@@ -1,4 +1,4 @@
-# Tile5
+# About Tile5
 
 Tile5 is a HTML5 mobile-optimized mapping and tiling library, that has
 been built from the ground up to support multiple mapping providers. 

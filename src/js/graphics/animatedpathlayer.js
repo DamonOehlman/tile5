@@ -12,34 +12,36 @@ Any type of T5.PathLayer can generate an animation.
 
 ### Initialization Parameters
 
-- path (T5.Vector[], default = []) - An array of screen / grid coordinates that will 
+- `path` (T5.Vector[], default = []) - An array of screen / grid coordinates that will 
 be used as anchor points in the animation.
 
-- id (String, default = 'pathAni%autoinc') - The id of of the animation layer.  The id will start with 
+- `id` (String, default = 'pathAni%autoinc') - The id of of the animation layer.  The id will start with 
 pathAni1 and then automatically increment each time a new AnimatedPathLayer is created unless the id is 
 manually specified in the constructor parameters.
 
-- easing (easing function, default = T5.easing('sine.inout')) - the easing function to use for the animation
+- `easing` (easing function, default = T5.easing('sine.inout')) - the easing function to use for the animation
 
-- drawIndicator (callback, default = defaultDraw) - A callback function that is called every time the indicator for 
+- `drawIndicator` (callback, default = defaultDraw) - A callback function that is called every time the indicator for 
 the animation needs to be drawn.  If the parameter is not specified in the constructor the default callback 
 is used, which simply draws a small circle at the current position of the animation.
 
-- duration (int, default = 2000) - The animation duration.  See T5.Animation module information for more details.
+- `duration` (int, default = 2000) - The animation duration.  See T5.Animation module information for more details.
 
-- autoCenter (boolean, default = false) - Whether or not the T5.View should be panned with the animation.
+- `autoCenter` (boolean, default = false) - Whether or not the T5.View should be panned with the animation.
 
 
 ## Draw Indicator Callback Function
 `function(context, offset, xy, theta)`
 
+
 The drawIndicator parameter in the constructor allows you to specify a particular callback function that is 
 used when drawing the indicator.  The function takes the following arguments:
 
-- context - the canvas context to draw to when drawing the indicator
-- offset - the current tiling offset to take into account when drawing
-- xy - the xy position where the indicator should be drawn (offset accounted for)
-- theta - the current angle (in radians) given the path positioning.
+
+- `context` - the canvas context to draw to when drawing the indicator
+- `offset` - the current tiling offset to take into account when drawing
+- `xy` - the xy position where the indicator should be drawn (offset accounted for)
+- `theta` - the current angle (in radians) given the path positioning.
 */
 T5.AnimatedPathLayer = function(params) {
     params = T5.ex({

@@ -19,12 +19,16 @@ T5.Geo = (function() {
     ];
     
     // define some constants
-    var M_PER_KM = 1000,
+    var HALF_PI = Math.PI / 2,
+        TWO_PI = Math.PI * 2,
+        MIN_LAT = -HALF_PI,
+        MAX_LAT = HALF_PI,
+        MIN_LON = -TWO_PI,
+        MAX_LON = TWO_PI,
+        M_PER_KM = 1000,
         KM_PER_RAD = 6371,
         DEGREES_TO_RADIANS = Math.PI / 180,
         RADIANS_TO_DEGREES = 180 / Math.PI,
-        HALF_PI = Math.PI / 2,
-        TWO_PI = Math.PI * 2,
         ECC = 0.08181919084262157,
         PHI_EPSILON = 1E-7,
         PHI_MAXITER = 12;
@@ -410,6 +414,45 @@ T5.Geo = (function() {
             },
             
             /**
+            ### offset(pos, latOffset, lonOffset)
+            Return a new T5.Geo.Position which is the original `pos` offset by
+            the specified `latOffset` and `lonOffset` (which are specified in 
+            km distance)
+            */
+            offset: function(pos, latOffset, lonOffset) {
+                var radOffsetLat = latOffset / KM_PER_RAD,
+                    radOffsetLon = lonOffset / KM_PER_RAD,
+                    radLat = pos.lat * DEGREES_TO_RADIANS,
+                    radLon = pos.lon * DEGREES_TO_RADIANS,
+                    newLat = radLat + radOffsetLat,
+                    newLon;
+                    
+                COG.Log.info('calculating offset for position: ', pos);
+                COG.Log.info('rad offset lat = ' + radOffsetLat);
+                COG.Log.info('rad lat = ' + radLat);
+                COG.Log.info('new rad lat = ' + newLat);
+                COG.Log.info('min lat = ' + MIN_LAT + ', max lat = ' + MAX_LAT);
+                    
+                if ((newLat > MIN_LAT) && (newLat < MAX_LAT)) {
+                    var deltaLon = Math.asin(Math.sin(radOffsetLon) / Math.cos(radLat));
+                    
+                    // determine the max longitude
+                    newLon = radLon + deltaLon;
+                    if (newLon > MAX_LON) {
+                        newLon -= 2 * Math.PI;
+                    } // if
+                }
+                else {
+                    newLat = Math.min(Math.max(newLat, MIN_LAT), MAX_LAT);
+                    newLon = MIN_LON;
+                } // if..else
+                
+                return new Position(
+                    newLat * RADIANS_TO_DEGREES, 
+                    newLon * RADIANS_TO_DEGREES);
+            },
+            
+            /**
             ### parse(object)
             This function is used to take a latitude and longitude String 
             pair (either space or comma delimited) and return a new T5.Geo.Position 
@@ -532,22 +575,18 @@ T5.Geo = (function() {
             than a worker instance.
             
             #### Example Usage (Asyncronous)
-            <pre>
-            // default options are used (async + 500 conversions per cycle)
-            var worker = T5.Geo.P.vectorize(positions);
-            
-            // bind to the complete event for the worker
-            worker.bind('complete', function(vectors) {
-                // DO SOMETHING WITH YOUR VECTORS HERE
-            });
-            </pre>
+            ~ // default options are used (async + 500 conversions per cycle)
+            ~ var worker = T5.Geo.P.vectorize(positions);
+            ~ 
+            ~ // bind to the complete event for the worker
+            ~ worker.bind('complete', function(vectors) {
+            ~     // DO SOMETHING WITH YOUR VECTORS HERE
+            ~ });
             
             #### Example Usage (Synchronous)
-            <pre>
-            var vectors = T5.Geo.P.vectorize(positions, {
-                async: false
-            });
-            </pre>
+            ~ var vectors = T5.Geo.P.vectorize(positions, {
+            ~     async: false
+            ~ });
             */
             vectorize: function(positions, options) {
                 var posIndex = positions.length,
@@ -622,11 +661,6 @@ T5.Geo = (function() {
     ## Functions
     */
     var boundsTools = (function() {
-        var MIN_LAT = -HALF_PI,
-            MAX_LAT = HALF_PI,
-            MIN_LON = -TWO_PI,
-            MAX_LON = TWO_PI;
-        
         var subModule = {
             /**
             ### calcSize(min, max, normalize)

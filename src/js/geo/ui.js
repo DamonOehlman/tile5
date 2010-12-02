@@ -279,6 +279,27 @@ T5.Geo.UI = (function() {
             return self;
         },
         
+        /**
+        # T5.Geo.UI.Poly
+        _extends:_ T5.Poly
+        
+        
+        This is a special type of T5.Poly that will take positions for the first
+        argument of the constructor rather than vectors.  If the initialization
+        parameter `autoParse` is set to true (which it is by default), this will 
+        parsed by the T5.Geo.P.parse function and converted into a T5.Geo.GeoVector.
+        
+        ## Constructor
+        `new T5.Geo.UI.Poly(positions, params);`
+        
+        ### Initialization Parameters
+        - autoParse (boolean, default = true) - whether or not the values in the 
+        positions array that is the first constructor argument should be run through
+        the T5.Geo.P.parse function or not.  Note that this function is capable of 
+        handling both string and T5.Geo.Position values as position values are
+        simply passed straight through.
+        
+        */
         Poly: function(positions, params) {
             params = T5.ex({
                 autoParse: true
@@ -301,9 +322,9 @@ T5.Geo.UI = (function() {
         },
         
         /**
-        # Geo.UI.Annotation
+        # T5.Geo.UI.Annotation
         
-        __deprecated__
+        __deprecated__ (see T5.ImageAnnotation)
         
         */
         Annotation: function(params) {
@@ -316,7 +337,7 @@ T5.Geo.UI = (function() {
         },
         
         /**
-        # Geo.UI.LocationOverlay
+        # T5.Geo.UI.LocationOverlay
         
         */
         LocationOverlay: function(params) {
@@ -393,9 +414,9 @@ T5.Geo.UI = (function() {
         },
         
         /**
-        # Geo.UI.AnnotationsOverlay
+        # T5.Geo.UI.AnnotationsOverlay
         
-        __deprecated__
+        __deprecated__ (see T5.MarkerLayer)
         
         */
         AnnotationsOverlay: function(params) {

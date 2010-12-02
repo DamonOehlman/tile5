@@ -5,7 +5,7 @@ _module_
 
 Define functionality to enable routing for mapping
 
-## Functions
+## Module Functions
 */
 T5.Geo.Routing = (function() {
     
@@ -28,9 +28,8 @@ T5.Geo.Routing = (function() {
         /* module functions */
         
         /**
-        - `calculate(args)`
-        
-        TODO
+        ### calculate(args)
+        To be completed
         */
         calculate: function(args) {
             args = T5.ex({
@@ -73,9 +72,8 @@ T5.Geo.Routing = (function() {
         },
         
         /**
-        - `createMapOverlay(map, routeData)`
-        
-        TODO
+        ### createMapOverlay(map, routeData)
+        To be completed
         */
         createMapOverlay: function(map, routeData) {
             // get the map dimensions
@@ -95,9 +93,8 @@ T5.Geo.Routing = (function() {
         },
         
         /**
-        - `parseTurnType(text)`
-        
-        TODO
+        ### parseTurnType(text)
+        To be completed
         */
         parseTurnType: function(text) {
             var turnType = module.TurnType.Unknown,
@@ -127,7 +124,7 @@ T5.Geo.Routing = (function() {
         },
         
         /**
-        # Geo.Routing.TurnType
+        # T5.Geo.Routing.TurnType
         
         */
         TurnType: {
@@ -164,7 +161,7 @@ T5.Geo.Routing = (function() {
         },
         
         /**
-        # Geo.Routing.Instruction
+        # T5.Geo.Routing.Instruction
         
         */
         Instruction: function(params) {
@@ -191,7 +188,7 @@ T5.Geo.Routing = (function() {
         
         
         /**
-        # Geo.Routing.RouteData
+        # T5.Geo.Routing.RouteData
         
         */
         RouteData: function(params) {

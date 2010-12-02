@@ -11,6 +11,14 @@ wasting space.
 
 - As promised, the `annotations` property of a `T5.Map` has also been removed in line with the deprecation in the 0.9.3 release.
 
+- The `hitTest` method of a `T5.Annotation` separates the x and y coordinates into separate arguments to provide a small performance benefit.
+
+- Internal rework of the `T5.Images` module to improve consistency of results.
+
+- `T5.Marker` and `T5.ImageMarker` replace `T5.Annotation` and `T5.ImageAnnotation` respectively, however, the old classes are retained for backwards compatibility.  The new marker classes have a slightly different constructor taking the vector as the first argument and the params as the second.  Along with this change a new `move` method has been added to `T5.Marker` to allow moving the marker and having the display updated appropriately.
+
+- __BREAKING CHANGE__ `T5.Marker.drawMarker` method now separates the `xy` parameter which used to be a `T5.Vector` into two separate parameters for performance reasons.  Will only cause you hassles if you have played with custom markers.
+
 ## 0.9.3 (released 2010-11-18)
 
 Some pretty cool stuff in this, plus some pretty major refactoring on a few things.  Essentially functionality that required a `T5.Map` previously has been made to work with a `T5.View` or `T5.Tiler` wherever possible.  This includes paths and annotations.  Additionally, GeoJSON support is in the works and some early support of this can be used with Tile5, however, there is still probably more work to do in this area.
