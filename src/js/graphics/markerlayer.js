@@ -58,12 +58,12 @@ T5.MarkerLayer = function(params) {
     
     function handleTap(evt, absXY, relXY, gridXY) {
         var tappedMarkers = [],
-            gridX = gridXY.x,
-            gridY = gridXY.y;
+            testX = relXY.x,
+            testY = relXY.y;
         
         // iterate through the markers and look for matches
         for (var ii = markers.length; ii--; ) {
-            if (markers[ii].hitTest(gridX, gridY)) {
+            if (markers[ii].hitTest(testX, testY)) {
                 tappedMarkers[tappedMarkers.length] = markers[ii];
             } // if
         } // for

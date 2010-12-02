@@ -2222,14 +2222,19 @@ http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-l
 
                 // if tapping, then first the tap event
                 if (touchMode === TOUCH_MODE_TAP) {
+                    // trigger the tap
+                    triggerPositionEvent('tap', touchesStart.touches[0]);
+                    
                     // start the timer to fire the tap handler, if 
                     if (! tapTimer) {
                         tapTimer = setTimeout(function() {
                             // reset the timer 
                             tapTimer = 0;
 
-                            // fire the appropriate tap event
-                            triggerPositionEvent(doubleTap ? 'doubleTap' : 'tap', touchesStart.touches[0]);
+                            // we've had a second tap, so trigger the double tap
+                            if (doubleTap) {
+                                triggerPositionEvent('doubleTap', touchesStart.touches[0]);
+                            } // if
                         }, THRESHOLD_DOUBLETAP + 50);
                     }
                 }
@@ -5963,9 +5968,21 @@ T5.Marker = function(params) {
     }, params);
     
     // initialise defaults
-    var MARKER_SIZE = 4;
-    
-    var animating = false;
+    var MARKER_SIZE = 4,
+        animating = false,
+        boundsX = 0,
+        boundsY = 0,
+        boundsWidth = 0,
+        boundsHeight = 0;
+        
+    function updateBounds(newX, newY, newWidth, newHeight) {
+        boundsX = newX;
+        boundsY = newY;
+        boundsWidth = newWidth;
+        boundsHeight = newHeight;
+        
+        // COG.Log.info('bounds: x = ' + boundsX + ', y = ' + boundsY + ', width = ' + boundsWidth + ', height = ' + boundsHeight);
+    } // updateBounds
     
     var self = T5.ex(params, {
         isNew: true,
@@ -6011,6 +6028,7 @@ T5.Marker = function(params) {
                 );
             } // if
             
+            // draw ther marker
             self.drawMarker(
                 context, 
                 offset, 
@@ -6040,17 +6058,26 @@ T5.Marker = function(params) {
                 Math.PI * 2,
                 false);                    
             context.fill();
+            
+            // update the marker bounds
+            updateBounds(x - MARKER_SIZE, y  - MARKER_SIZE, 
+                MARKER_SIZE*2, MARKER_SIZE*2);
         },
         
         /**
-        ### hitTest(gridX, gridY)
+        ### hitTest(testX, testY)
         This method is used to determine if the marker is located  at the specified 
         x and y position.
         */
-        hitTest: function(gridX, gridY) {
-            return Math.abs(gridX - self.xy.x) <= MARKER_SIZE && 
-                Math.abs(gridY - self.xy.y) <= MARKER_SIZE;
-        }
+        hitTest: function(testX, testY) {
+            COG.Log.info('hit testing - test x = ' + testX + ', testY = ' + testY);
+            COG.Log.info('bounds: x = ' + boundsX + ', y = ' + boundsY + ', width = ' + boundsWidth + ', height = ' + boundsHeight);
+            
+            return (testX >= boundsX) && (testX <= boundsX + boundsWidth) &&
+                (testY >= boundsY) && (testY <= boundsY + boundsHeight);
+        },
+        
+        updateBounds: updateBounds
     }); // self
     
     // make a marker capable of triggering events
@@ -6067,6 +6094,12 @@ An image annotation is simply a T5.Annotation that has been extended to
 display an image rather than a simple circle.  Probably the most common type
 of annotation used.  Supports using either the `image` or `imageUrl` parameters
 to use preloaded or an imageurl for displaying the annotation.
+
+## TODO
+
+- currently hits on animated markers not working as well as they should, need to 
+tweak touch handling to get this better...
+
 
 ## Constructor
 `new T5.ImageMarker(params);`
@@ -6150,8 +6183,20 @@ T5.ImageMarker = function(params) {
                 );
             } // if
             
+            var currentScale = self.scale,
+                drawX = x + ~~(imageOffset.x * currentScale),
+                drawY = y + ~~(imageOffset.y * currentScale),
+                drawWidth = ~~(image.width * currentScale),
+                drawHeight = ~~(image.height * currentScale);
+                
+            // context.fillStyle = "#F00";
+            // context.fillRect(drawX, drawY, drawWidth, drawHeight);
+
+            // update the bounds
+            self.updateBounds(drawX, drawY, drawWidth, drawWidth);
+            
             // COG.Log.info('drawing image @ x: ' + x + ', y: ' + y);
-            if (self.rotation || (self.scale !== 1) || (self.opacity !== 1)) {
+            if (self.rotation || (self.opacity !== 1)) {
                 context.save();
                 try {
                     context.globalAlpha = self.opacity;
@@ -6161,10 +6206,10 @@ T5.ImageMarker = function(params) {
                     // draw the image
                     context.drawImage(
                         image,
-                        imageOffset.x * self.scale,
-                        imageOffset.y * self.scale,
-                        image.width * self.scale,
-                        image.height * self.scale);
+                        imageOffset.x * currentScale,
+                        imageOffset.y * currentScale,
+                        drawWidth,
+                        drawHeight);
                 }
                 finally {
                     context.restore();
@@ -6172,12 +6217,7 @@ T5.ImageMarker = function(params) {
             }
             else {
                 // draw the image
-                context.drawImage(
-                    image,
-                    x + imageOffset.x,
-                    y + imageOffset.y,
-                    image.width,
-                    image.height);                
+                context.drawImage(image, drawX, drawY, drawHeight, drawHeight);
             } // if..else
         } // if
     } // drawImage
@@ -6200,18 +6240,7 @@ T5.ImageMarker = function(params) {
         An overriden implementation of the T5.Annotation.drawMarker which 
         draws an image to the canvas.
         */
-        drawMarker: drawMarker,
-        
-        hitTest: function(gridX, gridY) {
-            var markerX = self.xy.x,
-                markerY = self.xy.y;
-                
-            // check for a hit test (image offsets are negative numbers)
-            return (gridX >= markerX + imageOffset.x) && 
-                (gridX <= markerX + (staticImage.width + imageOffset.x)) && 
-                (gridY >= markerY + imageOffset.y) && 
-                (gridY <= markerY + (staticImage.height + imageOffset.y));
-        }
+        drawMarker: drawMarker
     });
     
     return self;
@@ -6297,12 +6326,12 @@ T5.MarkerLayer = function(params) {
     
     function handleTap(evt, absXY, relXY, gridXY) {
         var tappedMarkers = [],
-            gridX = gridXY.x,
-            gridY = gridXY.y;
+            testX = relXY.x,
+            testY = relXY.y;
         
         // iterate through the markers and look for matches
         for (var ii = markers.length; ii--; ) {
-            if (markers[ii].hitTest(gridX, gridY)) {
+            if (markers[ii].hitTest(testX, testY)) {
                 tappedMarkers[tappedMarkers.length] = markers[ii];
             } // if
         } // for

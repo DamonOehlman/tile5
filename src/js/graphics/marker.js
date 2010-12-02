@@ -32,9 +32,21 @@ T5.Marker = function(params) {
     }, params);
     
     // initialise defaults
-    var MARKER_SIZE = 4;
-    
-    var animating = false;
+    var MARKER_SIZE = 4,
+        animating = false,
+        boundsX = 0,
+        boundsY = 0,
+        boundsWidth = 0,
+        boundsHeight = 0;
+        
+    function updateBounds(newX, newY, newWidth, newHeight) {
+        boundsX = newX;
+        boundsY = newY;
+        boundsWidth = newWidth;
+        boundsHeight = newHeight;
+        
+        // COG.Log.info('bounds: x = ' + boundsX + ', y = ' + boundsY + ', width = ' + boundsWidth + ', height = ' + boundsHeight);
+    } // updateBounds
     
     var self = T5.ex(params, {
         isNew: true,
@@ -80,6 +92,7 @@ T5.Marker = function(params) {
                 );
             } // if
             
+            // draw ther marker
             self.drawMarker(
                 context, 
                 offset, 
@@ -109,17 +122,26 @@ T5.Marker = function(params) {
                 Math.PI * 2,
                 false);                    
             context.fill();
+            
+            // update the marker bounds
+            updateBounds(x - MARKER_SIZE, y  - MARKER_SIZE, 
+                MARKER_SIZE*2, MARKER_SIZE*2);
         },
         
         /**
-        ### hitTest(gridX, gridY)
+        ### hitTest(testX, testY)
         This method is used to determine if the marker is located  at the specified 
         x and y position.
         */
-        hitTest: function(gridX, gridY) {
-            return Math.abs(gridX - self.xy.x) <= MARKER_SIZE && 
-                Math.abs(gridY - self.xy.y) <= MARKER_SIZE;
-        }
+        hitTest: function(testX, testY) {
+            COG.Log.info('hit testing - test x = ' + testX + ', testY = ' + testY);
+            COG.Log.info('bounds: x = ' + boundsX + ', y = ' + boundsY + ', width = ' + boundsWidth + ', height = ' + boundsHeight);
+            
+            return (testX >= boundsX) && (testX <= boundsX + boundsWidth) &&
+                (testY >= boundsY) && (testY <= boundsY + boundsHeight);
+        },
+        
+        updateBounds: updateBounds
     }); // self
     
     // make a marker capable of triggering events

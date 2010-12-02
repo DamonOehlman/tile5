@@ -8,6 +8,12 @@ display an image rather than a simple circle.  Probably the most common type
 of annotation used.  Supports using either the `image` or `imageUrl` parameters
 to use preloaded or an imageurl for displaying the annotation.
 
+## TODO
+
+- currently hits on animated markers not working as well as they should, need to 
+tweak touch handling to get this better...
+
+
 ## Constructor
 `new T5.ImageMarker(params);`
 
@@ -90,8 +96,20 @@ T5.ImageMarker = function(params) {
                 );
             } // if
             
+            var currentScale = self.scale,
+                drawX = x + ~~(imageOffset.x * currentScale),
+                drawY = y + ~~(imageOffset.y * currentScale),
+                drawWidth = ~~(image.width * currentScale),
+                drawHeight = ~~(image.height * currentScale);
+                
+            // context.fillStyle = "#F00";
+            // context.fillRect(drawX, drawY, drawWidth, drawHeight);
+
+            // update the bounds
+            self.updateBounds(drawX, drawY, drawWidth, drawWidth);
+            
             // COG.Log.info('drawing image @ x: ' + x + ', y: ' + y);
-            if (self.rotation || (self.scale !== 1) || (self.opacity !== 1)) {
+            if (self.rotation || (self.opacity !== 1)) {
                 context.save();
                 try {
                     context.globalAlpha = self.opacity;
@@ -101,10 +119,10 @@ T5.ImageMarker = function(params) {
                     // draw the image
                     context.drawImage(
                         image,
-                        imageOffset.x * self.scale,
-                        imageOffset.y * self.scale,
-                        image.width * self.scale,
-                        image.height * self.scale);
+                        imageOffset.x * currentScale,
+                        imageOffset.y * currentScale,
+                        drawWidth,
+                        drawHeight);
                 }
                 finally {
                     context.restore();
@@ -112,12 +130,7 @@ T5.ImageMarker = function(params) {
             }
             else {
                 // draw the image
-                context.drawImage(
-                    image,
-                    x + imageOffset.x,
-                    y + imageOffset.y,
-                    image.width,
-                    image.height);                
+                context.drawImage(image, drawX, drawY, drawHeight, drawHeight);
             } // if..else
         } // if
     } // drawImage
@@ -140,18 +153,7 @@ T5.ImageMarker = function(params) {
         An overriden implementation of the T5.Annotation.drawMarker which 
         draws an image to the canvas.
         */
-        drawMarker: drawMarker,
-        
-        hitTest: function(gridX, gridY) {
-            var markerX = self.xy.x,
-                markerY = self.xy.y;
-                
-            // check for a hit test (image offsets are negative numbers)
-            return (gridX >= markerX + imageOffset.x) && 
-                (gridX <= markerX + (staticImage.width + imageOffset.x)) && 
-                (gridY >= markerY + imageOffset.y) && 
-                (gridY <= markerY + (staticImage.height + imageOffset.y));
-        }
+        drawMarker: drawMarker
     });
     
     return self;
