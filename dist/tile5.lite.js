@@ -6069,9 +6069,6 @@ T5.Marker = function(params) {
         x and y position.
         */
         hitTest: function(testX, testY) {
-            COG.Log.info('hit testing - test x = ' + testX + ', testY = ' + testY);
-            COG.Log.info('bounds: x = ' + boundsX + ', y = ' + boundsY + ', width = ' + boundsWidth + ', height = ' + boundsHeight);
-            
             return (testX >= boundsX) && (testX <= boundsX + boundsWidth) &&
                 (testY >= boundsY) && (testY <= boundsY + boundsHeight);
         },
