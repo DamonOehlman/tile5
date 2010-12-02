@@ -38,6 +38,10 @@ the center of the image is assumed for the anchor position.
 (in radians).  Be aware that applying rotation to a marker does add an extra processing
 overhead as the canvas context needs to be saved and restored as part of the operation.
 
+- `scale` (float, default = 1)
+
+- `opacity` (float, default = 1)
+
 
 ## Methods
 */

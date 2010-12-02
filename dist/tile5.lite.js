@@ -4016,6 +4016,9 @@ T5.Tween = function(params) {
         return tweens.length;
     } // update
     
+    /*
+    # T5.tweenValue
+    */
     T5.tweenValue = function(startValue, endValue, fn, callback, duration) {
         // create a tween that doesn't operate on a property
         var fnresult = new T5.Tween({
@@ -4031,6 +4034,9 @@ T5.Tween = function(params) {
         return fnresult;
     }; // T5.tweenValue
     
+    /*
+    # T5.tween
+    */
     T5.tween = function(target, property, targetValue, fn, callback, duration) {
         var fnresult = new T5.Tween({
             target: target,
@@ -4046,6 +4052,9 @@ T5.Tween = function(params) {
         return fnresult;
     }; // T5.tween
     
+    /*
+    # T5.tweenVector
+    */
     T5.tweenVector = function(target, dstX, dstY, fn, callback, duration) {
         var fnresult = [];
         
@@ -6022,6 +6031,10 @@ the center of the image is assumed for the anchor position.
 - `rotation` (float, default = 0) - the value of the rotation for the image marker 
 (in radians).  Be aware that applying rotation to a marker does add an extra processing
 overhead as the canvas context needs to be saved and restored as part of the operation.
+
+- `scale` (float, default = 1)
+
+- `opacity` (float, default = 1)
 
 
 ## Methods

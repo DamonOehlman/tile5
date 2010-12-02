@@ -34,6 +34,9 @@
         return tweens.length;
     } // update
     
+    /*
+    # T5.tweenValue
+    */
     T5.tweenValue = function(startValue, endValue, fn, callback, duration) {
         // create a tween that doesn't operate on a property
         var fnresult = new T5.Tween({
@@ -49,6 +52,9 @@
         return fnresult;
     }; // T5.tweenValue
     
+    /*
+    # T5.tween
+    */
     T5.tween = function(target, property, targetValue, fn, callback, duration) {
         var fnresult = new T5.Tween({
             target: target,
@@ -64,6 +70,9 @@
         return fnresult;
     }; // T5.tween
     
+    /*
+    # T5.tweenVector
+    */
     T5.tweenVector = function(target, dstX, dstY, fn, callback, duration) {
         var fnresult = [];
         

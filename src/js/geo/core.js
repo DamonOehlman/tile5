@@ -426,12 +426,12 @@ T5.Geo = (function() {
                     radLon = pos.lon * DEGREES_TO_RADIANS,
                     newLat = radLat + radOffsetLat,
                     newLon;
-                    
-                COG.Log.info('calculating offset for position: ', pos);
-                COG.Log.info('rad offset lat = ' + radOffsetLat);
-                COG.Log.info('rad lat = ' + radLat);
-                COG.Log.info('new rad lat = ' + newLat);
-                COG.Log.info('min lat = ' + MIN_LAT + ', max lat = ' + MAX_LAT);
+                   
+                // COG.Log.info('calculating offset for position: ', pos);
+                // COG.Log.info('rad offset lat = ' + radOffsetLat);
+                // COG.Log.info('rad lat = ' + radLat);
+                // COG.Log.info('new rad lat = ' + newLat);
+                // COG.Log.info('min lat = ' + MIN_LAT + ', max lat = ' + MAX_LAT);
                     
                 if ((newLat > MIN_LAT) && (newLat < MAX_LAT)) {
                     var deltaLon = Math.asin(Math.sin(radOffsetLon) / Math.cos(radLat));
@@ -1062,6 +1062,8 @@ T5.Geo = (function() {
         var position = T5.Geo.P.parse("-27.468 153.028"),
             vector = new T5.Geo.GeoVector(position);
         </pre>
+        
+        ## Methods
         */
         GeoVector: function(initPos) {
             var self = new T5.Vector();
@@ -1075,6 +1077,9 @@ T5.Geo = (function() {
             T5.ex(self, {
                 radsPerPixel: null,
                 
+                /**
+                ### setRadsPerPixel(radsPerPixel, offsetX, offsetY)
+                */
                 setRadsPerPixel: function(radsPerPixel, offsetX, offsetY) {
                     var mercXY = self.mercXY;
 
@@ -1089,7 +1094,13 @@ T5.Geo = (function() {
 
                     // update the rads per pixel
                     self.radsPerPixel = radsPerPixel;
-                }
+                },
+                
+                /**
+                ### updatePos(pos)
+                Update the position of the T5.Geo.GeoVector
+                */
+                updatePos: updatePos
             });
             
             // initialise the position

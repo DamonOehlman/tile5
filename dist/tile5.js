@@ -4017,6 +4017,9 @@ T5.Tween = function(params) {
         return tweens.length;
     } // update
     
+    /*
+    # T5.tweenValue
+    */
     T5.tweenValue = function(startValue, endValue, fn, callback, duration) {
         // create a tween that doesn't operate on a property
         var fnresult = new T5.Tween({
@@ -4032,6 +4035,9 @@ T5.Tween = function(params) {
         return fnresult;
     }; // T5.tweenValue
     
+    /*
+    # T5.tween
+    */
     T5.tween = function(target, property, targetValue, fn, callback, duration) {
         var fnresult = new T5.Tween({
             target: target,
@@ -4047,6 +4053,9 @@ T5.Tween = function(params) {
         return fnresult;
     }; // T5.tween
     
+    /*
+    # T5.tweenVector
+    */
     T5.tweenVector = function(target, dstX, dstY, fn, callback, duration) {
         var fnresult = [];
         
@@ -6024,6 +6033,10 @@ the center of the image is assumed for the anchor position.
 (in radians).  Be aware that applying rotation to a marker does add an extra processing
 overhead as the canvas context needs to be saved and restored as part of the operation.
 
+- `scale` (float, default = 1)
+
+- `opacity` (float, default = 1)
+
 
 ## Methods
 */
@@ -7910,12 +7923,12 @@ T5.Geo = (function() {
                     radLon = pos.lon * DEGREES_TO_RADIANS,
                     newLat = radLat + radOffsetLat,
                     newLon;
-                    
-                COG.Log.info('calculating offset for position: ', pos);
-                COG.Log.info('rad offset lat = ' + radOffsetLat);
-                COG.Log.info('rad lat = ' + radLat);
-                COG.Log.info('new rad lat = ' + newLat);
-                COG.Log.info('min lat = ' + MIN_LAT + ', max lat = ' + MAX_LAT);
+                   
+                // COG.Log.info('calculating offset for position: ', pos);
+                // COG.Log.info('rad offset lat = ' + radOffsetLat);
+                // COG.Log.info('rad lat = ' + radLat);
+                // COG.Log.info('new rad lat = ' + newLat);
+                // COG.Log.info('min lat = ' + MIN_LAT + ', max lat = ' + MAX_LAT);
                     
                 if ((newLat > MIN_LAT) && (newLat < MAX_LAT)) {
                     var deltaLon = Math.asin(Math.sin(radOffsetLon) / Math.cos(radLat));
@@ -8546,6 +8559,8 @@ T5.Geo = (function() {
         var position = T5.Geo.P.parse("-27.468 153.028"),
             vector = new T5.Geo.GeoVector(position);
         </pre>
+        
+        ## Methods
         */
         GeoVector: function(initPos) {
             var self = new T5.Vector();
@@ -8559,6 +8574,9 @@ T5.Geo = (function() {
             T5.ex(self, {
                 radsPerPixel: null,
                 
+                /**
+                ### setRadsPerPixel(radsPerPixel, offsetX, offsetY)
+                */
                 setRadsPerPixel: function(radsPerPixel, offsetX, offsetY) {
                     var mercXY = self.mercXY;
 
@@ -8573,7 +8591,13 @@ T5.Geo = (function() {
 
                     // update the rads per pixel
                     self.radsPerPixel = radsPerPixel;
-                }
+                },
+                
+                /**
+                ### updatePos(pos)
+                Update the position of the T5.Geo.GeoVector
+                */
+                updatePos: updatePos
             });
             
             // initialise the position
