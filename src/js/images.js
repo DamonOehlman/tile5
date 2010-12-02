@@ -1,3 +1,14 @@
+/**
+# T5.Images
+_module_
+
+
+The T5.Images module provides image loading support for the rest of the
+Tile5 library.
+
+
+## Module Functions
+*/
 T5.Images = (function() {
     // initialise image loader internal variables
     var images = {},
@@ -10,102 +21,8 @@ T5.Images = (function() {
         imageCacheFullness = 0,
         loadWorker = null,
         clearingCache = false;
-        
-    function newCanvas(width, height) {
-        var tmpCanvas = document.createElement('canvas');
 
-        // set the size of the canvas if specified
-        tmpCanvas.width = width ? width : 0;
-        tmpCanvas.height = height ? height : 0;
-
-        // flash canvas initialization
-        if (typeof FlashCanvas !== 'undefined') {
-            tmpCanvas.id = 'tmpCanvas' + (canvasCounter++);
-            tmpCanvas.style.cssText = 'position: absolute; top: -' + (height-1) + 'px; left: -' + (width-1) + 'px;';
-
-            document.body.appendChild(tmpCanvas);
-
-            FlashCanvas.initElement(tmpCanvas);
-        } // if
-        
-        // explorer canvas initialization
-        if (typeof G_vmlCanvasManager !== 'undefined') {
-            G_vmlCanvasManager.initElement(tmpCanvas);
-        } // if
-
-        return tmpCanvas;
-    } // newCanvas
-        
-    function postProcess(imageData) {
-        if (! imageData.image) { return; }
-        
-        var width = imageData.realSize ? imageData.realSize.width : image.width,
-            height = imageData.realSize ? imageData.realSize.height : image.height,
-            canvas = newCanvas(width, height),
-            context = canvas.getContext('2d'),
-            offset = imageData.offset ? imageData.offset : new T5.Vector();
-            
-        if (imageData.background) {
-            context.drawImage(imageData.background, 0, 0);
-        } // if
-        
-        if (imageData.drawBackground) {
-            imageData.drawBackground(context);
-        } // if
-        
-        if (imageData.customDraw) {
-            imageData.customDraw(context, imageData);
-        }
-        else {
-            context.drawImage(imageData.image, offset.x, offset.y);
-        } // if..else
-        
-        if (imageData.postProcess) {
-            imageData.postProcess(context, imageData);
-        }
-        // update the image data image
-        imageData.image = canvas;
-    } // applyBackground
-        
-    function handleImageLoad() {
-        // get the image data
-        var imageData = loadWatchers[this.id];
-        if (imageData && imageData.image.complete && (imageData.image.width > 0)) {
-            imageData.loaded = true;
-            // TODO: check the image width to ensure the image is loaded properly
-            imageData.hitCount = 1;
-            
-            // remove the image data from the loading images array
-            for (var ii = loadingImages.length; ii--; ) {
-                if (loadingImages[ii].image.src == this.src) {
-                    loadingImages.splice(ii, 1);
-                    break;
-                } // if
-            } // for
-            
-            // if we have an image background, or overlay then apply
-            if (imageData.background || imageData.postProcess || imageData.drawBackground || imageData.customDraw) {
-                postProcess(imageData);
-            } // if
-            
-            // if the image data has a callback, fire it
-            if (imageData.loadCallback) {
-                imageData.loadCallback(this, false);
-            } // if
-            
-            // add the image to the cached images
-            cachedImages[cachedImages.length] = {
-                url: this.src,
-                created: imageData.requested
-            };
-            
-            // remove the item from the load watchers
-            delete loadWatchers[this.id];
-            
-            // load the next image
-            loadNextImage();
-        } // if
-    } // handleImageLoad
+    /* internal functions */
     
     function loadNextImage() {
         if (loadWorker) { 
@@ -200,7 +117,104 @@ T5.Images = (function() {
         } // if
     } // checkTimeoutsAndCache
     
-    function getImage(url) {
+    function postProcess(imageData) {
+        if (! imageData.image) { return; }
+        
+        var width = imageData.realSize ? imageData.realSize.width : image.width,
+            height = imageData.realSize ? imageData.realSize.height : image.height,
+            canvas = newCanvas(width, height),
+            context = canvas.getContext('2d'),
+            offset = imageData.offset ? imageData.offset : new T5.Vector();
+            
+        if (imageData.background) {
+            context.drawImage(imageData.background, 0, 0);
+        } // if
+        
+        if (imageData.drawBackground) {
+            imageData.drawBackground(context);
+        } // if
+        
+        if (imageData.customDraw) {
+            imageData.customDraw(context, imageData);
+        }
+        else {
+            context.drawImage(imageData.image, offset.x, offset.y);
+        } // if..else
+        
+        if (imageData.postProcess) {
+            imageData.postProcess(context, imageData);
+        }
+        // update the image data image
+        imageData.image = canvas;
+    } // applyBackground
+    
+    /* event handlers */
+        
+    function handleImageLoad() {
+        // get the image data
+        var imageData = loadWatchers[this.id];
+        if (imageData && imageData.image.complete && (imageData.image.width > 0)) {
+            imageData.loaded = true;
+            // TODO: check the image width to ensure the image is loaded properly
+            imageData.hitCount = 1;
+            
+            // remove the image data from the loading images array
+            for (var ii = loadingImages.length; ii--; ) {
+                if (loadingImages[ii].image.src == this.src) {
+                    loadingImages.splice(ii, 1);
+                    break;
+                } // if
+            } // for
+            
+            // if we have an image background, or overlay then apply
+            if (imageData.background || imageData.postProcess || imageData.drawBackground || imageData.customDraw) {
+                postProcess(imageData);
+            } // if
+            
+            // if the image data has a callback, fire it
+            if (imageData.loadCallback) {
+                imageData.loadCallback(this, false);
+            } // if
+            
+            // add the image to the cached images
+            cachedImages[cachedImages.length] = {
+                url: this.src,
+                created: imageData.requested
+            };
+            
+            // remove the item from the load watchers
+            delete loadWatchers[this.id];
+            
+            // load the next image
+            loadNextImage();
+        } // if
+    } // handleImageLoad
+    
+    /* exports */
+    
+    /**
+    ### cancelLoad()
+    */
+    function cancelLoad() {
+        loadingImages = [];
+    } // cancelLoad
+    
+    /**
+    ### get(url)
+    This function is used to retrieve the image specified by the url.  If the image
+    has already been loaded, then the image is automatically returned from the 
+    function but if not, then a null value is returned.  
+
+    If an optional `callback` argument is provided, then this indicates to the function 
+    that if the image is not already loaded, it should be loaded and this the is passed 
+    through to the load method function.  
+    
+    #### Example Code
+    ~ var image = T5.Images.get('testimage.jpg', function(image) {
+    ~ 
+    ~ });
+    */
+    function get(url, callback) {
         var imageData = null,
             image = null;
             
@@ -213,10 +227,18 @@ T5.Images = (function() {
         
         if (image && (image.getContext || (image.complete && (image.width > 0)))) {
             return image;
-        } // if
-    } // getImage
+        }
+        else if (callback) {
+            load(url, callback);
+        } // if..else
+        
+        return null;
+    } // get
     
-    function loadImage(url, callback, loadArgs) {
+    /**
+    ### load(url, callback, loadArgs)
+    */
+    function load(url, callback, loadArgs) {
         // look for the image data
         var imageData = images[url];
 
@@ -256,18 +278,43 @@ T5.Images = (function() {
         }
         
         return imageData;
-    } // loadImage
+    } // load
+    
+    /**
+    ### newCanvas(width, height)
+    */
+    function newCanvas(width, height) {
+        var tmpCanvas = document.createElement('canvas');
+
+        // set the size of the canvas if specified
+        tmpCanvas.width = width ? width : 0;
+        tmpCanvas.height = height ? height : 0;
+
+        // flash canvas initialization
+        if (typeof FlashCanvas !== 'undefined') {
+            tmpCanvas.id = 'tmpCanvas' + (canvasCounter++);
+            tmpCanvas.style.cssText = 'position: absolute; top: -' + (height-1) + 'px; left: -' + (width-1) + 'px;';
+
+            document.body.appendChild(tmpCanvas);
+
+            FlashCanvas.initElement(tmpCanvas);
+        } // if
+        
+        // explorer canvas initialization
+        if (typeof G_vmlCanvasManager !== 'undefined') {
+            G_vmlCanvasManager.initElement(tmpCanvas);
+        } // if
+
+        return tmpCanvas;
+    } // newCanvas    
     
     var module = {
         avgImageSize: 25,
         loadTimeout: 10,
         
-        cancelLoad: function() {
-            loadingImages = [];
-        },
-        
-        get: getImage,
-        load: loadImage,
+        cancelLoad: cancelLoad,
+        get: get,
+        load: load,
         newCanvas: newCanvas,
         
         stats: function() {

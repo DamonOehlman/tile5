@@ -14,13 +14,23 @@ the map.
 // create the map
 map = new T5.Map({
     container: 'mapCanvas',
-    provider: new T5.Geo.Decarta.MapProvider();
+    provider: new T5.Geo.Decarta.MapProvider()
 });
 </pre>
-    
+
 Like all View descendants the map supports features such as intertial scrolling and
-the like and is configurable through implementing the GRUNT.configurable interface. For 
+the like and is configurable through implementing the COG.configurable interface. For 
 more information on view level features check out the View documentation.
+
+## Events
+
+### zoomLevelChange
+This event is triggered when the zoom level has been updated
+
+<pre>
+map.bind('zoomLevelChange', function(evt, newZoomLevel) {
+});
+</pre>
 
 ## Methods
 */
@@ -580,7 +590,7 @@ T5.Map = function(params) {
     self.bind('scale', handleScale);
     
     // watch for marker updates
-    self.markers.bind('markerUpdate', handleMarkerUpdate);
+    // self.markers.bind('markerUpdate', handleMarkerUpdate);
     
     /* ANNOTATIONS LAYER TO BE DEPRECATED */
 

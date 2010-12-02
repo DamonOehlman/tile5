@@ -16,16 +16,32 @@ when creating overlays and the like for the map implementations.
 ### Initialization Parameters
 
 - `container` (required)
+
 - `id`
+
 - `autoSize`
+
 - `fastDraw`
-- `intertia`
+
+- `inertia`
+
 - `pannable`
+
 - `scalable`
+
 - `panAnimationEasing`
+
 - `panAnimationDuration`
+
 - `pinchZoomAnimateTrigger`
+
 - `adjustScaleFactor`
+
+- `fps` (int, default = 25) - the frame rate of the view, by default this is set to 
+25 frames per second but can be increased or decreased to compensate for device 
+performance.  In reality though on slower devices, the framerate will scale back 
+automatically, but it can be prudent to set a lower framerate to leave some cpu for 
+other processes :)
 
 
 ## Events
@@ -103,7 +119,8 @@ T5.View = function(params) {
         pinchZoomAnimateTrigger: 400,
         adjustScaleFactor: null,
         autoSize: true,
-        tapExtent: 10
+        tapExtent: 10,
+        fps: 25
     }, params);
     
     // get the container context
@@ -142,6 +159,7 @@ T5.View = function(params) {
         tweenStart = null,
         startCenter = null,
         isFlash = typeof FlashCanvas !== 'undefined',
+        cycleDelay = ~~(1000 / params.fps),
         touchHelper = null,
         
         /* state shortcuts */
@@ -667,7 +685,7 @@ T5.View = function(params) {
         // create the cycle worker
         cycleWorker = COG.Loopage.join({
             execute: cycle,
-            frequency: 30
+            frequency: cycleDelay
         });
         
         // bind to the complete method

@@ -123,21 +123,15 @@ T5.ImageMarker = function(params) {
     } // drawImage
     
     if (! staticImage) {
-        staticImage = T5.Images.get(params.imageUrl);
-        if (! staticImage) {
-            T5.Images.load(params.imageUrl, function(image) {
-                staticImage = image;
-            });
-        } // if
+        staticImage = T5.Images.get(params.imageUrl, function(image) {
+            staticImage = image;
+        });
     } // if
     
     if (! animatingImage) {
-        animatingImage = T5.Images.get(params.imageUrl);
-        if (! animatingImage) {
-            T5.Images.load(params.animatingImageUrl, function(image) {
-                animatingImage = image;
-            });
-        } // if
+        animatingImage = T5.Images.get(params.imageUrl, function(image) {
+            animatingImage = image;
+        });
     } // if    
     
     var self = T5.ex(new T5.Marker(params), {

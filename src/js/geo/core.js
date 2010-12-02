@@ -425,31 +425,24 @@ T5.Geo = (function() {
                     radLat = pos.lat * DEGREES_TO_RADIANS,
                     radLon = pos.lon * DEGREES_TO_RADIANS,
                     newLat = radLat + radOffsetLat,
-                    newLon;
-                   
-                // COG.Log.info('calculating offset for position: ', pos);
-                // COG.Log.info('rad offset lat = ' + radOffsetLat);
-                // COG.Log.info('rad lat = ' + radLat);
-                // COG.Log.info('new rad lat = ' + newLat);
-                // COG.Log.info('min lat = ' + MIN_LAT + ', max lat = ' + MAX_LAT);
-                    
-                if ((newLat > MIN_LAT) && (newLat < MAX_LAT)) {
-                    var deltaLon = Math.asin(Math.sin(radOffsetLon) / Math.cos(radLat));
-                    
-                    // determine the max longitude
+                    deltaLon = Math.asin(Math.sin(radOffsetLon) / Math.cos(radLat)),
                     newLon = radLon + deltaLon;
-                    if (newLon > MAX_LON) {
-                        newLon -= 2 * Math.PI;
-                    } // if
-                }
-                else {
-                    newLat = Math.min(Math.max(newLat, MIN_LAT), MAX_LAT);
-                    newLon = MIN_LON;
-                } // if..else
+                   
+                // if the new latitude has wrapped, then update
+                while (newLat < MIN_LAT) {
+                    newLat += Math.PI;
+                } // if
                 
-                return new Position(
-                    newLat * RADIANS_TO_DEGREES, 
-                    newLon * RADIANS_TO_DEGREES);
+                while (newLat > MAX_LAT) {
+                    newLat -= Math.PI;
+                } // while
+                    
+                // calculate the new longitude
+                while (newLon > MAX_LON) {
+                    newLon -= 2 * Math.PI;
+                } // if
+                
+                return new Position(newLat * RADIANS_TO_DEGREES, newLon * RADIANS_TO_DEGREES);
             },
             
             /**
