@@ -5959,6 +5959,10 @@ be animated and examples of this can be seen in the [Tile5 Sandbox](http://sandb
 working with Geo data, the T5.Geo.GeoVector provides a simple way to specify this
 position.
 
+- `offset` (boolean, default = true) - whether or not the `xy` vector is relative to the 
+current grid offset.  In the case where you wish to create a marker that is relative to the
+view and not the grid, set this parameter to false.
+
 - `tweenIn` (easing function, default = null) - the easing function that is used to 
 animate the entry of the annotation.  When not provided, the annotation is simply
 displayed statically.
@@ -5973,6 +5977,7 @@ in at.  Used in combination with the `tweenIn` parameter.
 T5.Marker = function(params) {
     params = T5.ex({
         xy: new T5.Vector(),
+        offset: true,
         tweenIn: null,
         animationSpeed: null
     }, params);
@@ -5983,7 +5988,8 @@ T5.Marker = function(params) {
         boundsX = 0,
         boundsY = 0,
         boundsWidth = 0,
-        boundsHeight = 0;
+        boundsHeight = 0,
+        isOffset = params.offset;
         
     function updateBounds(newX, newY, newWidth, newHeight) {
         boundsX = newX;
@@ -6042,8 +6048,8 @@ T5.Marker = function(params) {
             self.drawMarker(
                 context, 
                 offset, 
-                self.xy.x - offset.x, 
-                self.xy.y - offset.y,
+                self.xy.x - (isOffset ? offset.x : 0), 
+                self.xy.y - (isOffset ? offset.y : 0),
                 state, 
                 overlay, 
                 view);
@@ -6159,9 +6165,7 @@ T5.ImageMarker = function(params) {
     
     var imageOffset = params.imageAnchor ?
             T5.V.invert(params.imageAnchor) : 
-            null,
-        staticImage = params.image,
-        animatingImage = params.animatingImage;
+            null;
     
     function getImageUrl() {
         if (params.animatingImageUrl && self.isAnimating()) {
@@ -6181,7 +6185,9 @@ T5.ImageMarker = function(params) {
     
     function drawMarker(context, offset, x, y, state, overlay, view) {
         // get the image
-        var image = self.isAnimating() && animatingImage ? animatingImage : staticImage;
+        var image = self.isAnimating() && self.animatingImage ? 
+            self.animatingImage : self.image;
+            
         if (image && image.complete && (image.width > 0)) {
             if (! imageOffset) {
                 imageOffset = new T5.Vector(
@@ -6229,18 +6235,6 @@ T5.ImageMarker = function(params) {
         } // if
     } // drawImage
     
-    if (! staticImage) {
-        staticImage = T5.Images.get(params.imageUrl, function(image) {
-            staticImage = image;
-        });
-    } // if
-    
-    if (! animatingImage) {
-        animatingImage = T5.Images.get(params.imageUrl, function(image) {
-            animatingImage = image;
-        });
-    } // if    
-    
     var self = T5.ex(new T5.Marker(params), {
         /**
         ### drawMarker(context, offset, xy, state, overlay, view)
@@ -6249,6 +6243,18 @@ T5.ImageMarker = function(params) {
         */
         drawMarker: drawMarker
     });
+    
+    if (! self.image) {
+        self.image = T5.Images.get(params.imageUrl, function(image) {
+            self.image = image;
+        });
+    } // if
+    
+    if (! self.animatingImage) {
+        self.animatingImage = T5.Images.get(params.imageUrl, function(image) {
+            self.animatingImage = image;
+        });
+    } // if    
     
     return self;
 };

@@ -65,9 +65,7 @@ T5.ImageMarker = function(params) {
     
     var imageOffset = params.imageAnchor ?
             T5.V.invert(params.imageAnchor) : 
-            null,
-        staticImage = params.image,
-        animatingImage = params.animatingImage;
+            null;
     
     function getImageUrl() {
         if (params.animatingImageUrl && self.isAnimating()) {
@@ -87,7 +85,9 @@ T5.ImageMarker = function(params) {
     
     function drawMarker(context, offset, x, y, state, overlay, view) {
         // get the image
-        var image = self.isAnimating() && animatingImage ? animatingImage : staticImage;
+        var image = self.isAnimating() && self.animatingImage ? 
+            self.animatingImage : self.image;
+            
         if (image && image.complete && (image.width > 0)) {
             if (! imageOffset) {
                 imageOffset = new T5.Vector(
@@ -135,18 +135,6 @@ T5.ImageMarker = function(params) {
         } // if
     } // drawImage
     
-    if (! staticImage) {
-        staticImage = T5.Images.get(params.imageUrl, function(image) {
-            staticImage = image;
-        });
-    } // if
-    
-    if (! animatingImage) {
-        animatingImage = T5.Images.get(params.imageUrl, function(image) {
-            animatingImage = image;
-        });
-    } // if    
-    
     var self = T5.ex(new T5.Marker(params), {
         /**
         ### drawMarker(context, offset, xy, state, overlay, view)
@@ -155,6 +143,18 @@ T5.ImageMarker = function(params) {
         */
         drawMarker: drawMarker
     });
+    
+    if (! self.image) {
+        self.image = T5.Images.get(params.imageUrl, function(image) {
+            self.image = image;
+        });
+    } // if
+    
+    if (! self.animatingImage) {
+        self.animatingImage = T5.Images.get(params.imageUrl, function(image) {
+            self.animatingImage = image;
+        });
+    } // if    
     
     return self;
 };
