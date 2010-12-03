@@ -299,13 +299,6 @@ T5.Map = function(params) {
             // remove the grid layer
             T5.Images.cancelLoad();
             
-            // get the grid and if available, then 
-            // deactivate to prevent further image draws
-            var grid = self.getTileLayer();
-            if (grid) {
-                grid.deactivate();
-            } // if
-
             // cancel any animations
             T5.cancelAnimation();
 

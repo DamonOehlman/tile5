@@ -131,7 +131,7 @@ T5.ViewLayer = function(params) {
         animation layers that should only exist as long as an animation is active.
         */
         remove: function() {
-            COG.say("layer.remove", { id: id });
+            self.trigger('remove', self);
         },
         
         /**

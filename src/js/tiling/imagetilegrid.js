@@ -130,12 +130,9 @@ T5.ImageTileGrid = function(params) {
                 context.drawImage(image, x, y);
                 drawn = true;
             }
-            else if (redraw || ((state & statePan) !== 0)) {
+            else if ((state & statePan) !== 0) {
                 context.drawImage(panningTile, x, y);
-            }
-            else if (emptyTile && (! tile.drawnEmpty)) {
-                context.drawImage(emptyTile, x, y);
-                tile.drawnEmpty = true;
+                drawn = true;
             } // if..else
             
             tile.dirty = false;

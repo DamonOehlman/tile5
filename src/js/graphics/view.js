@@ -273,9 +273,22 @@ T5.View = function(params) {
     } // wheelZoom
     
     function scaleView() {
+        var scaleEndXY = startRect ? calcPinchZoomCenter() : endCenter;
+        
+        // round the scaling factor to 1 decimal place
+        scaleFactor = Math.round(scaleFactor * 10) / 10;
+        
+        // flag scaling as false
         scaling = false;
-        self.trigger("scale", scaleFactor, startRect ? calcPinchZoomCenter() : endCenter);
+        
+        // flag to the layers that we are scaling
+        for (var ii = layers.length; ii--; ) {
+            layers[ii].trigger('scale', scaleFactor, scaleEndXY);
+        } // for
 
+        // trigger the scale
+        self.trigger("scale", scaleFactor, scaleEndXY);
+        
         state = stateActive;
         wake();
     } // scaleView
@@ -421,6 +434,11 @@ T5.View = function(params) {
         // make sure the layer has the correct id
         value.setId(id);
         value.added = T5.ticks();
+        
+        // bind to the remove event
+        value.bind('remove', function() {
+            self.removeLayer(id);
+        });
         
         layerContextChanged(value);
         
@@ -936,13 +954,6 @@ T5.View = function(params) {
         }
     };
 
-    // listen for layer removals
-    COG.listen("layer.remove", function(args) {
-        if (args.id) {
-            self.removeLayer(args.id);
-        } // if
-    });
-    
     deviceScaling = T5.getConfig().getScaling();
     
     // add the markers layer
