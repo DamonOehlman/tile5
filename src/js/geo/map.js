@@ -181,10 +181,12 @@ T5.Map = function(params) {
     } // handleTap
     
     function handleDoubleTap(evt, absXY, relXY) {
-        self.animate(2, 
-            T5.D.getCenter(self.getDimensions()), 
-            new T5.Vector(relXY.x, relXY.y), 
-            params.zoomAnimation);
+        if (self.scalable) {
+            self.animate(2, 
+                T5.D.getCenter(self.getDimensions()), 
+                new T5.Vector(relXY.x, relXY.y), 
+                params.zoomAnimation);
+        } // if
     } // handleDoubleTap
     
     function handleScale(evt, scaleAmount, zoomXY) {

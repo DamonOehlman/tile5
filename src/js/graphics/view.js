@@ -564,7 +564,9 @@ T5.View = function(params) {
     } // idle
     
     function drawView(context, offset, redraw, tickCount) {
-        var drawState = panimating ? statePan : (frozen ? T5.viewState('FROZEN') : state),
+        var drawState = (self.overrideState ? self.overrideState : 
+                            (panimating ? statePan : 
+                                (frozen ? T5.viewState('FROZEN') : state))),
             isPinchZoom = (drawState & statePinch) !== 0,
             delayDrawLayers = [],
             ii = 0;
@@ -723,6 +725,7 @@ T5.View = function(params) {
         id: params.id,
         deviceScaling: deviceScaling,
         fastDraw: params.fastDraw || T5.getConfig().requireFastDraw,
+        stateOverride: null,
 
         /**
         ### animate(targetScaleFactor, startXY, targetXY, tweenFn, callback)

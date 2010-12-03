@@ -5004,7 +5004,9 @@ T5.View = function(params) {
     } // idle
     
     function drawView(context, offset, redraw, tickCount) {
-        var drawState = panimating ? statePan : (frozen ? T5.viewState('FROZEN') : state),
+        var drawState = (self.overrideState ? self.overrideState : 
+                            (panimating ? statePan : 
+                                (frozen ? T5.viewState('FROZEN') : state))),
             isPinchZoom = (drawState & statePinch) !== 0,
             delayDrawLayers = [],
             ii = 0;
@@ -5163,6 +5165,7 @@ T5.View = function(params) {
         id: params.id,
         deviceScaling: deviceScaling,
         fastDraw: params.fastDraw || T5.getConfig().requireFastDraw,
+        stateOverride: null,
 
         /**
         ### animate(targetScaleFactor, startXY, targetXY, tweenFn, callback)
@@ -9428,10 +9431,12 @@ T5.Map = function(params) {
     } // handleTap
     
     function handleDoubleTap(evt, absXY, relXY) {
-        self.animate(2, 
-            T5.D.getCenter(self.getDimensions()), 
-            new T5.Vector(relXY.x, relXY.y), 
-            params.zoomAnimation);
+        if (self.scalable) {
+            self.animate(2, 
+                T5.D.getCenter(self.getDimensions()), 
+                new T5.Vector(relXY.x, relXY.y), 
+                params.zoomAnimation);
+        } // if
     } // handleDoubleTap
     
     function handleScale(evt, scaleAmount, zoomXY) {
