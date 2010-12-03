@@ -5004,7 +5004,7 @@ T5.View = function(params) {
     } // idle
     
     function drawView(context, offset, redraw, tickCount) {
-        var drawState = (self.overrideState ? self.overrideState : 
+        var drawState = (self.stateOverride ? self.stateOverride : 
                             (panimating ? statePan : 
                                 (frozen ? T5.viewState('FROZEN') : state))),
             isPinchZoom = (drawState & statePinch) !== 0,
