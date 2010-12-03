@@ -149,6 +149,7 @@ T5.View = function(params) {
         scaling = false,
         startRect = null,
         endRect = null,
+        stateOverride = null,
         redraw = false,
         redrawEvery = 40,
         resizeCanvasTimeout = 0,
@@ -564,7 +565,7 @@ T5.View = function(params) {
     } // idle
     
     function drawView(context, offset, redraw, tickCount) {
-        var drawState = (self.stateOverride ? self.stateOverride : 
+        var drawState = (stateOverride ? stateOverride : 
                             (panimating ? statePan : 
                                 (frozen ? T5.viewState('FROZEN') : state))),
             isPinchZoom = (drawState & statePinch) !== 0,
@@ -911,6 +912,14 @@ T5.View = function(params) {
             
             // update the layer count
             layerCount = layers.length;
+        },
+        
+        /**
+        ### stateOverride(state)
+        This function is used to define an override state for the view
+        */
+        stateOverride: function(value) {
+            stateOverride = value;
         },
         
         /* offset methods */
