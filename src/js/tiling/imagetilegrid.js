@@ -124,10 +124,20 @@ T5.ImageTileGrid = function(params) {
         */
         drawTile: function(context, tile, x, y, state, redraw, tickCount) {
             var image = tile.url ? getImage(tile.url) : null,
-                drawn = false;
+                drawn = false,
+                tileAge = tickCount - tile.loadTime;
                 
             if (image) {
+                /*
+                // if the tile is young, fade it in
+                if (tileAge < 250) {
+                    context.globalAlpha = tileAge / 250;
+                } // if
+                */
+                
                 context.drawImage(image, x, y);
+                // context.globalAlpha = 1;
+                
                 drawn = true;
             }
             else if ((state & statePan) !== 0) {
@@ -161,6 +171,7 @@ T5.ImageTileGrid = function(params) {
                     loadImage(
                         tile.url, 
                         function() {
+                            tile.loadTime = new Date().getTime();
                             tile.loaded = true;
                             tile.dirty = true;
                             

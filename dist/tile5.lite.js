@@ -4488,7 +4488,7 @@ other processes :)
 ### scale
 This event is fired when the view has been scaled.
 <pre>
-view.bind('scale', function(scaleFactor, scaleXY) {
+view.bind('scale', function(evt, scaleFactor, scaleXY) {
 });
 </pre>
 
@@ -4503,7 +4503,7 @@ the scaling operation is centered.
 This event is fired when the view has been tapped (or the left
 mouse button has been pressed)
 <pre>
-view.bind('tap', function(absXY, relXY, gridXY) {
+view.bind('tap', function(evt, absXY, relXY, gridXY) {
 });
 </pre>
 
@@ -4518,7 +4518,7 @@ scrolling grid offset.
 This event is fired when the view has been resized (either manually or
 automatically).
 <pre>
-view.bind('resize', function(width, height) {
+view.bind('resize', function(evt, width, height) {
 
 });
 </pre>
@@ -4527,14 +4527,14 @@ view.bind('resize', function(width, height) {
 This event is fired once the view has gone into an idle state (once draw
 operations haven't been required for 500ms).
 <pre>
-view.bind('idle', function() {
+view.bind('idle', function(evt) {
 });
 </pre>
 
 ### drawComplete
 Triggered when drawing the view has been completed (who would have thought).
 <pre>
-view.bind('drawComplete', function(offset, tickCount) {
+view.bind('drawComplete', function(evt, offset, tickCount) {
 });
 </pre>
 
@@ -5003,11 +5003,13 @@ T5.View = function(params) {
         idleTimeout = 0;
     } // idle
     
-    function drawView(context, offset, redraw, tickCount) {
-        var drawState = (stateOverride ? stateOverride : 
-                            (panimating ? statePan : 
-                                (frozen ? T5.viewState('FROZEN') : state))),
-            isPinchZoom = (drawState & statePinch) !== 0,
+    function drawView(context, drawState, offset, redraw, tickCount) {
+        // if frozen override the draw state
+        if (frozen) {
+            drawState = T5.viewState('FROZEN');
+        } // if
+        
+        var isPinchZoom = (drawState & statePinch) !== 0,
             delayDrawLayers = [],
             ii = 0;
 
@@ -5071,12 +5073,13 @@ T5.View = function(params) {
     function cycle(tickCount, worker) {
         // check to see if we are panning
         var draw = false,
+            currentState = stateOverride ? stateOverride : (panimating ? statePan : state),
             interacting = (! panimating) && 
-                ((state === statePinch) || (state === statePan)),
+                ((currentState === statePinch) || (currentState === statePan)),
             // if any of the following are true, then we need to draw the whole canvas so just
             requireRedraw = redraw || 
-                        state === T5.viewState('PAN') || 
-                        state === T5.viewState('PINCH') || 
+                        currentState === statePan || 
+                        currentState === statePinch || 
                         T5.isTweening();
 
         // convert the offset x and y to integer values
@@ -5113,7 +5116,7 @@ T5.View = function(params) {
         draw = draw || requireRedraw || ((scaleFactor !== 1) && (scaleFactor !== lastScaleFactor));
 
         if (draw) {
-            drawView(mainContext, cycleOffset, requireRedraw, tickCount);
+            drawView(mainContext, currentState, cycleOffset, requireRedraw, tickCount);
             lastScaleFactor = scaleFactor;
             
             // reset draw monitoring variables
@@ -5165,7 +5168,6 @@ T5.View = function(params) {
         id: params.id,
         deviceScaling: deviceScaling,
         fastDraw: params.fastDraw || T5.getConfig().requireFastDraw,
-        stateOverride: null,
 
         /**
         ### animate(targetScaleFactor, startXY, targetXY, tweenFn, callback)
@@ -5442,7 +5444,7 @@ T5.View = function(params) {
     // make the view configurable
     COG.configurable(
         self, 
-        ["inertia", "container", 'rotation', 'tapExtent'], 
+        ["inertia", "container", 'rotation', 'tapExtent', 'scalable', 'pannable'], 
         COG.paramTweaker(params, null, {
             "container": handleContainerUpdate,
             'rotation':  handleRotationUpdate
@@ -7414,10 +7416,20 @@ T5.ImageTileGrid = function(params) {
         */
         drawTile: function(context, tile, x, y, state, redraw, tickCount) {
             var image = tile.url ? getImage(tile.url) : null,
-                drawn = false;
+                drawn = false,
+                tileAge = tickCount - tile.loadTime;
                 
             if (image) {
+                /*
+                // if the tile is young, fade it in
+                if (tileAge < 250) {
+                    context.globalAlpha = tileAge / 250;
+                } // if
+                */
+                
                 context.drawImage(image, x, y);
+                // context.globalAlpha = 1;
+                
                 drawn = true;
             }
             else if ((state & statePan) !== 0) {
@@ -7451,6 +7463,7 @@ T5.ImageTileGrid = function(params) {
                     loadImage(
                         tile.url, 
                         function() {
+                            tile.loadTime = new Date().getTime();
                             tile.loaded = true;
                             tile.dirty = true;
                             
