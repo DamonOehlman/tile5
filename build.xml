@@ -132,7 +132,8 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/graphics/viewlayer.js" />
 			<fileset file="src/js/graphics/view.js" />
 			<fileset file="src/js/graphics/pathlayer.js" />
-			<fileset file="src/js/graphics/poly.js" />
+			<fileset file="src/js/graphics/shapelayer.js" />
+			<fileset file="src/js/graphics/shapes.js" />
 			<fileset file="src/js/graphics/animatedpathlayer.js" />
 			<fileset file="src/js/graphics/marker.js" />
 			<fileset file="src/js/graphics/imagemarker.js" />

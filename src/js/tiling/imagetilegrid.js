@@ -97,32 +97,22 @@ T5.ImageTileGrid = function(params) {
         
         // some short cut functions
         getImage = T5.Images.get,
-        loadImage = T5.Images.load;
+        loadImage = T5.Images.load,
         
-    // initialise the tile draw args
-    var tileDrawArgs = T5.ex({
-        background: null, 
-        overlay: null,
-        offset: new T5.Vector(),
-        realSize: new T5.Dimensions(tileSize, tileSize)
-    }, params.tileDrawArgs);
+        // initialise the tile draw args
+        tileDrawArgs = T5.ex({
+            background: null,
+            overlay: null,
+            offset: new T5.Vector(),
+            realSize: new T5.Dimensions(tileSize, tileSize)
+        }, params.tileDrawArgs);
         
     // initialise self
     var self = T5.ex(new T5.TileGrid(params), {
         /**
-        ### clearTileRect(context, x, y, tileSize, state)
-        */
-        clearTileRect: function(context, x, y, tileSize, state) {
-            // if the state is not the panning state, then clear the rect
-            if ((state & statePan) === 0) {
-                context.clearRect(x, y, tileSize, tileSize);
-            } // if..else
-        },
-        
-        /**
         ### drawTile(context, tile, x, y, state, redraw, tickCount)
         */
-        drawTile: function(context, tile, x, y, state, redraw, tickCount) {
+        drawTile: function(context, tile, x, y, state, redraw, tickCount, cleared) {
             var image = tile.url ? getImage(tile.url) : null,
                 drawn = false,
                 tileAge = tickCount - tile.loadTime;
@@ -130,22 +120,28 @@ T5.ImageTileGrid = function(params) {
             if (image) {
                 /*
                 // if the tile is young, fade it in
-                if (tileAge < 250) {
-                    context.globalAlpha = tileAge / 250;
+                if (tileAge < 150) {
+                    context.clearRect(x, y, tileSize, tileSize);
+                    context.globalAlpha = tileAge / 150;
+                    
+                    setTimeout(self.changed, 150);
                 } // if
                 */
                 
                 context.drawImage(image, x, y);
+                tile.dirty = false;
                 // context.globalAlpha = 1;
                 
                 drawn = true;
             }
             else if ((state & statePan) !== 0) {
-                context.drawImage(panningTile, x, y);
+                if (! cleared) {
+                    context.drawImage(panningTile, x, y);
+                } // if
+                
                 drawn = true;
             } // if..else
             
-            tile.dirty = false;
             return drawn;
         },
         

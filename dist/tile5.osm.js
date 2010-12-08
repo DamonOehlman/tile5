@@ -29,29 +29,30 @@ T5.Geo.OpenStreetMap = (function() {
             var parent = new T5.Geo.MapProvider(),
                 flipY = params.flipY;
 
-            function buildTileGrid(tileOffset, container_dimensions, centerPos) {
+            function buildTileGrid(tileOffset, dimensions, centerPos) {
                 // initialise the first tile origin
                 // TODO: think about whether to throw an error if not divisble
                 var subdomain_idx = 0,
                     serverDetails = params.getServerDetails ? params.getServerDetails() : null,
                     subDomains = serverDetails ? serverDetails.subDomains : null,
-                    maxTileX = 2 << (self.zoomLevel - 1);
+                    maxTileX = 2 << (self.zoomLevel - 1),
+                    tileGrid;
                     
                 // get the server details
                 if (params.getServerDetails) {
                     
                 } // if
 
-                tile_grid = new T5.ImageTileGrid({
-                    tileSize: T5.tileSize,
-                    width: container_dimensions.width,
-                    height: container_dimensions.height,
-                    center: tileOffset,
-                    drawGrid: params.drawGrid
-                });
+                // create the tile grid
+                tileGrid = new T5.ImageTileGrid(self.prepTileGridArgs(
+                    dimensions.width, 
+                    dimensions.height,
+                    T5.tileSize, 
+                    tileOffset, 
+                    params)); 
 
                 // set the tile grid origin
-                tile_grid.populate(function(col, row, topLeftOffset, gridSize) {
+                tileGrid.populate(function(col, row, topLeftOffset, gridSize) {
                     var tileUrl = "";
                     
                     // initialise the image url
@@ -103,9 +104,9 @@ T5.Geo.OpenStreetMap = (function() {
                 // TODO: calculate the offset adjustment from the tile offset
 
                 // wrap the tile grid in a geo tile grid
-                tile_grid = new T5.Geo.UI.GeoTileGrid({
-                    grid: tile_grid, 
-                    centerXY:  tile_grid.getTileVirtualXY(
+                tileGrid = new T5.Geo.UI.GeoTileGrid({
+                    grid: tileGrid, 
+                    centerXY:  tileGrid.getTileVirtualXY(
                                     tileOffset.x, 
                                     tileOffset.y,
                                     true),
@@ -115,7 +116,7 @@ T5.Geo.OpenStreetMap = (function() {
                     radsPerPixel: module.radsPerPixelAtZoom(T5.tileSize, self.zoomLevel)
                 });
 
-                return tile_grid;
+                return tileGrid;
             } // buildTileGrid
 
             /*

@@ -48,6 +48,7 @@ T5.TileGrid = function(params) {
     params = T5.ex({
         tileSize: T5.tileSize,
         center: new T5.Vector(),
+        clearBackground: false,
         gridSize: 25,
         shiftOrigin: null,
         supportFastDraw: true,
@@ -65,7 +66,6 @@ T5.TileGrid = function(params) {
         topLeftOffset = T5.V.offset(params.center, -gridHalfWidth),
         lastTileCreator = null,
         tileShift = new T5.Vector(),
-        animating = false,
         lastNotifyListener = null,
         halfTileSize = Math.round(tileSize / 2),
         haveDirtyTiles = false,
@@ -74,15 +74,20 @@ T5.TileGrid = function(params) {
         tileDrawQueue = null,
         loadedTileCount = 0,
         lastTilesDrawn = false,
+        newTileLag = 0,
+        populating = false,
+        lastTickCount,
         lastQueueUpdate = 0,
         lastCheckOffset = new T5.Vector(),
         shiftDelta = new T5.Vector(),
         repaintDistance = T5.getConfig().repaintDistance,
         reloadTimeout = 0,
         tileCols, tileRows, centerPos,
+        clearBeforeDraw = params.clearBackground,
         
         // initialise state short cuts
         stateAnimating = T5.viewState('ANIMATING'),
+        statePan = T5.viewState('PAN'),
         statePinch = T5.viewState('PINCH');
         
     /* event handlers */
@@ -184,32 +189,38 @@ T5.TileGrid = function(params) {
             tileIndex = 0,
             centerPos = new T5.Vector(gridCols / 2, gridRows / 2);
             
-        // if the storage is to be reset, then do that now
-        if (resetStorage) {
-            storage = [];
-        } // if
-        
-        if (tileCreator) {
-            // COG.Log.info("populating grid, size = " + gridSize + ", x shift = " + tileShift.x + ", y shift = " + tileShift.y);
-            
-            for (var row = 0; row < gridRows; row++) {
-                for (var col = 0; col < gridCols; col++) {
-                    if (! storage[tileIndex]) {
-                        var tile = tileCreator(col, row, topLeftOffset, gridCols, gridRows);
-                        
-                        // set the tile grid x and grid y position
-                        tile.gridX = (col * tileSize) - tileShift.x;
-                        tile.gridY = (row * tileSize) - tileShift.y;
+        populating = true;
+        try {
+            // if the storage is to be reset, then do that now
+            if (resetStorage) {
+                storage = [];
+            } // if
 
-                        // add the tile to storage
-                        storage[tileIndex] = tile;
-                    } // if
-                    
-                    // increment the tile index
-                    tileIndex++;
+            if (tileCreator) {
+                // COG.Log.info("populating grid, size = " + gridSize + ", x shift = " + tileShift.x + ", y shift = " + tileShift.y);
+
+                for (var row = 0; row < gridRows; row++) {
+                    for (var col = 0; col < gridCols; col++) {
+                        if (! storage[tileIndex]) {
+                            var tile = tileCreator(col, row, topLeftOffset, gridCols, gridRows);
+
+                            // set the tile grid x and grid y position
+                            tile.gridX = (col * tileSize) - tileShift.x;
+                            tile.gridY = (row * tileSize) - tileShift.y;
+
+                            // add the tile to storage
+                            storage[tileIndex] = tile;
+                        } // if
+
+                        // increment the tile index
+                        tileIndex++;
+                    } // for
                 } // for
-            } // for
-        } // if
+            } // if            
+        }
+        finally {
+            populating = false;
+        } // try..finally
         
         // save the last tile creator
         lastTileCreator = tileCreator;
@@ -344,9 +355,6 @@ T5.TileGrid = function(params) {
                 haveDirtyTiles = updateDrawQueue(offset, state, redraw, tickCount);
             } // if
             
-            // update the tweening flag
-            animating = ((state & stateAnimating) !== 0) || T5.isTweening();
-            
             return haveDirtyTiles;
         },
         
@@ -377,13 +385,6 @@ T5.TileGrid = function(params) {
             return tileSize;
         },
         
-        /** 
-        ### clearTileRect(context, x, y, tileSize, state)
-        */
-        clearTileRect: function(context, x, y, tileSize, state) {
-            context.clearRect(x, y, tileSize, tileSize);
-        },
-        
         draw: function(context, offset, dimensions, state, view, redraw, tickCount) {
             // initialise variables
             var xShift = offset.x,
@@ -396,7 +397,12 @@ T5.TileGrid = function(params) {
             // if we don't have a draq queue return
             if (! tileDrawQueue) { return; }
             
+            if (clearBeforeDraw) {
+                context.clearRect(0, 0, dimensions.width, dimensions.height);
+            } // if
+            
             context.beginPath();
+            // context.rect(0, 0, 1, 1);
             
             // draw if active
             if (active) {
@@ -414,13 +420,16 @@ T5.TileGrid = function(params) {
                     if (! tile.empty) {
                         // draw the tile
                         if (redraw || tile.dirty) {
-                            // if the interface is tweening, then clear the tile rect first
-                            if (animating) {
-                                self.clearTileRect(context, x, y, tileSize, state);
-                            } // if
-
                             // draw the tile
-                            currentTileDrawn = self.drawTile(context, tile, x, y, state, redraw, tickCount);
+                            currentTileDrawn = self.drawTile(
+                                                    context, 
+                                                    tile, 
+                                                    x, 
+                                                    y, 
+                                                    state, 
+                                                    redraw, 
+                                                    tickCount, 
+                                                    clearBeforeDraw);
 
                             // if the current tile was drawn then clip the rect
                             if (currentTileDrawn) {
@@ -431,9 +440,10 @@ T5.TileGrid = function(params) {
                             tilesDrawn = tilesDrawn && currentTileDrawn;
                         } // if
                     } 
-                    else {
-                        COG.Log.info("empty tile @ x: " + x + ", y: " + y);
-                        self.clearTileRect(context, x, y, tileSize, state);
+                    else if (! clearBeforeDraw) {
+                        context.clearRect(x, y, tileSize, tileSize);
+                        context.rect(x, y, tileSize, tileSize);
+                        
                         tilesDrawn = false;
                     } // if..else
 
@@ -442,18 +452,23 @@ T5.TileGrid = function(params) {
                     minY = y < minY ? y : minY;
                 } // for
             } // if
+
+            // clear the empty parts of the display if the grid is repopulating
+            if ((! clearBeforeDraw) && ((state & statePan) !== 0)) {
+                if (minX > 0) {
+                    context.clearRect(0, 0, minX, dimensions.height);
+                    context.rect(0, 0, minX, dimensions.height);
+                } // if
+
+                if (minY > 0) {
+                    context.clearRect(0, 0, dimensions.width, minY);
+                    context.rect(0, 0, dimensions.width, minY);
+                } // if
+            } // if
             
             // clip the context to only draw stuff where tiles exist
-            context.clip();
-
-            /* clean the display where required */
-
-            if (minX > 0) {
-                context.clearRect(0, 0, minX, dimensions.height);
-            } // if
-
-            if (minY > 0) {
-                context.clearRect(0, 0, dimensions.width, minY);
+            if (! clearBeforeDraw) {
+                context.clip();
             } // if
             
             // draw the borders if we have them...

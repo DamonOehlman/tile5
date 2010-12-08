@@ -5613,119 +5613,17 @@ T5.PathLayer = function(params) {
     return self;
 };
 /**
-# T5.Poly
-This class is used to represent individual poly(gon/line)s that are drawn within
-a T5.PolyLayer.  
-
-## Constructor
-
-`T5.Poly(vectors, params)`
-
-The constructor requires an array of vectors that represent the poly and 
-also accepts optional initialization parameters (see below).
-
-
-### Initialization Parameters
-
-- `fill` (default = true) - whether or not the poly should be filled.
-- `style` (default = null) - the style override for this poly.  If none
-is specified then the style of the T5.PolyLayer is used.
-
-
-## Methods
-*/
-T5.Poly = function(vectors, params) {
-    params = T5.ex({
-        fill: false,
-        style: null
-    }, params);
-
-    // initialise variables
-    var haveData = false,
-        fill = params.fill,
-        styleOverride = params.style,
-        drawVectors = [];
-    
-    /* exported functions */
-    
-    /**
-    ### drawPoly(context, offsetX, offsetY, state)
-    This method is used to draw the poly to the specified `context`.  The 
-    `offsetX` and `offsetY` arguments specify the panning offset of the T5.View
-    which is taken into account when drawing the poly to the display.  The 
-    `state` argument specifies the current T5.ViewState of the view.
-    */
-    function drawPoly(context, offsetX, offsetY, state) {
-        if (haveData) {
-            var first = true,
-                previousStyle = styleOverride ? T5.applyStyle(context, params.style) : null;
-            
-            context.beginPath();
-            
-            // now draw the lines
-            // COG.Log.info('drawing poly: have ' + drawVectors.length + ' vectors');
-            for (var ii = drawVectors.length; ii--; ) {
-                var x = drawVectors[ii].x - offsetX,
-                    y = drawVectors[ii].y - offsetY;
-                    
-                if (first) {
-                    context.moveTo(x, y);
-                    first = false;
-                }
-                else {
-                    context.lineTo(x, y);
-                }
-            } // for
-            
-            if (fill) {
-                context.fill();
-            } // if
-            
-            context.stroke();
-            
-            // if we had a previous style, then return to that style
-            if (previousStyle) {
-                T5.applyStyle(context, previousStyle);
-            } // if
-        } // if
-    } // drawPoly
-    
-    /**
-    ### resync(grid)
-    Used to synchronize the vectors of the poly to the grid.
-    */
-    function resyncToGrid(grid) {
-        grid.syncVectors(vectors);
-        
-        // simplify the vectors for drawing (if required)
-        drawVectors = vectors.length <= 3 ? vectors : T5.V.simplify(vectors);
-    } // resyncToGrid
-    
-    /* define self */
-    
-    var self = {
-        draw: drawPoly,
-        resync: resyncToGrid
-    };
-
-    // initialise the first item to the first element in the array
-    haveData = vectors && (vectors.length >= 2);
-    
-    return self;
-};
-
-/**
-# T5.PolyLayer
+# T5.ShapeLayer
 _extends:_ T5.ViewLayer
 
 
-The PolyLayer is designed to facilitate the storage and display of multiple 
+The ShapeLayer is designed to facilitate the storage and display of multiple 
 geometric shapes.  This is particularly useful for displaying [GeoJSON](http://geojson.org) 
 data and the like.
 
 ## Methods
 */
-T5.PolyLayer = function(params) {
+T5.ShapeLayer = function(params) {
     params = T5.ex({
         zindex: 80,
         style: null
@@ -5784,7 +5682,16 @@ T5.PolyLayer = function(params) {
 
                 // iterate through the children and draw the layers
                 for (var ii = children.length; ii--; ) {
+                    var overrideStyle = children[ii].style,
+                        previousStyle = overrideStyle ? T5.applyStyle(context, overrideStyle) : null;
+                    
+                    // draw the layer
                     children[ii].draw(context, offsetX, offsetY, state);
+                    
+                    // if we have a previous style, then restore that style
+                    if (previousStyle) {
+                        T5.applyStyle(context, previousStyle);
+                    } // if
                 } // for
             }
             finally {
@@ -5806,6 +5713,134 @@ T5.PolyLayer = function(params) {
         COG.paramTweaker(params, null, null),
         true);    
 
+    return self;
+};
+
+/**
+# T5.PolyLayer
+__deprecated__ 
+
+
+What already?  Yes it really should have been called the T5.ShapeLayer from the 
+start, we will remove the T5.PolyLayer before the 0.9.4 release.
+*/
+T5.PolyLayer = T5.ShapeLayer;/**
+# T5.Shape
+The T5.Shape class is simply a template class that provides placeholder methods
+that need to be implemented for shapes that can be drawn in a T5.ShapeLayer.
+
+## Constructor
+`new T5.Shape(params);`
+
+### Initialization Parameters
+
+- 
+*/
+T5.Shape = function(params) {
+    params = T5.ex({
+        style: null
+    }, params);
+    
+    return T5.ex(params, {
+        draw: function(context, offsetX, offsetY, state) {
+        },
+        
+        resync: function(grid) {
+        }
+    });
+};
+
+/**
+# T5.Poly
+This class is used to represent individual poly(gon/line)s that are drawn within
+a T5.PolyLayer.  
+
+## Constructor
+
+`new T5.Poly(vectors, params)`
+
+The constructor requires an array of vectors that represent the poly and 
+also accepts optional initialization parameters (see below).
+
+
+### Initialization Parameters
+
+- `fill` (default = true) - whether or not the poly should be filled.
+- `style` (default = null) - the style override for this poly.  If none
+is specified then the style of the T5.PolyLayer is used.
+
+
+## Methods
+*/
+T5.Poly = function(vectors, params) {
+    params = T5.ex({
+        fill: false
+    }, params);
+
+    // initialise variables
+    var haveData = false,
+        fill = params.fill,
+        drawVectors = [];
+    
+    /* exported functions */
+    
+    /**
+    ### draw(context, offsetX, offsetY, state)
+    This method is used to draw the poly to the specified `context`.  The 
+    `offsetX` and `offsetY` arguments specify the panning offset of the T5.View
+    which is taken into account when drawing the poly to the display.  The 
+    `state` argument specifies the current T5.ViewState of the view.
+    */
+    function draw(context, offsetX, offsetY, state) {
+        if (haveData) {
+            var first = true;
+            
+            context.beginPath();
+            
+            // now draw the lines
+            // COG.Log.info('drawing poly: have ' + drawVectors.length + ' vectors');
+            for (var ii = drawVectors.length; ii--; ) {
+                var x = drawVectors[ii].x - offsetX,
+                    y = drawVectors[ii].y - offsetY;
+                    
+                if (first) {
+                    context.moveTo(x, y);
+                    first = false;
+                }
+                else {
+                    context.lineTo(x, y);
+                }
+            } // for
+            
+            if (fill) {
+                context.fill();
+            } // if
+            
+            context.stroke();
+        } // if
+    } // drawPoly
+    
+    /**
+    ### resync(grid)
+    Used to synchronize the vectors of the poly to the grid.
+    */
+    function resync(grid) {
+        grid.syncVectors(vectors);
+        
+        // simplify the vectors for drawing (if required)
+        drawVectors = vectors.length <= 3 ? vectors : T5.V.simplify(vectors);
+    } // resyncToGrid
+    
+    /* define self */
+    
+    var self = T5.ex(new T5.Shape(params), {
+        draw: draw,
+        resync: resync
+    });
+
+    // initialise the first item to the first element in the array
+    haveData = vectors && (vectors.length >= 2);
+    
     return self;
 };
 
@@ -6787,6 +6822,7 @@ T5.TileGrid = function(params) {
     params = T5.ex({
         tileSize: T5.tileSize,
         center: new T5.Vector(),
+        clearBackground: false,
         gridSize: 25,
         shiftOrigin: null,
         supportFastDraw: true,
@@ -6804,7 +6840,6 @@ T5.TileGrid = function(params) {
         topLeftOffset = T5.V.offset(params.center, -gridHalfWidth),
         lastTileCreator = null,
         tileShift = new T5.Vector(),
-        animating = false,
         lastNotifyListener = null,
         halfTileSize = Math.round(tileSize / 2),
         haveDirtyTiles = false,
@@ -6813,15 +6848,20 @@ T5.TileGrid = function(params) {
         tileDrawQueue = null,
         loadedTileCount = 0,
         lastTilesDrawn = false,
+        newTileLag = 0,
+        populating = false,
+        lastTickCount,
         lastQueueUpdate = 0,
         lastCheckOffset = new T5.Vector(),
         shiftDelta = new T5.Vector(),
         repaintDistance = T5.getConfig().repaintDistance,
         reloadTimeout = 0,
         tileCols, tileRows, centerPos,
+        clearBeforeDraw = params.clearBackground,
         
         // initialise state short cuts
         stateAnimating = T5.viewState('ANIMATING'),
+        statePan = T5.viewState('PAN'),
         statePinch = T5.viewState('PINCH');
         
     /* event handlers */
@@ -6923,32 +6963,38 @@ T5.TileGrid = function(params) {
             tileIndex = 0,
             centerPos = new T5.Vector(gridCols / 2, gridRows / 2);
             
-        // if the storage is to be reset, then do that now
-        if (resetStorage) {
-            storage = [];
-        } // if
-        
-        if (tileCreator) {
-            // COG.Log.info("populating grid, size = " + gridSize + ", x shift = " + tileShift.x + ", y shift = " + tileShift.y);
-            
-            for (var row = 0; row < gridRows; row++) {
-                for (var col = 0; col < gridCols; col++) {
-                    if (! storage[tileIndex]) {
-                        var tile = tileCreator(col, row, topLeftOffset, gridCols, gridRows);
-                        
-                        // set the tile grid x and grid y position
-                        tile.gridX = (col * tileSize) - tileShift.x;
-                        tile.gridY = (row * tileSize) - tileShift.y;
+        populating = true;
+        try {
+            // if the storage is to be reset, then do that now
+            if (resetStorage) {
+                storage = [];
+            } // if
 
-                        // add the tile to storage
-                        storage[tileIndex] = tile;
-                    } // if
-                    
-                    // increment the tile index
-                    tileIndex++;
+            if (tileCreator) {
+                // COG.Log.info("populating grid, size = " + gridSize + ", x shift = " + tileShift.x + ", y shift = " + tileShift.y);
+
+                for (var row = 0; row < gridRows; row++) {
+                    for (var col = 0; col < gridCols; col++) {
+                        if (! storage[tileIndex]) {
+                            var tile = tileCreator(col, row, topLeftOffset, gridCols, gridRows);
+
+                            // set the tile grid x and grid y position
+                            tile.gridX = (col * tileSize) - tileShift.x;
+                            tile.gridY = (row * tileSize) - tileShift.y;
+
+                            // add the tile to storage
+                            storage[tileIndex] = tile;
+                        } // if
+
+                        // increment the tile index
+                        tileIndex++;
+                    } // for
                 } // for
-            } // for
-        } // if
+            } // if            
+        }
+        finally {
+            populating = false;
+        } // try..finally
         
         // save the last tile creator
         lastTileCreator = tileCreator;
@@ -7083,9 +7129,6 @@ T5.TileGrid = function(params) {
                 haveDirtyTiles = updateDrawQueue(offset, state, redraw, tickCount);
             } // if
             
-            // update the tweening flag
-            animating = ((state & stateAnimating) !== 0) || T5.isTweening();
-            
             return haveDirtyTiles;
         },
         
@@ -7116,13 +7159,6 @@ T5.TileGrid = function(params) {
             return tileSize;
         },
         
-        /** 
-        ### clearTileRect(context, x, y, tileSize, state)
-        */
-        clearTileRect: function(context, x, y, tileSize, state) {
-            context.clearRect(x, y, tileSize, tileSize);
-        },
-        
         draw: function(context, offset, dimensions, state, view, redraw, tickCount) {
             // initialise variables
             var xShift = offset.x,
@@ -7135,7 +7171,12 @@ T5.TileGrid = function(params) {
             // if we don't have a draq queue return
             if (! tileDrawQueue) { return; }
             
+            if (clearBeforeDraw) {
+                context.clearRect(0, 0, dimensions.width, dimensions.height);
+            } // if
+            
             context.beginPath();
+            // context.rect(0, 0, 1, 1);
             
             // draw if active
             if (active) {
@@ -7153,13 +7194,16 @@ T5.TileGrid = function(params) {
                     if (! tile.empty) {
                         // draw the tile
                         if (redraw || tile.dirty) {
-                            // if the interface is tweening, then clear the tile rect first
-                            if (animating) {
-                                self.clearTileRect(context, x, y, tileSize, state);
-                            } // if
-
                             // draw the tile
-                            currentTileDrawn = self.drawTile(context, tile, x, y, state, redraw, tickCount);
+                            currentTileDrawn = self.drawTile(
+                                                    context, 
+                                                    tile, 
+                                                    x, 
+                                                    y, 
+                                                    state, 
+                                                    redraw, 
+                                                    tickCount, 
+                                                    clearBeforeDraw);
 
                             // if the current tile was drawn then clip the rect
                             if (currentTileDrawn) {
@@ -7170,9 +7214,10 @@ T5.TileGrid = function(params) {
                             tilesDrawn = tilesDrawn && currentTileDrawn;
                         } // if
                     } 
-                    else {
-                        COG.Log.info("empty tile @ x: " + x + ", y: " + y);
-                        self.clearTileRect(context, x, y, tileSize, state);
+                    else if (! clearBeforeDraw) {
+                        context.clearRect(x, y, tileSize, tileSize);
+                        context.rect(x, y, tileSize, tileSize);
+                        
                         tilesDrawn = false;
                     } // if..else
 
@@ -7181,18 +7226,23 @@ T5.TileGrid = function(params) {
                     minY = y < minY ? y : minY;
                 } // for
             } // if
+
+            // clear the empty parts of the display if the grid is repopulating
+            if ((! clearBeforeDraw) && ((state & statePan) !== 0)) {
+                if (minX > 0) {
+                    context.clearRect(0, 0, minX, dimensions.height);
+                    context.rect(0, 0, minX, dimensions.height);
+                } // if
+
+                if (minY > 0) {
+                    context.clearRect(0, 0, dimensions.width, minY);
+                    context.rect(0, 0, dimensions.width, minY);
+                } // if
+            } // if
             
             // clip the context to only draw stuff where tiles exist
-            context.clip();
-
-            /* clean the display where required */
-
-            if (minX > 0) {
-                context.clearRect(0, 0, minX, dimensions.height);
-            } // if
-
-            if (minY > 0) {
-                context.clearRect(0, 0, dimensions.width, minY);
+            if (! clearBeforeDraw) {
+                context.clip();
             } // if
             
             // draw the borders if we have them...
@@ -7389,32 +7439,22 @@ T5.ImageTileGrid = function(params) {
         
         // some short cut functions
         getImage = T5.Images.get,
-        loadImage = T5.Images.load;
+        loadImage = T5.Images.load,
         
-    // initialise the tile draw args
-    var tileDrawArgs = T5.ex({
-        background: null, 
-        overlay: null,
-        offset: new T5.Vector(),
-        realSize: new T5.Dimensions(tileSize, tileSize)
-    }, params.tileDrawArgs);
+        // initialise the tile draw args
+        tileDrawArgs = T5.ex({
+            background: null,
+            overlay: null,
+            offset: new T5.Vector(),
+            realSize: new T5.Dimensions(tileSize, tileSize)
+        }, params.tileDrawArgs);
         
     // initialise self
     var self = T5.ex(new T5.TileGrid(params), {
         /**
-        ### clearTileRect(context, x, y, tileSize, state)
-        */
-        clearTileRect: function(context, x, y, tileSize, state) {
-            // if the state is not the panning state, then clear the rect
-            if ((state & statePan) === 0) {
-                context.clearRect(x, y, tileSize, tileSize);
-            } // if..else
-        },
-        
-        /**
         ### drawTile(context, tile, x, y, state, redraw, tickCount)
         */
-        drawTile: function(context, tile, x, y, state, redraw, tickCount) {
+        drawTile: function(context, tile, x, y, state, redraw, tickCount, cleared) {
             var image = tile.url ? getImage(tile.url) : null,
                 drawn = false,
                 tileAge = tickCount - tile.loadTime;
@@ -7422,22 +7462,28 @@ T5.ImageTileGrid = function(params) {
             if (image) {
                 /*
                 // if the tile is young, fade it in
-                if (tileAge < 250) {
-                    context.globalAlpha = tileAge / 250;
+                if (tileAge < 150) {
+                    context.clearRect(x, y, tileSize, tileSize);
+                    context.globalAlpha = tileAge / 150;
+                    
+                    setTimeout(self.changed, 150);
                 } // if
                 */
                 
                 context.drawImage(image, x, y);
+                tile.dirty = false;
                 // context.globalAlpha = 1;
                 
                 drawn = true;
             }
             else if ((state & statePan) !== 0) {
-                context.drawImage(panningTile, x, y);
+                if (! cleared) {
+                    context.drawImage(panningTile, x, y);
+                } // if
+                
                 drawn = true;
             } // if..else
             
-            tile.dirty = false;
             return drawn;
         },
         

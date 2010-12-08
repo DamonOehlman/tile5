@@ -4,9 +4,13 @@ The MapProvider class is the base class from which all map providers are impleme
 The class provides a number of common functions that can be expected in most 
 implementations of a GIS map provider.
 
-## Properties
+## Constructor
+`new T5.Geo.MapProvider();`
 
-- `zoomLevel`
+While the constructor of the map provider takes no initialization parameters it is 
+expected that a derivative MapProvider will implement parameters, and some of these
+are part of a common set that are read and acted upon when creating the T5.ImageTileGrid
+that will hold the map tiles in the grid.
 
 ## Methods
 */
@@ -68,6 +72,37 @@ T5.Geo.MapProvider = function() {
                 min: zoomMin,
                 max: zoomMax
             };
+        },
+        
+        /**
+        ### prepTileGridArgs(width, height, tileSize, center, args)
+        This method is used by derivative map providers to prepare arguments for a tile
+        grid that it creates when populating the map tiles.
+        */
+        prepTileGridArgs: function(width, height, tileSize, center, args) {
+            var background = null;
+            
+            // if a tilebackground color has been specified, then create a background canvas 
+            if (args.tileBackgroundColor) {
+                background = T5.Images.newCanvas(tileSize, tileSize);
+                
+                var context = background.getContext('2d');
+                context.fillStyle = args.tileBackgroundColor;
+                context.fillRect(0, 0, tileSize, tileSize);
+            } // if
+            
+            // initialise the tile draw args
+            var tileDrawArgs = {
+                background: background
+            };
+            
+            return T5.ex({
+                tileSize: tileSize,
+                width: width,
+                height: height,
+                center: center,
+                tileDrawArgs: tileDrawArgs
+            }, args);
         },
         
         /**

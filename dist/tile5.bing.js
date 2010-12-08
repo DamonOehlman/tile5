@@ -19,6 +19,7 @@ T5.Geo.Bing = (function() {
             params = T5.ex({
                 drawGrid: false,
                 apikey: null,
+                tileDrawArgs: {},
                 style: "Road" // ValidStyles = Road, Aerial, AerialWithLabels (http://msdn.microsoft.com/en-us/library/ff701716.aspx)
             }, params);
             
@@ -74,15 +75,13 @@ T5.Geo.Bing = (function() {
                 
                 // initialise the first tile origin
                 // TODO: think about whether to throw an error if not divisble
-                var subdomainIdx = 0;
-
-                var tileGrid = new T5.ImageTileGrid({
-                    tileSize: T5.tileSize,
-                    width: containerDimensions.width,
-                    height: containerDimensions.height,
-                    center: tileOffset,
-                    drawGrid: params.drawGrid
-                });
+                var subdomainIdx = 0,
+                    tileGrid = new T5.ImageTileGrid(self.prepTileGridArgs(
+                        containerDimensions.width, 
+                        containerDimensions.height,
+                        T5.tileSize, 
+                        tileOffset, 
+                        params));
                 
                 // set the tile grid origin
                 tileGrid.populate(function(col, row, topLeftOffset, gridSize) {

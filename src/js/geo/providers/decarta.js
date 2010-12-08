@@ -906,6 +906,7 @@ T5.Geo.Decarta = (function() {
         MapProvider: function(params) {
             params = T5.ex({
                 pinPosition: false,
+                tileDrawArgs: {},
                 drawGrid: false
             }, params);
             
@@ -919,19 +920,20 @@ T5.Geo.Decarta = (function() {
                     pos_first = {
                         x: centerXY.x - halfWidth,
                         y: centerXY.y - halfWidth
-                    }; 
+                    },
+                    gridInitArgs = self.prepTileGridArgs(
+                        containerDimensions.width,
+                        containerDimensions.height, 
+                        responseData.tileSize,
+                        new T5.Vector(responseData.centerTile.E, responseData.centerTile.N),
+                        params);
 
                 // create the tile grid
-                var tileGrid = new T5.ImageTileGrid({
-                    tileSize: responseData.tileSize,
-                    width: containerDimensions.width,
-                    height: containerDimensions.height,
-                    drawGrid: params.drawGrid,
+                var tileGrid = new T5.ImageTileGrid(T5.ex({
                     shiftOrigin: function(topLeftOffset, shiftDelta) {
                         return new T5.Vector(topLeftOffset.x + shiftDelta.x, topLeftOffset.y - shiftDelta.y);
-                    },
-                    center: new T5.Vector(responseData.centerTile.E, responseData.centerTile.N)
-                });
+                    }
+                }, gridInitArgs));
                 
                 // set the tile grid origin
                 tileGrid.populate(function(col, row, topLeftOffset, gridSize) {
