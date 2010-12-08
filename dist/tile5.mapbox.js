@@ -8,7 +8,7 @@ T5.Geo.MapBox = (function() {
         
         MapProvider: function(params) {
             params = T5.ex({
-                dataset: 'world-light',
+                tileset: 'world-light',
                 version: '1.0.0'
             }, params);
             
@@ -17,7 +17,7 @@ T5.Geo.MapBox = (function() {
                 
                 getServerDetails: function() {
                     return {
-                        baseUrl: COG.formatStr("http://{2}.tile.mapbox.com/{0}/{1}/", params.version, params.dataset, "{0}"),
+                        baseUrl: COG.formatStr("http://{2}.tile.mapbox.com/{0}/{1}/", params.version, params.tileset, "{0}"),
                         subDomains: ['a', 'b', 'c', 'd']
                     };
                 }
@@ -29,7 +29,7 @@ T5.Geo.MapBox = (function() {
                 }
             });
             
-            // TODO: this needs to be set according to the tile dataset
+            // TODO: this needs to be set according to the tile tileset
             // self.setZoomRange(0, 11);
             
             return self;
