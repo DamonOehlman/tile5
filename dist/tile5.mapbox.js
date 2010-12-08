@@ -8,9 +8,8 @@ T5.Geo.MapBox = (function() {
         
         MapProvider: function(params) {
             params = T5.ex({
-                dataset: 'world-glass',
-                version: '1.0.0',
-                tileBackgroundColor: '#333'
+                dataset: 'world-light',
+                version: '1.0.0'
             }, params);
             
             var base = new T5.Geo.OpenStreetMap.MapProvider(T5.ex({
