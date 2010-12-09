@@ -2450,6 +2450,17 @@ T5 = (function() {
     ## Functions
     */
     var vectorTools = (function() {
+        
+        /* exports */
+        
+        function difference(v1, v2) {
+            return new Vector(v1.x - v2.x, v1.y - v2.y);
+        } // diff
+        
+        function dotProduct(v1, v2) {
+            return v1.x * v2.x + v1.y * v2.y;
+        } // dotProduct
+         
         function edges(vectors, count) {
             if (! count) {
                 count = vectors.length;
@@ -2466,12 +2477,10 @@ T5 = (function() {
                 total: 0
             };
             
-            var diffFn = vectorTools.diff;
-            
             // iterate through the vectors and calculate the edges
             // OPTMIZE: look for speed up opportunities
             for (var ii = 0; ii < count - 1; ii++) {
-                var diff = diffFn(vectors[ii], vectors[ii + 1]);
+                var diff = difference(vectors[ii], vectors[ii + 1]);
                 
                 fnresult.edges[ii] = 
                     Math.sqrt((diff.x * diff.x) + (diff.y * diff.y));
@@ -2484,8 +2493,127 @@ T5 = (function() {
             return fnresult;
         } // edges
 
+        /**
+        ### equals(v1, v2)
+        */
+        function equals(v1, v2) {
+            return v1.x === v2.x && v1.y === v2.y;
+        } // equals
+        
+        /**
+        ### floor(v*)
+        This function is used to take all the vectors in the array and convert them to
+        integer values
+        */
+        function floor(vectors) {
+            var results = new Array(vectors.length);
+            for (var ii = vectors.length; ii--; ) {
+                results[ii] = new T5.Vector(~~vectors[ii].x, ~~vectors[ii].y);
+            } // for
+            
+            return results;
+        } // floor
+        
+        /*
+        This method implements the Ramer–Douglas–Peucker algorithm for simplification instead.
+        */
+        function simplifyRDP(vectors, epsilon) {
+            if ((! vectors) || (vectors.length <= 2)) {
+                return vectors;
+            } // if
+            
+            // initialise epsilon to the default if not provided
+            epsilon = epsilon ? epsilon : vectorTools.VECTOR_SIMPLIFICATION;
+            
+            // initialise variables
+            var distanceMax = 0,
+                index = 0,
+                lastIndex = vectors.length - 1,
+                u,
+                tailItem,
+                results;
+
+            // calculate the unit vector (ignoring the last index if it is the same as the first)
+            u = unitize(vectors[0], vectors[lastIndex]);
+
+            for (var ii = 1; ii < lastIndex; ii++) {
+                var diffVector = difference(vectors[ii], vectors[0]),
+                    orthDist = dotProduct(diffVector, u);
+
+                // COG.Log.info('orth dist = ' + orthDist + ', diff Vector = ', diffVector);
+                if (orthDist > distanceMax) {
+                    index = ii;
+                    distanceMax = orthDist;
+                } // if
+            } // for
+
+            COG.Log.info('max distance = ' + distanceMax + ', unitized distance vector = ', u);
+
+            // find the point with the max distance
+            if (distanceMax >= epsilon) {
+                var r1 = simplify(vectors.slice(0, index), epsilon),
+                    r2 = simplify(vectors.slice(index, lastIndex), epsilon);
+                
+                results = r1.slice(0, -1).concat(r2);
+            }
+            else {
+                results = vectors;
+            } // if..else
+            
+            // if we were holding a tail item put it back
+            if (tailItem) {
+                results[results.length] = tailItem;
+            } // if
+            
+            return results;
+        } // simplify
+        
+        /* 
+        simplify, simple version 
+        */
+        function simplify(vectors, generalization) {
+            if (! vectors) {
+                return null;
+            } // if
+
+            // set the the default generalization
+            generalization = generalization ? generalization : vectorTools.VECTOR_SIMPLIFICATION;
+
+            var tidyVectors = [],
+                last = null;
+
+            for (var ii = vectors.length; ii--; ) {
+                var current = vectors[ii];
+
+                // determine whether the current point should be included
+                include = !last || ii === 0 || 
+                    (Math.abs(current.x - last.x) + 
+                        Math.abs(current.y - last.y) >
+                        generalization);
+
+                if (include) {
+                    tidyVectors.unshift(current);
+                    last = current;
+                }
+            } // for
+
+            return tidyVectors;
+        }
+        
+        function unitize(v1, v2) {
+            var unitLength = edges([v1, v2]).total,
+                absX = unitLength !== 0 ? (v2.x - v1.x) / unitLength : 0, 
+                absY = unitLength !== 0 ? (v2.y - v1.y) / unitLength : 0;
+
+            // COG.Log.info('unitizing vectors, length = ' + unitLength);
+            return new T5.Vector(absX, absY);
+        } // unitize
+        
+        /* define module */
+
         return {
-            VECTOR_SIMPLIFICATION: 4,
+            VECTOR_SIMPLIFICATION: 3,
+            SIMPLIFICATION_MIN_VECTORS: 25,
             
             /**
             ### create(x, y)
@@ -2521,9 +2649,9 @@ T5 = (function() {
             ### diff(v1, v2)
             Return a new T5.Vector that contains the result of v1 - v2.
             */
-            diff: function(v1, v2) {
-                return new Vector(v1.x - v2.x, v1.y - v2.y);
-            },
+            diff: difference,
+            dotProduct: dotProduct,
+            equals: equals,
             
             /**
             ### copy(src)
@@ -2553,6 +2681,7 @@ T5 = (function() {
             },
             
             edges: edges,
+            floor: floor,
             
             /**
             ### distance(v*)
@@ -2566,37 +2695,9 @@ T5 = (function() {
             /**
             ### simplify(v*, generalization)
             This function is used to simplify a vector array by removing what would be considered
-            'redundant' vector positions by elimitating at a similar position (based on the supplied
-            generalization factor)
+            'redundant' vector positions by elimitating at a similar position.  
             */
-            simplify: function(vectors, generalization) {
-                if (! vectors) {
-                    return null;
-                } // if
-                
-                // set the the default generalization
-                generalization = generalization ? generalization : vectorTools.VECTOR_SIMPLIFICATION;
-
-                var tidyVectors = [],
-                    last = null;
-
-                for (var ii = vectors.length; ii--; ) {
-                    var current = vectors[ii];
-
-                    // determine whether the current point should be included
-                    include = !last || ii === 0 || 
-                        (Math.abs(current.x - last.x) + 
-                            Math.abs(current.y - last.y) >
-                            generalization);
-
-                    if (include) {
-                        tidyVectors.unshift(current);
-                        last = current;
-                    }
-                } // for
-
-                return tidyVectors;
-            },
+            simplify: simplify,
             
             /**
             ### theta (v1, v2, distance)
@@ -3437,14 +3538,16 @@ T5.Images = (function() {
         
     function handleImageLoad() {
         // get the image data
-        var imageData = loadWatchers[this.id];
-        if (imageData && imageData.image.complete && (imageData.image.width > 0)) {
+        var imageData = loadWatchers[this.id], 
+            ii;
+            
+        if (imageData && isLoaded(imageData.image)) {
             imageData.loaded = true;
             // TODO: check the image width to ensure the image is loaded properly
             imageData.hitCount = 1;
             
             // remove the image data from the loading images array
-            for (var ii = loadingImages.length; ii--; ) {
+            for (ii = loadingImages.length; ii--; ) {
                 if (loadingImages[ii].image.src == this.src) {
                     loadingImages.splice(ii, 1);
                     break;
@@ -3457,9 +3560,14 @@ T5.Images = (function() {
             } // if
             
             // if the image data has a callback, fire it
-            if (imageData.loadCallback) {
-                imageData.loadCallback(this, false);
-            } // if
+            for (ii = imageData.callbacks.length; ii--; ) {
+                if (imageData.callbacks[ii]) {
+                    imageData.callbacks[ii](this, false);
+                } // if
+            } // for
+            
+            // reset the image callbacks
+            imageData.callbacks = [];
             
             // add the image to the cached images
             cachedImages[cachedImages.length] = {
@@ -3474,6 +3582,10 @@ T5.Images = (function() {
             loadNextImage();
         } // if
     } // handleImageLoad
+    
+    function isLoaded(image) {
+        return image.complete && image.width > 0;
+    } // isLoaded
     
     /* exports */
     
@@ -3510,10 +3622,10 @@ T5.Images = (function() {
         // return the image from the image data
         image = imageData ? imageData.image : null;
         
-        if (image && (image.getContext || (image.complete && (image.width > 0)))) {
+        if (image && (image.getContext || isLoaded(image))) {
             return image;
         }
-        else if (callback) {
+        else {
             load(url, callback);
         } // if..else
         
@@ -3537,7 +3649,7 @@ T5.Images = (function() {
                 created: T5.ticks(),
                 requested: null,
                 hitCount: 0,
-                loadCallback: callback
+                callbacks: [callback]
             }, loadArgs);
             
             // COG.Log.info("loading image, image args = ", loadArgs);
@@ -3557,9 +3669,12 @@ T5.Images = (function() {
         }
         else {
             imageData.hitCount++;
-            if (imageData.image.complete && callback) {
+            if (isLoaded(imageData.image) && callback) {
                 callback(imageData.image, true);
-            } // if
+            }
+            else {
+                imageData.callbacks.push(callback);
+            } // if..else
         }
         
         return imageData;
@@ -3601,6 +3716,10 @@ T5.Images = (function() {
         get: get,
         load: load,
         newCanvas: newCanvas,
+        
+        reset: function() {
+            images = {};
+        },
         
         stats: function() {
             return {
@@ -5675,11 +5794,15 @@ T5.ShapeLayer = function(params) {
 
         draw: function(context, offset, dimensions, state, view, redraw) {
             var offsetX = offset.x,
-                offsetY = offset.y;
+                offsetY = offset.y,
+                viewWidth = dimensions.width,
+                viewHeight = dimensions.height;
             
             context.save();
             try {
                 T5.applyStyle(context, params.style);
+                
+                // COG.Log.info('shape layer has ' + children.length + ' children');
 
                 // iterate through the children and draw the layers
                 for (var ii = children.length; ii--; ) {
@@ -5687,7 +5810,7 @@ T5.ShapeLayer = function(params) {
                         previousStyle = overrideStyle ? T5.applyStyle(context, overrideStyle) : null;
                     
                     // draw the layer
-                    children[ii].draw(context, offsetX, offsetY, state);
+                    children[ii].draw(context, offsetX, offsetY, viewWidth, viewHeight, state);
                     
                     // if we have a previous style, then restore that style
                     if (previousStyle) {
@@ -5743,9 +5866,15 @@ T5.Shape = function(params) {
     }, params);
     
     return T5.ex(params, {
-        draw: function(context, offsetX, offsetY, state) {
+        /**
+        ### draw(context, offsetX, offsetY, width, height, state)
+        */
+        draw: function(context, offsetX, offsetY, width, height, state) {
         },
         
+        /**
+        ### resync(grid)
+        */
         resync: function(grid) {
         }
     });
@@ -5775,12 +5904,15 @@ is specified then the style of the T5.PolyLayer is used.
 */
 T5.Poly = function(vectors, params) {
     params = T5.ex({
-        fill: false
+        fill: false,
+        simplify: false
     }, params);
 
     // initialise variables
     var haveData = false,
         fill = params.fill,
+        simplify = params.simplify,
+        stateZoom = T5.viewState('PINCH'),
         drawVectors = [];
     
     /* exported functions */
@@ -5792,9 +5924,11 @@ T5.Poly = function(vectors, params) {
     which is taken into account when drawing the poly to the display.  The 
     `state` argument specifies the current T5.ViewState of the view.
     */
-    function draw(context, offsetX, offsetY, state) {
+    function draw(context, offsetX, offsetY, width, height, state) {
         if (haveData) {
-            var first = true;
+            var first = true,
+                zooming = (state & stateZoom) !== 0,
+                draw = false;
             
             context.beginPath();
             
@@ -5810,14 +5944,20 @@ T5.Poly = function(vectors, params) {
                 }
                 else {
                     context.lineTo(x, y);
-                }
+                } // if..else
+                
+                // update the draw status
+                draw = draw || ((! zooming) && (x >= 0 && x <= width) && (y >= 0 && y <= height));
             } // for
-            
-            if (fill) {
-                context.fill();
+
+            // if the polygon is even partially visible then draw it
+            if (draw) {
+                if (fill) {
+                    context.fill();
+                } // if
+
+                context.stroke();
             } // if
-            
-            context.stroke();
         } // if
     } // drawPoly
     
@@ -5829,7 +5969,7 @@ T5.Poly = function(vectors, params) {
         grid.syncVectors(vectors);
         
         // simplify the vectors for drawing (if required)
-        drawVectors = vectors.length <= 3 ? vectors : T5.V.simplify(vectors);
+        drawVectors = T5.V.floor(simplify ? T5.V.simplify(vectors) : vectors);
     } // resyncToGrid
     
     /* define self */
@@ -6236,7 +6376,7 @@ T5.ImageMarker = function(params) {
     function drawMarker(context, offset, x, y, state, overlay, view) {
         // get the image
         var image = self.isAnimating() && self.animatingImage ? 
-            self.animatingImage : self.image;
+                self.animatingImage : self.image;
             
         if (image && image.complete && (image.width > 0)) {
             if (! imageOffset) {
@@ -6295,14 +6435,15 @@ T5.ImageMarker = function(params) {
     });
     
     if (! self.image) {
-        self.image = T5.Images.get(params.imageUrl, function(image) {
-            self.image = image;
+        self.image = T5.Images.get(params.imageUrl, function(loadedImage) {
+            COG.Log.info('updating marker image to: ' + loadedImage.src);
+            self.image = loadedImage;
         });
     } // if
     
     if (! self.animatingImage) {
-        self.animatingImage = T5.Images.get(params.imageUrl, function(image) {
-            self.animatingImage = image;
+        self.animatingImage = T5.Images.get(params.animatingImageUrl, function(loadedImage) {
+            self.animatingImage = loadedImage;
         });
     } // if    
     
@@ -9037,7 +9178,8 @@ This module provides GeoJSON support for Tile5.
 T5.Geo.JSON = (function() {
     
     // define some constants
-    var FEATURE_TYPE_COLLECTION = 'geometrycollection',
+    var FEATURE_TYPE_COLLECTION = 'featurecollection',
+        FEATURE_TYPE_FEATURE = 'feature',
         VECTORIZE_OPTIONS = {
             async: false
         };
@@ -9051,57 +9193,77 @@ T5.Geo.JSON = (function() {
         multipolygon: processMultiPolygon
     };
     
-    /* feature processor functions */
-    // TODO: consider supporting continuations here...
+    /* feature processor utilities */
     
-    function processLineString(layer, coordinates) {
-        // TODO: check this is ok...
+    function createLine(layer, coordinates, options) {
         var vectors = readVectors(coordinates);
         
-        layer.add(new T5.Poly(vectors));        
-    } // processLineString
+        layer.add(new T5.Poly(vectors, options));
+        return vectors.length;
+    } // createLine
     
-    function processMultiLineString(layer, coordinates) {
-        for (var ii = 0; ii < coordinates.length; ii++) {
-            processLineString(layer, coordinates[ii]);
-        } // for
-    } // processMultiLineString
-    
-    function processPolygon(layer, coordinates) {
+    function createPoly(layer, coordinates, options) {
         // TODO: check this is ok...
-        var vectors = readVectors(coordinates[0]);
-        layer.add(new T5.Poly(vectors, {
+        var vectors = readVectors(coordinates);
+        layer.add(new T5.Poly(vectors, T5.ex({
             fill: true
-        }));
-    } // processPolygon
-    
-    function processMultiPolygon(layer, coordinates) {
-        for (var ii = 0; ii < coordinates.length; ii++) {
-            processPolygon(layer, coordinates[ii]);
-        } // for
-    } // processMultiPolygon
-    
-    /* other module level functions */
+        }, options)));
+        
+        return vectors.length;
+    } // createPoly
     
     function readVectors(coordinates) {
-        // iterate through the coordinates and create a vector array
-        var positions = readCoordinates(coordinates);
-        
-        return T5.Geo.P.vectorize(positions, VECTORIZE_OPTIONS);
-    } // getLineStringVectors
-    
-    function readCoordinates(coordinates) {
-        var count = coordinates.length,
+        var count = coordinates ? coordinates.length : 0,
             positions = new Array(count);
-            
-        // COG.Log.info('read ' + count + ' positions');
             
         for (var ii = count; ii--; ) {
             positions[ii] = new T5.Geo.Position(coordinates[ii][1], coordinates[ii][0]);
         } // for
+
+        return T5.Geo.P.vectorize(positions, VECTORIZE_OPTIONS);
+    } // getLineStringVectors
+    
+    /* feature processor functions */
+    
+    function processLineString(layer, featureData, options) {
+        // TODO: check this is ok...
+        var vectors = readVectors(featureData && featureData.coordinates ? featureData.coordinates : []);
         
-        return positions;
-    } // coordinates
+        layer.add(new T5.Poly(vectors));
+        
+        return vectors.length;
+    } // processLineString
+    
+    function processMultiLineString(layer, featureData, options) {
+        var coordinates = featureData && featureData.coordinates ? featureData.coordinates : [],
+            pointsProcessed = 0;
+        
+        for (var ii = coordinates.length; ii--; ) {
+            pointsProcessed += createLine(layer, coordinates[ii], options);
+        } // for
+        
+        return pointsProcessed;
+    } // processMultiLineString
+    
+    function processPolygon(layer, featureData, options) {
+        var coordinates = featureData && featureData.coordinates ? featureData.coordinates : [];
+        if (coordinates.length > 0) {
+            return createPoly(layer, coordinates[0], options);
+        } // if
+        
+        return 0;
+    } // processPolygon
+    
+    function processMultiPolygon(layer, featureData, options) {
+        var coordinates = featureData && featureData.coordinates ? featureData.coordinates : [],
+            pointsProcessed = 0;
+        
+        for (var ii = 0; ii < coordinates.length; ii++) {
+            pointsProcessed += createPoly(layer, coordinates[ii][0], options);
+        } // for
+        
+        return pointsProcessed;
+    } // processMultiPolygon
     
     /* define the GeoJSON parser */
     
@@ -9109,7 +9271,8 @@ T5.Geo.JSON = (function() {
         options = T5.ex({
             vectorsPerCycle: T5.Geo.VECTORIZE_PER_CYCLE,
             rowPreParse: null,
-            targetLayer: null
+            targetLayer: null,
+            simplify: false
         }, options);
         
         // initialise variables
@@ -9118,7 +9281,7 @@ T5.Geo.JSON = (function() {
             rowPreParse = options.rowPreParse,
             featureIndex = 0,
             totalFeatures = 0,
-            childWorker = null,
+            childParser = null,
             worker;
 
         // if we have no data, then exit
@@ -9133,6 +9296,22 @@ T5.Geo.JSON = (function() {
             
         /* parser functions */
         
+        function extractFeatureInfo(featureData) {
+            var featureType = featureData && featureData.type ? featureData.type.toLowerCase() : null;
+            
+            if (featureType && featureType === FEATURE_TYPE_FEATURE) {
+                return extractFeatureInfo(featureData.geometry);
+            }
+            else {
+                return {
+                    type: featureType,
+                    isCollection: (featureType ? featureType === FEATURE_TYPE_COLLECTION : false),
+                    processor: featureProcessors[featureType],
+                    data: featureData
+                };
+            } // if..else
+        } // extractFeatureInfo
+        
         function featureToPoly(feature, callback) {
         } // featureToPrimitives
 
@@ -9141,7 +9320,7 @@ T5.Geo.JSON = (function() {
                 ii = featureIndex;
                 
             // if we have a child worker active, then don't do anything in this worker
-            if (childWorker) {
+            if (childParser) {
                 return;
             }
             
@@ -9149,21 +9328,26 @@ T5.Geo.JSON = (function() {
             for (; ii < totalFeatures; ii++) {
                 // get the feature data
                 // if a row preparser is defined, then use that
-                var featureData = rowPreParse ? 
-                        rowPreParse(data[ii]) : 
-                        data[ii],
-                    featureType = featureData.type ? featureData.type.toLowerCase() : null,
-                    isCollection = featureType ? 
-                        featureType === FEATURE_TYPE_COLLECTION :
-                        false,
-                    processor = featureProcessors[featureType],
+                var featureInfo = extractFeatureInfo(rowPreParse ? rowPreParse(data[ii]) : data[ii]),
                     processedCount = null;
                 
-                // COG.Log.info('processing feature ' + ii + ', type = ' + featureData.type + ', id = ' + featureData.id);
-                
+                // if we have a collection, then create the child worker to process the features
+                if (featureInfo.isCollection) {
+                    // create the worker
+                    childParser = parse(
+                        featureInfo.data.features, 
+                        function(layer) {
+                            childParser = null;
+                        }, {
+                            targetLayer: targetLayer
+                        });
+                        
+                    processedCount = 1;
+                }
                 // if the processor is defined, then run it
-                if (processor) {
-                    processedCount = processor(targetLayer, featureData.coordinates);
+                else if (featureInfo.processor) {
+                    // COG.Log.info('processing feature, data = ', featureInfo.data);
+                    processedCount = featureInfo.processor(targetLayer, featureInfo.data, options);
                 } // if
                 
                 // increment the cycle count
@@ -9179,7 +9363,7 @@ T5.Geo.JSON = (function() {
             featureIndex = ii + 1;
             
             // if we have finished, then tell the worker we are done
-            if (featureIndex >= totalFeatures) {
+            if ((! childParser) && (featureIndex >= totalFeatures)) {
                 worker.trigger('complete');
             } // if
         } // processData
@@ -9190,6 +9374,7 @@ T5.Geo.JSON = (function() {
         totalFeatures = data.length;
         
         // if we don't have a target layer, then create one
+        // COG.Log.info('geojson parser initialized - target layer = ' + targetLayer + ', feature count = ' + totalFeatures);
         if (! targetLayer) {
             targetLayer = new T5.PolyLayer();
         } // if
@@ -9209,7 +9394,6 @@ T5.Geo.JSON = (function() {
         
         return worker;
     };
-    
     
     /* exported functions */
     

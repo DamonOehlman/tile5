@@ -152,14 +152,16 @@ T5.Images = (function() {
         
     function handleImageLoad() {
         // get the image data
-        var imageData = loadWatchers[this.id];
-        if (imageData && imageData.image.complete && (imageData.image.width > 0)) {
+        var imageData = loadWatchers[this.id], 
+            ii;
+            
+        if (imageData && isLoaded(imageData.image)) {
             imageData.loaded = true;
             // TODO: check the image width to ensure the image is loaded properly
             imageData.hitCount = 1;
             
             // remove the image data from the loading images array
-            for (var ii = loadingImages.length; ii--; ) {
+            for (ii = loadingImages.length; ii--; ) {
                 if (loadingImages[ii].image.src == this.src) {
                     loadingImages.splice(ii, 1);
                     break;
@@ -172,9 +174,14 @@ T5.Images = (function() {
             } // if
             
             // if the image data has a callback, fire it
-            if (imageData.loadCallback) {
-                imageData.loadCallback(this, false);
-            } // if
+            for (ii = imageData.callbacks.length; ii--; ) {
+                if (imageData.callbacks[ii]) {
+                    imageData.callbacks[ii](this, false);
+                } // if
+            } // for
+            
+            // reset the image callbacks
+            imageData.callbacks = [];
             
             // add the image to the cached images
             cachedImages[cachedImages.length] = {
@@ -189,6 +196,10 @@ T5.Images = (function() {
             loadNextImage();
         } // if
     } // handleImageLoad
+    
+    function isLoaded(image) {
+        return image.complete && image.width > 0;
+    } // isLoaded
     
     /* exports */
     
@@ -225,10 +236,10 @@ T5.Images = (function() {
         // return the image from the image data
         image = imageData ? imageData.image : null;
         
-        if (image && (image.getContext || (image.complete && (image.width > 0)))) {
+        if (image && (image.getContext || isLoaded(image))) {
             return image;
         }
-        else if (callback) {
+        else {
             load(url, callback);
         } // if..else
         
@@ -252,7 +263,7 @@ T5.Images = (function() {
                 created: T5.ticks(),
                 requested: null,
                 hitCount: 0,
-                loadCallback: callback
+                callbacks: [callback]
             }, loadArgs);
             
             // COG.Log.info("loading image, image args = ", loadArgs);
@@ -272,9 +283,12 @@ T5.Images = (function() {
         }
         else {
             imageData.hitCount++;
-            if (imageData.image.complete && callback) {
+            if (isLoaded(imageData.image) && callback) {
                 callback(imageData.image, true);
-            } // if
+            }
+            else {
+                imageData.callbacks.push(callback);
+            } // if..else
         }
         
         return imageData;
@@ -316,6 +330,10 @@ T5.Images = (function() {
         get: get,
         load: load,
         newCanvas: newCanvas,
+        
+        reset: function() {
+            images = {};
+        },
         
         stats: function() {
             return {

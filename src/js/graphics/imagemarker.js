@@ -86,7 +86,7 @@ T5.ImageMarker = function(params) {
     function drawMarker(context, offset, x, y, state, overlay, view) {
         // get the image
         var image = self.isAnimating() && self.animatingImage ? 
-            self.animatingImage : self.image;
+                self.animatingImage : self.image;
             
         if (image && image.complete && (image.width > 0)) {
             if (! imageOffset) {
@@ -145,14 +145,15 @@ T5.ImageMarker = function(params) {
     });
     
     if (! self.image) {
-        self.image = T5.Images.get(params.imageUrl, function(image) {
-            self.image = image;
+        self.image = T5.Images.get(params.imageUrl, function(loadedImage) {
+            COG.Log.info('updating marker image to: ' + loadedImage.src);
+            self.image = loadedImage;
         });
     } // if
     
     if (! self.animatingImage) {
-        self.animatingImage = T5.Images.get(params.imageUrl, function(image) {
-            self.animatingImage = image;
+        self.animatingImage = T5.Images.get(params.animatingImageUrl, function(loadedImage) {
+            self.animatingImage = loadedImage;
         });
     } // if    
     

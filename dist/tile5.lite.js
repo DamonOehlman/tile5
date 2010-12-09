@@ -2449,6 +2449,17 @@ T5 = (function() {
     ## Functions
     */
     var vectorTools = (function() {
+        
+        /* exports */
+        
+        function difference(v1, v2) {
+            return new Vector(v1.x - v2.x, v1.y - v2.y);
+        } // diff
+        
+        function dotProduct(v1, v2) {
+            return v1.x * v2.x + v1.y * v2.y;
+        } // dotProduct
+         
         function edges(vectors, count) {
             if (! count) {
                 count = vectors.length;
@@ -2465,12 +2476,10 @@ T5 = (function() {
                 total: 0
             };
             
-            var diffFn = vectorTools.diff;
-            
             // iterate through the vectors and calculate the edges
             // OPTMIZE: look for speed up opportunities
             for (var ii = 0; ii < count - 1; ii++) {
-                var diff = diffFn(vectors[ii], vectors[ii + 1]);
+                var diff = difference(vectors[ii], vectors[ii + 1]);
                 
                 fnresult.edges[ii] = 
                     Math.sqrt((diff.x * diff.x) + (diff.y * diff.y));
@@ -2483,8 +2492,127 @@ T5 = (function() {
             return fnresult;
         } // edges
 
+        /**
+        ### equals(v1, v2)
+        */
+        function equals(v1, v2) {
+            return v1.x === v2.x && v1.y === v2.y;
+        } // equals
+        
+        /**
+        ### floor(v*)
+        This function is used to take all the vectors in the array and convert them to
+        integer values
+        */
+        function floor(vectors) {
+            var results = new Array(vectors.length);
+            for (var ii = vectors.length; ii--; ) {
+                results[ii] = new T5.Vector(~~vectors[ii].x, ~~vectors[ii].y);
+            } // for
+            
+            return results;
+        } // floor
+        
+        /*
+        This method implements the Ramer–Douglas–Peucker algorithm for simplification instead.
+        */
+        function simplifyRDP(vectors, epsilon) {
+            if ((! vectors) || (vectors.length <= 2)) {
+                return vectors;
+            } // if
+            
+            // initialise epsilon to the default if not provided
+            epsilon = epsilon ? epsilon : vectorTools.VECTOR_SIMPLIFICATION;
+            
+            // initialise variables
+            var distanceMax = 0,
+                index = 0,
+                lastIndex = vectors.length - 1,
+                u,
+                tailItem,
+                results;
+
+            // calculate the unit vector (ignoring the last index if it is the same as the first)
+            u = unitize(vectors[0], vectors[lastIndex]);
+
+            for (var ii = 1; ii < lastIndex; ii++) {
+                var diffVector = difference(vectors[ii], vectors[0]),
+                    orthDist = dotProduct(diffVector, u);
+
+                // COG.Log.info('orth dist = ' + orthDist + ', diff Vector = ', diffVector);
+                if (orthDist > distanceMax) {
+                    index = ii;
+                    distanceMax = orthDist;
+                } // if
+            } // for
+
+            COG.Log.info('max distance = ' + distanceMax + ', unitized distance vector = ', u);
+
+            // find the point with the max distance
+            if (distanceMax >= epsilon) {
+                var r1 = simplify(vectors.slice(0, index), epsilon),
+                    r2 = simplify(vectors.slice(index, lastIndex), epsilon);
+                
+                results = r1.slice(0, -1).concat(r2);
+            }
+            else {
+                results = vectors;
+            } // if..else
+            
+            // if we were holding a tail item put it back
+            if (tailItem) {
+                results[results.length] = tailItem;
+            } // if
+            
+            return results;
+        } // simplify
+        
+        /* 
+        simplify, simple version 
+        */
+        function simplify(vectors, generalization) {
+            if (! vectors) {
+                return null;
+            } // if
+
+            // set the the default generalization
+            generalization = generalization ? generalization : vectorTools.VECTOR_SIMPLIFICATION;
+
+            var tidyVectors = [],
+                last = null;
+
+            for (var ii = vectors.length; ii--; ) {
+                var current = vectors[ii];
+
+                // determine whether the current point should be included
+                include = !last || ii === 0 || 
+                    (Math.abs(current.x - last.x) + 
+                        Math.abs(current.y - last.y) >
+                        generalization);
+
+                if (include) {
+                    tidyVectors.unshift(current);
+                    last = current;
+                }
+            } // for
+
+            return tidyVectors;
+        }
+        
+        function unitize(v1, v2) {
+            var unitLength = edges([v1, v2]).total,
+                absX = unitLength !== 0 ? (v2.x - v1.x) / unitLength : 0, 
+                absY = unitLength !== 0 ? (v2.y - v1.y) / unitLength : 0;
+
+            // COG.Log.info('unitizing vectors, length = ' + unitLength);
+            return new T5.Vector(absX, absY);
+        } // unitize
+        
+        /* define module */
+
         return {
-            VECTOR_SIMPLIFICATION: 4,
+            VECTOR_SIMPLIFICATION: 3,
+            SIMPLIFICATION_MIN_VECTORS: 25,
             
             /**
             ### create(x, y)
@@ -2520,9 +2648,9 @@ T5 = (function() {
             ### diff(v1, v2)
             Return a new T5.Vector that contains the result of v1 - v2.
             */
-            diff: function(v1, v2) {
-                return new Vector(v1.x - v2.x, v1.y - v2.y);
-            },
+            diff: difference,
+            dotProduct: dotProduct,
+            equals: equals,
             
             /**
             ### copy(src)
@@ -2552,6 +2680,7 @@ T5 = (function() {
             },
             
             edges: edges,
+            floor: floor,
             
             /**
             ### distance(v*)
@@ -2565,37 +2694,9 @@ T5 = (function() {
             /**
             ### simplify(v*, generalization)
             This function is used to simplify a vector array by removing what would be considered
-            'redundant' vector positions by elimitating at a similar position (based on the supplied
-            generalization factor)
+            'redundant' vector positions by elimitating at a similar position.  
             */
-            simplify: function(vectors, generalization) {
-                if (! vectors) {
-                    return null;
-                } // if
-                
-                // set the the default generalization
-                generalization = generalization ? generalization : vectorTools.VECTOR_SIMPLIFICATION;
-
-                var tidyVectors = [],
-                    last = null;
-
-                for (var ii = vectors.length; ii--; ) {
-                    var current = vectors[ii];
-
-                    // determine whether the current point should be included
-                    include = !last || ii === 0 || 
-                        (Math.abs(current.x - last.x) + 
-                            Math.abs(current.y - last.y) >
-                            generalization);
-
-                    if (include) {
-                        tidyVectors.unshift(current);
-                        last = current;
-                    }
-                } // for
-
-                return tidyVectors;
-            },
+            simplify: simplify,
             
             /**
             ### theta (v1, v2, distance)
@@ -3436,14 +3537,16 @@ T5.Images = (function() {
         
     function handleImageLoad() {
         // get the image data
-        var imageData = loadWatchers[this.id];
-        if (imageData && imageData.image.complete && (imageData.image.width > 0)) {
+        var imageData = loadWatchers[this.id], 
+            ii;
+            
+        if (imageData && isLoaded(imageData.image)) {
             imageData.loaded = true;
             // TODO: check the image width to ensure the image is loaded properly
             imageData.hitCount = 1;
             
             // remove the image data from the loading images array
-            for (var ii = loadingImages.length; ii--; ) {
+            for (ii = loadingImages.length; ii--; ) {
                 if (loadingImages[ii].image.src == this.src) {
                     loadingImages.splice(ii, 1);
                     break;
@@ -3456,9 +3559,14 @@ T5.Images = (function() {
             } // if
             
             // if the image data has a callback, fire it
-            if (imageData.loadCallback) {
-                imageData.loadCallback(this, false);
-            } // if
+            for (ii = imageData.callbacks.length; ii--; ) {
+                if (imageData.callbacks[ii]) {
+                    imageData.callbacks[ii](this, false);
+                } // if
+            } // for
+            
+            // reset the image callbacks
+            imageData.callbacks = [];
             
             // add the image to the cached images
             cachedImages[cachedImages.length] = {
@@ -3473,6 +3581,10 @@ T5.Images = (function() {
             loadNextImage();
         } // if
     } // handleImageLoad
+    
+    function isLoaded(image) {
+        return image.complete && image.width > 0;
+    } // isLoaded
     
     /* exports */
     
@@ -3509,10 +3621,10 @@ T5.Images = (function() {
         // return the image from the image data
         image = imageData ? imageData.image : null;
         
-        if (image && (image.getContext || (image.complete && (image.width > 0)))) {
+        if (image && (image.getContext || isLoaded(image))) {
             return image;
         }
-        else if (callback) {
+        else {
             load(url, callback);
         } // if..else
         
@@ -3536,7 +3648,7 @@ T5.Images = (function() {
                 created: T5.ticks(),
                 requested: null,
                 hitCount: 0,
-                loadCallback: callback
+                callbacks: [callback]
             }, loadArgs);
             
             // COG.Log.info("loading image, image args = ", loadArgs);
@@ -3556,9 +3668,12 @@ T5.Images = (function() {
         }
         else {
             imageData.hitCount++;
-            if (imageData.image.complete && callback) {
+            if (isLoaded(imageData.image) && callback) {
                 callback(imageData.image, true);
-            } // if
+            }
+            else {
+                imageData.callbacks.push(callback);
+            } // if..else
         }
         
         return imageData;
@@ -3600,6 +3715,10 @@ T5.Images = (function() {
         get: get,
         load: load,
         newCanvas: newCanvas,
+        
+        reset: function() {
+            images = {};
+        },
         
         stats: function() {
             return {
@@ -5674,11 +5793,15 @@ T5.ShapeLayer = function(params) {
 
         draw: function(context, offset, dimensions, state, view, redraw) {
             var offsetX = offset.x,
-                offsetY = offset.y;
+                offsetY = offset.y,
+                viewWidth = dimensions.width,
+                viewHeight = dimensions.height;
             
             context.save();
             try {
                 T5.applyStyle(context, params.style);
+                
+                // COG.Log.info('shape layer has ' + children.length + ' children');
 
                 // iterate through the children and draw the layers
                 for (var ii = children.length; ii--; ) {
@@ -5686,7 +5809,7 @@ T5.ShapeLayer = function(params) {
                         previousStyle = overrideStyle ? T5.applyStyle(context, overrideStyle) : null;
                     
                     // draw the layer
-                    children[ii].draw(context, offsetX, offsetY, state);
+                    children[ii].draw(context, offsetX, offsetY, viewWidth, viewHeight, state);
                     
                     // if we have a previous style, then restore that style
                     if (previousStyle) {
@@ -5742,9 +5865,15 @@ T5.Shape = function(params) {
     }, params);
     
     return T5.ex(params, {
-        draw: function(context, offsetX, offsetY, state) {
+        /**
+        ### draw(context, offsetX, offsetY, width, height, state)
+        */
+        draw: function(context, offsetX, offsetY, width, height, state) {
         },
         
+        /**
+        ### resync(grid)
+        */
         resync: function(grid) {
         }
     });
@@ -5774,12 +5903,15 @@ is specified then the style of the T5.PolyLayer is used.
 */
 T5.Poly = function(vectors, params) {
     params = T5.ex({
-        fill: false
+        fill: false,
+        simplify: false
     }, params);
 
     // initialise variables
     var haveData = false,
         fill = params.fill,
+        simplify = params.simplify,
+        stateZoom = T5.viewState('PINCH'),
         drawVectors = [];
     
     /* exported functions */
@@ -5791,9 +5923,11 @@ T5.Poly = function(vectors, params) {
     which is taken into account when drawing the poly to the display.  The 
     `state` argument specifies the current T5.ViewState of the view.
     */
-    function draw(context, offsetX, offsetY, state) {
+    function draw(context, offsetX, offsetY, width, height, state) {
         if (haveData) {
-            var first = true;
+            var first = true,
+                zooming = (state & stateZoom) !== 0,
+                draw = false;
             
             context.beginPath();
             
@@ -5809,14 +5943,20 @@ T5.Poly = function(vectors, params) {
                 }
                 else {
                     context.lineTo(x, y);
-                }
+                } // if..else
+                
+                // update the draw status
+                draw = draw || ((! zooming) && (x >= 0 && x <= width) && (y >= 0 && y <= height));
             } // for
-            
-            if (fill) {
-                context.fill();
+
+            // if the polygon is even partially visible then draw it
+            if (draw) {
+                if (fill) {
+                    context.fill();
+                } // if
+
+                context.stroke();
             } // if
-            
-            context.stroke();
         } // if
     } // drawPoly
     
@@ -5828,7 +5968,7 @@ T5.Poly = function(vectors, params) {
         grid.syncVectors(vectors);
         
         // simplify the vectors for drawing (if required)
-        drawVectors = vectors.length <= 3 ? vectors : T5.V.simplify(vectors);
+        drawVectors = T5.V.floor(simplify ? T5.V.simplify(vectors) : vectors);
     } // resyncToGrid
     
     /* define self */
@@ -6235,7 +6375,7 @@ T5.ImageMarker = function(params) {
     function drawMarker(context, offset, x, y, state, overlay, view) {
         // get the image
         var image = self.isAnimating() && self.animatingImage ? 
-            self.animatingImage : self.image;
+                self.animatingImage : self.image;
             
         if (image && image.complete && (image.width > 0)) {
             if (! imageOffset) {
@@ -6294,14 +6434,15 @@ T5.ImageMarker = function(params) {
     });
     
     if (! self.image) {
-        self.image = T5.Images.get(params.imageUrl, function(image) {
-            self.image = image;
+        self.image = T5.Images.get(params.imageUrl, function(loadedImage) {
+            COG.Log.info('updating marker image to: ' + loadedImage.src);
+            self.image = loadedImage;
         });
     } // if
     
     if (! self.animatingImage) {
-        self.animatingImage = T5.Images.get(params.imageUrl, function(image) {
-            self.animatingImage = image;
+        self.animatingImage = T5.Images.get(params.animatingImageUrl, function(loadedImage) {
+            self.animatingImage = loadedImage;
         });
     } // if    
     

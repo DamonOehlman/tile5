@@ -41,6 +41,17 @@ T5 = (function() {
     ## Functions
     */
     var vectorTools = (function() {
+        
+        /* exports */
+        
+        function difference(v1, v2) {
+            return new Vector(v1.x - v2.x, v1.y - v2.y);
+        } // diff
+        
+        function dotProduct(v1, v2) {
+            return v1.x * v2.x + v1.y * v2.y;
+        } // dotProduct
+         
         function edges(vectors, count) {
             if (! count) {
                 count = vectors.length;
@@ -57,12 +68,10 @@ T5 = (function() {
                 total: 0
             };
             
-            var diffFn = vectorTools.diff;
-            
             // iterate through the vectors and calculate the edges
             // OPTMIZE: look for speed up opportunities
             for (var ii = 0; ii < count - 1; ii++) {
-                var diff = diffFn(vectors[ii], vectors[ii + 1]);
+                var diff = difference(vectors[ii], vectors[ii + 1]);
                 
                 fnresult.edges[ii] = 
                     Math.sqrt((diff.x * diff.x) + (diff.y * diff.y));
@@ -75,8 +84,127 @@ T5 = (function() {
             return fnresult;
         } // edges
 
+        /**
+        ### equals(v1, v2)
+        */
+        function equals(v1, v2) {
+            return v1.x === v2.x && v1.y === v2.y;
+        } // equals
+        
+        /**
+        ### floor(v*)
+        This function is used to take all the vectors in the array and convert them to
+        integer values
+        */
+        function floor(vectors) {
+            var results = new Array(vectors.length);
+            for (var ii = vectors.length; ii--; ) {
+                results[ii] = new T5.Vector(~~vectors[ii].x, ~~vectors[ii].y);
+            } // for
+            
+            return results;
+        } // floor
+        
+        /*
+        This method implements the Ramer–Douglas–Peucker algorithm for simplification instead.
+        */
+        function simplifyRDP(vectors, epsilon) {
+            if ((! vectors) || (vectors.length <= 2)) {
+                return vectors;
+            } // if
+            
+            // initialise epsilon to the default if not provided
+            epsilon = epsilon ? epsilon : vectorTools.VECTOR_SIMPLIFICATION;
+            
+            // initialise variables
+            var distanceMax = 0,
+                index = 0,
+                lastIndex = vectors.length - 1,
+                u,
+                tailItem,
+                results;
+
+            // calculate the unit vector (ignoring the last index if it is the same as the first)
+            u = unitize(vectors[0], vectors[lastIndex]);
+
+            for (var ii = 1; ii < lastIndex; ii++) {
+                var diffVector = difference(vectors[ii], vectors[0]),
+                    orthDist = dotProduct(diffVector, u);
+
+                // COG.Log.info('orth dist = ' + orthDist + ', diff Vector = ', diffVector);
+                if (orthDist > distanceMax) {
+                    index = ii;
+                    distanceMax = orthDist;
+                } // if
+            } // for
+
+            COG.Log.info('max distance = ' + distanceMax + ', unitized distance vector = ', u);
+
+            // find the point with the max distance
+            if (distanceMax >= epsilon) {
+                var r1 = simplify(vectors.slice(0, index), epsilon),
+                    r2 = simplify(vectors.slice(index, lastIndex), epsilon);
+                
+                results = r1.slice(0, -1).concat(r2);
+            }
+            else {
+                results = vectors;
+            } // if..else
+            
+            // if we were holding a tail item put it back
+            if (tailItem) {
+                results[results.length] = tailItem;
+            } // if
+            
+            return results;
+        } // simplify
+        
+        /* 
+        simplify, simple version 
+        */
+        function simplify(vectors, generalization) {
+            if (! vectors) {
+                return null;
+            } // if
+
+            // set the the default generalization
+            generalization = generalization ? generalization : vectorTools.VECTOR_SIMPLIFICATION;
+
+            var tidyVectors = [],
+                last = null;
+
+            for (var ii = vectors.length; ii--; ) {
+                var current = vectors[ii];
+
+                // determine whether the current point should be included
+                include = !last || ii === 0 || 
+                    (Math.abs(current.x - last.x) + 
+                        Math.abs(current.y - last.y) >
+                        generalization);
+
+                if (include) {
+                    tidyVectors.unshift(current);
+                    last = current;
+                }
+            } // for
+
+            return tidyVectors;
+        }
+        
+        function unitize(v1, v2) {
+            var unitLength = edges([v1, v2]).total,
+                absX = unitLength !== 0 ? (v2.x - v1.x) / unitLength : 0, 
+                absY = unitLength !== 0 ? (v2.y - v1.y) / unitLength : 0;
+
+            // COG.Log.info('unitizing vectors, length = ' + unitLength);
+            return new T5.Vector(absX, absY);
+        } // unitize
+        
+        /* define module */
+
         return {
-            VECTOR_SIMPLIFICATION: 4,
+            VECTOR_SIMPLIFICATION: 3,
+            SIMPLIFICATION_MIN_VECTORS: 25,
             
             /**
             ### create(x, y)
@@ -112,9 +240,9 @@ T5 = (function() {
             ### diff(v1, v2)
             Return a new T5.Vector that contains the result of v1 - v2.
             */
-            diff: function(v1, v2) {
-                return new Vector(v1.x - v2.x, v1.y - v2.y);
-            },
+            diff: difference,
+            dotProduct: dotProduct,
+            equals: equals,
             
             /**
             ### copy(src)
@@ -144,6 +272,7 @@ T5 = (function() {
             },
             
             edges: edges,
+            floor: floor,
             
             /**
             ### distance(v*)
@@ -157,37 +286,9 @@ T5 = (function() {
             /**
             ### simplify(v*, generalization)
             This function is used to simplify a vector array by removing what would be considered
-            'redundant' vector positions by elimitating at a similar position (based on the supplied
-            generalization factor)
+            'redundant' vector positions by elimitating at a similar position.  
             */
-            simplify: function(vectors, generalization) {
-                if (! vectors) {
-                    return null;
-                } // if
-                
-                // set the the default generalization
-                generalization = generalization ? generalization : vectorTools.VECTOR_SIMPLIFICATION;
-
-                var tidyVectors = [],
-                    last = null;
-
-                for (var ii = vectors.length; ii--; ) {
-                    var current = vectors[ii];
-
-                    // determine whether the current point should be included
-                    include = !last || ii === 0 || 
-                        (Math.abs(current.x - last.x) + 
-                            Math.abs(current.y - last.y) >
-                            generalization);
-
-                    if (include) {
-                        tidyVectors.unshift(current);
-                        last = current;
-                    }
-                } // for
-
-                return tidyVectors;
-            },
+            simplify: simplify,
             
             /**
             ### theta (v1, v2, distance)
