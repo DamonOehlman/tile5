@@ -46,37 +46,17 @@ T5.Geo.JSON = (function() {
     
     /* feature processor utilities */
     
-    function createLine(layer, coordinates, options) {
+    function createLine(layer, coordinates, options, builders) {
         var vectors = readVectors(coordinates);
         
-        layer.add(new T5.Poly(vectors, options));
+        layer.add(builders.line(vectors, options));
         return vectors.length;
     } // createLine
     
-    function createMarker(layer, xy, options) {
-        var marker;
-        
-        // if a marker builder is defined, then build using that
-        if (options.markerBuilder) {
-            marker = options.markerBuilder(xy);
-        }
-        // otherwise, just build a standard marker
-        else {
-            marker = new T5.Marker({
-                xy: xy
-            });
-        } // if..else
-        
-        // add the marker
-        layer.add(marker);
-    } // createMarker
-    
-    function createPoly(layer, coordinates, options) {
+    function createPoly(layer, coordinates, options, builders) {
         // TODO: check this is ok...
         var vectors = readVectors(coordinates);
-        layer.add(new T5.Poly(vectors, T5.ex({
-            fill: true
-        }, options)));
+        layer.add(builders.poly(vectors, options));
         
         return vectors.length;
     } // createPoly
@@ -94,47 +74,52 @@ T5.Geo.JSON = (function() {
     
     /* feature processor functions */
     
-    function processLineString(layer, featureData, options) {
+    function processLineString(layer, featureData, options, builders) {
         // TODO: check this is ok...
         var vectors = readVectors(featureData && featureData.coordinates ? featureData.coordinates : []);
         
-        return createLine(layer, vectors, options);
+        return createLine(layer, vectors, options, builders);
     } // processLineString
     
-    function processMultiLineString(layer, featureData, options) {
+    function processMultiLineString(layer, featureData, options, builders) {
         var coordinates = featureData && featureData.coordinates ? featureData.coordinates : [],
             pointsProcessed = 0;
         
         for (var ii = coordinates.length; ii--; ) {
-            pointsProcessed += createLine(layer, coordinates[ii], options);
+            pointsProcessed += createLine(layer, coordinates[ii], options, builders);
         } // for
         
         return pointsProcessed;
     } // processMultiLineString
     
-    function processPoint(layer, featureData, options) {
+    function processPoint(layer, featureData, options, builders) {
         var points = readVectors([featureData.coordinates], VECTORIZE_OPTIONS);
 
         if (points.length > 0) {
-            createMarker(layer, points[0], options);
+            var marker = builders.marker(points[0], options);
+            
+            if (marker) {
+                layer.add(marker);
+                return points.length;
+            } // if
         } // if
     } // processPoint
     
-    function processPolygon(layer, featureData, options) {
+    function processPolygon(layer, featureData, options, builders) {
         var coordinates = featureData && featureData.coordinates ? featureData.coordinates : [];
         if (coordinates.length > 0) {
-            return createPoly(layer, coordinates[0], options);
+            return createPoly(layer, coordinates[0], options, builders);
         } // if
         
         return 0;
     } // processPolygon
     
-    function processMultiPolygon(layer, featureData, options) {
+    function processMultiPolygon(layer, featureData, options, builders) {
         var coordinates = featureData && featureData.coordinates ? featureData.coordinates : [],
             pointsProcessed = 0;
         
         for (var ii = 0; ii < coordinates.length; ii++) {
-            pointsProcessed += createPoly(layer, coordinates[ii][0], options);
+            pointsProcessed += createPoly(layer, coordinates[ii][0], options, builders);
         } // for
         
         return pointsProcessed;
@@ -142,14 +127,33 @@ T5.Geo.JSON = (function() {
     
     /* define the GeoJSON parser */
     
-    var GeoJSONParser = function(data, callback, options) {
+    var GeoJSONParser = function(data, callback, options, builders) {
+        // initialise the options
         options = T5.ex({
             vectorsPerCycle: T5.Geo.VECTORIZE_PER_CYCLE,
             rowPreParse: null,
             simplify: false,
-            layerPrefix: 'geojson-',
-            markerBuilder: null
+            layerPrefix: 'geojson-'
         }, options);
+        
+        // initialise the builders
+        builders = T5.ex({
+            marker: function(xy, options) {
+                return new T5.Marker({
+                    xy: xy
+                });
+            },
+            
+            line: function(vectors, options) {
+                return new T5.Poly(vectors, options);
+            },
+            
+            poly: function(vectors, options) {
+                return new T5.Poly(vectors, T5.ex({
+                    fill: true
+                }, options));
+            }
+        }, builders);
         
         // initialise variables
         var vectorsPerCycle = options.vectorsPerCycle,
@@ -182,7 +186,11 @@ T5.Geo.JSON = (function() {
                 });
                 
             if (processor) {
-                return processor(getLayer(layerId, definition.layerClass), featureInfo.data, featureOpts);
+                return processor(
+                    getLayer(layerId, definition.layerClass), 
+                    featureInfo.data, 
+                    featureOpts,
+                    builders);
             } // if
             
             return 0;

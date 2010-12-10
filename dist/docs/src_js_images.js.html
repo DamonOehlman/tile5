@@ -1,0 +1,38 @@
+{% extends 'apidoc.html' %}
+
+{% block title %}Tile5 API Documentation{% endblock %}
+
+{% block api %}
+<h1><a name="T5.Images">T5.Images</a></h1>
+
+<p><em>module</em></p>
+
+<p>The <a href="src_js_images.js.html#T5.Images">T5.Images</a> module provides image loading support for the rest of the
+<a href="docs_T5_overview.mdown.html#Tile5">Tile5</a> library.</p>
+
+<h2>Module Functions</h2>
+
+<h3>cancelLoad()</h3>
+
+<h3>get(url)</h3>
+
+<p>This function is used to retrieve the image specified by the url.  If the image
+has already been loaded, then the image is automatically returned from the 
+function but if not, then a null value is returned.  </p>
+
+<p>If an optional <code>callback</code> argument is provided, then this indicates to the function 
+that if the image is not already loaded, it should be loaded and this the is passed 
+through to the load method function.  </p>
+
+<h4>Example Code</h4>
+
+<pre><code> var image = <a href="src_js_images.js.html#T5.Images">T5.Images</a>.get('testimage.jpg', function(image) {
+
+ });
+</code></pre>
+
+<h3>load(url, callback, loadArgs)</h3>
+
+<h3>newCanvas(width, height)</h3>
+
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends 'apidoc.html' %}
+
+{% block title %}Tile5 API Documentation{% endblock %}
+
+{% block api %}
+<h1><a name="T5.Marker">T5.Marker</a></h1>
+
+<p>This is a generic marker that can be applied via a <a href="src_js_graphics_markerlayer.js.html#T5.MarkerLayer">T5.MarkerLayer</a>
+to any <a href="src_js_graphics_view.js.html#T5.View">T5.View</a>, but is commonly used in a <a href="src_js_geo_map.js.html#T5.Map">T5.Map</a>.  An marker is able to 
+be animated and examples of this can be seen in the <a class="external" href="http://sandbox.tile5.org"><a href="docs_T5_overview.mdown.html#Tile5">Tile5</a> Sandbox</a></p>
+
+<h2>Constructor</h2>
+
+<p><code>new <a href="src_js_graphics_marker.js.html#T5.Marker">T5.Marker</a>(params);</code></p>
+
+<h3>Initialization Parameters</h3>
+
+<ul>
+<li><code>xy</code> (<a href="src_js_core.js.html#T5.Vector">T5.Vector</a>) - a vector that specifies the grid position of the marker. When
+working with Geo data, the <a href="src_js_geo_core.js.html#T5.Geo.GeoVector">T5.Geo.GeoVector</a> provides a simple way to specify this
+position.</li>
+<li><code>offset</code> (boolean, default = true) - whether or not the <code>xy</code> vector is relative to the 
+current grid offset.  In the case where you wish to create a marker that is relative to the
+view and not the grid, set this parameter to false.</li>
+<li><code>tweenIn</code> (easing function, default = null) - the easing function that is used to 
+animate the entry of the annotation.  When not provided, the annotation is simply
+displayed statically.</li>
+<li><code>animationSpeed</code> (int, default = 0) - the speed that the annotation should be animated
+in at.  Used in combination with the <code>tweenIn</code> parameter.</li>
+</ul>
+
+<h2>Methods</h2>
+
+<h3>draw(context, offset, state, overlay, view)</h3>
+
+<p>The draw method is called by the <a href="src_js_graphics_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a> that contains the annotation
+and is used to draw the annotation to the specified context.  When creating
+a custom marker, you should provide a custom implementation of the <code>drawMarker</code>
+method rather than this method.</p>
+
+<h3>drawMarker(context, offset, x, y, state, overlay, view)</h3>
+
+<p>The <code>drawMarker</code> method is the place holder implementation for drawing
+markers.  In the case of a <a href="src_js_graphics_annotation.js.html#T5.Annotation">T5.Annotation</a> a simple circle is drawn, but
+extensions of <a href="src_js_graphics_annotation.js.html#T5.Annotation">T5.Annotation</a> would normally replace this implementation
+with their own modified implementation (such as <a href="src_js_graphics_annotation.js.html#T5.ImageAnnotation">T5.ImageAnnotation</a> does).</p>
+
+<h3>hitTest(testX, testY)</h3>
+
+<p>This method is used to determine if the marker is located  at the specified 
+x and y position.</p>
+
+{% endblock %}

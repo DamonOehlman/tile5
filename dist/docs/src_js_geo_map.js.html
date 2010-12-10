@@ -1,0 +1,132 @@
+{% extends 'apidoc.html' %}
+
+{% block title %}Tile5 API Documentation{% endblock %}
+
+{% block api %}
+<h1><a name="T5.Map">T5.Map</a></h1>
+
+<p><em>extends:</em> <a href="src_js_tiling_tiler.js.html#T5.Tiler">T5.Tiler</a></p>
+
+<p>The Map class is the entry point for creating a tiling map.  Creating a 
+map is quite simple and requires two things to operate.  A containing HTML5 canvas
+that will be used to display the map and a <a href="src_js_geo_mapprovider.js.html#T5.Geo.MapProvider">T5.Geo.MapProvider</a> that will populate 
+the map.</p>
+
+<h2>Example Usage: Creating a Map</h2>
+
+<pre lang='javascript'>
+// create the map
+map = new <a href="src_js_geo_map.js.html#T5.Map">T5.Map</a>({
+container: 'mapCanvas',
+provider: new <a href="src_js_geo_core.js.html#T5.Geo">T5.Geo</a>.Decarta.MapProvider()
+});
+</pre>
+
+<p>Like all View descendants the map supports features such as intertial scrolling and
+the like and is configurable through implementing the COG.configurable interface. For 
+more information on view level features check out the View documentation.</p>
+
+<h2>Events</h2>
+
+<h3>zoomLevelChange</h3>
+
+<p>This event is triggered when the zoom level has been updated</p>
+
+<pre>
+map.bind('zoomLevelChange', function(evt, newZoomLevel) {
+});
+</pre>
+
+<h2>Methods</h2>
+
+<ul>
+<li><code>getBoundingBox()</code></li>
+</ul>
+
+<p>Return a Geo.BoundingBox for the current map view area</p>
+
+<ul>
+<li><code>getCenterPosition()</code></li>
+</ul>
+
+<p>Return a Geo.Position for the center position of the map</p>
+
+<ul>
+<li><code>getXYPosition(xy)</code></li>
+</ul>
+
+<p>Convert the Vector that has been passed to the function to a
+Geo.Position object</p>
+
+<ul>
+<li><code>gotoBounds(bounds, callback)</code></li>
+</ul>
+
+<p>TODO</p>
+
+<ul>
+<li><code>gotoPosition(position, zoomLevel, callback)</code></li>
+</ul>
+
+<p>TODO</p>
+
+<ul>
+<li><code>panToPosition(position, callback, easingFn)</code></li>
+</ul>
+
+<p>This method is used to tell the map to pan (not zoom) to the specified 
+<a href="src_js_geo_core.js.html#T5.Geo.Position">T5.Geo.Position</a>.  An optional callback can be passed as the second
+parameter to the function and this fires a notification once the map is
+at the new specified position.  Additionally, an optional easingFn parameter
+can be supplied if the pan operation should ease to the specified location 
+rather than just shift immediately.  An easingDuration can also be supplied.</p>
+
+<ul>
+<li><code>locate()</code></li>
+</ul>
+
+<p>TODO</p>
+
+<ul>
+<li><code>trackStart(mode)</code></li>
+</ul>
+
+<p>TODO</p>
+
+<ul>
+<li><code>trackCancel()</code></li>
+</ul>
+
+<p>TODO</p>
+
+<ul>
+<li><code>getZoomLevel()</code></li>
+</ul>
+
+<p>Get the current zoom level for the map</p>
+
+<ul>
+<li><code>setZoomLevel(value: Integer)</code></li>
+</ul>
+
+<p>Update the map's zoom level to the specified zoom level</p>
+
+<ul>
+<li><code>zoomIn()</code></li>
+</ul>
+
+<p>Zoom in one zoom level</p>
+
+<ul>
+<li><code>zoomOut()</code></li>
+</ul>
+
+<p>Zoom out one zoom level</p>
+
+<ul>
+<li><code>animateRoute(easing, duration, callback, center)</code></li>
+</ul>
+
+<p>TODO</p>
+
+{% endblock %}

@@ -1,0 +1,43 @@
+{% extends 'apidoc.html' %}
+
+{% block title %}Tile5 API Documentation{% endblock %}
+
+{% block api %}
+<h1><a name="T5.viewState">T5.viewState</a></h1>
+
+<p>The <a href="src_js_graphics_viewstate.js.html#T5.viewState">T5.viewState</a> function is used to return the value of the view state requested of the function.  The
+function supports a request for multiple different states and in those cases, returns a bitwise-or of the 
+states.</p>
+
+<h2>View State Bitwise Values</h2>
+
+<ul>
+<li>NONE = 0</li>
+<li>ACTIVE = 1</li>
+<li><em>UNUSED</em> = 2</li>
+<li>ANIMATING = 4</li>
+<li>PAN = 8</li>
+<li>PINCH = 16</li>
+<li><em>UNUSED</em> = 32</li>
+<li><em>UNUSED</em> = 64</li>
+<li>FREEZE = 128</li>
+</ul>
+
+<h2>Example Usage</h2>
+
+<pre><code> // get the active state
+ var stateActive = <a href="src_js_graphics_viewstate.js.html#T5.viewState">T5.viewState</a>('active');
+
+ // get the bitmask for a view state of active or panning
+ var stateActivePan = <a href="src_js_graphics_viewstate.js.html#T5.viewState">T5.viewState</a>('active', 'pan');
+
+ // add the animating state to the stateActivePan variable
+ stateActivePan = stateActivePan | <a href="src_js_graphics_viewstate.js.html#T5.viewState">T5.viewState</a>('animating');
+
+ // now test whether the updated state is still considered activate
+ if ((stateActive &amp; stateActivePan) !== 0) {
+     // yep, we are active
+ } // if
+</code></pre>
+
+{% endblock %}

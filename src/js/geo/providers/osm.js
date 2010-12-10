@@ -3,7 +3,7 @@
 */
 T5.Geo.OpenStreetMap = (function() {
     // define some constants
-    var ZOOMLEVEL_MIN = 2,
+    var ZOOMLEVEL_MIN = 1,
         ZOOMLEVEL_MAX = 17,
         DEGREES_TO_RADIANS = Math.PI / 180,
         RADIANS_TO_DEGREES = 180 / Math.PI;

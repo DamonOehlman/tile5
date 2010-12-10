@@ -1,0 +1,59 @@
+{% extends 'apidoc.html' %}
+
+{% block title %}Tile5 API Documentation{% endblock %}
+
+{% block api %}
+<h1><a name="T5.ImageMarker">T5.ImageMarker</a></h1>
+
+<p><em>extends:</em> <a href="src_js_graphics_marker.js.html#T5.Marker">T5.Marker</a></p>
+
+<p>An image annotation is simply a <a href="src_js_graphics_annotation.js.html#T5.Annotation">T5.Annotation</a> that has been extended to 
+display an image rather than a simple circle.  Probably the most common type
+of annotation used.  Supports using either the <code>image</code> or <code>imageUrl</code> parameters
+to use preloaded or an imageurl for displaying the annotation.</p>
+
+<h2>TODO</h2>
+
+<ul>
+<li>currently hits on animated markers not working as well as they should, need to 
+tweak touch handling to get this better...</li>
+</ul>
+
+<h2>Constructor</h2>
+
+<p><code>new <a href="src_js_graphics_imagemarker.js.html#T5.ImageMarker">T5.ImageMarker</a>(params);</code></p>
+
+<h3>Initialization Parameters</h3>
+
+<ul>
+<li><code>image</code> (HTMLImage, default = null) - one of either this or the <code>imageUrl</code> parameter
+is required and the specified image is used to display the annotation.</li>
+<li><code>imageUrl</code> (String, default = null) - one of either this of the <code>image</code> parameter is
+required.  If specified, the image is obtained using <a href="src_js_images.js.html#T5.Images">T5.Images</a> module and then drawn
+to the canvas.</li>
+<li><code>animatingImage</code> (HTMLImage, default = null) - an optional image that can be supplied, 
+and if so, the specified image will be used when the annotation is animating rather than
+the standard <code>image</code>.  If no <code>animatingImage</code> (or <code>animatingImageUrl</code>) is specified then
+the standard image is used as a fallback when the marker is animating.</li>
+<li><code>animatingImageUrl</code> (String, default = null) - as per the <code>animatingImage</code> but a url 
+for an image that will be loaded via <a href="src_js_images.js.html#T5.Images">T5.Images</a></li>
+<li><code>imageAnchor</code> (<a href="src_js_core.js.html#T5.Vector">T5.Vector</a>, default = null) - a <a href="src_js_core.js.html#T5.Vector">T5.Vector</a> that optionally specifies the 
+anchor position for an annotation.  Consider that your annotation is "pin-like" then you
+would want to provide an anchor vector that specified the pixel position in the image 
+around the center and base of the image.  If not <code>imageAnchor</code> parameter is provided, then 
+the center of the image is assumed for the anchor position.</li>
+<li><code>rotation</code> (float, default = 0) - the value of the rotation for the image marker 
+(in radians).  Be aware that applying rotation to a marker does add an extra processing
+overhead as the canvas context needs to be saved and restored as part of the operation.</li>
+<li><code>scale</code> (float, default = 1)</li>
+<li><code>opacity</code> (float, default = 1)</li>
+</ul>
+
+<h2>Methods</h2>
+
+<h3>drawMarker(context, offset, xy, state, overlay, view)</h3>
+
+<p>An overriden implementation of the <a href="src_js_graphics_annotation.js.html#T5.Annotation">T5.Annotation</a>.drawMarker which 
+draws an image to the canvas.</p>
+
+{% endblock %}

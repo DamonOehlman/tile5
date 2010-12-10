@@ -1,0 +1,91 @@
+{% extends 'apidoc.html' %}
+
+{% block title %}Tile5 API Documentation{% endblock %}
+
+{% block api %}
+<h1><a name="T5.MarkerLayer">T5.MarkerLayer</a></h1>
+
+<p><em>extends:</em> <a href="src_js_graphics_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a></p>
+
+<p>The <a href="src_js_graphics_markerlayer.js.html#T5.MarkerLayer">T5.MarkerLayer</a> provides a <a href="src_js_graphics_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a> that can be used to display one
+or more <a href="src_js_graphics_annotation.js.html#T5.Annotation">T5.Annotation</a> on a <a href="src_js_graphics_view.js.html#T5.View">T5.View</a>.  Most commonly used with a <a href="src_js_geo_map.js.html#T5.Map">T5.Map</a> (which 
+includes a marker layer by default).</p>
+
+<h2>Events</h2>
+
+<h3>markerUpdate</h3>
+
+<p>This event is triggered when the markers have been updated (new markers added, 
+markers cleared, etc)</p>
+
+<pre>
+layer.bind('markerUpdate', function(markers) {
+});
+</pre>
+
+<ul>
+<li>markers (<a href="src_js_graphics_annotation.js.html#T5.Annotation">T5.Annotation</a>[]) - the markers in the marker layer after the update has 
+been completed</li>
+</ul>
+
+<h3>markerTap</h3>
+
+<p>The markerTap event is triggered when markers have been tapped in the marker layer.
+The <a href="src_js_graphics_markerlayer.js.html#T5.MarkerLayer">T5.MarkerLayer</a> listens for <code>tap</code> events on itself and when triggered looks for
+any markers within a tapExtent and if found fires the markerTap event.</p>
+
+<pre>
+layer.bind('markerTap', function(absXY, relXY, markers) {
+});
+</pre>
+
+<ul>
+<li>absXY (<a href="src_js_core.js.html#T5.Vector">T5.Vector</a>) - the absolute tap position (as per <a href="src_js_graphics_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a>)</li>
+<li>relXY (<a href="src_js_core.js.html#T5.Vector">T5.Vector</a>) - the relative tap position (as per <a href="src_js_graphics_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a>)</li>
+<li>markers (<a href="src_js_graphics_annotation.js.html#T5.Annotation">T5.Annotation</a>[]) - an array of the markers that have been <em>hit</em> in the last tap</li>
+</ul>
+
+<h2>Methods</h2>
+
+<h3>add(items)</h3>
+
+<p>The add method of the marker layer can accept either a single <a href="src_js_graphics_annotation.js.html#T5.Annotation">T5.Annotation</a> to 
+add to the layer or alternatively an array of annotations to add.</p>
+
+<h4>Example Usage</h4>
+
+<pre><code> // adding a single marker 
+ layer.add(new <a href="src_js_graphics_annotation.js.html#T5.Annotation">T5.Annotation</a>({
+     xy: <a href="src_js_geo_core.js.html#T5.Geo.GeoVector">T5.Geo.GeoVector</a>(markerPos) // markerPos is a <a href="src_js_geo_core.js.html#T5.Geo.Position">T5.Geo.Position</a>
+ }));
+
+ // adding multiple markers
+ var markers = [];
+
+ // you would populate the markers array here...
+
+ // add the markers to the layer
+ layer.add(markers);
+</code></pre>
+
+<h3>clear(testCallback)</h3>
+
+<p>The clear method is used to clear markers from the marker layer.  The optional
+<code>testCallback</code> argument can be specified to determine whether a marker should be 
+removed or not.</p>
+
+<h4>Example Usage</h4>
+
+<pre><code> layer.clear(function(marker) {
+     // check an arbitrary property of the annotation
+     // if Australia, then flag for removal
+     return (marker.country === 'Australia');
+ });
+</code></pre>
+
+<h3>find(testCallback)</h3>
+
+<p>Find markers that match the requirements of the test callback.  For an example
+of test callback usage see the <code>clear</code> method.</p>
+
+{% endblock %}

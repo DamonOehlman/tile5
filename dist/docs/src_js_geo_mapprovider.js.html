@@ -1,0 +1,69 @@
+{% extends 'apidoc.html' %}
+
+{% block title %}Tile5 API Documentation{% endblock %}
+
+{% block api %}
+<h1><a name="T5.Geo.MapProvider">T5.Geo.MapProvider</a></h1>
+
+<p>The MapProvider class is the base class from which all map providers are implemented.
+The class provides a number of common functions that can be expected in most 
+implementations of a GIS map provider.</p>
+
+<h2>Constructor</h2>
+
+<p><code>new <a href="src_js_geo_mapprovider.js.html#T5.Geo.MapProvider">T5.Geo.MapProvider</a>();</code>
+While the constructor of the map provider takes no initialization parameters it is 
+expected that a derivative MapProvider will implement parameters, and some of these
+are part of a common set that are read and acted upon when creating the <a href="src_js_tiling_imagetilegrid.js.html#T5.ImageTileGrid">T5.ImageTileGrid</a>
+that will hold the map tiles in the grid.</p>
+
+<h2>Methods</h2>
+
+<ul>
+<li><code>checkZoomLevel(zoomLevel)</code></li>
+</ul>
+
+<p>Return the passed in zoom level if valid for the map provider, otherwise
+return a zoom level that is valid</p>
+
+<ul>
+<li><code>getCopyright()</code></li>
+</ul>
+
+<p>Return the copyright message for this map provider</p>
+
+<ul>
+<li><code>getLogoUrl()</code></li>
+</ul>
+
+<p>Return the url for an image logo that can be used with this map provider</p>
+
+<ul>
+<li><code>getMapTiles(tiler, position, callback)</code></li>
+</ul>
+
+<p>This is the engine room of a map provider.  An implementation of a map
+provider will provide an implementation of this method to fill a grid
+of map tiles for the specified tiler at the specified position.  The <em>callback</em>
+that is supplied to the function will be called once a Geo.GeoTileGrid has been 
+created from the map provider and that tilegrid will be passed through as the 
+only parameter to the callback</p>
+
+<ul>
+<li><code>getZoomRange()</code></li>
+</ul>
+
+<p>Return an object containing the .min and .max for the zoom of the map provider</p>
+
+<h3>prepTileGridArgs(width, height, tileSize, center, args)</h3>
+
+<p>This method is used by derivative map providers to prepare arguments for a tile
+grid that it creates when populating the map tiles.</p>
+
+<ul>
+<li><code>setZoomRange(min, max)</code></li>
+</ul>
+
+<p>Set the min and max zoom range</p>
+
+{% endblock %}

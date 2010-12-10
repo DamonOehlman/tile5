@@ -1,0 +1,195 @@
+{% extends 'apidoc.html' %}
+
+{% block title %}Tile5 API Documentation{% endblock %}
+
+{% block api %}
+<h1><a name="T5">T5</a></h1>
+
+<p>The <a href="src_js_core.js.html#T5">T5</a> core module contains classes and functionality that support basic drawing 
+operations and math that are used in managing and drawing the graphical and tiling interfaces 
+that are provided in the <a href="docs_T5_overview.mdown.html#Tile5">Tile5</a> library.</p>
+
+<h2>Classes</h2>
+
+<ul>
+<li><a href="src_js_core.js.html#T5.Vector">T5.Vector</a></li>
+<li><a href="src_js_core.js.html#T5.Dimensions">T5.Dimensions</a></li>
+<li><a href="src_js_core.js.html#T5.Rect">T5.Rect</a></li>
+</ul>
+
+<h2>Submodules</h2>
+
+<ul>
+<li><a href="src_js_core.js.html#T5">T5</a>.Settings</li>
+<li><a href="src_js_core.js.html#T5.V">T5.V</a></li>
+<li><a href="src_js_core.js.html#T5.D">T5.D</a></li>
+<li><a href="src_js_core.js.html#T5.R">T5.R</a></li>
+</ul>
+
+<h1><a name="T5.Vector">T5.Vector</a></h1>
+
+<p>A vector is used to encapsulate X and Y coordinates for a point, and rather than 
+bundle it with methods it has been kept to just core data to ensure it has a 
+lightweight memory footprint.</p>
+
+<h2>Constructor</h2>
+
+<p><code><a href="src_js_core.js.html#T5.Vector">T5.Vector</a>(x, y)</code></p>
+
+<h1><a name="T5.XY">T5.XY</a></h1>
+
+<p>This module contains simple functions for creating and manipulating an object literal that 
+contains an <code>x</code> and <code>y</code> value.  Previously this functionaliy lived in the <a href="src_js_core.js.html#T5.V">T5.V</a> module but has
+been moved to communicate it's more generic implementation.  The <a href="src_js_core.js.html#T5.V">T5.V</a> module still exists, however,
+and also exposes the functions of this module for the sake of backward compatibility.</p>
+
+<h3>add(xy*)</h3>
+
+<p>Return a new xy composite that is the value of all the xy values added together.</p>
+
+<h3>absSize(vector)</h3>
+
+<h3>copy(src)</h3>
+
+<p>Return a new xy composite that is a copy of the one passed to the function</p>
+
+<h3>diff(pt1, pt2)</h3>
+
+<p>Return a point that is difference between the x and y values of <code>xy1</code> and <code>xy2</code>.</p>
+
+<h3>distance(xy*)</h3>
+
+<p>Return the total euclidean distance between all the xy values passed to the 
+function.</p>
+
+<h3>edges(points, count)</h3>
+
+<h3>equals(pt1, pt2)</h3>
+
+<p>Return true if the two points are equal, false otherwise.  <strong>NOTE:</strong> This function
+does not automatically floor the values so if the point values are floating point
+then floating point precision errors will likely occur.</p>
+
+<h3>extendBy(xy, theta, delta)</h3>
+
+<h3>floor(pt*)</h3>
+
+<p>This function is used to take all the points in the array and convert them to
+integer values</p>
+
+<h3>getRect(xy*)</h3>
+
+<p>Get a <a href="src_js_core.js.html#T5.Rect">T5.Rect</a> that is large enough to contain the xy values passed
+to the function.</p>
+
+<h3>init(x, y)</h3>
+
+<p>Initialize a new point that can be used in <a href="docs_T5_overview.mdown.html#Tile5">Tile5</a>.  A point is simply an 
+object literal with the attributes <code>x</code> and <code>y</code>.  If initial values are passed
+through when creating the point these will be used, otherwise 0 values will 
+be used.</p>
+
+<h3>invert(xy)</h3>
+
+<p>Return a new composite xy value that is the inverted value of the one passed
+to the function.</p>
+
+<h3>offset(xy, offsetX, offsetY)</h3>
+
+<p>Return a new composite xy which is offset by the specified amount.</p>
+
+<h3>simplify(xy*, generalization)</h3>
+
+<p>This function is used to simplify a xy array by removing what would be considered
+'redundant' xy positions by elimitating at a similar position.  </p>
+
+<h3>theta (xy1, xy2, distance)</h3>
+
+<h3>toString(xy)</h3>
+
+<p>Return the string representation of the xy</p>
+
+<h1><a name="T5.V">T5.V</a></h1>
+
+<p>This module defines functions that are used to maintain <a href="src_js_core.js.html#T5.Vector">T5.Vector</a> objects and this
+is removed from the actual Vector class to keep the Vector object lightweight.</p>
+
+<h2>Functions</h2>
+
+<h1><a name="T5.Rect">T5.Rect</a></h1>
+
+<p>A class used to store details pertaining to a rectangular region.</p>
+
+<h2>Constructor</h2>
+
+<p><code>new <a href="src_js_core.js.html#T5.Rect">T5.Rect</a>(x, y, width, height)</code></p>
+
+<h2>Properties</h2>
+
+<ul>
+<li>origin - the top left point of the rectangle</li>
+<li>dimensions - the width and height of the rectangle</li>
+<li>invalid - used to indicate that the rect dimensions are irrelevant</li>
+</ul>
+
+<h2>Notes</h2>
+
+<p>The invalid property was added and is used for assisting with managing
+the clip rect that will be drawn in a View.  If marked invalid then
+detailed checking of the draw area is skipped, and no clip() will be
+applied when drawing the canvas (the whole thing is drawn).</p>
+
+<h1><a name="T5.R">T5.R</a></h1>
+
+<p>A module of utility functions for working with <a href="src_js_core.js.html#T5.Rect">T5.Rect</a> objects.</p>
+
+<h2>Functions</h2>
+
+<h2>bottomRight(src)</h2>
+
+<p>Get the a <a href="src_js_core.js.html#T5.Vector">T5.Vector</a> for the bottom right position of the rect</p>
+
+<h3>empty()</h3>
+
+<p>Return a new empty <a href="src_js_core.js.html#T5.Rect">T5.Rect</a></p>
+
+<h3>copy(src)</h3>
+
+<p>Return a new <a href="src_js_core.js.html#T5.Rect">T5.Rect</a> that is a copy of the specified <code>src</code> </p>
+
+<h3>getCenter(rect)</h3>
+
+<p>Return the a <a href="src_js_core.js.html#T5.Vector">T5.Vector</a> for the center of the specified <code>rect</code></p>
+
+<h3>isEmpty(rect)</h3>
+
+<p>Return true if the <code>rect</code> has 0 width or 0 height.</p>
+
+<h3>union(dst, src)</h3>
+
+<p>This function takes the Rect values passed to the function and determines
+the required rect to contain all of those values. This origin and dimensions
+of this resulting Rect are then used to replace the first Rect passed to 
+the function.</p>
+
+<h1><a name="T5.Dimensions">T5.Dimensions</a></h1>
+
+<h1><a name="T5.D">T5.D</a></h1>
+
+<p>A module of utility functions for working with <a href="src_js_core.js.html#T5">T5</a>.Dimension objects</p>
+
+<h2>Functions</h2>
+
+<h3>getAspectRatio(dimensions)</h3>
+
+<p>Return the aspect ratio for the <code>dimensions</code> (width / height)</p>
+
+<h3>getCenter(dimensions)</h3>
+
+<p>Get the a <a href="src_js_core.js.html#T5.Vector">T5.Vector</a> for the center of the <code>dimensions</code> (width / 2, height  / 2)</p>
+
+<h3>getSize(dimensions)</h3>
+
+<p>Get the size for the diagonal for the <code>dimensions</code></p>
+
+{% endblock %}

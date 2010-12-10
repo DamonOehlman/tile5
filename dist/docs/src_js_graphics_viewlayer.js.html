@@ -1,0 +1,107 @@
+{% extends 'apidoc.html' %}
+
+{% block title %}Tile5 API Documentation{% endblock %}
+
+{% block api %}
+<h1><a name="T5.ViewLayer">T5.ViewLayer</a></h1>
+
+<p>In and of itself, a View does nothing.  Not without a 
+ViewLayer at least.  A view is made up of one or more of these 
+layers and they are drawn in order of <em>zindex</em>.</p>
+
+<h2>Constructor</h2>
+
+<p><code><a href="src_js_graphics_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a>(params)</code></p>
+
+<h3>Initialization Parameters</h3>
+
+<ul>
+<li><code>id</code> - the id that has been assigned to the layer, this value
+can be used when later accessing the layer from a View.</li>
+<li><code>zindex</code> (default: 0) - a zindex in <a href="docs_T5_overview.mdown.html#Tile5">Tile5</a> means the same thing it does in CSS</li>
+<li><code>supportsFastDraw</code> (default: false) - The supportsFastDraw parameter specifies 
+whether a layer will be drawn on in particular graphic states on devices that 
+require fastDraw mode to perform at an optimal level.  For instance, if a layer does 
+not support fastDraw and the View is panning or scaling, the layer will not be drawn 
+so it's important when defining new layer classes to set this parameter to true if you 
+want the layer visible during these operations.  Be aware though that layers that require 
+some time to render will impact performance on slower devices.</li>
+<li><code>validStates</code> - the a bitmask of DisplayState that the layer will be drawn for</li>
+</ul>
+
+<h2>Events</h2>
+
+<h3>changed</h3>
+
+<p>This event is fired in response to the <code>changed</code> method being called.  This method is
+called primarily when you have made modifications to the layer in code and need to 
+flag to the containing <a href="src_js_graphics_view.js.html#T5.View">T5.View</a> that an redraw is required.  Any objects that need to 
+perform updates in response to this layer changing (including overriden implementations)
+can do this by binding to the change method
+     layer.bind('change', function(evt, layer) {
+       // do your updates here...
+     });</p>
+
+<h3>parentChange</h3>
+
+<p>This event is fired with the parent of the layer has been changed</p>
+
+<pre>
+layer.bind('parentChange', function(evt, parent) {
+);
+</pre>
+
+<h2>Methods</h2>
+
+<h3>addToView(view)</h3>
+
+<p>Used to add the layer to a view.  This simply calls <a href="src_js_graphics_view.js.html#T5.View">T5.View</a>.setLayer</p>
+
+<h3>shouldDraw(displayState)</h3>
+
+<p>Called by a View that contains the layer to determine 
+whether or not the layer should be drawn for the current display state. <br />
+The default implementation of this method first checks the fastDraw status, 
+and then continues to do a bitmask operation against the validStates property 
+to see if the current display state is acceptable.</p>
+
+<h3>cycle(tickCount, offset, state, redraw)</h3>
+
+<p>Called in the View method of the same name, each layer has an opportunity 
+to update itself in the current animation cycle before it is drawn.</p>
+
+<h3>draw(context, offset, dimensions, state, view)</h3>
+
+<p>The business end of layer drawing.  This method is called when a layer needs to be 
+drawn and the following parameters are passed to the method:</p>
+
+<ul>
+<li>context - the canvas context that we are drawing to</li>
+<li>offset - a Vector object containing the current virtual canvas offset</li>
+<li>dimensions - a Dimensions object specifying the actual size of the drawing surface</li>
+<li>state - the current DisplayState of the view</li>
+<li>view - a reference to the View</li>
+<li>redraw - whether a redraw is required</li>
+<li>tickCount - the current tick count</li>
+</ul>
+
+<h3>remove()</h3>
+
+<p>The remove method enables a view to flag that it is ready or should be removed
+from any views that it is contained in.  This was introduced specifically for
+animation layers that should only exist as long as an animation is active.</p>
+
+<h3>changed()</h3>
+
+<p>The changed method is used to flag the layer has been modified and will require 
+a redraw</p>
+
+<h3>getId()</h3>
+
+<h3>setId(string)</h3>
+
+<h3>getParent()</h3>
+
+<h3>setParent(view: View)</h3>
+
+{% endblock %}

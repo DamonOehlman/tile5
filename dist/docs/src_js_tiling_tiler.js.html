@@ -1,0 +1,55 @@
+{% extends 'apidoc.html' %}
+
+{% block title %}Tile5 API Documentation{% endblock %}
+
+{% block api %}
+<h1><a name="T5.Tiler">T5.Tiler</a></h1>
+
+<p><em>extends:</em> <a href="src_js_graphics_view.js.html#T5.View">T5.View</a></p>
+
+<p>The <a href="src_js_tiling_tiler.js.html#T5.Tiler">T5.Tiler</a> is the base class upon which tiling views are built.</p>
+
+<h2>Constructor</h2>
+
+<p><code>new <a href="src_js_tiling_tiler.js.html#T5.Tiler">T5.Tiler</a>(params);</code></p>
+
+<h2>Events</h2>
+
+<h3>selectTile</h3>
+
+<p>This event is triggered when a tile in the tiler has been selected, which is
+triggered by a tap.</p>
+
+<pre>
+tiler.bind('selectTile', function(tile) {
+});
+</pre>
+
+<h3>gridUpdate</h3>
+
+<p>The gridUpdate event is trigger with then tiler layer has been update through the 
+use of the <code>setTileLayer</code> method.  This event is also triggered on any <a href="src_js_graphics_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a> 
+that is a current child of the view.</p>
+
+<pre>
+tiler.bind('gridUpdate', function(grid) {
+});
+</pre>
+
+<h2>Methods</h2>
+
+<h3>getTileLayer</h3>
+
+<h3>setTileLayer(value)</h3>
+
+<h3>viewPixToGridPix(vector)</h3>
+
+<h3>centerPos(tile, easing, duration, callback)</h3>
+
+<h3>cleanup()</h3>
+
+<h3>select(tile)</h3>
+
+<p>Manually select the specified <code>tile</code></p>
+
+{% endblock %}
