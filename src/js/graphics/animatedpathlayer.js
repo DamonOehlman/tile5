@@ -55,7 +55,7 @@ T5.AnimatedPathLayer = function(params) {
     }, params);
     
     // generate the edge data for the specified path
-    var edgeData = T5.V.edges(params.path), 
+    var edgeData = T5.XY.edges(params.path), 
         tween,
         theta,
         indicatorXY = null,
@@ -118,8 +118,8 @@ T5.AnimatedPathLayer = function(params) {
                     v1 = params.path[edgeIndex],
                     v2 = params.path[edgeIndex + 1];
 
-                theta = T5.V.theta(v1, v2, edgeData.edges[edgeIndex]);
-                indicatorXY = T5.V.pointOnEdge(v1, v2, theta, extra);
+                theta = T5.XY.theta(v1, v2, edgeData.edges[edgeIndex]);
+                indicatorXY = T5.XY.extendBy(v1, theta, extra);
 
                 if (params.autoCenter) {
                     var parent = self.getParent();
@@ -138,7 +138,7 @@ T5.AnimatedPathLayer = function(params) {
                 (params.drawIndicator ? params.drawIndicator : drawDefaultIndicator)(
                     context,
                     offset,
-                    new T5.Vector(indicatorXY.x - offset.x, indicatorXY.y - offset.y),
+                    T5.XY.init(indicatorXY.x - offset.x, indicatorXY.y - offset.y),
                     theta
                 );
             } // if

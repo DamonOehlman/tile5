@@ -136,7 +136,7 @@ T5.Geo.OpenStreetMap = (function() {
                 tileY = ~~((1-Math.log(Math.tan(lat*DEGREES_TO_RADIANS) + 1/Math.cos(lat*DEGREES_TO_RADIANS))/Math.PI)/2 * zoomFactor);
                     
                 COG.Log.info('getting tile offset for lon: ' + lon + ', x = ' + tileX);
-                return new T5.Vector(tileX, tileY);
+                return T5.XY.init(tileX, tileY);
             } // calculateTileOffset
             
             function calculatePositionFromTileOffset(x, y, zoomLevel) {

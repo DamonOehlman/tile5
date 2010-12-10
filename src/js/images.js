@@ -124,7 +124,7 @@ T5.Images = (function() {
             height = imageData.realSize ? imageData.realSize.height : image.height,
             canvas = newCanvas(width, height),
             context = canvas.getContext('2d'),
-            offset = imageData.offset ? imageData.offset : new T5.Vector();
+            offset = imageData.offset ? imageData.offset : T5.XY.init();
             
         if (imageData.background) {
             context.drawImage(imageData.background, 0, 0);
@@ -225,7 +225,7 @@ T5.Images = (function() {
     ~ 
     ~ });
     */
-    function get(url, callback) {
+    function get(url, callback, loadArgs) {
         var imageData = null,
             image = null;
             
@@ -239,8 +239,8 @@ T5.Images = (function() {
         if (image && (image.getContext || isLoaded(image))) {
             return image;
         }
-        else {
-            load(url, callback);
+        else if (callback) {
+            load(url, callback, loadArgs);
         } // if..else
         
         return null;

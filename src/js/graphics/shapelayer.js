@@ -21,26 +21,41 @@ T5.ShapeLayer = function(params) {
         
     /* private functions */
     
-    function handleGridUpdate(evt, grid) {
+    function performSync(grid) {
         // iterate through the children and resync to the grid
         for (var ii = children.length; ii--; ) {
             children[ii].resync(grid);
         } // for
         
+        // sort the children so the topmost, leftmost is drawn first followed by other shapes
+        children.sort(function(shapeA, shapeB) {
+            var diff = shapeB.xy.y - shapeA.xy.y;
+            if (diff === 0) {
+                diff = shapeB.xy.x - shapeA.xy.y;
+            } // if
+            
+            return diff;
+        });
+        
         forceRedraw = true;
         self.changed();
+    } // performSync
+    
+    /* event handlers */
+    
+    function handleGridUpdate(evt, grid) {
+        performSync(grid);
     }
     
     function handleParentChange(evt, parent) {
         var grid = parent ? parent.getTileLayer() : null;
         
         if (grid) {
-            // iterate through the children and resync to the grid
-            for (var ii = children.length; ii--; ) {
-                children[ii].resync(grid);
-            } // for
+            performSync(grid);
         } // if
     } // handleParentChange
+    
+    /* exports */
     
     /* initialise self */
     
@@ -49,9 +64,14 @@ T5.ShapeLayer = function(params) {
         ### add(poly)
         Used to add a T5.Poly to the layer
         */
-        add: function(poly) {
-            // children.push(poly);
-            children.unshift(poly);
+        add: function(shape) {
+            children[children.length] = shape;
+        },
+        
+        each: function(callback) {
+            for (var ii = children.length; ii--; ) {
+                callback(children[ii]);
+            } // for
         },
         
         cycle: function(tickCount, offset, state, redraw) {

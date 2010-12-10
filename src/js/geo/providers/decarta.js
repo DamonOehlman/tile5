@@ -491,7 +491,7 @@ T5.Geo.Decarta = (function() {
                         // parse out the tile url details
                         var urlData = parseImageUrl(grid.Tile.Map.Content.URL);
                         var tileSize = grid.Tile.Map.Content.height;
-                        var panOffset = new T5.Vector();
+                        var panOffset = T5.XY.init();
 
                         // COG.Log.info(COG.formatStr("parsed image url: {0}, N = {1}, E = {2}", urlData.mask, urlData.N, urlData.E));
                         
@@ -925,13 +925,13 @@ T5.Geo.Decarta = (function() {
                         containerDimensions.width,
                         containerDimensions.height, 
                         responseData.tileSize,
-                        new T5.Vector(responseData.centerTile.E, responseData.centerTile.N),
+                        T5.XY.init(responseData.centerTile.E, responseData.centerTile.N),
                         params);
 
                 // create the tile grid
                 var tileGrid = new T5.ImageTileGrid(T5.ex({
                     shiftOrigin: function(topLeftOffset, shiftDelta) {
-                        return new T5.Vector(topLeftOffset.x + shiftDelta.x, topLeftOffset.y - shiftDelta.y);
+                        return T5.XY.init(topLeftOffset.x + shiftDelta.x, topLeftOffset.y - shiftDelta.y);
                     }
                 }, gridInitArgs));
                 
@@ -948,13 +948,13 @@ T5.Geo.Decarta = (function() {
                 var virtualXY = tileGrid.getTileVirtualXY(responseData.centerTile.E, responseData.centerTile.N, true);
                 
                 // apply the pan offset and half tiles
-                virtualXY = T5.V.offset(virtualXY, responseData.panOffset.x, responseData.panOffset.y);
+                virtualXY = T5.XY.offset(virtualXY, responseData.panOffset.x, responseData.panOffset.y);
                 
                 return new T5.Geo.UI.GeoTileGrid({
                     grid: tileGrid, 
                     centerXY:  virtualXY,
                     centerPos: requestedPosition,
-                    offsetAdjustment: new T5.Vector(),
+                    offsetAdjustment: T5.XY.init(),
                     radsPerPixel: module.Utilities.radsPerPixelAtZoom(responseData.tileSize, self.zoomLevel)
                 });
             } // buildTileGrid

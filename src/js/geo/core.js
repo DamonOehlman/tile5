@@ -512,7 +512,7 @@ T5.Geo = (function() {
             with x and y mercator pixel values back.
             */
             toMercatorPixels: function(pos) {
-                return new T5.Vector(T5.Geo.lon2pix(pos.lon), T5.Geo.lat2pix(pos.lat));
+                return T5.XY.init(T5.Geo.lon2pix(pos.lon), T5.Geo.lat2pix(pos.lat));
             },
             
             /**
@@ -664,7 +664,7 @@ T5.Geo = (function() {
             calculation in cases where the bounding box crosses the 360 degree boundary.
             */
             calcSize: function(min, max, normalize) {
-                var size = new T5.Vector(0, max.lat - min.lat);
+                var size = T5.XY.init(0, max.lat - min.lat);
                 if (typeof normalize === 'undefined') {
                     normalize = true;
                 } // if
@@ -1036,9 +1036,9 @@ T5.Geo = (function() {
         BoundingBox: BoundingBox,
         
         /**
-        # T5.Geo.GeoVector
+        # T5.Geo.XY
         
-        The GeoVector class is used to convert a position (T5.Geo.Position) into a
+        The GeoXY class is used to convert a position (T5.Geo.Position) into a
         T5.Vector that can be used to draw on the various T5.ViewLayer implementations.
         This class provides the necessary mechanism that allows the view layers to 
         assume operation using a simple vector (containing an x and y) with no need
@@ -1058,8 +1058,8 @@ T5.Geo = (function() {
         
         ## Methods
         */
-        GeoVector: function(initPos) {
-            var self = new T5.Vector();
+        GeoXY: function(initPos) {
+            var self = T5.XY.init();
                 
             function updatePos(newPos) {
                 // update the internal variables
@@ -1227,3 +1227,12 @@ T5.Geo = (function() {
 
     return T5.ex(module, moduleConstants, exportedFunctions);
 })();
+
+/**
+# T5.Geo.GeoVector
+__deprecated__
+
+
+please use the T5.Geo.GeoXY instead
+*/
+T5.Geo.GeoVector = T5.Geo.GeoXY;

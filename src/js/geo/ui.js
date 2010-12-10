@@ -68,7 +68,7 @@ T5.Geo.UI = (function() {
             // draw the cross hair
             drawCrosshair(
                 newCanvas.getContext('2d'), 
-                new T5.Vector(newCanvas.width / 2, newCanvas.height / 2), 
+                T5.XY.init(newCanvas.width / 2, newCanvas.height / 2), 
                 params.size);
             
             // return the cross hair canvas
@@ -82,7 +82,7 @@ T5.Geo.UI = (function() {
             draw: function(context, offset, dimensions, state, view) {
                 if (! drawPos) {
                     drawPos = T5.D.getCenter(dimensions);
-                    drawPos = new T5.Vector(
+                    drawPos = T5.XY.init(
                         Math.round(drawPos.x - crosshair.width / 2), 
                         Math.round(drawPos.y - crosshair.height / 2));
                 } // if
@@ -131,7 +131,7 @@ T5.Geo.UI = (function() {
             params = T5.ex({
                 grid: null,
                 centerPos: new T5.Geo.Position(),
-                centerXY: new T5.Vector(),
+                centerXY: T5.XY.init(),
                 radsPerPixel: 0
             }, params);
             
@@ -156,8 +156,8 @@ T5.Geo.UI = (function() {
                 */
                 getBoundingBox: function(x, y, width, height) {
                     return new T5.Geo.BoundingBox(
-                        self.pixelsToPos(new T5.Vector(x, y + height)),
-                        self.pixelsToPos(new T5.Vector(x + width, y)));
+                        self.pixelsToPos(T5.XY.init(x, y + height)),
+                        self.pixelsToPos(T5.XY.init(x + width, y)));
                 },
                 
                 /** 
@@ -180,11 +180,23 @@ T5.Geo.UI = (function() {
                 grid so they can perform their calculations
                 */
                 syncVectors: function(vectors) {
+                    var minX, minY;
+                    
                     for (var ii = vectors.length; ii--; ) {
-                        if (vectors[ii] && vectors[ii].setRadsPerPixel) {
-                            vectors[ii].setRadsPerPixel(radsPerPixel, -blPixX, -tlPixY);
+                        var xy = vectors[ii];
+                        
+                        if (xy && xy.setRadsPerPixel) {
+                            xy.setRadsPerPixel(radsPerPixel, -blPixX, -tlPixY);
+                            
+                            // if the x position is less than the min, then update the min
+                            minX = (typeof minX === 'undefined') || xy.x < minX ? xy.x : minX;
+                                
+                            // if the y position is less than the min y, then update the min y
+                            minY = (typeof minY === 'undefined') || xy.y < minY ? xy.y : minY;
                         } // if
-                    }
+                    } // for
+                    
+                    return T5.XY.init(minX, minY);
                 },
                 
                 /**
@@ -349,14 +361,14 @@ T5.Geo.UI = (function() {
             
             // initialise the locator icon image
             var iconImage = new Image(),
-                iconOffset = new T5.Vector(),
-                centerXY = new T5.Vector(),
+                iconOffset = T5.XY.init(),
+                centerXY = T5.XY.init(),
                 indicatorRadius = null;
                 
             // load the image
             iconImage.src = LOCATOR_IMAGE;
             iconImage.onload = function() {
-                iconOffset = new T5.Vector(
+                iconOffset = T5.XY.init(
                     iconImage.width / 2, 
                     iconImage.height / 2);
             };

@@ -29,7 +29,7 @@ T5.ImageTileGrid = function(params) {
     params = T5.ex({
         emptyTile: getEmptyTile(T5.tileSize),
         panningTile: null,
-        tileOffset: new T5.Vector(),
+        tileOffset: T5.XY.init(),
         tileDrawArgs: {}
     }, params);
     
@@ -103,7 +103,7 @@ T5.ImageTileGrid = function(params) {
         tileDrawArgs = T5.ex({
             background: null,
             overlay: null,
-            offset: new T5.Vector(),
+            offset: T5.XY.init(),
             realSize: new T5.Dimensions(tileSize, tileSize)
         }, params.tileDrawArgs);
         

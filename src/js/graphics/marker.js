@@ -30,7 +30,7 @@ in at.  Used in combination with the `tweenIn` parameter.
 */
 T5.Marker = function(params) {
     params = T5.ex({
-        xy: new T5.Vector(),
+        xy: T5.XY.init(),
         offset: true,
         tweenIn: null,
         animationSpeed: null

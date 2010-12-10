@@ -138,8 +138,8 @@ T5.PathLayer = function(params) {
     
     self.bind('gridUpdate', handleGridUpdate);
     self.bind('tidy', function(evt) {
-        coordinates = T5.V.simplify(rawCoords, params.pixelGeneralization);
-        markerCoordinates = T5.V.simplify(rawMarkers, params.pixelGeneralization);
+        coordinates = T5.XY.simplify(rawCoords, params.pixelGeneralization);
+        markerCoordinates = T5.XY.simplify(rawMarkers, params.pixelGeneralization);
 
         // wake the parent
         redraw = true;

@@ -2435,34 +2435,77 @@ T5 = (function() {
     `T5.Vector(x, y)`
     */
     var Vector = function(initX, initY) {
-        return {
-            x: initX ? initX : 0,
-            y: initY ? initY : 0
-        };
+        COG.Log.warn('The T5.Vector class has been deprecated, please use T5.XY.init instead');
+        
+        return xyTools.init(initX, initY);
     }; // Vector
     
+    
+    
     /**
-    # T5.V
-    This module defines functions that are used to maintain T5.Vector objects and this
-    is removed from the actual Vector class to keep the Vector object lightweight.
-
-    ## Functions
+    # T5.XY
+    This module contains simple functions for creating and manipulating an object literal that 
+    contains an `x` and `y` value.  Previously this functionaliy lived in the T5.V module but has
+    been moved to communicate it's more generic implementation.  The T5.V module still exists, however,
+    and also exposes the functions of this module for the sake of backward compatibility.
     */
-    var vectorTools = (function() {
+    var xyTools = (function() {
+        /* internal functions */
         
         /* exports */
         
-        function difference(v1, v2) {
-            return new Vector(v1.x - v2.x, v1.y - v2.y);
-        } // diff
+        /**
+        ### add(xy*)
+        Return a new xy composite that is the value of all the xy values added together.
+        */
+        function add() {
+            var sumX = 0, sumY = 0;
+            for (var ii = arguments.length; ii--; ) {
+                sumX += arguments[ii].x;
+                sumY += arguments[ii].y;
+            } // for
+            
+            return init(sumX, sumY);
+        } // add
         
-        function dotProduct(v1, v2) {
-            return v1.x * v2.x + v1.y * v2.y;
-        } // dotProduct
-         
-        function edges(vectors, count) {
+        /**
+        ### absSize(vector)
+        */
+        function absSize(xy) {
+            return Math.max(Math.abs(xy.x), Math.abs(xy.y));
+        } // absSize
+        
+        /**
+        ### copy(src)
+        Return a new xy composite that is a copy of the one passed to the function
+        */
+        function copy(src) {
+            return src ? init(src.x, src.y) : null;
+        } // copy
+        
+        /**
+        ### diff(pt1, pt2)
+        Return a point that is difference between the x and y values of `xy1` and `xy2`.
+        */
+        function difference(xy1, xy2) {
+            return init(xy1.x - xy2.x, xy1.y - xy2.y);
+        } // difference
+        
+        /**
+        ### distance(xy*)
+        Return the total euclidean distance between all the xy values passed to the 
+        function.
+        */
+        function distance(xy, count) {
+            return edges(xy, count).total;
+        } // distance
+        
+        /**
+        ### edges(points, count)
+        */
+        function edges(points, count) {
             if (! count) {
-                count = vectors.length;
+                count = points.length;
             } // if
             
             if (count <= 1) {
@@ -2479,7 +2522,7 @@ T5 = (function() {
             // iterate through the vectors and calculate the edges
             // OPTMIZE: look for speed up opportunities
             for (var ii = 0; ii < count - 1; ii++) {
-                var diff = difference(vectors[ii], vectors[ii + 1]);
+                var diff = difference(points[ii], points[ii + 1]);
                 
                 fnresult.edges[ii] = 
                     Math.sqrt((diff.x * diff.x) + (diff.y * diff.y));
@@ -2491,28 +2534,186 @@ T5 = (function() {
             
             return fnresult;
         } // edges
-
+        
         /**
-        ### equals(v1, v2)
+        ### equals(pt1, pt2)
+        Return true if the two points are equal, false otherwise.  __NOTE:__ This function
+        does not automatically floor the values so if the point values are floating point
+        then floating point precision errors will likely occur.
         */
-        function equals(v1, v2) {
-            return v1.x === v2.x && v1.y === v2.y;
+        function equals(pt1, pt2) {
+            return pt1.x === pt2.x && pt1.y === pt2.y;
         } // equals
         
         /**
-        ### floor(v*)
-        This function is used to take all the vectors in the array and convert them to
+        ### extendBy(xy, theta, delta)
+        */
+        function extendBy(xy, theta, delta) {
+            var xDelta = Math.cos(theta) * delta,
+                yDelta = Math.sin(theta) * delta;
+            
+            return init(xy.x - xDelta, xy.y - yDelta);
+        } // extendBy
+        
+        /**
+        ### floor(pt*)
+        This function is used to take all the points in the array and convert them to
         integer values
         */
-        function floor(vectors) {
-            var results = new Array(vectors.length);
-            for (var ii = vectors.length; ii--; ) {
-                results[ii] = new T5.Vector(~~vectors[ii].x, ~~vectors[ii].y);
+        function floor(points) {
+            var results = new Array(points.length);
+            for (var ii = points.length; ii--; ) {
+                results[ii] = init(~~points[ii].x, ~~points[ii].y);
             } // for
             
             return results;
         } // floor
         
+        /**
+        ### getRect(xy*)
+        Get a T5.Rect that is large enough to contain the xy values passed
+        to the function.
+        */
+        function getRect(points) {
+            var arrayLen = points.length;
+            if (arrayLen > 1) {
+                return new Rect(
+                    Math.min(
+                        points[0].x, 
+                        points[arrayLen - 1].x
+                    ),
+                    Math.min(
+                        points[0].y, 
+                        points[arrayLen - 1].y
+                    ),
+                    Math.abs(points[0].x - 
+                        points[arrayLen - 1].x),
+                    Math.abs(points[0].y - 
+                        points[arrayLen - 1].y)
+                );
+            } // if
+        } // getRect        
+        
+        /**
+        ### init(x, y)
+        Initialize a new point that can be used in Tile5.  A point is simply an 
+        object literal with the attributes `x` and `y`.  If initial values are passed
+        through when creating the point these will be used, otherwise 0 values will 
+        be used.
+        */
+        function init(initX, initY) {
+            return {
+                x: initX ? initX : 0,
+                y: initY ? initY : 0
+            };
+        } // init
+        
+        /**
+        ### invert(xy)
+        Return a new composite xy value that is the inverted value of the one passed
+        to the function.
+        */
+        function invert(xy) {
+            return init(-xy.x, -xy.y);
+        } // invert
+        
+        /**
+        ### offset(xy, offsetX, offsetY)
+        Return a new composite xy which is offset by the specified amount.
+        */
+        function offset(xy, offsetX, offsetY) {
+            return init(xy.x + offsetX, xy.y + (offsetY ? offsetY : offsetX));
+        } // offset
+        
+        /**
+        ### simplify(xy*, generalization)
+        This function is used to simplify a xy array by removing what would be considered
+        'redundant' xy positions by elimitating at a similar position.  
+        */
+        function simplify(points, generalization) {
+            if (! points) {
+                return null;
+            } // if
+
+            // set the the default generalization
+            generalization = generalization ? generalization : xyTools.VECTOR_SIMPLIFICATION;
+
+            var tidied = [],
+                last = null;
+
+            for (var ii = points.length; ii--; ) {
+                var current = points[ii];
+
+                // determine whether the current point should be included
+                include = !last || ii === 0 || 
+                    (Math.abs(current.x - last.x) + 
+                        Math.abs(current.y - last.y) >
+                        generalization);
+
+                if (include) {
+                    tidied.unshift(current);
+                    last = current;
+                }
+            } // for
+
+            return tidied;
+        } // simplify
+        
+        /**
+        ### theta (xy1, xy2, distance)
+        */
+        function theta(xy1, xy2, distance) {
+            var theta = Math.asin((xy1.y - xy2.y) / distance);
+            return xy1.x > xy2.x ? theta : Math.PI - theta;
+        } // theta
+        
+        /**
+        ### toString(xy)
+        Return the string representation of the xy
+        */
+        function toString(xy) {
+            return xy.x + ', ' + xy.y;
+        } // toString
+        
+        /* module export */
+        
+        return {
+            VECTOR_SIMPLIFICATION: 3,
+            SIMPLIFICATION_MIN_VECTORS: 25,
+            
+            add: add,
+            absSize: absSize,
+            copy: copy,
+            diff: difference,
+            distance: distance,
+            edges: edges,
+            equals: equals,
+            extendBy: extendBy,
+            floor: floor,
+            getRect: getRect,
+            init: init,
+            invert: invert,
+            offset: offset,
+            simplify: simplify,
+            theta: theta
+        };
+    })();
+    
+    /**
+    # T5.V
+    This module defines functions that are used to maintain T5.Vector objects and this
+    is removed from the actual Vector class to keep the Vector object lightweight.
+
+    ## Functions
+    */
+    var vectorTools = (function() {
+        
+        /* exports */
+        
+        function dotProduct(v1, v2) {
+            return v1.x * v2.x + v1.y * v2.y;
+        } // dotProduct
+         
         /*
         This method implements the Ramer–Douglas–Peucker algorithm for simplification instead.
         */
@@ -2567,191 +2768,19 @@ T5 = (function() {
             return results;
         } // simplify
         
-        /* 
-        simplify, simple version 
-        */
-        function simplify(vectors, generalization) {
-            if (! vectors) {
-                return null;
-            } // if
-
-            // set the the default generalization
-            generalization = generalization ? generalization : vectorTools.VECTOR_SIMPLIFICATION;
-
-            var tidyVectors = [],
-                last = null;
-
-            for (var ii = vectors.length; ii--; ) {
-                var current = vectors[ii];
-
-                // determine whether the current point should be included
-                include = !last || ii === 0 || 
-                    (Math.abs(current.x - last.x) + 
-                        Math.abs(current.y - last.y) >
-                        generalization);
-
-                if (include) {
-                    tidyVectors.unshift(current);
-                    last = current;
-                }
-            } // for
-
-            return tidyVectors;
-        }
-        
         function unitize(v1, v2) {
             var unitLength = edges([v1, v2]).total,
                 absX = unitLength !== 0 ? (v2.x - v1.x) / unitLength : 0, 
                 absY = unitLength !== 0 ? (v2.y - v1.y) / unitLength : 0;
 
             // COG.Log.info('unitizing vectors, length = ' + unitLength);
-            return new T5.Vector(absX, absY);
+            return xyTools.init(absX, absY);
         } // unitize
         
         /* define module */
 
         return {
-            VECTOR_SIMPLIFICATION: 3,
-            SIMPLIFICATION_MIN_VECTORS: 25,
-            
-            /**
-            ### create(x, y)
-            Create a new vector with the specified `x` and `y` value
-            */
-            create: function(x, y) {
-                return new Vector(x, y);
-            },
-            
-            /**
-            ### add(v*)
-            Return a new T5.Vector that is the total sum value of all the 
-            vectors passed to the function.
-            */
-            add: function() {
-                var fnresult = new Vector();
-                for (var ii = arguments.length; ii--; ) {
-                    fnresult.x += arguments[ii].x;
-                    fnresult.y += arguments[ii].y;
-                } // for
-                
-                return fnresult;
-            },
-            
-            /**
-            ### absSize(vector)
-            */
-            absSize: function(vector) {
-                return Math.max(Math.abs(vector.x), Math.abs(vector.y));
-            },
-            
-            /**
-            ### diff(v1, v2)
-            Return a new T5.Vector that contains the result of v1 - v2.
-            */
-            diff: difference,
-            dotProduct: dotProduct,
-            equals: equals,
-            
-            /**
-            ### copy(src)
-            Return a new T5.Vector copy of the vector passed to the function 
-            */
-            copy: function(src) {
-                return src ? new Vector(src.x, src.y) : null;
-            },
-            
-            /**
-            ### invert(v)
-            Return a new T5.Vector that contains the inverted values of the 
-            vector passed to the function
-            */
-            invert: function(vector) {
-                return new Vector(-vector.x, -vector.y);
-            },
-            
-            /**
-            ### offset(vector, offsetX, offsetY)
-            Return a new T5.Vector that is offset by the specified x and y offset
-            */
-            offset: function(vector, offsetX, offsetY) {
-                return new Vector(
-                                vector.x + offsetX, 
-                                vector.y + (offsetY ? offsetY : offsetX));
-            },
-            
-            edges: edges,
-            floor: floor,
-            
-            /**
-            ### distance(v*)
-            Return the total euclidean distance between all the points of the
-            vectors supplied to the function
-            */
-            distance: function(vectors, count) {
-                return edges(vectors, count).total;
-            },
-            
-            /**
-            ### simplify(v*, generalization)
-            This function is used to simplify a vector array by removing what would be considered
-            'redundant' vector positions by elimitating at a similar position.  
-            */
-            simplify: simplify,
-            
-            /**
-            ### theta (v1, v2, distance)
-            */
-            theta: function(v1, v2, distance) {
-                var theta = Math.asin((v1.y - v2.y) / distance);
-                return v1.x > v2.x ? theta : Math.PI - theta;
-            },
-            
-            
-            /**
-            ### pointOnEdge(v1, v2, theta, delta)
-            */
-            pointOnEdge: function(v1, v2, theta, delta) {
-                var xyDelta = new Vector(
-                                    Math.cos(theta) * delta, 
-                                    Math.sin(theta) * delta);
-                
-                return new Vector(
-                                    v1.x - xyDelta.x, 
-                                    v1.y - xyDelta.y);
-            },
-            
-            /**
-            ### getRect(v*)
-            Get a T5.Rect that is large enough to contain the vectors passed
-            to the function.
-            */
-            getRect: function(vectorArray) {
-                var arrayLen = vectorArray.length;
-                if (arrayLen > 1) {
-                    return new Rect(
-                        Math.min(
-                            vectorArray[0].x, 
-                            vectorArray[arrayLen - 1].x
-                        ),
-                        Math.min(
-                            vectorArray[0].y, 
-                            vectorArray[arrayLen - 1].y
-                        ),
-                        Math.abs(vectorArray[0].x - 
-                            vectorArray[arrayLen - 1].x),
-                        Math.abs(vectorArray[0].y - 
-                            vectorArray[arrayLen - 1].y)
-                    );
-                }
-            },
-            
-            /**
-            ### toString(vector)
-            Return the string representation of the vector
-            */
-            toString: function(vector) {
-                return vector.x + ', ' + vector.y;
-            }
+            dotProduct: dotProduct
         };
     })(); // vectorTools
     
@@ -2778,7 +2807,7 @@ T5 = (function() {
     */
     var Rect = function(x, y, width, height) {
         return {
-            origin: new Vector(x, y),
+            origin: xyTools.init(x, y),
             dimensions: new Dimensions(width, height),
             invalid: false
         };
@@ -2830,7 +2859,7 @@ T5 = (function() {
             Return the a T5.Vector for the center of the specified `rect`
             */
             getCenter: function(rect) {
-                return new Vector(
+                return xyTools.init(
                             rect.origin.x + (rect.dimensions.width / 2), 
                             rect.origin.y + (rect.dimensions.height / 2));
             },
@@ -2916,7 +2945,7 @@ T5 = (function() {
             Get the a T5.Vector for the center of the `dimensions` (width / 2, height  / 2)
             */
             getCenter: function(dimensions) {
-                return new Vector(
+                return xyTools.init(
                             dimensions.width / 2, 
                             dimensions.height / 2);
             },
@@ -2946,8 +2975,10 @@ T5 = (function() {
         ex: COG.extend,
         ticks: getTicks,
         
+        XY: xyTools,
+        
         Vector: Vector, // Vector
-        V: vectorTools,
+        V: COG.extend(xyTools, vectorTools),
         
         Dimensions: Dimensions, // Dimensions
         D: dimensionTools,
@@ -3509,7 +3540,7 @@ T5.Images = (function() {
             height = imageData.realSize ? imageData.realSize.height : image.height,
             canvas = newCanvas(width, height),
             context = canvas.getContext('2d'),
-            offset = imageData.offset ? imageData.offset : new T5.Vector();
+            offset = imageData.offset ? imageData.offset : T5.XY.init();
             
         if (imageData.background) {
             context.drawImage(imageData.background, 0, 0);
@@ -3610,7 +3641,7 @@ T5.Images = (function() {
     ~ 
     ~ });
     */
-    function get(url, callback) {
+    function get(url, callback, loadArgs) {
         var imageData = null,
             image = null;
             
@@ -3624,8 +3655,8 @@ T5.Images = (function() {
         if (image && (image.getContext || isLoaded(image))) {
             return image;
         }
-        else {
-            load(url, callback);
+        else if (callback) {
+            load(url, callback, loadArgs);
         } // if..else
         
         return null;
@@ -4688,7 +4719,7 @@ T5.View = function(params) {
         mainContext = null,
         offsetX = 0,
         offsetY = 0,
-        cycleOffset = new T5.Vector(),
+        cycleOffset = T5.XY.init(),
         clearBackground = false,
         cycleWorker = null,
         frozen = false,
@@ -4701,7 +4732,7 @@ T5.View = function(params) {
         paintTimeout = 0,
         idleTimeout = 0,
         rescaleTimeout = 0,
-        zoomCenter = new T5.Vector(),
+        zoomCenter = T5.XY.init(),
         rotation = 0,
         tickCount = 0,
         scaling = false,
@@ -4731,7 +4762,7 @@ T5.View = function(params) {
         state = stateActive;
         
     // some function references for speed
-    var vectorRect = T5.V.getRect,
+    var vectorRect = T5.XY.getRect,
         dimensionsSize = T5.D.getSize,
         rectCenter = T5.R.getCenter;
         
@@ -4870,7 +4901,7 @@ T5.View = function(params) {
     
     function handleTap(evt, absXY, relXY) {
         // calculate the grid xy
-        var gridXY = T5.V.offset(relXY, offsetX, offsetY);
+        var gridXY = T5.XY.offset(relXY, offsetX, offsetY);
         
         // iterate through the layers, and inform of the tap event
         for (var ii = layers.length; ii--; ) {
@@ -5051,8 +5082,8 @@ T5.View = function(params) {
         
         // update the zoom center
         scaling = true;
-        startCenter = T5.V.copy(startXY);
-        endCenter = T5.V.copy(targetXY);
+        startCenter = T5.XY.copy(startXY);
+        endCenter = T5.XY.copy(targetXY);
         startRect = null;
 
         // if tweening then update the targetXY
@@ -5088,11 +5119,11 @@ T5.View = function(params) {
     
     function calcPinchZoomCenter() {
         var center = T5.D.getCenter(dimensions),
-            endDist = T5.V.distance([endCenter, center]),
-            endTheta = T5.V.theta(endCenter, center, endDist),
-            shiftDelta = T5.V.diff(startCenter, endCenter);
+            endDist = T5.XY.distance([endCenter, center]),
+            endTheta = T5.XY.theta(endCenter, center, endDist),
+            shiftDelta = T5.XY.diff(startCenter, endCenter);
             
-        center = T5.V.pointOnEdge(endCenter, center, endTheta, endDist / scaleFactor);
+        center = T5.XY.extendBy(endCenter, endTheta, endDist / scaleFactor);
 
         center.x = center.x + shiftDelta.x;
         center.y = center.y + shiftDelta.y; 
@@ -5103,7 +5134,7 @@ T5.View = function(params) {
     function calcZoomCenter() {
         var displayCenter = T5.D.getCenter(dimensions),
             shiftFactor = (aniProgress ? aniProgress : 1) / 2,
-            centerOffset = T5.V.diff(startCenter, endCenter);
+            centerOffset = T5.XY.diff(startCenter, endCenter);
 
         if (startRect) {
             zoomCenter.x = endCenter.x + centerOffset.x;
@@ -5143,7 +5174,7 @@ T5.View = function(params) {
             calcZoomCenter();
             
             // offset the draw args
-            offset = T5.V.offset(offset, zoomCenter.x, zoomCenter.y);
+            offset = T5.XY.offset(offset, zoomCenter.x, zoomCenter.y);
         } // if
         
         // COG.Log.info("draw state = " + drawState);
@@ -5507,7 +5538,7 @@ T5.View = function(params) {
             scaling = scaleFactor !== 1;
 
             startCenter = T5.D.getCenter(dimensions);
-            endCenter = scaleFactor > 1 ? T5.V.copy(targetXY) : T5.D.getCenter(dimensions);
+            endCenter = scaleFactor > 1 ? T5.XY.copy(targetXY) : T5.D.getCenter(dimensions);
             startRect = null;
             
             clearTimeout(rescaleTimeout);
@@ -5721,8 +5752,8 @@ T5.PathLayer = function(params) {
     
     self.bind('gridUpdate', handleGridUpdate);
     self.bind('tidy', function(evt) {
-        coordinates = T5.V.simplify(rawCoords, params.pixelGeneralization);
-        markerCoordinates = T5.V.simplify(rawMarkers, params.pixelGeneralization);
+        coordinates = T5.XY.simplify(rawCoords, params.pixelGeneralization);
+        markerCoordinates = T5.XY.simplify(rawMarkers, params.pixelGeneralization);
 
         // wake the parent
         redraw = true;
@@ -5754,26 +5785,41 @@ T5.ShapeLayer = function(params) {
         
     /* private functions */
     
-    function handleGridUpdate(evt, grid) {
+    function performSync(grid) {
         // iterate through the children and resync to the grid
         for (var ii = children.length; ii--; ) {
             children[ii].resync(grid);
         } // for
         
+        // sort the children so the topmost, leftmost is drawn first followed by other shapes
+        children.sort(function(shapeA, shapeB) {
+            var diff = shapeB.xy.y - shapeA.xy.y;
+            if (diff === 0) {
+                diff = shapeB.xy.x - shapeA.xy.y;
+            } // if
+            
+            return diff;
+        });
+        
         forceRedraw = true;
         self.changed();
+    } // performSync
+    
+    /* event handlers */
+    
+    function handleGridUpdate(evt, grid) {
+        performSync(grid);
     }
     
     function handleParentChange(evt, parent) {
         var grid = parent ? parent.getTileLayer() : null;
         
         if (grid) {
-            // iterate through the children and resync to the grid
-            for (var ii = children.length; ii--; ) {
-                children[ii].resync(grid);
-            } // for
+            performSync(grid);
         } // if
     } // handleParentChange
+    
+    /* exports */
     
     /* initialise self */
     
@@ -5782,9 +5828,14 @@ T5.ShapeLayer = function(params) {
         ### add(poly)
         Used to add a T5.Poly to the layer
         */
-        add: function(poly) {
-            // children.push(poly);
-            children.unshift(poly);
+        add: function(shape) {
+            children[children.length] = shape;
+        },
+        
+        each: function(callback) {
+            for (var ii = children.length; ii--; ) {
+                callback(children[ii]);
+            } // for
         },
         
         cycle: function(tickCount, offset, state, redraw) {
@@ -5861,10 +5912,13 @@ that need to be implemented for shapes that can be drawn in a T5.ShapeLayer.
 */
 T5.Shape = function(params) {
     params = T5.ex({
-        style: null
+        style: null,
+        properties: {}
     }, params);
     
     return T5.ex(params, {
+        xy: T5.XY.init(0, 0),
+        
         /**
         ### draw(context, offsetX, offsetY, width, height, state)
         */
@@ -5878,6 +5932,46 @@ T5.Shape = function(params) {
         }
     });
 };
+
+T5.Arc = function(origin, params) {
+   params = T5.ex({
+       size: 4
+   }, params);
+   
+   // iniitialise variables
+   var drawXY = T5.XY.init();
+   
+   // initialise self
+   var self = T5.ex(params, {
+       /**
+       ### draw(context, offsetX, offsetY, width, height, state)
+       */
+       draw: function(context, offsetX, offsetY, width, height, state) {
+           context.beginPath();
+           context.arc(
+               drawXY.x  - offsetX, 
+               drawXY.y  - offsetY, 
+               self.size,
+               0,
+               Math.PI * 2,
+               false);
+               
+           context.fill();
+           context.stroke();
+       },
+       
+       /**
+       ### resync(grid)
+       */
+       resync: function(grid) {
+           self.xy = grid.syncVectors([origin]);
+           drawXY = T5.XY.floor([origin])[0];
+       }
+   });
+   
+   COG.Log.info('created arc = ', origin);
+   return self;
+}; 
 
 /**
 # T5.Poly
@@ -5926,8 +6020,7 @@ T5.Poly = function(vectors, params) {
     function draw(context, offsetX, offsetY, width, height, state) {
         if (haveData) {
             var first = true,
-                zooming = (state & stateZoom) !== 0,
-                draw = false;
+                draw = (state & stateZoom) !== 0;
             
             context.beginPath();
             
@@ -5946,7 +6039,9 @@ T5.Poly = function(vectors, params) {
                 } // if..else
                 
                 // update the draw status
-                draw = draw || ((! zooming) && (x >= 0 && x <= width) && (y >= 0 && y <= height));
+                // TODO: this fails on large polygons that surround the current view
+                // fix and resinstate
+                draw = true; // draw || ((x >= 0 && x <= width) && (y >= 0 && y <= height));
             } // for
 
             // if the polygon is even partially visible then draw it
@@ -5965,10 +6060,10 @@ T5.Poly = function(vectors, params) {
     Used to synchronize the vectors of the poly to the grid.
     */
     function resync(grid) {
-        grid.syncVectors(vectors);
+        self.xy = grid.syncVectors(vectors);
         
         // simplify the vectors for drawing (if required)
-        drawVectors = T5.V.floor(simplify ? T5.V.simplify(vectors) : vectors);
+        drawVectors = T5.XY.floor(simplify ? T5.XY.simplify(vectors) : vectors);
     } // resyncToGrid
     
     /* define self */
@@ -6041,7 +6136,7 @@ T5.AnimatedPathLayer = function(params) {
     }, params);
     
     // generate the edge data for the specified path
-    var edgeData = T5.V.edges(params.path), 
+    var edgeData = T5.XY.edges(params.path), 
         tween,
         theta,
         indicatorXY = null,
@@ -6104,8 +6199,8 @@ T5.AnimatedPathLayer = function(params) {
                     v1 = params.path[edgeIndex],
                     v2 = params.path[edgeIndex + 1];
 
-                theta = T5.V.theta(v1, v2, edgeData.edges[edgeIndex]);
-                indicatorXY = T5.V.pointOnEdge(v1, v2, theta, extra);
+                theta = T5.XY.theta(v1, v2, edgeData.edges[edgeIndex]);
+                indicatorXY = T5.XY.extendBy(v1, theta, extra);
 
                 if (params.autoCenter) {
                     var parent = self.getParent();
@@ -6124,7 +6219,7 @@ T5.AnimatedPathLayer = function(params) {
                 (params.drawIndicator ? params.drawIndicator : drawDefaultIndicator)(
                     context,
                     offset,
-                    new T5.Vector(indicatorXY.x - offset.x, indicatorXY.y - offset.y),
+                    T5.XY.init(indicatorXY.x - offset.x, indicatorXY.y - offset.y),
                     theta
                 );
             } // if
@@ -6165,7 +6260,7 @@ in at.  Used in combination with the `tweenIn` parameter.
 */
 T5.Marker = function(params) {
     params = T5.ex({
-        xy: new T5.Vector(),
+        xy: T5.XY.init(),
         offset: true,
         tweenIn: null,
         animationSpeed: null
@@ -6353,7 +6448,7 @@ T5.ImageMarker = function(params) {
     }, params);
     
     var imageOffset = params.imageAnchor ?
-            T5.V.invert(params.imageAnchor) : 
+            T5.XY.invert(params.imageAnchor) : 
             null;
     
     function getImageUrl() {
@@ -6379,7 +6474,7 @@ T5.ImageMarker = function(params) {
             
         if (image && image.complete && (image.width > 0)) {
             if (! imageOffset) {
-                imageOffset = new T5.Vector(
+                imageOffset = T5.XY.init(
                     -image.width >> 1, 
                     -image.height >> 1
                 );
@@ -6563,7 +6658,9 @@ T5.MarkerLayer = function(params) {
     } // markerUpdate
     
     function resyncMarkers() {
-        var grid = self.getParent().getTileLayer();
+        var parent = self.getParent(),
+            grid = parent && parent.getTileLayer ? parent.getTileLayer() : null;
+            
         if (grid) {
             handleGridUpdate(null, grid);
         } // if
@@ -6646,13 +6743,11 @@ T5.MarkerLayer = function(params) {
         var results = [];
         
         // if we have a test callback, then run
-        if (testCallback) {
-            for (var ii = markers.length; ii--; ) {
-                if (testCallback(markers[ii])) {
-                    results[results.length] = markers[ii];
-                } // if
-            } // for
-        } // if
+        for (var ii = markers.length; ii--; ) {
+            if ((! testCallback) || testCallback(markers[ii])) {
+                results[results.length] = markers[ii];
+            } // if
+        } // for
         
         return results;
     } // testCallback
@@ -6666,7 +6761,7 @@ T5.MarkerLayer = function(params) {
         draw: function(context, offset, dimensions, state, view) {
             // reset animating to false
             animating = false;
-        
+            
             // iterate through the markers and draw them
             for (var ii = markers.length; ii--; ) {
                 markers[ii].draw(
@@ -6690,6 +6785,7 @@ T5.MarkerLayer = function(params) {
     // handle tap events
     self.bind('tap', handleTap);
     self.bind('gridUpdate', handleGridUpdate);
+    self.bind('parentChange', resyncMarkers);
     self.bind('changed', resyncMarkers);
     
     return self;
@@ -6962,7 +7058,8 @@ T5.TileGrid = function(params) {
     // extend the params with the defaults
     params = T5.ex({
         tileSize: T5.tileSize,
-        center: new T5.Vector(),
+        bufferSize: 1,
+        center: T5.XY.init(),
         clearBackground: false,
         gridSize: 25,
         shiftOrigin: null,
@@ -6978,10 +7075,11 @@ T5.TileGrid = function(params) {
         gridHeight = gridRows * tileSize,
         gridWidth = gridCols * tileSize,
         gridHalfWidth = Math.ceil(gridCols >> 1),
-        topLeftOffset = T5.V.offset(params.center, -gridHalfWidth),
+        topLeftOffset = T5.XY.offset(params.center, -gridHalfWidth),
         lastTileCreator = null,
-        tileShift = new T5.Vector(),
+        tileShift = T5.XY.init(),
         lastNotifyListener = null,
+        bufferSize = params.bufferSize,
         halfTileSize = Math.round(tileSize / 2),
         haveDirtyTiles = false,
         invTileSize = tileSize ? 1 / tileSize : 0,
@@ -6993,8 +7091,8 @@ T5.TileGrid = function(params) {
         populating = false,
         lastTickCount,
         lastQueueUpdate = 0,
-        lastCheckOffset = new T5.Vector(),
-        shiftDelta = new T5.Vector(),
+        lastCheckOffset = T5.XY.init(),
+        shiftDelta = T5.XY.init(),
         repaintDistance = T5.getConfig().repaintDistance,
         reloadTimeout = 0,
         tileCols, tileRows, centerPos,
@@ -7058,13 +7156,13 @@ T5.TileGrid = function(params) {
     } // getGridXY
     
     function getNormalizedPos(col, row) {
-        return T5.V.add(new T5.Vector(col, row), T5.V.invert(topLeftOffset), tileShift);
+        return T5.XY.add(T5.XY.init(col, row), T5.XY.invert(topLeftOffset), tileShift);
     } // getNormalizedPos
     
     function getShiftDelta(topLeftX, topLeftY, cols, rows) {
         // initialise variables
         var shiftAmount = Math.max(gridCols, gridRows) * 0.2 >> 0,
-            shiftDelta = new T5.Vector();
+            shiftDelta = T5.XY.init();
             
         // test the x
         if (topLeftX < 0 || topLeftX + cols > gridCols) {
@@ -7102,7 +7200,7 @@ T5.TileGrid = function(params) {
         // take a tick count as we want to time this
         var startTicks = COG.Log.getTraceTicks(),
             tileIndex = 0,
-            centerPos = new T5.Vector(gridCols / 2, gridRows / 2);
+            centerPos = T5.XY.init(gridCols / 2, gridRows / 2);
             
         populating = true;
         try {
@@ -7169,7 +7267,7 @@ T5.TileGrid = function(params) {
             topLeftOffset = shiftOriginCallback(topLeftOffset, shiftDelta);
         }
         else {
-            topLeftOffset = T5.V.add(topLeftOffset, shiftDelta);
+            topLeftOffset = T5.XY.add(topLeftOffset, shiftDelta);
         } // if..else
 
         // create the tile shift offset
@@ -7184,9 +7282,9 @@ T5.TileGrid = function(params) {
     function updateDrawQueue(offset, state, fullRedraw, tickCount) {
         var tile, tmpQueue = [],
             dirtyTiles = false,
-            tileStart = new T5.Vector(
-                            (offset.x + tileShift.x) * invTileSize >> 0, 
-                            (offset.y + tileShift.y) * invTileSize >> 0);
+            tileStart = T5.XY.init(
+                (offset.x + tileShift.x - (tileSize * bufferSize)) * invTileSize >> 0, 
+                (offset.y + tileShift.y - (tileSize * bufferSize)) * invTileSize >> 0);
 
         // reset the tile draw queue
         tilesNeeded = false;
@@ -7194,9 +7292,9 @@ T5.TileGrid = function(params) {
         if (! centerPos) {
             var dimensions = self.getParent().getDimensions();
 
-            tileCols = Math.ceil(dimensions.width * invTileSize) + 1;
-            tileRows = Math.ceil(dimensions.height * invTileSize) + 1;
-            centerPos = new T5.Vector((tileCols-1) / 2 >> 0, (tileRows-1) / 2 >> 0);
+            tileCols = Math.ceil(dimensions.width * invTileSize) + 1 + bufferSize;
+            tileRows = Math.ceil(dimensions.height * invTileSize) + 1 + bufferSize;
+            centerPos = T5.XY.init((tileCols-1) / 2 >> 0, (tileRows-1) / 2 >> 0);
         } // if
 
         // right, let's draw some tiles (draw rows first)
@@ -7205,7 +7303,7 @@ T5.TileGrid = function(params) {
             for (var xx = tileCols; xx--; ) {
                 // get the tile
                 tile = getTile(xx + tileStart.x, yy + tileStart.y);
-                var centerDiff = new T5.Vector(xx - centerPos.x, yy - centerPos.y);
+                var centerDiff = T5.XY.init(xx - centerPos.x, yy - centerPos.y);
 
                 if (! tile) {
                     shiftDelta = getShiftDelta(tileStart.x, tileStart.y, tileCols, tileRows);
@@ -7220,7 +7318,7 @@ T5.TileGrid = function(params) {
                 // add the tile and position to the tile draw queue
                 tmpQueue[tmpQueue.length] = {
                     tile: tile,
-                    centerness: T5.V.absSize(centerDiff)
+                    centerness: T5.XY.absSize(centerDiff)
                 };
             } // for
         } // for
@@ -7260,7 +7358,7 @@ T5.TileGrid = function(params) {
                 shift(shiftDelta, params.shiftOrigin);
 
                 // reset the delta
-                shiftDelta = new T5.Vector();
+                shiftDelta = T5.XY.init();
                 
                 // we need to do a complete redraw
                 redraw = true;
@@ -7304,8 +7402,10 @@ T5.TileGrid = function(params) {
             // initialise variables
             var xShift = offset.x,
                 yShift = offset.y,
-                minX = dimensions.width,
-                minY = dimensions.height,
+                viewWidth = dimensions.width,
+                viewHeight = dimensions.height,
+                minX = viewWidth,
+                minY = viewHeight,
                 currentTileDrawn,
                 tilesDrawn = true;
                 
@@ -7313,7 +7413,7 @@ T5.TileGrid = function(params) {
             if (! tileDrawQueue) { return; }
             
             if (clearBeforeDraw) {
-                context.clearRect(0, 0, dimensions.width, dimensions.height);
+                context.clearRect(0, 0, viewWidth, viewHeight);
             } // if
             
             context.beginPath();
@@ -7325,46 +7425,50 @@ T5.TileGrid = function(params) {
                 for (var ii = tileDrawQueue.length; ii--; ) {
                     var tile = tileDrawQueue[ii],
                         x = tile.gridX - xShift,
-                        y = tile.gridY - yShift;
+                        y = tile.gridY - yShift,
+                        inBounds = (x >= 0 || (x + tileSize) <= viewWidth) && 
+                            (y >= 0 || (y + tileSize) <= viewHeight);
 
-                    // update the tile x and y
-                    tile.x = x;
-                    tile.y = y;
+                    if (inBounds) {
+                        // update the tile x and y
+                        tile.x = x;
+                        tile.y = y;
 
-                    // if the tile is loaded, then draw, otherwise load
-                    if (! tile.empty) {
-                        // draw the tile
-                        if (redraw || tile.dirty) {
+                        // if the tile is loaded, then draw, otherwise load
+                        if (! tile.empty) {
                             // draw the tile
-                            currentTileDrawn = self.drawTile(
-                                                    context, 
-                                                    tile, 
-                                                    x, 
-                                                    y, 
-                                                    state, 
-                                                    redraw, 
-                                                    tickCount, 
-                                                    clearBeforeDraw);
+                            if (redraw || tile.dirty) {
+                                // draw the tile
+                                currentTileDrawn = self.drawTile(
+                                                        context, 
+                                                        tile, 
+                                                        x, 
+                                                        y, 
+                                                        state, 
+                                                        redraw, 
+                                                        tickCount, 
+                                                        clearBeforeDraw);
 
-                            // if the current tile was drawn then clip the rect
-                            if (currentTileDrawn) {
-                                context.rect(x, y, tileSize, tileSize);
+                                // if the current tile was drawn then clip the rect
+                                if (currentTileDrawn) {
+                                    context.rect(x, y, tileSize, tileSize);
+                                } // if
+
+                                // update the tiles drawn state
+                                tilesDrawn = tilesDrawn && currentTileDrawn;
                             } // if
+                        } 
+                        else if (! clearBeforeDraw) {
+                            context.clearRect(x, y, tileSize, tileSize);
+                            context.rect(x, y, tileSize, tileSize);
 
-                            // update the tiles drawn state
-                            tilesDrawn = tilesDrawn && currentTileDrawn;
-                        } // if
-                    } 
-                    else if (! clearBeforeDraw) {
-                        context.clearRect(x, y, tileSize, tileSize);
-                        context.rect(x, y, tileSize, tileSize);
-                        
-                        tilesDrawn = false;
-                    } // if..else
+                            tilesDrawn = false;
+                        } // if..else
 
-                    // update the minx and miny
-                    minX = x < minX ? x : minX;
-                    minY = y < minY ? y : minY;
+                        // update the minx and miny
+                        minX = x < minX ? x : minX;
+                        minY = y < minY ? y : minY;                        
+                    } // if
                 } // for
             } // if
 
@@ -7425,7 +7529,7 @@ T5.TileGrid = function(params) {
         
         /** 
         ### getTileVirtualXY(col, row, getCenter)
-        Returns a new T5.Vector that specifies the virtual X and Y coordinate of the tile as denoted 
+        Returns a T5.XY.init that specifies the virtual X and Y coordinate of the tile as denoted 
         by the col and row parameters.  If the getCenter parameter is passed through and set to true, 
         then the X and Y coordinates are offset by half a tile to represent the center of the tile rather
         than the top left corner.
@@ -7433,7 +7537,7 @@ T5.TileGrid = function(params) {
         getTileVirtualXY: function(col, row, getCenter) {
             // get the normalized position from the tile store
             var pos = getNormalizedPos(col, row),
-                fnresult = new T5.Vector(pos.x * tileSize, pos.y * tileSize);
+                fnresult = T5.XY.init(pos.x * tileSize, pos.y * tileSize);
             
             if (getCenter) {
                 fnresult.x += halfTileSize;
@@ -7454,6 +7558,7 @@ T5.TileGrid = function(params) {
         ### syncVectors(vectors)
         */
         syncVectors: function(vectors) {
+            return T5.XY.init(0, 0);
         }        
     });
     
@@ -7512,7 +7617,7 @@ T5.ImageTileGrid = function(params) {
     params = T5.ex({
         emptyTile: getEmptyTile(T5.tileSize),
         panningTile: null,
-        tileOffset: new T5.Vector(),
+        tileOffset: T5.XY.init(),
         tileDrawArgs: {}
     }, params);
     
@@ -7586,7 +7691,7 @@ T5.ImageTileGrid = function(params) {
         tileDrawArgs = T5.ex({
             background: null,
             overlay: null,
-            offset: new T5.Vector(),
+            offset: T5.XY.init(),
             realSize: new T5.Dimensions(tileSize, tileSize)
         }, params.tileDrawArgs);
         
@@ -7757,7 +7862,7 @@ T5.Tiler = function(params) {
         */
         viewPixToGridPix: function(vector) {
             var offset = self.getOffset();
-            return new T5.Vector(vector.x + offset.x, vector.y + offset.y);
+            return T5.XY.init(vector.x + offset.x, vector.y + offset.y);
         },
         
         /**

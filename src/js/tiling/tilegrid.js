@@ -47,7 +47,8 @@ T5.TileGrid = function(params) {
     // extend the params with the defaults
     params = T5.ex({
         tileSize: T5.tileSize,
-        center: new T5.Vector(),
+        bufferSize: 1,
+        center: T5.XY.init(),
         clearBackground: false,
         gridSize: 25,
         shiftOrigin: null,
@@ -63,10 +64,11 @@ T5.TileGrid = function(params) {
         gridHeight = gridRows * tileSize,
         gridWidth = gridCols * tileSize,
         gridHalfWidth = Math.ceil(gridCols >> 1),
-        topLeftOffset = T5.V.offset(params.center, -gridHalfWidth),
+        topLeftOffset = T5.XY.offset(params.center, -gridHalfWidth),
         lastTileCreator = null,
-        tileShift = new T5.Vector(),
+        tileShift = T5.XY.init(),
         lastNotifyListener = null,
+        bufferSize = params.bufferSize,
         halfTileSize = Math.round(tileSize / 2),
         haveDirtyTiles = false,
         invTileSize = tileSize ? 1 / tileSize : 0,
@@ -78,8 +80,8 @@ T5.TileGrid = function(params) {
         populating = false,
         lastTickCount,
         lastQueueUpdate = 0,
-        lastCheckOffset = new T5.Vector(),
-        shiftDelta = new T5.Vector(),
+        lastCheckOffset = T5.XY.init(),
+        shiftDelta = T5.XY.init(),
         repaintDistance = T5.getConfig().repaintDistance,
         reloadTimeout = 0,
         tileCols, tileRows, centerPos,
@@ -143,13 +145,13 @@ T5.TileGrid = function(params) {
     } // getGridXY
     
     function getNormalizedPos(col, row) {
-        return T5.V.add(new T5.Vector(col, row), T5.V.invert(topLeftOffset), tileShift);
+        return T5.XY.add(T5.XY.init(col, row), T5.XY.invert(topLeftOffset), tileShift);
     } // getNormalizedPos
     
     function getShiftDelta(topLeftX, topLeftY, cols, rows) {
         // initialise variables
         var shiftAmount = Math.max(gridCols, gridRows) * 0.2 >> 0,
-            shiftDelta = new T5.Vector();
+            shiftDelta = T5.XY.init();
             
         // test the x
         if (topLeftX < 0 || topLeftX + cols > gridCols) {
@@ -187,7 +189,7 @@ T5.TileGrid = function(params) {
         // take a tick count as we want to time this
         var startTicks = COG.Log.getTraceTicks(),
             tileIndex = 0,
-            centerPos = new T5.Vector(gridCols / 2, gridRows / 2);
+            centerPos = T5.XY.init(gridCols / 2, gridRows / 2);
             
         populating = true;
         try {
@@ -254,7 +256,7 @@ T5.TileGrid = function(params) {
             topLeftOffset = shiftOriginCallback(topLeftOffset, shiftDelta);
         }
         else {
-            topLeftOffset = T5.V.add(topLeftOffset, shiftDelta);
+            topLeftOffset = T5.XY.add(topLeftOffset, shiftDelta);
         } // if..else
 
         // create the tile shift offset
@@ -269,9 +271,9 @@ T5.TileGrid = function(params) {
     function updateDrawQueue(offset, state, fullRedraw, tickCount) {
         var tile, tmpQueue = [],
             dirtyTiles = false,
-            tileStart = new T5.Vector(
-                            (offset.x + tileShift.x) * invTileSize >> 0, 
-                            (offset.y + tileShift.y) * invTileSize >> 0);
+            tileStart = T5.XY.init(
+                (offset.x + tileShift.x - (tileSize * bufferSize)) * invTileSize >> 0, 
+                (offset.y + tileShift.y - (tileSize * bufferSize)) * invTileSize >> 0);
 
         // reset the tile draw queue
         tilesNeeded = false;
@@ -279,9 +281,9 @@ T5.TileGrid = function(params) {
         if (! centerPos) {
             var dimensions = self.getParent().getDimensions();
 
-            tileCols = Math.ceil(dimensions.width * invTileSize) + 1;
-            tileRows = Math.ceil(dimensions.height * invTileSize) + 1;
-            centerPos = new T5.Vector((tileCols-1) / 2 >> 0, (tileRows-1) / 2 >> 0);
+            tileCols = Math.ceil(dimensions.width * invTileSize) + 1 + bufferSize;
+            tileRows = Math.ceil(dimensions.height * invTileSize) + 1 + bufferSize;
+            centerPos = T5.XY.init((tileCols-1) / 2 >> 0, (tileRows-1) / 2 >> 0);
         } // if
 
         // right, let's draw some tiles (draw rows first)
@@ -290,7 +292,7 @@ T5.TileGrid = function(params) {
             for (var xx = tileCols; xx--; ) {
                 // get the tile
                 tile = getTile(xx + tileStart.x, yy + tileStart.y);
-                var centerDiff = new T5.Vector(xx - centerPos.x, yy - centerPos.y);
+                var centerDiff = T5.XY.init(xx - centerPos.x, yy - centerPos.y);
 
                 if (! tile) {
                     shiftDelta = getShiftDelta(tileStart.x, tileStart.y, tileCols, tileRows);
@@ -305,7 +307,7 @@ T5.TileGrid = function(params) {
                 // add the tile and position to the tile draw queue
                 tmpQueue[tmpQueue.length] = {
                     tile: tile,
-                    centerness: T5.V.absSize(centerDiff)
+                    centerness: T5.XY.absSize(centerDiff)
                 };
             } // for
         } // for
@@ -345,7 +347,7 @@ T5.TileGrid = function(params) {
                 shift(shiftDelta, params.shiftOrigin);
 
                 // reset the delta
-                shiftDelta = new T5.Vector();
+                shiftDelta = T5.XY.init();
                 
                 // we need to do a complete redraw
                 redraw = true;
@@ -389,8 +391,10 @@ T5.TileGrid = function(params) {
             // initialise variables
             var xShift = offset.x,
                 yShift = offset.y,
-                minX = dimensions.width,
-                minY = dimensions.height,
+                viewWidth = dimensions.width,
+                viewHeight = dimensions.height,
+                minX = viewWidth,
+                minY = viewHeight,
                 currentTileDrawn,
                 tilesDrawn = true;
                 
@@ -398,7 +402,7 @@ T5.TileGrid = function(params) {
             if (! tileDrawQueue) { return; }
             
             if (clearBeforeDraw) {
-                context.clearRect(0, 0, dimensions.width, dimensions.height);
+                context.clearRect(0, 0, viewWidth, viewHeight);
             } // if
             
             context.beginPath();
@@ -410,46 +414,50 @@ T5.TileGrid = function(params) {
                 for (var ii = tileDrawQueue.length; ii--; ) {
                     var tile = tileDrawQueue[ii],
                         x = tile.gridX - xShift,
-                        y = tile.gridY - yShift;
+                        y = tile.gridY - yShift,
+                        inBounds = (x >= 0 || (x + tileSize) <= viewWidth) && 
+                            (y >= 0 || (y + tileSize) <= viewHeight);
 
-                    // update the tile x and y
-                    tile.x = x;
-                    tile.y = y;
+                    if (inBounds) {
+                        // update the tile x and y
+                        tile.x = x;
+                        tile.y = y;
 
-                    // if the tile is loaded, then draw, otherwise load
-                    if (! tile.empty) {
-                        // draw the tile
-                        if (redraw || tile.dirty) {
+                        // if the tile is loaded, then draw, otherwise load
+                        if (! tile.empty) {
                             // draw the tile
-                            currentTileDrawn = self.drawTile(
-                                                    context, 
-                                                    tile, 
-                                                    x, 
-                                                    y, 
-                                                    state, 
-                                                    redraw, 
-                                                    tickCount, 
-                                                    clearBeforeDraw);
+                            if (redraw || tile.dirty) {
+                                // draw the tile
+                                currentTileDrawn = self.drawTile(
+                                                        context, 
+                                                        tile, 
+                                                        x, 
+                                                        y, 
+                                                        state, 
+                                                        redraw, 
+                                                        tickCount, 
+                                                        clearBeforeDraw);
 
-                            // if the current tile was drawn then clip the rect
-                            if (currentTileDrawn) {
-                                context.rect(x, y, tileSize, tileSize);
+                                // if the current tile was drawn then clip the rect
+                                if (currentTileDrawn) {
+                                    context.rect(x, y, tileSize, tileSize);
+                                } // if
+
+                                // update the tiles drawn state
+                                tilesDrawn = tilesDrawn && currentTileDrawn;
                             } // if
+                        } 
+                        else if (! clearBeforeDraw) {
+                            context.clearRect(x, y, tileSize, tileSize);
+                            context.rect(x, y, tileSize, tileSize);
 
-                            // update the tiles drawn state
-                            tilesDrawn = tilesDrawn && currentTileDrawn;
-                        } // if
-                    } 
-                    else if (! clearBeforeDraw) {
-                        context.clearRect(x, y, tileSize, tileSize);
-                        context.rect(x, y, tileSize, tileSize);
-                        
-                        tilesDrawn = false;
-                    } // if..else
+                            tilesDrawn = false;
+                        } // if..else
 
-                    // update the minx and miny
-                    minX = x < minX ? x : minX;
-                    minY = y < minY ? y : minY;
+                        // update the minx and miny
+                        minX = x < minX ? x : minX;
+                        minY = y < minY ? y : minY;                        
+                    } // if
                 } // for
             } // if
 
@@ -510,7 +518,7 @@ T5.TileGrid = function(params) {
         
         /** 
         ### getTileVirtualXY(col, row, getCenter)
-        Returns a new T5.Vector that specifies the virtual X and Y coordinate of the tile as denoted 
+        Returns a T5.XY.init that specifies the virtual X and Y coordinate of the tile as denoted 
         by the col and row parameters.  If the getCenter parameter is passed through and set to true, 
         then the X and Y coordinates are offset by half a tile to represent the center of the tile rather
         than the top left corner.
@@ -518,7 +526,7 @@ T5.TileGrid = function(params) {
         getTileVirtualXY: function(col, row, getCenter) {
             // get the normalized position from the tile store
             var pos = getNormalizedPos(col, row),
-                fnresult = new T5.Vector(pos.x * tileSize, pos.y * tileSize);
+                fnresult = T5.XY.init(pos.x * tileSize, pos.y * tileSize);
             
             if (getCenter) {
                 fnresult.x += halfTileSize;
@@ -539,6 +547,7 @@ T5.TileGrid = function(params) {
         ### syncVectors(vectors)
         */
         syncVectors: function(vectors) {
+            return T5.XY.init(0, 0);
         }        
     });
     

@@ -92,7 +92,9 @@ T5.MarkerLayer = function(params) {
     } // markerUpdate
     
     function resyncMarkers() {
-        var grid = self.getParent().getTileLayer();
+        var parent = self.getParent(),
+            grid = parent && parent.getTileLayer ? parent.getTileLayer() : null;
+            
         if (grid) {
             handleGridUpdate(null, grid);
         } // if
@@ -175,13 +177,11 @@ T5.MarkerLayer = function(params) {
         var results = [];
         
         // if we have a test callback, then run
-        if (testCallback) {
-            for (var ii = markers.length; ii--; ) {
-                if (testCallback(markers[ii])) {
-                    results[results.length] = markers[ii];
-                } // if
-            } // for
-        } // if
+        for (var ii = markers.length; ii--; ) {
+            if ((! testCallback) || testCallback(markers[ii])) {
+                results[results.length] = markers[ii];
+            } // if
+        } // for
         
         return results;
     } // testCallback
@@ -195,7 +195,7 @@ T5.MarkerLayer = function(params) {
         draw: function(context, offset, dimensions, state, view) {
             // reset animating to false
             animating = false;
-        
+            
             // iterate through the markers and draw them
             for (var ii = markers.length; ii--; ) {
                 markers[ii].draw(
@@ -219,6 +219,7 @@ T5.MarkerLayer = function(params) {
     // handle tap events
     self.bind('tap', handleTap);
     self.bind('gridUpdate', handleGridUpdate);
+    self.bind('parentChange', resyncMarkers);
     self.bind('changed', resyncMarkers);
     
     return self;

@@ -91,7 +91,7 @@ T5.Tiler = function(params) {
         */
         viewPixToGridPix: function(vector) {
             var offset = self.getOffset();
-            return new T5.Vector(vector.x + offset.x, vector.y + offset.y);
+            return T5.XY.init(vector.x + offset.x, vector.y + offset.y);
         },
         
         /**

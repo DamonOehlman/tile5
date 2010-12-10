@@ -64,7 +64,7 @@ T5.ImageMarker = function(params) {
     }, params);
     
     var imageOffset = params.imageAnchor ?
-            T5.V.invert(params.imageAnchor) : 
+            T5.XY.invert(params.imageAnchor) : 
             null;
     
     function getImageUrl() {
@@ -90,7 +90,7 @@ T5.ImageMarker = function(params) {
             
         if (image && image.complete && (image.width > 0)) {
             if (! imageOffset) {
-                imageOffset = new T5.Vector(
+                imageOffset = T5.XY.init(
                     -image.width >> 1, 
                     -image.height >> 1
                 );

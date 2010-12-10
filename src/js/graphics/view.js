@@ -130,7 +130,7 @@ T5.View = function(params) {
         mainContext = null,
         offsetX = 0,
         offsetY = 0,
-        cycleOffset = new T5.Vector(),
+        cycleOffset = T5.XY.init(),
         clearBackground = false,
         cycleWorker = null,
         frozen = false,
@@ -143,7 +143,7 @@ T5.View = function(params) {
         paintTimeout = 0,
         idleTimeout = 0,
         rescaleTimeout = 0,
-        zoomCenter = new T5.Vector(),
+        zoomCenter = T5.XY.init(),
         rotation = 0,
         tickCount = 0,
         scaling = false,
@@ -173,7 +173,7 @@ T5.View = function(params) {
         state = stateActive;
         
     // some function references for speed
-    var vectorRect = T5.V.getRect,
+    var vectorRect = T5.XY.getRect,
         dimensionsSize = T5.D.getSize,
         rectCenter = T5.R.getCenter;
         
@@ -312,7 +312,7 @@ T5.View = function(params) {
     
     function handleTap(evt, absXY, relXY) {
         // calculate the grid xy
-        var gridXY = T5.V.offset(relXY, offsetX, offsetY);
+        var gridXY = T5.XY.offset(relXY, offsetX, offsetY);
         
         // iterate through the layers, and inform of the tap event
         for (var ii = layers.length; ii--; ) {
@@ -493,8 +493,8 @@ T5.View = function(params) {
         
         // update the zoom center
         scaling = true;
-        startCenter = T5.V.copy(startXY);
-        endCenter = T5.V.copy(targetXY);
+        startCenter = T5.XY.copy(startXY);
+        endCenter = T5.XY.copy(targetXY);
         startRect = null;
 
         // if tweening then update the targetXY
@@ -530,11 +530,11 @@ T5.View = function(params) {
     
     function calcPinchZoomCenter() {
         var center = T5.D.getCenter(dimensions),
-            endDist = T5.V.distance([endCenter, center]),
-            endTheta = T5.V.theta(endCenter, center, endDist),
-            shiftDelta = T5.V.diff(startCenter, endCenter);
+            endDist = T5.XY.distance([endCenter, center]),
+            endTheta = T5.XY.theta(endCenter, center, endDist),
+            shiftDelta = T5.XY.diff(startCenter, endCenter);
             
-        center = T5.V.pointOnEdge(endCenter, center, endTheta, endDist / scaleFactor);
+        center = T5.XY.extendBy(endCenter, endTheta, endDist / scaleFactor);
 
         center.x = center.x + shiftDelta.x;
         center.y = center.y + shiftDelta.y; 
@@ -545,7 +545,7 @@ T5.View = function(params) {
     function calcZoomCenter() {
         var displayCenter = T5.D.getCenter(dimensions),
             shiftFactor = (aniProgress ? aniProgress : 1) / 2,
-            centerOffset = T5.V.diff(startCenter, endCenter);
+            centerOffset = T5.XY.diff(startCenter, endCenter);
 
         if (startRect) {
             zoomCenter.x = endCenter.x + centerOffset.x;
@@ -585,7 +585,7 @@ T5.View = function(params) {
             calcZoomCenter();
             
             // offset the draw args
-            offset = T5.V.offset(offset, zoomCenter.x, zoomCenter.y);
+            offset = T5.XY.offset(offset, zoomCenter.x, zoomCenter.y);
         } // if
         
         // COG.Log.info("draw state = " + drawState);
@@ -949,7 +949,7 @@ T5.View = function(params) {
             scaling = scaleFactor !== 1;
 
             startCenter = T5.D.getCenter(dimensions);
-            endCenter = scaleFactor > 1 ? T5.V.copy(targetXY) : T5.D.getCenter(dimensions);
+            endCenter = scaleFactor > 1 ? T5.XY.copy(targetXY) : T5.D.getCenter(dimensions);
             startRect = null;
             
             clearTimeout(rescaleTimeout);

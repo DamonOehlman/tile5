@@ -12,10 +12,13 @@ that need to be implemented for shapes that can be drawn in a T5.ShapeLayer.
 */
 T5.Shape = function(params) {
     params = T5.ex({
-        style: null
+        style: null,
+        properties: {}
     }, params);
     
     return T5.ex(params, {
+        xy: T5.XY.init(0, 0),
+        
         /**
         ### draw(context, offsetX, offsetY, width, height, state)
         */
@@ -29,6 +32,46 @@ T5.Shape = function(params) {
         }
     });
 };
+
+T5.Arc = function(origin, params) {
+   params = T5.ex({
+       size: 4
+   }, params);
+   
+   // iniitialise variables
+   var drawXY = T5.XY.init();
+   
+   // initialise self
+   var self = T5.ex(params, {
+       /**
+       ### draw(context, offsetX, offsetY, width, height, state)
+       */
+       draw: function(context, offsetX, offsetY, width, height, state) {
+           context.beginPath();
+           context.arc(
+               drawXY.x  - offsetX, 
+               drawXY.y  - offsetY, 
+               self.size,
+               0,
+               Math.PI * 2,
+               false);
+               
+           context.fill();
+           context.stroke();
+       },
+       
+       /**
+       ### resync(grid)
+       */
+       resync: function(grid) {
+           self.xy = grid.syncVectors([origin]);
+           drawXY = T5.XY.floor([origin])[0];
+       }
+   });
+   
+   COG.Log.info('created arc = ', origin);
+   return self;
+}; 
 
 /**
 # T5.Poly
@@ -77,8 +120,7 @@ T5.Poly = function(vectors, params) {
     function draw(context, offsetX, offsetY, width, height, state) {
         if (haveData) {
             var first = true,
-                zooming = (state & stateZoom) !== 0,
-                draw = false;
+                draw = (state & stateZoom) !== 0;
             
             context.beginPath();
             
@@ -97,7 +139,9 @@ T5.Poly = function(vectors, params) {
                 } // if..else
                 
                 // update the draw status
-                draw = draw || ((! zooming) && (x >= 0 && x <= width) && (y >= 0 && y <= height));
+                // TODO: this fails on large polygons that surround the current view
+                // fix and resinstate
+                draw = true; // draw || ((x >= 0 && x <= width) && (y >= 0 && y <= height));
             } // for
 
             // if the polygon is even partially visible then draw it
@@ -116,10 +160,10 @@ T5.Poly = function(vectors, params) {
     Used to synchronize the vectors of the poly to the grid.
     */
     function resync(grid) {
-        grid.syncVectors(vectors);
+        self.xy = grid.syncVectors(vectors);
         
         // simplify the vectors for drawing (if required)
-        drawVectors = T5.V.floor(simplify ? T5.V.simplify(vectors) : vectors);
+        drawVectors = T5.XY.floor(simplify ? T5.XY.simplify(vectors) : vectors);
     } // resyncToGrid
     
     /* define self */

@@ -23,6 +23,14 @@ wasting space.
 
 - `clip()` method brought back to save the day.  Now if a `T5.TileGrid` is present as a layer, the context will be clipped to where tiles have been drawn only.  Anything else just doesn't get a look in...
 
+- Added support for setting tileBackground color for a map provider and having this carried through to the post processing for images as tiles are loaded.
+
+- Implementation of GeoJSON improved to support parsing FeatureCollection types in addition to basic primitives.
+
+- Added `T5.XY` module to take on the majority of the `T5.V` functions as it is more correct as we weren't really dealing with vectors but rather simple coordinates.  The sample logic has been applied in the geo space, and `T5.Geo.GeoXY` replaces the `T5.Geo.GeoVector` class.
+
+- Added the ability to parse Point information from GeoJSON
+
 ## 0.9.3 (released 2010-11-18)
 
 Some pretty cool stuff in this, plus some pretty major refactoring on a few things.  Essentially functionality that required a `T5.Map` previously has been made to work with a `T5.View` or `T5.Tiler` wherever possible.  This includes paths and annotations.  Additionally, GeoJSON support is in the works and some early support of this can be used with Tile5, however, there is still probably more work to do in this area.

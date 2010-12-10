@@ -52,7 +52,7 @@ T5.Map = function(params) {
     };
     
     // initialise variables
-    var lastBoundsChangeOffset = new T5.Vector(),
+    var lastBoundsChangeOffset = T5.XY.init(),
         locationWatchId = 0,
         locateMode = LOCATE_MODE.NONE,
         initialized = false,
@@ -155,15 +155,15 @@ T5.Map = function(params) {
 
         if (grid) {
             var gridPos = self.viewPixToGridPix(
-                    new T5.Vector(relXY.x, relXY.y)),
+                    T5.XY.init(relXY.x, relXY.y)),
                 tapPos = grid.pixelsToPos(gridPos),
                 minPos = grid.pixelsToPos(
-                    T5.V.offset(
+                    T5.XY.offset(
                         gridPos, 
                         -params.tapExtent, 
                         params.tapExtent)),
                 maxPos = grid.pixelsToPos(
-                    T5.V.offset(
+                    T5.XY.offset(
                         gridPos,
                          params.tapExtent, 
                          -params.tapExtent));
@@ -184,7 +184,7 @@ T5.Map = function(params) {
         if (self.scalable()) {
             self.animate(2, 
                 T5.D.getCenter(self.getDimensions()), 
-                new T5.Vector(relXY.x, relXY.y), 
+                T5.XY.init(relXY.x, relXY.y), 
                 params.zoomAnimation);
         } // if
     } // handleDoubleTap
@@ -208,11 +208,11 @@ T5.Map = function(params) {
     } // handleScale
     
     function handleIdle(evt) {
-        var changeDelta = T5.V.absSize(T5.V.diff(
+        var changeDelta = T5.XY.absSize(T5.XY.diff(
                 lastBoundsChangeOffset, self.getOffset()));
         
         if (changeDelta > params.boundsChangeThreshold) {
-            lastBoundsChangeOffset = T5.V.copy(self.getOffset());
+            lastBoundsChangeOffset = T5.XY.copy(self.getOffset());
             self.trigger("boundsChange", self.getBoundingBox());
         } // if
     } // handleIdle
