@@ -135,7 +135,7 @@ T5.View = function(params) {
         cycleWorker = null,
         frozen = false,
         deviceScaling = 1,
-        dimensions = new T5.Dimensions(),
+        dimensions = T5.D.init(),
         wakeTriggers = 0,
         endCenter = null,
         idle = false,
@@ -174,8 +174,8 @@ T5.View = function(params) {
         
     // some function references for speed
     var vectorRect = T5.XY.getRect,
-        dimensionsSize = T5.D.getSize,
-        rectCenter = T5.R.getCenter;
+        rectDiagonal = T5.XYRect.diagonalSize,
+        rectCenter = T5.XYRect.center;
         
     /* panning functions */
     
@@ -215,8 +215,8 @@ T5.View = function(params) {
         endRect = vectorRect(end);
 
         // get the sizes of the rects
-        var startSize = dimensionsSize(startRect.dimensions),
-            endSize = dimensionsSize(endRect.dimensions);
+        var startSize = rectDiagonal(startRect),
+            endSize = rectDiagonal(endRect);
 
         // update the zoom center
         startCenter = rectCenter(startRect);
@@ -405,7 +405,7 @@ T5.View = function(params) {
             
             // initialise the dimensions
             if (dimensions.height !== canvas.height || dimensions.width !== canvas.width) {
-                dimensions = new T5.Dimensions(canvas.width, canvas.height);
+                dimensions = T5.D.init(canvas.width, canvas.height);
                 
                 // trigger the resize event for the view
                 self.trigger('resize', canvas.width, canvas.height);

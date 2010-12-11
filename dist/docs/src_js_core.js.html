@@ -12,18 +12,13 @@ that are provided in the <a href="docs_T5_overview.mdown.html#Tile5">Tile5</a> l
 <h2>Classes</h2>
 
 <ul>
-<li><a href="src_js_core.js.html#T5.Vector">T5.Vector</a></li>
-<li><a href="src_js_core.js.html#T5.Dimensions">T5.Dimensions</a></li>
-<li><a href="src_js_core.js.html#T5.Rect">T5.Rect</a></li>
-</ul>
+<li><p><a href="src_js_core.js.html#T5.Vector">T5.Vector</a> (deprecated)</p>
 
-<h2>Submodules</h2>
-
-<ul>
-<li><a href="src_js_core.js.html#T5">T5</a>.Settings</li>
+<h2>Submodules</h2></li>
+<li><p><a href="src_js_core.js.html#T5.XY">T5.XY</a></p></li>
+<li><a href="src_js_core.js.html#T5.XYRect">T5.XYRect</a></li>
 <li><a href="src_js_core.js.html#T5.V">T5.V</a></li>
 <li><a href="src_js_core.js.html#T5.D">T5.D</a></li>
-<li><a href="src_js_core.js.html#T5.R">T5.R</a></li>
 </ul>
 
 <h1><a name="T5.Vector">T5.Vector</a></h1>
@@ -79,7 +74,7 @@ integer values</p>
 
 <h3>getRect(xy*)</h3>
 
-<p>Get a <a href="src_js_core.js.html#T5.Rect">T5.Rect</a> that is large enough to contain the xy values passed
+<p>Get a XYRect composite that is large enough to contain the xy values passed
 to the function.</p>
 
 <h3>init(x, y)</h3>
@@ -116,67 +111,44 @@ is removed from the actual Vector class to keep the Vector object lightweight.</
 
 <h2>Functions</h2>
 
-<h1><a name="T5.Rect">T5.Rect</a></h1>
+<h1><a name="T5.XYRect">T5.XYRect</a></h1>
 
-<p>A class used to store details pertaining to a rectangular region.</p>
+<p>This module provides helper functions for working with an object literal that represents a set of xy
+values that represent the top-left and bottom-right corners of a rectangle respectively.</p>
 
-<h2>Constructor</h2>
+<h2>XYRect Object Literal Format</h2>
 
-<p><code>new <a href="src_js_core.js.html#T5.Rect">T5.Rect</a>(x, y, width, height)</code></p>
-
-<h2>Properties</h2>
+<p>An XYRect object literal has the following properties.</p>
 
 <ul>
-<li>origin - the top left point of the rectangle</li>
-<li>dimensions - the width and height of the rectangle</li>
-<li>invalid - used to indicate that the rect dimensions are irrelevant</li>
+<li><code>x1</code> - The x vaule for the top left corner</li>
+<li><code>y1</code> - The y value for the top left corner</li>
+<li><code>x2</code> - The x value for the bottom right corner</li>
+<li><code>y2</code> - The y value for the bottom right corner</li>
+<li><code>width</code> - The width of the rect</li>
+<li><code>height</code> - The height of the rect</li>
 </ul>
-
-<h2>Notes</h2>
-
-<p>The invalid property was added and is used for assisting with managing
-the clip rect that will be drawn in a View.  If marked invalid then
-detailed checking of the draw area is skipped, and no clip() will be
-applied when drawing the canvas (the whole thing is drawn).</p>
-
-<h1><a name="T5.R">T5.R</a></h1>
-
-<p>A module of utility functions for working with <a href="src_js_core.js.html#T5.Rect">T5.Rect</a> objects.</p>
 
 <h2>Functions</h2>
 
-<h2>bottomRight(src)</h2>
+<h3>center(rect)</h3>
 
-<p>Get the a <a href="src_js_core.js.html#T5.Vector">T5.Vector</a> for the bottom right position of the rect</p>
+<p>Return a xy composite for the center of the rect</p>
 
-<h3>empty()</h3>
+<h3>init(x1, y1, x2, y2)</h3>
 
-<p>Return a new empty <a href="src_js_core.js.html#T5.Rect">T5.Rect</a></p>
-
-<h3>copy(src)</h3>
-
-<p>Return a new <a href="src_js_core.js.html#T5.Rect">T5.Rect</a> that is a copy of the specified <code>src</code> </p>
-
-<h3>getCenter(rect)</h3>
-
-<p>Return the a <a href="src_js_core.js.html#T5.Vector">T5.Vector</a> for the center of the specified <code>rect</code></p>
-
-<h3>isEmpty(rect)</h3>
-
-<p>Return true if the <code>rect</code> has 0 width or 0 height.</p>
-
-<h3>union(dst, src)</h3>
-
-<p>This function takes the Rect values passed to the function and determines
-the required rect to contain all of those values. This origin and dimensions
-of this resulting Rect are then used to replace the first Rect passed to 
-the function.</p>
-
-<h1><a name="T5.Dimensions">T5.Dimensions</a></h1>
+<p>Create a new XYRect composite object</p>
 
 <h1><a name="T5.D">T5.D</a></h1>
 
-<p>A module of utility functions for working with <a href="src_js_core.js.html#T5">T5</a>.Dimension objects</p>
+<p>A module of utility functions for working with dimensions composites</p>
+
+<h2>Dimension Object Literal Properties</h2>
+
+<ul>
+<li><code>width</code></li>
+<li><code>height</code></li>
+</ul>
 
 <h2>Functions</h2>
 
@@ -186,10 +158,14 @@ the function.</p>
 
 <h3>getCenter(dimensions)</h3>
 
-<p>Get the a <a href="src_js_core.js.html#T5.Vector">T5.Vector</a> for the center of the <code>dimensions</code> (width / 2, height  / 2)</p>
+<p>Get the a XY composite for the center of the <code>dimensions</code> (width / 2, height  / 2)</p>
 
 <h3>getSize(dimensions)</h3>
 
 <p>Get the size for the diagonal for the <code>dimensions</code></p>
+
+<h3>init(width, height)</h3>
+
+<p>Create a new dimensions composite (width, height)</p>
 
 {% endblock %}

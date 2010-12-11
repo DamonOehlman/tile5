@@ -335,7 +335,7 @@ T5.TileGrid = function(params) {
     
     // initialise self
     var self = T5.ex(new T5.ViewLayer(params), {
-        gridDimensions: new T5.Dimensions(gridWidth, gridHeight),
+        gridDimensions: T5.D.init(gridWidth, gridHeight),
         
         cycle: function(tickCount, offset, state, redraw) {
             var needTiles = shiftDelta.x !== 0 || shiftDelta.y !== 0,

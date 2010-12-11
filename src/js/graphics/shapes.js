@@ -17,7 +17,7 @@ T5.Shape = function(params) {
     }, params);
     
     return T5.ex(params, {
-        xy: T5.XY.init(0, 0),
+        rect: null,
         
         /**
         ### draw(context, offsetX, offsetY, width, height, state)
@@ -64,7 +64,7 @@ T5.Arc = function(origin, params) {
        ### resync(grid)
        */
        resync: function(grid) {
-           self.xy = grid.syncVectors([origin]);
+           var centerXY = grid.syncVectors([origin]).origin;
            drawXY = T5.XY.floor([origin])[0];
        }
    });

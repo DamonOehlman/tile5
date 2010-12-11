@@ -180,23 +180,25 @@ T5.Geo.UI = (function() {
                 grid so they can perform their calculations
                 */
                 syncVectors: function(vectors) {
-                    var minX, minY;
+                    var minX, minY, maxX, maxY;
                     
                     for (var ii = vectors.length; ii--; ) {
                         var xy = vectors[ii];
                         
                         if (xy && xy.setRadsPerPixel) {
                             xy.setRadsPerPixel(radsPerPixel, -blPixX, -tlPixY);
-                            
-                            // if the x position is less than the min, then update the min
+
+                            // update the min x and min y
                             minX = (typeof minX === 'undefined') || xy.x < minX ? xy.x : minX;
-                                
-                            // if the y position is less than the min y, then update the min y
                             minY = (typeof minY === 'undefined') || xy.y < minY ? xy.y : minY;
+                            
+                            // update the max x and max y
+                            maxX = (typeof maxX === 'undefined') || xy.x > maxX ? xy.x : maxX;
+                            maxY = (typeof maxY === 'undefined') || xy.y > maxY ? xy.y : maxY;
                         } // if
                     } // for
                     
-                    return T5.XY.init(minX, minY);
+                    return T5.XYRect.init(minX, minY, maxY, maxY);
                 },
                 
                 /**

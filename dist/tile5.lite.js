@@ -2413,16 +2413,14 @@ operations and math that are used in managing and drawing the graphical and tili
 that are provided in the Tile5 library.
 
 ## Classes
-- T5.Vector
-- T5.Dimensions
-- T5.Rect
-
+- T5.Vector (deprecated)
 
 ## Submodules
 - T5.Settings
+- T5.XY
+- T5.XYRect
 - T5.V
 - T5.D
-- T5.R
 */
 T5 = (function() {
     /**
@@ -2571,27 +2569,25 @@ T5 = (function() {
         
         /**
         ### getRect(xy*)
-        Get a T5.Rect that is large enough to contain the xy values passed
+        Get a XYRect composite that is large enough to contain the xy values passed
         to the function.
         */
         function getRect(points) {
-            var arrayLen = points.length;
-            if (arrayLen > 1) {
-                return new Rect(
-                    Math.min(
-                        points[0].x, 
-                        points[arrayLen - 1].x
-                    ),
-                    Math.min(
-                        points[0].y, 
-                        points[arrayLen - 1].y
-                    ),
-                    Math.abs(points[0].x - 
-                        points[arrayLen - 1].x),
-                    Math.abs(points[0].y - 
-                        points[arrayLen - 1].y)
-                );
-            } // if
+            var minX, minY, maxX, maxY;
+            
+            for (var ii = points.length; ii--; ) {
+                var xy = points[ii];
+                
+                // update the min x and min y
+                minX = (typeof minX === 'undefined') || xy.x < minX ? xy.x : minX;
+                minY = (typeof minY === 'undefined') || xy.y < minY ? xy.y : minY;
+                
+                // update the max x and max y
+                maxX = (typeof maxX === 'undefined') || xy.x > maxX ? xy.x : maxX;
+                maxY = (typeof maxY === 'undefined') || xy.y > maxY ? xy.y : maxY;
+            } // for
+            
+            return xyRectTools.init(minX, minY, maxY, maxY);            
         } // getRect        
         
         /**
@@ -2785,182 +2781,134 @@ T5 = (function() {
     })(); // vectorTools
     
     /**
-    # T5.Rect
+    # T5.XYRect
+    This module provides helper functions for working with an object literal that represents a set of xy
+    values that represent the top-left and bottom-right corners of a rectangle respectively.
     
-    A class used to store details pertaining to a rectangular region.
+    ## XYRect Object Literal Format
+    An XYRect object literal has the following properties.
     
-    ## Constructor
-    `new T5.Rect(x, y, width, height)`
-    
-    ## Properties
-    
-    - origin - the top left point of the rectangle
-    - dimensions - the width and height of the rectangle
-    - invalid - used to indicate that the rect dimensions are irrelevant
-    
-    
-    ## Notes
-    The invalid property was added and is used for assisting with managing
-    the clip rect that will be drawn in a View.  If marked invalid then
-    detailed checking of the draw area is skipped, and no clip() will be
-    applied when drawing the canvas (the whole thing is drawn).
-    */
-    var Rect = function(x, y, width, height) {
-        return {
-            origin: xyTools.init(x, y),
-            dimensions: new Dimensions(width, height),
-            invalid: false
-        };
-    }; // Rect
-    
-    /**
-    # T5.R
-    A module of utility functions for working with T5.Rect objects.
+    - `x1` - The x vaule for the top left corner
+    - `y1` - The y value for the top left corner
+    - `x2` - The x value for the bottom right corner
+    - `y2` - The y value for the bottom right corner
+    - `width` - The width of the rect
+    - `height` - The height of the rect
     
     ## Functions
     */
-    var rectTools = (function() {
-        var subModule = {
-            /**
-            ## bottomRight(src)
-            Get the a T5.Vector for the bottom right position of the rect
-            */
-            bottomRight: function(src) {
-                return vectorTools.offset(
-                            src.origin, 
-                            src.dimensions.width, 
-                            src.dimensions.height);
-            },
-
-            /**
-            ### empty()
-            Return a new empty T5.Rect
-            */
-            empty: function() {
-                return new Rect(0, 0, 0, 0);
-            },
-            
-            /**
-            ### copy(src)
-            Return a new T5.Rect that is a copy of the specified `src` 
-            */
-            copy: function(src) {
-                return src ? 
-                    new Rect(
-                            src.origin.x, 
-                            src.origin.y, 
-                            src.dimensions.width, 
-                            src.dimensions.height) :
-                    null;
-            },
-            
-            /**
-            ### getCenter(rect)
-            Return the a T5.Vector for the center of the specified `rect`
-            */
-            getCenter: function(rect) {
-                return xyTools.init(
-                            rect.origin.x + (rect.dimensions.width / 2), 
-                            rect.origin.y + (rect.dimensions.height / 2));
-            },
-            
-            /**
-            ### isEmpty(rect)
-            Return true if the `rect` has 0 width or 0 height.
-            */
-            isEmpty: function(rect) {
-                return rect.dimensions.width === 0 || rect.dimensions.height === 0;
-            },
-            
-            /**
-            ### union(dst, src)
-            This function takes the Rect values passed to the function and determines
-            the required rect to contain all of those values. This origin and dimensions
-            of this resulting Rect are then used to replace the first Rect passed to 
-            the function.
-            */
-            union: function() {
-                if (arguments.length < 2) { return; }
-
-                var top = arguments[0].origin.y,
-                    left = arguments[0].origin.x, 
-                    bottom = top + arguments[0].dimensions.height,
-                    right = left + arguments[0].dimensions.width,
-                    rects = Array.prototype.slice.call(arguments, 1);
-                    
-                // iterate through the other rects and find the max bounds
-                for (var ii = rects.length; ii--; ) {
-                    var testTop = rects[ii].origin.y,
-                        testLeft = rects[ii].origin.x,
-                        testBottom = testTop + rects[ii].dimensions.height,
-                        testRight = testLeft + rects[ii].dimensions.width;
-                        
-                    top = top < testTop ? top : testTop;
-                    left = left < testLeft ? left : testLeft;
-                    bottom = bottom > testBottom ? bottom : testBottom;
-                    right = right > testRight ? right : testRight;
-                } // for
-                
-                // update the first rect with the max bounds
-                arguments[0].origin.x = left;
-                arguments[0].origin.y = top;
-                arguments[0].dimensions.width = right - left;
-                arguments[0].dimensions.height = bottom - top;
-            }
-        };
+    var xyRectTools = (function() {
         
-        return subModule;
-    })(); // rectTools
-
-    /**
-    # T5.Dimensions
-    
-    */
-    var Dimensions = function(initWidth, initHeight) {
+        /* exports */
+        
+        /**
+        ### center(rect)
+        Return a xy composite for the center of the rect
+        */
+        function center(rect) {
+            return xyTools.init(rect.x1 + rect.width/2, rect.y1 + rect.height/2);
+        } // center
+        
+        function diagonalSize(rect) {
+            return Math.sqrt(rect.width * rect.width + rect.height * rect.height);
+        } // diagonalSize
+      
+        /**
+        ### init(x1, y1, x2, y2)
+        Create a new XYRect composite object
+        */
+        function init(x1, y1, x2, y2) {
+            // default the xy and y1 to 0 if not specified
+            x1 = x1 ? x1 : 0;
+            y1 = y1 ? y1 : 0;
+            x2 = x2 ? x2 : x1;
+            y2 = y2 ? y2 : y2;
+            
+            return {
+                x1: x1,
+                y1: y1,
+                x2: x2,
+                y2: y2,
+            
+                width: x2 - x1,
+                height: y2 - y1
+            };
+        } // init
+        
+        /* module definition */
+        
         return {
-            width: initWidth ? initWidth : 0,
-            height: initHeight ? initHeight : 0
-        }; 
-    }; // Dimensions
+            center: center,
+            diagonalSize: diagonalSize,
+            init: init
+        };
+    })();
     
     /** 
     # T5.D
-    A module of utility functions for working with T5.Dimension objects
+    A module of utility functions for working with dimensions composites
+    
+    ## Dimension Object Literal Properties
+    - `width`
+    - `height`
+    
     
     ## Functions
     */
     var dimensionTools = (function() {
-        var subModule = {
-            /**
-            ### getAspectRatio(dimensions)
-            Return the aspect ratio for the `dimensions` (width / height)
-            */
-            getAspectRatio: function(dimensions) {
-                return dimensions.height !== 0 ? 
-                    dimensions.width / dimensions.height : 1;
-            },
-
-            /**
-            ### getCenter(dimensions)
-            Get the a T5.Vector for the center of the `dimensions` (width / 2, height  / 2)
-            */
-            getCenter: function(dimensions) {
-                return xyTools.init(
-                            dimensions.width / 2, 
-                            dimensions.height / 2);
-            },
-            
-            /**
-            ### getSize(dimensions)
-            Get the size for the diagonal for the `dimensions`
-            */
-            getSize: function(dimensions) {
-                return Math.sqrt(Math.pow(dimensions.width, 2) + 
-                        Math.pow(dimensions.height, 2));
-            }
-        };
         
-        return subModule;
+        /* exports */
+        
+        /**
+        ### getAspectRatio(dimensions)
+        Return the aspect ratio for the `dimensions` (width / height)
+        */
+        function getAspectRatio(dimensions) {
+            return dimensions.height !== 0 ? 
+                dimensions.width / dimensions.height : 1;
+        } // getAspectRatio
+
+        /**
+        ### getCenter(dimensions)
+        Get the a XY composite for the center of the `dimensions` (width / 2, height  / 2)
+        */
+        function getCenter(dimensions) {
+            return xyTools.init(
+                        dimensions.width / 2, 
+                        dimensions.height / 2);
+        } // getCenter
+
+        /**
+        ### getSize(dimensions)
+        Get the size for the diagonal for the `dimensions`
+        */
+        function getSize(dimensions) {
+            return Math.sqrt(Math.pow(dimensions.width, 2) + 
+                    Math.pow(dimensions.height, 2));
+        } // getSize
+        
+        /** 
+        ### init(width, height)
+        Create a new dimensions composite (width, height)
+        */
+        function init(width, height) {
+            // initialise the width
+            width = width ? width : 0;
+            
+            return {
+                width: width,
+                height: height ? height : width
+            };
+        } // init
+
+        /* module definition */
+        
+        return {
+            getAspectRatio: getAspectRatio,
+            getCenter: getCenter,
+            getSize: getSize,
+            init: init
+        };
     })(); // dimensionTools
     
     /* exports */
@@ -2976,15 +2924,11 @@ T5 = (function() {
         ticks: getTicks,
         
         XY: xyTools,
+        XYRect: xyRectTools,
         
         Vector: Vector, // Vector
         V: COG.extend(xyTools, vectorTools),
-        
-        Dimensions: Dimensions, // Dimensions
-        D: dimensionTools,
-        
-        Rect: Rect,
-        R: rectTools
+        D: dimensionTools
     };
     
     return module;
@@ -4724,7 +4668,7 @@ T5.View = function(params) {
         cycleWorker = null,
         frozen = false,
         deviceScaling = 1,
-        dimensions = new T5.Dimensions(),
+        dimensions = T5.D.init(),
         wakeTriggers = 0,
         endCenter = null,
         idle = false,
@@ -4763,8 +4707,8 @@ T5.View = function(params) {
         
     // some function references for speed
     var vectorRect = T5.XY.getRect,
-        dimensionsSize = T5.D.getSize,
-        rectCenter = T5.R.getCenter;
+        rectDiagonal = T5.XYRect.diagonalSize,
+        rectCenter = T5.XYRect.center;
         
     /* panning functions */
     
@@ -4804,8 +4748,8 @@ T5.View = function(params) {
         endRect = vectorRect(end);
 
         // get the sizes of the rects
-        var startSize = dimensionsSize(startRect.dimensions),
-            endSize = dimensionsSize(endRect.dimensions);
+        var startSize = rectDiagonal(startRect),
+            endSize = rectDiagonal(endRect);
 
         // update the zoom center
         startCenter = rectCenter(startRect);
@@ -4994,7 +4938,7 @@ T5.View = function(params) {
             
             // initialise the dimensions
             if (dimensions.height !== canvas.height || dimensions.width !== canvas.width) {
-                dimensions = new T5.Dimensions(canvas.width, canvas.height);
+                dimensions = T5.D.init(canvas.width, canvas.height);
                 
                 // trigger the resize event for the view
                 self.trigger('resize', canvas.width, canvas.height);
@@ -5917,7 +5861,7 @@ T5.Shape = function(params) {
     }, params);
     
     return T5.ex(params, {
-        xy: T5.XY.init(0, 0),
+        rect: null,
         
         /**
         ### draw(context, offsetX, offsetY, width, height, state)
@@ -5964,7 +5908,7 @@ T5.Arc = function(origin, params) {
        ### resync(grid)
        */
        resync: function(grid) {
-           self.xy = grid.syncVectors([origin]);
+           var centerXY = grid.syncVectors([origin]).origin;
            drawXY = T5.XY.floor([origin])[0];
        }
    });
@@ -7346,7 +7290,7 @@ T5.TileGrid = function(params) {
     
     // initialise self
     var self = T5.ex(new T5.ViewLayer(params), {
-        gridDimensions: new T5.Dimensions(gridWidth, gridHeight),
+        gridDimensions: T5.D.init(gridWidth, gridHeight),
         
         cycle: function(tickCount, offset, state, redraw) {
             var needTiles = shiftDelta.x !== 0 || shiftDelta.y !== 0,
@@ -7692,7 +7636,7 @@ T5.ImageTileGrid = function(params) {
             background: null,
             overlay: null,
             offset: T5.XY.init(),
-            realSize: new T5.Dimensions(tileSize, tileSize)
+            realSize: T5.D.init(tileSize)
         }, params.tileDrawArgs);
         
     // initialise self

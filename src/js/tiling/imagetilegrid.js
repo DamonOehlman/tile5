@@ -104,7 +104,7 @@ T5.ImageTileGrid = function(params) {
             background: null,
             overlay: null,
             offset: T5.XY.init(),
-            realSize: new T5.Dimensions(tileSize, tileSize)
+            realSize: T5.D.init(tileSize)
         }, params.tileDrawArgs);
         
     // initialise self
