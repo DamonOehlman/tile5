@@ -2,12 +2,12 @@
     var mappingTestData = {
         zoomLevel: 7,
         positions: {
-            rocky: new SLICK.Geo.Position("-23.391737 150.503082"),
-            goldcoast: new SLICK.Geo.Position("-28.032099 153.434587"),
-            brisbane: new SLICK.Geo.Position("-27.4688793718815 153.02282050252"),
-            sydney: new SLICK.Geo.Position("-33.8696305453777 151.206959635019"),
-            mudgee: new SLICK.Geo.Position("-32.5993604958057 149.587680548429"),
-            toowoomba: new SLICK.Geo.Position("-27.5614504516125 151.953289657831")
+            rocky: new T5.Geo.Position("-23.391737 150.503082"),
+            goldcoast: new T5.Geo.Position("-28.032099 153.434587"),
+            brisbane: new T5.Geo.Position("-27.4688793718815 153.02282050252"),
+            sydney: new T5.Geo.Position("-33.8696305453777 151.206959635019"),
+            mudgee: new T5.Geo.Position("-32.5993604958057 149.587680548429"),
+            toowoomba: new T5.Geo.Position("-27.5614504516125 151.953289657831")
         },
         addresses: [
             "2649 LOGAN ROAD, EIGHT MILE PLAINS, QLD",
@@ -43,8 +43,8 @@
             engine.geocode({
                 addresses: mappingTestData.addresses[addressIndex], 
                 complete: function(requestAddress, possibleMatches) {
-                    GRUNT.Log.info("REQUESTED ADDRESS: " + requestAddress);
-                    GRUNT.Log.info("got address matches: ", possibleMatches);
+                    COG.Log.info("REQUESTED ADDRESS: " + requestAddress);
+                    COG.Log.info("got address matches: ", possibleMatches);
                     
                     geocodeTestAddresses(engine, addressIndex + 1, listCompleteCallback);
                 }
@@ -55,7 +55,7 @@
         } // if..else
     }
     
-    new GRUNT.Testing.Suite({
+    new COG.Testing.Suite({
         id: "slick.mapping",
         title: "Suite of tests to test mapping in SLICK",
         testData: mappingTestData,
@@ -71,7 +71,7 @@
         }]
     });
     
-    new GRUNT.Testing.Suite({
+    new COG.Testing.Suite({
         id: "slick.mapping.routing",
         title: "SLICK Mapping > Route Tests",
         testData: mappingTestData,
@@ -80,10 +80,10 @@
             title: "Route from Brisbane to Sydney",
             autoReady: false,
             runner: function(test, testData) {
-                GRUNT.Log.info("requesting the route from brisbane to sydney");
+                COG.Log.info("requesting the route from brisbane to sydney");
                 
                 // calculate the route between brisbane and sydney
-                SLICK.Geo.Routing.calculate({
+                T5.Geo.Routing.calculate({
                     waypoints: [
                         testData.positions.brisbane, 
                         testData.positions.toowoomba, 
@@ -101,7 +101,7 @@
         }]
     });
     
-    new GRUNT.Testing.Suite({
+    new COG.Testing.Suite({
         id: "slick.mapping.geocoding",
         title: "SLICK Mapping > Geocoding Tests",
         testData: mappingTestData,
@@ -111,14 +111,14 @@
             autoReady: false,
             runner: function(test, testData) {
                 // get a mapping engine for geocoding
-                var engine = SLICK.Geo.getEngine("geocode");
+                var engine = T5.Geo.getEngine("geocode");
                 
                 if (! engine) {
                     throw new Error("No geocoding capable GEO.Engine found");
                 } // if
 
                 geocodeTestAddresses(engine, 0, function() {
-                    GRUNT.Log.info("geocoding test complete");
+                    COG.Log.info("geocoding test complete");
                     test.ready();
                 });
             }

@@ -3,7 +3,7 @@
     var MAXZOOM = 19;
     
     function createZoomTest(zoomLevel) {
-        testSuite.add(new GRUNT.Testing.Test({
+        testSuite.add(new COG.Testing.Test({
             description: "Test Zoom Level " + zoomLevel,
             runner: function(test, testData) {
                 map.gotoPosition(testData.positions.rocky, zoomLevel, function() {
@@ -13,7 +13,7 @@
         }));
     } // createZoomLevel
     
-    var testSuite = new GRUNT.Testing.Suite({
+    var testSuite = new COG.Testing.Suite({
         id: "slick.mapping.cloudmade",
         description: "Suite of tests to test cloudmade mapping in SLICK",
         setup: function() {
@@ -26,9 +26,9 @@
         testData: {
             zoomLevel: 7,
             positions: {
-                brisbane: new SLICK.Geo.Position("-27.469321 153.02489"),
-                rocky: new SLICK.Geo.Position("-23.391737 150.503082"),
-                goldcoast: new SLICK.Geo.Position("-28.032099 153.434587")
+                brisbane: new T5.Geo.Position("-27.469321 153.02489"),
+                rocky: new T5.Geo.Position("-23.391737 150.503082"),
+                goldcoast: new T5.Geo.Position("-28.032099 153.434587")
             }
         },
         
@@ -42,10 +42,10 @@
         }, {
             title: "Add Some Pins",
             runner: function(test, testData) {
-                GRUNT.Log.info("adding some pins");
+                COG.Log.info("adding some pins");
                 
                 // pin the gold coast
-                map.addPOI(new SLICK.Geo.PointOfInterest({
+                map.addPOI(new T5.Geo.PointOfInterest({
                     id: 1,
                     title: "Brisbane City",
                     pos: testData.positions.brisbane,

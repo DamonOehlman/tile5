@@ -286,7 +286,6 @@ T5.TileGrid = function(params) {
             centerPos = T5.XY.init((tileCols-1) / 2 >> 0, (tileRows-1) / 2 >> 0);
         } // if
 
-        // right, let's draw some tiles (draw rows first)
         for (var yy = tileRows; yy--; ) {
             // iterate through the columns and draw the tiles
             for (var xx = tileCols; xx--; ) {
