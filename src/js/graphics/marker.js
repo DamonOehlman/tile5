@@ -102,8 +102,8 @@ T5.Marker = function(params) {
             self.drawMarker(
                 context, 
                 offset, 
-                self.xy.x - (isOffset ? offset.x : 0), 
-                self.xy.y - (isOffset ? offset.y : 0),
+                self.xy.x, 
+                self.xy.y,
                 state, 
                 overlay, 
                 view);

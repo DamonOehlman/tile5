@@ -40,6 +40,17 @@ map.bind('zoomLevelChange', function(evt, newZoomLevel) {
 <h2>Methods</h2>
 
 <ul>
+<li><code>panToPosition(position, callback, easingFn)</code></li>
+</ul>
+
+<p>This method is used to tell the map to pan (not zoom) to the specified 
+<a href="src_js_geo_core.js.html#T5.Geo.Position">T5.Geo.Position</a>.  An optional callback can be passed as the second
+parameter to the function and this fires a notification once the map is
+at the new specified position.  Additionally, an optional easingFn parameter
+can be supplied if the pan operation should ease to the specified location 
+rather than just shift immediately.  An easingDuration can also be supplied.</p>
+
+<ul>
 <li><code>getBoundingBox()</code></li>
 </ul>
 
@@ -51,9 +62,7 @@ map.bind('zoomLevelChange', function(evt, newZoomLevel) {
 
 <p>Return a Geo.Position for the center position of the map</p>
 
-<ul>
-<li><code>getXYPosition(xy)</code></li>
-</ul>
+<h3>getXYPosition(x, y)</h3>
 
 <p>Convert the Vector that has been passed to the function to a
 Geo.Position object</p>
@@ -69,17 +78,6 @@ Geo.Position object</p>
 </ul>
 
 <p>TODO</p>
-
-<ul>
-<li><code>panToPosition(position, callback, easingFn)</code></li>
-</ul>
-
-<p>This method is used to tell the map to pan (not zoom) to the specified 
-<a href="src_js_geo_core.js.html#T5.Geo.Position">T5.Geo.Position</a>.  An optional callback can be passed as the second
-parameter to the function and this fires a notification once the map is
-at the new specified position.  Additionally, an optional easingFn parameter
-can be supplied if the pan operation should ease to the specified location 
-rather than just shift immediately.  An easingDuration can also be supplied.</p>
 
 <ul>
 <li><code>locate()</code></li>
@@ -98,6 +96,12 @@ rather than just shift immediately.  An easingDuration can also be supplied.</p>
 </ul>
 
 <p>TODO</p>
+
+<h3>syncVectors</h3>
+
+<p>This function iterates through the specified vectors and if they are
+of type <a href="src_js_geo_core.js.html#T5.Geo.GeoVector">T5.Geo.GeoVector</a>, they are provided the rads per pixel of the
+grid so they can perform their calculations</p>
 
 <ul>
 <li><code>getZoomLevel()</code></li>

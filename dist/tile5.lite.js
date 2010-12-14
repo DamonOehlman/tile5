@@ -2416,7 +2416,6 @@ that are provided in the Tile5 library.
 - T5.Vector (deprecated)
 
 ## Submodules
-- T5.Settings
 - T5.XY
 - T5.XYRect
 - T5.V
@@ -2809,9 +2808,34 @@ T5 = (function() {
             return xyTools.init(rect.x1 + rect.width/2, rect.y1 + rect.height/2);
         } // center
         
+        /**
+        ### copy(rect)
+        Return a duplicate of the XYRect
+        */
+        function copy(rect) {
+            return init(rect.x1, rect.y1, rect.x2, rect.y2);
+        } // copy
+        
+        /**
+        ### diagonalSize(rect)
+        */
         function diagonalSize(rect) {
             return Math.sqrt(rect.width * rect.width + rect.height * rect.height);
         } // diagonalSize
+        
+        /**
+        ### fromCenter(centerX, centerY, width, height)
+        */
+        function fromCenter(centerX, centerY, width, height) {
+            var halfWidth = ~~(width / 2),
+                halfHeight = ~~(height / 2);
+            
+            return init(
+                centerX - halfWidth, 
+                centerY - halfHeight,
+                centerX + halfWidth,
+                centerY + halfHeight);
+        } // fromCenter
       
         /**
         ### init(x1, y1, x2, y2)
@@ -2839,7 +2863,9 @@ T5 = (function() {
         
         return {
             center: center,
+            copy: copy,
             diagonalSize: diagonalSize,
+            fromCenter: fromCenter,
             init: init
         };
     })();
@@ -3712,6 +3738,50 @@ T5.Images = (function() {
     return module;
 })();
 /**
+# T5.Generators
+The generators module is used to manage the registration and creation
+of generators.  Image generators, etc
+*/
+T5.Generator = (function() {
+    
+    // initialise variables
+    var generatorRegistry = {};
+    
+    /* private internal functions */
+    
+    /* exports */
+    
+    function init(id, params) {
+        // look for the generator
+        var generator = generatorRegistry[id];
+        
+        // if we didn't find a generator, raise an exception
+        if (! generator) {
+            throw new Error('Unable to locate requested generator: ' + id);
+        } // if
+        
+        return new generator(params);
+    } // init
+    
+    function register(id, creatorFn) {
+        generatorRegistry[id] = creatorFn;
+    } // register
+    
+    /* generator template definition */
+    
+    var Template = function(params) {
+        
+    }; // Template
+    
+    /* module definition */
+    
+    return {
+        init: init,
+        register: register,
+        
+        Template: Template
+    };
+})();/**
 # T5.TimeLord
 
 Time utilities for T5, will probably be moved out to it's own library as it really
@@ -4438,14 +4508,13 @@ T5.ViewLayer = function(params) {
         drawn and the following parameters are passed to the method:
 
             - context - the canvas context that we are drawing to
-            - offset - a Vector object containing the current virtual canvas offset
-            - dimensions - a Dimensions object specifying the actual size of the drawing surface
+            - viewRect - the current view rect
             - state - the current DisplayState of the view
             - view - a reference to the View
             - redraw - whether a redraw is required
             - tickCount - the current tick count
         */
-        draw: function(context, offset, dimensions, state, view, redraw, tickCount) {
+        draw: function(context, viewRect, state, view, redraw, tickCount) {
         },
         
         /**
@@ -4663,7 +4732,8 @@ T5.View = function(params) {
         mainContext = null,
         offsetX = 0,
         offsetY = 0,
-        cycleOffset = T5.XY.init(),
+        cycleOffset = null,
+        cycleRect = null,
         clearBackground = false,
         cycleWorker = null,
         frozen = false,
@@ -5091,13 +5161,13 @@ T5.View = function(params) {
     } // calcZoomCenter
     
     function triggerIdle() {
-        self.trigger("idle");
+        self.trigger('idle', self);
         
         idle = true;
         idleTimeout = 0;
     } // idle
     
-    function drawView(context, drawState, offset, redraw, tickCount) {
+    function drawView(context, drawState, rect, redraw, tickCount) {
         // if frozen override the draw state
         if (frozen) {
             drawState = T5.viewState('FROZEN');
@@ -5118,7 +5188,11 @@ T5.View = function(params) {
             calcZoomCenter();
             
             // offset the draw args
-            offset = T5.XY.offset(offset, zoomCenter.x, zoomCenter.y);
+            // rect.x1 += zoomCenter.x;
+            // rect.y1 += zoomCenter.y;
+            // rect.x2 += zoomCenter.x;
+            // rect.y2 += zoomCenter.y;
+            // offset = T5.XY.offset(offset, zoomCenter.x, zoomCenter.y);
         } // if
         
         // COG.Log.info("draw state = " + drawState);
@@ -5126,6 +5200,8 @@ T5.View = function(params) {
         context.save();
         try {
             lastDrawScaleFactor = scaleFactor;
+            
+            context.translate(-rect.x1, -rect.y1);
             
             // if the device dpi has scaled, then apply that to the display
             if (deviceScaling !== 1) {
@@ -5140,18 +5216,17 @@ T5.View = function(params) {
             for (ii = layerCount; ii--; ) {
                 // draw the layer output to the main canvas
                 // but only if we don't have a scale buffer or the layer is a draw on scale layer
-                if (layers[ii].shouldDraw(drawState, offset, redraw)) {
+                if (layers[ii].shouldDraw(drawState, rect, redraw)) {
                     layers[ii].draw(
                         context, 
-                        offset, 
-                        dimensions, 
+                        rect, 
                         drawState, 
                         self,
                         redraw,
                         tickCount);
                         
                     // trigger that the draw has been completed
-                    layers[ii].trigger('drawComplete', offset, tickCount);
+                    layers[ii].trigger('drawComplete', rect, tickCount);
                 } // if
             } // for
         }
@@ -5160,7 +5235,7 @@ T5.View = function(params) {
         } // try..finally
         
         // trigger the draw complete for the view
-        self.trigger('drawComplete', offset, tickCount);
+        self.trigger('drawComplete', rect, tickCount);
         COG.Log.trace("draw complete", tickCount);
     } // drawView
     
@@ -5179,8 +5254,14 @@ T5.View = function(params) {
         // convert the offset x and y to integer values
         // while canvas implementations work fine with real numbers, the actual drawing of images
         // will not look crisp when a real number is used rather than an integer (or so I've found)
-        cycleOffset.x = offsetX >> 0;
-        cycleOffset.y = offsetY >> 0;
+        cycleOffset = T5.XY.init(offsetX >> 0, offsetY >> 0);
+        
+        // calculate the cycle rect
+        cycleRect = T5.XYRect.fromCenter(
+                        cycleOffset.x, 
+                        cycleOffset.y, 
+                        dimensions.width, 
+                        dimensions.height);
         
         if (interacting) {
             T5.cancelAnimation(function(tweenInstance) {
@@ -5200,7 +5281,7 @@ T5.View = function(params) {
                 state = state | stateAnimating;
             } // if
             
-            draw = layers[ii].cycle(tickCount, cycleOffset, state, requireRedraw) || draw;
+            draw = layers[ii].cycle(tickCount, cycleRect, state, requireRedraw) || draw;
         } // for
         
         // update the require redraw state based on whether we are now in an animating state
@@ -5208,9 +5289,8 @@ T5.View = function(params) {
         
         // if we are scaling and at the same scale factor, don't redraw as its a waste of time
         draw = draw || requireRedraw || ((scaleFactor !== 1) && (scaleFactor !== lastScaleFactor));
-
         if (draw) {
-            drawView(mainContext, currentState, cycleOffset, requireRedraw, tickCount);
+            drawView(mainContext, currentState, cycleRect, requireRedraw, tickCount);
             lastScaleFactor = scaleFactor;
             
             // reset draw monitoring variables
@@ -5465,7 +5545,19 @@ T5.View = function(params) {
         */
         getOffset: function() {
             // return the last calculated cycle offset
-            return cycleOffset;
+            return cycleOffset ? cycleOffset : T5.XY.init(offsetX, offsetY);
+        },
+        
+        /**
+        ### getOffsetRect()
+        Return a T5.XYRect for the last drawn view rect
+        */
+        getOffsetRect: function() {
+            return cycleRect ? cycleRect : T5.XYRect.fromCenter(
+                                            offsetX, 
+                                            offsetY, 
+                                            dimensions.width, 
+                                            dimensions.height);
         },
         
         /**
@@ -5729,10 +5821,10 @@ T5.ShapeLayer = function(params) {
         
     /* private functions */
     
-    function performSync(grid) {
+    function performSync(view) {
         // iterate through the children and resync to the grid
         for (var ii = children.length; ii--; ) {
-            children[ii].resync(grid);
+            children[ii].resync(view);
         } // for
         
         // sort the children so the topmost, leftmost is drawn first followed by other shapes
@@ -5751,15 +5843,9 @@ T5.ShapeLayer = function(params) {
     
     /* event handlers */
     
-    function handleGridUpdate(evt, grid) {
-        performSync(grid);
-    }
-    
     function handleParentChange(evt, parent) {
-        var grid = parent ? parent.getTileLayer() : null;
-        
-        if (grid) {
-            performSync(grid);
+        if (parent.syncVectors) {
+            performSync(parent);
         } // if
     } // handleParentChange
     
@@ -5786,11 +5872,11 @@ T5.ShapeLayer = function(params) {
             return forceRedraw;
         },
 
-        draw: function(context, offset, dimensions, state, view, redraw) {
-            var offsetX = offset.x,
-                offsetY = offset.y,
-                viewWidth = dimensions.width,
-                viewHeight = dimensions.height;
+        draw: function(context, viewRect, state, view, redraw) {
+            var offsetX = viewRect.x1,
+                offsetY = viewRect.y1,
+                viewWidth = viewRect.width,
+                viewHeight = viewRect.height;
             
             context.save();
             try {
@@ -5821,7 +5907,6 @@ T5.ShapeLayer = function(params) {
     });
     
     // handle grid updates
-    self.bind('gridUpdate', handleGridUpdate);
     self.bind('parentChange', handleParentChange);
     
     // set the style attribute to be configurable
@@ -5870,9 +5955,9 @@ T5.Shape = function(params) {
         },
         
         /**
-        ### resync(grid)
+        ### resync(view)
         */
-        resync: function(grid) {
+        resync: function(view) {
         }
     });
 };
@@ -5893,8 +5978,8 @@ T5.Arc = function(origin, params) {
        draw: function(context, offsetX, offsetY, width, height, state) {
            context.beginPath();
            context.arc(
-               drawXY.x  - offsetX, 
-               drawXY.y  - offsetY, 
+               drawXY.x, 
+               drawXY.y, 
                self.size,
                0,
                Math.PI * 2,
@@ -5905,10 +5990,10 @@ T5.Arc = function(origin, params) {
        },
        
        /**
-       ### resync(grid)
+       ### resync(view)
        */
-       resync: function(grid) {
-           var centerXY = grid.syncVectors([origin]).origin;
+       resync: function(view) {
+           var centerXY = view.syncVectors([origin]).origin;
            drawXY = T5.XY.floor([origin])[0];
        }
    });
@@ -5971,8 +6056,8 @@ T5.Poly = function(vectors, params) {
             // now draw the lines
             // COG.Log.info('drawing poly: have ' + drawVectors.length + ' vectors');
             for (var ii = drawVectors.length; ii--; ) {
-                var x = drawVectors[ii].x - offsetX,
-                    y = drawVectors[ii].y - offsetY;
+                var x = drawVectors[ii].x,
+                    y = drawVectors[ii].y;
                     
                 if (first) {
                     context.moveTo(x, y);
@@ -6000,11 +6085,11 @@ T5.Poly = function(vectors, params) {
     } // drawPoly
     
     /**
-    ### resync(grid)
+    ### resync(view)
     Used to synchronize the vectors of the poly to the grid.
     */
-    function resync(grid) {
-        self.xy = grid.syncVectors(vectors);
+    function resync(view) {
+        self.xy = view.syncVectors(vectors);
         
         // simplify the vectors for drawing (if required)
         drawVectors = T5.XY.floor(simplify ? T5.XY.simplify(vectors) : vectors);
@@ -6276,8 +6361,8 @@ T5.Marker = function(params) {
             self.drawMarker(
                 context, 
                 offset, 
-                self.xy.x - (isOffset ? offset.x : 0), 
-                self.xy.y - (isOffset ? offset.y : 0),
+                self.xy.x, 
+                self.xy.y,
                 state, 
                 overlay, 
                 view);
@@ -6602,11 +6687,13 @@ T5.MarkerLayer = function(params) {
     } // markerUpdate
     
     function resyncMarkers() {
-        var parent = self.getParent(),
-            grid = parent && parent.getTileLayer ? parent.getTileLayer() : null;
-            
-        if (grid) {
-            handleGridUpdate(null, grid);
+        var parent = self.getParent();
+        
+        if (parent && parent.syncVectors) {
+            // iterate through the markers and fire the callback
+            for (var ii = markers.length; ii--; ) {
+                parent.syncVectors([markers[ii].xy]);
+            } // for
         } // if
     } // resyncMarkers
     
@@ -6702,7 +6789,7 @@ T5.MarkerLayer = function(params) {
             return animating;
         },
         
-        draw: function(context, offset, dimensions, state, view) {
+        draw: function(context, offset, state, view) {
             // reset animating to false
             animating = false;
             
@@ -6735,6 +6822,128 @@ T5.MarkerLayer = function(params) {
     return self;
 };
 /**
+# T5.ImageLayer
+*/
+T5.ImageLayer = function(genId, params) {
+    params = T5.ex({
+        
+    }, params);
+    
+    // initialise variables
+    var generator = T5.Generator.init(genId, params),
+        generatedImages = null,
+        lastViewRect = T5.XYRect.init(),
+        lastGenerateRect = T5.XYRect.init();
+    
+    /* private internal functions */
+    
+    function drawImage(context, generatorImage, viewState) {
+        var image = T5.Images.get(generatorImage.url, handleImageLoad);
+        if (image) {
+            context.drawImage(
+                image, 
+                generatorImage.x, 
+                generatorImage.y,
+                image.width,
+                image.height);
+        }
+        else {
+            context.fillStyle = '#777';
+            context.fillRect(generatorImage.x, generatorImage.y, generatorImage.width, generatorImage.height);
+        } // if..else
+        
+        /*
+        context.beginPath();
+        context.rect(
+            generatorImage.x, 
+            generatorImage.y, 
+            generatorImage.width,
+            generatorImage.height);
+        context.stroke();
+        */
+    } // drawImage
+    
+    /* every library should have a regenerate function - here's mine ;) */
+    function regenerate(viewRect) {
+        generator.run(viewRect, function(images) {
+            generatedImages = images;
+
+            var parent = self.getParent();
+            if (parent) {
+                parent.trigger('invalidate');
+            } // if
+        });
+
+        // update the last generate rect
+        lastGenerateRect = T5.XYRect.copy(viewRect);
+    } // regenerate
+    
+    /* event handlers */
+    
+    function handleImageLoad() {
+        var parent = self.getParent();
+        if (parent) {
+            parent.trigger('invalidate');
+        } // if
+    } // handleImageLoad
+    
+    function handleParentChange(evt, parent) {
+        generator.bindToView(parent);
+        parent.bind('idle', handleViewIdle);
+    } // handleParent
+    
+    function handleViewIdle(evt, view) {
+        regenerate(lastViewRect);
+    } // handleViewIdle
+    
+    /* exports */
+    
+    /* definition */
+    
+    var self = T5.ex(new T5.ViewLayer(params), {
+        cycle: function(tickCount, rect, state, redraw) {
+            var generateRequired = 
+                Math.abs(rect.x1 - lastGenerateRect.x1) > rect.width || 
+                Math.abs(rect.y1 - lastGenerateRect.y1) > rect.height;
+                
+            if (generateRequired) {
+                regenerate(rect);
+            } // if
+        },
+        
+        draw: function(context, rect, state, view) {
+            // COG.Log.info('drawing image layer layer @ ', rect);
+            
+            context.save();
+            try {
+                context.strokeStyle = '#555';
+
+                if (generatedImages) {
+                    for (var ii = generatedImages.length; ii--; ) {
+                        drawImage(context, generatedImages[ii], state);
+                    } // for
+                } // if
+            }
+            finally {
+                context.restore();
+            } // try..finally
+            
+            context.strokeStyle = '#f00';
+            context.beginPath();
+            context.moveTo(rect.x1 + rect.width/2, rect.y1);
+            context.lineTo(rect.x1 + rect.width/2, rect.y2);
+            context.moveTo(rect.x1, rect.y1 + rect.height / 2);
+            context.lineTo(rect.x2, rect.y1 + rect.height / 2);
+            context.stroke();
+            
+            lastViewRect = T5.XYRect.copy(rect);
+        }
+    });
+    
+    self.bind('parentChange', handleParentChange);
+    
+    return self;
+};/**
 # T5.Style
 The T5.Style class is used to define the various attributes that should
 be applied to a canvas context when the style is selected.
@@ -7241,7 +7450,6 @@ T5.TileGrid = function(params) {
             centerPos = T5.XY.init((tileCols-1) / 2 >> 0, (tileRows-1) / 2 >> 0);
         } // if
 
-        // right, let's draw some tiles (draw rows first)
         for (var yy = tileRows; yy--; ) {
             // iterate through the columns and draw the tiles
             for (var xx = tileCols; xx--; ) {
@@ -7854,3 +8062,9 @@ T5.Tiler = function(params) {
 
     return self;
 }; // Tiler
+/**
+# T5.TileGenerator
+*/
+T5.TileGenerator = function(params) {
+    
+};

@@ -62,6 +62,7 @@ T5.Map = function(params) {
         locationOverlay = null,
         geoWatchId = 0,
         initialTrackingUpdate = true,
+        radsPerPixel = 0,
         zoomLevel = params.zoomLevel;
         
     // if the data provider has not been created, 
@@ -116,7 +117,7 @@ T5.Map = function(params) {
                 locationOverlay.update(self.getTileLayer());
 
                 // pan to the position
-                self.panToPosition(
+                panToPosition(
                     currentPos, 
                     null, 
                     T5.easing('sine.out'));
@@ -202,7 +203,7 @@ T5.Map = function(params) {
             zoomChange = scaleAmount;
         } // if..else
 
-        self.gotoPosition(
+        gotoPosition(
             self.getXYPosition(zoomXY), 
             zoomLevel + zoomChange >> 0);
     } // handleScale
@@ -224,104 +225,75 @@ T5.Map = function(params) {
     
     /* internal functions */
     
-    // TODO: evaluate whether this function can be used for 
-    // all mapping providers or we need to route this call to the provider
-    function radsPerPixelAtZoom(tileSize, gxZoom) {
-        return 2 * Math.PI / (tileSize << gxZoom);
-    } // radsPerPixelAtZoom
-    
     function getLayerScaling(oldZoom, newZoom) {
-        return radsPerPixelAtZoom(1, oldZoom) / 
-                    radsPerPixelAtZoom(1, newZoom);
+        return T5.Geo.radsPerPixel(oldZoom) / 
+                    T5.Geo.radsPerPixel(newZoom);
     } // getLayerScaling
     
     /* public methods */
+    
+    function getPosOffset(position) {
+        var xy = new T5.Geo.GeoXY(position);
+        xy.setRadsPerPixel(T5.Geo.radsPerPixel(zoomLevel));
+        
+        return xy;
+    } // getPosOffset
+    
+    function getXYPosition(x, y) {
+        return T5.Geo.P.fromMercatorPixels(x * radsPerPixel, Math.PI - y * radsPerPixel);
+    } // getXYPosition
     
     // TODO: make sure tile requests are returned in the correct 
     // order and if a new request is issued while a request is completing
     // the previous results don't create a tile layer
     function gotoPosition(position, newZoomLevel, callback) {
+        COG.Log.info('position updated to: ', position);
         
-        function updateTileGrid(tileGrid) {
-            // update the tile layer to the use the new layer
-            self.setTileLayer(tileGrid);
-
-            // pan to the correct position
-            self.panToPosition(position, function() {
-                self.unfreeze();
-
-                // trigger the zoom level change event
-                self.trigger('zoomLevelChange', zoomLevel);
-
-                if (callback) {
-                    callback();
-                } // if
-            });
-
-            // flag as initialized
-            initialized = true;
-        } // updateTileGrid
+        // update the zoom level
+        zoomLevel = newZoomLevel;
         
-        // save the current zoom level
-        var currentZoomLevel = zoomLevel,
-            zoomScaling = getLayerScaling(zoomLevel, newZoomLevel),
-            reset = ! initialized,
-            currentBounds = self.getBoundingBox();
-            
-        if (currentBounds) {
-            reset = reset || !T5.Geo.P.inBounds(
-                position, 
-                currentBounds);
-            /*
-            // TODO: get this right...
-            if (reset) {
-                self.clearBackground();
-            }
-            */
-        } // if                        
-
-        // if a new zoom level is specified, then use it
-        zoomLevel = newZoomLevel ? newZoomLevel : zoomLevel;
-
-        // if the zoom level is not defined, 
-        // then raise an exception
-        if (! zoomLevel) {
-            throw new Error('Zoom level required to goto' + 
-            ' a position.');
-        } // if
-
-        // check the zoom level is ok
-        if (params.provider) {
-            zoomLevel = params.provider.checkZoomLevel(zoomLevel);
-        } // if
+        // remove the grid layer
+        T5.Images.cancelLoad();
         
-        // if the zoom level is different from the 
-        // current zoom level, then update the map tiles
-        if (reset || (zoomLevel !== currentZoomLevel)) {
-            // remove the grid layer
-            T5.Images.cancelLoad();
-            
-            // cancel any animations
-            T5.cancelAnimation();
+        // cancel any animations
+        T5.cancelAnimation();
+        
+        // trigger the zoom level change
+        radsPerPixel = T5.Geo.radsPerPixel(zoomLevel);
+        self.trigger('zoomLevelChange', zoomLevel);
 
-            // if the map is initialise, then pan to 
-            // the specified position
-            if (initialized) {
-                self.freeze();
-            } // if
-            
-            // update the provider zoom level
-            params.provider.zoomLevel = zoomLevel;
-            params.provider.getMapTiles(
-                self, 
-                position, 
-                updateTileGrid);
-        }
-        // otherwise, just pan to the correct position
-        else {
-            self.panToPosition(position, callback);
-        } // if..else
+        // pan to Position
+        panToPosition(position, callback);
     } // gotoPosition
+    
+    /**
+    - `panToPosition(position, callback, easingFn)`
+    
+    This method is used to tell the map to pan (not zoom) to the specified 
+    T5.Geo.Position.  An optional callback can be passed as the second
+    parameter to the function and this fires a notification once the map is
+    at the new specified position.  Additionally, an optional easingFn parameter
+    can be supplied if the pan operation should ease to the specified location 
+    rather than just shift immediately.  An easingDuration can also be supplied.
+    */
+    function panToPosition(position, callback, easingFn, easingDuration) {
+        // determine the tile offset for the 
+        // requested position
+        var centerXY = getPosOffset(position),
+            dimensions = self.getDimensions();
+            
+        // COG.Log.info('panning to center xy: ', centerXY);
+        self.updateOffset(centerXY.x, centerXY.y, easingFn, easingDuration, callback);
+        self.trigger('wake');
+
+        // trigger a bounds change event
+        self.trigger("boundsChange", self.getBoundingBox());
+
+        // if we have a callback defined, then run it
+        if (callback && (typeof easingFn === 'undefined')) {
+            callback(self);
+        } // if
+    } // panToPosition
     
     /* public object definition */
     
@@ -332,7 +304,7 @@ T5.Map = function(params) {
     };
     
     // initialise self
-    var self = T5.ex({}, new T5.Tiler(params), {
+    var self = T5.ex(new T5.Tiler(params), {
         annotations: null,
         
         /** 
@@ -341,19 +313,11 @@ T5.Map = function(params) {
         Return a Geo.BoundingBox for the current map view area
         */
         getBoundingBox: function() {
-            var grid = self.getTileLayer(),
-                offset = self.getOffset(),
-                dimensions = self.getDimensions();
-
-            if (grid) {
-                return grid.getBoundingBox(
-                            offset.x, 
-                            offset.y, 
-                            dimensions.width, 
-                            dimensions.height);
-            } // if
+            var rect = self.getOffsetRect();
             
-            return null;
+            return new T5.Geo.BoundingBox(
+                getXYPosition(rect.x1, rect.y2),
+                getXYPosition(rect.x2, rect.y1));
         },
 
         /**
@@ -362,21 +326,19 @@ T5.Map = function(params) {
         Return a Geo.Position for the center position of the map
         */
         getCenterPosition: function() {
+            var offset = self.getOffset();
+            
             // get the position for the grid position
-            return self.getXYPosition(
-                T5.D.getCenter(self.getDimensions()));
+            return self.getXYPosition(offset.x, offset.y);
         },
         
         /**
-        - `getXYPosition(xy)`
+        ### getXYPosition(x, y)
         
         Convert the Vector that has been passed to the function to a
         Geo.Position object
         */
-        getXYPosition: function(xy) {
-            return self.getTileLayer().pixelsToPos(
-                self.viewPixToGridPix(xy));
-        },
+        getXYPosition: getXYPosition,
         
         /**
         - `gotoBounds(bounds, callback)`
@@ -392,7 +354,7 @@ T5.Map = function(params) {
             
             // goto the center position of the bounding box 
             // with the calculated zoom level
-            self.gotoPosition(
+            gotoPosition(
                 T5.Geo.B.getCenter(bounds), 
                 zoomLevel, 
                 callback);
@@ -404,48 +366,8 @@ T5.Map = function(params) {
         TODO
         */
         gotoPosition: gotoPosition,
+        panToPosition: panToPosition,
 
-        /**
-        - `panToPosition(position, callback, easingFn)`
-        
-        This method is used to tell the map to pan (not zoom) to the specified 
-        T5.Geo.Position.  An optional callback can be passed as the second
-        parameter to the function and this fires a notification once the map is
-        at the new specified position.  Additionally, an optional easingFn parameter
-        can be supplied if the pan operation should ease to the specified location 
-        rather than just shift immediately.  An easingDuration can also be supplied.
-        */
-        panToPosition: function(position, callback, easingFn, easingDuration) {
-            var grid = self.getTileLayer();
-            if (grid) {
-                // determine the tile offset for the 
-                // requested position
-                var centerXY = grid.getGridXYForPosition(position),
-                    dimensions = self.getDimensions();
-
-                // determine the actual pan amount, by 
-                // calculating the center of the viewport
-                centerXY.x -= (dimensions.width / 2);
-                centerXY.y -= (dimensions.height / 2);
-                
-                // if we have a guide layer snap to that
-                if (guideOffset) {
-                    guideOffset = null;
-                } // if
-                
-                self.updateOffset(centerXY.x, centerXY.y, easingFn, easingDuration, callback);
-                self.trigger("wake");
-
-                // trigger a bounds change event
-                self.trigger("boundsChange", self.getBoundingBox());
-
-                // if we have a callback defined, then run it
-                if (callback && (typeof easingFn === 'undefined')) {
-                    callback(self);
-                } // if
-            } // if
-        },
-        
         /**
         - `locate()`
         
@@ -501,6 +423,36 @@ T5.Map = function(params) {
         },
         
         /**
+        ### syncVectors
+        This function iterates through the specified vectors and if they are
+        of type T5.Geo.GeoVector, they are provided the rads per pixel of the
+        grid so they can perform their calculations
+        */
+        syncVectors: function(vectors) {
+            var minX, minY, maxX, maxY;
+            
+            for (var ii = vectors.length; ii--; ) {
+                var xy = vectors[ii];
+                
+                if (xy && xy.setRadsPerPixel) {
+                    xy.setRadsPerPixel(radsPerPixel);
+
+                    // update the min x and min y
+                    minX = (typeof minX === 'undefined') || xy.x < minX ? xy.x : minX;
+                    minY = (typeof minY === 'undefined') || xy.y < minY ? xy.y : minY;
+                    
+                    // update the max x and max y
+                    maxX = (typeof maxX === 'undefined') || xy.x > maxX ? xy.x : maxX;
+                    maxY = (typeof maxY === 'undefined') || xy.y > maxY ? xy.y : maxY;
+                    
+                    // COG.Log.info('synced vector: ', xy);
+                } // if
+            } // for
+            
+            return T5.XYRect.init(minX, minY, maxY, maxY);
+        },        
+        
+        /**
         - `getZoomLevel()`
         
         Get the current zoom level for the map
@@ -518,7 +470,7 @@ T5.Map = function(params) {
             // if the current position is set, 
             // then goto the updated position
             try {
-                self.gotoPosition(self.getCenterPosition(), value);
+                gotoPosition(self.getCenterPosition(), value);
             }
             catch (e) {
                 COG.Log.exception(e);
@@ -532,8 +484,8 @@ T5.Map = function(params) {
         */
         zoomIn: function() {
             // determine the required scaling
-            var scalingNeeded = radsPerPixelAtZoom(1, zoomLevel) / 
-                    radsPerPixelAtZoom(1, zoomLevel + 1);
+            var scalingNeeded = T5.Geo.radsPerPixel(zoomLevel) / 
+                    T5.Geo.radsPerPixel(zoomLevel + 1);
             
             if (! self.scale(2, T5.easing('sine.out'))) {
                 self.setZoomLevel(zoomLevel + 1);
@@ -546,8 +498,8 @@ T5.Map = function(params) {
         Zoom out one zoom level
         */
         zoomOut: function() {
-            var scalingNeeded = radsPerPixelAtZoom(1, zoomLevel) / 
-                    radsPerPixelAtZoom(1, zoomLevel - 1);
+            var scalingNeeded = T5.Geo.radsPerPixel(zoomLevel) / 
+                    T5.Geo.radsPerPixel(zoomLevel - 1);
             
             if (! self.scale(0.5, T5.easing('sine.out'))) {
                 self.setZoomLevel(zoomLevel - 1);

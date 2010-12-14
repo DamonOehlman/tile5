@@ -56,8 +56,8 @@
     }
     
     new COG.Testing.Suite({
-        id: "slick.mapping",
-        title: "Suite of tests to test mapping in SLICK",
+        id: "tile5.mapping",
+        title: "Suite of tests to test mapping in Tile5",
         testData: mappingTestData,
         
         tests: [{

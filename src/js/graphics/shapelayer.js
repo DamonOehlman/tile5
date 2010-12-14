@@ -21,10 +21,10 @@ T5.ShapeLayer = function(params) {
         
     /* private functions */
     
-    function performSync(grid) {
+    function performSync(view) {
         // iterate through the children and resync to the grid
         for (var ii = children.length; ii--; ) {
-            children[ii].resync(grid);
+            children[ii].resync(view);
         } // for
         
         // sort the children so the topmost, leftmost is drawn first followed by other shapes
@@ -43,15 +43,9 @@ T5.ShapeLayer = function(params) {
     
     /* event handlers */
     
-    function handleGridUpdate(evt, grid) {
-        performSync(grid);
-    }
-    
     function handleParentChange(evt, parent) {
-        var grid = parent ? parent.getTileLayer() : null;
-        
-        if (grid) {
-            performSync(grid);
+        if (parent.syncVectors) {
+            performSync(parent);
         } // if
     } // handleParentChange
     
@@ -78,11 +72,11 @@ T5.ShapeLayer = function(params) {
             return forceRedraw;
         },
 
-        draw: function(context, offset, dimensions, state, view, redraw) {
-            var offsetX = offset.x,
-                offsetY = offset.y,
-                viewWidth = dimensions.width,
-                viewHeight = dimensions.height;
+        draw: function(context, viewRect, state, view, redraw) {
+            var offsetX = viewRect.x1,
+                offsetY = viewRect.y1,
+                viewWidth = viewRect.width,
+                viewHeight = viewRect.height;
             
             context.save();
             try {
@@ -113,7 +107,6 @@ T5.ShapeLayer = function(params) {
     });
     
     // handle grid updates
-    self.bind('gridUpdate', handleGridUpdate);
     self.bind('parentChange', handleParentChange);
     
     // set the style attribute to be configurable

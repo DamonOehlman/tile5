@@ -113,14 +113,13 @@ T5.ViewLayer = function(params) {
         drawn and the following parameters are passed to the method:
 
             - context - the canvas context that we are drawing to
-            - offset - a Vector object containing the current virtual canvas offset
-            - dimensions - a Dimensions object specifying the actual size of the drawing surface
+            - viewRect - the current view rect
             - state - the current DisplayState of the view
             - view - a reference to the View
             - redraw - whether a redraw is required
             - tickCount - the current tick count
         */
-        draw: function(context, offset, dimensions, state, view, redraw, tickCount) {
+        draw: function(context, viewRect, state, view, redraw, tickCount) {
         },
         
         /**

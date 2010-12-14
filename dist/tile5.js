@@ -2417,7 +2417,6 @@ that are provided in the Tile5 library.
 - T5.Vector (deprecated)
 
 ## Submodules
-- T5.Settings
 - T5.XY
 - T5.XYRect
 - T5.V
@@ -2810,9 +2809,34 @@ T5 = (function() {
             return xyTools.init(rect.x1 + rect.width/2, rect.y1 + rect.height/2);
         } // center
         
+        /**
+        ### copy(rect)
+        Return a duplicate of the XYRect
+        */
+        function copy(rect) {
+            return init(rect.x1, rect.y1, rect.x2, rect.y2);
+        } // copy
+        
+        /**
+        ### diagonalSize(rect)
+        */
         function diagonalSize(rect) {
             return Math.sqrt(rect.width * rect.width + rect.height * rect.height);
         } // diagonalSize
+        
+        /**
+        ### fromCenter(centerX, centerY, width, height)
+        */
+        function fromCenter(centerX, centerY, width, height) {
+            var halfWidth = ~~(width / 2),
+                halfHeight = ~~(height / 2);
+            
+            return init(
+                centerX - halfWidth, 
+                centerY - halfHeight,
+                centerX + halfWidth,
+                centerY + halfHeight);
+        } // fromCenter
       
         /**
         ### init(x1, y1, x2, y2)
@@ -2840,7 +2864,9 @@ T5 = (function() {
         
         return {
             center: center,
+            copy: copy,
             diagonalSize: diagonalSize,
+            fromCenter: fromCenter,
             init: init
         };
     })();
@@ -3713,6 +3739,50 @@ T5.Images = (function() {
     return module;
 })();
 /**
+# T5.Generators
+The generators module is used to manage the registration and creation
+of generators.  Image generators, etc
+*/
+T5.Generator = (function() {
+    
+    // initialise variables
+    var generatorRegistry = {};
+    
+    /* private internal functions */
+    
+    /* exports */
+    
+    function init(id, params) {
+        // look for the generator
+        var generator = generatorRegistry[id];
+        
+        // if we didn't find a generator, raise an exception
+        if (! generator) {
+            throw new Error('Unable to locate requested generator: ' + id);
+        } // if
+        
+        return new generator(params);
+    } // init
+    
+    function register(id, creatorFn) {
+        generatorRegistry[id] = creatorFn;
+    } // register
+    
+    /* generator template definition */
+    
+    var Template = function(params) {
+        
+    }; // Template
+    
+    /* module definition */
+    
+    return {
+        init: init,
+        register: register,
+        
+        Template: Template
+    };
+})();/**
 # T5.TimeLord
 
 Time utilities for T5, will probably be moved out to it's own library as it really
@@ -4439,14 +4509,13 @@ T5.ViewLayer = function(params) {
         drawn and the following parameters are passed to the method:
 
             - context - the canvas context that we are drawing to
-            - offset - a Vector object containing the current virtual canvas offset
-            - dimensions - a Dimensions object specifying the actual size of the drawing surface
+            - viewRect - the current view rect
             - state - the current DisplayState of the view
             - view - a reference to the View
             - redraw - whether a redraw is required
             - tickCount - the current tick count
         */
-        draw: function(context, offset, dimensions, state, view, redraw, tickCount) {
+        draw: function(context, viewRect, state, view, redraw, tickCount) {
         },
         
         /**
@@ -4664,7 +4733,8 @@ T5.View = function(params) {
         mainContext = null,
         offsetX = 0,
         offsetY = 0,
-        cycleOffset = T5.XY.init(),
+        cycleOffset = null,
+        cycleRect = null,
         clearBackground = false,
         cycleWorker = null,
         frozen = false,
@@ -5092,13 +5162,13 @@ T5.View = function(params) {
     } // calcZoomCenter
     
     function triggerIdle() {
-        self.trigger("idle");
+        self.trigger('idle', self);
         
         idle = true;
         idleTimeout = 0;
     } // idle
     
-    function drawView(context, drawState, offset, redraw, tickCount) {
+    function drawView(context, drawState, rect, redraw, tickCount) {
         // if frozen override the draw state
         if (frozen) {
             drawState = T5.viewState('FROZEN');
@@ -5119,7 +5189,11 @@ T5.View = function(params) {
             calcZoomCenter();
             
             // offset the draw args
-            offset = T5.XY.offset(offset, zoomCenter.x, zoomCenter.y);
+            // rect.x1 += zoomCenter.x;
+            // rect.y1 += zoomCenter.y;
+            // rect.x2 += zoomCenter.x;
+            // rect.y2 += zoomCenter.y;
+            // offset = T5.XY.offset(offset, zoomCenter.x, zoomCenter.y);
         } // if
         
         // COG.Log.info("draw state = " + drawState);
@@ -5127,6 +5201,8 @@ T5.View = function(params) {
         context.save();
         try {
             lastDrawScaleFactor = scaleFactor;
+            
+            context.translate(-rect.x1, -rect.y1);
             
             // if the device dpi has scaled, then apply that to the display
             if (deviceScaling !== 1) {
@@ -5141,18 +5217,17 @@ T5.View = function(params) {
             for (ii = layerCount; ii--; ) {
                 // draw the layer output to the main canvas
                 // but only if we don't have a scale buffer or the layer is a draw on scale layer
-                if (layers[ii].shouldDraw(drawState, offset, redraw)) {
+                if (layers[ii].shouldDraw(drawState, rect, redraw)) {
                     layers[ii].draw(
                         context, 
-                        offset, 
-                        dimensions, 
+                        rect, 
                         drawState, 
                         self,
                         redraw,
                         tickCount);
                         
                     // trigger that the draw has been completed
-                    layers[ii].trigger('drawComplete', offset, tickCount);
+                    layers[ii].trigger('drawComplete', rect, tickCount);
                 } // if
             } // for
         }
@@ -5161,7 +5236,7 @@ T5.View = function(params) {
         } // try..finally
         
         // trigger the draw complete for the view
-        self.trigger('drawComplete', offset, tickCount);
+        self.trigger('drawComplete', rect, tickCount);
         COG.Log.trace("draw complete", tickCount);
     } // drawView
     
@@ -5180,8 +5255,14 @@ T5.View = function(params) {
         // convert the offset x and y to integer values
         // while canvas implementations work fine with real numbers, the actual drawing of images
         // will not look crisp when a real number is used rather than an integer (or so I've found)
-        cycleOffset.x = offsetX >> 0;
-        cycleOffset.y = offsetY >> 0;
+        cycleOffset = T5.XY.init(offsetX >> 0, offsetY >> 0);
+        
+        // calculate the cycle rect
+        cycleRect = T5.XYRect.fromCenter(
+                        cycleOffset.x, 
+                        cycleOffset.y, 
+                        dimensions.width, 
+                        dimensions.height);
         
         if (interacting) {
             T5.cancelAnimation(function(tweenInstance) {
@@ -5201,7 +5282,7 @@ T5.View = function(params) {
                 state = state | stateAnimating;
             } // if
             
-            draw = layers[ii].cycle(tickCount, cycleOffset, state, requireRedraw) || draw;
+            draw = layers[ii].cycle(tickCount, cycleRect, state, requireRedraw) || draw;
         } // for
         
         // update the require redraw state based on whether we are now in an animating state
@@ -5209,9 +5290,8 @@ T5.View = function(params) {
         
         // if we are scaling and at the same scale factor, don't redraw as its a waste of time
         draw = draw || requireRedraw || ((scaleFactor !== 1) && (scaleFactor !== lastScaleFactor));
-
         if (draw) {
-            drawView(mainContext, currentState, cycleOffset, requireRedraw, tickCount);
+            drawView(mainContext, currentState, cycleRect, requireRedraw, tickCount);
             lastScaleFactor = scaleFactor;
             
             // reset draw monitoring variables
@@ -5466,7 +5546,19 @@ T5.View = function(params) {
         */
         getOffset: function() {
             // return the last calculated cycle offset
-            return cycleOffset;
+            return cycleOffset ? cycleOffset : T5.XY.init(offsetX, offsetY);
+        },
+        
+        /**
+        ### getOffsetRect()
+        Return a T5.XYRect for the last drawn view rect
+        */
+        getOffsetRect: function() {
+            return cycleRect ? cycleRect : T5.XYRect.fromCenter(
+                                            offsetX, 
+                                            offsetY, 
+                                            dimensions.width, 
+                                            dimensions.height);
         },
         
         /**
@@ -5730,10 +5822,10 @@ T5.ShapeLayer = function(params) {
         
     /* private functions */
     
-    function performSync(grid) {
+    function performSync(view) {
         // iterate through the children and resync to the grid
         for (var ii = children.length; ii--; ) {
-            children[ii].resync(grid);
+            children[ii].resync(view);
         } // for
         
         // sort the children so the topmost, leftmost is drawn first followed by other shapes
@@ -5752,15 +5844,9 @@ T5.ShapeLayer = function(params) {
     
     /* event handlers */
     
-    function handleGridUpdate(evt, grid) {
-        performSync(grid);
-    }
-    
     function handleParentChange(evt, parent) {
-        var grid = parent ? parent.getTileLayer() : null;
-        
-        if (grid) {
-            performSync(grid);
+        if (parent.syncVectors) {
+            performSync(parent);
         } // if
     } // handleParentChange
     
@@ -5787,11 +5873,11 @@ T5.ShapeLayer = function(params) {
             return forceRedraw;
         },
 
-        draw: function(context, offset, dimensions, state, view, redraw) {
-            var offsetX = offset.x,
-                offsetY = offset.y,
-                viewWidth = dimensions.width,
-                viewHeight = dimensions.height;
+        draw: function(context, viewRect, state, view, redraw) {
+            var offsetX = viewRect.x1,
+                offsetY = viewRect.y1,
+                viewWidth = viewRect.width,
+                viewHeight = viewRect.height;
             
             context.save();
             try {
@@ -5822,7 +5908,6 @@ T5.ShapeLayer = function(params) {
     });
     
     // handle grid updates
-    self.bind('gridUpdate', handleGridUpdate);
     self.bind('parentChange', handleParentChange);
     
     // set the style attribute to be configurable
@@ -5871,9 +5956,9 @@ T5.Shape = function(params) {
         },
         
         /**
-        ### resync(grid)
+        ### resync(view)
         */
-        resync: function(grid) {
+        resync: function(view) {
         }
     });
 };
@@ -5894,8 +5979,8 @@ T5.Arc = function(origin, params) {
        draw: function(context, offsetX, offsetY, width, height, state) {
            context.beginPath();
            context.arc(
-               drawXY.x  - offsetX, 
-               drawXY.y  - offsetY, 
+               drawXY.x, 
+               drawXY.y, 
                self.size,
                0,
                Math.PI * 2,
@@ -5906,10 +5991,10 @@ T5.Arc = function(origin, params) {
        },
        
        /**
-       ### resync(grid)
+       ### resync(view)
        */
-       resync: function(grid) {
-           var centerXY = grid.syncVectors([origin]).origin;
+       resync: function(view) {
+           var centerXY = view.syncVectors([origin]).origin;
            drawXY = T5.XY.floor([origin])[0];
        }
    });
@@ -5972,8 +6057,8 @@ T5.Poly = function(vectors, params) {
             // now draw the lines
             // COG.Log.info('drawing poly: have ' + drawVectors.length + ' vectors');
             for (var ii = drawVectors.length; ii--; ) {
-                var x = drawVectors[ii].x - offsetX,
-                    y = drawVectors[ii].y - offsetY;
+                var x = drawVectors[ii].x,
+                    y = drawVectors[ii].y;
                     
                 if (first) {
                     context.moveTo(x, y);
@@ -6001,11 +6086,11 @@ T5.Poly = function(vectors, params) {
     } // drawPoly
     
     /**
-    ### resync(grid)
+    ### resync(view)
     Used to synchronize the vectors of the poly to the grid.
     */
-    function resync(grid) {
-        self.xy = grid.syncVectors(vectors);
+    function resync(view) {
+        self.xy = view.syncVectors(vectors);
         
         // simplify the vectors for drawing (if required)
         drawVectors = T5.XY.floor(simplify ? T5.XY.simplify(vectors) : vectors);
@@ -6277,8 +6362,8 @@ T5.Marker = function(params) {
             self.drawMarker(
                 context, 
                 offset, 
-                self.xy.x - (isOffset ? offset.x : 0), 
-                self.xy.y - (isOffset ? offset.y : 0),
+                self.xy.x, 
+                self.xy.y,
                 state, 
                 overlay, 
                 view);
@@ -6603,11 +6688,13 @@ T5.MarkerLayer = function(params) {
     } // markerUpdate
     
     function resyncMarkers() {
-        var parent = self.getParent(),
-            grid = parent && parent.getTileLayer ? parent.getTileLayer() : null;
-            
-        if (grid) {
-            handleGridUpdate(null, grid);
+        var parent = self.getParent();
+        
+        if (parent && parent.syncVectors) {
+            // iterate through the markers and fire the callback
+            for (var ii = markers.length; ii--; ) {
+                parent.syncVectors([markers[ii].xy]);
+            } // for
         } // if
     } // resyncMarkers
     
@@ -6703,7 +6790,7 @@ T5.MarkerLayer = function(params) {
             return animating;
         },
         
-        draw: function(context, offset, dimensions, state, view) {
+        draw: function(context, offset, state, view) {
             // reset animating to false
             animating = false;
             
@@ -6736,6 +6823,128 @@ T5.MarkerLayer = function(params) {
     return self;
 };
 /**
+# T5.ImageLayer
+*/
+T5.ImageLayer = function(genId, params) {
+    params = T5.ex({
+        
+    }, params);
+    
+    // initialise variables
+    var generator = T5.Generator.init(genId, params),
+        generatedImages = null,
+        lastViewRect = T5.XYRect.init(),
+        lastGenerateRect = T5.XYRect.init();
+    
+    /* private internal functions */
+    
+    function drawImage(context, generatorImage, viewState) {
+        var image = T5.Images.get(generatorImage.url, handleImageLoad);
+        if (image) {
+            context.drawImage(
+                image, 
+                generatorImage.x, 
+                generatorImage.y,
+                image.width,
+                image.height);
+        }
+        else {
+            context.fillStyle = '#777';
+            context.fillRect(generatorImage.x, generatorImage.y, generatorImage.width, generatorImage.height);
+        } // if..else
+        
+        /*
+        context.beginPath();
+        context.rect(
+            generatorImage.x, 
+            generatorImage.y, 
+            generatorImage.width,
+            generatorImage.height);
+        context.stroke();
+        */
+    } // drawImage
+    
+    /* every library should have a regenerate function - here's mine ;) */
+    function regenerate(viewRect) {
+        generator.run(viewRect, function(images) {
+            generatedImages = images;
+
+            var parent = self.getParent();
+            if (parent) {
+                parent.trigger('invalidate');
+            } // if
+        });
+
+        // update the last generate rect
+        lastGenerateRect = T5.XYRect.copy(viewRect);
+    } // regenerate
+    
+    /* event handlers */
+    
+    function handleImageLoad() {
+        var parent = self.getParent();
+        if (parent) {
+            parent.trigger('invalidate');
+        } // if
+    } // handleImageLoad
+    
+    function handleParentChange(evt, parent) {
+        generator.bindToView(parent);
+        parent.bind('idle', handleViewIdle);
+    } // handleParent
+    
+    function handleViewIdle(evt, view) {
+        regenerate(lastViewRect);
+    } // handleViewIdle
+    
+    /* exports */
+    
+    /* definition */
+    
+    var self = T5.ex(new T5.ViewLayer(params), {
+        cycle: function(tickCount, rect, state, redraw) {
+            var generateRequired = 
+                Math.abs(rect.x1 - lastGenerateRect.x1) > rect.width || 
+                Math.abs(rect.y1 - lastGenerateRect.y1) > rect.height;
+                
+            if (generateRequired) {
+                regenerate(rect);
+            } // if
+        },
+        
+        draw: function(context, rect, state, view) {
+            // COG.Log.info('drawing image layer layer @ ', rect);
+            
+            context.save();
+            try {
+                context.strokeStyle = '#555';
+
+                if (generatedImages) {
+                    for (var ii = generatedImages.length; ii--; ) {
+                        drawImage(context, generatedImages[ii], state);
+                    } // for
+                } // if
+            }
+            finally {
+                context.restore();
+            } // try..finally
+            
+            context.strokeStyle = '#f00';
+            context.beginPath();
+            context.moveTo(rect.x1 + rect.width/2, rect.y1);
+            context.lineTo(rect.x1 + rect.width/2, rect.y2);
+            context.moveTo(rect.x1, rect.y1 + rect.height / 2);
+            context.lineTo(rect.x2, rect.y1 + rect.height / 2);
+            context.stroke();
+            
+            lastViewRect = T5.XYRect.copy(rect);
+        }
+    });
+    
+    self.bind('parentChange', handleParentChange);
+    
+    return self;
+};/**
 # T5.Style
 The T5.Style class is used to define the various attributes that should
 be applied to a canvas context when the style is selected.
@@ -7242,7 +7451,6 @@ T5.TileGrid = function(params) {
             centerPos = T5.XY.init((tileCols-1) / 2 >> 0, (tileRows-1) / 2 >> 0);
         } // if
 
-        // right, let's draw some tiles (draw rows first)
         for (var yy = tileRows; yy--; ) {
             // iterate through the columns and draw the tiles
             for (var xx = tileCols; xx--; ) {
@@ -7856,6 +8064,12 @@ T5.Tiler = function(params) {
     return self;
 }; // Tiler
 /**
+# T5.TileGenerator
+*/
+T5.TileGenerator = function(params) {
+    
+};
+/**
 # T5.Geo
 _module_
 
@@ -7997,10 +8211,10 @@ T5.Geo = (function() {
         To be completed
         */
         lat2pix: function(lat) {
-            var radLat = parseFloat(lat) * DEGREES_TO_RADIANS; // *(2*Math.PI))/360;
-            var sinPhi = Math.sin(radLat);
-            var eSinPhi = ECC * sinPhi;
-            var retVal = Math.log(((1.0 + sinPhi) / (1.0 - sinPhi)) * Math.pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
+            var radLat = parseFloat(lat) * DEGREES_TO_RADIANS,
+                sinPhi = Math.sin(radLat),
+                eSinPhi = ECC * sinPhi,
+                retVal = Math.log(((1.0 + sinPhi) / (1.0 - sinPhi)) * Math.pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
 
             return retVal;
         },
@@ -8010,7 +8224,7 @@ T5.Geo = (function() {
         To be completed
         */
         lon2pix: function(lon) {
-            return parseFloat(lon) * DEGREES_TO_RADIANS; // /180)*Math.PI;
+            return parseFloat(lon) * DEGREES_TO_RADIANS;
         },
 
         /**
@@ -8055,6 +8269,10 @@ T5.Geo = (function() {
             } // while
 
             return lon;
+        },
+        
+        radsPerPixel: function(zoomLevel) {
+            return 2*Math.PI / (256 << zoomLevel);
         }
     }; // exportedFunctions
         
@@ -8349,7 +8567,7 @@ T5.Geo = (function() {
             },
             
             /**
-            ### fromMercatorPixels(x, y, radsPerPixel)
+            ### fromMercatorPixels(x, y)
             This function is used to take x and y mercator pixels values, 
             and using the value passed in the radsPerPixel value convert 
             that to a Geo.Position object.
@@ -8361,7 +8579,7 @@ T5.Geo = (function() {
                     T5.Geo.normalizeLon(T5.Geo.pix2lon(mercX))
                 );
             },
-
+            
             /**
             ### toMercatorPixels(pos, radsPerPixel)
             Basically, the reverse of the fromMercatorPixels function - 
@@ -8915,7 +9133,7 @@ T5.Geo = (function() {
         
         ## Methods
         */
-        GeoXY: function(initPos) {
+        GeoXY: function(initPos, radsPerPixel) {
             var self = T5.XY.init();
                 
             function updatePos(newPos) {
@@ -8930,17 +9148,12 @@ T5.Geo = (function() {
                 /**
                 ### setRadsPerPixel(radsPerPixel, offsetX, offsetY)
                 */
-                setRadsPerPixel: function(radsPerPixel, offsetX, offsetY) {
+                setRadsPerPixel: function(radsPerPixel) {
                     var mercXY = self.mercXY;
 
                     // calculate the x and y
-                    self.x = Math.abs(
-                        ((mercXY.x / radsPerPixel) >> 0) + 
-                        (offsetX ? offsetX : 0));
-                        
-                    self.y = Math.abs(
-                        ((mercXY.y / radsPerPixel) >> 0) + 
-                        (offsetY ? offsetY : 0));
+                    self.x = (mercXY.x / radsPerPixel) >> 0;
+                    self.y = ((Math.PI - mercXY.y) / radsPerPixel) >> 0;
 
                     // update the rads per pixel
                     self.radsPerPixel = radsPerPixel;
@@ -8955,6 +9168,12 @@ T5.Geo = (function() {
             
             // initialise the position
             updatePos(initPos);
+            
+            // if the rads per pixel has been specified, then set that also
+            if (radsPerPixel) {
+                self.setRadsPerPixel(radsPerPixel);
+            } // if
+            
             return self;
         },
         
@@ -9648,6 +9867,15 @@ T5.Geo.LocationSearch = function(params) {
     return self;
 };
 /**
+# T5.Geo.ImageTileGrid
+*/
+T5.Geo.ImageTileGrid = function(params) {
+    params = T5.ex({
+        
+    }, params);
+    
+    
+};/**
 # T5.Map
 _extends:_ T5.Tiler
 
@@ -9711,6 +9939,7 @@ T5.Map = function(params) {
         locationOverlay = null,
         geoWatchId = 0,
         initialTrackingUpdate = true,
+        radsPerPixel = 0,
         zoomLevel = params.zoomLevel;
         
     // if the data provider has not been created, 
@@ -9765,7 +9994,7 @@ T5.Map = function(params) {
                 locationOverlay.update(self.getTileLayer());
 
                 // pan to the position
-                self.panToPosition(
+                panToPosition(
                     currentPos, 
                     null, 
                     T5.easing('sine.out'));
@@ -9851,7 +10080,7 @@ T5.Map = function(params) {
             zoomChange = scaleAmount;
         } // if..else
 
-        self.gotoPosition(
+        gotoPosition(
             self.getXYPosition(zoomXY), 
             zoomLevel + zoomChange >> 0);
     } // handleScale
@@ -9873,104 +10102,75 @@ T5.Map = function(params) {
     
     /* internal functions */
     
-    // TODO: evaluate whether this function can be used for 
-    // all mapping providers or we need to route this call to the provider
-    function radsPerPixelAtZoom(tileSize, gxZoom) {
-        return 2 * Math.PI / (tileSize << gxZoom);
-    } // radsPerPixelAtZoom
-    
     function getLayerScaling(oldZoom, newZoom) {
-        return radsPerPixelAtZoom(1, oldZoom) / 
-                    radsPerPixelAtZoom(1, newZoom);
+        return T5.Geo.radsPerPixel(oldZoom) / 
+                    T5.Geo.radsPerPixel(newZoom);
     } // getLayerScaling
     
     /* public methods */
+    
+    function getPosOffset(position) {
+        var xy = new T5.Geo.GeoXY(position);
+        xy.setRadsPerPixel(T5.Geo.radsPerPixel(zoomLevel));
+        
+        return xy;
+    } // getPosOffset
+    
+    function getXYPosition(x, y) {
+        return T5.Geo.P.fromMercatorPixels(x * radsPerPixel, Math.PI - y * radsPerPixel);
+    } // getXYPosition
     
     // TODO: make sure tile requests are returned in the correct 
     // order and if a new request is issued while a request is completing
     // the previous results don't create a tile layer
     function gotoPosition(position, newZoomLevel, callback) {
+        COG.Log.info('position updated to: ', position);
         
-        function updateTileGrid(tileGrid) {
-            // update the tile layer to the use the new layer
-            self.setTileLayer(tileGrid);
-
-            // pan to the correct position
-            self.panToPosition(position, function() {
-                self.unfreeze();
-
-                // trigger the zoom level change event
-                self.trigger('zoomLevelChange', zoomLevel);
-
-                if (callback) {
-                    callback();
-                } // if
-            });
-
-            // flag as initialized
-            initialized = true;
-        } // updateTileGrid
+        // update the zoom level
+        zoomLevel = newZoomLevel;
         
-        // save the current zoom level
-        var currentZoomLevel = zoomLevel,
-            zoomScaling = getLayerScaling(zoomLevel, newZoomLevel),
-            reset = ! initialized,
-            currentBounds = self.getBoundingBox();
-            
-        if (currentBounds) {
-            reset = reset || !T5.Geo.P.inBounds(
-                position, 
-                currentBounds);
-            /*
-            // TODO: get this right...
-            if (reset) {
-                self.clearBackground();
-            }
-            */
-        } // if                        
-
-        // if a new zoom level is specified, then use it
-        zoomLevel = newZoomLevel ? newZoomLevel : zoomLevel;
-
-        // if the zoom level is not defined, 
-        // then raise an exception
-        if (! zoomLevel) {
-            throw new Error('Zoom level required to goto' + 
-            ' a position.');
-        } // if
-
-        // check the zoom level is ok
-        if (params.provider) {
-            zoomLevel = params.provider.checkZoomLevel(zoomLevel);
-        } // if
+        // remove the grid layer
+        T5.Images.cancelLoad();
         
-        // if the zoom level is different from the 
-        // current zoom level, then update the map tiles
-        if (reset || (zoomLevel !== currentZoomLevel)) {
-            // remove the grid layer
-            T5.Images.cancelLoad();
-            
-            // cancel any animations
-            T5.cancelAnimation();
+        // cancel any animations
+        T5.cancelAnimation();
+        
+        // trigger the zoom level change
+        radsPerPixel = T5.Geo.radsPerPixel(zoomLevel);
+        self.trigger('zoomLevelChange', zoomLevel);
 
-            // if the map is initialise, then pan to 
-            // the specified position
-            if (initialized) {
-                self.freeze();
-            } // if
-            
-            // update the provider zoom level
-            params.provider.zoomLevel = zoomLevel;
-            params.provider.getMapTiles(
-                self, 
-                position, 
-                updateTileGrid);
-        }
-        // otherwise, just pan to the correct position
-        else {
-            self.panToPosition(position, callback);
-        } // if..else
+        // pan to Position
+        panToPosition(position, callback);
     } // gotoPosition
+    
+    /**
+    - `panToPosition(position, callback, easingFn)`
+    
+    This method is used to tell the map to pan (not zoom) to the specified 
+    T5.Geo.Position.  An optional callback can be passed as the second
+    parameter to the function and this fires a notification once the map is
+    at the new specified position.  Additionally, an optional easingFn parameter
+    can be supplied if the pan operation should ease to the specified location 
+    rather than just shift immediately.  An easingDuration can also be supplied.
+    */
+    function panToPosition(position, callback, easingFn, easingDuration) {
+        // determine the tile offset for the 
+        // requested position
+        var centerXY = getPosOffset(position),
+            dimensions = self.getDimensions();
+            
+        // COG.Log.info('panning to center xy: ', centerXY);
+        self.updateOffset(centerXY.x, centerXY.y, easingFn, easingDuration, callback);
+        self.trigger('wake');
+
+        // trigger a bounds change event
+        self.trigger("boundsChange", self.getBoundingBox());
+
+        // if we have a callback defined, then run it
+        if (callback && (typeof easingFn === 'undefined')) {
+            callback(self);
+        } // if
+    } // panToPosition
     
     /* public object definition */
     
@@ -9981,7 +10181,7 @@ T5.Map = function(params) {
     };
     
     // initialise self
-    var self = T5.ex({}, new T5.Tiler(params), {
+    var self = T5.ex(new T5.Tiler(params), {
         annotations: null,
         
         /** 
@@ -9990,19 +10190,11 @@ T5.Map = function(params) {
         Return a Geo.BoundingBox for the current map view area
         */
         getBoundingBox: function() {
-            var grid = self.getTileLayer(),
-                offset = self.getOffset(),
-                dimensions = self.getDimensions();
-
-            if (grid) {
-                return grid.getBoundingBox(
-                            offset.x, 
-                            offset.y, 
-                            dimensions.width, 
-                            dimensions.height);
-            } // if
+            var rect = self.getOffsetRect();
             
-            return null;
+            return new T5.Geo.BoundingBox(
+                getXYPosition(rect.x1, rect.y2),
+                getXYPosition(rect.x2, rect.y1));
         },
 
         /**
@@ -10011,21 +10203,19 @@ T5.Map = function(params) {
         Return a Geo.Position for the center position of the map
         */
         getCenterPosition: function() {
+            var offset = self.getOffset();
+            
             // get the position for the grid position
-            return self.getXYPosition(
-                T5.D.getCenter(self.getDimensions()));
+            return self.getXYPosition(offset.x, offset.y);
         },
         
         /**
-        - `getXYPosition(xy)`
+        ### getXYPosition(x, y)
         
         Convert the Vector that has been passed to the function to a
         Geo.Position object
         */
-        getXYPosition: function(xy) {
-            return self.getTileLayer().pixelsToPos(
-                self.viewPixToGridPix(xy));
-        },
+        getXYPosition: getXYPosition,
         
         /**
         - `gotoBounds(bounds, callback)`
@@ -10041,7 +10231,7 @@ T5.Map = function(params) {
             
             // goto the center position of the bounding box 
             // with the calculated zoom level
-            self.gotoPosition(
+            gotoPosition(
                 T5.Geo.B.getCenter(bounds), 
                 zoomLevel, 
                 callback);
@@ -10053,48 +10243,8 @@ T5.Map = function(params) {
         TODO
         */
         gotoPosition: gotoPosition,
+        panToPosition: panToPosition,
 
-        /**
-        - `panToPosition(position, callback, easingFn)`
-        
-        This method is used to tell the map to pan (not zoom) to the specified 
-        T5.Geo.Position.  An optional callback can be passed as the second
-        parameter to the function and this fires a notification once the map is
-        at the new specified position.  Additionally, an optional easingFn parameter
-        can be supplied if the pan operation should ease to the specified location 
-        rather than just shift immediately.  An easingDuration can also be supplied.
-        */
-        panToPosition: function(position, callback, easingFn, easingDuration) {
-            var grid = self.getTileLayer();
-            if (grid) {
-                // determine the tile offset for the 
-                // requested position
-                var centerXY = grid.getGridXYForPosition(position),
-                    dimensions = self.getDimensions();
-
-                // determine the actual pan amount, by 
-                // calculating the center of the viewport
-                centerXY.x -= (dimensions.width / 2);
-                centerXY.y -= (dimensions.height / 2);
-                
-                // if we have a guide layer snap to that
-                if (guideOffset) {
-                    guideOffset = null;
-                } // if
-                
-                self.updateOffset(centerXY.x, centerXY.y, easingFn, easingDuration, callback);
-                self.trigger("wake");
-
-                // trigger a bounds change event
-                self.trigger("boundsChange", self.getBoundingBox());
-
-                // if we have a callback defined, then run it
-                if (callback && (typeof easingFn === 'undefined')) {
-                    callback(self);
-                } // if
-            } // if
-        },
-        
         /**
         - `locate()`
         
@@ -10150,6 +10300,36 @@ T5.Map = function(params) {
         },
         
         /**
+        ### syncVectors
+        This function iterates through the specified vectors and if they are
+        of type T5.Geo.GeoVector, they are provided the rads per pixel of the
+        grid so they can perform their calculations
+        */
+        syncVectors: function(vectors) {
+            var minX, minY, maxX, maxY;
+            
+            for (var ii = vectors.length; ii--; ) {
+                var xy = vectors[ii];
+                
+                if (xy && xy.setRadsPerPixel) {
+                    xy.setRadsPerPixel(radsPerPixel);
+
+                    // update the min x and min y
+                    minX = (typeof minX === 'undefined') || xy.x < minX ? xy.x : minX;
+                    minY = (typeof minY === 'undefined') || xy.y < minY ? xy.y : minY;
+                    
+                    // update the max x and max y
+                    maxX = (typeof maxX === 'undefined') || xy.x > maxX ? xy.x : maxX;
+                    maxY = (typeof maxY === 'undefined') || xy.y > maxY ? xy.y : maxY;
+                    
+                    // COG.Log.info('synced vector: ', xy);
+                } // if
+            } // for
+            
+            return T5.XYRect.init(minX, minY, maxY, maxY);
+        },        
+        
+        /**
         - `getZoomLevel()`
         
         Get the current zoom level for the map
@@ -10167,7 +10347,7 @@ T5.Map = function(params) {
             // if the current position is set, 
             // then goto the updated position
             try {
-                self.gotoPosition(self.getCenterPosition(), value);
+                gotoPosition(self.getCenterPosition(), value);
             }
             catch (e) {
                 COG.Log.exception(e);
@@ -10181,8 +10361,8 @@ T5.Map = function(params) {
         */
         zoomIn: function() {
             // determine the required scaling
-            var scalingNeeded = radsPerPixelAtZoom(1, zoomLevel) / 
-                    radsPerPixelAtZoom(1, zoomLevel + 1);
+            var scalingNeeded = T5.Geo.radsPerPixel(zoomLevel) / 
+                    T5.Geo.radsPerPixel(zoomLevel + 1);
             
             if (! self.scale(2, T5.easing('sine.out'))) {
                 self.setZoomLevel(zoomLevel + 1);
@@ -10195,8 +10375,8 @@ T5.Map = function(params) {
         Zoom out one zoom level
         */
         zoomOut: function() {
-            var scalingNeeded = radsPerPixelAtZoom(1, zoomLevel) / 
-                    radsPerPixelAtZoom(1, zoomLevel - 1);
+            var scalingNeeded = T5.Geo.radsPerPixel(zoomLevel) / 
+                    T5.Geo.radsPerPixel(zoomLevel - 1);
             
             if (! self.scale(0.5, T5.easing('sine.out'))) {
                 self.setZoomLevel(zoomLevel - 1);
@@ -10378,6 +10558,127 @@ T5.Geo.MapProvider = function() {
     return self;
 }; // MapProvider
 
+/**
+# T5.MapTileGenerator
+*/
+T5.MapTileGenerator = function(params) {
+    params = T5.ex({
+        tileWidth: 256,
+        tileHeight: 256
+    }, params);
+    
+    // initialise variables
+    var zoomLevel = 0,
+        initPos = null,
+        targetView = null,
+        lastRect = null,
+        requestXY = T5.XY.init(),
+        tileLoader = null,
+        requestedTileCreator = false,
+        tileWidth = params.tileWidth,
+        halfTileWidth = tileWidth / 2,
+        tileHeight = params.tileHeight,
+        halfTileHeight = tileHeight / 2,
+        xTiles = 0,
+        yTiles = 0,
+        imageQueue = [];
+    
+    /* internal functions */
+    
+    function runTileCreator(viewRect, callback) {
+        var relX = ~~((viewRect.x1 - requestXY.x) / tileWidth),
+            relY = ~~((viewRect.y1 - requestXY.y) / tileHeight),
+            endX = viewRect.width,
+            endY = viewRect.height,
+            tiles = [];
+            
+        for (var xx = -xTiles; xx < xTiles; xx++) {
+            for (var yy = -yTiles; yy < yTiles; yy++) {
+                tiles[tiles.length] = tileCreator(relX + xx, relY + yy);
+            } // for
+        } // for
+        
+        if (callback) {
+            callback(tiles);
+        } // if
+        
+        lastRect = T5.XYRect.copy(viewRect);
+    } // runTileCreator
+    
+    /* event handlers */
+    
+    function handleZoomLevelChange(evt, newZoomLevel) {
+        zoomLevel = newZoomLevel;
+        initPos = null;
+    } // handleZoomLevelChange
+    
+    /* exports */
+    
+    /**
+    ### bindToView(view)
+    */
+    function bindToView(view) {
+        COG.Log.info('initializing generator');
+        
+        // update the target view
+        targetView = view;
+        
+        // if the view is a zoomable then get the zoom level and bind to the zoom change event
+        if (view.getZoomLevel) {
+            zoomLevel = view.getZoomLevel();
+            view.bind('zoomLevelChange', handleZoomLevelChange);
+        } // if
+    } // bindToView
+
+    function run(viewRect, callback) {
+        var recalc = (! lastRect) || 
+            (Math.abs(viewRect.x1 - lastRect.x1) > tileWidth) || 
+            (Math.abs(viewRect.y1 - lastRect.y1) > tileHeight);
+        
+        // if we don't know the center position, then this is the first call
+        if ((! initPos) && (! requestedTileCreator)) {
+            COG.Log.info('generating tiles, view rect = ', viewRect);
+            initPos = targetView.getCenterPosition();
+            requestXY = T5.XY.init(viewRect.x1, viewRect.y1);
+            xTiles = Math.ceil(viewRect.width / tileWidth) + 1;
+            yTiles = Math.ceil(viewRect.height / tileHeight) + 1;
+            
+            // get the tile loader
+            if (self.initTileCreator) {
+                requestedTileCreator = true;
+                self.initTileCreator(
+                    initPos, 
+                    zoomLevel, 
+                    tileHeight,
+                    tileWidth,
+                    function(creator, tweakOffset) {
+                        tileCreator = creator;
+                        requestedTileCreator = false;
+                        
+                        runTileCreator(viewRect, callback);
+                    }
+                );
+            } // if
+            
+            COG.Log.info('generator got view center: ', initPos);
+        } // if
+        
+        if (tileCreator && recalc) {
+            runTileCreator(viewRect, callback);
+        } // if
+    } // run
+
+    var self = {
+        bindToView: bindToView,
+        initTileCreator: null,
+        run: run
+    };
+    
+    // make the tile generator observable
+    COG.observable(self);
+    
+    return self;
+};
 /**
 # T5.Geo.Routing
 _module_
@@ -10798,16 +11099,6 @@ T5.Geo.UI = (function() {
             
             // initialise self
             var self = T5.ex({}, params.grid, {
-                /** 
-                ### getBoundingBox(x, y, width, height)
-                Return a T5.Geo.BoundingBox for specified area on the grid
-                */
-                getBoundingBox: function(x, y, width, height) {
-                    return new T5.Geo.BoundingBox(
-                        self.pixelsToPos(T5.XY.init(x, y + height)),
-                        self.pixelsToPos(T5.XY.init(x + width, y)));
-                },
-                
                 /** 
                 ### getGridXYForPosition(pos)
                 Returns a T5.Vector that relates to the grid position of the T5.Geo.Position value passed in 

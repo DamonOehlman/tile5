@@ -100,6 +100,10 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/geo/providers/bing.js" />
 		</concat>
 		
+		<concat destfile="${dist}/${LIBNAME}.engine.osm.js">
+			<fileset file="src/js/geo/engines/osm.js" />
+		</concat>
+		
 		<copy tofile="${dist}/${LIBNAME}.mapbox.js" file="src/js/geo/providers/mapbox.js" />
 	</target>
 	
@@ -120,6 +124,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/dispatcher.js" />
 			<fileset file="src/js/resources.js" />
 			<fileset file="src/js/images.js" />
+			<fileset file="src/js/generator.js" />
 			<fileset file="src/js/timelord.js" />
 			
 			<!-- include the animation functionality -->
@@ -139,6 +144,8 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/graphics/imagemarker.js" />
 			<fileset file="src/js/graphics/annotation.js" />
 			<fileset file="src/js/graphics/markerlayer.js" />
+			<fileset file="src/js/graphics/imagelayer.js" />
+			<fileset file="src/js/graphics/imagegenerator.js" />
 			<fileset file="src/js/graphics/style.js" />
 
 			<!-- include tiling -->
@@ -146,6 +153,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/tiling/tilegrid.js" />
 			<fileset file="src/js/tiling/imagetilegrid.js" />
 			<fileset file="src/js/tiling/tiler.js" />
+			<fileset file="src/js/tiling/tilegenerator.js" />
 		</concat>
 	</target>
 	

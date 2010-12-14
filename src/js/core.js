@@ -400,9 +400,34 @@ T5 = (function() {
             return xyTools.init(rect.x1 + rect.width/2, rect.y1 + rect.height/2);
         } // center
         
+        /**
+        ### copy(rect)
+        Return a duplicate of the XYRect
+        */
+        function copy(rect) {
+            return init(rect.x1, rect.y1, rect.x2, rect.y2);
+        } // copy
+        
+        /**
+        ### diagonalSize(rect)
+        */
         function diagonalSize(rect) {
             return Math.sqrt(rect.width * rect.width + rect.height * rect.height);
         } // diagonalSize
+        
+        /**
+        ### fromCenter(centerX, centerY, width, height)
+        */
+        function fromCenter(centerX, centerY, width, height) {
+            var halfWidth = ~~(width / 2),
+                halfHeight = ~~(height / 2);
+            
+            return init(
+                centerX - halfWidth, 
+                centerY - halfHeight,
+                centerX + halfWidth,
+                centerY + halfHeight);
+        } // fromCenter
       
         /**
         ### init(x1, y1, x2, y2)
@@ -430,7 +455,9 @@ T5 = (function() {
         
         return {
             center: center,
+            copy: copy,
             diagonalSize: diagonalSize,
+            fromCenter: fromCenter,
             init: init
         };
     })();

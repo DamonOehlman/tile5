@@ -4,8 +4,8 @@
         TESTPOS_1 = TESTPOS_1_LAT + " " + TESTPOS_1_LON;
     
     new COG.Testing.Suite({
-        id: "slick.geo",
-        title: "Suite of tests to Geo operations in SLICK",
+        id: "tile5.geo",
+        title: "Suite of tests to Geo operations in Tile5",
         testData: {},
         
         tests: [
@@ -48,6 +48,24 @@
                 if ((! testPos) || (testPos.lat !== TESTPOS_1_LAT) || (testPos.lon !== TESTPOS_1_LON)) {
                     throw new Error("Parse existing position failed, testPos (" + T5.Geo.P.toString(testPos) + ") != source (" + T5.Geo.P.toString(testData.pos1) + ")");
                 }
+            }
+        },
+        
+        { 
+            title: 'Mercator Pixel Conversion Equivalence',
+            runner: function(text, testData) {
+                var origPos = T5.Geo.P.parse(testData.pos1),
+                    mercPixels = T5.Geo.P.toMercatorPixels(origPos),
+                    testPos = T5.Geo.P.fromMercatorPixels(mercPixels.x, mercPixels.y),
+                    factor = Math.pow(10, 3),
+                    
+                    latEqual = Math.round(origPos.lat * factor) === Math.round(testPos.lat * factor),
+                    lonEqual = Math.round(origPos.lon * factor) === Math.round(testPos.lon * factor);
+                    
+                // check that the positions are equivalent to 5 decimal places
+                if ((! latEqual) || (! lonEqual)) {
+                    throw new Error('Mercator pixel conversion not equivalent');
+                } // if
             }
         },
         

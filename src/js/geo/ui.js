@@ -151,16 +151,6 @@ T5.Geo.UI = (function() {
             // initialise self
             var self = T5.ex({}, params.grid, {
                 /** 
-                ### getBoundingBox(x, y, width, height)
-                Return a T5.Geo.BoundingBox for specified area on the grid
-                */
-                getBoundingBox: function(x, y, width, height) {
-                    return new T5.Geo.BoundingBox(
-                        self.pixelsToPos(T5.XY.init(x, y + height)),
-                        self.pixelsToPos(T5.XY.init(x + width, y)));
-                },
-                
-                /** 
                 ### getGridXYForPosition(pos)
                 Returns a T5.Vector that relates to the grid position of the T5.Geo.Position value passed in 
                 the pos parameter to the method.  This method is used extensively to calculate the position 

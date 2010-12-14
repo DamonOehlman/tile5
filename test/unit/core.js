@@ -3,8 +3,8 @@
         TEST_VECTOR = new T5.Vector(TEST_X, TEST_Y);
     
     new COG.Testing.Suite({
-        id: "slick.vector",
-        title: "Suite of tests to check vector operations in SlICK",
+        id: "tile5.vector",
+        title: "Suite of tests to check vector operations in Tile5",
         
         tests: [
         

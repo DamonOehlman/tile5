@@ -130,7 +130,8 @@ T5.View = function(params) {
         mainContext = null,
         offsetX = 0,
         offsetY = 0,
-        cycleOffset = T5.XY.init(),
+        cycleOffset = null,
+        cycleRect = null,
         clearBackground = false,
         cycleWorker = null,
         frozen = false,
@@ -558,13 +559,13 @@ T5.View = function(params) {
     } // calcZoomCenter
     
     function triggerIdle() {
-        self.trigger("idle");
+        self.trigger('idle', self);
         
         idle = true;
         idleTimeout = 0;
     } // idle
     
-    function drawView(context, drawState, offset, redraw, tickCount) {
+    function drawView(context, drawState, rect, redraw, tickCount) {
         // if frozen override the draw state
         if (frozen) {
             drawState = T5.viewState('FROZEN');
@@ -585,7 +586,11 @@ T5.View = function(params) {
             calcZoomCenter();
             
             // offset the draw args
-            offset = T5.XY.offset(offset, zoomCenter.x, zoomCenter.y);
+            // rect.x1 += zoomCenter.x;
+            // rect.y1 += zoomCenter.y;
+            // rect.x2 += zoomCenter.x;
+            // rect.y2 += zoomCenter.y;
+            // offset = T5.XY.offset(offset, zoomCenter.x, zoomCenter.y);
         } // if
         
         // COG.Log.info("draw state = " + drawState);
@@ -593,6 +598,8 @@ T5.View = function(params) {
         context.save();
         try {
             lastDrawScaleFactor = scaleFactor;
+            
+            context.translate(-rect.x1, -rect.y1);
             
             // if the device dpi has scaled, then apply that to the display
             if (deviceScaling !== 1) {
@@ -607,18 +614,17 @@ T5.View = function(params) {
             for (ii = layerCount; ii--; ) {
                 // draw the layer output to the main canvas
                 // but only if we don't have a scale buffer or the layer is a draw on scale layer
-                if (layers[ii].shouldDraw(drawState, offset, redraw)) {
+                if (layers[ii].shouldDraw(drawState, rect, redraw)) {
                     layers[ii].draw(
                         context, 
-                        offset, 
-                        dimensions, 
+                        rect, 
                         drawState, 
                         self,
                         redraw,
                         tickCount);
                         
                     // trigger that the draw has been completed
-                    layers[ii].trigger('drawComplete', offset, tickCount);
+                    layers[ii].trigger('drawComplete', rect, tickCount);
                 } // if
             } // for
         }
@@ -627,7 +633,7 @@ T5.View = function(params) {
         } // try..finally
         
         // trigger the draw complete for the view
-        self.trigger('drawComplete', offset, tickCount);
+        self.trigger('drawComplete', rect, tickCount);
         COG.Log.trace("draw complete", tickCount);
     } // drawView
     
@@ -646,8 +652,14 @@ T5.View = function(params) {
         // convert the offset x and y to integer values
         // while canvas implementations work fine with real numbers, the actual drawing of images
         // will not look crisp when a real number is used rather than an integer (or so I've found)
-        cycleOffset.x = offsetX >> 0;
-        cycleOffset.y = offsetY >> 0;
+        cycleOffset = T5.XY.init(offsetX >> 0, offsetY >> 0);
+        
+        // calculate the cycle rect
+        cycleRect = T5.XYRect.fromCenter(
+                        cycleOffset.x, 
+                        cycleOffset.y, 
+                        dimensions.width, 
+                        dimensions.height);
         
         if (interacting) {
             T5.cancelAnimation(function(tweenInstance) {
@@ -667,7 +679,7 @@ T5.View = function(params) {
                 state = state | stateAnimating;
             } // if
             
-            draw = layers[ii].cycle(tickCount, cycleOffset, state, requireRedraw) || draw;
+            draw = layers[ii].cycle(tickCount, cycleRect, state, requireRedraw) || draw;
         } // for
         
         // update the require redraw state based on whether we are now in an animating state
@@ -675,9 +687,8 @@ T5.View = function(params) {
         
         // if we are scaling and at the same scale factor, don't redraw as its a waste of time
         draw = draw || requireRedraw || ((scaleFactor !== 1) && (scaleFactor !== lastScaleFactor));
-
         if (draw) {
-            drawView(mainContext, currentState, cycleOffset, requireRedraw, tickCount);
+            drawView(mainContext, currentState, cycleRect, requireRedraw, tickCount);
             lastScaleFactor = scaleFactor;
             
             // reset draw monitoring variables
@@ -932,7 +943,19 @@ T5.View = function(params) {
         */
         getOffset: function() {
             // return the last calculated cycle offset
-            return cycleOffset;
+            return cycleOffset ? cycleOffset : T5.XY.init(offsetX, offsetY);
+        },
+        
+        /**
+        ### getOffsetRect()
+        Return a T5.XYRect for the last drawn view rect
+        */
+        getOffsetRect: function() {
+            return cycleRect ? cycleRect : T5.XYRect.fromCenter(
+                                            offsetX, 
+                                            offsetY, 
+                                            dimensions.width, 
+                                            dimensions.height);
         },
         
         /**

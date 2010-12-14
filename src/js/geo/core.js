@@ -140,10 +140,10 @@ T5.Geo = (function() {
         To be completed
         */
         lat2pix: function(lat) {
-            var radLat = parseFloat(lat) * DEGREES_TO_RADIANS; // *(2*Math.PI))/360;
-            var sinPhi = Math.sin(radLat);
-            var eSinPhi = ECC * sinPhi;
-            var retVal = Math.log(((1.0 + sinPhi) / (1.0 - sinPhi)) * Math.pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
+            var radLat = parseFloat(lat) * DEGREES_TO_RADIANS,
+                sinPhi = Math.sin(radLat),
+                eSinPhi = ECC * sinPhi,
+                retVal = Math.log(((1.0 + sinPhi) / (1.0 - sinPhi)) * Math.pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
 
             return retVal;
         },
@@ -153,7 +153,7 @@ T5.Geo = (function() {
         To be completed
         */
         lon2pix: function(lon) {
-            return parseFloat(lon) * DEGREES_TO_RADIANS; // /180)*Math.PI;
+            return parseFloat(lon) * DEGREES_TO_RADIANS;
         },
 
         /**
@@ -198,6 +198,10 @@ T5.Geo = (function() {
             } // while
 
             return lon;
+        },
+        
+        radsPerPixel: function(zoomLevel) {
+            return 2*Math.PI / (256 << zoomLevel);
         }
     }; // exportedFunctions
         
@@ -492,7 +496,7 @@ T5.Geo = (function() {
             },
             
             /**
-            ### fromMercatorPixels(x, y, radsPerPixel)
+            ### fromMercatorPixels(x, y)
             This function is used to take x and y mercator pixels values, 
             and using the value passed in the radsPerPixel value convert 
             that to a Geo.Position object.
@@ -504,7 +508,7 @@ T5.Geo = (function() {
                     T5.Geo.normalizeLon(T5.Geo.pix2lon(mercX))
                 );
             },
-
+            
             /**
             ### toMercatorPixels(pos, radsPerPixel)
             Basically, the reverse of the fromMercatorPixels function - 
@@ -1058,7 +1062,7 @@ T5.Geo = (function() {
         
         ## Methods
         */
-        GeoXY: function(initPos) {
+        GeoXY: function(initPos, radsPerPixel) {
             var self = T5.XY.init();
                 
             function updatePos(newPos) {
@@ -1073,17 +1077,12 @@ T5.Geo = (function() {
                 /**
                 ### setRadsPerPixel(radsPerPixel, offsetX, offsetY)
                 */
-                setRadsPerPixel: function(radsPerPixel, offsetX, offsetY) {
+                setRadsPerPixel: function(radsPerPixel) {
                     var mercXY = self.mercXY;
 
                     // calculate the x and y
-                    self.x = Math.abs(
-                        ((mercXY.x / radsPerPixel) >> 0) + 
-                        (offsetX ? offsetX : 0));
-                        
-                    self.y = Math.abs(
-                        ((mercXY.y / radsPerPixel) >> 0) + 
-                        (offsetY ? offsetY : 0));
+                    self.x = (mercXY.x / radsPerPixel) >> 0;
+                    self.y = ((Math.PI - mercXY.y) / radsPerPixel) >> 0;
 
                     // update the rads per pixel
                     self.radsPerPixel = radsPerPixel;
@@ -1098,6 +1097,12 @@ T5.Geo = (function() {
             
             // initialise the position
             updatePos(initPos);
+            
+            // if the rads per pixel has been specified, then set that also
+            if (radsPerPixel) {
+                self.setRadsPerPixel(radsPerPixel);
+            } // if
+            
             return self;
         },
         

@@ -14,8 +14,8 @@
     } // createZoomLevel
     
     var testSuite = new COG.Testing.Suite({
-        id: "slick.mapping.cloudmade",
-        description: "Suite of tests to test cloudmade mapping in SLICK",
+        id: "tile5.mapping.cloudmade",
+        description: "Suite of tests to test cloudmade mapping in Tile5",
         setup: function() {
         },
         

@@ -26,9 +26,9 @@ T5.Shape = function(params) {
         },
         
         /**
-        ### resync(grid)
+        ### resync(view)
         */
-        resync: function(grid) {
+        resync: function(view) {
         }
     });
 };
@@ -49,8 +49,8 @@ T5.Arc = function(origin, params) {
        draw: function(context, offsetX, offsetY, width, height, state) {
            context.beginPath();
            context.arc(
-               drawXY.x  - offsetX, 
-               drawXY.y  - offsetY, 
+               drawXY.x, 
+               drawXY.y, 
                self.size,
                0,
                Math.PI * 2,
@@ -61,10 +61,10 @@ T5.Arc = function(origin, params) {
        },
        
        /**
-       ### resync(grid)
+       ### resync(view)
        */
-       resync: function(grid) {
-           var centerXY = grid.syncVectors([origin]).origin;
+       resync: function(view) {
+           var centerXY = view.syncVectors([origin]).origin;
            drawXY = T5.XY.floor([origin])[0];
        }
    });
@@ -127,8 +127,8 @@ T5.Poly = function(vectors, params) {
             // now draw the lines
             // COG.Log.info('drawing poly: have ' + drawVectors.length + ' vectors');
             for (var ii = drawVectors.length; ii--; ) {
-                var x = drawVectors[ii].x - offsetX,
-                    y = drawVectors[ii].y - offsetY;
+                var x = drawVectors[ii].x,
+                    y = drawVectors[ii].y;
                     
                 if (first) {
                     context.moveTo(x, y);
@@ -156,11 +156,11 @@ T5.Poly = function(vectors, params) {
     } // drawPoly
     
     /**
-    ### resync(grid)
+    ### resync(view)
     Used to synchronize the vectors of the poly to the grid.
     */
-    function resync(grid) {
-        self.xy = grid.syncVectors(vectors);
+    function resync(view) {
+        self.xy = view.syncVectors(vectors);
         
         // simplify the vectors for drawing (if required)
         drawVectors = T5.XY.floor(simplify ? T5.XY.simplify(vectors) : vectors);

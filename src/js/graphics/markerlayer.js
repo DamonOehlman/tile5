@@ -92,11 +92,13 @@ T5.MarkerLayer = function(params) {
     } // markerUpdate
     
     function resyncMarkers() {
-        var parent = self.getParent(),
-            grid = parent && parent.getTileLayer ? parent.getTileLayer() : null;
-            
-        if (grid) {
-            handleGridUpdate(null, grid);
+        var parent = self.getParent();
+        
+        if (parent && parent.syncVectors) {
+            // iterate through the markers and fire the callback
+            for (var ii = markers.length; ii--; ) {
+                parent.syncVectors([markers[ii].xy]);
+            } // for
         } // if
     } // resyncMarkers
     
@@ -192,7 +194,7 @@ T5.MarkerLayer = function(params) {
             return animating;
         },
         
-        draw: function(context, offset, dimensions, state, view) {
+        draw: function(context, offset, state, view) {
             // reset animating to false
             animating = false;
             
