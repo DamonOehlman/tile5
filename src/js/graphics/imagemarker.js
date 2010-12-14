@@ -83,7 +83,7 @@ T5.ImageMarker = function(params) {
     
     /* exports */
     
-    function drawMarker(context, offset, x, y, state, overlay, view) {
+    function drawMarker(context, viewRect, x, y, state, overlay, view) {
         // get the image
         var image = self.isAnimating() && self.animatingImage ? 
                 self.animatingImage : self.image;

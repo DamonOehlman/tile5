@@ -4,7 +4,7 @@
         ACTIVE: 1,
         ANIMATING: 4,
         PAN: 8,
-        PINCH: 16,
+        ZOOM: 16,
         FREEZE: 128
     };
     
@@ -21,7 +21,7 @@
     - _UNUSED_ = 2
     - ANIMATING = 4
     - PAN = 8
-    - PINCH = 16
+    - ZOOM = 16
     - _UNUSED_ = 32
     - _UNUSED_ = 64
     - FREEZE = 128

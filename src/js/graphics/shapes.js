@@ -64,7 +64,7 @@ T5.Arc = function(origin, params) {
        ### resync(view)
        */
        resync: function(view) {
-           var centerXY = view.syncVectors([origin]).origin;
+           var centerXY = view.syncXY([origin]).origin;
            drawXY = T5.XY.floor([origin])[0];
        }
    });
@@ -80,7 +80,7 @@ a T5.PolyLayer.
 
 ## Constructor
 
-`new T5.Poly(vectors, params)`
+`new T5.Poly(points, params)`
 
 The constructor requires an array of vectors that represent the poly and 
 also accepts optional initialization parameters (see below).
@@ -95,7 +95,7 @@ is specified then the style of the T5.PolyLayer is used.
 
 ## Methods
 */
-T5.Poly = function(vectors, params) {
+T5.Poly = function(points, params) {
     params = T5.ex({
         fill: false,
         simplify: false
@@ -105,8 +105,8 @@ T5.Poly = function(vectors, params) {
     var haveData = false,
         fill = params.fill,
         simplify = params.simplify,
-        stateZoom = T5.viewState('PINCH'),
-        drawVectors = [];
+        stateZoom = T5.viewState('ZOOM'),
+        drawPoints = [];
     
     /* exported functions */
     
@@ -126,9 +126,9 @@ T5.Poly = function(vectors, params) {
             
             // now draw the lines
             // COG.Log.info('drawing poly: have ' + drawVectors.length + ' vectors');
-            for (var ii = drawVectors.length; ii--; ) {
-                var x = drawVectors[ii].x,
-                    y = drawVectors[ii].y;
+            for (var ii = drawPoints.length; ii--; ) {
+                var x = drawPoints[ii].x,
+                    y = drawPoints[ii].y;
                     
                 if (first) {
                     context.moveTo(x, y);
@@ -157,13 +157,13 @@ T5.Poly = function(vectors, params) {
     
     /**
     ### resync(view)
-    Used to synchronize the vectors of the poly to the grid.
+    Used to synchronize the points of the poly to the grid.
     */
     function resync(view) {
-        self.xy = view.syncVectors(vectors);
+        self.xy = view.syncXY(points);
         
         // simplify the vectors for drawing (if required)
-        drawVectors = T5.XY.floor(simplify ? T5.XY.simplify(vectors) : vectors);
+        drawPoints = T5.XY.floor(simplify ? T5.XY.simplify(points) : points);
     } // resyncToGrid
     
     /* define self */
@@ -174,7 +174,7 @@ T5.Poly = function(vectors, params) {
     });
 
     // initialise the first item to the first element in the array
-    haveData = vectors && (vectors.length >= 2);
+    haveData = points && (points.length >= 2);
     
     return self;
 };

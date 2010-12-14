@@ -49,13 +49,6 @@ T5.MarkerLayer = function(params) {
         
     /* event handlers */
         
-    function handleGridUpdate(evt, grid) {
-        // iterate through the markers and fire the callback
-        for (var ii = markers.length; ii--; ) {
-            grid.syncVectors([markers[ii].xy]);
-        } // for
-    } // handleGridUpdate
-    
     function handleTap(evt, absXY, relXY, gridXY) {
         var tappedMarkers = [],
             testX = relXY.x,
@@ -93,11 +86,10 @@ T5.MarkerLayer = function(params) {
     
     function resyncMarkers() {
         var parent = self.getParent();
-        
-        if (parent && parent.syncVectors) {
+        if (parent && parent.syncXY) {
             // iterate through the markers and fire the callback
             for (var ii = markers.length; ii--; ) {
-                parent.syncVectors([markers[ii].xy]);
+                parent.syncXY([markers[ii].xy]);
             } // for
         } // if
     } // resyncMarkers
@@ -112,7 +104,7 @@ T5.MarkerLayer = function(params) {
     #### Example Usage
     ~ // adding a single marker 
     ~ layer.add(new T5.Annotation({
-    ~     xy: T5.Geo.GeoVector(markerPos) // markerPos is a T5.Geo.Position
+    ~     xy: T5.GeoXY.init(markerPos) // markerPos is a T5.Geo.Position
     ~ }));
     ~ 
     ~ // adding multiple markers
@@ -190,11 +182,11 @@ T5.MarkerLayer = function(params) {
 
     // create the view layer the we will draw the view
     var self = T5.ex(new T5.ViewLayer(params), {
-        cycle: function(tickCount, offset, state, redraw) {
+        cycle: function(tickCount, viewRect, state, redraw) {
             return animating;
         },
         
-        draw: function(context, offset, state, view) {
+        draw: function(context, viewRect, state, view) {
             // reset animating to false
             animating = false;
             
@@ -202,7 +194,7 @@ T5.MarkerLayer = function(params) {
             for (var ii = markers.length; ii--; ) {
                 markers[ii].draw(
                     context, 
-                    offset, 
+                    viewRect, 
                     state, 
                     self, 
                     view);
@@ -220,7 +212,6 @@ T5.MarkerLayer = function(params) {
     
     // handle tap events
     self.bind('tap', handleTap);
-    self.bind('gridUpdate', handleGridUpdate);
     self.bind('parentChange', resyncMarkers);
     self.bind('changed', resyncMarkers);
     

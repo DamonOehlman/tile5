@@ -134,7 +134,6 @@ T5.View = function(params) {
         cycleRect = null,
         clearBackground = false,
         cycleWorker = null,
-        frozen = false,
         deviceScaling = 1,
         dimensions = T5.D.init(),
         wakeTriggers = 0,
@@ -168,7 +167,7 @@ T5.View = function(params) {
         
         stateActive = T5.viewState('ACTIVE'),
         statePan = T5.viewState('PAN'),
-        statePinch = T5.viewState('PINCH'),
+        statePinch = T5.viewState('ZOOM'),
         stateAnimating = T5.viewState('ANIMATING'),
         
         state = stateActive;
@@ -178,9 +177,9 @@ T5.View = function(params) {
         rectDiagonal = T5.XYRect.diagonalSize,
         rectCenter = T5.XYRect.center;
         
-    /* panning functions */
+    /* event handlers */
     
-    function pan(evt, x, y, inertia) {
+    function handlePan(evt, x, y, inertia) {
         state = statePan;
         wake();
         
@@ -321,7 +320,19 @@ T5.View = function(params) {
                 layers[ii].trigger('tap', absXY, relXY, gridXY).cancel;
         } // for
     } // handleTap
+    
+    /* exports */
+    
+    /**
+    ### pan(x, y, tweenFn, tweenDuration, callback)
+    */
+    function pan(x, y, tweenFn, tweenDuration, callback) {
+        updateOffset(offsetX + x, offsetY + y, tweenFn, tweenDuration, callback);
+    } // pan
         
+    /**
+    ### updateOffset(x, y, tweenFn, tweenDuration, callback)
+    */
     function updateOffset(x, y, tweenFn, tweenDuration, callback) {
         
         // initialise variables
@@ -494,10 +505,13 @@ T5.View = function(params) {
         
         // update the zoom center
         scaling = true;
-        startCenter = T5.XY.copy(startXY);
-        endCenter = T5.XY.copy(targetXY);
+        startCenter = T5.XY.offset(startXY, cycleRect.x1, cycleRect.y1);
+        endCenter = T5.XY.offset(targetXY, cycleRect.x1, cycleRect.y1);
         startRect = null;
 
+        COG.Log.info('zoom from: ', startCenter);
+        COG.Log.info('zoom to:   ', endCenter);
+        
         // if tweening then update the targetXY
         if (tweenFn) {
             var tween = T5.tweenValue(
@@ -566,11 +580,6 @@ T5.View = function(params) {
     } // idle
     
     function drawView(context, drawState, rect, redraw, tickCount) {
-        // if frozen override the draw state
-        if (frozen) {
-            drawState = T5.viewState('FROZEN');
-        } // if
-        
         var isPinchZoom = (drawState & statePinch) !== 0,
             delayDrawLayers = [],
             ii = 0;
@@ -599,17 +608,18 @@ T5.View = function(params) {
         try {
             lastDrawScaleFactor = scaleFactor;
             
-            context.translate(-rect.x1, -rect.y1);
-            
             // if the device dpi has scaled, then apply that to the display
             if (deviceScaling !== 1) {
                 context.scale(deviceScaling, deviceScaling);
             }
             // if we are scaling, then tell the canvas to scale
             else if (isPinchZoom) {
-                context.translate(endCenter.x, endCenter.y);
+                // context.translate(endCenter.x, endCenter.y);
+                // context.translate(-rect.width / 2, -rect.height / 2 * scaleFactor);
                 context.scale(scaleFactor, scaleFactor);
             } // if..else
+            
+            context.translate(-rect.x1, -rect.y1);
             
             for (ii = layerCount; ii--; ) {
                 // draw the layer output to the main canvas
@@ -715,7 +725,7 @@ T5.View = function(params) {
     
     function wake() {
         wakeTriggers += 1;
-        if (frozen || cycleWorker) { return; }
+        if (cycleWorker) { return; }
         
         // create the cycle worker
         cycleWorker = COG.Loopage.join({
@@ -732,6 +742,78 @@ T5.View = function(params) {
     function layerContextChanged(layer) {
         layer.trigger("contextChanged", mainContext);
     } // layerContextChanged
+    
+    /* exports */
+    
+    /**
+    ### eachLayer(callback)
+    Iterate through each of the ViewLayers and pass each to the callback function 
+    supplied.
+    */
+    function eachLayer(callback) {
+        // iterate through each of the layers and fire the callback for each
+        for (var ii = layerCount; ii--; ) {
+            callback(layers[ii]);
+        } // for
+    } // eachLayer
+    
+    /**
+    ### getLayer(id)
+    Get the ViewLayer with the specified id, return null if not found
+    */
+    function getLayer(id) {
+        // look for the matching layer, and return when found
+        for (var ii = 0; ii < layerCount; ii++) {
+            if (layers[ii].getId() == id) {
+                return layers[ii];
+            } // if
+        } // for
+        
+        return null;
+    } // getLayer
+    
+    /**
+    ### getViewRect()
+    Return a T5.XYRect for the last drawn view rect
+    */
+    function getViewRect() {
+        return cycleRect ? cycleRect : T5.XYRect.fromCenter(
+                                        offsetX, 
+                                        offsetY, 
+                                        dimensions.width, 
+                                        dimensions.height);
+    } // getViewRect
+    
+    /**
+    ### setLayer(id: String, value: T5.ViewLayer)
+    Either add or update the specified view layer
+    */
+    function setLayer(id, value) {
+        // if the layer already exists, then remove it
+        for (var ii = 0; ii < layerCount; ii++) {
+            if (layers[ii].getId() === id) {
+                layers.splice(ii, 1);
+                break;
+            } // if
+        } // for
+        
+        if (value) {
+            addLayer(id, value);
+        } // if
+
+        invalidate();
+    } // setLayer
+    
+    /**
+    ### triggerAll(eventName, args*)
+    Trigger an event on the view and all layers currently contained in the view
+    */
+    function triggerAll() {
+        self.trigger.apply(null, arguments);
+        for (var ii = layers.length; ii--; ) {
+            layers[ii].trigger.apply(null, arguments);
+        } // for
+    } // triggerAll
     
     /* object definition */
     
@@ -779,54 +861,9 @@ T5.View = function(params) {
             return zoomCenter;
         },
         
-        /* layer getter and setters */
-        
-        /**
-        ### getLayer(id: String)
-        Get the ViewLayer with the specified id, return null if not found
-        */
-        getLayer: function(id) {
-            // look for the matching layer, and return when found
-            for (var ii = 0; ii < layerCount; ii++) {
-                if (layers[ii].getId() == id) {
-                    return layers[ii];
-                } // if
-            } // for
-            
-            return null;
-        },
-        
-        /**
-        ### setLayer(id: String, value: T5.ViewLayer)
-        Either add or update the specified view layer
-        */
-        setLayer: function(id, value) {
-            // if the layer already exists, then remove it
-            for (var ii = 0; ii < layerCount; ii++) {
-                if (layers[ii].getId() === id) {
-                    layers.splice(ii, 1);
-                    break;
-                } // if
-            } // for
-            
-            if (value) {
-                addLayer(id, value);
-            } // if
-
-            invalidate();
-        },
-        
-        /**
-        ### eachLayer(callback: Function)
-        Iterate through each of the ViewLayers and pass each to the callback function 
-        supplied.
-        */
-        eachLayer: function(callback) {
-            // iterate through each of the layers and fire the callback for each
-            for (var ii = layerCount; ii--; ) {
-                callback(layers[ii]);
-            } // for
-        },
+        getLayer: getLayer,
+        setLayer: setLayer,
+        eachLayer: eachLayer,
         
         /**
         ### clearBackground()
@@ -845,25 +882,6 @@ T5.View = function(params) {
         is required
         */
         invalidate: invalidate,
-        
-        /**
-        ### freeze()
-        Used to freeze the display (no updates are performed) until the view
-        is unfrozen using the `unfreeze` method.
-        */
-        freeze: function() {
-            frozen = true;
-        },
-        
-        /**
-        ### unfreeze()
-        Renable updates to the display after a call to `freeze`
-        */
-        unfreeze: function() {
-            frozen = false;
-            
-            wake();
-        },
         
         /**
         ### resize(width: Int, height: Int)
@@ -910,6 +928,8 @@ T5.View = function(params) {
             return self;
         },
         
+        triggerAll: triggerAll,
+        
         /**
         ### removeLayer(id: String)
         Remove the T5.ViewLayer specified by the id
@@ -946,22 +966,9 @@ T5.View = function(params) {
             return cycleOffset ? cycleOffset : T5.XY.init(offsetX, offsetY);
         },
         
-        /**
-        ### getOffsetRect()
-        Return a T5.XYRect for the last drawn view rect
-        */
-        getOffsetRect: function() {
-            return cycleRect ? cycleRect : T5.XYRect.fromCenter(
-                                            offsetX, 
-                                            offsetY, 
-                                            dimensions.width, 
-                                            dimensions.height);
-        },
-        
-        /**
-        ### updateOffset(x, y, tweenFn, tweenDuration, callback)
-        */
+        getViewRect: getViewRect,
         updateOffset: updateOffset,
+        pan: pan,
         
         /**
         ### zoom(targetXY, newScaleFactor, rescaleAfter)
@@ -970,9 +977,11 @@ T5.View = function(params) {
             panimating = false;
             scaleFactor = newScaleFactor;
             scaling = scaleFactor !== 1;
-
+            
             startCenter = T5.D.getCenter(dimensions);
-            endCenter = scaleFactor > 1 ? T5.XY.copy(targetXY) : T5.D.getCenter(dimensions);
+            endCenter = T5.XY.offset(
+                scaleFactor > 1 ? T5.XY.copy(targetXY) : T5.D.getCenter(dimensions),
+                cycleRect.x1, cycleRect.y1);
             startRect = null;
             
             clearTimeout(rescaleTimeout);
@@ -1005,7 +1014,7 @@ T5.View = function(params) {
     
     // if this is pannable, then attach event handlers
     if (params.pannable) {
-        self.bind("pan", pan);
+        self.bind("pan", handlePan);
         self.bind("panEnd", panEnd);
 
         // handle intertia events

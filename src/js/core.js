@@ -437,8 +437,8 @@ T5 = (function() {
             // default the xy and y1 to 0 if not specified
             x1 = x1 ? x1 : 0;
             y1 = y1 ? y1 : 0;
-            x2 = x2 ? x2 : x1;
-            y2 = y2 ? y2 : y2;
+            x2 = typeof x2 !== 'undefined' ? x2 : x1;
+            y2 = typeof y2 !== 'undefined '? y2 : y2;
             
             return {
                 x1: x1,
@@ -451,6 +451,20 @@ T5 = (function() {
             };
         } // init
         
+        /**
+        ### intersect(rect1, rect2)
+        Returns the intersecting rect between the two specified XYRect composites
+        */
+        function intersect(rect1, rect2) {
+            var x1 = Math.max(rect1.x1, rect2.x1),
+                y1 = Math.max(rect1.y1, rect2.y1),
+                x2 = Math.min(rect1.x2, rect2.x2),
+                y2 = Math.min(rect1.y2, rect2.y2),
+                r = init(x1, y1, x2, y2);
+                
+            return ((r.width > 0) && (r.height > 0)) ? r : null;
+        } // overlap
+        
         /* module definition */
         
         return {
@@ -458,7 +472,8 @@ T5 = (function() {
             copy: copy,
             diagonalSize: diagonalSize,
             fromCenter: fromCenter,
-            init: init
+            init: init,
+            intersect: intersect
         };
     })();
     

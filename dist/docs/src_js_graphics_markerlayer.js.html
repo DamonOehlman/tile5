@@ -56,7 +56,7 @@ add to the layer or alternatively an array of annotations to add.</p>
 
 <pre><code> // adding a single marker 
  layer.add(new <a href="src_js_graphics_annotation.js.html#T5.Annotation">T5.Annotation</a>({
-     xy: <a href="src_js_geo_core.js.html#T5.Geo.GeoVector">T5.Geo.GeoVector</a>(markerPos) // markerPos is a <a href="src_js_geo_core.js.html#T5.Geo.Position">T5.Geo.Position</a>
+     xy: <a href="src_js_geo_core.js.html#T5.GeoXY">T5.GeoXY</a>.init(markerPos) // markerPos is a <a href="src_js_geo_core.js.html#T5.Geo.Position">T5.Geo.Position</a>
  }));
 
  // adding multiple markers

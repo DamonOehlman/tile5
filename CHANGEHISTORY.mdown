@@ -2,10 +2,12 @@
 
 ## 0.9.4 (release TBA)
 
-Stabilization of the 0.9.3 release with bug fixes and refinements to the GeoJSON handling.  Additionally, complete removal of the poi functionality as this is well handled through good marker management techniques so it's just
+Some major rework of the handling of virtual display offsets in Tile5.  Previously a bit of double-handling was going on, however, this has been significantly improved.  Complete removal of the poi functionality as this is well handled through good marker management techniques so it's just
 wasting space.
 
 ### Detailed Changes
+
+- Major changes to the offset system
 
 - `T5.Geo.PointOfInterest` and `T5.Geo.POIStorage` removed. Not deprecated, just removed - apologies if anyone was using them, but if you were you really don't need to.  Additionally, the `pois` property of a `T5.Map` has been removed also.
 
@@ -30,6 +32,8 @@ wasting space.
 - Added `T5.XY` module to take on the majority of the `T5.V` functions as it is more correct as we weren't really dealing with vectors but rather simple coordinates.  The sample logic has been applied in the geo space, and `T5.Geo.GeoXY` replaces the `T5.Geo.GeoVector` class.
 
 - Added the ability to parse Point information from GeoJSON
+
+- PINCH T5.ViewState renamed to ZOOM
 
 ## 0.9.3 (released 2010-11-18)
 

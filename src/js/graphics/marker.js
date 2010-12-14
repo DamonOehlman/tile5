@@ -72,13 +72,13 @@ T5.Marker = function(params) {
         a custom marker, you should provide a custom implementation of the `drawMarker`
         method rather than this method.
         */
-        draw: function(context, offset, state, overlay, view) {
+        draw: function(context, viewRect, state, overlay, view) {
             if (self.isNew && (params.tweenIn)) {
                 // get the end value and update the y value
                 var endValue = self.xy.y;
 
                 // set the y to offscreen
-                self.xy.y = offset.y - 20;
+                self.xy.y = viewRect.y1 - 20;
                 
                 // animate the annotation
                 animating = true;
@@ -101,7 +101,7 @@ T5.Marker = function(params) {
             // draw ther marker
             self.drawMarker(
                 context, 
-                offset, 
+                viewRect, 
                 self.xy.x, 
                 self.xy.y,
                 state, 
@@ -118,7 +118,7 @@ T5.Marker = function(params) {
         extensions of T5.Annotation would normally replace this implementation
         with their own modified implementation (such as T5.ImageAnnotation does).
         */
-        drawMarker: function(context, offset, x, y, state, overlay, view) {
+        drawMarker: function(context, viewRect, x, y, state, overlay, view) {
             context.beginPath();
             context.arc(
                 x, 

@@ -31,7 +31,7 @@ is used, which simply draws a small circle at the current position of the animat
 
 
 ## Draw Indicator Callback Function
-`function(context, offset, xy, theta)`
+`function(context, viewRect, xy, theta)`
 
 
 The drawIndicator parameter in the constructor allows you to specify a particular callback function that is 
@@ -39,8 +39,8 @@ used when drawing the indicator.  The function takes the following arguments:
 
 
 - `context` - the canvas context to draw to when drawing the indicator
-- `offset` - the current tiling offset to take into account when drawing
-- `xy` - the xy position where the indicator should be drawn (offset accounted for)
+- `viewRect` - the current viewRect to take into account when drawing
+- `xy` - the xy position where the indicator should be drawn 
 - `theta` - the current angle (in radians) given the path positioning.
 */
 T5.AnimatedPathLayer = function(params) {
@@ -48,7 +48,7 @@ T5.AnimatedPathLayer = function(params) {
         path: [],
         id: COG.objId('pathAni'),
         easing: T5.easing('sine.inout'),
-        validStates: T5.viewState("ACTIVE", "PAN", "PINCH"),
+        validStates: T5.viewState('ACTIVE', 'PAN', 'ZOOM'),
         drawIndicator: null,
         duration: 2000,
         autoCenter: false
@@ -61,7 +61,7 @@ T5.AnimatedPathLayer = function(params) {
         indicatorXY = null,
         pathOffset = 0;
     
-    function drawDefaultIndicator(context, offset, indicatorXY) {
+    function drawDefaultIndicator(context, viewRect, indicatorXY) {
         // draw an arc at the specified position
         context.fillStyle = "#FFFFFF";
         context.strokeStyle = "#222222";
@@ -101,7 +101,7 @@ T5.AnimatedPathLayer = function(params) {
     
     // initialise self
     var self =  T5.ex(new T5.ViewLayer(params), {
-        cycle: function(tickCount, offset, state, redraw) {
+        cycle: function(tickCount, viewRect, state, redraw) {
             var edgeIndex = 0;
 
             // iterate through the edge data and determine the current journey coordinate index
@@ -132,13 +132,13 @@ T5.AnimatedPathLayer = function(params) {
             return indicatorXY;
         },
         
-        draw: function(context, offset, dimensions, state, view) {
+        draw: function(context, viewRect, state, view) {
             if (indicatorXY) {
                 // if the draw indicator method is specified, then draw
                 (params.drawIndicator ? params.drawIndicator : drawDefaultIndicator)(
                     context,
-                    offset,
-                    T5.XY.init(indicatorXY.x - offset.x, indicatorXY.y - offset.y),
+                    viewRect,
+                    T5.XY.init(indicatorXY.x, indicatorXY.y),
                     theta
                 );
             } // if

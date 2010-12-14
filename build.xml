@@ -150,9 +150,11 @@ http://github.com/jquery/jquery/blob/master/build.xml
 
 			<!-- include tiling -->
 			<fileset file="src/js/tiling/core.js" />
+			<!-- 
 			<fileset file="src/js/tiling/tilegrid.js" />
 			<fileset file="src/js/tiling/imagetilegrid.js" />
 			<fileset file="src/js/tiling/tiler.js" />
+			-->
 			<fileset file="src/js/tiling/tilegenerator.js" />
 		</concat>
 	</target>

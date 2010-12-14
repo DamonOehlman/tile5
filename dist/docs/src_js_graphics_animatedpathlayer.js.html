@@ -33,15 +33,15 @@ is used, which simply draws a small circle at the current position of the animat
 
 <h2>Draw Indicator Callback Function</h2>
 
-<p><code>function(context, offset, xy, theta)</code></p>
+<p><code>function(context, viewRect, xy, theta)</code></p>
 
 <p>The drawIndicator parameter in the constructor allows you to specify a particular callback function that is 
 used when drawing the indicator.  The function takes the following arguments:</p>
 
 <ul>
 <li><code>context</code> - the canvas context to draw to when drawing the indicator</li>
-<li><code>offset</code> - the current tiling offset to take into account when drawing</li>
-<li><code>xy</code> - the xy position where the indicator should be drawn (offset accounted for)</li>
+<li><code>viewRect</code> - the current viewRect to take into account when drawing</li>
+<li><code>xy</code> - the xy position where the indicator should be drawn </li>
 <li><code>theta</code> - the current angle (in radians) given the path positioning.</li>
 </ul>
 

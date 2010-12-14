@@ -43,8 +43,8 @@ T5.ShapeLayer = function(params) {
     
     /* event handlers */
     
-    function handleParentChange(evt, parent) {
-        if (parent.syncVectors) {
+    function handleResync(evt, parent) {
+        if (parent.syncXY) {
             performSync(parent);
         } // if
     } // handleParentChange
@@ -107,7 +107,8 @@ T5.ShapeLayer = function(params) {
     });
     
     // handle grid updates
-    self.bind('parentChange', handleParentChange);
+    self.bind('parentChange', handleResync);
+    self.bind('resync', handleResync);
     
     // set the style attribute to be configurable
     COG.configurable(

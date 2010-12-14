@@ -12,7 +12,7 @@ function nextPos() {
     
     map.gotoPosition(position, 6);
     map.markers.add(new T5.Marker({
-        xy: new T5.Geo.GeoXY(position)
+        xy: T5.GeoXY.init(position)
     }));
 
     posIndex = posIndex % positions.length;

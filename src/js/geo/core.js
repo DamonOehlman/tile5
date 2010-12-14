@@ -564,7 +564,7 @@ T5.Geo = (function() {
             /**
             ### vectorize(positions, options)
             The vectorize function is used to take an array of positions specified in the 
-            `positions` argument and convert these into T5.Geo.GeoVector objects. By default
+            `positions` argument and convert these into GeoXY composites. By default
             the vectorize function will process these asyncronously and will return a 
             COG Worker that will be taking care of chunking up and processing the request
             in an efficient way.  It is, however, possible to specify that the conversion should
@@ -598,7 +598,7 @@ T5.Geo = (function() {
                 // if we are not processing async, then do it right now
                 if (! options.async) {
                     for (var ii = posIndex; ii--; ) {
-                        vectors[ii] = new T5.Geo.GeoVector(positions[ii]);
+                        vectors[ii] = T5.GeoXY.init(positions[ii]);
                     } // for
                     
                     return vectors;
@@ -616,7 +616,7 @@ T5.Geo = (function() {
                         
                         // process from the last position index
                         for (; ii--;) {
-                            vectors[ii] = new T5.Geo.GeoVector(positions[ii]);
+                            vectors[ii] = T5.GeoXY.init(positions[ii]);
                             
                             // increase the chunk counter
                             chunkCounter += 1;
@@ -1039,73 +1039,6 @@ T5.Geo = (function() {
         Position: Position,
         BoundingBox: BoundingBox,
         
-        /**
-        # T5.Geo.XY
-        
-        The GeoXY class is used to convert a position (T5.Geo.Position) into a
-        T5.Vector that can be used to draw on the various T5.ViewLayer implementations.
-        This class provides the necessary mechanism that allows the view layers to 
-        assume operation using a simple vector (containing an x and y) with no need
-        geospatial awareness built in.  
-        
-        Layers are aware that particular events may 
-        require vector resynchronization which is facilitated by the `syncVectors` 
-        method of the T5.Geo.UI.GeoTileGrid (the T5.TileGrid has a placeholder 
-        implementation).
-        
-        ## Usage
-        
-        <pre>
-        var position = T5.Geo.P.parse("-27.468 153.028"),
-            vector = new T5.Geo.GeoVector(position);
-        </pre>
-        
-        ## Methods
-        */
-        GeoXY: function(initPos, radsPerPixel) {
-            var self = T5.XY.init();
-                
-            function updatePos(newPos) {
-                // update the internal variables
-                self.pos = newPos;
-                self.mercXY = posTools.toMercatorPixels(newPos);
-            } // updatePos
-            
-            T5.ex(self, {
-                radsPerPixel: null,
-                
-                /**
-                ### setRadsPerPixel(radsPerPixel, offsetX, offsetY)
-                */
-                setRadsPerPixel: function(radsPerPixel) {
-                    var mercXY = self.mercXY;
-
-                    // calculate the x and y
-                    self.x = (mercXY.x / radsPerPixel) >> 0;
-                    self.y = ((Math.PI - mercXY.y) / radsPerPixel) >> 0;
-
-                    // update the rads per pixel
-                    self.radsPerPixel = radsPerPixel;
-                },
-                
-                /**
-                ### updatePos(pos)
-                Update the position of the T5.Geo.GeoVector
-                */
-                updatePos: updatePos
-            });
-            
-            // initialise the position
-            updatePos(initPos);
-            
-            // if the rads per pixel has been specified, then set that also
-            if (radsPerPixel) {
-                self.setRadsPerPixel(radsPerPixel);
-            } // if
-            
-            return self;
-        },
-        
         /* addressing and geocoding support */
         
         // TODO: probably need to include local support for addressing, but really don't want to bulk out T5 :/
@@ -1229,15 +1162,111 @@ T5.Geo = (function() {
             return self;
         }
     }; // module
+    
+    /**
+    # T5.GeoXY
+
+    The GeoXY class is used to convert a position (T5.Geo.Position) into a
+    composite xy that can be used to draw on the various T5.ViewLayer implementations.
+    This class provides the necessary mechanism that allows the view layers to 
+    assume operation using a simple vector (containing an x and y) with no need
+    geospatial awareness built in.  
+
+    Layers are aware that particular events may require vector resynchronization 
+    which is facilitated by the `syncXY` method of the T5.Map. 
+
+    ## Functions
+    */
+    T5.GeoXY = (function() {
+
+        /* internal functions */
+
+        /* exports */
+
+        /**
+        ### init(pos, radsPerPixel)
+        */
+        function init(pos, radsPerPixel) {
+            var xy = T5.XY.init();
+
+            // update the internal variables
+            xy.pos = pos;
+            xy.mercXY = posTools.toMercatorPixels(pos);
+
+            // if the rads per pixel is specified, then sync 
+            if (radsPerPixel) {
+                sync(xy, radsPerPixel);
+            } // if
+
+            return xy;
+        } // init
+
+        /**
+        ### sync(xy, radsPerPixel)
+        */
+        function sync(xy, radsPerPixel) {
+            // if the xy parameter is an array then process as such
+            if (xy.length) {
+                var minX, minY, maxX, maxY;
+
+                for (var ii = xy.length; ii--; ) {
+                    sync(xy[ii], radsPerPixel);
+
+                    // update the min x and min y
+                    minX = (typeof minX === 'undefined') || xy.x < minX ? xy.x : minX;
+                    minY = (typeof minY === 'undefined') || xy.y < minY ? xy.y : minY;
+
+                    // update the max x and max y
+                    maxX = (typeof maxX === 'undefined') || xy.x > maxX ? xy.x : maxX;
+                    maxY = (typeof maxY === 'undefined') || xy.y > maxY ? xy.y : maxY;
+                } // for
+
+                return T5.XYRect.init(minX, minY, maxY, maxY);
+            }
+            else if (xy.mercXY) {
+                var mercXY = xy.mercXY;
+
+                // calculate the x and y
+                xy.x = ~~(mercXY.x / radsPerPixel);
+                xy.y = ~~((Math.PI - mercXY.y) / radsPerPixel);
+
+                // update the rads per pixel
+                xy.radsPerPixel = radsPerPixel;
+            }
+            else {
+                COG.Log.warn('Attempted to sync an XY composite, not a GeoXY');
+            } // if..else
+
+            return xy;
+        } // setRadsPerPixel
+        
+        function toPos(xy, radsPerPixel) {
+            radsPerPixel = radsPerPixel ? radsPerPixel : self.radsPerPixel;
+
+            return posTools.fromMercatorPixels(xy.x * radsPerPixel, Math.PI - xy.y * radsPerPixel);
+        } // toPos
+
+        /* create the module */
+
+        return {
+            init: init,
+            sync: sync,
+            toPos: toPos
+        };
+    })();
+
+    /**
+    # T5.Geo.GeoVector
+    __deprecated__
+
+
+    please use the T5.Geo.GeoXY instead
+    */
+    module.GeoVector = function(position) {
+        COG.Log.warn('The T5.Geo.GeoVector class has been deprecated, please use T5.GeoXY.init instead');
+
+        return T5.GeoXY.init(position);
+    }; // Vector
 
     return T5.ex(module, moduleConstants, exportedFunctions);
 })();
-
-/**
-# T5.Geo.GeoVector
-__deprecated__
-
-
-please use the T5.Geo.GeoXY instead
-*/
-T5.Geo.GeoVector = T5.Geo.GeoXY;

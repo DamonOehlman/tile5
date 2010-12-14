@@ -9,58 +9,6 @@
 
 <p>This module defines user interface elements for <a href="docs_T5_overview.mdown.html#Tile5">Tile5</a> geo elements</p>
 
-<h1><a name="T5.Geo.UI.GeoTileGrid">T5.Geo.UI.GeoTileGrid</a></h1>
-
-<p><em>extends:</em> <a href="src_js_tiling_tilegrid.js.html#T5.TileGrid">T5.TileGrid</a></p>
-
-<p>The GeoTileGrid class is used to <strong>wrap</strong> and extend a standard <a href="src_js_tiling_tilegrid.js.html#T5.TileGrid">T5.TileGrid</a> and make 
-it "Geospatially aware".  Essentially a GeoTileGrid is initialized by passing an existing 
-TileGrid and a center position (<a href="src_js_geo_core.js.html#T5.Geo.Position">T5.Geo.Position</a>) and center xy coordinate (<a href="src_js_core.js.html#T5.Vector">T5.Vector</a>) and 
-this allows it to translate screen coordinates into latitude / longitude pairs.</p>
-
-<h2>Constructor</h2>
-
-<p><code>new <a href="src_js_geo_ui.js.html#T5.Geo.UI.GeoTileGrid">T5.Geo.UI.GeoTileGrid</a>(params);</code></p>
-
-<h3>Initialization Params</h3>
-
-<ul>
-<li><p><code>grid</code> (<a href="src_js_tiling_tilegrid.js.html#T5.TileGrid">T5.TileGrid</a>, default = null) the grid to wrap and make Geospatial aware</p></li>
-<li><p><code>centerPos</code> (<a href="src_js_geo_core.js.html#T5.Geo.Position">T5.Geo.Position</a>, default = empty pos) the latitude and longitude of the 
-center of the grid</p></li>
-<li><p><code>centerXY</code> (<a href="src_js_core.js.html#T5.Vector">T5.Vector</a>, default = empty vector) the center xy coordinate of the grid (relative 
-to the top left tile, xy coordinate = 0,0)</p></li>
-<li><p><code>radsPerPixel</code> (float, default = 0) the number of radians per pixel.  This value is used in 
-the calculation of screen coordinates to real world positions.  While for both the current map 
-provider implementations this value is the same, I expect it could vary from provider to provider.</p></li>
-</ul>
-
-<h2>Methods</h2>
-
-<h3>getGridXYForPosition(pos)</h3>
-
-<p>Returns a <a href="src_js_core.js.html#T5.Vector">T5.Vector</a> that relates to the grid position of the <a href="src_js_geo_core.js.html#T5.Geo.Position">T5.Geo.Position</a> value passed in 
-the pos parameter to the method.  This method is used extensively to calculate the position 
-that shapes / points should be drawn to the grid based on their geospatial position.</p>
-
-<h3>syncVectors</h3>
-
-<p>This function iterates through the specified vectors and if they are
-of type <a href="src_js_geo_core.js.html#T5.Geo.GeoVector">T5.Geo.GeoVector</a>, they are provided the rads per pixel of the
-grid so they can perform their calculations</p>
-
-<h3>getPixelDistance(distance)</h3>
-
-<p>Convert a pixel distance to a real world distance</p>
-
-<h3>pixelsToPos(vector)</h3>
-
-<p>CBasically the opposite of the <code>getGridXYForPosition</code>.  Returns a <a href="src_js_geo_core.js.html#T5.Geo.Position">T5.Geo.Position</a> based on 
-the xy value of the <a href="src_js_core.js.html#T5.Vector">T5.Vector</a> that is passed to the method.  Very useful when you need to 
-translate screen / grid coordinates into a latitude longitude.  For instance, in the case 
-where the user clicks on the map and you need to know the latitude and longitude of that 
-click / touch.</p>
-
 <h1><a name="T5.Geo.UI.RouteOverlay">T5.Geo.UI.RouteOverlay</a></h1>
 
 <p><em>extends:</em> <a href="src_js_graphics_pathlayer.js.html#T5.PathLayer">T5.PathLayer</a></p>
@@ -82,7 +30,7 @@ click / touch.</p>
 <p>This is a special type of <a href="src_js_graphics_shapes.js.html#T5.Poly">T5.Poly</a> that will take positions for the first
 argument of the constructor rather than vectors.  If the initialization
 parameter <code>autoParse</code> is set to true (which it is by default), this will 
-parsed by the <a href="src_js_geo_core.js.html#T5.Geo.P">T5.Geo.P</a>.parse function and converted into a <a href="src_js_geo_core.js.html#T5.Geo.GeoVector">T5.Geo.GeoVector</a>.</p>
+parsed by the <a href="src_js_geo_core.js.html#T5.Geo.P">T5.Geo.P</a>.parse function and converted into a GeoXY.</p>
 
 <h2>Constructor</h2>
 

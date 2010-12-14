@@ -53,8 +53,8 @@ T5.Geo.OSM = (function() {
             var radsPerPixel = T5.Geo.radsPerPixel(zoomLevel),
                 tileOffset = calculateTileOffset(position, zoomLevel),
                 tilePosition = calculatePosition(tileOffset.x, tileOffset.y, zoomLevel),
-                baseXY = new T5.Geo.GeoVector(position, radsPerPixel),
-                tileXY = new T5.Geo.GeoVector(tilePosition, radsPerPixel);
+                baseXY = T5.GeoXY.init(position, radsPerPixel),
+                tileXY = T5.GeoXY.init(tilePosition, radsPerPixel);
                 
             return T5.XY.init(
                         baseXY.x + (tileXY.x - baseXY.x), 
@@ -71,16 +71,35 @@ T5.Geo.OSM = (function() {
                 baseX = baseXY.x,
                 baseY = baseXY.y,
                 
+                maxTileX = 2 << (zoomLevel - 1),
+                
                 flipY = false,
                 
                 // initialise the tile creator
                 creator = function(tileX, tileY) {
+                    if (! tileOffset.x) {
+                        return null;
+                    } // if
+                    
                     var realTileX = tileOffset.x + tileX,
-                        tileUrl = COG.formatStr("{0}/{1}/{2}.png",
-                            zoomLevel,
-                            realTileX,
-                            flipY ? Math.abs(tileOffset.y + tileY - Math.pow(2,zoomLevel)) : tileOffset.y + tileY),
-                        baseUrl = '';
+                        baseUrl = '', 
+                        tileUrl;
+                        
+                    // keep the actual tile x above 0
+                    while (realTileX < 0) {
+                        realTileX = realTileX + maxTileX;
+                    } // while
+
+                    // keep the actual tile x within the range for this zoom level
+                    while (realTileX >= maxTileX) {
+                        realTileX = realTileX - maxTileX;
+                    } // while
+
+                    // determine the tile url
+                    tileUrl = COG.formatStr("{0}/{1}/{2}.png",
+                        zoomLevel,
+                        realTileX,
+                        flipY ? Math.abs(tileOffset.y + tileY - Math.pow(2,zoomLevel)) : tileOffset.y + tileY);
                     
                     // COG.Log.info('getting url for tile x = ' + tileX + ', y = ' + tileY);
                     if (serverDetails) {

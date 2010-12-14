@@ -2845,8 +2845,8 @@ T5 = (function() {
             // default the xy and y1 to 0 if not specified
             x1 = x1 ? x1 : 0;
             y1 = y1 ? y1 : 0;
-            x2 = x2 ? x2 : x1;
-            y2 = y2 ? y2 : y2;
+            x2 = typeof x2 !== 'undefined' ? x2 : x1;
+            y2 = typeof y2 !== 'undefined '? y2 : y2;
             
             return {
                 x1: x1,
@@ -2859,6 +2859,20 @@ T5 = (function() {
             };
         } // init
         
+        /**
+        ### intersect(rect1, rect2)
+        Returns the intersecting rect between the two specified XYRect composites
+        */
+        function intersect(rect1, rect2) {
+            var x1 = Math.max(rect1.x1, rect2.x1),
+                y1 = Math.max(rect1.y1, rect2.y1),
+                x2 = Math.min(rect1.x2, rect2.x2),
+                y2 = Math.min(rect1.y2, rect2.y2),
+                r = init(x1, y1, x2, y2);
+                
+            return ((r.width > 0) && (r.height > 0)) ? r : null;
+        } // overlap
+        
         /* module definition */
         
         return {
@@ -2866,7 +2880,8 @@ T5 = (function() {
             copy: copy,
             diagonalSize: diagonalSize,
             fromCenter: fromCenter,
-            init: init
+            init: init,
+            intersect: intersect
         };
     })();
     
@@ -4342,7 +4357,7 @@ T5.Tween = function(params) {
         ACTIVE: 1,
         ANIMATING: 4,
         PAN: 8,
-        PINCH: 16,
+        ZOOM: 16,
         FREEZE: 128
     };
     
@@ -4359,7 +4374,7 @@ T5.Tween = function(params) {
     - _UNUSED_ = 2
     - ANIMATING = 4
     - PAN = 8
-    - PINCH = 16
+    - ZOOM = 16
     - _UNUSED_ = 32
     - _UNUSED_ = 64
     - FREEZE = 128
@@ -4451,7 +4466,7 @@ T5.ViewLayer = function(params) {
         zindex: 0,
         supportFastDraw: false,
         animated: false,
-        validStates: T5.viewState("ACTIVE", "ANIMATING", "PAN", "PINCH")
+        validStates: T5.viewState('ACTIVE', 'ANIMATING', 'PAN', 'ZOOM')
     }, params);
     
     var parent = null,
@@ -4736,7 +4751,6 @@ T5.View = function(params) {
         cycleRect = null,
         clearBackground = false,
         cycleWorker = null,
-        frozen = false,
         deviceScaling = 1,
         dimensions = T5.D.init(),
         wakeTriggers = 0,
@@ -4770,7 +4784,7 @@ T5.View = function(params) {
         
         stateActive = T5.viewState('ACTIVE'),
         statePan = T5.viewState('PAN'),
-        statePinch = T5.viewState('PINCH'),
+        statePinch = T5.viewState('ZOOM'),
         stateAnimating = T5.viewState('ANIMATING'),
         
         state = stateActive;
@@ -4780,9 +4794,9 @@ T5.View = function(params) {
         rectDiagonal = T5.XYRect.diagonalSize,
         rectCenter = T5.XYRect.center;
         
-    /* panning functions */
+    /* event handlers */
     
-    function pan(evt, x, y, inertia) {
+    function handlePan(evt, x, y, inertia) {
         state = statePan;
         wake();
         
@@ -4923,7 +4937,19 @@ T5.View = function(params) {
                 layers[ii].trigger('tap', absXY, relXY, gridXY).cancel;
         } // for
     } // handleTap
+    
+    /* exports */
+    
+    /**
+    ### pan(x, y, tweenFn, tweenDuration, callback)
+    */
+    function pan(x, y, tweenFn, tweenDuration, callback) {
+        updateOffset(offsetX + x, offsetY + y, tweenFn, tweenDuration, callback);
+    } // pan
         
+    /**
+    ### updateOffset(x, y, tweenFn, tweenDuration, callback)
+    */
     function updateOffset(x, y, tweenFn, tweenDuration, callback) {
         
         // initialise variables
@@ -5096,10 +5122,13 @@ T5.View = function(params) {
         
         // update the zoom center
         scaling = true;
-        startCenter = T5.XY.copy(startXY);
-        endCenter = T5.XY.copy(targetXY);
+        startCenter = T5.XY.offset(startXY, cycleRect.x1, cycleRect.y1);
+        endCenter = T5.XY.offset(targetXY, cycleRect.x1, cycleRect.y1);
         startRect = null;
 
+        COG.Log.info('zoom from: ', startCenter);
+        COG.Log.info('zoom to:   ', endCenter);
+        
         // if tweening then update the targetXY
         if (tweenFn) {
             var tween = T5.tweenValue(
@@ -5168,11 +5197,6 @@ T5.View = function(params) {
     } // idle
     
     function drawView(context, drawState, rect, redraw, tickCount) {
-        // if frozen override the draw state
-        if (frozen) {
-            drawState = T5.viewState('FROZEN');
-        } // if
-        
         var isPinchZoom = (drawState & statePinch) !== 0,
             delayDrawLayers = [],
             ii = 0;
@@ -5201,17 +5225,18 @@ T5.View = function(params) {
         try {
             lastDrawScaleFactor = scaleFactor;
             
-            context.translate(-rect.x1, -rect.y1);
-            
             // if the device dpi has scaled, then apply that to the display
             if (deviceScaling !== 1) {
                 context.scale(deviceScaling, deviceScaling);
             }
             // if we are scaling, then tell the canvas to scale
             else if (isPinchZoom) {
-                context.translate(endCenter.x, endCenter.y);
+                // context.translate(endCenter.x, endCenter.y);
+                // context.translate(-rect.width / 2, -rect.height / 2 * scaleFactor);
                 context.scale(scaleFactor, scaleFactor);
             } // if..else
+            
+            context.translate(-rect.x1, -rect.y1);
             
             for (ii = layerCount; ii--; ) {
                 // draw the layer output to the main canvas
@@ -5317,7 +5342,7 @@ T5.View = function(params) {
     
     function wake() {
         wakeTriggers += 1;
-        if (frozen || cycleWorker) { return; }
+        if (cycleWorker) { return; }
         
         // create the cycle worker
         cycleWorker = COG.Loopage.join({
@@ -5334,6 +5359,78 @@ T5.View = function(params) {
     function layerContextChanged(layer) {
         layer.trigger("contextChanged", mainContext);
     } // layerContextChanged
+    
+    /* exports */
+    
+    /**
+    ### eachLayer(callback)
+    Iterate through each of the ViewLayers and pass each to the callback function 
+    supplied.
+    */
+    function eachLayer(callback) {
+        // iterate through each of the layers and fire the callback for each
+        for (var ii = layerCount; ii--; ) {
+            callback(layers[ii]);
+        } // for
+    } // eachLayer
+    
+    /**
+    ### getLayer(id)
+    Get the ViewLayer with the specified id, return null if not found
+    */
+    function getLayer(id) {
+        // look for the matching layer, and return when found
+        for (var ii = 0; ii < layerCount; ii++) {
+            if (layers[ii].getId() == id) {
+                return layers[ii];
+            } // if
+        } // for
+        
+        return null;
+    } // getLayer
+    
+    /**
+    ### getViewRect()
+    Return a T5.XYRect for the last drawn view rect
+    */
+    function getViewRect() {
+        return cycleRect ? cycleRect : T5.XYRect.fromCenter(
+                                        offsetX, 
+                                        offsetY, 
+                                        dimensions.width, 
+                                        dimensions.height);
+    } // getViewRect
+    
+    /**
+    ### setLayer(id: String, value: T5.ViewLayer)
+    Either add or update the specified view layer
+    */
+    function setLayer(id, value) {
+        // if the layer already exists, then remove it
+        for (var ii = 0; ii < layerCount; ii++) {
+            if (layers[ii].getId() === id) {
+                layers.splice(ii, 1);
+                break;
+            } // if
+        } // for
+        
+        if (value) {
+            addLayer(id, value);
+        } // if
+
+        invalidate();
+    } // setLayer
+    
+    /**
+    ### triggerAll(eventName, args*)
+    Trigger an event on the view and all layers currently contained in the view
+    */
+    function triggerAll() {
+        self.trigger.apply(null, arguments);
+        for (var ii = layers.length; ii--; ) {
+            layers[ii].trigger.apply(null, arguments);
+        } // for
+    } // triggerAll
     
     /* object definition */
     
@@ -5381,54 +5478,9 @@ T5.View = function(params) {
             return zoomCenter;
         },
         
-        /* layer getter and setters */
-        
-        /**
-        ### getLayer(id: String)
-        Get the ViewLayer with the specified id, return null if not found
-        */
-        getLayer: function(id) {
-            // look for the matching layer, and return when found
-            for (var ii = 0; ii < layerCount; ii++) {
-                if (layers[ii].getId() == id) {
-                    return layers[ii];
-                } // if
-            } // for
-            
-            return null;
-        },
-        
-        /**
-        ### setLayer(id: String, value: T5.ViewLayer)
-        Either add or update the specified view layer
-        */
-        setLayer: function(id, value) {
-            // if the layer already exists, then remove it
-            for (var ii = 0; ii < layerCount; ii++) {
-                if (layers[ii].getId() === id) {
-                    layers.splice(ii, 1);
-                    break;
-                } // if
-            } // for
-            
-            if (value) {
-                addLayer(id, value);
-            } // if
-
-            invalidate();
-        },
-        
-        /**
-        ### eachLayer(callback: Function)
-        Iterate through each of the ViewLayers and pass each to the callback function 
-        supplied.
-        */
-        eachLayer: function(callback) {
-            // iterate through each of the layers and fire the callback for each
-            for (var ii = layerCount; ii--; ) {
-                callback(layers[ii]);
-            } // for
-        },
+        getLayer: getLayer,
+        setLayer: setLayer,
+        eachLayer: eachLayer,
         
         /**
         ### clearBackground()
@@ -5447,25 +5499,6 @@ T5.View = function(params) {
         is required
         */
         invalidate: invalidate,
-        
-        /**
-        ### freeze()
-        Used to freeze the display (no updates are performed) until the view
-        is unfrozen using the `unfreeze` method.
-        */
-        freeze: function() {
-            frozen = true;
-        },
-        
-        /**
-        ### unfreeze()
-        Renable updates to the display after a call to `freeze`
-        */
-        unfreeze: function() {
-            frozen = false;
-            
-            wake();
-        },
         
         /**
         ### resize(width: Int, height: Int)
@@ -5512,6 +5545,8 @@ T5.View = function(params) {
             return self;
         },
         
+        triggerAll: triggerAll,
+        
         /**
         ### removeLayer(id: String)
         Remove the T5.ViewLayer specified by the id
@@ -5548,22 +5583,9 @@ T5.View = function(params) {
             return cycleOffset ? cycleOffset : T5.XY.init(offsetX, offsetY);
         },
         
-        /**
-        ### getOffsetRect()
-        Return a T5.XYRect for the last drawn view rect
-        */
-        getOffsetRect: function() {
-            return cycleRect ? cycleRect : T5.XYRect.fromCenter(
-                                            offsetX, 
-                                            offsetY, 
-                                            dimensions.width, 
-                                            dimensions.height);
-        },
-        
-        /**
-        ### updateOffset(x, y, tweenFn, tweenDuration, callback)
-        */
+        getViewRect: getViewRect,
         updateOffset: updateOffset,
+        pan: pan,
         
         /**
         ### zoom(targetXY, newScaleFactor, rescaleAfter)
@@ -5572,9 +5594,11 @@ T5.View = function(params) {
             panimating = false;
             scaleFactor = newScaleFactor;
             scaling = scaleFactor !== 1;
-
+            
             startCenter = T5.D.getCenter(dimensions);
-            endCenter = scaleFactor > 1 ? T5.XY.copy(targetXY) : T5.D.getCenter(dimensions);
+            endCenter = T5.XY.offset(
+                scaleFactor > 1 ? T5.XY.copy(targetXY) : T5.D.getCenter(dimensions),
+                cycleRect.x1, cycleRect.y1);
             startRect = null;
             
             clearTimeout(rescaleTimeout);
@@ -5607,7 +5631,7 @@ T5.View = function(params) {
     
     // if this is pannable, then attach event handlers
     if (params.pannable) {
-        self.bind("pan", pan);
+        self.bind("pan", handlePan);
         self.bind("panEnd", panEnd);
 
         // handle intertia events
@@ -5673,27 +5697,17 @@ T5.PathLayer = function(params) {
         
     /* private internal functions */
     
-    function handleGridUpdate(evt, grid) {
-        resyncPath(grid);
-        
-        // tell all the spawned animations to remove themselves
-        for (var ii = spawnedAnimations.length; ii--; ) {
-            COG.say(
-                'layer.remove', { id: spawnedAnimations[ii] });
-        } // for
-        
-        // reset the spawned animations array
-        spawnedAnimations = [];
-    };
-        
-    function resyncPath(grid) {
-        // update the vectors
-        grid.syncVectors(rawCoords);
-        if (rawMarkers) {
-            grid.syncVectors(rawMarkers);
-        } // if
+    function resyncPath() {
+        var parent = self.getParent();
+        if (parent && parent.syncXY) {
+            // update the vectors
+            parent.syncXY(rawCoords);
+            if (rawMarkers) {
+                parent.syncXY(rawMarkers);
+            } // if
 
-        self.trigger('tidy');
+            self.trigger('tidy');
+        } // if
     } // resyncPath
     
     // create the view layer the we will draw the view
@@ -5715,11 +5729,11 @@ T5.PathLayer = function(params) {
             });
         },
         
-        cycle: function(tickCount, offset, state, redraw) {
+        cycle: function(tickCount, viewRect, state, redraw) {
             return redraw;
         },
 
-        draw: function(context, offset, dimensions, state, view) {
+        draw: function(context, viewRect, state, view) {
             var ii,
                 coordLength = coordinates.length;
                 
@@ -5731,13 +5745,13 @@ T5.PathLayer = function(params) {
                     // start drawing the path
                     context.beginPath();
                     context.moveTo(
-                        coordinates[coordLength - 1].x - offset.x, 
-                        coordinates[coordLength - 1].y - offset.y);
+                        coordinates[coordLength - 1].x, 
+                        coordinates[coordLength - 1].y);
 
                     for (ii = coordLength; ii--; ) {
                         context.lineTo(
-                            coordinates[ii].x - offset.x,
-                            coordinates[ii].y - offset.y);
+                            coordinates[ii].x,
+                            coordinates[ii].y);
                     } // for
 
                     context.stroke();
@@ -5750,8 +5764,8 @@ T5.PathLayer = function(params) {
                         for (ii = markerCoordinates.length; ii--; ) {
                             context.beginPath();
                             context.arc(
-                                markerCoordinates[ii].x - offset.x, 
-                                markerCoordinates[ii].y - offset.y,
+                                markerCoordinates[ii].x, 
+                                markerCoordinates[ii].y,
                                 2,
                                 0,
                                 Math.PI * 2,
@@ -5771,22 +5785,14 @@ T5.PathLayer = function(params) {
         },
         
         updateCoordinates: function(coords, markerCoords) {
-            var parent = self.getParent(),
-                grid = parent ? parent.getTileLayer() : null;
-            
             // update the coordinates
             rawCoords = coords;
             rawMarkers = markerCoords;
             
-            // if we have a grid, then update
-            COG.Log.info('updating coordinates, grid = ' + grid);
-            if (grid) {
-                resyncPath(grid);
-            } // if
+            resyncPath();
         }
     });
     
-    self.bind('gridUpdate', handleGridUpdate);
     self.bind('tidy', function(evt) {
         coordinates = T5.XY.simplify(rawCoords, params.pixelGeneralization);
         markerCoordinates = T5.XY.simplify(rawMarkers, params.pixelGeneralization);
@@ -5843,8 +5849,8 @@ T5.ShapeLayer = function(params) {
     
     /* event handlers */
     
-    function handleParentChange(evt, parent) {
-        if (parent.syncVectors) {
+    function handleResync(evt, parent) {
+        if (parent.syncXY) {
             performSync(parent);
         } // if
     } // handleParentChange
@@ -5907,7 +5913,8 @@ T5.ShapeLayer = function(params) {
     });
     
     // handle grid updates
-    self.bind('parentChange', handleParentChange);
+    self.bind('parentChange', handleResync);
+    self.bind('resync', handleResync);
     
     // set the style attribute to be configurable
     COG.configurable(
@@ -5993,7 +6000,7 @@ T5.Arc = function(origin, params) {
        ### resync(view)
        */
        resync: function(view) {
-           var centerXY = view.syncVectors([origin]).origin;
+           var centerXY = view.syncXY([origin]).origin;
            drawXY = T5.XY.floor([origin])[0];
        }
    });
@@ -6009,7 +6016,7 @@ a T5.PolyLayer.
 
 ## Constructor
 
-`new T5.Poly(vectors, params)`
+`new T5.Poly(points, params)`
 
 The constructor requires an array of vectors that represent the poly and 
 also accepts optional initialization parameters (see below).
@@ -6024,7 +6031,7 @@ is specified then the style of the T5.PolyLayer is used.
 
 ## Methods
 */
-T5.Poly = function(vectors, params) {
+T5.Poly = function(points, params) {
     params = T5.ex({
         fill: false,
         simplify: false
@@ -6034,8 +6041,8 @@ T5.Poly = function(vectors, params) {
     var haveData = false,
         fill = params.fill,
         simplify = params.simplify,
-        stateZoom = T5.viewState('PINCH'),
-        drawVectors = [];
+        stateZoom = T5.viewState('ZOOM'),
+        drawPoints = [];
     
     /* exported functions */
     
@@ -6055,9 +6062,9 @@ T5.Poly = function(vectors, params) {
             
             // now draw the lines
             // COG.Log.info('drawing poly: have ' + drawVectors.length + ' vectors');
-            for (var ii = drawVectors.length; ii--; ) {
-                var x = drawVectors[ii].x,
-                    y = drawVectors[ii].y;
+            for (var ii = drawPoints.length; ii--; ) {
+                var x = drawPoints[ii].x,
+                    y = drawPoints[ii].y;
                     
                 if (first) {
                     context.moveTo(x, y);
@@ -6086,13 +6093,13 @@ T5.Poly = function(vectors, params) {
     
     /**
     ### resync(view)
-    Used to synchronize the vectors of the poly to the grid.
+    Used to synchronize the points of the poly to the grid.
     */
     function resync(view) {
-        self.xy = view.syncVectors(vectors);
+        self.xy = view.syncXY(points);
         
         // simplify the vectors for drawing (if required)
-        drawVectors = T5.XY.floor(simplify ? T5.XY.simplify(vectors) : vectors);
+        drawPoints = T5.XY.floor(simplify ? T5.XY.simplify(points) : points);
     } // resyncToGrid
     
     /* define self */
@@ -6103,7 +6110,7 @@ T5.Poly = function(vectors, params) {
     });
 
     // initialise the first item to the first element in the array
-    haveData = vectors && (vectors.length >= 2);
+    haveData = points && (points.length >= 2);
     
     return self;
 };
@@ -6141,7 +6148,7 @@ is used, which simply draws a small circle at the current position of the animat
 
 
 ## Draw Indicator Callback Function
-`function(context, offset, xy, theta)`
+`function(context, viewRect, xy, theta)`
 
 
 The drawIndicator parameter in the constructor allows you to specify a particular callback function that is 
@@ -6149,8 +6156,8 @@ used when drawing the indicator.  The function takes the following arguments:
 
 
 - `context` - the canvas context to draw to when drawing the indicator
-- `offset` - the current tiling offset to take into account when drawing
-- `xy` - the xy position where the indicator should be drawn (offset accounted for)
+- `viewRect` - the current viewRect to take into account when drawing
+- `xy` - the xy position where the indicator should be drawn 
 - `theta` - the current angle (in radians) given the path positioning.
 */
 T5.AnimatedPathLayer = function(params) {
@@ -6158,7 +6165,7 @@ T5.AnimatedPathLayer = function(params) {
         path: [],
         id: COG.objId('pathAni'),
         easing: T5.easing('sine.inout'),
-        validStates: T5.viewState("ACTIVE", "PAN", "PINCH"),
+        validStates: T5.viewState('ACTIVE', 'PAN', 'ZOOM'),
         drawIndicator: null,
         duration: 2000,
         autoCenter: false
@@ -6171,7 +6178,7 @@ T5.AnimatedPathLayer = function(params) {
         indicatorXY = null,
         pathOffset = 0;
     
-    function drawDefaultIndicator(context, offset, indicatorXY) {
+    function drawDefaultIndicator(context, viewRect, indicatorXY) {
         // draw an arc at the specified position
         context.fillStyle = "#FFFFFF";
         context.strokeStyle = "#222222";
@@ -6211,7 +6218,7 @@ T5.AnimatedPathLayer = function(params) {
     
     // initialise self
     var self =  T5.ex(new T5.ViewLayer(params), {
-        cycle: function(tickCount, offset, state, redraw) {
+        cycle: function(tickCount, viewRect, state, redraw) {
             var edgeIndex = 0;
 
             // iterate through the edge data and determine the current journey coordinate index
@@ -6242,13 +6249,13 @@ T5.AnimatedPathLayer = function(params) {
             return indicatorXY;
         },
         
-        draw: function(context, offset, dimensions, state, view) {
+        draw: function(context, viewRect, state, view) {
             if (indicatorXY) {
                 // if the draw indicator method is specified, then draw
                 (params.drawIndicator ? params.drawIndicator : drawDefaultIndicator)(
                     context,
-                    offset,
-                    T5.XY.init(indicatorXY.x - offset.x, indicatorXY.y - offset.y),
+                    viewRect,
+                    T5.XY.init(indicatorXY.x, indicatorXY.y),
                     theta
                 );
             } // if
@@ -6331,13 +6338,13 @@ T5.Marker = function(params) {
         a custom marker, you should provide a custom implementation of the `drawMarker`
         method rather than this method.
         */
-        draw: function(context, offset, state, overlay, view) {
+        draw: function(context, viewRect, state, overlay, view) {
             if (self.isNew && (params.tweenIn)) {
                 // get the end value and update the y value
                 var endValue = self.xy.y;
 
                 // set the y to offscreen
-                self.xy.y = offset.y - 20;
+                self.xy.y = viewRect.y1 - 20;
                 
                 // animate the annotation
                 animating = true;
@@ -6360,7 +6367,7 @@ T5.Marker = function(params) {
             // draw ther marker
             self.drawMarker(
                 context, 
-                offset, 
+                viewRect, 
                 self.xy.x, 
                 self.xy.y,
                 state, 
@@ -6377,7 +6384,7 @@ T5.Marker = function(params) {
         extensions of T5.Annotation would normally replace this implementation
         with their own modified implementation (such as T5.ImageAnnotation does).
         */
-        drawMarker: function(context, offset, x, y, state, overlay, view) {
+        drawMarker: function(context, viewRect, x, y, state, overlay, view) {
             context.beginPath();
             context.arc(
                 x, 
@@ -6496,7 +6503,7 @@ T5.ImageMarker = function(params) {
     
     /* exports */
     
-    function drawMarker(context, offset, x, y, state, overlay, view) {
+    function drawMarker(context, viewRect, x, y, state, overlay, view) {
         // get the image
         var image = self.isAnimating() && self.animatingImage ? 
                 self.animatingImage : self.image;
@@ -6644,13 +6651,6 @@ T5.MarkerLayer = function(params) {
         
     /* event handlers */
         
-    function handleGridUpdate(evt, grid) {
-        // iterate through the markers and fire the callback
-        for (var ii = markers.length; ii--; ) {
-            grid.syncVectors([markers[ii].xy]);
-        } // for
-    } // handleGridUpdate
-    
     function handleTap(evt, absXY, relXY, gridXY) {
         var tappedMarkers = [],
             testX = relXY.x,
@@ -6688,11 +6688,10 @@ T5.MarkerLayer = function(params) {
     
     function resyncMarkers() {
         var parent = self.getParent();
-        
-        if (parent && parent.syncVectors) {
+        if (parent && parent.syncXY) {
             // iterate through the markers and fire the callback
             for (var ii = markers.length; ii--; ) {
-                parent.syncVectors([markers[ii].xy]);
+                parent.syncXY([markers[ii].xy]);
             } // for
         } // if
     } // resyncMarkers
@@ -6707,7 +6706,7 @@ T5.MarkerLayer = function(params) {
     #### Example Usage
     ~ // adding a single marker 
     ~ layer.add(new T5.Annotation({
-    ~     xy: T5.Geo.GeoVector(markerPos) // markerPos is a T5.Geo.Position
+    ~     xy: T5.GeoXY.init(markerPos) // markerPos is a T5.Geo.Position
     ~ }));
     ~ 
     ~ // adding multiple markers
@@ -6785,11 +6784,11 @@ T5.MarkerLayer = function(params) {
 
     // create the view layer the we will draw the view
     var self = T5.ex(new T5.ViewLayer(params), {
-        cycle: function(tickCount, offset, state, redraw) {
+        cycle: function(tickCount, viewRect, state, redraw) {
             return animating;
         },
         
-        draw: function(context, offset, state, view) {
+        draw: function(context, viewRect, state, view) {
             // reset animating to false
             animating = false;
             
@@ -6797,7 +6796,7 @@ T5.MarkerLayer = function(params) {
             for (var ii = markers.length; ii--; ) {
                 markers[ii].draw(
                     context, 
-                    offset, 
+                    viewRect, 
                     state, 
                     self, 
                     view);
@@ -6815,7 +6814,6 @@ T5.MarkerLayer = function(params) {
     
     // handle tap events
     self.bind('tap', handleTap);
-    self.bind('gridUpdate', handleGridUpdate);
     self.bind('parentChange', resyncMarkers);
     self.bind('changed', resyncMarkers);
     
@@ -6833,35 +6831,10 @@ T5.ImageLayer = function(genId, params) {
     var generator = T5.Generator.init(genId, params),
         generatedImages = null,
         lastViewRect = T5.XYRect.init(),
-        lastGenerateRect = T5.XYRect.init();
+        lastGenerateRect = T5.XYRect.init(),
+        stateZoom = T5.viewState('ZOOM');
     
     /* private internal functions */
-    
-    function drawImage(context, generatorImage, viewState) {
-        var image = T5.Images.get(generatorImage.url, handleImageLoad);
-        if (image) {
-            context.drawImage(
-                image, 
-                generatorImage.x, 
-                generatorImage.y,
-                image.width,
-                image.height);
-        }
-        else {
-            context.fillStyle = '#777';
-            context.fillRect(generatorImage.x, generatorImage.y, generatorImage.width, generatorImage.height);
-        } // if..else
-        
-        /*
-        context.beginPath();
-        context.rect(
-            generatorImage.x, 
-            generatorImage.y, 
-            generatorImage.width,
-            generatorImage.height);
-        context.stroke();
-        */
-    } // drawImage
     
     /* every library should have a regenerate function - here's mine ;) */
     function regenerate(viewRect) {
@@ -6898,6 +6871,37 @@ T5.ImageLayer = function(genId, params) {
     
     /* exports */
     
+    function drawImage(context, viewRect, x, y, imageData, viewState) {
+        var callback, image;
+        
+        // determine the callback to pass to the image get method
+        // no callback is supplied on the zoom view state which prevents 
+        // loading images that would just been thrown away
+        callback = (viewState & stateZoom) === 0 ? handleImageLoad : null;
+        
+        // get and possibly load the image
+        image = T5.Images.get(imageData.url, callback);
+            
+        if (image) {
+            // draw a rect for the purposes of the clipping
+            context.rect(
+                x, 
+                y, 
+                imageData.width,
+                imageData.height);
+                
+            context.drawImage(
+                image, 
+                x, 
+                y,
+                image.width,
+                image.height);
+        }
+        else {
+            context.clearRect(x, y, imageData.width, imageData.height);
+        } // if..else
+    } // drawImage
+    
     /* definition */
     
     var self = T5.ex(new T5.ViewLayer(params), {
@@ -6911,18 +6915,34 @@ T5.ImageLayer = function(genId, params) {
             } // if
         },
         
-        draw: function(context, rect, state, view) {
+        draw: function(context, viewRect, state, view) {
             // COG.Log.info('drawing image layer layer @ ', rect);
             
             context.save();
             try {
                 context.strokeStyle = '#555';
 
+                context.beginPath();
+
                 if (generatedImages) {
                     for (var ii = generatedImages.length; ii--; ) {
-                        drawImage(context, generatedImages[ii], state);
+                        var xx = generatedImages[ii].x,
+                            yy = generatedImages[ii].y,
+                            // TODO: more efficient please...
+                            imageRect = T5.XYRect.init(
+                                generatedImages[ii].x,
+                                generatedImages[ii].y,
+                                generatedImages[ii].x + generatedImages[ii].width,
+                                generatedImages[ii].y + generatedImages[ii].height);
+                                
+                        // draw the image
+                        if (T5.XYRect.intersect(viewRect, imageRect)) {
+                            self.drawImage(context, viewRect, xx, yy, generatedImages[ii], state);
+                        } // if
                     } // for
                 } // if
+                
+                context.clip();
             }
             finally {
                 context.restore();
@@ -6930,14 +6950,16 @@ T5.ImageLayer = function(genId, params) {
             
             context.strokeStyle = '#f00';
             context.beginPath();
-            context.moveTo(rect.x1 + rect.width/2, rect.y1);
-            context.lineTo(rect.x1 + rect.width/2, rect.y2);
-            context.moveTo(rect.x1, rect.y1 + rect.height / 2);
-            context.lineTo(rect.x2, rect.y1 + rect.height / 2);
+            context.moveTo(viewRect.x1 + viewRect.width/2, viewRect.y1);
+            context.lineTo(viewRect.x1 + viewRect.width/2, viewRect.y2);
+            context.moveTo(viewRect.x1, viewRect.y1 + viewRect.height / 2);
+            context.lineTo(viewRect.x2, viewRect.y1 + viewRect.height / 2);
             context.stroke();
             
-            lastViewRect = T5.XYRect.copy(rect);
-        }
+            lastViewRect = T5.XYRect.copy(viewRect);
+        },
+        
+        drawImage: drawImage
     });
     
     self.bind('parentChange', handleParentChange);
@@ -7163,906 +7185,6 @@ T5.Style = function(params) {
         return new T5.Tile(params);
     }; // T5.ImageTile
 })();/**
-# T5.TileGrid 
-_extends_: T5.ViewLayer
-
-
-The TileGrid implements functionality required to manage a virtual 
-grid of tiles and draw them to the parent T5.View canvas.
-
-## Constructor
-`new T5.TileGrid(params);`
-
-### Initialization Parameters
-
-- tileSize (int, default = T5.tileSize) - the size of the tiles that will be loaded
-into grid
-
-- center (T5.Vector, default = empty)
-
-- gridSize (int, default = 25) - the size of the grid.  Essentially, the grid will
-contain gridSize * gridSize tiles.
-
-- shiftOrigin
-
-- supportFastDraw (boolean, default = true) - overrides the T5.ViewLayer setting for fast draw.
-The grid should always be displayed, even if we are on a slow device.
-
-- allowShift (boolean, default = true) - whether or not the grid is allowed to shift. Shifting
-occurs when the TileGrid is getting to the edges of the grid and requires more image tiles to 
-ensure a fluid display.  Shifting can be disabled if desired (but this would be strange).
-
-
-## Events
-
-### tileDrawComplete
-This event is triggered once the tiles that are required to fill the current grid have
-been loaded and drawn to the display.
-
-<pre>
-tiler.bind('tileDrawComplete', function() {
-
-});
-</pre>
-
-## Methods
-*/
-T5.TileGrid = function(params) {
-    // extend the params with the defaults
-    params = T5.ex({
-        tileSize: T5.tileSize,
-        bufferSize: 1,
-        center: T5.XY.init(),
-        clearBackground: false,
-        gridSize: 25,
-        shiftOrigin: null,
-        supportFastDraw: true,
-        allowShift: true
-    }, params);
-    
-    // initialise tile store related information
-    var storage = new Array(Math.pow(params.gridSize, 2)),
-        gridCols = params.gridSize,
-        gridRows = params.gridSize,
-        tileSize = params.tileSize,
-        gridHeight = gridRows * tileSize,
-        gridWidth = gridCols * tileSize,
-        gridHalfWidth = Math.ceil(gridCols >> 1),
-        topLeftOffset = T5.XY.offset(params.center, -gridHalfWidth),
-        lastTileCreator = null,
-        tileShift = T5.XY.init(),
-        lastNotifyListener = null,
-        bufferSize = params.bufferSize,
-        halfTileSize = Math.round(tileSize / 2),
-        haveDirtyTiles = false,
-        invTileSize = tileSize ? 1 / tileSize : 0,
-        active = true,
-        tileDrawQueue = null,
-        loadedTileCount = 0,
-        lastTilesDrawn = false,
-        newTileLag = 0,
-        populating = false,
-        lastTickCount,
-        lastQueueUpdate = 0,
-        lastCheckOffset = T5.XY.init(),
-        shiftDelta = T5.XY.init(),
-        repaintDistance = T5.getConfig().repaintDistance,
-        reloadTimeout = 0,
-        tileCols, tileRows, centerPos,
-        clearBeforeDraw = params.clearBackground,
-        
-        // initialise state short cuts
-        stateAnimating = T5.viewState('ANIMATING'),
-        statePan = T5.viewState('PAN'),
-        statePinch = T5.viewState('PINCH');
-        
-    /* event handlers */
-    
-    function handleResize(evt, width, height) {
-        COG.Log.info('captured resize');
-        centerPos = null;
-    } // handleResize
-    
-    function handleScale(evt, scaleFactor, scaleXY) {
-        active = false;
-    } // handleScale
-        
-    /* internal functions */
-        
-    function copyStorage(dst, src, delta) {
-        // set the length of the destination to match the source
-        dst.length = src.length;
-
-        for (var xx = 0; xx < gridCols; xx++) {
-            for (var yy = 0; yy < gridRows; yy++) {
-                dst[getTileIndex(xx, yy)] = getTile(xx + delta.x, yy + delta.y);
-            } // for
-        } // for
-    } // copyStorage
-
-    function createTempTile(col, row) {
-        var gridXY = getGridXY(col, row);
-        return new T5.EmptyTile({
-            gridX: gridXY.x,
-            gridY: gridXY.y,
-            empty: true
-        });
-    } // createTempTile
-    
-    function findTile(matcher) {
-        if (! matcher) { return null; }
-        
-        for (var ii = storage.length; ii--; ) {
-            var tile = storage[ii];
-            if (tile && matcher(tile)) {
-                return tile;
-            } // if
-        } // for
-        
-        return null;
-    } // findTile
-    
-    function getGridXY(col, row) {
-        return T5.Vector(
-            col * tileSize - tileShift.x,
-            row * tileSize - tileShift.y);
-    } // getGridXY
-    
-    function getNormalizedPos(col, row) {
-        return T5.XY.add(T5.XY.init(col, row), T5.XY.invert(topLeftOffset), tileShift);
-    } // getNormalizedPos
-    
-    function getShiftDelta(topLeftX, topLeftY, cols, rows) {
-        // initialise variables
-        var shiftAmount = Math.max(gridCols, gridRows) * 0.2 >> 0,
-            shiftDelta = T5.XY.init();
-            
-        // test the x
-        if (topLeftX < 0 || topLeftX + cols > gridCols) {
-            shiftDelta.x = topLeftX < 0 ? -shiftAmount : shiftAmount;
-        } // if
-
-        // test the y
-        if (topLeftY < 0 || topLeftY + rows > gridRows) {
-            shiftDelta.y = topLeftY < 0 ? -shiftAmount : shiftAmount;
-        } // if
-        
-        return shiftDelta;
-    } // getShiftDelta
-    
-    function getTile(col, row) {
-        return (col >= 0 && col < gridCols) ? storage[getTileIndex(col, row)] : null;
-    } // getTile
-    
-    function setTile(col, row, tile) {
-        storage[getTileIndex(col, row)] = tile;
-    } // setTile
-    
-    function getTileIndex(col, row) {
-        return (row * gridCols) + col;
-    } // getTileIndex
-    
-    /*
-    What a cool function this is.  Basically, this goes through the tile
-    grid and creates each of the tiles required at that position of the grid.
-    The tileCreator is a callback function that takes a two parameters (col, row) and
-    can do whatever it likes but should return a Tile object or null for the specified
-    column and row.
-    */
-    function populate(tileCreator, notifyListener, resetStorage) {
-        // take a tick count as we want to time this
-        var startTicks = COG.Log.getTraceTicks(),
-            tileIndex = 0,
-            centerPos = T5.XY.init(gridCols / 2, gridRows / 2);
-            
-        populating = true;
-        try {
-            // if the storage is to be reset, then do that now
-            if (resetStorage) {
-                storage = [];
-            } // if
-
-            if (tileCreator) {
-                // COG.Log.info("populating grid, size = " + gridSize + ", x shift = " + tileShift.x + ", y shift = " + tileShift.y);
-
-                for (var row = 0; row < gridRows; row++) {
-                    for (var col = 0; col < gridCols; col++) {
-                        if (! storage[tileIndex]) {
-                            var tile = tileCreator(col, row, topLeftOffset, gridCols, gridRows);
-
-                            // set the tile grid x and grid y position
-                            tile.gridX = (col * tileSize) - tileShift.x;
-                            tile.gridY = (row * tileSize) - tileShift.y;
-
-                            // add the tile to storage
-                            storage[tileIndex] = tile;
-                        } // if
-
-                        // increment the tile index
-                        tileIndex++;
-                    } // for
-                } // for
-            } // if            
-        }
-        finally {
-            populating = false;
-        } // try..finally
-        
-        // save the last tile creator
-        lastTileCreator = tileCreator;
-        lastNotifyListener = notifyListener;
-
-        // log how long it took
-        COG.Log.trace("tile grid populated", startTicks);
-        
-        // if we have an onpopulate listener defined, let them know
-        self.changed();
-    } // populate
-    
-    function shift(shiftDelta, shiftOriginCallback) {
-        // if the shift delta x and the shift delta y are both 0, then return
-        if ((! params.allowShift) || ((shiftDelta.x === 0) && (shiftDelta.y === 0))) { return; }
-        
-        var ii, startTicks = COG.Log.getTraceTicks();
-        // COG.Log.info("need to shift tile store grid, " + shiftDelta.x + " cols and " + shiftDelta.y + " rows.");
-
-        // create new storage
-        var newStorage = Array(storage.length);
-
-        // copy the storage from given the various offsets
-        copyStorage(newStorage, storage, shiftDelta);
-
-        // update the storage and top left offset
-        storage = newStorage;
-
-        // TODO: check whether this is right or not
-        if (shiftOriginCallback) {
-            topLeftOffset = shiftOriginCallback(topLeftOffset, shiftDelta);
-        }
-        else {
-            topLeftOffset = T5.XY.add(topLeftOffset, shiftDelta);
-        } // if..else
-
-        // create the tile shift offset
-        tileShift.x += (-shiftDelta.x * tileSize);
-        tileShift.y += (-shiftDelta.y * tileSize);
-        COG.Log.trace("tile storage shifted", startTicks);
-
-        // populate with the last tile creator (crazy talk)
-        populate(lastTileCreator, lastNotifyListener);
-    } // shift
-    
-    function updateDrawQueue(offset, state, fullRedraw, tickCount) {
-        var tile, tmpQueue = [],
-            dirtyTiles = false,
-            tileStart = T5.XY.init(
-                (offset.x + tileShift.x - (tileSize * bufferSize)) * invTileSize >> 0, 
-                (offset.y + tileShift.y - (tileSize * bufferSize)) * invTileSize >> 0);
-
-        // reset the tile draw queue
-        tilesNeeded = false;
-        
-        if (! centerPos) {
-            var dimensions = self.getParent().getDimensions();
-
-            tileCols = Math.ceil(dimensions.width * invTileSize) + 1 + bufferSize;
-            tileRows = Math.ceil(dimensions.height * invTileSize) + 1 + bufferSize;
-            centerPos = T5.XY.init((tileCols-1) / 2 >> 0, (tileRows-1) / 2 >> 0);
-        } // if
-
-        for (var yy = tileRows; yy--; ) {
-            // iterate through the columns and draw the tiles
-            for (var xx = tileCols; xx--; ) {
-                // get the tile
-                tile = getTile(xx + tileStart.x, yy + tileStart.y);
-                var centerDiff = T5.XY.init(xx - centerPos.x, yy - centerPos.y);
-
-                if (! tile) {
-                    shiftDelta = getShiftDelta(tileStart.x, tileStart.y, tileCols, tileRows);
-                    
-                    // TODO: replace the tile with a temporary draw tile here
-                    tile = createTempTile(xx + tileStart.x, yy + tileStart.y);
-                } // if
-                
-                // update the tile dirty state
-                dirtyTiles = tile ? ((tile.dirty = fullRedraw || tile.dirty) || dirtyTiles) : dirtyTiles;
-                
-                // add the tile and position to the tile draw queue
-                tmpQueue[tmpQueue.length] = {
-                    tile: tile,
-                    centerness: T5.XY.absSize(centerDiff)
-                };
-            } // for
-        } // for
-
-        // sort the tile queue by "centerness"
-        tmpQueue.sort(function(itemA, itemB) {
-            return itemB.centerness - itemA.centerness;
-        });
-        
-        if (! tileDrawQueue) {
-            tileDrawQueue = new Array(tmpQueue.length);
-        } // if
-        
-        // copy the temporary queue item to the draw queue
-        for (var ii = tmpQueue.length; ii--; ) {
-            tileDrawQueue[ii] = tmpQueue[ii].tile;
-            self.prepTile(tileDrawQueue[ii], state);
-        } // for
-        
-        lastQueueUpdate = tickCount;
-        return dirtyTiles;
-    } // updateDrawQueue
-    
-    /* external object definition */
-    
-    // initialise self
-    var self = T5.ex(new T5.ViewLayer(params), {
-        gridDimensions: T5.D.init(gridWidth, gridHeight),
-        
-        cycle: function(tickCount, offset, state, redraw) {
-            var needTiles = shiftDelta.x !== 0 || shiftDelta.y !== 0,
-                xShift = offset.x,
-                yShift = offset.y,
-                tileSize = T5.tileSize;
-
-            if (needTiles) {
-                shift(shiftDelta, params.shiftOrigin);
-
-                // reset the delta
-                shiftDelta = T5.XY.init();
-                
-                // we need to do a complete redraw
-                redraw = true;
-            } // if
-            
-            if ((! haveDirtyTiles) && ((state & statePinch) === 0)) {
-                haveDirtyTiles = updateDrawQueue(offset, state, redraw, tickCount);
-            } // if
-            
-            return haveDirtyTiles;
-        },
-        
-        /**
-        ## find
-        */
-        find: findTile,
-        
-        /** 
-        ## prepTile(tile, state)
-        Used to prepare a tile for display.  In the T5.TileGrid implementation this does
-        nothing.
-        */
-        prepTile: function(tile, state) {
-        },
-        
-        /**
-        ## drawTile(context, tile, x, y, state, redraw, tickCount)
-        This method is used to draw the tile to the specified context.  In the T5.TileGrid
-        implementation this does nothing.
-        */
-        drawTile: function(context, tile, x, y, state, redraw, tickCount) {
-            return false;
-        },
-        
-        // TODO: convert to a configurable implementation
-        getTileSize: function() {
-            return tileSize;
-        },
-        
-        draw: function(context, offset, dimensions, state, view, redraw, tickCount) {
-            // initialise variables
-            var xShift = offset.x,
-                yShift = offset.y,
-                viewWidth = dimensions.width,
-                viewHeight = dimensions.height,
-                minX = viewWidth,
-                minY = viewHeight,
-                currentTileDrawn,
-                tilesDrawn = true;
-                
-            // if we don't have a draq queue return
-            if (! tileDrawQueue) { return; }
-            
-            if (clearBeforeDraw) {
-                context.clearRect(0, 0, viewWidth, viewHeight);
-            } // if
-            
-            context.beginPath();
-            // context.rect(0, 0, 1, 1);
-            
-            // draw if active
-            if (active) {
-                // iterate through the tiles in the draw queue
-                for (var ii = tileDrawQueue.length; ii--; ) {
-                    var tile = tileDrawQueue[ii],
-                        x = tile.gridX - xShift,
-                        y = tile.gridY - yShift,
-                        inBounds = (x >= 0 || (x + tileSize) <= viewWidth) && 
-                            (y >= 0 || (y + tileSize) <= viewHeight);
-
-                    if (inBounds) {
-                        // update the tile x and y
-                        tile.x = x;
-                        tile.y = y;
-
-                        // if the tile is loaded, then draw, otherwise load
-                        if (! tile.empty) {
-                            // draw the tile
-                            if (redraw || tile.dirty) {
-                                // draw the tile
-                                currentTileDrawn = self.drawTile(
-                                                        context, 
-                                                        tile, 
-                                                        x, 
-                                                        y, 
-                                                        state, 
-                                                        redraw, 
-                                                        tickCount, 
-                                                        clearBeforeDraw);
-
-                                // if the current tile was drawn then clip the rect
-                                if (currentTileDrawn) {
-                                    context.rect(x, y, tileSize, tileSize);
-                                } // if
-
-                                // update the tiles drawn state
-                                tilesDrawn = tilesDrawn && currentTileDrawn;
-                            } // if
-                        } 
-                        else if (! clearBeforeDraw) {
-                            context.clearRect(x, y, tileSize, tileSize);
-                            context.rect(x, y, tileSize, tileSize);
-
-                            tilesDrawn = false;
-                        } // if..else
-
-                        // update the minx and miny
-                        minX = x < minX ? x : minX;
-                        minY = y < minY ? y : minY;                        
-                    } // if
-                } // for
-            } // if
-
-            // clear the empty parts of the display if the grid is repopulating
-            if ((! clearBeforeDraw) && ((state & statePan) !== 0)) {
-                if (minX > 0) {
-                    context.clearRect(0, 0, minX, dimensions.height);
-                    context.rect(0, 0, minX, dimensions.height);
-                } // if
-
-                if (minY > 0) {
-                    context.clearRect(0, 0, dimensions.width, minY);
-                    context.rect(0, 0, dimensions.width, minY);
-                } // if
-            } // if
-            
-            // clip the context to only draw stuff where tiles exist
-            if (! clearBeforeDraw) {
-                context.clip();
-            } // if
-            
-            // draw the borders if we have them...
-            // COG.Log.trace("drew tiles at x: " + offset.x + ", y: " + offset.y, startTicks);
-            
-            // if the tiles have been drawn and previously haven't then fire the tiles drawn event
-            if (tilesDrawn && (! lastTilesDrawn)) {
-                view.trigger("tileDrawComplete");
-            } // if
-            
-            // flag the grid as not dirty
-            haveDirtyTiles = false;
-            
-            // update the last tile drawn state
-            lastTilesDrawn = tilesDrawn;
-        },
-
-        /** 
-        ### getTileAtXY(x, y)
-        */
-        getTileAtXY: function(x, y) {
-            var queueLength = tileDrawQueue ? tileDrawQueue.length : 0,
-                locatedTile = null;
-            
-            for (var ii = queueLength; ii--; ) {
-                var tile = tileDrawQueue[ii];
-                
-                if (tile && (x >= tile.x) && (y >= tile.y)) {
-                    if ((x <= tile.x + tileSize) && (y <= tile.y + tileSize)) {
-                        locatedTile = tile;
-                        break; 
-                    } // if
-                } // if
-            } // for
-            
-            COG.Log.info("looking for tile @ x: " + x + ", y: " + y + ', found: ' + locatedTile);
-            return locatedTile;
-        },
-        
-        /** 
-        ### getTileVirtualXY(col, row, getCenter)
-        Returns a T5.XY.init that specifies the virtual X and Y coordinate of the tile as denoted 
-        by the col and row parameters.  If the getCenter parameter is passed through and set to true, 
-        then the X and Y coordinates are offset by half a tile to represent the center of the tile rather
-        than the top left corner.
-        */
-        getTileVirtualXY: function(col, row, getCenter) {
-            // get the normalized position from the tile store
-            var pos = getNormalizedPos(col, row),
-                fnresult = T5.XY.init(pos.x * tileSize, pos.y * tileSize);
-            
-            if (getCenter) {
-                fnresult.x += halfTileSize;
-                fnresult.y += halfTileSize;
-            } // if
-            
-            return fnresult;
-        },
-        
-        /** 
-        ### populate(tileCreator)
-        */
-        populate: function(tileCreator) {
-            populate(tileCreator, null, true);
-        },
-        
-        /**
-        ### syncVectors(vectors)
-        */
-        syncVectors: function(vectors) {
-            return T5.XY.init(0, 0);
-        }        
-    });
-    
-    // bind to events
-    self.bind('resize', handleResize);
-    self.bind('scale', handleScale);
-    
-    COG.listen("imagecache.cleared", function(args) {
-        // reset all the tiles loaded state
-        for (var ii = storage.length; ii--; ) {
-            if (storage[ii]) {
-                storage[ii].loaded = false;
-            } // if
-        } // for
-    });
-    
-    COG.listen("tiler.repaint", function(args) {
-        for (var ii = storage.length; ii--; ) {
-            if (storage[ii]) {
-                storage[ii].x = null;
-                storage[ii].y = null;
-            } // if
-        } // for
-    });
-    
-    return self;
-}; // T5.TileGrid
-/**
-# T5.ImageTileGrid 
-_extends_: T5.TileGrid
-
-
-The ImageTileGrid extends the T5.TileGrid and implements the 
-`drawTile` functionality to check the loaded state of image tiles, and treat them accordingly.  
-If the tile is already loaded, then it is drawn to the canvas, it not the T5.Images module is used to load the 
-tile and once loaded drawn.
-
-## Constructor
-`new T5.ImageTileGrid(params);`
-
-### Initialization Parameters
-
-- emptyTile (image, default = default empty tile) - specify an image here to be used as the empty tile
-which is displayed when the required tile is not available and the display is not panning
-
-- panningTile (image, default = default panning tile) - the image that is used to display a tile area
-when panning, **if** the tile image has not been loaded already
-
-- tileOffset - to be completed
-- tileDrawArgs - to be completed
-
-
-## Methods
-*/
-T5.ImageTileGrid = function(params) {
-    params = T5.ex({
-        emptyTile: getEmptyTile(T5.tileSize),
-        panningTile: null,
-        tileOffset: T5.XY.init(),
-        tileDrawArgs: {}
-    }, params);
-    
-    function getEmptyTile(tileSize) {
-        if ((! emptyTile) || (tileSize !== emptyTile.width)) {
-            emptyTile = T5.Images.newCanvas(tileSize, tileSize);
-
-            var tileContext = emptyTile.getContext('2d');
-
-            tileContext.fillStyle = "rgba(150, 150, 150, 0.1)";
-            tileContext.fillRect(0, 0, emptyTile.width, emptyTile.height);
-        } // if
-
-        return emptyTile;
-    } // getEmptyTile
-    
-    function getPanningTile(tileSize) {
-
-        function getPattern() {
-            var patternSize = 32,
-                halfSize = patternSize / 2,
-                patternCanvas = T5.Images.newCanvas(patternSize, patternSize);
-
-            // get the canvas context
-            var context = patternCanvas.getContext("2d");
-
-            // fill the canvas
-            context.fillStyle = "#BBBBBB";
-            context.fillRect(0, 0, patternSize, patternSize);
-
-            // now draw two smaller rectangles
-            context.fillStyle = "#C3C3C3";
-            context.fillRect(0, 0, halfSize, halfSize);
-            context.fillRect(halfSize, halfSize, halfSize, halfSize);
-
-            return patternCanvas;
-        } // getPattern
-
-        if ((! panningTile) || (tileSize !== panningTile.width)) {
-            panningTile = T5.Images.newCanvas(tileSize, tileSize);
-
-            var tileContext = panningTile.getContext('2d');
-
-            // fill the panning tile with the pattern
-            tileContext.fillStyle = 
-                typeof FlashCanvas !== 'undefined' ? 
-                    '#666666' : 
-                    tileContext.createPattern(getPattern(), "repeat");
-                    
-            tileContext.fillRect(0, 0, panningTile.width, panningTile.height);
-        } // if
-
-        return panningTile;
-    } // getPanningTile
-    
-    // initialise variables
-    var emptyTile = params.emptyTile,
-        panningTile = params.panningTile ? params.panningTile : getPanningTile(T5.tileSize),
-        tileOffset = params.tileOffset,
-        imageOverlay = params.imageOverlay,
-        stateActive = T5.viewState('ACTIVE'),
-        statePan = T5.viewState('PAN'),
-        fastDraw = T5.getConfig().requireFastDraw,
-        tileSize = params.tileSize ? params.tileSize : T5.tileSize,
-        
-        // some short cut functions
-        getImage = T5.Images.get,
-        loadImage = T5.Images.load,
-        
-        // initialise the tile draw args
-        tileDrawArgs = T5.ex({
-            background: null,
-            overlay: null,
-            offset: T5.XY.init(),
-            realSize: T5.D.init(tileSize)
-        }, params.tileDrawArgs);
-        
-    // initialise self
-    var self = T5.ex(new T5.TileGrid(params), {
-        /**
-        ### drawTile(context, tile, x, y, state, redraw, tickCount)
-        */
-        drawTile: function(context, tile, x, y, state, redraw, tickCount, cleared) {
-            var image = tile.url ? getImage(tile.url) : null,
-                drawn = false,
-                tileAge = tickCount - tile.loadTime;
-                
-            if (image) {
-                /*
-                // if the tile is young, fade it in
-                if (tileAge < 150) {
-                    context.clearRect(x, y, tileSize, tileSize);
-                    context.globalAlpha = tileAge / 150;
-                    
-                    setTimeout(self.changed, 150);
-                } // if
-                */
-                
-                context.drawImage(image, x, y);
-                tile.dirty = false;
-                // context.globalAlpha = 1;
-                
-                drawn = true;
-            }
-            else if ((state & statePan) !== 0) {
-                if (! cleared) {
-                    context.drawImage(panningTile, x, y);
-                } // if
-                
-                drawn = true;
-            } // if..else
-            
-            return drawn;
-        },
-        
-        /**
-        ### initTileUrl(tile)
-        */
-        initTileUrl: function(tile) {
-        },
-        
-        /**
-        ### prepTile: function(tile, state)
-        */
-        prepTile: function(tile, state) {
-            if (tile && (! tile.loading) && ((! fastDraw) || (state === stateActive))) {
-                if (! tile.url) {
-                    self.initTileUrl(tile);
-                } // if
-                
-                var image = getImage(tile.url);
-                if (! image) {
-                    tile.loading = true;
-
-                    loadImage(
-                        tile.url, 
-                        function() {
-                            tile.loadTime = new Date().getTime();
-                            tile.loaded = true;
-                            tile.dirty = true;
-                            
-                            self.changed();
-                        }, 
-                        tileDrawArgs);
-                } // if
-            } // if
-        }
-    });
-    
-    return self;
-}; // T5.ImageTileGrid
-/** 
-# T5.Tiler
-_extends:_ T5.View
-
-
-The T5.Tiler is the base class upon which tiling views are built.
-
-## Constructor
-`new T5.Tiler(params);`
-
-## Events
-
-### selectTile
-This event is triggered when a tile in the tiler has been selected, which is
-triggered by a tap.
-
-<pre>
-tiler.bind('selectTile', function(tile) {
-});
-</pre>
-
-### gridUpdate
-The gridUpdate event is trigger with then tiler layer has been update through the 
-use of the `setTileLayer` method.  This event is also triggered on any T5.ViewLayer 
-that is a current child of the view.
-
-<pre>
-tiler.bind('gridUpdate', function(grid) {
-});
-</pre>
-
-## Methods
-*/
-T5.Tiler = function(params) {
-    params = T5.ex({
-        container: "",
-        drawCenter: false,
-        datasources: {},
-        tileLoadThreshold: "first"
-    }, params);
-    
-    // initialise layers
-    var gridIndex = 0,
-        lastTileLayerLoaded = "",
-        actualTileLoadThreshold = 0;
-        
-    /* private methods */
-    
-    function selectTile(tile) {
-        self.trigger("selectTile", tile);
-    } // selectTile
-    
-    /* event handlers */
-    
-    function handleTap(evt, absXY, relXY) {
-        var grid = self.getTileLayer();
-        if (grid) {
-            var tile = grid.getTileAtXY(relXY.x, relXY.y);
-            if (tile) {
-                selectTile(tile);
-            }
-        } // grid
-    } // handleTap
-    
-    /* object definition */
-    
-    // initialise self
-    var self = T5.ex(new T5.View(params), {
-        /**
-        ### getTileLayer
-        */
-        getTileLayer: function() {
-            return self.getLayer("grid" + gridIndex);
-        },
-
-        /**
-        ### setTileLayer(value)
-        */
-        setTileLayer: function(value) {
-            self.setLayer("grid" + gridIndex, value);
-            self.trigger('gridUpdate', value);
-            
-            // iterate through the other layers and let them know
-            self.eachLayer(function(layer) {
-                layer.trigger('gridUpdate', value);
-            });
-        },
-
-        /**
-        ### viewPixToGridPix(vector)
-        */
-        viewPixToGridPix: function(vector) {
-            var offset = self.getOffset();
-            return T5.XY.init(vector.x + offset.x, vector.y + offset.y);
-        },
-        
-        /**
-        ### centerPos(tile, easing, duration, callback)
-        */
-        centerOn: function(tile, easing, duration, callback) {
-            var grid = self.getTileLayer(),
-                dimensions = self.getDimensions(),
-                tileSize = grid ? grid.getTileSize() : 0;
-                
-            if (tileSize) {
-                self.updateOffset(
-                    tile.gridX - (dimensions.width - tileSize) * 0.5 >> 0, 
-                    tile.gridY - (dimensions.height - tileSize) * 0.5 >> 0,
-                    easing,
-                    duration,
-                    callback);
-            } // if
-        },
-        
-        /**
-        ### cleanup()
-        */
-        cleanup: function() {
-            self.removeLayer("grid" + gridIndex);
-        },
-        
-        repaint: function() {
-            // flag to the tile store to reset the image positions
-            COG.say("tiler.repaint");
-            
-            self.trigger("wake");
-        },
-        
-        /**
-        ### select(tile)
-        Manually select the specified `tile`
-        */
-        select: function(tile) {
-            selectTile(tile);
-        }
-    }); // self
-    
-    self.bind("tap", handleTap);
-
-    return self;
-}; // Tiler
-/**
 # T5.TileGenerator
 */
 T5.TileGenerator = function(params) {

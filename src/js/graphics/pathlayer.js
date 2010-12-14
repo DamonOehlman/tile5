@@ -23,27 +23,17 @@ T5.PathLayer = function(params) {
         
     /* private internal functions */
     
-    function handleGridUpdate(evt, grid) {
-        resyncPath(grid);
-        
-        // tell all the spawned animations to remove themselves
-        for (var ii = spawnedAnimations.length; ii--; ) {
-            COG.say(
-                'layer.remove', { id: spawnedAnimations[ii] });
-        } // for
-        
-        // reset the spawned animations array
-        spawnedAnimations = [];
-    };
-        
-    function resyncPath(grid) {
-        // update the vectors
-        grid.syncVectors(rawCoords);
-        if (rawMarkers) {
-            grid.syncVectors(rawMarkers);
-        } // if
+    function resyncPath() {
+        var parent = self.getParent();
+        if (parent && parent.syncXY) {
+            // update the vectors
+            parent.syncXY(rawCoords);
+            if (rawMarkers) {
+                parent.syncXY(rawMarkers);
+            } // if
 
-        self.trigger('tidy');
+            self.trigger('tidy');
+        } // if
     } // resyncPath
     
     // create the view layer the we will draw the view
@@ -65,11 +55,11 @@ T5.PathLayer = function(params) {
             });
         },
         
-        cycle: function(tickCount, offset, state, redraw) {
+        cycle: function(tickCount, viewRect, state, redraw) {
             return redraw;
         },
 
-        draw: function(context, offset, dimensions, state, view) {
+        draw: function(context, viewRect, state, view) {
             var ii,
                 coordLength = coordinates.length;
                 
@@ -81,13 +71,13 @@ T5.PathLayer = function(params) {
                     // start drawing the path
                     context.beginPath();
                     context.moveTo(
-                        coordinates[coordLength - 1].x - offset.x, 
-                        coordinates[coordLength - 1].y - offset.y);
+                        coordinates[coordLength - 1].x, 
+                        coordinates[coordLength - 1].y);
 
                     for (ii = coordLength; ii--; ) {
                         context.lineTo(
-                            coordinates[ii].x - offset.x,
-                            coordinates[ii].y - offset.y);
+                            coordinates[ii].x,
+                            coordinates[ii].y);
                     } // for
 
                     context.stroke();
@@ -100,8 +90,8 @@ T5.PathLayer = function(params) {
                         for (ii = markerCoordinates.length; ii--; ) {
                             context.beginPath();
                             context.arc(
-                                markerCoordinates[ii].x - offset.x, 
-                                markerCoordinates[ii].y - offset.y,
+                                markerCoordinates[ii].x, 
+                                markerCoordinates[ii].y,
                                 2,
                                 0,
                                 Math.PI * 2,
@@ -121,22 +111,14 @@ T5.PathLayer = function(params) {
         },
         
         updateCoordinates: function(coords, markerCoords) {
-            var parent = self.getParent(),
-                grid = parent ? parent.getTileLayer() : null;
-            
             // update the coordinates
             rawCoords = coords;
             rawMarkers = markerCoords;
             
-            // if we have a grid, then update
-            COG.Log.info('updating coordinates, grid = ' + grid);
-            if (grid) {
-                resyncPath(grid);
-            } // if
+            resyncPath();
         }
     });
     
-    self.bind('gridUpdate', handleGridUpdate);
     self.bind('tidy', function(evt) {
         coordinates = T5.XY.simplify(rawCoords, params.pixelGeneralization);
         markerCoordinates = T5.XY.simplify(rawMarkers, params.pixelGeneralization);

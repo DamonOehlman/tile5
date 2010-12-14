@@ -10,35 +10,10 @@ T5.ImageLayer = function(genId, params) {
     var generator = T5.Generator.init(genId, params),
         generatedImages = null,
         lastViewRect = T5.XYRect.init(),
-        lastGenerateRect = T5.XYRect.init();
+        lastGenerateRect = T5.XYRect.init(),
+        stateZoom = T5.viewState('ZOOM');
     
     /* private internal functions */
-    
-    function drawImage(context, generatorImage, viewState) {
-        var image = T5.Images.get(generatorImage.url, handleImageLoad);
-        if (image) {
-            context.drawImage(
-                image, 
-                generatorImage.x, 
-                generatorImage.y,
-                image.width,
-                image.height);
-        }
-        else {
-            context.fillStyle = '#777';
-            context.fillRect(generatorImage.x, generatorImage.y, generatorImage.width, generatorImage.height);
-        } // if..else
-        
-        /*
-        context.beginPath();
-        context.rect(
-            generatorImage.x, 
-            generatorImage.y, 
-            generatorImage.width,
-            generatorImage.height);
-        context.stroke();
-        */
-    } // drawImage
     
     /* every library should have a regenerate function - here's mine ;) */
     function regenerate(viewRect) {
@@ -75,6 +50,37 @@ T5.ImageLayer = function(genId, params) {
     
     /* exports */
     
+    function drawImage(context, viewRect, x, y, imageData, viewState) {
+        var callback, image;
+        
+        // determine the callback to pass to the image get method
+        // no callback is supplied on the zoom view state which prevents 
+        // loading images that would just been thrown away
+        callback = (viewState & stateZoom) === 0 ? handleImageLoad : null;
+        
+        // get and possibly load the image
+        image = T5.Images.get(imageData.url, callback);
+            
+        if (image) {
+            // draw a rect for the purposes of the clipping
+            context.rect(
+                x, 
+                y, 
+                imageData.width,
+                imageData.height);
+                
+            context.drawImage(
+                image, 
+                x, 
+                y,
+                image.width,
+                image.height);
+        }
+        else {
+            context.clearRect(x, y, imageData.width, imageData.height);
+        } // if..else
+    } // drawImage
+    
     /* definition */
     
     var self = T5.ex(new T5.ViewLayer(params), {
@@ -88,18 +94,34 @@ T5.ImageLayer = function(genId, params) {
             } // if
         },
         
-        draw: function(context, rect, state, view) {
+        draw: function(context, viewRect, state, view) {
             // COG.Log.info('drawing image layer layer @ ', rect);
             
             context.save();
             try {
                 context.strokeStyle = '#555';
 
+                context.beginPath();
+
                 if (generatedImages) {
                     for (var ii = generatedImages.length; ii--; ) {
-                        drawImage(context, generatedImages[ii], state);
+                        var xx = generatedImages[ii].x,
+                            yy = generatedImages[ii].y,
+                            // TODO: more efficient please...
+                            imageRect = T5.XYRect.init(
+                                generatedImages[ii].x,
+                                generatedImages[ii].y,
+                                generatedImages[ii].x + generatedImages[ii].width,
+                                generatedImages[ii].y + generatedImages[ii].height);
+                                
+                        // draw the image
+                        if (T5.XYRect.intersect(viewRect, imageRect)) {
+                            self.drawImage(context, viewRect, xx, yy, generatedImages[ii], state);
+                        } // if
                     } // for
                 } // if
+                
+                context.clip();
             }
             finally {
                 context.restore();
@@ -107,14 +129,16 @@ T5.ImageLayer = function(genId, params) {
             
             context.strokeStyle = '#f00';
             context.beginPath();
-            context.moveTo(rect.x1 + rect.width/2, rect.y1);
-            context.lineTo(rect.x1 + rect.width/2, rect.y2);
-            context.moveTo(rect.x1, rect.y1 + rect.height / 2);
-            context.lineTo(rect.x2, rect.y1 + rect.height / 2);
+            context.moveTo(viewRect.x1 + viewRect.width/2, viewRect.y1);
+            context.lineTo(viewRect.x1 + viewRect.width/2, viewRect.y2);
+            context.moveTo(viewRect.x1, viewRect.y1 + viewRect.height / 2);
+            context.lineTo(viewRect.x2, viewRect.y1 + viewRect.height / 2);
             context.stroke();
             
-            lastViewRect = T5.XYRect.copy(rect);
-        }
+            lastViewRect = T5.XYRect.copy(viewRect);
+        },
+        
+        drawImage: drawImage
     });
     
     self.bind('parentChange', handleParentChange);
