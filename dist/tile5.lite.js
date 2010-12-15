@@ -3768,14 +3768,16 @@ T5.Generator = (function() {
     
     function init(id, params) {
         // look for the generator
-        var generator = generatorRegistry[id];
+        var generatorType = generatorRegistry[id],
+            generator;
         
         // if we didn't find a generator, raise an exception
-        if (! generator) {
+        if (! generatorType) {
             throw new Error('Unable to locate requested generator: ' + id);
         } // if
         
-        return new generator(params);
+        // create the new generator
+        return new generatorType(params);
     } // init
     
     function register(id, creatorFn) {
@@ -4466,7 +4468,8 @@ T5.ViewLayer = function(params) {
         zindex: 0,
         supportFastDraw: false,
         animated: false,
-        validStates: T5.viewState('ACTIVE', 'ANIMATING', 'PAN', 'ZOOM')
+        validStates: T5.viewState('ACTIVE', 'ANIMATING', 'PAN', 'ZOOM'),
+        style: null
     }, params);
     
     var parent = null,
@@ -5201,9 +5204,11 @@ T5.View = function(params) {
             delayDrawLayers = [],
             ii = 0;
 
+        // TODO: optimize
+        context.clearRect(0, 0, canvas.width, canvas.height);
+
         // Change to force update
         if (clearBackground || isPinchZoom) {
-            context.clearRect(0, 0, canvas.width, canvas.height);
             clearBackground = false;
         } // if
         
@@ -5242,6 +5247,11 @@ T5.View = function(params) {
                 // draw the layer output to the main canvas
                 // but only if we don't have a scale buffer or the layer is a draw on scale layer
                 if (layers[ii].shouldDraw(drawState, rect, redraw)) {
+                    // if the layer has style, then apply it and save the current style
+                    var layerStyle = layers[ii].style,
+                        previousStyle = layerStyle ? T5.Style.apply(context, layerStyle) : null;                    
+                    
+                    // draw the layer
                     layers[ii].draw(
                         context, 
                         rect, 
@@ -5249,6 +5259,11 @@ T5.View = function(params) {
                         self,
                         redraw,
                         tickCount);
+                        
+                    // if we applied a style, then restore the previous style if supplied
+                    if (previousStyle) {
+                        T5.Style.apply(context, previousStyle);
+                    } // if
                         
                     // trigger that the draw has been completed
                     layers[ii].trigger('drawComplete', rect, tickCount);
@@ -5418,7 +5433,11 @@ T5.View = function(params) {
             addLayer(id, value);
         } // if
 
+        // invalidate the view
         invalidate();
+        
+        // return the layer so we can chain if we want
+        return value;
     } // setLayer
     
     /**
@@ -5739,7 +5758,7 @@ T5.PathLayer = function(params) {
                 
             context.save();
             try {
-                T5.applyStyle(context, params.style);
+                T5.Style.apply(context, params.style);
                 
                 if (coordLength > 0) {
                     // start drawing the path
@@ -5817,8 +5836,7 @@ data and the like.
 */
 T5.ShapeLayer = function(params) {
     params = T5.ex({
-        zindex: 80,
-        style: null
+        zindex: 80
     }, params);
     
     // initialise variables
@@ -5884,29 +5902,19 @@ T5.ShapeLayer = function(params) {
                 viewWidth = viewRect.width,
                 viewHeight = viewRect.height;
             
-            context.save();
-            try {
-                T5.applyStyle(context, params.style);
+            // iterate through the children and draw the layers
+            for (var ii = children.length; ii--; ) {
+                var overrideStyle = children[ii].style,
+                    previousStyle = overrideStyle ? T5.Style.apply(context, overrideStyle) : null;
+                    
+                // draw the layer
+                children[ii].draw(context, offsetX, offsetY, viewWidth, viewHeight, state);
                 
-                // COG.Log.info('shape layer has ' + children.length + ' children');
-
-                // iterate through the children and draw the layers
-                for (var ii = children.length; ii--; ) {
-                    var overrideStyle = children[ii].style,
-                        previousStyle = overrideStyle ? T5.applyStyle(context, overrideStyle) : null;
-                    
-                    // draw the layer
-                    children[ii].draw(context, offsetX, offsetY, viewWidth, viewHeight, state);
-                    
-                    // if we have a previous style, then restore that style
-                    if (previousStyle) {
-                        T5.applyStyle(context, previousStyle);
-                    } // if
-                } // for
-            }
-            finally {
-                context.restore();
-            } // try..finally
+                // if we have a previous style, then restore that style
+                if (previousStyle) {
+                    T5.Style.apply(context, previousStyle);
+                } // if
+            } // for
             
             forceRedraw = false;
         }
@@ -5916,13 +5924,6 @@ T5.ShapeLayer = function(params) {
     self.bind('parentChange', handleResync);
     self.bind('resync', handleResync);
     
-    // set the style attribute to be configurable
-    COG.configurable(
-        self, 
-        ['style'], 
-        COG.paramTweaker(params, null, null),
-        true);    
-
     return self;
 };
 
@@ -6643,7 +6644,8 @@ layer.bind('markerTap', function(absXY, relXY, markers) {
 */
 T5.MarkerLayer = function(params) {
     params = T5.ex({
-        zindex: 100
+        zindex: 100,
+        style: 'basic'
     }, params);
     
     var markers = [],
@@ -6898,7 +6900,7 @@ T5.ImageLayer = function(genId, params) {
                 image.height);
         }
         else {
-            context.clearRect(x, y, imageData.width, imageData.height);
+            // context.clearRect(x, y, imageData.width, imageData.height);
         } // if..else
     } // drawImage
     
@@ -6967,91 +6969,25 @@ T5.ImageLayer = function(genId, params) {
     return self;
 };/**
 # T5.Style
-The T5.Style class is used to define the various attributes that should
-be applied to a canvas context when the style is selected.
+The T5.Style module is used to define and apply styles.
 
+## Functions 
 */
-T5.Style = function(params) {
-    params = T5.ex({
-        // line styles
-        lineWidth: undefined,
-        lineCap: undefined,
-        lineJoin: undefined,
-        miterLimit: undefined,
-        lineStyle: undefined,
-
-        // fill styles
-        fillStyle: undefined,
-        
-        // context globals
-        globalAlpha: undefined,
-        globalCompositeOperation: undefined
-    }, params);
+T5.Style = (function() {
     
-    // initialise variables
-    var mods = [];
+    // define variables
+    var previousStyles = {},
+        styles = {};
     
     /* internal functions */
     
-    function fillMods(keyName) {
-        var paramVal = params[keyName];
-        
-        if (typeof paramVal !== 'undefined') {
-            mods.push(function(context) {
-                context[keyName] = paramVal;
-            });
-        } // if
-    } // fillMods
+    /* exports */
     
-    /* define self */
-    
-    var self = {
-        applyToContext: function(context) {
-            // iterate through the mods and apply to the context
-            for (var ii = mods.length; ii--; ) {
-                mods[ii](context);
-            } // for
-        }
-    };
-   
-    /* initialize */
-   
-    for (var keyName in params) {
-        fillMods(keyName);
-    } // for
-    
-    
-    return self;
-};
-
-(function() {
-    
-    // define variables
-    var previousStyles = {};
-    
-    /* define the core styles */
-    
-    var coreStyles = {
-        basic: new T5.Style({
-            lineWidth: 1,
-            strokeStyle: '#000',
-            fillStyle: '#fff'
-        }),
-        
-        waypoints: new T5.Style({
-            lineWidth: 4,
-            strokeStyle: 'rgba(0, 51, 119, 0.9)',
-            fillStyle: '#FFF'
-        })        
-    };
-    
-    /* define the apply style function */
-
     /** 
-    # T5.applyStyle
+    ### apply(context, styleId)
     */
-    T5.applyStyle = function(context, styleId) {
-        var style = T5.styles[styleId] ? T5.styles[styleId] : T5.styles.basic,
+    function apply(context, styleId) {
+        var style = styles[styleId] ? styles[styleId] : styles.basic,
             previousStyle;
             
         // if we have a context and context canvas, then update the previous style info
@@ -7065,128 +7001,266 @@ T5.Style = function(params) {
 
         // return the previously selected style
         return previousStyle;
-    };
-
-    /**
-    # T5.loadStyles
+    } // apply
+    
+    /** 
+    ### define(styleId, data)
     */
-    T5.loadStyles = function(path, callback) {
+    function define(styleId, data) {
+        styles[styleId] = init(data);
+        
+        return styleId;
+    } // define
+    
+    /**
+    ### defineMany(data)
+    */
+    function defineMany(data) {
+        for (var styleId in data) {
+            define(styleId, data[styleId]);
+        } // for
+    } // defineMany 
+    
+    /**
+    ### init(params)
+    */
+    function init(params) {
+        params = T5.ex({
+            // line styles
+            lineWidth: undefined,
+            lineCap: undefined,
+            lineJoin: undefined,
+            miterLimit: undefined,
+            lineStyle: undefined,
+
+            // fill styles
+            fillStyle: undefined,
+
+            // context globals
+            globalAlpha: undefined,
+            globalCompositeOperation: undefined
+        }, params);
+
+        // initialise variables
+        var mods = [];
+
+        /* internal functions */
+
+        function fillMods(keyName) {
+            var paramVal = params[keyName];
+
+            if (typeof paramVal !== 'undefined') {
+                mods.push(function(context) {
+                    context[keyName] = paramVal;
+                });
+            } // if
+        } // fillMods
+
+        /* define self */
+
+        var self = {
+            applyToContext: function(context) {
+                // iterate through the mods and apply to the context
+                for (var ii = mods.length; ii--; ) {
+                    mods[ii](context);
+                } // for
+            }
+        };
+
+        /* initialize */
+
+        for (var keyName in params) {
+            fillMods(keyName);
+        } // for
+
+
+        return self;        
+    } // init
+    
+    /**
+    ### load(path, callback)
+    */
+    function load(path, callback) {
         COG.jsonp(path, function(data) {
             T5.resetStyles(data);
         });
+    } // load
+    
+    /* module definition */
+    
+    var module = {
+        apply: apply,
+        define: define,
+        defineMany: defineMany,
+        init: init,
+        load: load
     };
-
-    /**
-    # T5.resetStyles
-    */
-    T5.resetStyles = function(data) {
-        // initialise variables 
-        // NOTE: I'm not calling this a stylesheet on purpose
-        var styleGroup = {};
-
-        // iterate through each of the items defined in the retured style definition and create
-        // T5 styles
-        for (var styleId in data) {
-            styleGroup[styleId] = new T5.Style(data[styleId]);
-        } // for
-
-        // we have made it this far, so replace the T5.styles object
-        T5.styles = T5.ex({}, coreStyles, styleGroup);
-    };
-
-    // export the core styles as the styles object (to start with)
-    T5.styles = coreStyles;
+    
+    // define the core styles
+    defineMany({
+        basic: {
+            lineWidth: 1,
+            strokeStyle: '#000',
+            fillStyle: '#fff'
+        },
+        
+        waypoints: {
+            lineWidth: 4,
+            strokeStyle: 'rgba(0, 51, 119, 0.9)',
+            fillStyle: '#FFF'
+        }        
+    });
+    
+    return module;
 })();
-
-(function() {
-    // set the default tile size to 256 pixels
-    T5.tileSize = 256;
+/**
+# T5.Tiling
+*/
+T5.Tiling = (function() {
     
-    /**
-    # T5.Tile
-    A very simple lightweight class that stores information relevant to a tile.
+    /* internal functions */
     
-    ## Constructor 
-    ` new T5.Tile(params);`
+    /* exports */
     
-    ### Initialization Parameters
+    function init(x, y, width, height, data) {
+        return T5.ex({
+            x: x,
+            y: y,
+            width: width,
+            height: height
+        }, data);
+    } // init
     
-    - x (default: 0) - the current x screen coordinate of the tile
-    - y (default: 0) - the current y screen coordinate of the tile
-    - gridX (default: 0) - 
-    - gridY (default: 0)
-    - size (default: 256) - the size of the tile
+    /* module definition */
     
-    
-    ## Properties
-    Initialization parameters mapped directly to properties
-    
-    ## Usage
-    A new tile is created using the following code:
-
-    ~ var tile = new T5.Tile();
-
-    or with specific initial property values:
-    ~ var tile = new T5.Tile({
-    ~     x: 10,
-    ~     y: 10,
-    ~     size: 128
-    ~ });
-    */    
-    T5.Tile = function(params) {
-        params = T5.ex({
-            x: 0,
-            y: 0,
-            gridX: 0,
-            gridY: 0,
-            dirty: true
-        }, params);
+    var module = {
+        tileSize: 256,
         
-        return params;
-    }; // T5.Tile
+        init: init
+    };
     
-    T5.EmptyTile = function(params) {
-        var self = new T5.Tile(params);
-        self.empty = true;
-        
-        return self;
-    }; // T5.EmptyTile
-    
-    /**
-    # T5.ImageTile
-    _extends:_ T5.Tile
-    
-    
-    The ImageTile adds some additional properties to the base so that a T5.ImageTileGrid knows where 
-    to load the tile from.
-    
-    ## Constructor 
-    `new T5.ImageTile(params);`
-    
-    ### Initialization Parameters
-    
-    - url (string) - the url of the image to load into the tile
-    
-
-    ## Example Usage
-    ~ new T5.Tiling.ImageTile({
-    ~     url: "http://testurl.com/exampleimage.png"
-    ~ });
-    */
-    T5.ImageTile = function(params) {
-        // initialise parameters with defaults
-        params = T5.ex({
-            url: "",
-            sessionParamRegex: null,
-            loading: false,
-            loaded: false
-        }, params);
-        
-        return new T5.Tile(params);
-    }; // T5.ImageTile
+    return module;
 })();/**
 # T5.TileGenerator
 */
 T5.TileGenerator = function(params) {
+    params = T5.ex({
+        tileWidth: 256,
+        tileHeight: 256
+    }, params);
     
+    // initialise variables
+    var initPos = null,
+        targetView = null,
+        lastRect = null,
+        requestXY = T5.XY.init(),
+        tileLoader = null,
+        requestedTileCreator = false,
+        tileWidth = params.tileWidth,
+        halfTileWidth = tileWidth / 2,
+        tileHeight = params.tileHeight,
+        halfTileHeight = tileHeight / 2,
+        tileCreator = null,
+        xTiles = 0,
+        yTiles = 0,
+        imageQueue = [];
+    
+    /* internal functions */
+    
+    function runTileCreator(viewRect, callback) {
+        var relX = ~~((viewRect.x1 - requestXY.x) / tileWidth),
+            relY = ~~((viewRect.y1 - requestXY.y) / tileHeight),
+            endX = viewRect.width,
+            endY = viewRect.height,
+            tiles = [];
+            
+        for (var xx = -xTiles; xx < xTiles; xx++) {
+            for (var yy = -yTiles; yy < yTiles; yy++) {
+                tiles[tiles.length] = tileCreator(relX + xx, relY + yy);
+            } // for
+        } // for
+        
+        if (callback) {
+            callback(tiles);
+        } // if
+        
+        lastRect = T5.XYRect.copy(viewRect);
+    } // runTileCreator
+    
+    /* event handlers */
+    
+    /* exports */
+    
+    /**
+    ### bindToView(view)
+    */
+    function bindToView(view) {
+        COG.Log.info('initializing generator');
+        
+        // update the target view
+        targetView = view;
+        self.trigger('bindView', view);
+    } // bindToView
+    
+    /**
+    ### resetTileCreator()
+    */
+    function resetTileCreator() {
+        tileCreator = null;
+        requestedTileCreator = false;
+    } // resetTileCreator
+
+    /**
+    ### run(viewRect, callback)
+    */
+    function run(viewRect, callback) {
+        var recalc = (! lastRect) || 
+            (Math.abs(viewRect.x1 - lastRect.x1) > tileWidth) || 
+            (Math.abs(viewRect.y1 - lastRect.y1) > tileHeight);
+        
+        // if we don't know the center position, then this is the first call
+        if ((! initPos) && (! requestedTileCreator)) {
+            COG.Log.info('generating tiles, view rect = ', viewRect);
+            initPos = targetView.getCenterPosition();
+            requestXY = T5.XY.init(viewRect.x1, viewRect.y1);
+            xTiles = Math.ceil(viewRect.width / tileWidth) + 1;
+            yTiles = Math.ceil(viewRect.height / tileHeight) + 1;
+            
+            // get the tile loader
+            if (self.initTileCreator) {
+                requestedTileCreator = true;
+                self.initTileCreator(
+                    initPos, 
+                    tileHeight,
+                    tileWidth,
+                    self.getTileCreatorArgs ? self.getTileCreatorArgs() : {},
+                    function(creator, tweakOffset) {
+                        tileCreator = creator;
+                        requestedTileCreator = false;
+                        
+                        runTileCreator(viewRect, callback);
+                    }
+                );
+            } // if
+            
+            COG.Log.info('generator got view center: ', initPos);
+        } // if
+        
+        if (tileCreator && recalc) {
+            runTileCreator(viewRect, callback);
+        } // if
+    } // run
+
+    var self = {
+        bindToView: bindToView,
+        getTileCreatorArgs: null,
+        initTileCreator: null,
+        resetTileCreator: resetTileCreator,
+        run: run
+    };
+    
+    // make the tile generator observable
+    COG.observable(self);
+    
+    return self;
 };

@@ -11,8 +11,7 @@ data and the like.
 */
 T5.ShapeLayer = function(params) {
     params = T5.ex({
-        zindex: 80,
-        style: null
+        zindex: 80
     }, params);
     
     // initialise variables
@@ -78,29 +77,19 @@ T5.ShapeLayer = function(params) {
                 viewWidth = viewRect.width,
                 viewHeight = viewRect.height;
             
-            context.save();
-            try {
-                T5.applyStyle(context, params.style);
+            // iterate through the children and draw the layers
+            for (var ii = children.length; ii--; ) {
+                var overrideStyle = children[ii].style,
+                    previousStyle = overrideStyle ? T5.Style.apply(context, overrideStyle) : null;
+                    
+                // draw the layer
+                children[ii].draw(context, offsetX, offsetY, viewWidth, viewHeight, state);
                 
-                // COG.Log.info('shape layer has ' + children.length + ' children');
-
-                // iterate through the children and draw the layers
-                for (var ii = children.length; ii--; ) {
-                    var overrideStyle = children[ii].style,
-                        previousStyle = overrideStyle ? T5.applyStyle(context, overrideStyle) : null;
-                    
-                    // draw the layer
-                    children[ii].draw(context, offsetX, offsetY, viewWidth, viewHeight, state);
-                    
-                    // if we have a previous style, then restore that style
-                    if (previousStyle) {
-                        T5.applyStyle(context, previousStyle);
-                    } // if
-                } // for
-            }
-            finally {
-                context.restore();
-            } // try..finally
+                // if we have a previous style, then restore that style
+                if (previousStyle) {
+                    T5.Style.apply(context, previousStyle);
+                } // if
+            } // for
             
             forceRedraw = false;
         }
@@ -110,13 +99,6 @@ T5.ShapeLayer = function(params) {
     self.bind('parentChange', handleResync);
     self.bind('resync', handleResync);
     
-    // set the style attribute to be configurable
-    COG.configurable(
-        self, 
-        ['style'], 
-        COG.paramTweaker(params, null, null),
-        true);    
-
     return self;
 };
 

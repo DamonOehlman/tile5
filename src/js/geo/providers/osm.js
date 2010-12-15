@@ -47,7 +47,7 @@ T5.Geo.OpenStreetMap = (function() {
                 tileGrid = new T5.ImageTileGrid(self.prepTileGridArgs(
                     dimensions.width, 
                     dimensions.height,
-                    T5.tileSize, 
+                    T5.Tiling.tileSize, 
                     tileOffset, 
                     params)); 
 
@@ -113,7 +113,7 @@ T5.Geo.OpenStreetMap = (function() {
                     centerPos: calculatePositionFromTileOffset(tileOffset.x + 0.5, tileOffset.y + 0.5, self.zoomLevel),
                     // NOTE: zoom level is similar to decarta GX zoom level but 1 less...
                     // TODO: implement some kind of universal zoom level... there probably is one already... 
-                    radsPerPixel: module.radsPerPixelAtZoom(T5.tileSize, self.zoomLevel)
+                    radsPerPixel: module.radsPerPixelAtZoom(T5.Tiling.tileSize, self.zoomLevel)
                 });
 
                 return tileGrid;
@@ -167,8 +167,8 @@ T5.Geo.OpenStreetMap = (function() {
             self.setZoomRange(ZOOMLEVEL_MIN, ZOOMLEVEL_MAX);
             
             // check the tile size, if not valid then correct to a valid tilesize
-            if (T5.tileSize !== 256) {
-                T5.tileSize = 256;
+            if (T5.Tiling.tileSize !== 256) {
+                T5.Tiling.tileSize = 256;
             } // if    
 
             return self;

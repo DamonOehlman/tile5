@@ -584,9 +584,11 @@ T5.View = function(params) {
             delayDrawLayers = [],
             ii = 0;
 
+        // TODO: optimize
+        context.clearRect(0, 0, canvas.width, canvas.height);
+
         // Change to force update
         if (clearBackground || isPinchZoom) {
-            context.clearRect(0, 0, canvas.width, canvas.height);
             clearBackground = false;
         } // if
         
@@ -625,6 +627,11 @@ T5.View = function(params) {
                 // draw the layer output to the main canvas
                 // but only if we don't have a scale buffer or the layer is a draw on scale layer
                 if (layers[ii].shouldDraw(drawState, rect, redraw)) {
+                    // if the layer has style, then apply it and save the current style
+                    var layerStyle = layers[ii].style,
+                        previousStyle = layerStyle ? T5.Style.apply(context, layerStyle) : null;                    
+                    
+                    // draw the layer
                     layers[ii].draw(
                         context, 
                         rect, 
@@ -632,6 +639,11 @@ T5.View = function(params) {
                         self,
                         redraw,
                         tickCount);
+                        
+                    // if we applied a style, then restore the previous style if supplied
+                    if (previousStyle) {
+                        T5.Style.apply(context, previousStyle);
+                    } // if
                         
                     // trigger that the draw has been completed
                     layers[ii].trigger('drawComplete', rect, tickCount);
@@ -801,7 +813,11 @@ T5.View = function(params) {
             addLayer(id, value);
         } // if
 
+        // invalidate the view
         invalidate();
+        
+        // return the layer so we can chain if we want
+        return value;
     } // setLayer
     
     /**

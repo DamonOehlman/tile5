@@ -41,7 +41,7 @@ T5.Geo.Bing = (function() {
                     
                     self.setZoomRange(resourceData.zoomMin + 1, resourceData.zoomMax);
 
-                    T5.tileSize = resourceData.imageHeight;
+                    T5.Tiling.tileSize = resourceData.imageHeight;
                     
                     if (callback) {
                         callback();
@@ -79,7 +79,7 @@ T5.Geo.Bing = (function() {
                     tileGrid = new T5.ImageTileGrid(self.prepTileGridArgs(
                         containerDimensions.width, 
                         containerDimensions.height,
-                        T5.tileSize, 
+                        T5.Tiling.tileSize, 
                         tileOffset, 
                         params));
                 
@@ -109,7 +109,7 @@ T5.Geo.Bing = (function() {
                                     tileOffset.y,
                                     true),
                     centerPos: calculatePositionFromTileOffset(tileOffset.x + 0.5, tileOffset.y + 0.5, self.zoomLevel),
-                    radsPerPixel: module.radsPerPixelAtZoom(T5.tileSize, self.zoomLevel)
+                    radsPerPixel: module.radsPerPixelAtZoom(T5.Tiling.tileSize, self.zoomLevel)
                 });
 
                 return geoGrid;
@@ -180,8 +180,8 @@ T5.Geo.Bing = (function() {
     }; 
     
     // check the tile size, if not valid then correct to a valid tilesize
-    if ((T5.tileSize !== 64) || (T5.tileSize !== 256)) {
-        T5.tileSize = 256;
+    if ((T5.Tiling.tileSize !== 64) || (T5.Tiling.tileSize !== 256)) {
+        T5.Tiling.tileSize = 256;
     } // if    
     
     return module;

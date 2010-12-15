@@ -35,6 +35,8 @@ wasting space.
 
 - PINCH T5.ViewState renamed to ZOOM
 
+- T5.Style module created to unify the various style functions (T5.applyStyle, T5.loadStyle, etc - now use T5.Style.apply, T5.Style.load, etc).
+
 ## 0.9.3 (released 2010-11-18)
 
 Some pretty cool stuff in this, plus some pretty major refactoring on a few things.  Essentially functionality that required a `T5.Map` previously has been made to work with a `T5.View` or `T5.Tiler` wherever possible.  This includes paths and annotations.  Additionally, GeoJSON support is in the works and some early support of this can be used with Tile5, however, there is still probably more work to do in this area.

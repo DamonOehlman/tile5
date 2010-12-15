@@ -21,7 +21,7 @@ T5.Geo.Bing = (function() {
                 
                 self.setZoomRange(resourceData.zoomMin + 1, resourceData.zoomMax);
 
-                T5.tileSize = resourceData.imageHeight;
+                T5.Tiling.tileSize = resourceData.imageHeight;
                 
                 if (callback) {
                     callback();

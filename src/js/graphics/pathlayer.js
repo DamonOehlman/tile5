@@ -65,7 +65,7 @@ T5.PathLayer = function(params) {
                 
             context.save();
             try {
-                T5.applyStyle(context, params.style);
+                T5.Style.apply(context, params.style);
                 
                 if (coordLength > 0) {
                     // start drawing the path

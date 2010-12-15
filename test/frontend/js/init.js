@@ -24,10 +24,18 @@ window.addEventListener("load", function() {
         container: "tiler"
     });
     
-    map.setLayer('tiles', new T5.ImageLayer('osm.cloudmade', {
-        apikey: "7960daaf55f84bfdb166014d0b9f8d41"
+    var tiles = map.setLayer('tiles', new T5.ImageLayer('osm.mapbox', {
+        style: 'world-glass'
     }));
     
+    var maskTiles = map.setLayer('maskTiles', new T5.ImageLayer('osm.cloudmade', {
+        apikey: "7960daaf55f84bfdb166014d0b9f8d41",
+        zindex: 50
+    }));
+
+    maskTiles.style = T5.Style.define('xor', {
+        globalCompositeOperation: 'xor'
+    });
     
     nextPos();
     // setInterval(nextPos, 5000);

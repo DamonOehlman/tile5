@@ -56,7 +56,8 @@ T5.ViewLayer = function(params) {
         zindex: 0,
         supportFastDraw: false,
         animated: false,
-        validStates: T5.viewState('ACTIVE', 'ANIMATING', 'PAN', 'ZOOM')
+        validStates: T5.viewState('ACTIVE', 'ANIMATING', 'PAN', 'ZOOM'),
+        style: null
     }, params);
     
     var parent = null,

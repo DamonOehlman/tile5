@@ -1,4 +1,4 @@
-T5.resetStyles({  
+T5.Style.defineMany({  
     'path.bike': {
         lineWidth: 3,
         strokeStyle: 'rgba(0,126,232,0.8)'

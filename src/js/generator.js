@@ -14,14 +14,16 @@ T5.Generator = (function() {
     
     function init(id, params) {
         // look for the generator
-        var generator = generatorRegistry[id];
+        var generatorType = generatorRegistry[id],
+            generator;
         
         // if we didn't find a generator, raise an exception
-        if (! generator) {
+        if (! generatorType) {
             throw new Error('Unable to locate requested generator: ' + id);
         } // if
         
-        return new generator(params);
+        // create the new generator
+        return new generatorType(params);
     } // init
     
     function register(id, creatorFn) {

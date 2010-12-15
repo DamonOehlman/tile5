@@ -454,7 +454,7 @@ T5.Geo.Decarta = (function() {
                         "</xls:PortrayMapRequest>",
 
                         // set the variables in the order they were used
-                        T5.tileSize,
+                        T5.Tiling.tileSize,
                         currentConfig.tileFormat,
                         currentConfig.fixedGrid,
                         currentConfig.useCache,

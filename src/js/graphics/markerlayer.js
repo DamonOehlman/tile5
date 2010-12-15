@@ -41,7 +41,8 @@ layer.bind('markerTap', function(absXY, relXY, markers) {
 */
 T5.MarkerLayer = function(params) {
     params = T5.ex({
-        zindex: 100
+        zindex: 100,
+        style: 'basic'
     }, params);
     
     var markers = [],

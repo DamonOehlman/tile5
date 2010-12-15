@@ -77,7 +77,7 @@ T5.ImageLayer = function(genId, params) {
                 image.height);
         }
         else {
-            context.clearRect(x, y, imageData.width, imageData.height);
+            // context.clearRect(x, y, imageData.width, imageData.height);
         } // if..else
     } // drawImage
     

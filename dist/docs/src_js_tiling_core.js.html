@@ -3,64 +3,6 @@
 {% block title %}Tile5 API Documentation{% endblock %}
 
 {% block api %}
-<h1><a name="T5.Tile">T5.Tile</a></h1>
-
-<p>A very simple lightweight class that stores information relevant to a tile.</p>
-
-<h2>Constructor</h2>
-
-<p><code>new <a href="src_js_tiling_core.js.html#T5.Tile">T5.Tile</a>(params);</code></p>
-
-<h3>Initialization Parameters</h3>
-
-<ul>
-<li>x (default: 0) - the current x screen coordinate of the tile</li>
-<li>y (default: 0) - the current y screen coordinate of the tile</li>
-<li>gridX (default: 0) - </li>
-<li>gridY (default: 0)</li>
-<li>size (default: 256) - the size of the tile</li>
-</ul>
-
-<h2>Properties</h2>
-
-<p>Initialization parameters mapped directly to properties</p>
-
-<h2>Usage</h2>
-
-<p>A new tile is created using the following code:</p>
-
-<pre><code> var tile = new <a href="src_js_tiling_core.js.html#T5.Tile">T5.Tile</a>();
-</code></pre>
-
-<p>or with specific initial property values:
-     var tile = new <a href="src_js_tiling_core.js.html#T5.Tile">T5.Tile</a>({
-         x: 10,
-         y: 10,
-         size: 128
-     });</p>
-
-<h1><a name="T5.ImageTile">T5.ImageTile</a></h1>
-
-<p><em>extends:</em> <a href="src_js_tiling_core.js.html#T5.Tile">T5.Tile</a></p>
-
-<p>The ImageTile adds some additional properties to the base so that a <a href="src_js_core.js.html#T5">T5</a>.ImageTileGrid knows where 
-to load the tile from.</p>
-
-<h2>Constructor</h2>
-
-<p><code>new <a href="src_js_tiling_core.js.html#T5.ImageTile">T5.ImageTile</a>(params);</code></p>
-
-<h3>Initialization Parameters</h3>
-
-<ul>
-<li>url (string) - the url of the image to load into the tile</li>
-</ul>
-
-<h2>Example Usage</h2>
-
-<pre><code> new <a href="src_js_core.js.html#T5">T5</a>.Tiling.ImageTile({
-     url: "http://testurl.com/exampleimage.png"
- });
-</code></pre>
+<h1><a name="T5.Tiling">T5.Tiling</a></h1>
 
 {% endblock %}
