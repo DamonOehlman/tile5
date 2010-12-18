@@ -3,7 +3,7 @@
 */
 T5.ImageLayer = function(genId, params) {
     params = T5.ex({
-        
+        imageLoadArgs: {}
     }, params);
     
     // initialise variables
@@ -11,14 +11,30 @@ T5.ImageLayer = function(genId, params) {
         generatedImages = null,
         lastViewRect = T5.XYRect.init(),
         lastGenerateRect = T5.XYRect.init(),
+        loadArgs = params.imageLoadArgs,
         stateZoom = T5.viewState('ZOOM');
     
     /* private internal functions */
     
     /* every library should have a regenerate function - here's mine ;) */
     function regenerate(viewRect) {
+        var removeIndexes = [],
+            ii;
+        
         generator.run(viewRect, function(images) {
             generatedImages = images;
+
+            // find any null images in the array
+            for (ii = generatedImages.length; ii--; ) {
+                if (! generatedImages[ii]) {
+                    removeIndexes[removeIndexes.length] = ii;
+                } // for
+            } // for
+            
+            // remove the null images that we just located
+            for (var ii = 0; ii < removeIndexes.length; ii++) {
+                generatedImages.splice(removeIndexes[ii], 1);
+            } // for
 
             var parent = self.getParent();
             if (parent) {
@@ -59,7 +75,7 @@ T5.ImageLayer = function(genId, params) {
         callback = (viewState & stateZoom) === 0 ? handleImageLoad : null;
         
         // get and possibly load the image
-        image = T5.Images.get(imageData.url, callback);
+        image = T5.Images.get(imageData.url, callback, loadArgs);
             
         if (image) {
             // draw a rect for the purposes of the clipping
@@ -113,7 +129,7 @@ T5.ImageLayer = function(genId, params) {
                                 generatedImages[ii].y,
                                 generatedImages[ii].x + generatedImages[ii].width,
                                 generatedImages[ii].y + generatedImages[ii].height);
-                                
+
                         // draw the image
                         if (T5.XYRect.intersect(viewRect, imageRect)) {
                             self.drawImage(context, viewRect, xx, yy, generatedImages[ii], state);
@@ -127,6 +143,7 @@ T5.ImageLayer = function(genId, params) {
                 context.restore();
             } // try..finally
             
+            /*
             context.strokeStyle = '#f00';
             context.beginPath();
             context.moveTo(viewRect.x1 + viewRect.width/2, viewRect.y1);
@@ -134,6 +151,7 @@ T5.ImageLayer = function(genId, params) {
             context.moveTo(viewRect.x1, viewRect.y1 + viewRect.height / 2);
             context.lineTo(viewRect.x2, viewRect.y1 + viewRect.height / 2);
             context.stroke();
+            */
             
             lastViewRect = T5.XYRect.copy(viewRect);
         },

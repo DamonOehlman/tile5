@@ -4,27 +4,37 @@
 T5.MapTileGenerator = function(params) {
     
     // initialise variables
-    var zoomLevel = 0;
+    var zoomLevel = 0,
+        initPos = null;
     
     /* internal functions */
     
     function handleZoomLevelChange(evt, newZoomLevel) {
+        COG.Log.info('ZOOM LEVEL CHANGED');
         zoomLevel = newZoomLevel;
-        self.resetTileCreator();
+        self.reset();
     } // handleZoomLevelChange;
     
     /* exports */
     
-    function getTileCreatorArgs() {
+    function getTileCreatorArgs(view) {
+        initPos = view.getCenterPosition();
+        
         return {
-            zoomLevel: zoomLevel
+            zoomLevel: zoomLevel,
+            position: initPos
         };
     } // getTileCreatorArgs
+    
+    function requireRefresh(viewRect) {
+        return !initPos;
+    } // requireRefresh    
     
     /* define self */
     
     var self = T5.ex(new T5.TileGenerator(params), {
-        getTileCreatorArgs: getTileCreatorArgs
+        getTileCreatorArgs: getTileCreatorArgs,
+        requireRefresh: requireRefresh
     });
     
     self.bind('bindView', function(evt, view) {

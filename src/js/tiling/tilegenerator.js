@@ -8,8 +8,7 @@ T5.TileGenerator = function(params) {
     }, params);
     
     // initialise variables
-    var initPos = null,
-        targetView = null,
+    var targetView = null,
         lastRect = null,
         requestXY = T5.XY.init(),
         tileLoader = null,
@@ -61,13 +60,21 @@ T5.TileGenerator = function(params) {
     } // bindToView
     
     /**
-    ### resetTileCreator()
+    ### requireRefresh(viewRect)
+    This function is used to determine whether or not a new tile creator is required
     */
-    function resetTileCreator() {
+    function requireRefresh(viewRect) {
+        return false;
+    } // requireRefresh
+
+    /**
+    ### reset()
+    */
+    function reset() {
         tileCreator = null;
         requestedTileCreator = false;
     } // resetTileCreator
-
+    
     /**
     ### run(viewRect, callback)
     */
@@ -75,45 +82,46 @@ T5.TileGenerator = function(params) {
         var recalc = (! lastRect) || 
             (Math.abs(viewRect.x1 - lastRect.x1) > tileWidth) || 
             (Math.abs(viewRect.y1 - lastRect.y1) > tileHeight);
-        
-        // if we don't know the center position, then this is the first call
-        if ((! initPos) && (! requestedTileCreator)) {
-            COG.Log.info('generating tiles, view rect = ', viewRect);
-            initPos = targetView.getCenterPosition();
-            requestXY = T5.XY.init(viewRect.x1, viewRect.y1);
-            xTiles = Math.ceil(viewRect.width / tileWidth) + 1;
-            yTiles = Math.ceil(viewRect.height / tileHeight) + 1;
             
-            // get the tile loader
-            if (self.initTileCreator) {
-                requestedTileCreator = true;
-                self.initTileCreator(
-                    initPos, 
-                    tileHeight,
-                    tileWidth,
-                    self.getTileCreatorArgs ? self.getTileCreatorArgs() : {},
-                    function(creator, tweakOffset) {
-                        tileCreator = creator;
-                        requestedTileCreator = false;
-                        
-                        runTileCreator(viewRect, callback);
-                    }
-                );
+        if (recalc) {
+            // if we haven't yet created a tile creator then do that now
+            // OR: the current tile creator is invalid
+            if (((! tileCreator) && (! requestedTileCreator)) || self.requireRefresh()) {
+                COG.Log.info('generating tiles, view rect = ', viewRect);
+                requestXY = T5.XY.init(viewRect.x1, viewRect.y1);
+                xTiles = Math.ceil(viewRect.width / tileWidth) + 1;
+                yTiles = Math.ceil(viewRect.height / tileHeight) + 1;
+
+                // get the tile loader
+                if (self.initTileCreator) {
+                    requestedTileCreator = true;
+                    self.initTileCreator(
+                        tileHeight,
+                        tileWidth,
+                        self.getTileCreatorArgs ? self.getTileCreatorArgs(targetView) : {},
+                        function(creator, tweakOffset) {
+                            tileCreator = creator;
+                            requestedTileCreator = false;
+
+                            runTileCreator(viewRect, callback);
+                        }
+                    );
+                } // if
             } // if
             
-            COG.Log.info('generator got view center: ', initPos);
-        } // if
-        
-        if (tileCreator && recalc) {
-            runTileCreator(viewRect, callback);
-        } // if
+            // if we have a tile creator then run it
+            if (tileCreator) {
+                runTileCreator(viewRect, callback);
+            } // if
+        } //  if
     } // run
 
     var self = {
         bindToView: bindToView,
         getTileCreatorArgs: null,
         initTileCreator: null,
-        resetTileCreator: resetTileCreator,
+        requireRefresh: requireRefresh,
+        reset: reset,
         run: run
     };
     

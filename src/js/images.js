@@ -120,8 +120,10 @@ T5.Images = (function() {
     function postProcess(imageData) {
         if (! imageData.image) { return; }
         
-        var width = imageData.realSize ? imageData.realSize.width : image.width,
-            height = imageData.realSize ? imageData.realSize.height : image.height,
+        globalImageData = imageData;
+        
+        var width = imageData.realSize ? imageData.realSize.width : imageData.image.width,
+            height = imageData.realSize ? imageData.realSize.height : imageData.image.height,
             canvas = newCanvas(width, height),
             context = canvas.getContext('2d'),
             offset = imageData.offset ? imageData.offset : T5.XY.init();

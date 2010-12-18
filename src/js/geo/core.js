@@ -1189,14 +1189,8 @@ T5.Geo = (function() {
         function init(pos, radsPerPixel) {
             var xy = T5.XY.init();
 
-            // update the internal variables
-            xy.pos = pos;
-            xy.mercXY = posTools.toMercatorPixels(pos);
-
-            // if the rads per pixel is specified, then sync 
-            if (radsPerPixel) {
-                sync(xy, radsPerPixel);
-            } // if
+            // update the position
+            updatePos(xy, pos, radsPerPixel);
 
             return xy;
         } // init
@@ -1245,13 +1239,27 @@ T5.Geo = (function() {
 
             return posTools.fromMercatorPixels(xy.x * radsPerPixel, Math.PI - xy.y * radsPerPixel);
         } // toPos
+        
+        function updatePos(xy, pos, radsPerPixel) {
+            // update the position
+            xy.pos = pos;
+            xy.mercXY = posTools.toMercatorPixels(pos);
+            
+            // allow for using the xy of the rads per pixel if not supplied
+            radsPerPixel = typeof radsPerPixel !== 'undefined' ? radsPerPixel : xy.radsPerPixel;
+
+            if (radsPerPixel) {
+                sync(xy, radsPerPixel);
+            } // if
+        } // updatePos
 
         /* create the module */
 
         return {
             init: init,
             sync: sync,
-            toPos: toPos
+            toPos: toPos,
+            updatePos: updatePos
         };
     })();
 

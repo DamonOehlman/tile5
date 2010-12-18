@@ -164,6 +164,8 @@ T5.Poly = function(points, params) {
         
         // simplify the vectors for drawing (if required)
         drawPoints = T5.XY.floor(simplify ? T5.XY.simplify(points) : points);
+        
+        // TODO: determine the bounding rect of the shape
     } // resyncToGrid
     
     /* define self */

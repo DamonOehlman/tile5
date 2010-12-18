@@ -63,9 +63,10 @@ T5.Geo.OSM = (function() {
         
         /* exports */
         
-        function initTileCreator(position, tileWidth, tileHeight, args, callback) {
+        function initTileCreator(tileWidth, tileHeight, args, callback) {
             var serverDetails = self.getServerDetails ? self.getServerDetails() : null,
                 zoomLevel = args.zoomLevel,
+                position = args.position,
                 subDomains = serverDetails ? serverDetails.subDomains : [],
                 tileOffset = calculateTileOffset(position, zoomLevel),
                 baseXY = getBaseXY(position, zoomLevel, tileOffset),
@@ -84,18 +85,13 @@ T5.Geo.OSM = (function() {
                     } // if
                     
                     var realTileX = tileOffset.x + tileX,
+                        realTileY = tileOffset.y + tileY,
                         baseUrl = '', 
                         tileUrl;
                         
-                    // keep the actual tile x above 0
-                    while (realTileX < 0) {
-                        realTileX = realTileX + maxTileX;
-                    } // while
-
-                    // keep the actual tile x within the range for this zoom level
-                    while (realTileX >= maxTileX) {
-                        realTileX = realTileX - maxTileX;
-                    } // while
+                    // bring the real tile x into the appropriate range
+                    realTileX = (realTileX % maxTileX);
+                    realTileX = realTileX + (realTileX < 0 ? maxTileX : 0);
 
                     // determine the tile url
                     tileUrl = COG.formatStr("{0}/{1}/{2}.png",

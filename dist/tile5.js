@@ -3522,8 +3522,10 @@ T5.Images = (function() {
     function postProcess(imageData) {
         if (! imageData.image) { return; }
         
-        var width = imageData.realSize ? imageData.realSize.width : image.width,
-            height = imageData.realSize ? imageData.realSize.height : image.height,
+        globalImageData = imageData;
+        
+        var width = imageData.realSize ? imageData.realSize.width : imageData.image.width,
+            height = imageData.realSize ? imageData.realSize.height : imageData.image.height,
             canvas = newCanvas(width, height),
             context = canvas.getContext('2d'),
             offset = imageData.offset ? imageData.offset : T5.XY.init();
@@ -4788,7 +4790,7 @@ T5.View = function(params) {
         
         stateActive = T5.viewState('ACTIVE'),
         statePan = T5.viewState('PAN'),
-        statePinch = T5.viewState('ZOOM'),
+        stateZoom = T5.viewState('ZOOM'),
         stateAnimating = T5.viewState('ANIMATING'),
         
         state = stateActive;
@@ -4852,7 +4854,7 @@ T5.View = function(params) {
         scaling = scaleFactor !== 1;
         
         if (scaling) {
-            state = statePinch;
+            state = stateZoom;
             wake();
         } // if
     } // pinchZoom
@@ -5150,14 +5152,14 @@ T5.View = function(params) {
                 scaleFactor = scaleFactorFrom + updatedValue;
 
                 // trigger the on animate handler
-                state = statePinch;
+                state = stateZoom;
                 wake();
                 self.trigger("animate");
             });
         }
         // otherwise, update the scale factor and fire the callback
         else {
-            scaleFactor = targetScaleFactor;
+            scaleFactor = scaleFactorTo;
             finishAnimation();
         }  // if..else                
     } // animateZoom
@@ -5201,28 +5203,21 @@ T5.View = function(params) {
     } // idle
     
     function drawView(context, drawState, rect, redraw, tickCount) {
-        var isPinchZoom = (drawState & statePinch) !== 0,
+        var isZoom = (drawState & stateZoom) !== 0,
+            drawRect = T5.XYRect.copy(rect),
             delayDrawLayers = [],
             ii = 0;
 
-        // TODO: optimize
-        context.clearRect(0, 0, canvas.width, canvas.height);
-
+        // TODO: make this good...
         // Change to force update
-        if (clearBackground || isPinchZoom) {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        if (clearBackground || isZoom) {
             clearBackground = false;
         } // if
         
         // if we are scaling then do some calcs
-        if (isPinchZoom) {
+        if (isZoom) {
             calcZoomCenter();
-            
-            // offset the draw args
-            // rect.x1 += zoomCenter.x;
-            // rect.y1 += zoomCenter.y;
-            // rect.x2 += zoomCenter.x;
-            // rect.y2 += zoomCenter.y;
-            // offset = T5.XY.offset(offset, zoomCenter.x, zoomCenter.y);
         } // if
         
         // COG.Log.info("draw state = " + drawState);
@@ -5231,18 +5226,44 @@ T5.View = function(params) {
         try {
             lastDrawScaleFactor = scaleFactor;
             
+            /*
             // if the device dpi has scaled, then apply that to the display
             if (deviceScaling !== 1) {
                 context.scale(deviceScaling, deviceScaling);
             }
             // if we are scaling, then tell the canvas to scale
             else if (isPinchZoom) {
-                // context.translate(endCenter.x, endCenter.y);
+                // context.translate(endCenter.x * scaleFactor, endCenter.y * scaleFactor);
                 // context.translate(-rect.width / 2, -rect.height / 2 * scaleFactor);
-                context.scale(scaleFactor, scaleFactor);
+                // context.scale(scaleFactor, scaleFactor);
             } // if..else
+            */
             
-            context.translate(-rect.x1, -rect.y1);
+            if (isZoom) {
+                var invScaleFactor = 1 / scaleFactor,
+                    invScaleFactorNorm = (invScaleFactor - 0.5) / 0.5,
+                    xChange = endCenter.x - offsetX,
+                    yChange = endCenter.y - offsetY,
+                    scaleWidth = ~~(drawRect.width * invScaleFactor),
+                    scaleHeight = ~~(drawRect.height * invScaleFactor);
+                
+                drawRect = T5.XYRect.fromCenter(
+                    endCenter.x - xChange * invScaleFactorNorm, // TODO: not right, needs to move between xChange and 0
+                    endCenter.y - yChange * invScaleFactorNorm, 
+                    scaleWidth, 
+                    scaleHeight);
+                    
+                /*
+                COG.Log.info('scaling, scaleFactor = ' + scaleFactor + 
+                    ', inv = ' + invScaleFactor + ', norm = ' + invScaleFactorNorm + ', draw rect = ', drawRect);
+                */
+                     
+                // context.translate(-endZoom.x - (rect.width / 2) * )
+                context.scale(scaleFactor, scaleFactor);
+            } // if
+            
+            // translate the display appropriately
+            context.translate(-drawRect.x1, -drawRect.y1);
             
             for (ii = layerCount; ii--; ) {
                 // draw the layer output to the main canvas
@@ -5255,7 +5276,7 @@ T5.View = function(params) {
                     // draw the layer
                     layers[ii].draw(
                         context, 
-                        rect, 
+                        drawRect, 
                         drawState, 
                         self,
                         redraw,
@@ -5265,9 +5286,9 @@ T5.View = function(params) {
                     if (previousStyle) {
                         T5.Style.apply(context, previousStyle);
                     } // if
-                        
+                    
                     // trigger that the draw has been completed
-                    layers[ii].trigger('drawComplete', rect, tickCount);
+                    layers[ii].trigger('drawComplete', drawRect, tickCount);
                 } // if
             } // for
         }
@@ -5285,11 +5306,11 @@ T5.View = function(params) {
         var draw = false,
             currentState = stateOverride ? stateOverride : (panimating ? statePan : state),
             interacting = (! panimating) && 
-                ((currentState === statePinch) || (currentState === statePan)),
+                ((currentState === stateZoom) || (currentState === statePan)),
             // if any of the following are true, then we need to draw the whole canvas so just
             requireRedraw = redraw || 
                         currentState === statePan || 
-                        currentState === statePinch || 
+                        currentState === stateZoom || 
                         T5.isTweening();
 
         // convert the offset x and y to integer values
@@ -5624,7 +5645,7 @@ T5.View = function(params) {
             clearTimeout(rescaleTimeout);
 
             if (scaling) {
-                state = statePinch;
+                state = stateZoom;
                 wake();
 
                 if (rescaleAfter) {
@@ -6102,6 +6123,8 @@ T5.Poly = function(points, params) {
         
         // simplify the vectors for drawing (if required)
         drawPoints = T5.XY.floor(simplify ? T5.XY.simplify(points) : points);
+        
+        // TODO: determine the bounding rect of the shape
     } // resyncToGrid
     
     /* define self */
@@ -6827,7 +6850,7 @@ T5.MarkerLayer = function(params) {
 */
 T5.ImageLayer = function(genId, params) {
     params = T5.ex({
-        
+        imageLoadArgs: {}
     }, params);
     
     // initialise variables
@@ -6835,14 +6858,30 @@ T5.ImageLayer = function(genId, params) {
         generatedImages = null,
         lastViewRect = T5.XYRect.init(),
         lastGenerateRect = T5.XYRect.init(),
+        loadArgs = params.imageLoadArgs,
         stateZoom = T5.viewState('ZOOM');
     
     /* private internal functions */
     
     /* every library should have a regenerate function - here's mine ;) */
     function regenerate(viewRect) {
+        var removeIndexes = [],
+            ii;
+        
         generator.run(viewRect, function(images) {
             generatedImages = images;
+
+            // find any null images in the array
+            for (ii = generatedImages.length; ii--; ) {
+                if (! generatedImages[ii]) {
+                    removeIndexes[removeIndexes.length] = ii;
+                } // for
+            } // for
+            
+            // remove the null images that we just located
+            for (var ii = 0; ii < removeIndexes.length; ii++) {
+                generatedImages.splice(removeIndexes[ii], 1);
+            } // for
 
             var parent = self.getParent();
             if (parent) {
@@ -6883,7 +6922,7 @@ T5.ImageLayer = function(genId, params) {
         callback = (viewState & stateZoom) === 0 ? handleImageLoad : null;
         
         // get and possibly load the image
-        image = T5.Images.get(imageData.url, callback);
+        image = T5.Images.get(imageData.url, callback, loadArgs);
             
         if (image) {
             // draw a rect for the purposes of the clipping
@@ -6937,7 +6976,7 @@ T5.ImageLayer = function(genId, params) {
                                 generatedImages[ii].y,
                                 generatedImages[ii].x + generatedImages[ii].width,
                                 generatedImages[ii].y + generatedImages[ii].height);
-                                
+
                         // draw the image
                         if (T5.XYRect.intersect(viewRect, imageRect)) {
                             self.drawImage(context, viewRect, xx, yy, generatedImages[ii], state);
@@ -6951,6 +6990,7 @@ T5.ImageLayer = function(genId, params) {
                 context.restore();
             } // try..finally
             
+            /*
             context.strokeStyle = '#f00';
             context.beginPath();
             context.moveTo(viewRect.x1 + viewRect.width/2, viewRect.y1);
@@ -6958,6 +6998,7 @@ T5.ImageLayer = function(genId, params) {
             context.moveTo(viewRect.x1, viewRect.y1 + viewRect.height / 2);
             context.lineTo(viewRect.x2, viewRect.y1 + viewRect.height / 2);
             context.stroke();
+            */
             
             lastViewRect = T5.XYRect.copy(viewRect);
         },
@@ -7151,8 +7192,7 @@ T5.TileGenerator = function(params) {
     }, params);
     
     // initialise variables
-    var initPos = null,
-        targetView = null,
+    var targetView = null,
         lastRect = null,
         requestXY = T5.XY.init(),
         tileLoader = null,
@@ -7204,13 +7244,21 @@ T5.TileGenerator = function(params) {
     } // bindToView
     
     /**
-    ### resetTileCreator()
+    ### requireRefresh(viewRect)
+    This function is used to determine whether or not a new tile creator is required
     */
-    function resetTileCreator() {
+    function requireRefresh(viewRect) {
+        return false;
+    } // requireRefresh
+
+    /**
+    ### reset()
+    */
+    function reset() {
         tileCreator = null;
         requestedTileCreator = false;
     } // resetTileCreator
-
+    
     /**
     ### run(viewRect, callback)
     */
@@ -7218,45 +7266,46 @@ T5.TileGenerator = function(params) {
         var recalc = (! lastRect) || 
             (Math.abs(viewRect.x1 - lastRect.x1) > tileWidth) || 
             (Math.abs(viewRect.y1 - lastRect.y1) > tileHeight);
-        
-        // if we don't know the center position, then this is the first call
-        if ((! initPos) && (! requestedTileCreator)) {
-            COG.Log.info('generating tiles, view rect = ', viewRect);
-            initPos = targetView.getCenterPosition();
-            requestXY = T5.XY.init(viewRect.x1, viewRect.y1);
-            xTiles = Math.ceil(viewRect.width / tileWidth) + 1;
-            yTiles = Math.ceil(viewRect.height / tileHeight) + 1;
             
-            // get the tile loader
-            if (self.initTileCreator) {
-                requestedTileCreator = true;
-                self.initTileCreator(
-                    initPos, 
-                    tileHeight,
-                    tileWidth,
-                    self.getTileCreatorArgs ? self.getTileCreatorArgs() : {},
-                    function(creator, tweakOffset) {
-                        tileCreator = creator;
-                        requestedTileCreator = false;
-                        
-                        runTileCreator(viewRect, callback);
-                    }
-                );
+        if (recalc) {
+            // if we haven't yet created a tile creator then do that now
+            // OR: the current tile creator is invalid
+            if (((! tileCreator) && (! requestedTileCreator)) || self.requireRefresh()) {
+                COG.Log.info('generating tiles, view rect = ', viewRect);
+                requestXY = T5.XY.init(viewRect.x1, viewRect.y1);
+                xTiles = Math.ceil(viewRect.width / tileWidth) + 1;
+                yTiles = Math.ceil(viewRect.height / tileHeight) + 1;
+
+                // get the tile loader
+                if (self.initTileCreator) {
+                    requestedTileCreator = true;
+                    self.initTileCreator(
+                        tileHeight,
+                        tileWidth,
+                        self.getTileCreatorArgs ? self.getTileCreatorArgs(targetView) : {},
+                        function(creator, tweakOffset) {
+                            tileCreator = creator;
+                            requestedTileCreator = false;
+
+                            runTileCreator(viewRect, callback);
+                        }
+                    );
+                } // if
             } // if
             
-            COG.Log.info('generator got view center: ', initPos);
-        } // if
-        
-        if (tileCreator && recalc) {
-            runTileCreator(viewRect, callback);
-        } // if
+            // if we have a tile creator then run it
+            if (tileCreator) {
+                runTileCreator(viewRect, callback);
+            } // if
+        } //  if
     } // run
 
     var self = {
         bindToView: bindToView,
         getTileCreatorArgs: null,
         initTileCreator: null,
-        resetTileCreator: resetTileCreator,
+        requireRefresh: requireRefresh,
+        reset: reset,
         run: run
     };
     
@@ -8456,14 +8505,8 @@ T5.Geo = (function() {
         function init(pos, radsPerPixel) {
             var xy = T5.XY.init();
 
-            // update the internal variables
-            xy.pos = pos;
-            xy.mercXY = posTools.toMercatorPixels(pos);
-
-            // if the rads per pixel is specified, then sync 
-            if (radsPerPixel) {
-                sync(xy, radsPerPixel);
-            } // if
+            // update the position
+            updatePos(xy, pos, radsPerPixel);
 
             return xy;
         } // init
@@ -8512,13 +8555,27 @@ T5.Geo = (function() {
 
             return posTools.fromMercatorPixels(xy.x * radsPerPixel, Math.PI - xy.y * radsPerPixel);
         } // toPos
+        
+        function updatePos(xy, pos, radsPerPixel) {
+            // update the position
+            xy.pos = pos;
+            xy.mercXY = posTools.toMercatorPixels(pos);
+            
+            // allow for using the xy of the rads per pixel if not supplied
+            radsPerPixel = typeof radsPerPixel !== 'undefined' ? radsPerPixel : xy.radsPerPixel;
+
+            if (radsPerPixel) {
+                sync(xy, radsPerPixel);
+            } // if
+        } // updatePos
 
         /* create the module */
 
         return {
             init: init,
             sync: sync,
-            toPos: toPos
+            toPos: toPos,
+            updatePos: updatePos
         };
     })();
 
@@ -9749,27 +9806,37 @@ T5.Geo.MapProvider = function() {
 T5.MapTileGenerator = function(params) {
     
     // initialise variables
-    var zoomLevel = 0;
+    var zoomLevel = 0,
+        initPos = null;
     
     /* internal functions */
     
     function handleZoomLevelChange(evt, newZoomLevel) {
+        COG.Log.info('ZOOM LEVEL CHANGED');
         zoomLevel = newZoomLevel;
-        self.resetTileCreator();
+        self.reset();
     } // handleZoomLevelChange;
     
     /* exports */
     
-    function getTileCreatorArgs() {
+    function getTileCreatorArgs(view) {
+        initPos = view.getCenterPosition();
+        
         return {
-            zoomLevel: zoomLevel
+            zoomLevel: zoomLevel,
+            position: initPos
         };
     } // getTileCreatorArgs
+    
+    function requireRefresh(viewRect) {
+        return !initPos;
+    } // requireRefresh    
     
     /* define self */
     
     var self = T5.ex(new T5.TileGenerator(params), {
-        getTileCreatorArgs: getTileCreatorArgs
+        getTileCreatorArgs: getTileCreatorArgs,
+        requireRefresh: requireRefresh
     });
     
     self.bind('bindView', function(evt, view) {

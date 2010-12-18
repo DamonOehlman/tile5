@@ -167,7 +167,7 @@ T5.View = function(params) {
         
         stateActive = T5.viewState('ACTIVE'),
         statePan = T5.viewState('PAN'),
-        statePinch = T5.viewState('ZOOM'),
+        stateZoom = T5.viewState('ZOOM'),
         stateAnimating = T5.viewState('ANIMATING'),
         
         state = stateActive;
@@ -231,7 +231,7 @@ T5.View = function(params) {
         scaling = scaleFactor !== 1;
         
         if (scaling) {
-            state = statePinch;
+            state = stateZoom;
             wake();
         } // if
     } // pinchZoom
@@ -529,14 +529,14 @@ T5.View = function(params) {
                 scaleFactor = scaleFactorFrom + updatedValue;
 
                 // trigger the on animate handler
-                state = statePinch;
+                state = stateZoom;
                 wake();
                 self.trigger("animate");
             });
         }
         // otherwise, update the scale factor and fire the callback
         else {
-            scaleFactor = targetScaleFactor;
+            scaleFactor = scaleFactorTo;
             finishAnimation();
         }  // if..else                
     } // animateZoom
@@ -580,28 +580,21 @@ T5.View = function(params) {
     } // idle
     
     function drawView(context, drawState, rect, redraw, tickCount) {
-        var isPinchZoom = (drawState & statePinch) !== 0,
+        var isZoom = (drawState & stateZoom) !== 0,
+            drawRect = T5.XYRect.copy(rect),
             delayDrawLayers = [],
             ii = 0;
 
-        // TODO: optimize
-        context.clearRect(0, 0, canvas.width, canvas.height);
-
+        // TODO: make this good...
         // Change to force update
-        if (clearBackground || isPinchZoom) {
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        if (clearBackground || isZoom) {
             clearBackground = false;
         } // if
         
         // if we are scaling then do some calcs
-        if (isPinchZoom) {
+        if (isZoom) {
             calcZoomCenter();
-            
-            // offset the draw args
-            // rect.x1 += zoomCenter.x;
-            // rect.y1 += zoomCenter.y;
-            // rect.x2 += zoomCenter.x;
-            // rect.y2 += zoomCenter.y;
-            // offset = T5.XY.offset(offset, zoomCenter.x, zoomCenter.y);
         } // if
         
         // COG.Log.info("draw state = " + drawState);
@@ -610,18 +603,44 @@ T5.View = function(params) {
         try {
             lastDrawScaleFactor = scaleFactor;
             
+            /*
             // if the device dpi has scaled, then apply that to the display
             if (deviceScaling !== 1) {
                 context.scale(deviceScaling, deviceScaling);
             }
             // if we are scaling, then tell the canvas to scale
             else if (isPinchZoom) {
-                // context.translate(endCenter.x, endCenter.y);
+                // context.translate(endCenter.x * scaleFactor, endCenter.y * scaleFactor);
                 // context.translate(-rect.width / 2, -rect.height / 2 * scaleFactor);
-                context.scale(scaleFactor, scaleFactor);
+                // context.scale(scaleFactor, scaleFactor);
             } // if..else
+            */
             
-            context.translate(-rect.x1, -rect.y1);
+            if (isZoom) {
+                var invScaleFactor = 1 / scaleFactor,
+                    invScaleFactorNorm = (invScaleFactor - 0.5) / 0.5,
+                    xChange = endCenter.x - offsetX,
+                    yChange = endCenter.y - offsetY,
+                    scaleWidth = ~~(drawRect.width * invScaleFactor),
+                    scaleHeight = ~~(drawRect.height * invScaleFactor);
+                
+                drawRect = T5.XYRect.fromCenter(
+                    endCenter.x - xChange * invScaleFactorNorm, // TODO: not right, needs to move between xChange and 0
+                    endCenter.y - yChange * invScaleFactorNorm, 
+                    scaleWidth, 
+                    scaleHeight);
+                    
+                /*
+                COG.Log.info('scaling, scaleFactor = ' + scaleFactor + 
+                    ', inv = ' + invScaleFactor + ', norm = ' + invScaleFactorNorm + ', draw rect = ', drawRect);
+                */
+                     
+                // context.translate(-endZoom.x - (rect.width / 2) * )
+                context.scale(scaleFactor, scaleFactor);
+            } // if
+            
+            // translate the display appropriately
+            context.translate(-drawRect.x1, -drawRect.y1);
             
             for (ii = layerCount; ii--; ) {
                 // draw the layer output to the main canvas
@@ -634,7 +653,7 @@ T5.View = function(params) {
                     // draw the layer
                     layers[ii].draw(
                         context, 
-                        rect, 
+                        drawRect, 
                         drawState, 
                         self,
                         redraw,
@@ -644,9 +663,9 @@ T5.View = function(params) {
                     if (previousStyle) {
                         T5.Style.apply(context, previousStyle);
                     } // if
-                        
+                    
                     // trigger that the draw has been completed
-                    layers[ii].trigger('drawComplete', rect, tickCount);
+                    layers[ii].trigger('drawComplete', drawRect, tickCount);
                 } // if
             } // for
         }
@@ -664,11 +683,11 @@ T5.View = function(params) {
         var draw = false,
             currentState = stateOverride ? stateOverride : (panimating ? statePan : state),
             interacting = (! panimating) && 
-                ((currentState === statePinch) || (currentState === statePan)),
+                ((currentState === stateZoom) || (currentState === statePan)),
             // if any of the following are true, then we need to draw the whole canvas so just
             requireRedraw = redraw || 
                         currentState === statePan || 
-                        currentState === statePinch || 
+                        currentState === stateZoom || 
                         T5.isTweening();
 
         // convert the offset x and y to integer values
@@ -1003,7 +1022,7 @@ T5.View = function(params) {
             clearTimeout(rescaleTimeout);
 
             if (scaling) {
-                state = statePinch;
+                state = stateZoom;
                 wake();
 
                 if (rescaleAfter) {
