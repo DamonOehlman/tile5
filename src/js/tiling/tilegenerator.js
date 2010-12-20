@@ -1,5 +1,9 @@
 /**
 # T5.TileGenerator
+
+## Events
+
+### update
 */
 T5.TileGenerator = function(params) {
     params = T5.ex({
@@ -127,6 +131,12 @@ T5.TileGenerator = function(params) {
     
     // make the tile generator observable
     COG.observable(self);
+    
+    // handle change events by clearing the last rect
+    self.bind('update', function(evt) {
+        COG.Log.info('captured generator update');
+        lastRect = null;
+    });
     
     return self;
 };

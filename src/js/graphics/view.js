@@ -312,12 +312,12 @@ T5.View = function(params) {
     
     function handleTap(evt, absXY, relXY) {
         // calculate the grid xy
-        var gridXY = T5.XY.offset(relXY, offsetX, offsetY);
+        var offsetXY = T5.XY.offset(relXY, offsetX, offsetY);
         
         // iterate through the layers, and inform of the tap event
         for (var ii = layers.length; ii--; ) {
             evt.cancel = evt.cancel || 
-                layers[ii].trigger('tap', absXY, relXY, gridXY).cancel;
+                layers[ii].trigger('tap', absXY, relXY, offsetXY).cancel;
         } // for
     } // handleTap
     
@@ -573,7 +573,7 @@ T5.View = function(params) {
     } // calcZoomCenter
     
     function triggerIdle() {
-        self.trigger('idle', self);
+        triggerAll(idle, self);
         
         idle = true;
         idleTimeout = 0;

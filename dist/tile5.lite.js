@@ -4934,12 +4934,12 @@ T5.View = function(params) {
     
     function handleTap(evt, absXY, relXY) {
         // calculate the grid xy
-        var gridXY = T5.XY.offset(relXY, offsetX, offsetY);
+        var offsetXY = T5.XY.offset(relXY, offsetX, offsetY);
         
         // iterate through the layers, and inform of the tap event
         for (var ii = layers.length; ii--; ) {
             evt.cancel = evt.cancel || 
-                layers[ii].trigger('tap', absXY, relXY, gridXY).cancel;
+                layers[ii].trigger('tap', absXY, relXY, offsetXY).cancel;
         } // for
     } // handleTap
     
@@ -5195,7 +5195,7 @@ T5.View = function(params) {
     } // calcZoomCenter
     
     function triggerIdle() {
-        self.trigger('idle', self);
+        triggerAll(idle, self);
         
         idle = true;
         idleTimeout = 0;
@@ -6856,7 +6856,6 @@ T5.ImageLayer = function(genId, params) {
     var generator = T5.Generator.init(genId, params),
         generatedImages = null,
         lastViewRect = T5.XYRect.init(),
-        lastGenerateRect = T5.XYRect.init(),
         loadArgs = params.imageLoadArgs,
         stateZoom = T5.viewState('ZOOM');
     
@@ -6887,9 +6886,6 @@ T5.ImageLayer = function(genId, params) {
                 parent.trigger('invalidate');
             } // if
         });
-
-        // update the last generate rect
-        lastGenerateRect = T5.XYRect.copy(viewRect);
     } // regenerate
     
     /* event handlers */
@@ -6903,14 +6899,89 @@ T5.ImageLayer = function(genId, params) {
     
     function handleParentChange(evt, parent) {
         generator.bindToView(parent);
-        parent.bind('idle', handleViewIdle);
     } // handleParent
     
-    function handleViewIdle(evt, view) {
+    function handleIdle(evt, view) {
         regenerate(lastViewRect);
     } // handleViewIdle
     
+    function handleTap(evt, absXY, relXY, offsetXY) {
+        var tappedImages = [],
+            offsetX = offsetXY.x,
+            offsetY = offsetXY.y,
+            genImage,
+            tapped;
+        
+        if (generatedImages) {
+            for (var ii = generatedImages.length; ii--; ) {
+                genImage = generatedImages[ii];
+               
+                // determine if the image is tapped
+                tapped = offsetX >= genImage.x && 
+                    offsetX <= genImage.x + genImage.width && 
+                    offsetY >= genImage.y && 
+                    offsetY <= genImage.y + genImage.height;
+                    
+                // if tapped then add to the list of tapped images
+                if (tapped) {
+                    tappedImages[tappedImages.length] = genImage;
+                } // if
+            } // for
+        } // if
+        
+        // if we have some tapped images, then trigger the event
+        if (tappedImages.length > 0) {
+            self.trigger('tapImage', tappedImages, absXY, relXY, offsetXY);
+        } // if
+    } // handleTap
+    
     /* exports */
+    
+    function draw(context, viewRect, state, view) {
+        // COG.Log.info('drawing image layer layer @ ', rect);
+        
+        context.save();
+        try {
+            context.strokeStyle = '#555';
+
+            context.beginPath();
+
+            if (generatedImages) {
+                for (var ii = generatedImages.length; ii--; ) {
+                    var xx = generatedImages[ii].x,
+                        yy = generatedImages[ii].y,
+                        // TODO: more efficient please...
+                        imageRect = T5.XYRect.init(
+                            generatedImages[ii].x,
+                            generatedImages[ii].y,
+                            generatedImages[ii].x + generatedImages[ii].width,
+                            generatedImages[ii].y + generatedImages[ii].height);
+
+                    // draw the image
+                    if (T5.XYRect.intersect(viewRect, imageRect)) {
+                        self.drawImage(context, viewRect, xx, yy, generatedImages[ii], state);
+                    } // if
+                } // for
+            } // if
+            
+            context.clip();
+        }
+        finally {
+            context.restore();
+        } // try..finally
+        
+        /*
+        context.strokeStyle = '#f00';
+        context.beginPath();
+        context.moveTo(viewRect.x1 + viewRect.width/2, viewRect.y1);
+        context.lineTo(viewRect.x1 + viewRect.width/2, viewRect.y2);
+        context.moveTo(viewRect.x1, viewRect.y1 + viewRect.height / 2);
+        context.lineTo(viewRect.x2, viewRect.y1 + viewRect.height / 2);
+        context.stroke();
+        */
+        
+        lastViewRect = T5.XYRect.copy(viewRect);
+    } // draw
     
     function drawImage(context, viewRect, x, y, imageData, viewState) {
         var callback, image;
@@ -6947,65 +7018,16 @@ T5.ImageLayer = function(genId, params) {
     
     var self = T5.ex(new T5.ViewLayer(params), {
         cycle: function(tickCount, rect, state, redraw) {
-            var generateRequired = 
-                Math.abs(rect.x1 - lastGenerateRect.x1) > rect.width || 
-                Math.abs(rect.y1 - lastGenerateRect.y1) > rect.height;
-                
-            if (generateRequired) {
-                regenerate(rect);
-            } // if
+            regenerate(rect);
         },
         
-        draw: function(context, viewRect, state, view) {
-            // COG.Log.info('drawing image layer layer @ ', rect);
-            
-            context.save();
-            try {
-                context.strokeStyle = '#555';
-
-                context.beginPath();
-
-                if (generatedImages) {
-                    for (var ii = generatedImages.length; ii--; ) {
-                        var xx = generatedImages[ii].x,
-                            yy = generatedImages[ii].y,
-                            // TODO: more efficient please...
-                            imageRect = T5.XYRect.init(
-                                generatedImages[ii].x,
-                                generatedImages[ii].y,
-                                generatedImages[ii].x + generatedImages[ii].width,
-                                generatedImages[ii].y + generatedImages[ii].height);
-
-                        // draw the image
-                        if (T5.XYRect.intersect(viewRect, imageRect)) {
-                            self.drawImage(context, viewRect, xx, yy, generatedImages[ii], state);
-                        } // if
-                    } // for
-                } // if
-                
-                context.clip();
-            }
-            finally {
-                context.restore();
-            } // try..finally
-            
-            /*
-            context.strokeStyle = '#f00';
-            context.beginPath();
-            context.moveTo(viewRect.x1 + viewRect.width/2, viewRect.y1);
-            context.lineTo(viewRect.x1 + viewRect.width/2, viewRect.y2);
-            context.moveTo(viewRect.x1, viewRect.y1 + viewRect.height / 2);
-            context.lineTo(viewRect.x2, viewRect.y1 + viewRect.height / 2);
-            context.stroke();
-            */
-            
-            lastViewRect = T5.XYRect.copy(viewRect);
-        },
-        
+        draw: draw,
         drawImage: drawImage
     });
     
+    self.bind('idle', handleIdle);
     self.bind('parentChange', handleParentChange);
+    self.bind('tap', handleTap);
     
     return self;
 };/**
@@ -7183,6 +7205,10 @@ T5.Tiling = (function() {
     return module;
 })();/**
 # T5.TileGenerator
+
+## Events
+
+### update
 */
 T5.TileGenerator = function(params) {
     params = T5.ex({
@@ -7310,6 +7336,12 @@ T5.TileGenerator = function(params) {
     
     // make the tile generator observable
     COG.observable(self);
+    
+    // handle change events by clearing the last rect
+    self.bind('update', function(evt) {
+        COG.Log.info('captured generator update');
+        lastRect = null;
+    });
     
     return self;
 };
