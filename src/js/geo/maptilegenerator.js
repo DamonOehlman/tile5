@@ -10,7 +10,6 @@ T5.MapTileGenerator = function(params) {
     /* internal functions */
     
     function handleZoomLevelChange(evt, newZoomLevel) {
-        COG.Log.info('ZOOM LEVEL CHANGED');
         zoomLevel = newZoomLevel;
         self.reset();
     } // handleZoomLevelChange;

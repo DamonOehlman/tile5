@@ -57,7 +57,9 @@ T5.ViewLayer = function(params) {
         supportFastDraw: false,
         animated: false,
         validStates: T5.viewState('ACTIVE', 'ANIMATING', 'PAN', 'ZOOM'),
-        style: null
+        style: null,
+        minXY: null,
+        maxXY: null
     }, params);
     
     var parent = null,
@@ -202,6 +204,20 @@ T5.ViewLayer = function(params) {
         // update the last offset
         lastOffsetX = offset.x;
         lastOffsetY = offset.y;
+    });
+    
+    self.bind('resync', function(evt, view) {
+       if (view.syncXY) {
+           if (self.minXY) {
+               view.syncXY(self.minXY);
+               COG.Log.info('resyncing min', self.minXY);
+           } // if
+           
+           if (self.maxXY) {
+               view.syncXY(self.maxXY);
+               COG.Log.info('resyncing max', self.maxXY);
+           } // if
+       } // if
     });
 
     return self;

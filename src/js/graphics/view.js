@@ -144,6 +144,8 @@ T5.View = function(params) {
         idleTimeout = 0,
         rescaleTimeout = 0,
         zoomCenter = T5.XY.init(),
+        layerMinXY = null,
+        layerMaxXY = null,
         rotation = 0,
         tickCount = 0,
         scaling = false,
@@ -306,6 +308,12 @@ T5.View = function(params) {
         resizeCanvasTimeout = setTimeout(attachToCanvas, 50);
     } // handleResize
     
+    function handleResync(evt, view) {
+        // clear the layer min xy and max xy as we have changed zoom levels (or something similar)
+        layerMinXY = null;
+        layerMaxXY = null;
+    } // handleResync
+    
     function handleRotationUpdate(name, value) {
         rotation = value;
     } // handlePrepCanvasCallback
@@ -348,6 +356,17 @@ T5.View = function(params) {
                 } // if
             } // if
         } // updateOffsetAnimationEnd
+        
+        // check that the x and y values are within acceptable bounds
+        if (layerMinXY) {
+            x = x < layerMinXY.x ? layerMinXY.x : x;
+            y = y < layerMinXY.y ? layerMinXY.y : y;
+        } // if
+        
+        if (layerMaxXY) {
+            x = x > layerMaxXY.x ? layerMaxXY.x : x;
+            y = y > layerMaxXY.y ? layerMaxXY.y : y;
+        } // if
         
         if (tweenFn) {
             var tweenX = T5.tweenValue(offsetX, x, tweenFn, 
@@ -573,7 +592,7 @@ T5.View = function(params) {
     } // calcZoomCenter
     
     function triggerIdle() {
-        triggerAll(idle, self);
+        triggerAll('idle', self);
         
         idle = true;
         idleTimeout = 0;
@@ -583,6 +602,7 @@ T5.View = function(params) {
         var isZoom = (drawState & stateZoom) !== 0,
             drawRect = T5.XYRect.copy(rect),
             delayDrawLayers = [],
+            drawLayer,
             ii = 0;
 
         // TODO: make this good...
@@ -642,16 +662,35 @@ T5.View = function(params) {
             // translate the display appropriately
             context.translate(-drawRect.x1, -drawRect.y1);
             
+            // reset the layer bounds
+            layerMinXY = null;
+            layerMaxXY = null;
+            
             for (ii = layerCount; ii--; ) {
+                drawLayer = layers[ii];
+                
                 // draw the layer output to the main canvas
                 // but only if we don't have a scale buffer or the layer is a draw on scale layer
-                if (layers[ii].shouldDraw(drawState, rect, redraw)) {
+                if (drawLayer.shouldDraw(drawState, rect, redraw)) {
                     // if the layer has style, then apply it and save the current style
-                    var layerStyle = layers[ii].style,
-                        previousStyle = layerStyle ? T5.Style.apply(context, layerStyle) : null;                    
+                    var layerStyle = drawLayer.style,
+                        previousStyle = layerStyle ? T5.Style.apply(context, layerStyle) : null;
+                        
+                    // if the layer has bounds, then update the layer bounds
+                    if (drawLayer.minXY) {
+                        layerMinXY = layerMinXY ? 
+                            T5.XY.min(layerMinXY, drawLayer.minXY) : 
+                            T5.XY.copy(drawLayer.minXY);
+                    } // if
+                    
+                    if (drawLayer.maxXY) {
+                        layerMaxXY = layerMaxXY ? 
+                            T5.XY.max(layerMaxXY, drawLayer.maxXY) :
+                            T5.XY.copy(drawLayer.maxXY);
+                    } // if
                     
                     // draw the layer
-                    layers[ii].draw(
+                    drawLayer.draw(
                         context, 
                         drawRect, 
                         drawState, 
@@ -665,7 +704,7 @@ T5.View = function(params) {
                     } // if
                     
                     // trigger that the draw has been completed
-                    layers[ii].trigger('drawComplete', drawRect, tickCount);
+                    drawLayer.trigger('drawComplete', drawRect, tickCount);
                 } // if
             } // for
         }
@@ -1068,6 +1107,9 @@ T5.View = function(params) {
     
     // handle tap events
     self.bind('tap', handleTap);
+    
+    // handle the view being resynced
+    self.bind('resync', handleResync);
     
     // make the view configurable
     COG.configurable(

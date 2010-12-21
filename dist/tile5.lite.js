@@ -2613,6 +2613,24 @@ T5 = (function() {
         } // invert
         
         /**
+        ### max(xy1, xy2)
+        */
+        function max(xy1, xy2) {
+            return init(
+                xy1.x > xy2.x ? xy1.x : xy2.x, 
+                xy1.y > xy2.y ? xy1.y : xy2.y);
+        } // max
+        
+        /**
+        ### min(xy1, xy2)
+        */
+        function min(xy1, xy2) {
+            return init(
+                xy1.x < xy2.x ? xy1.x : xy2.x, 
+                xy1.y < xy2.y ? xy1.y : xy2.y);
+        } // min
+        
+        /**
         ### offset(xy, offsetX, offsetY)
         Return a new composite xy which is offset by the specified amount.
         */
@@ -2688,6 +2706,8 @@ T5 = (function() {
             getRect: getRect,
             init: init,
             invert: invert,
+            min: min,
+            max: max,
             offset: offset,
             simplify: simplify,
             theta: theta
@@ -2787,7 +2807,7 @@ T5 = (function() {
     ## XYRect Object Literal Format
     An XYRect object literal has the following properties.
     
-    - `x1` - The x vaule for the top left corner
+    - `x1` - The x value for the top left corner
     - `y1` - The y value for the top left corner
     - `x2` - The x value for the bottom right corner
     - `y2` - The y value for the bottom right corner
@@ -2836,7 +2856,7 @@ T5 = (function() {
                 centerX + halfWidth,
                 centerY + halfHeight);
         } // fromCenter
-      
+        
         /**
         ### init(x1, y1, x2, y2)
         Create a new XYRect composite object
@@ -2871,7 +2891,28 @@ T5 = (function() {
                 r = init(x1, y1, x2, y2);
                 
             return ((r.width > 0) && (r.height > 0)) ? r : null;
-        } // overlap
+        } // intersect
+        
+        /**
+        ### union(rect1, rect2)
+        */
+        function union(rect1, rect2) {
+            if (rect1.width === 0 || rect1.height === 0) {
+                return copy(rect2);
+            }
+            else if (rect2.width === 0 || rect2.height === 0) {
+                return copy(rect1);
+            }
+            else {
+                var x1 = Math.min(rect1.x1, rect2.x1),
+                    y1 = Math.min(rect1.y1, rect2.y1),
+                    x2 = Math.max(rect1.x2, rect2.x2),
+                    y2 = Math.max(rect1.y2, rect2.y2),
+                    r = init(x1, y1, x2, y2);
+
+                return ((r.width > 0) && (r.height > 0)) ? r : null;
+            } // if..else
+        } // union
         
         /* module definition */
         
@@ -2881,7 +2922,8 @@ T5 = (function() {
             diagonalSize: diagonalSize,
             fromCenter: fromCenter,
             init: init,
-            intersect: intersect
+            intersect: intersect,
+            union: union
         };
     })();
     
@@ -3965,6 +4007,106 @@ T5.TimeLord = (function() {
     return module;
 })();
 /**
+# T5.zoomable(view, params)
+This mixin is used to make an object support integer zoom levels which are 
+implemented when the view scales
+*/
+T5.zoomable = function(view, params) {
+    params = T5.ex({
+        initial: 0,
+        min: 0,
+        max: null,
+        zoomAnimation: T5.easing('quad.out')
+    }, params);
+
+    // initialise variables
+    var zoomLevel = params.initial;
+    
+    /* internal functions */
+    
+    function handleDoubleTap(evt, absXY, relXY) {
+        if (view.scalable()) {
+            view.animate(2, 
+                T5.D.getCenter(view.getDimensions()), 
+                T5.XY.init(relXY.x, relXY.y), 
+                params.zoomAnimation);
+        } // if
+    } // handleDoubleTap
+    
+    function handleScale(evt, scaleAmount, zoomXY) {
+        var zoomChange = 0;
+
+        // damp the scale amount
+        scaleAmount = Math.sqrt(scaleAmount);
+
+        if (scaleAmount < 1) {
+            zoomChange = -(0.5 / scaleAmount);
+        }
+        else if (scaleAmount > 1) {
+            zoomChange = scaleAmount;
+        } // if..else
+        
+        setZoomLevel(zoomLevel + zoomChange >> 0, zoomXY);
+    } // handleScale
+    
+    /* exports */
+    
+    /**
+    ### getZoomLevel()
+    Get the current zoom level for the map
+    */
+    function getZoomLevel() {
+        return zoomLevel;
+    } // getZoomLevel
+    
+    /**
+    ### setZoomLevel(value)
+    Update the map's zoom level to the specified zoom level
+    */
+    function setZoomLevel(value, zoomXY) {
+        if (value && (zoomLevel !== value)) {
+            // update the zoom level
+            zoomLevel = value;
+            
+            // trigger the zoom level change
+            view.triggerAll('zoomLevelChange', zoomLevel, zoomXY);
+        } // if
+    } // setZoomLevel
+    
+    /**
+    ### zoomIn()
+    Zoom in one zoom level
+    */
+    function zoomIn() {
+        if (! view.scale(2, T5.easing('sine.out'))) {
+            view.setZoomLevel(zoomLevel + 1);
+        } // if
+    } // zoomIn
+
+    /**
+    ### zoomOut()
+    Zoom out one zoom level
+    */
+    function zoomOut() {
+        if (! view.scale(0.5, T5.easing('sine.out'))) {
+            view.setZoomLevel(zoomLevel - 1);
+        } // if
+    } // zoomOut
+
+    // apply the mixin
+    T5.ex(view, {
+        getZoomLevel: getZoomLevel,
+        setZoomLevel: setZoomLevel,
+        
+        zoomIn: zoomIn,
+        zoomOut: zoomOut
+    });
+    
+    // handle scale events
+    view.bind('scale', handleScale);
+    view.bind('doubleTap', handleDoubleTap);
+};
+/**
 Easing functions
 
 sourced from Robert Penner's excellent work:
@@ -4471,7 +4613,9 @@ T5.ViewLayer = function(params) {
         supportFastDraw: false,
         animated: false,
         validStates: T5.viewState('ACTIVE', 'ANIMATING', 'PAN', 'ZOOM'),
-        style: null
+        style: null,
+        minXY: null,
+        maxXY: null
     }, params);
     
     var parent = null,
@@ -4616,6 +4760,20 @@ T5.ViewLayer = function(params) {
         // update the last offset
         lastOffsetX = offset.x;
         lastOffsetY = offset.y;
+    });
+    
+    self.bind('resync', function(evt, view) {
+       if (view.syncXY) {
+           if (self.minXY) {
+               view.syncXY(self.minXY);
+               COG.Log.info('resyncing min', self.minXY);
+           } // if
+           
+           if (self.maxXY) {
+               view.syncXY(self.maxXY);
+               COG.Log.info('resyncing max', self.maxXY);
+           } // if
+       } // if
     });
 
     return self;
@@ -4766,6 +4924,8 @@ T5.View = function(params) {
         idleTimeout = 0,
         rescaleTimeout = 0,
         zoomCenter = T5.XY.init(),
+        layerMinXY = null,
+        layerMaxXY = null,
         rotation = 0,
         tickCount = 0,
         scaling = false,
@@ -4928,6 +5088,12 @@ T5.View = function(params) {
         resizeCanvasTimeout = setTimeout(attachToCanvas, 50);
     } // handleResize
     
+    function handleResync(evt, view) {
+        // clear the layer min xy and max xy as we have changed zoom levels (or something similar)
+        layerMinXY = null;
+        layerMaxXY = null;
+    } // handleResync
+    
     function handleRotationUpdate(name, value) {
         rotation = value;
     } // handlePrepCanvasCallback
@@ -4970,6 +5136,17 @@ T5.View = function(params) {
                 } // if
             } // if
         } // updateOffsetAnimationEnd
+        
+        // check that the x and y values are within acceptable bounds
+        if (layerMinXY) {
+            x = x < layerMinXY.x ? layerMinXY.x : x;
+            y = y < layerMinXY.y ? layerMinXY.y : y;
+        } // if
+        
+        if (layerMaxXY) {
+            x = x > layerMaxXY.x ? layerMaxXY.x : x;
+            y = y > layerMaxXY.y ? layerMaxXY.y : y;
+        } // if
         
         if (tweenFn) {
             var tweenX = T5.tweenValue(offsetX, x, tweenFn, 
@@ -5195,7 +5372,7 @@ T5.View = function(params) {
     } // calcZoomCenter
     
     function triggerIdle() {
-        triggerAll(idle, self);
+        triggerAll('idle', self);
         
         idle = true;
         idleTimeout = 0;
@@ -5205,6 +5382,7 @@ T5.View = function(params) {
         var isZoom = (drawState & stateZoom) !== 0,
             drawRect = T5.XYRect.copy(rect),
             delayDrawLayers = [],
+            drawLayer,
             ii = 0;
 
         // TODO: make this good...
@@ -5264,16 +5442,35 @@ T5.View = function(params) {
             // translate the display appropriately
             context.translate(-drawRect.x1, -drawRect.y1);
             
+            // reset the layer bounds
+            layerMinXY = null;
+            layerMaxXY = null;
+            
             for (ii = layerCount; ii--; ) {
+                drawLayer = layers[ii];
+                
                 // draw the layer output to the main canvas
                 // but only if we don't have a scale buffer or the layer is a draw on scale layer
-                if (layers[ii].shouldDraw(drawState, rect, redraw)) {
+                if (drawLayer.shouldDraw(drawState, rect, redraw)) {
                     // if the layer has style, then apply it and save the current style
-                    var layerStyle = layers[ii].style,
-                        previousStyle = layerStyle ? T5.Style.apply(context, layerStyle) : null;                    
+                    var layerStyle = drawLayer.style,
+                        previousStyle = layerStyle ? T5.Style.apply(context, layerStyle) : null;
+                        
+                    // if the layer has bounds, then update the layer bounds
+                    if (drawLayer.minXY) {
+                        layerMinXY = layerMinXY ? 
+                            T5.XY.min(layerMinXY, drawLayer.minXY) : 
+                            T5.XY.copy(drawLayer.minXY);
+                    } // if
+                    
+                    if (drawLayer.maxXY) {
+                        layerMaxXY = layerMaxXY ? 
+                            T5.XY.max(layerMaxXY, drawLayer.maxXY) :
+                            T5.XY.copy(drawLayer.maxXY);
+                    } // if
                     
                     // draw the layer
-                    layers[ii].draw(
+                    drawLayer.draw(
                         context, 
                         drawRect, 
                         drawState, 
@@ -5287,7 +5484,7 @@ T5.View = function(params) {
                     } // if
                     
                     // trigger that the draw has been completed
-                    layers[ii].trigger('drawComplete', drawRect, tickCount);
+                    drawLayer.trigger('drawComplete', drawRect, tickCount);
                 } // if
             } // for
         }
@@ -5690,6 +5887,9 @@ T5.View = function(params) {
     
     // handle tap events
     self.bind('tap', handleTap);
+    
+    // handle the view being resynced
+    self.bind('resync', handleResync);
     
     // make the view configurable
     COG.configurable(
@@ -6853,7 +7053,7 @@ T5.ImageLayer = function(genId, params) {
     }, params);
     
     // initialise variables
-    var generator = T5.Generator.init(genId, params),
+    var generator = genId ? T5.Generator.init(genId, params) : null,
         generatedImages = null,
         lastViewRect = T5.XYRect.init(),
         loadArgs = params.imageLoadArgs,
@@ -6865,21 +7065,13 @@ T5.ImageLayer = function(genId, params) {
     function regenerate(viewRect) {
         var removeIndexes = [],
             ii;
-        
+            
+        if (! generator) {
+            return;
+        } // if
+
         generator.run(viewRect, function(images) {
             generatedImages = images;
-
-            // find any null images in the array
-            for (ii = generatedImages.length; ii--; ) {
-                if (! generatedImages[ii]) {
-                    removeIndexes[removeIndexes.length] = ii;
-                } // for
-            } // for
-            
-            // remove the null images that we just located
-            for (var ii = 0; ii < removeIndexes.length; ii++) {
-                generatedImages.splice(removeIndexes[ii], 1);
-            } // for
 
             var parent = self.getParent();
             if (parent) {
@@ -6898,7 +7090,9 @@ T5.ImageLayer = function(genId, params) {
     } // handleImageLoad
     
     function handleParentChange(evt, parent) {
-        generator.bindToView(parent);
+        if (generator) {
+            generator.bindToView(parent);
+        } // if
     } // handleParent
     
     function handleIdle(evt, view) {
@@ -6936,6 +7130,19 @@ T5.ImageLayer = function(genId, params) {
     } // handleTap
     
     /* exports */
+    
+    /**
+    ### changeGenerator(generatorId, args)
+    */
+    function changeGenerator(generatorId, args) {
+        // update the generator
+        generator = T5.Generator.init(generatorId, T5.ex({}, params, args));
+        generator.bindToView(self.getParent());
+
+        // clear the generated images and regenerate
+        generatedImages = null;
+        regenerate(lastViewRect);
+    } // changeGenerator
     
     function draw(context, viewRect, state, view) {
         // COG.Log.info('drawing image layer layer @ ', rect);
@@ -7017,6 +7224,7 @@ T5.ImageLayer = function(genId, params) {
     /* definition */
     
     var self = T5.ex(new T5.ViewLayer(params), {
+        changeGenerator: changeGenerator,
         cycle: function(tickCount, rect, state, redraw) {
             regenerate(rect);
         },
@@ -7082,7 +7290,11 @@ T5.Style = (function() {
         for (var styleId in data) {
             define(styleId, data[styleId]);
         } // for
-    } // defineMany 
+    } // defineMany
+    
+    function get(styleId) {
+        return styles[styleId];
+    } // get
     
     /**
     ### init(params)
@@ -7118,6 +7330,21 @@ T5.Style = (function() {
                 });
             } // if
         } // fillMods
+        
+        function reloadMods() {
+            mods = [];
+            
+            for (var keyName in params) {
+                fillMods(keyName);
+            } // for
+        } // reloadMods
+        
+        /* exports */
+        
+        function update(keyName, keyVal) {
+            params[keyName] = keyVal;
+            reloadMods();
+        } // update
 
         /* define self */
 
@@ -7127,16 +7354,14 @@ T5.Style = (function() {
                 for (var ii = mods.length; ii--; ) {
                     mods[ii](context);
                 } // for
-            }
+            },
+            
+            update: update
         };
 
         /* initialize */
 
-        for (var keyName in params) {
-            fillMods(keyName);
-        } // for
-
-
+        reloadMods();
         return self;        
     } // init
     
@@ -7155,6 +7380,7 @@ T5.Style = (function() {
         apply: apply,
         define: define,
         defineMany: defineMany,
+        get: get,
         init: init,
         load: load
     };
@@ -7233,6 +7459,26 @@ T5.TileGenerator = function(params) {
     
     /* internal functions */
     
+    function makeTileCreator(tileWidth, tileHeight, creatorArgs, callback) {
+        
+        function innerInit() {
+            // get the tile loader
+            if (self.initTileCreator) {
+                requestedTileCreator = true;
+
+                // initialise the tile creator
+                self.initTileCreator(tileWidth, tileHeight, creatorArgs, callback);
+            } // if
+        } // if
+
+        if (self.prepTileCreator) {
+            self.prepTileCreator(tileWidth, tileHeight, creatorArgs, innerInit);
+        }
+        else {
+            innerInit();
+        } // if..else
+    } // makeTileCreator
+    
     function runTileCreator(viewRect, callback) {
         var relX = ~~((viewRect.x1 - requestXY.x) / tileWidth),
             relY = ~~((viewRect.y1 - requestXY.y) / tileHeight),
@@ -7242,7 +7488,11 @@ T5.TileGenerator = function(params) {
             
         for (var xx = -xTiles; xx < xTiles; xx++) {
             for (var yy = -yTiles; yy < yTiles; yy++) {
-                tiles[tiles.length] = tileCreator(relX + xx, relY + yy);
+                var tile = tileCreator(relX + xx, relY + yy);
+                
+                if (tile) {
+                    tiles[tiles.length] = tile;
+                } // if
             } // for
         } // for
         
@@ -7282,6 +7532,7 @@ T5.TileGenerator = function(params) {
     function reset() {
         tileCreator = null;
         requestedTileCreator = false;
+        lastRect = null;
     } // resetTileCreator
     
     /**
@@ -7301,21 +7552,17 @@ T5.TileGenerator = function(params) {
                 xTiles = Math.ceil(viewRect.width / tileWidth) + 1;
                 yTiles = Math.ceil(viewRect.height / tileHeight) + 1;
 
-                // get the tile loader
-                if (self.initTileCreator) {
-                    requestedTileCreator = true;
-                    self.initTileCreator(
-                        tileHeight,
-                        tileWidth,
-                        self.getTileCreatorArgs ? self.getTileCreatorArgs(targetView) : {},
-                        function(creator, tweakOffset) {
-                            tileCreator = creator;
-                            requestedTileCreator = false;
+                // make the tile creator
+                makeTileCreator(
+                    tileWidth, 
+                    tileHeight, 
+                    self.getTileCreatorArgs ? self.getTileCreatorArgs(targetView) : {},
+                    function(creator) {
+                        tileCreator = creator;
+                        requestedTileCreator = false;
 
-                            runTileCreator(viewRect, callback);
-                        }
-                    );
-                } // if
+                        runTileCreator(viewRect, callback);
+                    });
             } // if
             
             // if we have a tile creator then run it
@@ -7329,6 +7576,7 @@ T5.TileGenerator = function(params) {
         bindToView: bindToView,
         getTileCreatorArgs: null,
         initTileCreator: null,
+        prepTileCreator: null,
         requireRefresh: requireRefresh,
         reset: reset,
         run: run

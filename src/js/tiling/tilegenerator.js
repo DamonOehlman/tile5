@@ -28,6 +28,26 @@ T5.TileGenerator = function(params) {
     
     /* internal functions */
     
+    function makeTileCreator(tileWidth, tileHeight, creatorArgs, callback) {
+        
+        function innerInit() {
+            // get the tile loader
+            if (self.initTileCreator) {
+                requestedTileCreator = true;
+
+                // initialise the tile creator
+                self.initTileCreator(tileWidth, tileHeight, creatorArgs, callback);
+            } // if
+        } // if
+
+        if (self.prepTileCreator) {
+            self.prepTileCreator(tileWidth, tileHeight, creatorArgs, innerInit);
+        }
+        else {
+            innerInit();
+        } // if..else
+    } // makeTileCreator
+    
     function runTileCreator(viewRect, callback) {
         var relX = ~~((viewRect.x1 - requestXY.x) / tileWidth),
             relY = ~~((viewRect.y1 - requestXY.y) / tileHeight),
@@ -37,7 +57,11 @@ T5.TileGenerator = function(params) {
             
         for (var xx = -xTiles; xx < xTiles; xx++) {
             for (var yy = -yTiles; yy < yTiles; yy++) {
-                tiles[tiles.length] = tileCreator(relX + xx, relY + yy);
+                var tile = tileCreator(relX + xx, relY + yy);
+                
+                if (tile) {
+                    tiles[tiles.length] = tile;
+                } // if
             } // for
         } // for
         
@@ -77,6 +101,7 @@ T5.TileGenerator = function(params) {
     function reset() {
         tileCreator = null;
         requestedTileCreator = false;
+        lastRect = null;
     } // resetTileCreator
     
     /**
@@ -96,21 +121,17 @@ T5.TileGenerator = function(params) {
                 xTiles = Math.ceil(viewRect.width / tileWidth) + 1;
                 yTiles = Math.ceil(viewRect.height / tileHeight) + 1;
 
-                // get the tile loader
-                if (self.initTileCreator) {
-                    requestedTileCreator = true;
-                    self.initTileCreator(
-                        tileHeight,
-                        tileWidth,
-                        self.getTileCreatorArgs ? self.getTileCreatorArgs(targetView) : {},
-                        function(creator, tweakOffset) {
-                            tileCreator = creator;
-                            requestedTileCreator = false;
+                // make the tile creator
+                makeTileCreator(
+                    tileWidth, 
+                    tileHeight, 
+                    self.getTileCreatorArgs ? self.getTileCreatorArgs(targetView) : {},
+                    function(creator) {
+                        tileCreator = creator;
+                        requestedTileCreator = false;
 
-                            runTileCreator(viewRect, callback);
-                        }
-                    );
-                } // if
+                        runTileCreator(viewRect, callback);
+                    });
             } // if
             
             // if we have a tile creator then run it
@@ -124,6 +145,7 @@ T5.TileGenerator = function(params) {
         bindToView: bindToView,
         getTileCreatorArgs: null,
         initTileCreator: null,
+        prepTileCreator: null,
         requireRefresh: requireRefresh,
         reset: reset,
         run: run

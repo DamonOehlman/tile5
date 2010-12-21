@@ -19,6 +19,9 @@ T5.Geo.OSM = (function() {
             flipY: false
         }, params);
         
+        // initialise variables
+        var serverDetails = null;
+        
         /* internal functions */
         
         /*
@@ -63,9 +66,23 @@ T5.Geo.OSM = (function() {
         
         /* exports */
         
+        function buildTileUrl(tileX, tileY, maxTileX, maxTileY, zoomLevel) {
+            // determine the tile url
+            var tileUrl = COG.formatStr("{0}/{1}/{2}.png",
+                    zoomLevel,
+                    tileX,
+                    flipY ? Math.abs(tileY - maxTileY + 1) : tileY);
+
+            // COG.Log.info('getting url for tile x = ' + tileX + ', y = ' + tileY);
+            if (serverDetails) {
+                tileUrl = (subDomains.length ? 
+                    COG.formatStr(serverDetails.baseUrl, subDomains[realTileX % subDomains.length]) :
+                    serverDetails.baseUrl) + tileUrl;
+            } // if
+        } // buildTileUrl
+        
         function initTileCreator(tileWidth, tileHeight, args, callback) {
-            var serverDetails = self.getServerDetails ? self.getServerDetails() : null,
-                zoomLevel = args.zoomLevel,
+            var zoomLevel = args.zoomLevel,
                 position = args.position,
                 subDomains = serverDetails ? serverDetails.subDomains : [],
                 tileOffset = calculateTileOffset(position, zoomLevel),
@@ -86,34 +103,27 @@ T5.Geo.OSM = (function() {
                     
                     var realTileX = tileOffset.x + tileX,
                         realTileY = tileOffset.y + tileY,
-                        baseUrl = '', 
                         tileUrl;
                         
                     // bring the real tile x into the appropriate range
                     realTileX = (realTileX % maxTileX);
                     realTileX = realTileX + (realTileX < 0 ? maxTileX : 0);
 
-                    // determine the tile url
-                    tileUrl = COG.formatStr("{0}/{1}/{2}.png",
-                        zoomLevel,
-                        realTileX,
-                        flipY ? Math.abs(tileOffset.y + tileY - maxTileY + 1) : tileOffset.y + tileY);
-                    
-                    // COG.Log.info('getting url for tile x = ' + tileX + ', y = ' + tileY);
-                    if (serverDetails) {
-                        baseUrl = subDomains.length ? 
-                            COG.formatStr(serverDetails.baseUrl, subDomains[realTileX % subDomains.length]) :
-                            serverDetails.baseUrl;
+                    // build the tile url 
+                    tileUrl = self.buildTileUrl(realTileX, realTileY, maxTileX, maxTileY, zoomLevel);
+                    if (tileUrl) {
+                        return T5.Tiling.init(
+                            baseX + (tileX * tileWidth), 
+                            baseY + (tileY * tileHeight),
+                            tileWidth,
+                            tileHeight, {
+                                url: tileUrl
+                            });
                     } // if
-                    
-                    return T5.Tiling.init(
-                        baseX + (tileX * tileWidth), 
-                        baseY + (tileY * tileHeight),
-                        tileWidth,
-                        tileHeight, {
-                            url: baseUrl + tileUrl
-                        });
                 }; // loader
+                
+            // initialise the server details
+            serverDetails = self.getServerDetails ? self.getServerDetails() : null;
 
             // if the callback is assigned, then pass back the creator
             if (callback) {
@@ -125,6 +135,7 @@ T5.Geo.OSM = (function() {
 
         // initialise the generator
         var self = T5.ex(new T5.MapTileGenerator(params), {
+            buildTileUrl: buildTileUrl,
             getServerDetails: null,
             initTileCreator: initTileCreator
         });
@@ -172,13 +183,15 @@ T5.Geo.OSM = (function() {
         });
     }; // MapBoxGenerator
     
+    // register the open street map style generators
+    T5.Generator.register('osm.local', OSMGenerator);
     T5.Generator.register('osm.cloudmade', CloudmadeGenerator);
     T5.Generator.register('osm.mapbox', MapBoxGenerator);
     
     /* define module */
     
     var module = {
-        CloudmadeGenerator: CloudmadeGenerator
+        Generator: OSMGenerator
     };
 
     return module;

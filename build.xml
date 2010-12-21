@@ -104,6 +104,10 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/geo/engines/osm.js" />
 		</concat>
 		
+		<copy todir="${dist}/engines/">
+			<fileset dir="src/js/geo/engines/" />
+		</copy>
+		
 		<copy tofile="${dist}/${LIBNAME}.mapbox.js" file="src/js/geo/providers/mapbox.js" />
 	</target>
 	
@@ -126,6 +130,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/images.js" />
 			<fileset file="src/js/generator.js" />
 			<fileset file="src/js/timelord.js" />
+			<fileset file="src/js/zoomable.js" />
 			
 			<!-- include the animation functionality -->
 			<fileset file="src/js/animation/easing.js" />

@@ -7,7 +7,7 @@ T5.ImageLayer = function(genId, params) {
     }, params);
     
     // initialise variables
-    var generator = T5.Generator.init(genId, params),
+    var generator = genId ? T5.Generator.init(genId, params) : null,
         generatedImages = null,
         lastViewRect = T5.XYRect.init(),
         loadArgs = params.imageLoadArgs,
@@ -19,21 +19,13 @@ T5.ImageLayer = function(genId, params) {
     function regenerate(viewRect) {
         var removeIndexes = [],
             ii;
-        
+            
+        if (! generator) {
+            return;
+        } // if
+
         generator.run(viewRect, function(images) {
             generatedImages = images;
-
-            // find any null images in the array
-            for (ii = generatedImages.length; ii--; ) {
-                if (! generatedImages[ii]) {
-                    removeIndexes[removeIndexes.length] = ii;
-                } // for
-            } // for
-            
-            // remove the null images that we just located
-            for (var ii = 0; ii < removeIndexes.length; ii++) {
-                generatedImages.splice(removeIndexes[ii], 1);
-            } // for
 
             var parent = self.getParent();
             if (parent) {
@@ -52,7 +44,9 @@ T5.ImageLayer = function(genId, params) {
     } // handleImageLoad
     
     function handleParentChange(evt, parent) {
-        generator.bindToView(parent);
+        if (generator) {
+            generator.bindToView(parent);
+        } // if
     } // handleParent
     
     function handleIdle(evt, view) {
@@ -90,6 +84,19 @@ T5.ImageLayer = function(genId, params) {
     } // handleTap
     
     /* exports */
+    
+    /**
+    ### changeGenerator(generatorId, args)
+    */
+    function changeGenerator(generatorId, args) {
+        // update the generator
+        generator = T5.Generator.init(generatorId, T5.ex({}, params, args));
+        generator.bindToView(self.getParent());
+
+        // clear the generated images and regenerate
+        generatedImages = null;
+        regenerate(lastViewRect);
+    } // changeGenerator
     
     function draw(context, viewRect, state, view) {
         // COG.Log.info('drawing image layer layer @ ', rect);
@@ -171,6 +178,7 @@ T5.ImageLayer = function(genId, params) {
     /* definition */
     
     var self = T5.ex(new T5.ViewLayer(params), {
+        changeGenerator: changeGenerator,
         cycle: function(tickCount, rect, state, redraw) {
             regenerate(rect);
         },

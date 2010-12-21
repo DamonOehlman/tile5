@@ -2,37 +2,42 @@
 # T5.Flickr (plugin module)
 */
 T5.Flickr = (function() {
+    // initialise constants
+    var URL_BASE = 'http://api.flickr.com/services/rest/' + 
+            '?api_key={0}' +
+            '&format=json',
+        MODE_METHODS = {
+            interesting: 'flickr.interestingness.getList',
+            recent: 'flickr.photos.getRecent',
+            search: 'flickr.photos.search'
+        },
+        METHOD_GETINFO = 'flickr.photos.getInfo',
+        METHOD_GETPLACES = 'flickr.places.placesForBoundingBox',
+        MIN_QUEUE_LENGTH = 100,
+        IMAGES_PER_REQUEST = 150,
+        DEFAULT_SEARCH_OPTIONS = {};
+
     var FlickrTileGenerator = function(params) {
         params = T5.ex({
-            apikey: ''
+            apikey: '',
+            mode: 'interesting'
         }, params);
         
-        // initialise constants
-        var URL_BASE = 'http://api.flickr.com/services/rest/' + 
-                '?api_key={0}' +
-                '&format=json',
-            METHOD_SEARCH = 'flickr.photos.search',
-            METHOD_RECENT = 'flickr.photos.getRecent',
-            METHOD_GETINFO = 'flickr.photos.getInfo',
-            METHOD_GETPLACES = 'flickr.places.placesForBoundingBox',
-            METHOD_GET_INTERESTING = 'flickr.interestingness.getList',
-            MIN_QUEUE_LENGTH = 100,
-            IMAGES_PER_REQUEST = 150,
-            DEFAULT_SEARCH_OPTIONS = {};
-            
         // initialise variables
-        var mode = 'search',
-            searchText = '',
+        var searchText = '',
             pageIndex = 1, 
             assignedPhotos = {},
             queuedPhotos = [],
             knownUsers = {},
             searching = false,
-            modeMethod = METHOD_GET_INTERESTING,
+            mode = params.mode,
+            modeMethod = MODE_METHODS[mode],
             noMoreResults = false,
             foundModifiers = [],
             searchOptions = COG.extend({}, DEFAULT_SEARCH_OPTIONS),
             userSearchOptions = {};
+            
+        COG.Log.info('flickr tile generator created, params = ', params);
 
         /* internal functions */
 
@@ -55,7 +60,7 @@ T5.Flickr = (function() {
         } // buildSearchUrl
 
         function checkQueue() {
-            if ((mode === 'search') && (queuedPhotos.length < MIN_QUEUE_LENGTH)) {
+            if (queuedPhotos.length < MIN_QUEUE_LENGTH) {
                 queryFlickr();
             } // if
         } // checkQueue
@@ -194,15 +199,13 @@ T5.Flickr = (function() {
             } // if
 
             searching = false;
-            if (mode === 'search') {
-                var searchResults = data.photos.photo;
-                noMoreResults = searchResults.length === 0;
+            var searchResults = data.photos.photo;
+            noMoreResults = searchResults.length === 0;
 
-                for (var ii = searchResults.length; ii--; ) {
-                    queuedPhotos.push(searchResults[ii]);
-                    // assignedPhotos.push(null);
-                } // for
-            } // if
+            for (var ii = searchResults.length; ii--; ) {
+                queuedPhotos.push(searchResults[ii]);
+                // assignedPhotos.push(null);
+            } // for
         } // processSearchResults                        
 
         /* exports */

@@ -205,6 +205,24 @@ T5 = (function() {
         } // invert
         
         /**
+        ### max(xy1, xy2)
+        */
+        function max(xy1, xy2) {
+            return init(
+                xy1.x > xy2.x ? xy1.x : xy2.x, 
+                xy1.y > xy2.y ? xy1.y : xy2.y);
+        } // max
+        
+        /**
+        ### min(xy1, xy2)
+        */
+        function min(xy1, xy2) {
+            return init(
+                xy1.x < xy2.x ? xy1.x : xy2.x, 
+                xy1.y < xy2.y ? xy1.y : xy2.y);
+        } // min
+        
+        /**
         ### offset(xy, offsetX, offsetY)
         Return a new composite xy which is offset by the specified amount.
         */
@@ -280,6 +298,8 @@ T5 = (function() {
             getRect: getRect,
             init: init,
             invert: invert,
+            min: min,
+            max: max,
             offset: offset,
             simplify: simplify,
             theta: theta
@@ -379,7 +399,7 @@ T5 = (function() {
     ## XYRect Object Literal Format
     An XYRect object literal has the following properties.
     
-    - `x1` - The x vaule for the top left corner
+    - `x1` - The x value for the top left corner
     - `y1` - The y value for the top left corner
     - `x2` - The x value for the bottom right corner
     - `y2` - The y value for the bottom right corner
@@ -428,7 +448,7 @@ T5 = (function() {
                 centerX + halfWidth,
                 centerY + halfHeight);
         } // fromCenter
-      
+        
         /**
         ### init(x1, y1, x2, y2)
         Create a new XYRect composite object
@@ -463,7 +483,28 @@ T5 = (function() {
                 r = init(x1, y1, x2, y2);
                 
             return ((r.width > 0) && (r.height > 0)) ? r : null;
-        } // overlap
+        } // intersect
+        
+        /**
+        ### union(rect1, rect2)
+        */
+        function union(rect1, rect2) {
+            if (rect1.width === 0 || rect1.height === 0) {
+                return copy(rect2);
+            }
+            else if (rect2.width === 0 || rect2.height === 0) {
+                return copy(rect1);
+            }
+            else {
+                var x1 = Math.min(rect1.x1, rect2.x1),
+                    y1 = Math.min(rect1.y1, rect2.y1),
+                    x2 = Math.max(rect1.x2, rect2.x2),
+                    y2 = Math.max(rect1.y2, rect2.y2),
+                    r = init(x1, y1, x2, y2);
+
+                return ((r.width > 0) && (r.height > 0)) ? r : null;
+            } // if..else
+        } // union
         
         /* module definition */
         
@@ -473,7 +514,8 @@ T5 = (function() {
             diagonalSize: diagonalSize,
             fromCenter: fromCenter,
             init: init,
-            intersect: intersect
+            intersect: intersect,
+            union: union
         };
     })();
     

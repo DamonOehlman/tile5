@@ -40,8 +40,7 @@ T5.Map = function(params) {
         provider: null,
         crosshair: false,
         zoomLevel: 0,
-        boundsChangeThreshold: 30,
-        zoomAnimation: T5.easing('quad.out')
+        boundsChangeThreshold: 30
     }, params);
 
     // define the locate modes
@@ -62,8 +61,7 @@ T5.Map = function(params) {
         locationOverlay = null,
         geoWatchId = 0,
         initialTrackingUpdate = true,
-        radsPerPixel = 0,
-        zoomLevel = params.zoomLevel;
+        radsPerPixel = 0;
         
     // if the data provider has not been created, 
     // then create a default one
@@ -186,38 +184,11 @@ T5.Map = function(params) {
         */
     } // handleTap
     
-    function handleDoubleTap(evt, absXY, relXY) {
-        if (self.scalable()) {
-            self.animate(2, 
-                T5.D.getCenter(self.getDimensions()), 
-                T5.XY.init(relXY.x, relXY.y), 
-                params.zoomAnimation);
-        } // if
-    } // handleDoubleTap
-    
-    function handleScale(evt, scaleAmount, zoomXY) {
-        var zoomChange = 0;
-
-        // damp the scale amount
-        scaleAmount = Math.sqrt(scaleAmount);
-
-        if (scaleAmount < 1) {
-            zoomChange = -(0.5 / scaleAmount);
-        }
-        else if (scaleAmount > 1) {
-            zoomChange = scaleAmount;
-        } // if..else
-        
-        COG.Log.info('zoom xy = ', zoomXY);
-
-        gotoPosition(
-            T5.GeoXY.toPos(zoomXY, radsPerPixel),
-            zoomLevel + zoomChange >> 0);
-    } // handleScale
-    
     function handleIdle(evt) {
         var changeDelta = T5.XY.absSize(T5.XY.diff(
                 lastBoundsChangeOffset, self.getOffset()));
+                
+        COG.Log.info('idle, change delta = ' + changeDelta);
         
         if (changeDelta > params.boundsChangeThreshold) {
             lastBoundsChangeOffset = T5.XY.copy(self.getOffset());
@@ -229,6 +200,20 @@ T5.Map = function(params) {
         self.cleanup();
         initialized = false;
     } // handleProviderUpdate
+    
+    function handleZoomLevelChange(evt, zoomLevel, zoomXY) {
+        COG.Log.info('zoom level change, new zoom level = ' + zoomLevel + ', zoomXY = ', zoomXY);
+        
+        // get the current position on the map
+        var currentPos = zoomXY ? T5.GeoXY.toPos(zoomXY, radsPerPixel) : getCenterPosition();
+        
+        // update the rads per pixel to reflect the zoom level change
+        radsPerPixel = T5.Geo.radsPerPixel(zoomLevel);
+        self.triggerAll('resync', self);
+
+        // reset the map to the same position
+        panToPosition(currentPos);
+    } // handleZoomLevel
     
     /* internal functions */
     
@@ -267,36 +252,6 @@ T5.Map = function(params) {
     } // getCenterPosition
     
     /**
-    ### getZoomLevel()
-    Get the current zoom level for the map
-    */
-    function getZoomLevel() {
-        return zoomLevel;
-    } // getZoomLevel
-    
-    /**
-    ### setZoomLevel(value)
-    Update the map's zoom level to the specified zoom level
-    */
-    function setZoomLevel(value) {
-        if (value && (zoomLevel !== value)) {
-            var centerPosition = getCenterPosition();
-            
-            zoomLevel = value;
-            
-            // update the rads per pixel to reflect the zoom level change
-            radsPerPixel = T5.Geo.radsPerPixel(zoomLevel);
-            
-            // pan to the new position
-            panToPosition(centerPosition);
-
-            // trigger the zoom level change
-            self.trigger('zoomLevelChange', zoomLevel);
-            self.triggerAll('resync', self);
-        } // if
-    } // setZoomLevel
-    
-    /**
     ### gotoBounds(bounds, callback)
     Calculates the optimal display bounds for the specified T5.Geo.BoundingBox and
     then goes to the center position and zoom level best suited.
@@ -327,7 +282,7 @@ T5.Map = function(params) {
         COG.Log.info('position updated to: ', position);
         
         // update the zoom level
-        setZoomLevel(newZoomLevel);
+        self.setZoomLevel(newZoomLevel);
         
         // remove the grid layer
         T5.Images.cancelLoad();
@@ -351,7 +306,7 @@ T5.Map = function(params) {
     function panToPosition(position, callback, easingFn, easingDuration) {
         // determine the tile offset for the 
         // requested position
-        var centerXY = T5.GeoXY.init(position, T5.Geo.radsPerPixel(zoomLevel));
+        var centerXY = T5.GeoXY.init(position, T5.Geo.radsPerPixel(self.getZoomLevel()));
             
         // COG.Log.info('panning to center xy: ', centerXY);
         self.updateOffset(centerXY.x, centerXY.y, easingFn, easingDuration, callback);
@@ -389,9 +344,6 @@ T5.Map = function(params) {
         
         getBoundingBox: getBoundingBox,
         getCenterPosition: getCenterPosition,
-        getZoomLevel: getZoomLevel,
-        
-        setZoomLevel: setZoomLevel,
 
         gotoBounds: gotoBounds,
         gotoPosition: gotoPosition,
@@ -454,35 +406,6 @@ T5.Map = function(params) {
         },
         
         /**
-        - `zoomIn()`
-        
-        Zoom in one zoom level
-        */
-        zoomIn: function() {
-            // determine the required scaling
-            var scalingNeeded = T5.Geo.radsPerPixel(zoomLevel) / 
-                    T5.Geo.radsPerPixel(zoomLevel + 1);
-            
-            if (! self.scale(2, T5.easing('sine.out'))) {
-                self.setZoomLevel(zoomLevel + 1);
-            } // if
-        },
-
-        /**
-        - `zoomOut()`
-        
-        Zoom out one zoom level
-        */
-        zoomOut: function() {
-            var scalingNeeded = T5.Geo.radsPerPixel(zoomLevel) / 
-                    T5.Geo.radsPerPixel(zoomLevel - 1);
-            
-            if (! self.scale(0.5, T5.easing('sine.out'))) {
-                self.setZoomLevel(zoomLevel - 1);
-            } // if
-        },
-
-        /**
         - `animateRoute(easing, duration, callback, center)`
         
         TODO
@@ -509,14 +432,16 @@ T5.Map = function(params) {
     // bind some event handlers
     self.bind('pan', handlePan);
     self.bind('tap', handleTap);
-    self.bind('doubleTap', handleDoubleTap);
-    self.bind('scale', handleScale);
     
     // watch for marker updates
     // self.markers.bind('markerUpdate', handleMarkerUpdate);
     
     // listen for the view idling
     self.bind("idle", handleIdle);
+    
+    // list for zoom level changes
+    T5.zoomable(self, params);
+    self.bind('zoomLevelChange', handleZoomLevelChange);
     
     // make a few parameter configurable
     COG.configurable(

@@ -50,7 +50,11 @@ T5.Style = (function() {
         for (var styleId in data) {
             define(styleId, data[styleId]);
         } // for
-    } // defineMany 
+    } // defineMany
+    
+    function get(styleId) {
+        return styles[styleId];
+    } // get
     
     /**
     ### init(params)
@@ -86,6 +90,21 @@ T5.Style = (function() {
                 });
             } // if
         } // fillMods
+        
+        function reloadMods() {
+            mods = [];
+            
+            for (var keyName in params) {
+                fillMods(keyName);
+            } // for
+        } // reloadMods
+        
+        /* exports */
+        
+        function update(keyName, keyVal) {
+            params[keyName] = keyVal;
+            reloadMods();
+        } // update
 
         /* define self */
 
@@ -95,16 +114,14 @@ T5.Style = (function() {
                 for (var ii = mods.length; ii--; ) {
                     mods[ii](context);
                 } // for
-            }
+            },
+            
+            update: update
         };
 
         /* initialize */
 
-        for (var keyName in params) {
-            fillMods(keyName);
-        } // for
-
-
+        reloadMods();
         return self;        
     } // init
     
@@ -123,6 +140,7 @@ T5.Style = (function() {
         apply: apply,
         define: define,
         defineMany: defineMany,
+        get: get,
         init: init,
         load: load
     };
