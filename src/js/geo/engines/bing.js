@@ -2,12 +2,6 @@
 # T5.Geo.Bing
 */
 T5.Geo.Bing = (function() {
-    var DEFAULT_COPYRIGHT = 
-        'Copyright © Microsoft and its suppliers. All rights reserved. This API ' +
-        'cannot be accessed and the content and any results may not be used, ' + 
-        'reproduced or transmitted in any manner without express written permission ' + 
-        'from Microsoft Corporation.';
-    
     var imageUrls = {},
         logoUrl, 
         copyrightText,
@@ -38,7 +32,9 @@ T5.Geo.Bing = (function() {
                 subDomains = resourceData.imageUrlSubdomains;
 
                 logoUrl = data.brandLogoUri;
-                copyrightText = data.copyright;
+
+                // display the copyright appropriately
+                T5.userMessage('ack', 'bing', data.copyright);
 
                 // self.setZoomRange(resourceData.zoomMin + 1, resourceData.zoomMax);
 

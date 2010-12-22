@@ -3000,11 +3000,19 @@ T5 = (function() {
         return new Date().getTime();
     } // getTicks
     
+    /**
+    ### userMessage(msgType, msgKey, msgHtml)
+    */
+    function userMessage(msgType, msgKey, msgHtml) {
+        module.trigger('userMessage', msgType, msgKey, msgHtml);
+    } // userMessage
+    
     /* module definition */
 
     var module = {
         ex: COG.extend,
         ticks: getTicks,
+        userMessage: userMessage,
         
         XY: xyTools,
         XYRect: xyRectTools,
@@ -3013,6 +3021,9 @@ T5 = (function() {
         V: COG.extend(xyTools, vectorTools),
         D: dimensionTools
     };
+    
+    // make T5 itself observable 
+    COG.observable(module);
     
     return module;
 })();

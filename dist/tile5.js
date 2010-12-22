@@ -7,7 +7,7 @@
  * Licensed under the MIT licence
  * https://github.com/sidelab/tile5/blob/master/LICENSE.mdown
  *
- * Build Date: 2010-12-22 05:54:14 +0000
+ * Build Date: 2010-12-22 06:58:24 +0000
  */
  
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true *//* GRUNTJS START */
@@ -3001,11 +3001,19 @@ T5 = (function() {
         return new Date().getTime();
     } // getTicks
     
+    /**
+    ### userMessage(msgType, msgKey, msgHtml)
+    */
+    function userMessage(msgType, msgKey, msgHtml) {
+        module.trigger('userMessage', msgType, msgKey, msgHtml);
+    } // userMessage
+    
     /* module definition */
 
     var module = {
         ex: COG.extend,
         ticks: getTicks,
+        userMessage: userMessage,
         
         XY: xyTools,
         XYRect: xyRectTools,
@@ -3014,6 +3022,9 @@ T5 = (function() {
         V: COG.extend(xyTools, vectorTools),
         D: dimensionTools
     };
+    
+    // make T5 itself observable 
+    COG.observable(module);
     
     return module;
 })();

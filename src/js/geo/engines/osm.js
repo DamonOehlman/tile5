@@ -143,6 +143,9 @@ T5.Geo.OSM = (function() {
             initTileCreator: initTileCreator
         });
         
+        // trigger an attribution requirement
+        T5.userMessage('ack', 'osm', 'Map data (c) <a href="http://openstreetmap.org/" target="_blank">OpenStreetMap</a> (and) contributors, CC-BY-SA');
+        
         // bind to generator events
         
         return self;
@@ -153,6 +156,8 @@ T5.Geo.OSM = (function() {
             apikey: null,
             styleid: 1
         }, params);
+        
+        T5.userMessage('ack', 'osm.mapquest', 'This product uses the <a href="http://cloudmade.com/" target="_blank">CloudMade</a> APIs, but is not endorsed or certified by CloudMade.');
         
         return T5.ex(new OSMGenerator(params), {
             getServerDetails: function() {
@@ -176,6 +181,8 @@ T5.Geo.OSM = (function() {
             flipY: true
         }, params);
         
+        T5.userMessage('ack', 'osm.mapquest', 'Tiles Courtesy of <a href="http://mapbox.com/" target="_blank">MapBox</a>');
+        
         return T5.ex(new OSMGenerator(params), {
             getServerDetails: function() {
                 return {
@@ -187,6 +194,8 @@ T5.Geo.OSM = (function() {
     });
     
     T5.Generator.register('osm.mapquest', function(params) {
+        T5.userMessage('ack', 'osm.mapquest', 'Tiles Courtesy of <a href="http://open.mapquest.co.uk/" target="_blank">MapQuest</a>');
+        
         return T5.ex(new OSMGenerator(params), {
             getServerDetails: function() {
                 return {
