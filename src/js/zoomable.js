@@ -19,7 +19,10 @@ T5.zoomable = function(view, params) {
     function handleDoubleTap(evt, absXY, relXY) {
         if (view.scalable()) {
             // cancel any current animations
-            T5.cancelAnimation();
+            // TODO: review if there is a better place to do this
+            T5.cancelAnimation(function(tweenInstance) {
+                return tweenInstance.cancelOnInteract;
+            });
             
             // animate the scaling
             view.animate(2, 
@@ -44,7 +47,9 @@ T5.zoomable = function(view, params) {
         
         // cancel any current animations
         // TODO: review if there is a better place to do this
-        T5.cancelAnimation();
+        T5.cancelAnimation(function(tweenInstance) {
+            return tweenInstance.cancelOnInteract;
+        });
         
         setZoomLevel(zoomLevel + zoomChange >> 0, zoomXY);
     } // handleScale

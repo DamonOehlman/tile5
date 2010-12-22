@@ -139,20 +139,17 @@ T5.View = function(params) {
         deviceScaling = 1,
         dimensions = T5.D.init(),
         wakeTriggers = 0,
-        endCenter = null,
+        interactCenter = null,
         idle = false,
         panimating = false,
         paintTimeout = 0,
         idleTimeout = 0,
         rescaleTimeout = 0,
-        zoomCenter = T5.XY.init(),
         layerMinXY = null,
         layerMaxXY = null,
         rotation = 0,
         tickCount = 0,
         scaling = false,
-        startRect = null,
-        endRect = null,
         stateOverride = null,
         redrawView = false,
         redrawEvery = 40,
@@ -162,10 +159,10 @@ T5.View = function(params) {
         lastDrawScaleFactor = 1,
         aniProgress = null,
         tweenStart = null,
-        startCenter = null,
         isFlash = typeof FlashCanvas !== 'undefined',
         cycleDelay = ~~(1000 / params.fps),
         touchHelper = null,
+        zoomX, zoomY,
         
         /* state shortcuts */
         
@@ -215,16 +212,22 @@ T5.View = function(params) {
     } // resetZoom
     
     function checkTouches(start, end) {
-        startRect = vectorRect(start);
-        endRect = vectorRect(end);
-
-        // get the sizes of the rects
-        var startSize = rectDiagonal(startRect),
-            endSize = rectDiagonal(endRect);
+        var startRect = vectorRect(start),
+            startCenter = rectCenter(startRect),
+            startSize = rectDiagonal(startRect),
+            endRect = vectorRect(end),
+            endCenter = rectCenter(endRect),
+            endSize = rectDiagonal(endRect),
+            diffX = startCenter.x - endCenter.x,
+            diffY = startCenter.y - endCenter.y;
 
         // update the zoom center
-        startCenter = rectCenter(startRect);
-        endCenter = rectCenter(endRect);
+        // TODO: apply the difference so that the center of the interaction changes relative
+        // to movements between the start center and end center
+        interactCenter = T5.XY.offset(
+            endCenter, 
+            cycleRect.x1, 
+            cycleRect.y1);
 
         // determine the ratio between the start rect and the end rect
         scaleFactor = (startRect && (startSize !== 0)) ? (endSize / startSize) : 1;
@@ -248,29 +251,8 @@ T5.View = function(params) {
             COG.Log.info("scale factor adjusted to: " + scaleFactor);
         } // if
 
-        if (pinchZoomTime < params.pinchZoomAnimateTrigger) {
-            // TODO: move this to the map to override
-            animateZoom(
-                lastDrawScaleFactor, 
-                scaleFactor, 
-                startCenter, 
-                calcPinchZoomCenter(), 
-                // TODO: make the animation configurable
-                T5.easing('sine.out'),
-                function() {
-                    scaleView();
-                    resetZoom();
-                },
-                // TODO: make the animation duration configurable
-                300);
-                
-            // reset the scale factor to the last draw scale factor
-            scaleFactor = lastDrawScaleFactor;
-        }
-        else {
-            scaleView();
-            resetZoom();
-        } // if..else
+        scaleView();
+        resetZoom();
     } // pinchZoomEnd
     
     function wheelZoom(evt, relXY, zoom) {
@@ -278,7 +260,7 @@ T5.View = function(params) {
     } // wheelZoom
     
     function scaleView() {
-        var scaleEndXY = startRect ? calcPinchZoomCenter() : endCenter;
+        var scaleEndXY = T5.XY.init(zoomX, zoomY);
         
         // round the scaling factor to 1 decimal place
         scaleFactor = Math.round(scaleFactor * 10) / 10;
@@ -525,9 +507,7 @@ T5.View = function(params) {
         
         // update the zoom center
         scaling = true;
-        startCenter = T5.XY.offset(startXY, cycleRect.x1, cycleRect.y1);
-        endCenter = T5.XY.offset(targetXY, cycleRect.x1, cycleRect.y1);
-        startRect = null;
+        interactCenter = T5.XY.offset(targetXY, cycleRect.x1, cycleRect.y1);
 
         // if tweening then update the targetXY
         if (tweenFn) {
@@ -560,41 +540,29 @@ T5.View = function(params) {
     
     /* draw code */
     
-    function calcPinchZoomCenter() {
-        var center = T5.D.getCenter(dimensions),
-            endDist = T5.XY.distance([endCenter, center]),
-            endTheta = T5.XY.theta(endCenter, center, endDist),
-            shiftDelta = T5.XY.diff(startCenter, endCenter);
-            
-        center = T5.XY.extendBy(endCenter, endTheta, endDist / scaleFactor);
-
-        center.x = center.x + shiftDelta.x;
-        center.y = center.y + shiftDelta.y; 
-        
-        return center;
-    } // calcPinchZoomCenter
-    
-    function calcZoomCenter() {
-        var displayCenter = T5.D.getCenter(dimensions),
-            shiftFactor = (aniProgress ? aniProgress : 1) / 2,
-            centerOffset = T5.XY.diff(startCenter, endCenter);
-
-        if (startRect) {
-            zoomCenter.x = endCenter.x + centerOffset.x;
-            zoomCenter.y = endCenter.y + centerOffset.y;
-        } 
-        else {
-            zoomCenter.x = endCenter.x - centerOffset.x * shiftFactor;
-            zoomCenter.y = endCenter.y - centerOffset.y * shiftFactor;
-        } // if..else
-    } // calcZoomCenter
-    
     function triggerIdle() {
         triggerAll('idle', self);
         
         idle = true;
         idleTimeout = 0;
     } // idle
+    
+    // TODO: investigate whether to go back to floating point math for improved display or not
+    function calcZoomRect(drawRect) {
+        var invScaleFactor = 1 / scaleFactor,
+            invScaleFactorNorm = (invScaleFactor - 0.5) * 2,
+            scaleWidth = (drawRect.width * invScaleFactor) >> 0,
+            scaleHeight = (drawRect.height * invScaleFactor) >> 0,
+            
+            xChange = interactCenter.x - offsetX,
+            yChange = interactCenter.y - offsetY;
+            
+        // update the zoom x and zoom y
+        zoomX = (interactCenter.x - xChange * invScaleFactorNorm) >> 0;
+        zoomY = (interactCenter.y - yChange * invScaleFactorNorm) >> 0;
+
+        return T5.XYRect.fromCenter(zoomX, zoomY, scaleWidth, scaleHeight);
+    } // calcZoomRect
     
     function drawView(drawState, rect, redraw, tickCount) {
         var clipping = false,
@@ -608,11 +576,6 @@ T5.View = function(params) {
             mainContext.clearRect(0, 0, canvas.width, canvas.height);
         } // if
 
-        // if we are scaling then do some calcs
-        if (isZoom) {
-            calcZoomCenter();
-        } // if
-
         // save the context states
         mainContext.save();
         
@@ -622,39 +585,8 @@ T5.View = function(params) {
             // initialise the composite operation
             mainContext.globalCompositeOperation = 'source-over';
             
-            /*
-            // if the device dpi has scaled, then apply that to the display
-            if (deviceScaling !== 1) {
-                mainContext.scale(deviceScaling, deviceScaling);
-            }
-            // if we are scaling, then tell the canvas to scale
-            else if (isPinchZoom) {
-                // mainContext.translate(endCenter.x * scaleFactor, endCenter.y * scaleFactor);
-                // mainContext.translate(-rect.width / 2, -rect.height / 2 * scaleFactor);
-                // mainContext.scale(scaleFactor, scaleFactor);
-            } // if..else
-            */
-            
             if (isZoom) {
-                var invScaleFactor = 1 / scaleFactor,
-                    invScaleFactorNorm = (invScaleFactor - 0.5) / 0.5,
-                    xChange = endCenter.x - offsetX,
-                    yChange = endCenter.y - offsetY,
-                    scaleWidth = ~~(drawRect.width * invScaleFactor),
-                    scaleHeight = ~~(drawRect.height * invScaleFactor);
-                
-                drawRect = T5.XYRect.fromCenter(
-                    endCenter.x - xChange * invScaleFactorNorm, // TODO: not right, needs to move between xChange and 0
-                    endCenter.y - yChange * invScaleFactorNorm, 
-                    scaleWidth, 
-                    scaleHeight);
-                    
-                /*
-                COG.Log.info('scaling, scaleFactor = ' + scaleFactor + 
-                    ', inv = ' + invScaleFactor + ', norm = ' + invScaleFactorNorm + ', draw rect = ', drawRect);
-                */
-                     
-                // mainContext.translate(-endZoom.x - (rect.width / 2) * )
+                drawRect = calcZoomRect(drawRect);
                 mainContext.scale(scaleFactor, scaleFactor);
             } // if
             
@@ -951,13 +883,6 @@ T5.View = function(params) {
             return dimensions;
         },
         
-        /**
-        ### getZoomCenter()
-        */
-        getZoomCenter: function() {
-            return zoomCenter;
-        },
-        
         getLayer: getLayer,
         setLayer: setLayer,
         eachLayer: eachLayer,
@@ -1064,11 +989,9 @@ T5.View = function(params) {
             scaleFactor = newScaleFactor;
             scaling = scaleFactor !== 1;
             
-            startCenter = T5.D.getCenter(dimensions);
-            endCenter = T5.XY.offset(
+            interactCenter = T5.XY.offset(
                 scaleFactor > 1 ? T5.XY.copy(targetXY) : T5.D.getCenter(dimensions),
                 cycleRect.x1, cycleRect.y1);
-            startRect = null;
             
             clearTimeout(rescaleTimeout);
 

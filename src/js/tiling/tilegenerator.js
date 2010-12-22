@@ -116,7 +116,6 @@ T5.TileGenerator = function(params) {
             // if we haven't yet created a tile creator then do that now
             // OR: the current tile creator is invalid
             if (((! tileCreator) && (! requestedTileCreator)) || self.requireRefresh()) {
-                COG.Log.info('generating tiles, view rect = ', viewRect);
                 requestXY = T5.XY.init(viewRect.x1, viewRect.y1);
                 xTiles = Math.ceil(viewRect.width / tileWidth) + 1;
                 yTiles = Math.ceil(viewRect.height / tileHeight) + 1;

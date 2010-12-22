@@ -148,7 +148,7 @@ T5.Geo.OSM = (function() {
         return self;
     }; // OSMGenerator
     
-    var CloudmadeGenerator = function(params) {
+    T5.Generator.register('osm.cloudmade', function(params) {
         params = T5.ex({
             apikey: null,
             styleid: 1
@@ -167,9 +167,9 @@ T5.Geo.OSM = (function() {
                 };
             }
         });
-    }; // CloudmadeGenerator
+    });
     
-    var MapBoxGenerator = function(params) {
+    T5.Generator.register('osm.mapbox', function(params) {
         params = T5.ex({
             style: 'world-light',
             version: '1.0.0',
@@ -184,12 +184,21 @@ T5.Geo.OSM = (function() {
                 };
             }
         });
-    }; // MapBoxGenerator
+    });
+    
+    T5.Generator.register('osm.mapquest', function(params) {
+        return T5.ex(new OSMGenerator(params), {
+            getServerDetails: function() {
+                return {
+                    baseUrl: 'http://otile{0}.mqcdn.com/tiles/1.0.0/osm/',
+                    subDomains: ['1', '2', '3', '4']
+                };
+            }
+        });
+    });
     
     // register the open street map style generators
     T5.Generator.register('osm.local', OSMGenerator);
-    T5.Generator.register('osm.cloudmade', CloudmadeGenerator);
-    T5.Generator.register('osm.mapbox', MapBoxGenerator);
     
     /* define module */
     

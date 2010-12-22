@@ -178,7 +178,7 @@ T5 = (function() {
                 maxY = (typeof maxY === 'undefined') || xy.y > maxY ? xy.y : maxY;
             } // for
             
-            return xyRectTools.init(minX, minY, maxY, maxY);            
+            return xyRectTools.init(minX, minY, maxX, maxY);            
         } // getRect        
         
         /**
