@@ -982,6 +982,90 @@ T5.Geo.Decarta = (function() {
         } // MapProvider
     };
     
+    // initialise the decarta tile generator
+    var DecartaTileGenerator = function(params) {
+        params = T5.ex({
+            pinPosition: false
+        }, params);
+        
+        /* internal functions */
+        
+        /* exports */
+        
+        function initTileCreator(tileWidth, tileHeight, args, callback) {
+            var zoomLevel = args.zoomLevel,
+                position = args.position,
+                radsPerPixel = T5.Geo.radsPerPixel(zoomLevel),
+                
+                baseXY,
+                baseX,
+                baseY,
+                tileOffset = null,
+                baseUrl = '';
+                
+                // initialise the tile creator
+                creator = function(tileX, tileY) {
+                    if (! tileOffset) {
+                        return null;
+                    } // if
+                    
+                    var realTileX = tileOffset.x + tileX,
+                        realTileY = tileOffset.y - tileY,
+                        tileUrl;
+                        
+                    // build the tile url 
+                    tileUrl = baseUrl.replace("${N}", realTileY).replace("${E}", realTileX);
+                    if (tileUrl) {
+                        return T5.Tiling.init(
+                            baseX + (tileX * tileWidth), 
+                            baseY + (tileY * tileHeight),
+                            tileWidth,
+                            tileHeight, {
+                                url: tileUrl
+                            });
+                    } // if
+                }; // loader
+                
+            makeServerRequest(
+                new requestTypes.PortrayMapRequest(position.lat, position.lon, zoomLevel, params.pinPosition),
+                function (response) {
+                    globalResponse = response;
+                    tileOffset = T5.XY.init(response.centerTile.E, response.centerTile.N);
+                    
+                    baseUrl = response.imageUrl;
+                    
+                    // determine the center xy (note - decarta centerPos compatible with T5.Geo.Position)
+                    baseXY = T5.GeoXY.init(response.centerContext.centerPos, radsPerPixel);
+                    baseX = baseXY.x - tileWidth / 2;
+                    baseY = baseXY.y - tileHeight / 2;
+                    
+                    if (callback) {
+                        callback(creator);
+                    } // if
+                });                
+                
+            // initialise the server details
+            serverDetails = self.getServerDetails ? self.getServerDetails() : null;
+
+            // if the callback is assigned, then pass back the creator
+            if (callback) {
+                callback(creator);
+            } // if
+        } // initTileLoader
+        
+        /* define the generator */
+
+        // initialise the generator
+        var self = T5.ex(new T5.MapTileGenerator(params), {
+            initTileCreator: initTileCreator
+        });
+        
+        return self;
+    };
+    
+    // register the decarta generator
+    T5.Generator.register('decarta', DecartaTileGenerator);
+    
     new T5.Geo.Engine({
         id: "decarta",
         route: module.calculateRoute,

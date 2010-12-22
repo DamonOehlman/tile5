@@ -81,7 +81,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 	<target name="build-providers" description="Build the Mapping providers for Tile5">
 		<echo message="BUILDING TILE5 MAP PROVIDERS" />
 		
-		<!-- construct the core providers -->
+		<!--
 		<concat destfile="${dist}/${LIBNAME}.osm.js">
 			<fileset file="src/js/geo/providers/osm.js" />
 		</concat>
@@ -106,11 +106,12 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/geo/engines/osm.js" />
 		</concat>
 		
+		<copy tofile="${dist}/${LIBNAME}.mapbox.js" file="src/js/geo/providers/mapbox.js" />
+		-->
+		
 		<copy todir="${dist}/engines/">
 			<fileset dir="src/js/geo/engines/" />
 		</copy>
-		
-		<copy tofile="${dist}/${LIBNAME}.mapbox.js" file="src/js/geo/providers/mapbox.js" />
 	</target>
 	
 	<target name="build-lite" depends="cog-build" description="Build the lite version of the library">
