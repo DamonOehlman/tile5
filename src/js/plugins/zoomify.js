@@ -4,7 +4,9 @@ T5.Zoomify = (function() {
     
     var ZoomifyGenerator = function(params) {
         params = T5.ex({
-            imagePath: 'img/'
+            imagePath: 'img/',
+            fullWidth: 0,
+            fullHeight: 0
         }, params);
         
         // initialise variables
@@ -78,7 +80,6 @@ T5.Zoomify = (function() {
         /* private functions */
         
         /* exports */
-        
         
         var self = T5.ex(new T5.View(params), {
         });

@@ -87,6 +87,8 @@ T5.ImageMarker = function(params) {
         // get the image
         var image = self.isAnimating() && self.animatingImage ? 
                 self.animatingImage : self.image;
+                
+        globalImage = image;
             
         if (image && image.complete && (image.width > 0)) {
             if (! imageOffset) {
@@ -146,7 +148,6 @@ T5.ImageMarker = function(params) {
     
     if (! self.image) {
         self.image = T5.Images.get(params.imageUrl, function(loadedImage) {
-            COG.Log.info('updating marker image to: ' + loadedImage.src);
             self.image = loadedImage;
         });
     } // if

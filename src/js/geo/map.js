@@ -200,17 +200,9 @@ T5.Map = function(params) {
     } // handleProviderUpdate
     
     function handleZoomLevelChange(evt, zoomLevel, zoomXY) {
-        // COG.Log.info('zoom level change, new zoom level = ' + zoomLevel + ', zoomXY = ', zoomXY);
-        
-        // get the current position on the map
-        var currentPos = zoomXY ? T5.GeoXY.toPos(zoomXY, radsPerPixel) : getCenterPosition();
-        
         // update the rads per pixel to reflect the zoom level change
         radsPerPixel = T5.Geo.radsPerPixel(zoomLevel);
         self.triggerAll('resync', self);
-
-        // reset the map to the same position
-        panToPosition(currentPos);
     } // handleZoomLevel
     
     /* internal functions */
@@ -304,10 +296,17 @@ T5.Map = function(params) {
     function panToPosition(position, callback, easingFn, easingDuration) {
         // determine the tile offset for the 
         // requested position
-        var centerXY = T5.GeoXY.init(position, T5.Geo.radsPerPixel(self.getZoomLevel()));
+        var centerXY = T5.GeoXY.init(position, T5.Geo.radsPerPixel(self.getZoomLevel())),
+            dimensions = self.getDimensions();
             
         // COG.Log.info('panning to center xy: ', centerXY);
-        self.updateOffset(centerXY.x, centerXY.y, easingFn, easingDuration, callback);
+        self.updateOffset(
+            centerXY.x - dimensions.width / 2, 
+            centerXY.y - dimensions.height / 2, 
+            easingFn, 
+            easingDuration, 
+            callback);
+            
         self.trigger('wake');
 
         // trigger a bounds change event

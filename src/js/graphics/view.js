@@ -224,10 +224,7 @@ T5.View = function(params) {
         // update the zoom center
         // TODO: apply the difference so that the center of the interaction changes relative
         // to movements between the start center and end center
-        interactCenter = T5.XY.offset(
-            endCenter, 
-            cycleRect.x1, 
-            cycleRect.y1);
+        interactCenter = T5.XY.offset(endCenter, offsetX, offsetY);
 
         // determine the ratio between the start rect and the end rect
         scaleFactor = (startRect && (startSize !== 0)) ? (endSize / startSize) : 1;
@@ -260,7 +257,9 @@ T5.View = function(params) {
     } // wheelZoom
     
     function scaleView() {
-        var scaleEndXY = T5.XY.init(zoomX, zoomY);
+        var halfWidth = (cycleRect.width / (scaleFactor * 2)) >> 0,
+            halfHeight = (cycleRect.height / (scaleFactor * 2)) >> 0,
+            scaleEndXY = T5.XY.init(zoomX - halfWidth, zoomY - halfHeight);
         
         // round the scaling factor to 1 decimal place
         scaleFactor = Math.round(scaleFactor * 10) / 10;
@@ -488,6 +487,11 @@ T5.View = function(params) {
         return -1;
     } // getLayerIndex
     
+    function getOffsetRect() {
+        // return T5.XYRect.fromCenter(offsetX, offsetY, dimensions.width, dimensions.height);
+        return T5.XYRect.init(offsetX, offsetY, offsetX + dimensions.width, offsetY + dimensions.height);
+    } // getOffsetRect
+    
     /* animation code */
     
     function animateZoom(scaleFactorFrom, scaleFactorTo, startXY, targetXY, tweenFn, callback, duration) {
@@ -507,7 +511,7 @@ T5.View = function(params) {
         
         // update the zoom center
         scaling = true;
-        interactCenter = T5.XY.offset(targetXY, cycleRect.x1, cycleRect.y1);
+        interactCenter = T5.XY.offset(targetXY, offsetX, offsetY);
 
         // if tweening then update the targetXY
         if (tweenFn) {
@@ -554,8 +558,8 @@ T5.View = function(params) {
             scaleWidth = (drawRect.width * invScaleFactor) >> 0,
             scaleHeight = (drawRect.height * invScaleFactor) >> 0,
             
-            xChange = interactCenter.x - offsetX,
-            yChange = interactCenter.y - offsetY;
+            xChange = interactCenter.x - (offsetX + drawRect.width / 2),
+            yChange = interactCenter.y - (offsetY + drawRect.height / 2);
             
         // update the zoom x and zoom y
         zoomX = (interactCenter.x - xChange * invScaleFactorNorm) >> 0;
@@ -692,11 +696,7 @@ T5.View = function(params) {
         cycleOffset = T5.XY.init(offsetX >> 0, offsetY >> 0);
         
         // calculate the cycle rect
-        cycleRect = T5.XYRect.fromCenter(
-                        cycleOffset.x, 
-                        cycleOffset.y, 
-                        dimensions.width, 
-                        dimensions.height);
+        cycleRect = getOffsetRect();
         
         if (interacting) {
             T5.cancelAnimation(function(tweenInstance) {
@@ -802,11 +802,7 @@ T5.View = function(params) {
     Return a T5.XYRect for the last drawn view rect
     */
     function getViewRect() {
-        return cycleRect ? cycleRect : T5.XYRect.fromCenter(
-                                        offsetX, 
-                                        offsetY, 
-                                        dimensions.width, 
-                                        dimensions.height);
+        return cycleRect ? cycleRect : getOffsetRect();
     } // getViewRect
     
     /**
@@ -871,8 +867,8 @@ T5.View = function(params) {
         Move the center of the view to the specified offset
         */
         centerOn: function(offset) {
-            offsetX = offset.x - (canvas.width / 2);
-            offsetY = offset.y - (canvas.height / 2);
+            offsetX = offset.x;
+            offsetY = offset.y;
         },
 
         /**
@@ -989,10 +985,7 @@ T5.View = function(params) {
             scaleFactor = newScaleFactor;
             scaling = scaleFactor !== 1;
             
-            interactCenter = T5.XY.offset(
-                scaleFactor > 1 ? T5.XY.copy(targetXY) : T5.D.getCenter(dimensions),
-                cycleRect.x1, cycleRect.y1);
-            
+            interactCenter = T5.XY.offset(targetXY, offsetX, offsetY);
             clearTimeout(rescaleTimeout);
 
             if (scaling) {

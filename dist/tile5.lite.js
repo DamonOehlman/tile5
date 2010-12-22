@@ -4024,7 +4024,7 @@ implemented when the view scales
 */
 T5.zoomable = function(view, params) {
     params = T5.ex({
-        initial: 0,
+        initial: 1,
         min: 0,
         max: null,
         zoomAnimation: T5.easing('quad.out')
@@ -4052,6 +4052,8 @@ T5.zoomable = function(view, params) {
     } // handleDoubleTap
     
     function handleScale(evt, scaleAmount, zoomXY) {
+        view.updateOffset(zoomXY.x * scaleAmount, zoomXY.y * scaleAmount);
+
         var zoomChange = 0;
 
         // damp the scale amount
@@ -5031,10 +5033,7 @@ T5.View = function(params) {
         // update the zoom center
         // TODO: apply the difference so that the center of the interaction changes relative
         // to movements between the start center and end center
-        interactCenter = T5.XY.offset(
-            endCenter, 
-            cycleRect.x1, 
-            cycleRect.y1);
+        interactCenter = T5.XY.offset(endCenter, offsetX, offsetY);
 
         // determine the ratio between the start rect and the end rect
         scaleFactor = (startRect && (startSize !== 0)) ? (endSize / startSize) : 1;
@@ -5067,7 +5066,9 @@ T5.View = function(params) {
     } // wheelZoom
     
     function scaleView() {
-        var scaleEndXY = T5.XY.init(zoomX, zoomY);
+        var halfWidth = (cycleRect.width / (scaleFactor * 2)) >> 0,
+            halfHeight = (cycleRect.height / (scaleFactor * 2)) >> 0,
+            scaleEndXY = T5.XY.init(zoomX - halfWidth, zoomY - halfHeight);
         
         // round the scaling factor to 1 decimal place
         scaleFactor = Math.round(scaleFactor * 10) / 10;
@@ -5295,6 +5296,11 @@ T5.View = function(params) {
         return -1;
     } // getLayerIndex
     
+    function getOffsetRect() {
+        // return T5.XYRect.fromCenter(offsetX, offsetY, dimensions.width, dimensions.height);
+        return T5.XYRect.init(offsetX, offsetY, offsetX + dimensions.width, offsetY + dimensions.height);
+    } // getOffsetRect
+    
     /* animation code */
     
     function animateZoom(scaleFactorFrom, scaleFactorTo, startXY, targetXY, tweenFn, callback, duration) {
@@ -5314,7 +5320,7 @@ T5.View = function(params) {
         
         // update the zoom center
         scaling = true;
-        interactCenter = T5.XY.offset(targetXY, cycleRect.x1, cycleRect.y1);
+        interactCenter = T5.XY.offset(targetXY, offsetX, offsetY);
 
         // if tweening then update the targetXY
         if (tweenFn) {
@@ -5361,8 +5367,8 @@ T5.View = function(params) {
             scaleWidth = (drawRect.width * invScaleFactor) >> 0,
             scaleHeight = (drawRect.height * invScaleFactor) >> 0,
             
-            xChange = interactCenter.x - offsetX,
-            yChange = interactCenter.y - offsetY;
+            xChange = interactCenter.x - (offsetX + drawRect.width / 2),
+            yChange = interactCenter.y - (offsetY + drawRect.height / 2);
             
         // update the zoom x and zoom y
         zoomX = (interactCenter.x - xChange * invScaleFactorNorm) >> 0;
@@ -5499,11 +5505,7 @@ T5.View = function(params) {
         cycleOffset = T5.XY.init(offsetX >> 0, offsetY >> 0);
         
         // calculate the cycle rect
-        cycleRect = T5.XYRect.fromCenter(
-                        cycleOffset.x, 
-                        cycleOffset.y, 
-                        dimensions.width, 
-                        dimensions.height);
+        cycleRect = getOffsetRect();
         
         if (interacting) {
             T5.cancelAnimation(function(tweenInstance) {
@@ -5609,11 +5611,7 @@ T5.View = function(params) {
     Return a T5.XYRect for the last drawn view rect
     */
     function getViewRect() {
-        return cycleRect ? cycleRect : T5.XYRect.fromCenter(
-                                        offsetX, 
-                                        offsetY, 
-                                        dimensions.width, 
-                                        dimensions.height);
+        return cycleRect ? cycleRect : getOffsetRect();
     } // getViewRect
     
     /**
@@ -5678,8 +5676,8 @@ T5.View = function(params) {
         Move the center of the view to the specified offset
         */
         centerOn: function(offset) {
-            offsetX = offset.x - (canvas.width / 2);
-            offsetY = offset.y - (canvas.height / 2);
+            offsetX = offset.x;
+            offsetY = offset.y;
         },
 
         /**
@@ -5796,10 +5794,7 @@ T5.View = function(params) {
             scaleFactor = newScaleFactor;
             scaling = scaleFactor !== 1;
             
-            interactCenter = T5.XY.offset(
-                scaleFactor > 1 ? T5.XY.copy(targetXY) : T5.D.getCenter(dimensions),
-                cycleRect.x1, cycleRect.y1);
-            
+            interactCenter = T5.XY.offset(targetXY, offsetX, offsetY);
             clearTimeout(rescaleTimeout);
 
             if (scaling) {
@@ -6686,6 +6681,8 @@ T5.ImageMarker = function(params) {
         // get the image
         var image = self.isAnimating() && self.animatingImage ? 
                 self.animatingImage : self.image;
+                
+        globalImage = image;
             
         if (image && image.complete && (image.width > 0)) {
             if (! imageOffset) {
@@ -6745,7 +6742,6 @@ T5.ImageMarker = function(params) {
     
     if (! self.image) {
         self.image = T5.Images.get(params.imageUrl, function(loadedImage) {
-            COG.Log.info('updating marker image to: ' + loadedImage.src);
             self.image = loadedImage;
         });
     } // if
@@ -7360,7 +7356,9 @@ T5.Tiling = (function() {
 T5.TileGenerator = function(params) {
     params = T5.ex({
         tileWidth: 256,
-        tileHeight: 256
+        tileHeight: 256,
+        relative: false,
+        padding: 2
     }, params);
     
     // initialise variables
@@ -7368,6 +7366,7 @@ T5.TileGenerator = function(params) {
         lastRect = null,
         requestXY = T5.XY.init(),
         tileLoader = null,
+        padding = params.padding,
         requestedTileCreator = false,
         tileWidth = params.tileWidth,
         halfTileWidth = tileWidth / 2,
@@ -7407,8 +7406,8 @@ T5.TileGenerator = function(params) {
             endY = viewRect.height,
             tiles = [];
             
-        for (var xx = -xTiles; xx < xTiles; xx++) {
-            for (var yy = -yTiles; yy < yTiles; yy++) {
+        for (var xx = -padding; xx < xTiles; xx++) {
+            for (var yy = -padding; yy < yTiles; yy++) {
                 var tile = tileCreator(relX + xx, relY + yy);
                 
                 if (tile) {
@@ -7468,9 +7467,9 @@ T5.TileGenerator = function(params) {
             // if we haven't yet created a tile creator then do that now
             // OR: the current tile creator is invalid
             if (((! tileCreator) && (! requestedTileCreator)) || self.requireRefresh()) {
-                requestXY = T5.XY.init(viewRect.x1, viewRect.y1);
-                xTiles = Math.ceil(viewRect.width / tileWidth) + 1;
-                yTiles = Math.ceil(viewRect.height / tileHeight) + 1;
+                requestXY = params.relative ? T5.XY.init(viewRect.x1, viewRect.y1) : T5.XY.init();
+                xTiles = Math.ceil(viewRect.width / tileWidth) + padding;
+                yTiles = Math.ceil(viewRect.height / tileHeight) + padding;
 
                 // make the tile creator
                 makeTileCreator(

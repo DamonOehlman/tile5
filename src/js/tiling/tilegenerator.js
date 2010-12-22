@@ -8,7 +8,9 @@
 T5.TileGenerator = function(params) {
     params = T5.ex({
         tileWidth: 256,
-        tileHeight: 256
+        tileHeight: 256,
+        relative: false,
+        padding: 2
     }, params);
     
     // initialise variables
@@ -16,6 +18,7 @@ T5.TileGenerator = function(params) {
         lastRect = null,
         requestXY = T5.XY.init(),
         tileLoader = null,
+        padding = params.padding,
         requestedTileCreator = false,
         tileWidth = params.tileWidth,
         halfTileWidth = tileWidth / 2,
@@ -55,8 +58,8 @@ T5.TileGenerator = function(params) {
             endY = viewRect.height,
             tiles = [];
             
-        for (var xx = -xTiles; xx < xTiles; xx++) {
-            for (var yy = -yTiles; yy < yTiles; yy++) {
+        for (var xx = -padding; xx < xTiles; xx++) {
+            for (var yy = -padding; yy < yTiles; yy++) {
                 var tile = tileCreator(relX + xx, relY + yy);
                 
                 if (tile) {
@@ -116,9 +119,9 @@ T5.TileGenerator = function(params) {
             // if we haven't yet created a tile creator then do that now
             // OR: the current tile creator is invalid
             if (((! tileCreator) && (! requestedTileCreator)) || self.requireRefresh()) {
-                requestXY = T5.XY.init(viewRect.x1, viewRect.y1);
-                xTiles = Math.ceil(viewRect.width / tileWidth) + 1;
-                yTiles = Math.ceil(viewRect.height / tileHeight) + 1;
+                requestXY = params.relative ? T5.XY.init(viewRect.x1, viewRect.y1) : T5.XY.init();
+                xTiles = Math.ceil(viewRect.width / tileWidth) + padding;
+                yTiles = Math.ceil(viewRect.height / tileHeight) + padding;
 
                 // make the tile creator
                 makeTileCreator(

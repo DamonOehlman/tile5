@@ -5,7 +5,7 @@ implemented when the view scales
 */
 T5.zoomable = function(view, params) {
     params = T5.ex({
-        initial: 0,
+        initial: 1,
         min: 0,
         max: null,
         zoomAnimation: T5.easing('quad.out')
@@ -33,6 +33,8 @@ T5.zoomable = function(view, params) {
     } // handleDoubleTap
     
     function handleScale(evt, scaleAmount, zoomXY) {
+        view.updateOffset(zoomXY.x * scaleAmount, zoomXY.y * scaleAmount);
+
         var zoomChange = 0;
 
         // damp the scale amount

@@ -2,6 +2,9 @@
 # T5.MapTileGenerator
 */
 T5.MapTileGenerator = function(params) {
+    params = T5.ex({
+        relative: true
+    }, params);
     
     // initialise variables
     var zoomLevel = 0,
