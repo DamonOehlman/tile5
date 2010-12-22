@@ -1,12 +1,12 @@
 /*!
- * Sidelab T5 Javascript Library v@VERSION
- * http://sidelab.com/projects/T5/
+ * Sidelab Tile5 Javascript Library v@VERSION
+ * http://tile5.org/
  *
  * Copyright 2010, Damon Oehlman
  * Licensed under the MIT licence
- * http://sidelab.com/projects/T5/license
+ * https://github.com/sidelab/tile5/blob/master/LICENSE.mdown
  *
- * Date: 
+ * Build Date: @DATE
  */
  
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true *//* GRUNTJS START */

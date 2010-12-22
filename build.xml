@@ -28,8 +28,11 @@ http://github.com/jquery/jquery/blob/master/build.xml
 	<property name="TESTRUNNER.HOST" value="10.1.1.100" />
 	<property name="TESTRUNNER.PORT" value="9100" />
 	
-	<!-- cog cloning code -->
+	<tstamp>
+		<format property="library.buildtime" pattern="yyyy-MM-dd HH:mm:ss Z" timezone="GMT" />
+	</tstamp>
 	
+	<!-- cog cloning code -->
 	<available property="cog" file="lib/cog" />
 	
 	<target name="cog-clone" unless="cog">
@@ -71,9 +74,8 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		-->
 		
 		<!-- TODO: call the targets to concatenate the required modules -->
-		
 		<replaceregexp match="@VERSION" replace="${version}" flags="g" byline="true" file="${TILE5}" />
-		<replaceregexp match="Date: " replace="Date: ${date}" file="${TILE5}" />
+		<replaceregexp match="@DATE" replace="${library.buildtime}" file="${TILE5}" />
 	</target>
 	
 	<target name="build-providers" description="Build the Mapping providers for Tile5">
