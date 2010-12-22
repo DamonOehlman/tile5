@@ -15,8 +15,7 @@ T5.ShapeLayer = function(params) {
     }, params);
     
     // initialise variables
-    var children = [],
-        forceRedraw = false;
+    var children = [];
         
     /* private functions */
     
@@ -36,7 +35,6 @@ T5.ShapeLayer = function(params) {
             return diff;
         });
         
-        forceRedraw = true;
         self.changed();
     } // performSync
     
@@ -67,10 +65,6 @@ T5.ShapeLayer = function(params) {
             } // for
         },
         
-        cycle: function(tickCount, offset, state, redraw) {
-            return forceRedraw;
-        },
-
         draw: function(context, viewRect, state, view, redraw) {
             var offsetX = viewRect.x1,
                 offsetY = viewRect.y1,
@@ -90,8 +84,6 @@ T5.ShapeLayer = function(params) {
                     T5.Style.apply(context, previousStyle);
                 } // if
             } // for
-            
-            forceRedraw = false;
         }
     });
     

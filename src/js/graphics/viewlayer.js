@@ -90,15 +90,20 @@ T5.ViewLayer = function(params) {
         and then continues to do a bitmask operation against the validStates property 
         to see if the current display state is acceptable.
         */
-        shouldDraw: function(displayState, offset, redraw) {
-            var drawOK = ((displayState & validStates) !== 0) && 
+        shouldDraw: function(displayState, viewRect, redraw) {
+            var drawOK = changed || 
+                    redraw || 
+                    (lastOffsetX !== viewRect.x1) || 
+                    (lastOffsetY !== viewRect.y1);
+                    
+            return drawOK && ((displayState & validStates) !== 0) && 
                 (parentFastDraw ? supportFastDraw: true);
-                
-            // perform the check
-            drawOK = changed || redraw || (lastOffsetX !== offset.x) || (lastOffsetY !== offset.y);
-
-            return drawOK;
         },
+
+        /**
+        ### clip(context, offset, dimensions, state)
+        */
+        clip: null,
         
         /**
         ### cycle(tickCount, offset, state, redraw)
@@ -137,20 +142,20 @@ T5.ViewLayer = function(params) {
         },
         
         /**
-        ### changed()
+        ### changed(redraw)
         
         The changed method is used to flag the layer has been modified and will require 
         a redraw
         
         */
-        changed: function() {
+        changed: function(redraw) {
             // flag as changed
             changed = true;
             self.trigger('changed', self);
             
             // invalidate the parent
             if (parent) {
-                parent.trigger('invalidate');
+                parent.trigger('invalidate', redraw);
             } // if
         },
         
@@ -198,24 +203,22 @@ T5.ViewLayer = function(params) {
     COG.observable(self);
     
     // handle the draw complete
-    self.bind('drawComplete', function(evt, offset) {
+    self.bind('drawComplete', function(evt, viewRect, tickCount) {
         changed = false;
 
         // update the last offset
-        lastOffsetX = offset.x;
-        lastOffsetY = offset.y;
+        lastOffsetX = viewRect.x1;
+        lastOffsetY = viewRect.y1;
     });
     
     self.bind('resync', function(evt, view) {
        if (view.syncXY) {
            if (self.minXY) {
                view.syncXY(self.minXY);
-               COG.Log.info('resyncing min', self.minXY);
            } // if
            
            if (self.maxXY) {
                view.syncXY(self.maxXY);
-               COG.Log.info('resyncing max', self.maxXY);
            } // if
        } // if
     });

@@ -45,8 +45,7 @@ T5.MarkerLayer = function(params) {
         style: 'basic'
     }, params);
     
-    var markers = [],
-        animating = false;
+    var markers = [];
         
     /* event handlers */
         
@@ -183,14 +182,7 @@ T5.MarkerLayer = function(params) {
 
     // create the view layer the we will draw the view
     var self = T5.ex(new T5.ViewLayer(params), {
-        cycle: function(tickCount, viewRect, state, redraw) {
-            return animating;
-        },
-        
         draw: function(context, viewRect, state, view) {
-            // reset animating to false
-            animating = false;
-            
             // iterate through the markers and draw them
             for (var ii = markers.length; ii--; ) {
                 markers[ii].draw(
@@ -199,11 +191,7 @@ T5.MarkerLayer = function(params) {
                     state, 
                     self, 
                     view);
-                    
-                animating = animating || markers[ii].isAnimating();
             } // for
-
-            return animating ? 1 : 0;
         },
         
         add: add,
@@ -214,6 +202,7 @@ T5.MarkerLayer = function(params) {
     // handle tap events
     self.bind('tap', handleTap);
     self.bind('parentChange', resyncMarkers);
+    self.bind('resync', resyncMarkers);
     self.bind('changed', resyncMarkers);
     
     return self;

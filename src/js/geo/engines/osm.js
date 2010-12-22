@@ -20,7 +20,8 @@ T5.Geo.OSM = (function() {
         }, params);
         
         // initialise variables
-        var serverDetails = null;
+        var serverDetails = null,
+            subDomains = [];
         
         /* internal functions */
         
@@ -66,7 +67,7 @@ T5.Geo.OSM = (function() {
         
         /* exports */
         
-        function buildTileUrl(tileX, tileY, maxTileX, maxTileY, zoomLevel) {
+        function buildTileUrl(tileX, tileY, maxTileX, maxTileY, zoomLevel, flipY) {
             // determine the tile url
             var tileUrl = COG.formatStr("{0}/{1}/{2}.png",
                     zoomLevel,
@@ -76,15 +77,16 @@ T5.Geo.OSM = (function() {
             // COG.Log.info('getting url for tile x = ' + tileX + ', y = ' + tileY);
             if (serverDetails) {
                 tileUrl = (subDomains.length ? 
-                    COG.formatStr(serverDetails.baseUrl, subDomains[realTileX % subDomains.length]) :
+                    COG.formatStr(serverDetails.baseUrl, subDomains[tileX % subDomains.length]) :
                     serverDetails.baseUrl) + tileUrl;
             } // if
+            
+            return tileUrl;
         } // buildTileUrl
         
         function initTileCreator(tileWidth, tileHeight, args, callback) {
             var zoomLevel = args.zoomLevel,
                 position = args.position,
-                subDomains = serverDetails ? serverDetails.subDomains : [],
                 tileOffset = calculateTileOffset(position, zoomLevel),
                 baseXY = getBaseXY(position, zoomLevel, tileOffset),
                 baseX = baseXY.x,
@@ -110,7 +112,7 @@ T5.Geo.OSM = (function() {
                     realTileX = realTileX + (realTileX < 0 ? maxTileX : 0);
 
                     // build the tile url 
-                    tileUrl = self.buildTileUrl(realTileX, realTileY, maxTileX, maxTileY, zoomLevel);
+                    tileUrl = self.buildTileUrl(realTileX, realTileY, maxTileX, maxTileY, zoomLevel, flipY);
                     if (tileUrl) {
                         return T5.Tiling.init(
                             baseX + (tileX * tileWidth), 
@@ -124,6 +126,7 @@ T5.Geo.OSM = (function() {
                 
             // initialise the server details
             serverDetails = self.getServerDetails ? self.getServerDetails() : null;
+            subDomains = serverDetails ? serverDetails.subDomains : [];
 
             // if the callback is assigned, then pass back the creator
             if (callback) {

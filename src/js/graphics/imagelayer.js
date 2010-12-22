@@ -15,6 +15,36 @@ T5.ImageLayer = function(genId, params) {
     
     /* private internal functions */
     
+    function eachImage(viewRect, viewState, callback) {
+        if (generatedImages) {
+            for (var ii = generatedImages.length; ii--; ) {
+                var imageData = generatedImages[ii],
+                    xx = imageData.x,
+                    yy = imageData.y,
+                    // TODO: more efficient please...
+                    imageRect = T5.XYRect.init(
+                        imageData.x,
+                        imageData.y,
+                        imageData.x + imageData.width,
+                        imageData.y + imageData.height);
+
+                // draw the image
+                if (callback && T5.XYRect.intersect(viewRect, imageRect)) {
+                    // determine the callback to pass to the image get method
+                    // no callback is supplied on the zoom view state which prevents 
+                    // loading images that would just been thrown away
+                    var imageLoadCallback = (viewState & stateZoom) === 0 ? handleLoadImage : null, 
+                    
+                        // get and possibly load the image
+                        image = T5.Images.get(imageData.url, imageLoadCallback, loadArgs);
+
+                    // trigger the eachImage callback
+                    callback(image, xx, yy, imageData.width, imageData.height);
+                } // if
+            } // for
+        } // if
+    } // eachImage
+    
     /* every library should have a regenerate function - here's mine ;) */
     function regenerate(viewRect) {
         var removeIndexes = [],
@@ -26,22 +56,11 @@ T5.ImageLayer = function(genId, params) {
 
         generator.run(viewRect, function(images) {
             generatedImages = images;
-
-            var parent = self.getParent();
-            if (parent) {
-                parent.trigger('invalidate');
-            } // if
+            self.changed();
         });
     } // regenerate
     
     /* event handlers */
-    
-    function handleImageLoad() {
-        var parent = self.getParent();
-        if (parent) {
-            parent.trigger('invalidate');
-        } // if
-    } // handleImageLoad
     
     function handleParentChange(evt, parent) {
         if (generator) {
@@ -52,6 +71,10 @@ T5.ImageLayer = function(genId, params) {
     function handleIdle(evt, view) {
         regenerate(lastViewRect);
     } // handleViewIdle
+    
+    function handleLoadImage(image) {
+        self.changed();
+    } // handleLoadImage
     
     function handleTap(evt, absXY, relXY, offsetXY) {
         var tappedImages = [],
@@ -98,71 +121,26 @@ T5.ImageLayer = function(genId, params) {
         regenerate(lastViewRect);
     } // changeGenerator
     
-    function draw(context, viewRect, state, view) {
-        // COG.Log.info('drawing image layer layer @ ', rect);
-        
-        context.save();
-        try {
-            context.strokeStyle = '#555';
-
-            context.beginPath();
-
-            if (generatedImages) {
-                for (var ii = generatedImages.length; ii--; ) {
-                    var xx = generatedImages[ii].x,
-                        yy = generatedImages[ii].y,
-                        // TODO: more efficient please...
-                        imageRect = T5.XYRect.init(
-                            generatedImages[ii].x,
-                            generatedImages[ii].y,
-                            generatedImages[ii].x + generatedImages[ii].width,
-                            generatedImages[ii].y + generatedImages[ii].height);
-
-                    // draw the image
-                    if (T5.XYRect.intersect(viewRect, imageRect)) {
-                        self.drawImage(context, viewRect, xx, yy, generatedImages[ii], state);
-                    } // if
-                } // for
+    function clip(context, viewRect, state, view) {
+        eachImage(viewRect, state, function(image, x, y, width, height) {
+            if (image) {
+                context.rect(x, y, width, height);
             } // if
-            
-            context.clip();
-        }
-        finally {
-            context.restore();
-        } // try..finally
+        });
+    } // clip
+    
+    function draw(context, viewRect, state, view) {
+        // COG.Log.info('drawing image layer layer @ ', viewRect);
         
-        /*
-        context.strokeStyle = '#f00';
-        context.beginPath();
-        context.moveTo(viewRect.x1 + viewRect.width/2, viewRect.y1);
-        context.lineTo(viewRect.x1 + viewRect.width/2, viewRect.y2);
-        context.moveTo(viewRect.x1, viewRect.y1 + viewRect.height / 2);
-        context.lineTo(viewRect.x2, viewRect.y1 + viewRect.height / 2);
-        context.stroke();
-        */
+        eachImage(viewRect, state, function(image, x, y, width, height) {
+            self.drawImage(context, image, x, y, width, height, viewRect, state);
+        });
         
         lastViewRect = T5.XYRect.copy(viewRect);
     } // draw
     
-    function drawImage(context, viewRect, x, y, imageData, viewState) {
-        var callback, image;
-        
-        // determine the callback to pass to the image get method
-        // no callback is supplied on the zoom view state which prevents 
-        // loading images that would just been thrown away
-        callback = (viewState & stateZoom) === 0 ? handleImageLoad : null;
-        
-        // get and possibly load the image
-        image = T5.Images.get(imageData.url, callback, loadArgs);
-            
+    function drawImage(context, image, x, y, width, height, viewRect, state) {
         if (image) {
-            // draw a rect for the purposes of the clipping
-            context.rect(
-                x, 
-                y, 
-                imageData.width,
-                imageData.height);
-                
             context.drawImage(
                 image, 
                 x, 
@@ -170,15 +148,14 @@ T5.ImageLayer = function(genId, params) {
                 image.width,
                 image.height);
         }
-        else {
-            // context.clearRect(x, y, imageData.width, imageData.height);
-        } // if..else
     } // drawImage
     
     /* definition */
     
     var self = T5.ex(new T5.ViewLayer(params), {
         changeGenerator: changeGenerator,
+        clip: clip,
+        
         cycle: function(tickCount, rect, state, redraw) {
             regenerate(rect);
         },

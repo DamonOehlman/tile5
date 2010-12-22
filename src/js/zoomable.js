@@ -18,6 +18,10 @@ T5.zoomable = function(view, params) {
     
     function handleDoubleTap(evt, absXY, relXY) {
         if (view.scalable()) {
+            // cancel any current animations
+            T5.cancelAnimation();
+            
+            // animate the scaling
             view.animate(2, 
                 T5.D.getCenter(view.getDimensions()), 
                 T5.XY.init(relXY.x, relXY.y), 
@@ -37,6 +41,10 @@ T5.zoomable = function(view, params) {
         else if (scaleAmount > 1) {
             zoomChange = scaleAmount;
         } // if..else
+        
+        // cancel any current animations
+        // TODO: review if there is a better place to do this
+        T5.cancelAnimation();
         
         setZoomLevel(zoomLevel + zoomChange >> 0, zoomXY);
     } // handleScale

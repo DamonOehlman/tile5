@@ -24,19 +24,21 @@ window.addEventListener("load", function() {
         container: "tiler"
     });
     
-    var tiles = map.setLayer('tiles', new T5.ImageLayer('osm.mapbox', {
-        style: 'world-glass'
-    }));
-    
-    var maskTiles = map.setLayer('maskTiles', new T5.ImageLayer('osm.cloudmade', {
-        apikey: "7960daaf55f84bfdb166014d0b9f8d41",
-        zindex: 50
-    }));
-
-    maskTiles.style = T5.Style.define('xor', {
-        globalCompositeOperation: 'xor'
-    });
+    var tiles = map.setLayer('tiles', new T5.ImageLayer('decarta'));
     
     nextPos();
     // setInterval(nextPos, 5000);
 }, false);
+
+// Initialise deCarta demo credentials
+// to use decarta mapping apply for an API key @ http://devzone.decarta.com/
+T5.Geo.Decarta.applyConfig({
+    server: "http://ws.decarta.com/openls",
+    clientName: "racq-do",
+    clientPassword: "mz5ff3",
+    configuration: "global-decarta", 
+    geocoding: {
+        countryCode: "US",
+        language: "EN"
+    }
+});

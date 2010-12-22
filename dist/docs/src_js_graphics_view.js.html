@@ -102,7 +102,7 @@ view.bind('idle', function(evt) {
 <p>Triggered when drawing the view has been completed (who would have thought).</p>
 
 <pre>
-view.bind('drawComplete', function(evt, offset, tickCount) {
+view.bind('drawComplete', function(evt, viewRect, tickCount) {
 });
 </pre>
 
@@ -151,10 +151,6 @@ supplied.</p>
 <p>Return the Dimensions of the View</p>
 
 <h3>getZoomCenter()</h3>
-
-<h3>clearBackground()</h3>
-
-<p><strong>deprecated</strong></p>
 
 <h3>invalidate()</h3>
 

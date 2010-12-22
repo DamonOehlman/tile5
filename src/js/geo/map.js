@@ -188,8 +188,6 @@ T5.Map = function(params) {
         var changeDelta = T5.XY.absSize(T5.XY.diff(
                 lastBoundsChangeOffset, self.getOffset()));
                 
-        COG.Log.info('idle, change delta = ' + changeDelta);
-        
         if (changeDelta > params.boundsChangeThreshold) {
             lastBoundsChangeOffset = T5.XY.copy(self.getOffset());
             self.trigger("boundsChange", self.getBoundingBox());
@@ -202,7 +200,7 @@ T5.Map = function(params) {
     } // handleProviderUpdate
     
     function handleZoomLevelChange(evt, zoomLevel, zoomXY) {
-        COG.Log.info('zoom level change, new zoom level = ' + zoomLevel + ', zoomXY = ', zoomXY);
+        // COG.Log.info('zoom level change, new zoom level = ' + zoomLevel + ', zoomXY = ', zoomXY);
         
         // get the current position on the map
         var currentPos = zoomXY ? T5.GeoXY.toPos(zoomXY, radsPerPixel) : getCenterPosition();
@@ -279,7 +277,7 @@ T5.Map = function(params) {
     the position of the map has been updated.
     */
     function gotoPosition(position, newZoomLevel, callback) {
-        COG.Log.info('position updated to: ', position);
+        // COG.Log.info('position updated to: ', position);
         
         // update the zoom level
         self.setZoomLevel(newZoomLevel);

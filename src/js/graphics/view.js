@@ -95,7 +95,7 @@ view.bind('idle', function(evt) {
 ### drawComplete
 Triggered when drawing the view has been completed (who would have thought).
 <pre>
-view.bind('drawComplete', function(evt, offset, tickCount) {
+view.bind('drawComplete', function(evt, viewRect, tickCount) {
 });
 </pre>
 
@@ -120,6 +120,8 @@ T5.View = function(params) {
         adjustScaleFactor: null,
         autoSize: true,
         tapExtent: 10,
+        mask: true,
+        guides: false,
         fps: 25
     }, params);
     
@@ -132,8 +134,8 @@ T5.View = function(params) {
         offsetY = 0,
         cycleOffset = null,
         cycleRect = null,
-        clearBackground = false,
         cycleWorker = null,
+        guides = params.guides,
         deviceScaling = 1,
         dimensions = T5.D.init(),
         wakeTriggers = 0,
@@ -152,7 +154,7 @@ T5.View = function(params) {
         startRect = null,
         endRect = null,
         stateOverride = null,
-        redraw = false,
+        redrawView = false,
         redrawEvery = 40,
         resizeCanvasTimeout = 0,
         scaleFactor = 1,
@@ -183,7 +185,7 @@ T5.View = function(params) {
     
     function handlePan(evt, x, y, inertia) {
         state = statePan;
-        wake();
+        invalidate();
         
         if (inertia && params.inertia) {
             // update the offset by the specified amount
@@ -200,7 +202,7 @@ T5.View = function(params) {
         panimating = false;
         
         COG.Loopage.join({
-            execute: wake,
+            execute: invalidate,
             after: 50,
             single: true
         });
@@ -234,7 +236,7 @@ T5.View = function(params) {
         
         if (scaling) {
             state = stateZoom;
-            wake();
+            invalidate();
         } // if
     } // pinchZoom
     
@@ -293,7 +295,7 @@ T5.View = function(params) {
         self.trigger("scale", scaleFactor, scaleEndXY);
         
         state = stateActive;
-        wake();
+        invalidate();
     } // scaleView
     
     function handleContainerUpdate(name, value) {
@@ -380,14 +382,14 @@ T5.View = function(params) {
             tweenX.requestUpdates(function(updatedVal) {
                 offsetX = updatedVal;
                 panimating = true;
-                wake();
+                invalidate();
             });
             
             tweenY.cancelOnInteract = true;
             tweenY.requestUpdates(function(updatedVal) {
                 offsetY = updatedVal;
                 panimating = true;
-                wake();
+                invalidate();
             });
         }
         else {
@@ -422,7 +424,6 @@ T5.View = function(params) {
                 
                 // get the canvas context
                 mainContext = canvas.getContext('2d');
-                mainContext.clearRect(0, 0, canvas.width, canvas.height);
             } 
             catch (e) {
                 COG.Log.exception(e);
@@ -528,9 +529,6 @@ T5.View = function(params) {
         endCenter = T5.XY.offset(targetXY, cycleRect.x1, cycleRect.y1);
         startRect = null;
 
-        COG.Log.info('zoom from: ', startCenter);
-        COG.Log.info('zoom to:   ', endCenter);
-        
         // if tweening then update the targetXY
         if (tweenFn) {
             var tween = T5.tweenValue(
@@ -549,7 +547,7 @@ T5.View = function(params) {
 
                 // trigger the on animate handler
                 state = stateZoom;
-                wake();
+                invalidate();
                 self.trigger("animate");
             });
         }
@@ -598,41 +596,42 @@ T5.View = function(params) {
         idleTimeout = 0;
     } // idle
     
-    function drawView(context, drawState, rect, redraw, tickCount) {
-        var isZoom = (drawState & stateZoom) !== 0,
+    function drawView(drawState, rect, redraw, tickCount) {
+        var clipping = false,
+            isZoom = (drawState & stateZoom) !== 0,
             drawRect = T5.XYRect.copy(rect),
-            delayDrawLayers = [],
             drawLayer,
             ii = 0;
-
-        // TODO: make this good...
-        // Change to force update
-        context.clearRect(0, 0, canvas.width, canvas.height);
-        if (clearBackground || isZoom) {
-            clearBackground = false;
+            
+        // fill the mask context with black
+        if (redraw) {
+            mainContext.clearRect(0, 0, canvas.width, canvas.height);
         } // if
-        
+
         // if we are scaling then do some calcs
         if (isZoom) {
             calcZoomCenter();
         } // if
+
+        // save the context states
+        mainContext.save();
         
-        // COG.Log.info("draw state = " + drawState);
-        
-        context.save();
         try {
             lastDrawScaleFactor = scaleFactor;
+            
+            // initialise the composite operation
+            mainContext.globalCompositeOperation = 'source-over';
             
             /*
             // if the device dpi has scaled, then apply that to the display
             if (deviceScaling !== 1) {
-                context.scale(deviceScaling, deviceScaling);
+                mainContext.scale(deviceScaling, deviceScaling);
             }
             // if we are scaling, then tell the canvas to scale
             else if (isPinchZoom) {
-                // context.translate(endCenter.x * scaleFactor, endCenter.y * scaleFactor);
-                // context.translate(-rect.width / 2, -rect.height / 2 * scaleFactor);
-                // context.scale(scaleFactor, scaleFactor);
+                // mainContext.translate(endCenter.x * scaleFactor, endCenter.y * scaleFactor);
+                // mainContext.translate(-rect.width / 2, -rect.height / 2 * scaleFactor);
+                // mainContext.scale(scaleFactor, scaleFactor);
             } // if..else
             */
             
@@ -655,63 +654,89 @@ T5.View = function(params) {
                     ', inv = ' + invScaleFactor + ', norm = ' + invScaleFactorNorm + ', draw rect = ', drawRect);
                 */
                      
-                // context.translate(-endZoom.x - (rect.width / 2) * )
-                context.scale(scaleFactor, scaleFactor);
+                // mainContext.translate(-endZoom.x - (rect.width / 2) * )
+                mainContext.scale(scaleFactor, scaleFactor);
             } // if
             
             // translate the display appropriately
-            context.translate(-drawRect.x1, -drawRect.y1);
+            mainContext.translate(-drawRect.x1, -drawRect.y1);
             
             // reset the layer bounds
             layerMinXY = null;
             layerMaxXY = null;
             
+            /* first pass - clip */
+            
+            mainContext.beginPath();
+            
+            for (ii = layerCount; ii--; ) {
+                if (layers[ii].clip) {
+                    layers[ii].clip(mainContext, drawRect, drawState, self, redraw, tickCount);
+                    clipping = true;
+                } // if
+            } // for
+            
+            mainContext.closePath();
+            if (clipping) {
+                mainContext.clip();
+            } // if
+            
+            /* second pass - draw */
+            
             for (ii = layerCount; ii--; ) {
                 drawLayer = layers[ii];
                 
-                // draw the layer output to the main canvas
-                // but only if we don't have a scale buffer or the layer is a draw on scale layer
-                if (drawLayer.shouldDraw(drawState, rect, redraw)) {
-                    // if the layer has style, then apply it and save the current style
-                    var layerStyle = drawLayer.style,
-                        previousStyle = layerStyle ? T5.Style.apply(context, layerStyle) : null;
-                        
-                    // if the layer has bounds, then update the layer bounds
-                    if (drawLayer.minXY) {
-                        layerMinXY = layerMinXY ? 
-                            T5.XY.min(layerMinXY, drawLayer.minXY) : 
-                            T5.XY.copy(drawLayer.minXY);
-                    } // if
-                    
-                    if (drawLayer.maxXY) {
-                        layerMaxXY = layerMaxXY ? 
-                            T5.XY.max(layerMaxXY, drawLayer.maxXY) :
-                            T5.XY.copy(drawLayer.maxXY);
-                    } // if
-                    
-                    // draw the layer
-                    drawLayer.draw(
-                        context, 
-                        drawRect, 
-                        drawState, 
-                        self,
-                        redraw,
-                        tickCount);
-                        
-                    // if we applied a style, then restore the previous style if supplied
-                    if (previousStyle) {
-                        T5.Style.apply(context, previousStyle);
-                    } // if
-                    
-                    // trigger that the draw has been completed
-                    drawLayer.trigger('drawComplete', drawRect, tickCount);
+                // if the layer has style, then apply it and save the current style
+                var layerStyle = drawLayer.style,
+                    previousStyle = layerStyle ? T5.Style.apply(mainContext, layerStyle) : null;
+
+                // if the layer has bounds, then update the layer bounds
+                if (drawLayer.minXY) {
+                    layerMinXY = layerMinXY ? 
+                        T5.XY.min(layerMinXY, drawLayer.minXY) : 
+                        T5.XY.copy(drawLayer.minXY);
                 } // if
+
+                if (drawLayer.maxXY) {
+                    layerMaxXY = layerMaxXY ? 
+                        T5.XY.max(layerMaxXY, drawLayer.maxXY) :
+                        T5.XY.copy(drawLayer.maxXY);
+                } // if
+
+                // draw the layer
+                drawLayer.draw(
+                    mainContext, 
+                    drawRect, 
+                    drawState, 
+                    self,
+                    redraw,
+                    tickCount);
+
+                // if we applied a style, then restore the previous style if supplied
+                if (previousStyle) {
+                    T5.Style.apply(mainContext, previousStyle);
+                } // if
+
+                // trigger that the draw has been completed
+                drawLayer.trigger('drawComplete', drawRect, tickCount);
             } // for
         }
         finally {
-            context.restore();
+            mainContext.restore();
         } // try..finally
         
+        
+        if (guides) {
+            mainContext.globalCompositeOperation = 'source-over';
+            mainContext.strokeStyle = '#f00';
+            mainContext.beginPath();
+            mainContext.moveTo(canvas.width / 2, 0);
+            mainContext.lineTo(canvas.width / 2, canvas.height);
+            mainContext.moveTo(0, canvas.height / 2);
+            mainContext.lineTo(canvas.width, canvas.height / 2);
+            mainContext.stroke();
+        } // if
+
         // trigger the draw complete for the view
         self.trigger('drawComplete', rect, tickCount);
         COG.Log.trace("draw complete", tickCount);
@@ -719,12 +744,12 @@ T5.View = function(params) {
     
     function cycle(tickCount, worker) {
         // check to see if we are panning
-        var draw = false,
+        var draw = false, 
             currentState = stateOverride ? stateOverride : (panimating ? statePan : state),
             interacting = (! panimating) && 
                 ((currentState === stateZoom) || (currentState === statePan)),
             // if any of the following are true, then we need to draw the whole canvas so just
-            requireRedraw = redraw || 
+            requireRedraw = redrawView || 
                         currentState === statePan || 
                         currentState === stateZoom || 
                         T5.isTweening();
@@ -759,7 +784,8 @@ T5.View = function(params) {
                 state = state | stateAnimating;
             } // if
             
-            draw = layers[ii].cycle(tickCount, cycleRect, state, requireRedraw) || draw;
+            layers[ii].cycle(tickCount, cycleRect, state, requireRedraw);
+            draw = layers[ii].shouldDraw(state, cycleRect, requireRedraw) || draw;
         } // for
         
         // update the require redraw state based on whether we are now in an animating state
@@ -768,11 +794,11 @@ T5.View = function(params) {
         // if we are scaling and at the same scale factor, don't redraw as its a waste of time
         draw = draw || requireRedraw || ((scaleFactor !== 1) && (scaleFactor !== lastScaleFactor));
         if (draw) {
-            drawView(mainContext, currentState, cycleRect, requireRedraw, tickCount);
+            drawView(currentState, cycleRect, requireRedraw, tickCount);
             lastScaleFactor = scaleFactor;
             
             // reset draw monitoring variables
-            redraw = false;
+            redrawView = false;
         } // if
 
         // include wake triggers in the change count
@@ -788,12 +814,9 @@ T5.View = function(params) {
         COG.Log.trace("Completed draw cycle", tickCount);
     } // cycle
     
-    function invalidate() {
-        redraw = true;
-        wake();
-    } // invalidate
-    
-    function wake() {
+    function invalidate(redraw) {
+        redrawView = redraw ? true : false;
+
         wakeTriggers += 1;
         if (cycleWorker) { return; }
         
@@ -807,7 +830,7 @@ T5.View = function(params) {
         cycleWorker.bind('complete', function(evt) {
             cycleWorker = null;
         });
-    } // wake
+    } // invalidate
     
     function layerContextChanged(layer) {
         layer.trigger("contextChanged", mainContext);
@@ -940,17 +963,6 @@ T5.View = function(params) {
         eachLayer: eachLayer,
         
         /**
-        ### clearBackground()
-        **deprecated**
-        */
-        clearBackground: function() {
-            COG.Log.info('CALL OF DEPRECATED METHOD CLEAR BACKGROUND');
-            
-            clearBackground = true;
-            invalidate();
-        },
-        
-        /**
         ### invalidate()
         The `invalidate` method is used to inform the view that a full redraw
         is required
@@ -1062,7 +1074,7 @@ T5.View = function(params) {
 
             if (scaling) {
                 state = stateZoom;
-                wake();
+                invalidate();
 
                 if (rescaleAfter) {
                     rescaleTimeout = setTimeout(function() {
@@ -1083,8 +1095,9 @@ T5.View = function(params) {
     COG.observable(self);
     
     // listen for being woken up
-    self.bind("wake", wake);
-    self.bind("invalidate", invalidate);
+    self.bind('invalidate', function(evt, redraw) {
+        invalidate(redraw);
+    });
     
     // if this is pannable, then attach event handlers
     if (params.pannable) {
@@ -1094,7 +1107,7 @@ T5.View = function(params) {
         // handle intertia events
         self.bind("inertiaCancel", function(evt) {
             panimating = false;
-            wake();
+            invalidate();
         });
     } // if
 

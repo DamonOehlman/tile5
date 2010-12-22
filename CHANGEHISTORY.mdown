@@ -9,6 +9,10 @@ wasting space.
 
 - Major changes to the offset system
 
+- Major changes to map provider implementation - now moved to a more generic "generator" implementation.
+
+- Reimplemented clipping in a revised two-pass drawView implementation, first pass allows layers to contribute to a clipping rect, and the second pass does the actual draw.
+
 - `T5.Geo.PointOfInterest` and `T5.Geo.POIStorage` removed. Not deprecated, just removed - apologies if anyone was using them, but if you were you really don't need to.  Additionally, the `pois` property of a `T5.Map` has been removed also.
 
 - As promised, the `annotations` property of a `T5.Map` has also been removed in line with the deprecation in the 0.9.3 release.
@@ -22,8 +26,6 @@ wasting space.
 - __BREAKING CHANGE__ `T5.Marker.drawMarker` method now separates the `xy` parameter which used to be a `T5.Vector` into two separate parameters for performance reasons.  Will only cause you hassles if you have played with custom markers.
 
 - `fps` initialization parameter added to the `T5.View` and by default this is set to 25 frames per second.
-
-- `clip()` method brought back to save the day.  Now if a `T5.TileGrid` is present as a layer, the context will be clipped to where tiles have been drawn only.  Anything else just doesn't get a look in...
 
 - Added support for setting tileBackground color for a map provider and having this carried through to the post processing for images as tiles are loaded.
 
