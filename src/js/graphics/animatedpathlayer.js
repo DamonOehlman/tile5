@@ -27,8 +27,6 @@ is used, which simply draws a small circle at the current position of the animat
 
 - `duration` (int, default = 2000) - The animation duration.  See T5.Animation module information for more details.
 
-- `autoCenter` (boolean, default = false) - Whether or not the T5.View should be panned with the animation.
-
 
 ## Draw Indicator Callback Function
 `function(context, viewRect, xy, theta)`
@@ -50,8 +48,7 @@ T5.AnimatedPathLayer = function(params) {
         easing: T5.easing('sine.inout'),
         validStates: T5.viewState('ACTIVE', 'PAN', 'ZOOM'),
         drawIndicator: null,
-        duration: 2000,
-        autoCenter: false
+        duration: 2000
     }, params);
     
     // generate the edge data for the specified path
@@ -87,9 +84,6 @@ T5.AnimatedPathLayer = function(params) {
         },
         params.duration);
         
-    // if we are autocentering then we need to cancel on interaction
-    // tween.cancelOnInteract = autoCenter;
-        
     // request updates from the tween
     tween.requestUpdates(function(updatedValue, complete) {
         pathOffset = updatedValue;
@@ -120,13 +114,6 @@ T5.AnimatedPathLayer = function(params) {
 
                 theta = T5.XY.theta(v1, v2, edgeData.edges[edgeIndex]);
                 indicatorXY = T5.XY.extendBy(v1, theta, extra);
-
-                if (params.autoCenter) {
-                    var parent = self.getParent();
-                    if (parent) {
-                        parent.centerOn(indicatorXY);
-                    } // if
-                } // if
             } // if
             
             return indicatorXY;

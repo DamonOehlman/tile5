@@ -12,8 +12,28 @@ that are provided in the Tile5 library.
 - T5.XYRect
 - T5.V
 - T5.D
+
+## Module Functions
 */
 T5 = (function() {
+    
+    /* exports */
+    
+    /**
+    ### ticks()
+    */
+    function ticks() {
+        return new Date().getTime();
+    } // getTicks
+    
+    /**
+    ### userMessage(msgType, msgKey, msgHtml)
+    */
+    function userMessage(msgType, msgKey, msgHtml) {
+        module.trigger('userMessage', msgType, msgKey, msgHtml);
+    } // userMessage
+    
+    
     /**
     # T5.Vector
     A vector is used to encapsulate X and Y coordinates for a point, and rather than 
@@ -586,24 +606,11 @@ T5 = (function() {
         };
     })(); // dimensionTools
     
-    /* exports */
-    
-    function getTicks() {
-        return new Date().getTime();
-    } // getTicks
-    
-    /**
-    ### userMessage(msgType, msgKey, msgHtml)
-    */
-    function userMessage(msgType, msgKey, msgHtml) {
-        module.trigger('userMessage', msgType, msgKey, msgHtml);
-    } // userMessage
-    
     /* module definition */
 
     var module = {
         ex: COG.extend,
-        ticks: getTicks,
+        ticks: ticks,
         userMessage: userMessage,
         
         XY: xyTools,

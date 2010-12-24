@@ -1,3 +1,9 @@
+module("T5.Core");
+
+test("XY init", function() {
+    var 
+});
+
 (function() {
     var TEST_X = 5, TEST_Y = 6,
         TEST_VECTOR = new T5.Vector(TEST_X, TEST_Y);

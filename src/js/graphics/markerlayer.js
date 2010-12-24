@@ -162,6 +162,18 @@ T5.MarkerLayer = function(params) {
         markerUpdate();
     } // clear
     
+    /**
+    ### each(callback)
+    Iterate through each of the markers and fire the callback for each one
+    */
+    function each(callback) {
+        if (callback) {
+            for (var ii = markers.length; ii--; ) {
+                callback(markers[ii]);
+            } // for
+        } // if
+    } // each
+    
     /** 
     ### find(testCallback)
     Find markers that match the requirements of the test callback.  For an example
@@ -176,6 +188,7 @@ T5.MarkerLayer = function(params) {
                 results[results.length] = markers[ii];
             } // if
         } // for
+        
         
         return results;
     } // testCallback
@@ -196,6 +209,7 @@ T5.MarkerLayer = function(params) {
         
         add: add,
         clear: clear,
+        each: each,
         find: find
     });
     

@@ -66,8 +66,8 @@ T5.ShapeLayer = function(params) {
         },
         
         draw: function(context, viewRect, state, view, redraw) {
-            var offsetX = viewRect.x1,
-                offsetY = viewRect.y1,
+            var viewX = viewRect.x1,
+                viewY = viewRect.y1,
                 viewWidth = viewRect.width,
                 viewHeight = viewRect.height;
             
@@ -77,7 +77,7 @@ T5.ShapeLayer = function(params) {
                     previousStyle = overrideStyle ? T5.Style.apply(context, overrideStyle) : null;
                     
                 // draw the layer
-                children[ii].draw(context, offsetX, offsetY, viewWidth, viewHeight, state);
+                children[ii].draw(context, viewX, viewY, viewWidth, viewHeight, state);
                 
                 // if we have a previous style, then restore that style
                 if (previousStyle) {

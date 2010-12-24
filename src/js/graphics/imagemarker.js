@@ -88,9 +88,7 @@ T5.ImageMarker = function(params) {
         var image = self.isAnimating() && self.animatingImage ? 
                 self.animatingImage : self.image;
                 
-        globalImage = image;
-            
-        if (image && image.complete && (image.width > 0)) {
+        if (image && (image.width > 0)) {
             if (! imageOffset) {
                 imageOffset = T5.XY.init(
                     -image.width >> 1, 

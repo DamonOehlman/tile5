@@ -4941,13 +4941,14 @@ T5.View = function(params) {
         mainContext = null,
         offsetX = 0,
         offsetY = 0,
-        cycleOffset = null,
         cycleRect = null,
         cycleWorker = null,
         guides = params.guides,
         deviceScaling = 1,
         dimensions = T5.D.init(),
         wakeTriggers = 0,
+        halfWidth = 0,
+        halfHeight = 0,
         interactCenter = null,
         idle = false,
         panimating = false,
@@ -4994,8 +4995,6 @@ T5.View = function(params) {
         invalidate();
         
         if (inertia && params.inertia) {
-            // update the offset by the specified amount
-            panimating = true;
             updateOffset(offsetX + x, offsetY + y, params.panAnimationEasing, params.panAnimationDuration);
         }
         else if (! inertia) {
@@ -5066,9 +5065,9 @@ T5.View = function(params) {
     } // wheelZoom
     
     function scaleView() {
-        var halfWidth = (cycleRect.width / (scaleFactor * 2)) >> 0,
-            halfHeight = (cycleRect.height / (scaleFactor * 2)) >> 0,
-            scaleEndXY = T5.XY.init(zoomX - halfWidth, zoomY - halfHeight);
+        var scaledHalfWidth = (cycleRect.width / (scaleFactor * 2)) >> 0,
+            scaledHalfHeight = (cycleRect.height / (scaleFactor * 2)) >> 0,
+            scaleEndXY = T5.XY.init(zoomX - scaledHalfWidth, zoomY - scaledHalfHeight);
         
         // round the scaling factor to 1 decimal place
         scaleFactor = Math.round(scaleFactor * 10) / 10;
@@ -5136,7 +5135,9 @@ T5.View = function(params) {
     function updateOffset(x, y, tweenFn, tweenDuration, callback) {
         
         // initialise variables
-        var tweensComplete = 0;
+        var tweensComplete = 0,
+            minXYOffset = layerMinXY ? T5.XY.offset(layerMinXY, -halfWidth, -halfHeight) : null,
+            maxXYOffset = layerMaxXY ? T5.XY.offset(layerMaxXY, -halfWidth, -halfHeight) : null;
         
         function updateOffsetAnimationEnd() {
             tweensComplete += 1;
@@ -5150,17 +5151,23 @@ T5.View = function(params) {
         } // updateOffsetAnimationEnd
         
         // check that the x and y values are within acceptable bounds
-        if (layerMinXY) {
-            x = x < layerMinXY.x ? layerMinXY.x : x;
-            y = y < layerMinXY.y ? layerMinXY.y : y;
+        if (minXYOffset) {
+            x = x < minXYOffset.x ? minXYOffset.x : x;
+            y = y < minXYOffset.y ? minXYOffset.y : y;
         } // if
         
-        if (layerMaxXY) {
-            x = x > layerMaxXY.x ? layerMaxXY.x : x;
-            y = y > layerMaxXY.y ? layerMaxXY.y : y;
+        if (maxXYOffset) {
+            x = x > maxXYOffset.x ? maxXYOffset.x : x;
+            y = y > maxXYOffset.y ? maxXYOffset.y : y;
         } // if
         
         if (tweenFn) {
+            // if the interface is already being move about, then don't set up additional
+            // tweens, that will just ruin it for everybody
+            if (panimating) {
+                return;
+            } // if
+            
             var tweenX = T5.tweenValue(offsetX, x, tweenFn, 
                     updateOffsetAnimationEnd, tweenDuration),
                     
@@ -5170,21 +5177,21 @@ T5.View = function(params) {
             // attach update listeners
             tweenX.cancelOnInteract = true;
             tweenX.requestUpdates(function(updatedVal) {
-                offsetX = updatedVal;
+                offsetX = updatedVal >> 0;
                 panimating = true;
                 invalidate();
             });
             
             tweenY.cancelOnInteract = true;
             tweenY.requestUpdates(function(updatedVal) {
-                offsetY = updatedVal;
+                offsetY = updatedVal >> 0;
                 panimating = true;
                 invalidate();
             });
         }
         else {
-            offsetX = x;
-            offsetY = y;
+            offsetX = x >> 0;
+            offsetY = y >> 0;
         } // if..else
     } // updateOffset
     
@@ -5228,6 +5235,8 @@ T5.View = function(params) {
             // initialise the dimensions
             if (dimensions.height !== canvas.height || dimensions.width !== canvas.width) {
                 dimensions = T5.D.init(canvas.width, canvas.height);
+                halfWidth = (dimensions.width / 2) >> 0;
+                halfHeight = (dimensions.height / 2) >> 0;
                 
                 // trigger the resize event for the view
                 self.trigger('resize', canvas.width, canvas.height);
@@ -5295,11 +5304,6 @@ T5.View = function(params) {
         
         return -1;
     } // getLayerIndex
-    
-    function getOffsetRect() {
-        // return T5.XYRect.fromCenter(offsetX, offsetY, dimensions.width, dimensions.height);
-        return T5.XYRect.init(offsetX, offsetY, offsetX + dimensions.width, offsetY + dimensions.height);
-    } // getOffsetRect
     
     /* animation code */
     
@@ -5391,6 +5395,7 @@ T5.View = function(params) {
 
         // save the context states
         mainContext.save();
+        // COG.Log.info('offsetX = ' + offsetX + ', offsetY = ', offsetY + ', drawing rect = ', rect);
         
         try {
             lastDrawScaleFactor = scaleFactor;
@@ -5461,9 +5466,6 @@ T5.View = function(params) {
                 if (previousStyle) {
                     T5.Style.apply(mainContext, previousStyle);
                 } // if
-
-                // trigger that the draw has been completed
-                drawLayer.trigger('drawComplete', drawRect, tickCount);
             } // for
         }
         finally {
@@ -5483,7 +5485,7 @@ T5.View = function(params) {
         } // if
 
         // trigger the draw complete for the view
-        self.trigger('drawComplete', rect, tickCount);
+        triggerAll('drawComplete', rect, tickCount);
         COG.Log.trace("draw complete", tickCount);
     } // drawView
     
@@ -5499,13 +5501,8 @@ T5.View = function(params) {
                         currentState === stateZoom || 
                         T5.isTweening();
 
-        // convert the offset x and y to integer values
-        // while canvas implementations work fine with real numbers, the actual drawing of images
-        // will not look crisp when a real number is used rather than an integer (or so I've found)
-        cycleOffset = T5.XY.init(offsetX >> 0, offsetY >> 0);
-        
         // calculate the cycle rect
-        cycleRect = getOffsetRect();
+        cycleRect = getViewRect();
         
         if (interacting) {
             T5.cancelAnimation(function(tweenInstance) {
@@ -5611,7 +5608,11 @@ T5.View = function(params) {
     Return a T5.XYRect for the last drawn view rect
     */
     function getViewRect() {
-        return cycleRect ? cycleRect : getOffsetRect();
+        return T5.XYRect.init(
+            offsetX, 
+            offsetY, 
+            offsetX + dimensions.width,
+            offsetY + dimensions.height);
     } // getViewRect
     
     /**
@@ -5671,15 +5672,6 @@ T5.View = function(params) {
                 callback);
         },
         
-        /**
-        ### centerOn(offset: Vector)
-        Move the center of the view to the specified offset
-        */
-        centerOn: function(offset) {
-            offsetX = offset.x;
-            offsetY = offset.y;
-        },
-
         /**
         ### getDimensions()
         Return the Dimensions of the View
@@ -5779,7 +5771,7 @@ T5.View = function(params) {
         */
         getOffset: function() {
             // return the last calculated cycle offset
-            return cycleOffset ? cycleOffset : T5.XY.init(offsetX, offsetY);
+            return T5.XY.init(offsetX, offsetY);
         },
         
         getViewRect: getViewRect,
@@ -6070,8 +6062,8 @@ T5.ShapeLayer = function(params) {
         },
         
         draw: function(context, viewRect, state, view, redraw) {
-            var offsetX = viewRect.x1,
-                offsetY = viewRect.y1,
+            var viewX = viewRect.x1,
+                viewY = viewRect.y1,
                 viewWidth = viewRect.width,
                 viewHeight = viewRect.height;
             
@@ -6081,7 +6073,7 @@ T5.ShapeLayer = function(params) {
                     previousStyle = overrideStyle ? T5.Style.apply(context, overrideStyle) : null;
                     
                 // draw the layer
-                children[ii].draw(context, offsetX, offsetY, viewWidth, viewHeight, state);
+                children[ii].draw(context, viewX, viewY, viewWidth, viewHeight, state);
                 
                 // if we have a previous style, then restore that style
                 if (previousStyle) {
@@ -6318,8 +6310,6 @@ is used, which simply draws a small circle at the current position of the animat
 
 - `duration` (int, default = 2000) - The animation duration.  See T5.Animation module information for more details.
 
-- `autoCenter` (boolean, default = false) - Whether or not the T5.View should be panned with the animation.
-
 
 ## Draw Indicator Callback Function
 `function(context, viewRect, xy, theta)`
@@ -6341,8 +6331,7 @@ T5.AnimatedPathLayer = function(params) {
         easing: T5.easing('sine.inout'),
         validStates: T5.viewState('ACTIVE', 'PAN', 'ZOOM'),
         drawIndicator: null,
-        duration: 2000,
-        autoCenter: false
+        duration: 2000
     }, params);
     
     // generate the edge data for the specified path
@@ -6378,9 +6367,6 @@ T5.AnimatedPathLayer = function(params) {
         },
         params.duration);
         
-    // if we are autocentering then we need to cancel on interaction
-    // tween.cancelOnInteract = autoCenter;
-        
     // request updates from the tween
     tween.requestUpdates(function(updatedValue, complete) {
         pathOffset = updatedValue;
@@ -6411,13 +6397,6 @@ T5.AnimatedPathLayer = function(params) {
 
                 theta = T5.XY.theta(v1, v2, edgeData.edges[edgeIndex]);
                 indicatorXY = T5.XY.extendBy(v1, theta, extra);
-
-                if (params.autoCenter) {
-                    var parent = self.getParent();
-                    if (parent) {
-                        parent.centerOn(indicatorXY);
-                    } // if
-                } // if
             } // if
             
             return indicatorXY;
@@ -6473,7 +6452,8 @@ T5.Marker = function(params) {
         xy: T5.XY.init(),
         offset: true,
         tweenIn: null,
-        animationSpeed: null
+        animationSpeed: null,
+        isNew: true
     }, params);
     
     // initialise defaults
@@ -6495,8 +6475,6 @@ T5.Marker = function(params) {
     } // updateBounds
     
     var self = T5.ex(params, {
-        isNew: true,
-        
         /* 
         ### isAnimating()
         Return true if we are currently animating the marker, false otherwise
@@ -6529,7 +6507,7 @@ T5.Marker = function(params) {
                     endValue, 
                     params.tweenIn, 
                     function() {
-                        self.xy.y = endValue;
+                        self.xy.y = endValue >> 0;
                         animating = false;
                     }, 
                     params.animationSpeed ? 
@@ -6682,9 +6660,7 @@ T5.ImageMarker = function(params) {
         var image = self.isAnimating() && self.animatingImage ? 
                 self.animatingImage : self.image;
                 
-        globalImage = image;
-            
-        if (image && image.complete && (image.width > 0)) {
+        if (image && (image.width > 0)) {
             if (! imageOffset) {
                 imageOffset = T5.XY.init(
                     -image.width >> 1, 
@@ -6939,6 +6915,18 @@ T5.MarkerLayer = function(params) {
         markerUpdate();
     } // clear
     
+    /**
+    ### each(callback)
+    Iterate through each of the markers and fire the callback for each one
+    */
+    function each(callback) {
+        if (callback) {
+            for (var ii = markers.length; ii--; ) {
+                callback(markers[ii]);
+            } // for
+        } // if
+    } // each
+    
     /** 
     ### find(testCallback)
     Find markers that match the requirements of the test callback.  For an example
@@ -6953,6 +6941,7 @@ T5.MarkerLayer = function(params) {
                 results[results.length] = markers[ii];
             } // if
         } // for
+        
         
         return results;
     } // testCallback
@@ -6973,6 +6962,7 @@ T5.MarkerLayer = function(params) {
         
         add: add,
         clear: clear,
+        each: each,
         find: find
     });
     

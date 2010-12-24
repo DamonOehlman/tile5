@@ -33,7 +33,8 @@ T5.Marker = function(params) {
         xy: T5.XY.init(),
         offset: true,
         tweenIn: null,
-        animationSpeed: null
+        animationSpeed: null,
+        isNew: true
     }, params);
     
     // initialise defaults
@@ -55,8 +56,6 @@ T5.Marker = function(params) {
     } // updateBounds
     
     var self = T5.ex(params, {
-        isNew: true,
-        
         /* 
         ### isAnimating()
         Return true if we are currently animating the marker, false otherwise
@@ -89,7 +88,7 @@ T5.Marker = function(params) {
                     endValue, 
                     params.tweenIn, 
                     function() {
-                        self.xy.y = endValue;
+                        self.xy.y = endValue >> 0;
                         animating = false;
                     }, 
                     params.animationSpeed ? 

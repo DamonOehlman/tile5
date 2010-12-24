@@ -81,34 +81,6 @@ http://github.com/jquery/jquery/blob/master/build.xml
 	<target name="build-providers" description="Build the Mapping providers for Tile5">
 		<echo message="BUILDING TILE5 MAP PROVIDERS" />
 		
-		<!--
-		<concat destfile="${dist}/${LIBNAME}.osm.js">
-			<fileset file="src/js/geo/providers/osm.js" />
-		</concat>
-		
-		<concat destfile="${dist}/${LIBNAME}.cloudmade.js">
-			<fileset file="src/js/geo/providers/cloudmade.js" />
-		</concat>
-
-		<concat destfile="${dist}/${LIBNAME}.nearmap.js">
-			<fileset file="src/js/geo/providers/nearmap.js" />
-		</concat>
-
-		<concat destfile="${dist}/${LIBNAME}.decarta.js">
-			<fileset file="src/js/geo/providers/decarta.js" />
-		</concat>
-		
-		<concat destfile="${dist}/${LIBNAME}.bing.js">
-			<fileset file="src/js/geo/providers/bing.js" />
-		</concat>
-		
-		<concat destfile="${dist}/${LIBNAME}.engine.osm.js">
-			<fileset file="src/js/geo/engines/osm.js" />
-		</concat>
-		
-		<copy tofile="${dist}/${LIBNAME}.mapbox.js" file="src/js/geo/providers/mapbox.js" />
-		-->
-		
 		<copy todir="${dist}/engines/">
 			<fileset dir="src/js/geo/engines/" />
 		</copy>
@@ -173,17 +145,7 @@ http://github.com/jquery/jquery/blob/master/build.xml
 		</copy>
 	</target>
 	
-	<target name="build-tests" description="Build the tests">
-		<concat destfile="${dist}/tests.${LIBNAME}.js">
-			<fileset file="lib/cog/dist/cog.test.js" />
-			<fileset file="test/unit/core.js" />
-			<fileset file="test/unit/geo.js" />
-			<fileset file="test/unit/mapping.js" />
-			<fileset file="test/unit/cloudmade.js" />
-		</concat>
-	</target>
-	
-	<target name="build" depends="build-core,build-providers,build-lite,build-plugins,build-tests" description="Slick library core build, concatenates core files and updates @VERSION">
+	<target name="build" depends="build-core,build-providers,build-lite,build-plugins" description="Slick library core build, concatenates core files and updates @VERSION">
         <echo message="${TILE5} (and associated libraries) built." />
 	</target>
 	
