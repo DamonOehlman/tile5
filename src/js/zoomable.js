@@ -31,10 +31,7 @@ T5.zoomable = function(view, params) {
     } // handleDoubleTap
     
     function handleScale(evt, scaleAmount, zoomXY) {
-        view.updateOffset(zoomXY.x * scaleAmount, zoomXY.y * scaleAmount);
-
         var zoomChange = Math.log(scaleAmount) / Math.LN2;
-        COG.Log.info('scale amount = ' + scaleAmount + ', zoom change = ' + zoomChange + ', zooming at ', zoomXY);
 
         // cancel any current animations
         // TODO: review if there is a better place to do this
@@ -42,8 +39,10 @@ T5.zoomable = function(view, params) {
             return tweenInstance.cancelOnInteract;
         });
         
-        COG.Log.info('new zoom level = ' + (zoomLevel + zoomChange));
-        setZoomLevel(zoomLevel + zoomChange, zoomXY);
+        evt.cancel = ! setZoomLevel(zoomLevel + zoomChange, zoomXY);
+        if (! evt.cancel) {
+            view.updateOffset(zoomXY.x * scaleAmount, zoomXY.y * scaleAmount);
+        } // if
     } // handleScale
     
     /* exports */
@@ -62,11 +61,15 @@ T5.zoomable = function(view, params) {
     */
     function setZoomLevel(value, zoomXY) {
         if (value && (zoomLevel !== value)) {
-            // update the zoom level
-            zoomLevel = value;
-            
             // trigger the zoom level change
-            view.triggerAll('zoomLevelChange', zoomLevel, zoomXY);
+            var zoomOK = view.triggerAll('zoomLevelChange', value, zoomXY);
+
+            // update the zoom level
+            if (zoomOK) {
+                zoomLevel = value;
+            } // if
+            
+            return zoomOK;
         } // if
     } // setZoomLevel
     

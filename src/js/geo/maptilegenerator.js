@@ -13,8 +13,16 @@ T5.MapTileGenerator = function(params) {
     /* internal functions */
     
     function handleZoomLevelChange(evt, newZoomLevel) {
-        zoomLevel = newZoomLevel;
-        self.reset();
+        var zoomOK = newZoomLevel >= self.minLevel && (
+            (! self.maxLevel) || (newZoomLevel <= self.maxLevel));
+            
+        COG.Log.info('new zoom level = ' + newZoomLevel + ', zoom ok = ' + zoomOK);
+
+        evt.cancel = ! zoomOK;
+        if (zoomOK) {
+            zoomLevel = newZoomLevel;
+            self.reset();
+        } // if
     } // handleZoomLevelChange;
     
     /* exports */
@@ -35,6 +43,9 @@ T5.MapTileGenerator = function(params) {
     /* define self */
     
     var self = T5.ex(new T5.TileGenerator(params), {
+        minLevel: 3,
+        maxLevel: 20,
+        
         getTileCreatorArgs: getTileCreatorArgs,
         requireRefresh: requireRefresh
     });

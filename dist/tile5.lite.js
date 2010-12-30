@@ -4058,10 +4058,7 @@ T5.zoomable = function(view, params) {
     } // handleDoubleTap
     
     function handleScale(evt, scaleAmount, zoomXY) {
-        view.updateOffset(zoomXY.x * scaleAmount, zoomXY.y * scaleAmount);
-
         var zoomChange = Math.log(scaleAmount) / Math.LN2;
-        COG.Log.info('scale amount = ' + scaleAmount + ', zoom change = ' + zoomChange + ', zooming at ', zoomXY);
 
         // cancel any current animations
         // TODO: review if there is a better place to do this
@@ -4069,8 +4066,10 @@ T5.zoomable = function(view, params) {
             return tweenInstance.cancelOnInteract;
         });
         
-        COG.Log.info('new zoom level = ' + (zoomLevel + zoomChange));
-        setZoomLevel(zoomLevel + zoomChange, zoomXY);
+        evt.cancel = ! setZoomLevel(zoomLevel + zoomChange, zoomXY);
+        if (! evt.cancel) {
+            view.updateOffset(zoomXY.x * scaleAmount, zoomXY.y * scaleAmount);
+        } // if
     } // handleScale
     
     /* exports */
@@ -4089,11 +4088,15 @@ T5.zoomable = function(view, params) {
     */
     function setZoomLevel(value, zoomXY) {
         if (value && (zoomLevel !== value)) {
-            // update the zoom level
-            zoomLevel = value;
-            
             // trigger the zoom level change
-            view.triggerAll('zoomLevelChange', zoomLevel, zoomXY);
+            var zoomOK = view.triggerAll('zoomLevelChange', value, zoomXY);
+
+            // update the zoom level
+            if (zoomOK) {
+                zoomLevel = value;
+            } // if
+            
+            return zoomOK;
         } // if
     } // setZoomLevel
     
@@ -5057,7 +5060,7 @@ T5.View = function(params) {
         self.zoom(T5.D.getCenter(dimensions), zoom);
     } // handleWheelZoom
     
-    function scaleView(redraw) {
+    function scaleView(fullInvalidate) {
         calcZoomRect();
         
         var scaledHalfWidth = (cycleRect.width / (scaleFactor * 2)) >> 0,
@@ -5073,23 +5076,25 @@ T5.View = function(params) {
         if (scaleFactorExp !== 0) {
             scaleFactor = Math.pow(2, scaleFactorExp);
 
-            // flag to the layers that we are scaling
-            for (var ii = layers.length; ii--; ) {
-                layers[ii].trigger('scale', scaleFactor, scaleEndXY);
-            } // for
-
             // trigger the scale
-            self.trigger("scale", scaleFactor, scaleEndXY);
+            if (! self.trigger('scale', scaleFactor, scaleEndXY).cancel) {
+                COG.Log.info('ok to scale');
+                
+                // flag to the layers that we are scaling
+                for (var ii = layers.length; ii--; ) {
+                    layers[ii].trigger('scale', scaleFactor, scaleEndXY);
+                } // for
 
-            // flag scaling as false
-            scaleFactor = 1;
-            scaleTouchesStart = null;
-            state = stateActive;
-            redraw = true;
+                // flag scaling as false
+                scaleFactor = 1;
+                scaleTouchesStart = null;
+                state = stateActive;
+                fullInvalidate = true;
+            } // if
         } // if
 
         // invalidate the view
-        invalidate(redraw);
+        invalidate(fullInvalidate);
     } // scaleView
     
     function setZoomCenter(xy) {
@@ -5212,7 +5217,7 @@ T5.View = function(params) {
         setZoomCenter(targetXY);
 
         panimating = false;
-        scaleFactor += Math.pow(2, scaleChange) - 1;
+        scaleFactor = Math.max(scaleFactor + Math.pow(2, scaleChange) - 1, 0.25);
         
         COG.Log.info('zooming, scale change = ' + scaleChange + ', targetXY = ', targetXY);
         scaleView();
@@ -5671,10 +5676,12 @@ T5.View = function(params) {
     Trigger an event on the view and all layers currently contained in the view
     */
     function triggerAll() {
-        self.trigger.apply(null, arguments);
+        var cancel = self.trigger.apply(null, arguments).cancel;
         for (var ii = layers.length; ii--; ) {
-            layers[ii].trigger.apply(null, arguments);
+            cancel = layers[ii].trigger.apply(null, arguments).cancel || cancel;
         } // for
+        
+        return (! cancel);
     } // triggerAll
     
     /* object definition */
