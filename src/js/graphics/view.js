@@ -132,6 +132,7 @@ T5.View = function(params) {
         mainContext = null,
         offsetX = 0,
         offsetY = 0,
+        clipping = false,
         cycleRect = null,
         cycleWorker = null,
         guides = params.guides,
@@ -140,6 +141,7 @@ T5.View = function(params) {
         wakeTriggers = 0,
         halfWidth = 0,
         halfHeight = 0,
+        interactOffset = null,
         interactCenter = null,
         idle = false,
         panimating = false,
@@ -150,15 +152,13 @@ T5.View = function(params) {
         layerMaxXY = null,
         rotation = 0,
         tickCount = 0,
-        scaling = false,
         stateOverride = null,
         redrawView = false,
         redrawEvery = 40,
         resizeCanvasTimeout = 0,
+        scaleTouchesStart = null,
         scaleFactor = 1,
         lastScaleFactor = 0,
-        lastDrawScaleFactor = 1,
-        aniProgress = null,
         tweenStart = null,
         isFlash = typeof FlashCanvas !== 'undefined',
         cycleDelay = ~~(1000 / params.fps),
@@ -186,14 +186,20 @@ T5.View = function(params) {
         invalidate();
         
         if (inertia && params.inertia) {
-            updateOffset(offsetX + x, offsetY + y, params.panAnimationEasing, params.panAnimationDuration);
+            updateOffset(
+                offsetX + x, 
+                offsetY + y, 
+                params.panAnimationEasing, 
+                params.panAnimationDuration);
         }
         else if (! inertia) {
-            updateOffset(offsetX + x, offsetY + y);
+            updateOffset(
+                offsetX + x, 
+                offsetY + y);
         } // if..else
     } // pan
     
-    function panEnd(evt, x, y) {
+    function handlePanEnd(evt, x, y) {
         state = stateActive;
         panimating = false;
         
@@ -202,13 +208,9 @@ T5.View = function(params) {
             after: 50,
             single: true
         });
-    } // panEnd
+    } // handlePanEnd
     
     /* scaling functions */
-    
-    function resetZoom() {
-        scaleFactor = 1;
-    } // resetZoom
     
     function checkTouches(start, end) {
         var startRect = vectorRect(start),
@@ -223,60 +225,70 @@ T5.View = function(params) {
         // update the zoom center
         // TODO: apply the difference so that the center of the interaction changes relative
         // to movements between the start center and end center
-        interactCenter = T5.XY.offset(endCenter, offsetX, offsetY);
+        setZoomCenter(endCenter);
 
         // determine the ratio between the start rect and the end rect
         scaleFactor = (startRect && (startSize !== 0)) ? (endSize / startSize) : 1;
     } // checkTouches            
     
-    function pinchZoom(evt, touchesStart, touchesCurrent) {
-        checkTouches(touchesStart, touchesCurrent);
-        scaling = scaleFactor !== 1;
-        
-        if (scaling) {
-            state = stateZoom;
-            invalidate();
+    function handlePinchZoom(evt, touchesStart, touchesCurrent) {
+        if (! scaleTouchesStart) {
+            scaleTouchesStart = [].concat(touchesCurrent);
         } // if
-    } // pinchZoom
+        
+        checkTouches(scaleTouchesStart, touchesCurrent);
+        scaleView();
+    } // handlePinchZoom
     
     function pinchZoomEnd(evt, touchesStart, touchesEnd, pinchZoomTime) {
-        checkTouches(touchesStart, touchesEnd);
-        
-        if (params.adjustScaleFactor) {
-            scaleFactor = params.adjustScaleFactor(scaleFactor);
-            COG.Log.info("scale factor adjusted to: " + scaleFactor);
-        } // if
-
-        scaleView();
-        resetZoom();
+        scaleFactor = Math.pow(2, Math.round(Math.log(scaleFactor) / Math.LN2));
+        scaleView(true);
     } // pinchZoomEnd
     
-    function wheelZoom(evt, relXY, zoom) {
-        self.zoom(relXY, Math.min(Math.pow(2, Math.round(Math.log(zoom))), 8), 500);
-    } // wheelZoom
+    function handleWheelZoom(evt, relXY, zoom) {
+        // TODO: the xy position should be between the relXY and the center of the view
+        self.zoom(T5.D.getCenter(dimensions), zoom);
+    } // handleWheelZoom
     
-    function scaleView() {
+    function scaleView(redraw) {
+        calcZoomRect();
+        
         var scaledHalfWidth = (cycleRect.width / (scaleFactor * 2)) >> 0,
             scaledHalfHeight = (cycleRect.height / (scaleFactor * 2)) >> 0,
-            scaleEndXY = T5.XY.init(zoomX - scaledHalfWidth, zoomY - scaledHalfHeight);
-        
-        // round the scaling factor to 1 decimal place
-        scaleFactor = Math.round(scaleFactor * 10) / 10;
-        
-        // flag scaling as false
-        scaling = false;
-        
-        // flag to the layers that we are scaling
-        for (var ii = layers.length; ii--; ) {
-            layers[ii].trigger('scale', scaleFactor, scaleEndXY);
-        } // for
+            scaleEndXY = T5.XY.init(zoomX - scaledHalfWidth, zoomY - scaledHalfHeight),
+            scaleFactorExp = (Math.log(scaleFactor) / Math.LN2) >> 0;
+            
+        if (scaleFactor !== 1) {
+            state = stateZoom;
+        } // if
 
-        // trigger the scale
-        self.trigger("scale", scaleFactor, scaleEndXY);
-        
-        state = stateActive;
-        invalidate();
+        COG.Log.info('scale factor = ' + scaleFactor + ', exp = ' + scaleFactorExp);
+        if (scaleFactorExp !== 0) {
+            scaleFactor = Math.pow(2, scaleFactorExp);
+
+            // flag to the layers that we are scaling
+            for (var ii = layers.length; ii--; ) {
+                layers[ii].trigger('scale', scaleFactor, scaleEndXY);
+            } // for
+
+            // trigger the scale
+            self.trigger("scale", scaleFactor, scaleEndXY);
+
+            // flag scaling as false
+            scaleFactor = 1;
+            scaleTouchesStart = null;
+            state = stateActive;
+            redraw = true;
+        } // if
+
+        // invalidate the view
+        invalidate(redraw);
     } // scaleView
+    
+    function setZoomCenter(xy) {
+        interactOffset = T5.XY.init(offsetX, offsetY);
+        interactCenter = T5.XY.offset(xy, offsetX, offsetY);
+    } // setZoomCenter
     
     function handleContainerUpdate(name, value) {
         canvas = document.getElementById(value);
@@ -319,7 +331,7 @@ T5.View = function(params) {
     function pan(x, y, tweenFn, tweenDuration, callback) {
         updateOffset(offsetX + x, offsetY + y, tweenFn, tweenDuration, callback);
     } // pan
-        
+    
     /**
     ### updateOffset(x, y, tweenFn, tweenDuration, callback)
     */
@@ -334,7 +346,7 @@ T5.View = function(params) {
             tweensComplete += 1;
             
             if (tweensComplete >= 2) {
-                panEnd(0, 0);
+                handlePanEnd(0, 0);
                 if (callback) {
                     callback();
                 } // if
@@ -386,6 +398,20 @@ T5.View = function(params) {
         } // if..else
     } // updateOffset
     
+    /**
+    ### zoom(targetXY, scaleChange)
+    */
+    function zoom(targetXY, scaleChange) {
+        setZoomCenter(targetXY);
+
+        panimating = false;
+        scaleFactor += Math.pow(2, scaleChange) - 1;
+        
+        COG.Log.info('zooming, scale change = ' + scaleChange + ', targetXY = ', targetXY);
+        scaleView();
+    } // zoom
+    
+    
     /* private functions */
     
     function attachToCanvas() {
@@ -409,7 +435,7 @@ T5.View = function(params) {
                 if (! canvas.id) {
                     canvas.id = params.id + '_canvas';
                 } // if
-                
+
                 // get the canvas context
                 mainContext = canvas.getContext('2d');
             } 
@@ -496,56 +522,6 @@ T5.View = function(params) {
         return -1;
     } // getLayerIndex
     
-    /* animation code */
-    
-    function animateZoom(scaleFactorFrom, scaleFactorTo, startXY, targetXY, tweenFn, callback, duration) {
-        
-        function finishAnimation() {
-            // if we have a callback to complete, then call it
-            if (callback) {
-                callback();
-            } // if
-
-            scaleView();
-
-            // reset the scale factor
-            resetZoom();
-            aniProgress = null;
-        } // finishAnimation
-        
-        // update the zoom center
-        scaling = true;
-        interactCenter = T5.XY.offset(targetXY, offsetX, offsetY);
-
-        // if tweening then update the targetXY
-        if (tweenFn) {
-            var tween = T5.tweenValue(
-                            0, 
-                            scaleFactorTo - scaleFactorFrom, 
-                            tweenFn, 
-                            finishAnimation, 
-                            duration ? duration : 1000);
-                            
-            tween.requestUpdates(function(updatedValue, completed) {
-                // calculate the completion percentage
-                aniProgress = updatedValue / (scaleFactorTo - scaleFactorFrom);
-
-                // update the scale factor
-                scaleFactor = scaleFactorFrom + updatedValue;
-
-                // trigger the on animate handler
-                state = stateZoom;
-                invalidate();
-                self.trigger("animate");
-            });
-        }
-        // otherwise, update the scale factor and fire the callback
-        else {
-            scaleFactor = scaleFactorTo;
-            finishAnimation();
-        }  // if..else                
-    } // animateZoom
-    
     /* draw code */
     
     function triggerIdle() {
@@ -558,24 +534,23 @@ T5.View = function(params) {
     // TODO: investigate whether to go back to floating point math for improved display or not
     function calcZoomRect(drawRect) {
         var invScaleFactor = 1 / scaleFactor,
-            invScaleFactorNorm = (invScaleFactor - 0.5) * 2,
-            scaleWidth = (drawRect.width * invScaleFactor) >> 0,
-            scaleHeight = (drawRect.height * invScaleFactor) >> 0,
+            invScaleFactorNorm = (invScaleFactor - 0.5) * 2;
             
-            xChange = interactCenter.x - (offsetX + drawRect.width / 2),
-            yChange = interactCenter.y - (offsetY + drawRect.height / 2);
-            
-        // update the zoom x and zoom y
-        zoomX = (interactCenter.x - xChange * invScaleFactorNorm) >> 0;
-        zoomY = (interactCenter.y - yChange * invScaleFactorNorm) >> 0;
+        // update the zoomX and y calculations
+        zoomX = interactCenter.x + (offsetX - interactOffset.x);
+        zoomY = interactCenter.y + (offsetY - interactOffset.y);
 
-        return T5.XYRect.fromCenter(zoomX, zoomY, scaleWidth, scaleHeight);
+        if (drawRect) {
+            return T5.XYRect.fromCenter(
+                zoomX >> 0, 
+                zoomY >> 0, 
+                (drawRect.width * invScaleFactor) >> 0, 
+                (drawRect.height * invScaleFactor) >> 0);
+        } // if
     } // calcZoomRect
     
     function drawView(drawState, rect, redraw, tickCount) {
-        var clipping = false,
-            isZoom = (drawState & stateZoom) !== 0,
-            drawRect = T5.XYRect.copy(rect),
+        var drawRect = T5.XYRect.copy(rect),
             drawLayer,
             ii = 0;
             
@@ -589,12 +564,10 @@ T5.View = function(params) {
         // COG.Log.info('offsetX = ' + offsetX + ', offsetY = ', offsetY + ', drawing rect = ', rect);
         
         try {
-            lastDrawScaleFactor = scaleFactor;
-            
             // initialise the composite operation
             mainContext.globalCompositeOperation = 'source-over';
             
-            if (isZoom) {
+            if (scaleFactor !== 1) {
                 drawRect = calcZoomRect(drawRect);
                 mainContext.scale(scaleFactor, scaleFactor);
             } // if
@@ -610,6 +583,7 @@ T5.View = function(params) {
             
             mainContext.beginPath();
             
+            clipping = false;
             for (ii = layerCount; ii--; ) {
                 if (layers[ii].clip) {
                     layers[ii].clip(mainContext, drawRect, drawState, self, redraw, tickCount);
@@ -831,6 +805,61 @@ T5.View = function(params) {
     } // setLayer
     
     /**
+    ### scale(targetScaling, targetXY, tweenFn, callback)
+    */
+    function scale(targetScaling, targetXY, tweenFn, callback) {
+        
+        function finishAnimation() {
+            var scaleFactorExp = Math.round(Math.log(scaleFactor) / Math.LN2);
+            
+            // round the scale factor to the nearest power of 2
+            scaleFactor = Math.pow(2, scaleFactorExp);
+            
+            // if we have a callback to complete, then call it
+            if (callback) {
+                callback();
+            } // if
+
+            // scale the view
+            scaleView(true);
+        } // finishAnimation
+        
+        var scaleFactorFrom = scaleFactor;
+
+        // if the target xy is not defined, then use the canvas center
+        if (! targetXY) {
+            targetXY = T5.D.getCenter(dimensions);
+        } // if
+        
+        setZoomCenter(targetXY);
+
+        // if tweening then update the targetXY
+        if (tweenFn) {
+            var tween = T5.tweenValue(
+                            0, 
+                            targetScaling - scaleFactorFrom, 
+                            tweenFn, 
+                            finishAnimation, 
+                            1000);
+                            
+            tween.requestUpdates(function(updatedValue, completed) {
+                // update the scale factor
+                scaleFactor = scaleFactorFrom + updatedValue;
+
+                // trigger the on animate handler
+                scaleView();
+            });
+        }
+        // otherwise, update the scale factor and fire the callback
+        else {
+            scaleFactor = targetScaling;
+            finishAnimation();
+        }  // if..else        
+
+        return self;
+    } // scale
+    
+    /**
     ### triggerAll(eventName, args*)
     Trigger an event on the view and all layers currently contained in the view
     */
@@ -848,20 +877,6 @@ T5.View = function(params) {
         id: params.id,
         deviceScaling: deviceScaling,
         fastDraw: params.fastDraw || T5.getConfig().requireFastDraw,
-
-        /**
-        ### animate(targetScaleFactor, startXY, targetXY, tweenFn, callback)
-        Performs an animated zoom on the T5.View.
-        */
-        animate: function(targetScaleFactor, startXY, targetXY, tweenFn, callback) {
-            animateZoom(
-                scaleFactor, 
-                targetScaleFactor, 
-                startXY, 
-                targetXY, 
-                tweenFn, 
-                callback);
-        },
         
         /**
         ### getDimensions()
@@ -902,31 +917,8 @@ T5.View = function(params) {
                 self.trigger('resize', canvas.width, canvas.height);
             } // if
         },
-        
-        /**
-        ### scale(targetScaling, tweenFn, callback, startXY, targetXY)
-        */
-        scale: function(targetScaling, tweenFn, callback, startXY, targetXY) {
-            // if the start XY is not defined, used the center
-            if (! startXY) {
-                startXY = T5.D.getCenter(dimensions);
-            } // if
-            
-            // if the target xy is not defined, then use the canvas center
-            if (! targetXY) {
-                targetXY = T5.D.getCenter(dimensions);
-            } // if
-            
-            self.animate(
-                    targetScaling, 
-                    startXY, 
-                    targetXY, 
-                    tweenFn, 
-                    callback);
 
-            return self;
-        },
-        
+        scale: scale,
         triggerAll: triggerAll,
         
         /**
@@ -968,30 +960,7 @@ T5.View = function(params) {
         getViewRect: getViewRect,
         updateOffset: updateOffset,
         pan: pan,
-        
-        /**
-        ### zoom(targetXY, newScaleFactor, rescaleAfter)
-        */
-        zoom: function(targetXY, newScaleFactor, rescaleAfter) {
-            panimating = false;
-            scaleFactor = newScaleFactor;
-            scaling = scaleFactor !== 1;
-            
-            interactCenter = T5.XY.offset(targetXY, offsetX, offsetY);
-            clearTimeout(rescaleTimeout);
-
-            if (scaling) {
-                state = stateZoom;
-                invalidate();
-
-                if (rescaleAfter) {
-                    rescaleTimeout = setTimeout(function() {
-                        scaleView();
-                        resetZoom();
-                    }, parseInt(rescaleAfter, 10));
-                } // if
-            } // if
-        }
+        zoom: zoom
     };
 
     deviceScaling = T5.getConfig().getScaling();
@@ -1010,7 +979,7 @@ T5.View = function(params) {
     // if this is pannable, then attach event handlers
     if (params.pannable) {
         self.bind("pan", handlePan);
-        self.bind("panEnd", panEnd);
+        self.bind("panEnd", handlePanEnd);
 
         // handle intertia events
         self.bind("inertiaCancel", function(evt) {
@@ -1021,9 +990,9 @@ T5.View = function(params) {
 
     // if this view is scalable, attach zooming event handlers
     if (params.scalable) {
-        self.bind("pinchZoom", pinchZoom);
-        self.bind("pinchZoomEnd", pinchZoomEnd);
-        self.bind("wheelZoom", wheelZoom);
+        self.bind('pinchZoom', handlePinchZoom);
+        // self.bind("pinchZoomEnd", pinchZoomEnd);
+        self.bind('wheelZoom', handleWheelZoom);
     } // if
     
     // handle tap events

@@ -53,158 +53,143 @@ T5.Geo = (function() {
         VECTORIZE_PER_CYCLE: 500
     };
     
-    /* define the exported functions */
+    /* function exports */
+    
+    /**
+    ### distanceToString(distance)
+    This function simply formats a distance value (in meters) into a human readable string.
+    
+    #### TODO
+    - Add internationalization and other formatting support to this function
+    */
+    function distanceToString(distance) {
+        if (distance > 1000) {
+            return (~~(distance / 10) / 100) + " km";
+        } // if
         
-    var exportedFunctions = {
-        /**
-        ### getEngine(requiredCapability)
-        Returns the engine that provides the required functionality.  If preferred engines are supplied
-        as additional arguments, then those are looked for first
-        */
-        getEngine: function(requiredCapability) {
-            // initialise variables
-            var fnresult = null;
+        return distance ? distance + " m" : '';
+    } // distanceToString
+    
+    /**
+    ### dist2rad(distance)
+    To be completed
+    */
+    function dist2rad(distance) {
+        return distance / KM_PER_RAD;
+    } // dist2rad
+    
+    /**
+    ### getEngine(requiredCapability)
+    Returns the engine that provides the required functionality.  If preferred engines are supplied
+    as additional arguments, then those are looked for first
+    */
+    function getEngine(requiredCapability) {
+        // initialise variables
+        var fnresult = null;
 
-            // iterate through the arguments beyond the capabililty for the preferred engine
-            for (var ii = 1; (! fnresult) && (ii < arguments.length); ii++) {
-                fnresult = findEngine(requiredCapability, arguments[ii]);
-            } // for
+        // iterate through the arguments beyond the capabililty for the preferred engine
+        for (var ii = 1; (! fnresult) && (ii < arguments.length); ii++) {
+            fnresult = findEngine(requiredCapability, arguments[ii]);
+        } // for
 
-            // if we found an engine using preferences, return that otherwise return an alternative
-            fnresult = fnresult ? fnresult : findEngine(requiredCapability);
+        // if we found an engine using preferences, return that otherwise return an alternative
+        fnresult = fnresult ? fnresult : findEngine(requiredCapability);
 
-            // if no engine was found, then throw an exception
-            if (! fnresult) {
-                throw new Error("Unable to find GEO engine with " + requiredCapability + " capability");
-            }
-
-            return fnresult;
-        },
-
-        /**
-        ### rankGeocodeResponses(requestAddress, responseAddress, engine)
-        To be completed
-        */
-        rankGeocodeResponses: function(requestAddress, responseAddresses, engine) {
-            var matches = [],
-                compareFns = module.AddressCompareFns;
-
-            // if the engine is specified and the engine has compare fns, then extend them
-            if (engine && engine.compareFns) {
-                compareFns = T5.ex({}, compareFns, engine.compareFns);
-            } // if
-
-            // iterate through the response addresses and compare against the request address
-            for (var ii = 0; ii < responseAddresses.length; ii++) {
-                matches.push(new module.GeoSearchResult({
-                    caption: addrTools.toString(responseAddresses[ii]),
-                    data: responseAddresses[ii],
-                    pos: responseAddresses[ii].pos,
-                    matchWeight: plainTextAddressMatch(requestAddress, responseAddresses[ii], compareFns, module.GeocodeFieldWeights)
-                }));
-            } // for
-
-            // TODO: sort the matches
-            matches.sort(function(itemA, itemB) {
-                return itemB.matchWeight - itemA.matchWeight;
-            });
-
-            return matches;
-        },
-        
-        /**
-        ### distanceToString(distance)
-        This function simply formats a distance value (in meters) into a human readable string.
-        
-        #### TODO
-        - Add internationalization and other formatting support to this function
-        */
-        distanceToString: function(distance) {
-            if (distance > 1000) {
-                return (~~(distance / 10) / 100) + " km";
-            } // if
-            
-            return distance ? distance + " m" : '';
-        },
-
-        /**
-        ### dist2rad(distance)
-        To be completed
-        */
-        dist2rad: function(distance) {
-            return distance / KM_PER_RAD;
-        },
-
-        /**
-        ### lat2pix(lat)
-        To be completed
-        */
-        lat2pix: function(lat) {
-            var radLat = parseFloat(lat) * DEGREES_TO_RADIANS,
-                sinPhi = Math.sin(radLat),
-                eSinPhi = ECC * sinPhi,
-                retVal = Math.log(((1.0 + sinPhi) / (1.0 - sinPhi)) * Math.pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
-
-            return retVal;
-        },
-
-        /**
-        ### lon2pix(lon)
-        To be completed
-        */
-        lon2pix: function(lon) {
-            return parseFloat(lon) * DEGREES_TO_RADIANS;
-        },
-
-        /**
-        ### pix2lon(mercX)
-        To be completed
-        */
-        pix2lon: function(mercX) {
-            return module.normalizeLon(mercX) * RADIANS_TO_DEGREES;
-        },
-
-        /**
-        ### pix2lat(mercY)
-        To be completed
-        */
-        pix2lat: function(mercY) {
-            var t = Math.pow(Math.E, -mercY),
-                prevPhi = mercatorUnproject(t),
-                newPhi = findRadPhi(prevPhi, t),
-                iterCount = 0;
-
-            while (iterCount < PHI_MAXITER && Math.abs(prevPhi - newPhi) > PHI_EPSILON) {
-                prevPhi = newPhi;
-                newPhi = findRadPhi(prevPhi, t);
-                iterCount++;
-            } // while
-
-            return newPhi * RADIANS_TO_DEGREES;
-        },
-
-        /**
-        ### normalizeLon(lon)
-        To be completed
-        */
-        normalizeLon: function (lon) {
-            // return lon;
-            while (lon < -180) {
-                lon += 360;
-            } // while
-
-            while (lon > 180) {
-                lon -= 360;
-            } // while
-
-            return lon;
-        },
-        
-        radsPerPixel: function(zoomLevel) {
-            return 2*Math.PI / (256 << zoomLevel);
+        // if no engine was found, then throw an exception
+        if (! fnresult) {
+            throw new Error("Unable to find GEO engine with " + requiredCapability + " capability");
         }
-    }; // exportedFunctions
-        
+
+        return fnresult;
+    } // getEngine
+    
+    /**
+    ### lat2pix(lat)
+    To be completed
+    */
+    function lat2pix(lat) {
+        var radLat = parseFloat(lat) * DEGREES_TO_RADIANS,
+            sinPhi = Math.sin(radLat),
+            eSinPhi = ECC * sinPhi,
+            retVal = Math.log(((1.0 + sinPhi) / (1.0 - sinPhi)) * Math.pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
+
+        return retVal;
+    } // lat2Pix
+    
+    /**
+    ### lon2pix(lon)
+    To be completed
+    */
+    function lon2pix(lon) {
+        return parseFloat(lon) * DEGREES_TO_RADIANS;
+    } // lon2pix
+    
+    /**
+    ### pix2lat(mercY)
+    To be completed
+    */
+    function pix2lat(mercY) {
+        var t = Math.pow(Math.E, -mercY),
+            prevPhi = mercatorUnproject(t),
+            newPhi = findRadPhi(prevPhi, t),
+            iterCount = 0;
+
+        while (iterCount < PHI_MAXITER && Math.abs(prevPhi - newPhi) > PHI_EPSILON) {
+            prevPhi = newPhi;
+            newPhi = findRadPhi(prevPhi, t);
+            iterCount++;
+        } // while
+
+        return newPhi * RADIANS_TO_DEGREES;
+    } // pix2lat
+    
+    /**
+    ### pix2lon(mercX)
+    To be completed
+    */
+    function pix2lon(mercX) {
+        return (mercX % 360) * RADIANS_TO_DEGREES;
+    } // pix2lon
+    
+    /**
+    ### radsPerPixel(zoomLevel)
+    */
+    function radsPerPixel(zoomLevel) {
+        return 2*Math.PI / (256 << zoomLevel);
+    } // radsPerPixel
+    
+    
+    /**
+    ### rankGeocodeResponses(requestAddress, responseAddress, engine)
+    To be completed
+    */
+    function rankGeocodeResponses(requestAddress, responseAddresses, engine) {
+        var matches = [],
+            compareFns = module.AddressCompareFns;
+
+        // if the engine is specified and the engine has compare fns, then extend them
+        if (engine && engine.compareFns) {
+            compareFns = T5.ex({}, compareFns, engine.compareFns);
+        } // if
+
+        // iterate through the response addresses and compare against the request address
+        for (var ii = 0; ii < responseAddresses.length; ii++) {
+            matches.push(new module.GeoSearchResult({
+                caption: addrTools.toString(responseAddresses[ii]),
+                data: responseAddresses[ii],
+                pos: responseAddresses[ii].pos,
+                matchWeight: plainTextAddressMatch(requestAddress, responseAddresses[ii], compareFns, module.GeocodeFieldWeights)
+            }));
+        } // for
+
+        // TODO: sort the matches
+        matches.sort(function(itemA, itemB) {
+            return itemB.matchWeight - itemA.matchWeight;
+        });
+
+        return matches;
+    } // rankGeocodeResponses
+    
     /* define the geo simple types */
     
     var Radius = function(init_dist, init_uom) {
@@ -503,10 +488,7 @@ T5.Geo = (function() {
             */
             fromMercatorPixels: function(mercX, mercY) {
                 // return the new position
-                return new Position(
-                    T5.Geo.pix2lat(mercY),
-                    T5.Geo.normalizeLon(T5.Geo.pix2lon(mercX))
-                );
+                return new Position(pix2lat(mercY), pix2lon(mercX));
             },
             
             /**
@@ -516,7 +498,7 @@ T5.Geo = (function() {
             with x and y mercator pixel values back.
             */
             toMercatorPixels: function(pos) {
-                return T5.XY.init(T5.Geo.lon2pix(pos.lon), T5.Geo.lat2pix(pos.lat));
+                return T5.XY.init(lon2pix(pos.lon), lat2pix(pos.lat));
             },
             
             /**
@@ -738,8 +720,8 @@ T5.Geo = (function() {
             */
             expand: function(bounds, amount) {
                 return new BoundingBox(
-                    new Position(bounds.min.lat - amount, bounds.min.lon - module.normalizeLon(amount)),
-                    new Position(bounds.max.lat + amount, bounds.max.lon + module.normalizeLon(amount)));
+                    new Position(bounds.min.lat - amount, bounds.min.lon - amount % 360),
+                    new Position(bounds.max.lat + amount, bounds.max.lon + amount % 360));
             },
             
             /**
@@ -1117,7 +1099,7 @@ T5.Geo = (function() {
             function rankResults(searchParams, results) {
                 // if freeform parameters then rank
                 if (searchParams.freeform) {
-                    results = module.rankGeocodeResponses(searchParams.freeform, results, module.getEngine("geocode"));
+                    results = module.rankGeocodeResponses(searchParams.freeform, results, getEngine("geocode"));
                 } // if
                 // TODO: rank structured results
                 else {
@@ -1139,7 +1121,7 @@ T5.Geo = (function() {
                         } // if
                         
                         // get the geocoding engine
-                        var engine = module.getEngine("geocode");
+                        var engine = getEngine("geocode");
                         if (engine) {
                             engine.geocode({
                                 addresses: [searchParams.freeform ? searchParams.freeform : address],
@@ -1184,27 +1166,27 @@ T5.Geo = (function() {
         /* exports */
 
         /**
-        ### init(pos, radsPerPixel)
+        ### init(pos, rpp)
         */
-        function init(pos, radsPerPixel) {
+        function init(pos, rpp) {
             var xy = T5.XY.init();
 
             // update the position
-            updatePos(xy, pos, radsPerPixel);
+            updatePos(xy, pos, rpp);
 
             return xy;
         } // init
 
         /**
-        ### sync(xy, radsPerPixel)
+        ### sync(xy, rpp)
         */
-        function sync(xy, radsPerPixel) {
+        function sync(xy, rpp) {
             // if the xy parameter is an array then process as such
             if (xy.length) {
                 var minX, minY, maxX, maxY;
 
                 for (var ii = xy.length; ii--; ) {
-                    sync(xy[ii], radsPerPixel);
+                    sync(xy[ii], rpp);
 
                     // update the min x and min y
                     minX = (typeof minX === 'undefined') || xy.x < minX ? xy.x : minX;
@@ -1221,11 +1203,11 @@ T5.Geo = (function() {
                 var mercXY = xy.mercXY;
 
                 // calculate the x and y
-                xy.x = ~~(mercXY.x / radsPerPixel);
-                xy.y = ~~((Math.PI - mercXY.y) / radsPerPixel);
+                xy.x = ~~(mercXY.x / rpp);
+                xy.y = ~~((Math.PI - mercXY.y) / rpp);
 
                 // update the rads per pixel
-                xy.radsPerPixel = radsPerPixel;
+                xy.rpp = rpp;
             }
             else {
                 COG.Log.warn('Attempted to sync an XY composite, not a GeoXY');
@@ -1234,22 +1216,22 @@ T5.Geo = (function() {
             return xy;
         } // setRadsPerPixel
         
-        function toPos(xy, radsPerPixel) {
-            radsPerPixel = radsPerPixel ? radsPerPixel : self.radsPerPixel;
+        function toPos(xy, rpp) {
+            rpp = rpp ? rpp : self.rpp;
 
-            return posTools.fromMercatorPixels(xy.x * radsPerPixel, Math.PI - xy.y * radsPerPixel);
+            return posTools.fromMercatorPixels(xy.x * rpp, Math.PI - xy.y * rpp);
         } // toPos
         
-        function updatePos(xy, pos, radsPerPixel) {
+        function updatePos(xy, pos, rpp) {
             // update the position
             xy.pos = pos;
             xy.mercXY = posTools.toMercatorPixels(pos);
             
             // allow for using the xy of the rads per pixel if not supplied
-            radsPerPixel = typeof radsPerPixel !== 'undefined' ? radsPerPixel : xy.radsPerPixel;
+            rpp = typeof rpp !== 'undefined' ? rpp : xy.rpp;
 
-            if (radsPerPixel) {
-                sync(xy, radsPerPixel);
+            if (rpp) {
+                sync(xy, rpp);
             } // if
         } // updatePos
 
@@ -1276,5 +1258,16 @@ T5.Geo = (function() {
         return T5.GeoXY.init(position);
     }; // Vector
 
-    return T5.ex(module, moduleConstants, exportedFunctions);
+    return T5.ex(module, moduleConstants, {
+        distanceToString: distanceToString,
+        dist2rad: dist2rad,
+        getEngine: getEngine,
+        
+        lat2pix: lat2pix,
+        lon2pix: lon2pix,
+        pix2lat: pix2lat,
+        pix2lon: pix2lon,
+        
+        radsPerPixel: radsPerPixel
+    });
 })();

@@ -1,11 +1,11 @@
 /**
-# T5.Geo.JSON
+# T5.GeoJSON
 _module_
 
 
 This module provides GeoJSON support for Tile5.
 */
-T5.Geo.JSON = (function() {
+T5.GeoJSON = (function() {
     
     // define some constants
     var FEATURE_TYPE_COLLECTION = 'featurecollection',
@@ -328,4 +328,7 @@ T5.Geo.JSON = (function() {
     
     return module;
 })();
+
+T5.Geo.JSON = T5.GeoJSON;
+
 

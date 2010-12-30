@@ -33,7 +33,7 @@ T5.Geo.OSM = (function() {
         http://developers.cloudmade.com/projects/tiles/examples/convert-coordinates-to-tile-numbers
         */
         function calculateTileOffset(position, zoomLevel) {
-            var lon = T5.Geo.normalizeLon(position.lon),
+            var lon = position.lon % 360,
                 lat = position.lat,
                 zoomFactor = 2 << (zoomLevel - 1),
                 tileX, tileY;

@@ -25,35 +25,25 @@ T5.zoomable = function(view, params) {
             });
             
             // animate the scaling
-            view.animate(2, 
-                T5.D.getCenter(view.getDimensions()), 
-                T5.XY.init(relXY.x, relXY.y), 
-                params.zoomAnimation);
+            // TODO: reinstate the animated zoom
+            view.scale(2, T5.XY.init(relXY.x, relXY.y)); // , params.zoomAnimation);
         } // if
     } // handleDoubleTap
     
     function handleScale(evt, scaleAmount, zoomXY) {
         view.updateOffset(zoomXY.x * scaleAmount, zoomXY.y * scaleAmount);
 
-        var zoomChange = 0;
+        var zoomChange = Math.log(scaleAmount) / Math.LN2;
+        COG.Log.info('scale amount = ' + scaleAmount + ', zoom change = ' + zoomChange + ', zooming at ', zoomXY);
 
-        // damp the scale amount
-        scaleAmount = Math.sqrt(scaleAmount);
-
-        if (scaleAmount < 1) {
-            zoomChange = -(0.5 / scaleAmount);
-        }
-        else if (scaleAmount > 1) {
-            zoomChange = scaleAmount;
-        } // if..else
-        
         // cancel any current animations
         // TODO: review if there is a better place to do this
         T5.cancelAnimation(function(tweenInstance) {
             return tweenInstance.cancelOnInteract;
         });
         
-        setZoomLevel(zoomLevel + zoomChange >> 0, zoomXY);
+        COG.Log.info('new zoom level = ' + (zoomLevel + zoomChange));
+        setZoomLevel(zoomLevel + zoomChange, zoomXY);
     } // handleScale
     
     /* exports */

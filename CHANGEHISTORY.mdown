@@ -7,6 +7,8 @@ wasting space.
 
 ### Detailed Changes
 
+- Updates to the way scaling and layer loads occur.  Scaling is not as "abrubt" as it was previously and a system similar to Polymaps and Google has been implemented to dynamically load tiles during the scaling operations once a power of 2 change has been detected.
+
 - Major changes to the offset system
 
 - Major changes to map provider implementation - now moved to a more generic "generator" implementation.

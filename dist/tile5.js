@@ -7,7 +7,7 @@
  * Licensed under the MIT licence
  * https://github.com/sidelab/tile5/blob/master/LICENSE.mdown
  *
- * Build Date: 2010-12-23 10:59:16 +0000
+ * Build Date: 2010-12-30 02:10:12 +0000
  */
  
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true *//* GRUNTJS START */
@@ -1791,6 +1791,7 @@ http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-l
     // initialise constants
     var MAX_TOUCHES = 10,
         WHEEL_DELTA_STEP = 120,
+        WHEEL_DELTA_LEVEL = WHEEL_DELTA_STEP * 8,
         DEFAULT_INERTIA_MAX = 500,
         INERTIA_TIMEOUT_MOUSE = 100,
         INERTIA_TIMEOUT_TOUCH = 250,
@@ -2277,15 +2278,15 @@ http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-l
             
             if (aggressiveCapture || targ && (targ === targetElement)) {
                 var delta = getWheelDelta(evt), 
-                    zoomAmount = delta.y !== 0 ? Math.abs(delta.y / WHEEL_DELTA_STEP) : 0;
-
+                    zoomAmount = delta.y / WHEEL_DELTA_LEVEL;
+                    
                 if (lastXY && (zoomAmount !== 0)) {
                     // apply the offset to the xy
                     var xy = createPoint(
                         lastXY.x - targetElement.offsetLeft, 
                         lastXY.y - targetElement.offsetTop);
                     
-                    triggerEvent("wheelZoom", xy, Math.pow(2, delta.y > 0 ? zoomAmount : -zoomAmount));
+                    triggerEvent('wheelZoom', xy, zoomAmount);
                 } // if
                 
                 preventDefault(evt);
@@ -2421,8 +2422,28 @@ that are provided in the Tile5 library.
 - T5.XYRect
 - T5.V
 - T5.D
+
+## Module Functions
 */
 T5 = (function() {
+    
+    /* exports */
+    
+    /**
+    ### ticks()
+    */
+    function ticks() {
+        return new Date().getTime();
+    } // getTicks
+    
+    /**
+    ### userMessage(msgType, msgKey, msgHtml)
+    */
+    function userMessage(msgType, msgKey, msgHtml) {
+        module.trigger('userMessage', msgType, msgKey, msgHtml);
+    } // userMessage
+    
+    
     /**
     # T5.Vector
     A vector is used to encapsulate X and Y coordinates for a point, and rather than 
@@ -2995,24 +3016,11 @@ T5 = (function() {
         };
     })(); // dimensionTools
     
-    /* exports */
-    
-    function getTicks() {
-        return new Date().getTime();
-    } // getTicks
-    
-    /**
-    ### userMessage(msgType, msgKey, msgHtml)
-    */
-    function userMessage(msgType, msgKey, msgHtml) {
-        module.trigger('userMessage', msgType, msgKey, msgHtml);
-    } // userMessage
-    
     /* module definition */
 
     var module = {
         ex: COG.extend,
-        ticks: getTicks,
+        ticks: ticks,
         userMessage: userMessage,
         
         XY: xyTools,
@@ -4045,35 +4053,25 @@ T5.zoomable = function(view, params) {
             });
             
             // animate the scaling
-            view.animate(2, 
-                T5.D.getCenter(view.getDimensions()), 
-                T5.XY.init(relXY.x, relXY.y), 
-                params.zoomAnimation);
+            // TODO: reinstate the animated zoom
+            view.scale(2, T5.XY.init(relXY.x, relXY.y)); // , params.zoomAnimation);
         } // if
     } // handleDoubleTap
     
     function handleScale(evt, scaleAmount, zoomXY) {
         view.updateOffset(zoomXY.x * scaleAmount, zoomXY.y * scaleAmount);
 
-        var zoomChange = 0;
+        var zoomChange = Math.log(scaleAmount) / Math.LN2;
+        COG.Log.info('scale amount = ' + scaleAmount + ', zoom change = ' + zoomChange + ', zooming at ', zoomXY);
 
-        // damp the scale amount
-        scaleAmount = Math.sqrt(scaleAmount);
-
-        if (scaleAmount < 1) {
-            zoomChange = -(0.5 / scaleAmount);
-        }
-        else if (scaleAmount > 1) {
-            zoomChange = scaleAmount;
-        } // if..else
-        
         // cancel any current animations
         // TODO: review if there is a better place to do this
         T5.cancelAnimation(function(tweenInstance) {
             return tweenInstance.cancelOnInteract;
         });
         
-        setZoomLevel(zoomLevel + zoomChange >> 0, zoomXY);
+        COG.Log.info('new zoom level = ' + (zoomLevel + zoomChange));
+        setZoomLevel(zoomLevel + zoomChange, zoomXY);
     } // handleScale
     
     /* exports */
@@ -4942,6 +4940,7 @@ T5.View = function(params) {
         mainContext = null,
         offsetX = 0,
         offsetY = 0,
+        clipping = false,
         cycleRect = null,
         cycleWorker = null,
         guides = params.guides,
@@ -4950,6 +4949,7 @@ T5.View = function(params) {
         wakeTriggers = 0,
         halfWidth = 0,
         halfHeight = 0,
+        interactOffset = null,
         interactCenter = null,
         idle = false,
         panimating = false,
@@ -4960,15 +4960,13 @@ T5.View = function(params) {
         layerMaxXY = null,
         rotation = 0,
         tickCount = 0,
-        scaling = false,
         stateOverride = null,
         redrawView = false,
         redrawEvery = 40,
         resizeCanvasTimeout = 0,
+        scaleTouchesStart = null,
         scaleFactor = 1,
         lastScaleFactor = 0,
-        lastDrawScaleFactor = 1,
-        aniProgress = null,
         tweenStart = null,
         isFlash = typeof FlashCanvas !== 'undefined',
         cycleDelay = ~~(1000 / params.fps),
@@ -4996,14 +4994,20 @@ T5.View = function(params) {
         invalidate();
         
         if (inertia && params.inertia) {
-            updateOffset(offsetX + x, offsetY + y, params.panAnimationEasing, params.panAnimationDuration);
+            updateOffset(
+                offsetX + x, 
+                offsetY + y, 
+                params.panAnimationEasing, 
+                params.panAnimationDuration);
         }
         else if (! inertia) {
-            updateOffset(offsetX + x, offsetY + y);
+            updateOffset(
+                offsetX + x, 
+                offsetY + y);
         } // if..else
     } // pan
     
-    function panEnd(evt, x, y) {
+    function handlePanEnd(evt, x, y) {
         state = stateActive;
         panimating = false;
         
@@ -5012,13 +5016,9 @@ T5.View = function(params) {
             after: 50,
             single: true
         });
-    } // panEnd
+    } // handlePanEnd
     
     /* scaling functions */
-    
-    function resetZoom() {
-        scaleFactor = 1;
-    } // resetZoom
     
     function checkTouches(start, end) {
         var startRect = vectorRect(start),
@@ -5033,60 +5033,70 @@ T5.View = function(params) {
         // update the zoom center
         // TODO: apply the difference so that the center of the interaction changes relative
         // to movements between the start center and end center
-        interactCenter = T5.XY.offset(endCenter, offsetX, offsetY);
+        setZoomCenter(endCenter);
 
         // determine the ratio between the start rect and the end rect
         scaleFactor = (startRect && (startSize !== 0)) ? (endSize / startSize) : 1;
     } // checkTouches            
     
-    function pinchZoom(evt, touchesStart, touchesCurrent) {
-        checkTouches(touchesStart, touchesCurrent);
-        scaling = scaleFactor !== 1;
-        
-        if (scaling) {
-            state = stateZoom;
-            invalidate();
+    function handlePinchZoom(evt, touchesStart, touchesCurrent) {
+        if (! scaleTouchesStart) {
+            scaleTouchesStart = [].concat(touchesCurrent);
         } // if
-    } // pinchZoom
+        
+        checkTouches(scaleTouchesStart, touchesCurrent);
+        scaleView();
+    } // handlePinchZoom
     
     function pinchZoomEnd(evt, touchesStart, touchesEnd, pinchZoomTime) {
-        checkTouches(touchesStart, touchesEnd);
-        
-        if (params.adjustScaleFactor) {
-            scaleFactor = params.adjustScaleFactor(scaleFactor);
-            COG.Log.info("scale factor adjusted to: " + scaleFactor);
-        } // if
-
-        scaleView();
-        resetZoom();
+        scaleFactor = Math.pow(2, Math.round(Math.log(scaleFactor) / Math.LN2));
+        scaleView(true);
     } // pinchZoomEnd
     
-    function wheelZoom(evt, relXY, zoom) {
-        self.zoom(relXY, Math.min(Math.pow(2, Math.round(Math.log(zoom))), 8), 500);
-    } // wheelZoom
+    function handleWheelZoom(evt, relXY, zoom) {
+        // TODO: the xy position should be between the relXY and the center of the view
+        self.zoom(T5.D.getCenter(dimensions), zoom);
+    } // handleWheelZoom
     
-    function scaleView() {
+    function scaleView(redraw) {
+        calcZoomRect();
+        
         var scaledHalfWidth = (cycleRect.width / (scaleFactor * 2)) >> 0,
             scaledHalfHeight = (cycleRect.height / (scaleFactor * 2)) >> 0,
-            scaleEndXY = T5.XY.init(zoomX - scaledHalfWidth, zoomY - scaledHalfHeight);
-        
-        // round the scaling factor to 1 decimal place
-        scaleFactor = Math.round(scaleFactor * 10) / 10;
-        
-        // flag scaling as false
-        scaling = false;
-        
-        // flag to the layers that we are scaling
-        for (var ii = layers.length; ii--; ) {
-            layers[ii].trigger('scale', scaleFactor, scaleEndXY);
-        } // for
+            scaleEndXY = T5.XY.init(zoomX - scaledHalfWidth, zoomY - scaledHalfHeight),
+            scaleFactorExp = (Math.log(scaleFactor) / Math.LN2) >> 0;
+            
+        if (scaleFactor !== 1) {
+            state = stateZoom;
+        } // if
 
-        // trigger the scale
-        self.trigger("scale", scaleFactor, scaleEndXY);
-        
-        state = stateActive;
-        invalidate();
+        COG.Log.info('scale factor = ' + scaleFactor + ', exp = ' + scaleFactorExp);
+        if (scaleFactorExp !== 0) {
+            scaleFactor = Math.pow(2, scaleFactorExp);
+
+            // flag to the layers that we are scaling
+            for (var ii = layers.length; ii--; ) {
+                layers[ii].trigger('scale', scaleFactor, scaleEndXY);
+            } // for
+
+            // trigger the scale
+            self.trigger("scale", scaleFactor, scaleEndXY);
+
+            // flag scaling as false
+            scaleFactor = 1;
+            scaleTouchesStart = null;
+            state = stateActive;
+            redraw = true;
+        } // if
+
+        // invalidate the view
+        invalidate(redraw);
     } // scaleView
+    
+    function setZoomCenter(xy) {
+        interactOffset = T5.XY.init(offsetX, offsetY);
+        interactCenter = T5.XY.offset(xy, offsetX, offsetY);
+    } // setZoomCenter
     
     function handleContainerUpdate(name, value) {
         canvas = document.getElementById(value);
@@ -5129,7 +5139,7 @@ T5.View = function(params) {
     function pan(x, y, tweenFn, tweenDuration, callback) {
         updateOffset(offsetX + x, offsetY + y, tweenFn, tweenDuration, callback);
     } // pan
-        
+    
     /**
     ### updateOffset(x, y, tweenFn, tweenDuration, callback)
     */
@@ -5144,7 +5154,7 @@ T5.View = function(params) {
             tweensComplete += 1;
             
             if (tweensComplete >= 2) {
-                panEnd(0, 0);
+                handlePanEnd(0, 0);
                 if (callback) {
                     callback();
                 } // if
@@ -5196,6 +5206,20 @@ T5.View = function(params) {
         } // if..else
     } // updateOffset
     
+    /**
+    ### zoom(targetXY, scaleChange)
+    */
+    function zoom(targetXY, scaleChange) {
+        setZoomCenter(targetXY);
+
+        panimating = false;
+        scaleFactor += Math.pow(2, scaleChange) - 1;
+        
+        COG.Log.info('zooming, scale change = ' + scaleChange + ', targetXY = ', targetXY);
+        scaleView();
+    } // zoom
+    
+    
     /* private functions */
     
     function attachToCanvas() {
@@ -5219,7 +5243,7 @@ T5.View = function(params) {
                 if (! canvas.id) {
                     canvas.id = params.id + '_canvas';
                 } // if
-                
+
                 // get the canvas context
                 mainContext = canvas.getContext('2d');
             } 
@@ -5306,56 +5330,6 @@ T5.View = function(params) {
         return -1;
     } // getLayerIndex
     
-    /* animation code */
-    
-    function animateZoom(scaleFactorFrom, scaleFactorTo, startXY, targetXY, tweenFn, callback, duration) {
-        
-        function finishAnimation() {
-            // if we have a callback to complete, then call it
-            if (callback) {
-                callback();
-            } // if
-
-            scaleView();
-
-            // reset the scale factor
-            resetZoom();
-            aniProgress = null;
-        } // finishAnimation
-        
-        // update the zoom center
-        scaling = true;
-        interactCenter = T5.XY.offset(targetXY, offsetX, offsetY);
-
-        // if tweening then update the targetXY
-        if (tweenFn) {
-            var tween = T5.tweenValue(
-                            0, 
-                            scaleFactorTo - scaleFactorFrom, 
-                            tweenFn, 
-                            finishAnimation, 
-                            duration ? duration : 1000);
-                            
-            tween.requestUpdates(function(updatedValue, completed) {
-                // calculate the completion percentage
-                aniProgress = updatedValue / (scaleFactorTo - scaleFactorFrom);
-
-                // update the scale factor
-                scaleFactor = scaleFactorFrom + updatedValue;
-
-                // trigger the on animate handler
-                state = stateZoom;
-                invalidate();
-                self.trigger("animate");
-            });
-        }
-        // otherwise, update the scale factor and fire the callback
-        else {
-            scaleFactor = scaleFactorTo;
-            finishAnimation();
-        }  // if..else                
-    } // animateZoom
-    
     /* draw code */
     
     function triggerIdle() {
@@ -5368,24 +5342,23 @@ T5.View = function(params) {
     // TODO: investigate whether to go back to floating point math for improved display or not
     function calcZoomRect(drawRect) {
         var invScaleFactor = 1 / scaleFactor,
-            invScaleFactorNorm = (invScaleFactor - 0.5) * 2,
-            scaleWidth = (drawRect.width * invScaleFactor) >> 0,
-            scaleHeight = (drawRect.height * invScaleFactor) >> 0,
+            invScaleFactorNorm = (invScaleFactor - 0.5) * 2;
             
-            xChange = interactCenter.x - (offsetX + drawRect.width / 2),
-            yChange = interactCenter.y - (offsetY + drawRect.height / 2);
-            
-        // update the zoom x and zoom y
-        zoomX = (interactCenter.x - xChange * invScaleFactorNorm) >> 0;
-        zoomY = (interactCenter.y - yChange * invScaleFactorNorm) >> 0;
+        // update the zoomX and y calculations
+        zoomX = interactCenter.x + (offsetX - interactOffset.x);
+        zoomY = interactCenter.y + (offsetY - interactOffset.y);
 
-        return T5.XYRect.fromCenter(zoomX, zoomY, scaleWidth, scaleHeight);
+        if (drawRect) {
+            return T5.XYRect.fromCenter(
+                zoomX >> 0, 
+                zoomY >> 0, 
+                (drawRect.width * invScaleFactor) >> 0, 
+                (drawRect.height * invScaleFactor) >> 0);
+        } // if
     } // calcZoomRect
     
     function drawView(drawState, rect, redraw, tickCount) {
-        var clipping = false,
-            isZoom = (drawState & stateZoom) !== 0,
-            drawRect = T5.XYRect.copy(rect),
+        var drawRect = T5.XYRect.copy(rect),
             drawLayer,
             ii = 0;
             
@@ -5399,12 +5372,10 @@ T5.View = function(params) {
         // COG.Log.info('offsetX = ' + offsetX + ', offsetY = ', offsetY + ', drawing rect = ', rect);
         
         try {
-            lastDrawScaleFactor = scaleFactor;
-            
             // initialise the composite operation
             mainContext.globalCompositeOperation = 'source-over';
             
-            if (isZoom) {
+            if (scaleFactor !== 1) {
                 drawRect = calcZoomRect(drawRect);
                 mainContext.scale(scaleFactor, scaleFactor);
             } // if
@@ -5420,6 +5391,7 @@ T5.View = function(params) {
             
             mainContext.beginPath();
             
+            clipping = false;
             for (ii = layerCount; ii--; ) {
                 if (layers[ii].clip) {
                     layers[ii].clip(mainContext, drawRect, drawState, self, redraw, tickCount);
@@ -5641,6 +5613,61 @@ T5.View = function(params) {
     } // setLayer
     
     /**
+    ### scale(targetScaling, targetXY, tweenFn, callback)
+    */
+    function scale(targetScaling, targetXY, tweenFn, callback) {
+        
+        function finishAnimation() {
+            var scaleFactorExp = Math.round(Math.log(scaleFactor) / Math.LN2);
+            
+            // round the scale factor to the nearest power of 2
+            scaleFactor = Math.pow(2, scaleFactorExp);
+            
+            // if we have a callback to complete, then call it
+            if (callback) {
+                callback();
+            } // if
+
+            // scale the view
+            scaleView(true);
+        } // finishAnimation
+        
+        var scaleFactorFrom = scaleFactor;
+
+        // if the target xy is not defined, then use the canvas center
+        if (! targetXY) {
+            targetXY = T5.D.getCenter(dimensions);
+        } // if
+        
+        setZoomCenter(targetXY);
+
+        // if tweening then update the targetXY
+        if (tweenFn) {
+            var tween = T5.tweenValue(
+                            0, 
+                            targetScaling - scaleFactorFrom, 
+                            tweenFn, 
+                            finishAnimation, 
+                            1000);
+                            
+            tween.requestUpdates(function(updatedValue, completed) {
+                // update the scale factor
+                scaleFactor = scaleFactorFrom + updatedValue;
+
+                // trigger the on animate handler
+                scaleView();
+            });
+        }
+        // otherwise, update the scale factor and fire the callback
+        else {
+            scaleFactor = targetScaling;
+            finishAnimation();
+        }  // if..else        
+
+        return self;
+    } // scale
+    
+    /**
     ### triggerAll(eventName, args*)
     Trigger an event on the view and all layers currently contained in the view
     */
@@ -5658,20 +5685,6 @@ T5.View = function(params) {
         id: params.id,
         deviceScaling: deviceScaling,
         fastDraw: params.fastDraw || T5.getConfig().requireFastDraw,
-
-        /**
-        ### animate(targetScaleFactor, startXY, targetXY, tweenFn, callback)
-        Performs an animated zoom on the T5.View.
-        */
-        animate: function(targetScaleFactor, startXY, targetXY, tweenFn, callback) {
-            animateZoom(
-                scaleFactor, 
-                targetScaleFactor, 
-                startXY, 
-                targetXY, 
-                tweenFn, 
-                callback);
-        },
         
         /**
         ### getDimensions()
@@ -5712,31 +5725,8 @@ T5.View = function(params) {
                 self.trigger('resize', canvas.width, canvas.height);
             } // if
         },
-        
-        /**
-        ### scale(targetScaling, tweenFn, callback, startXY, targetXY)
-        */
-        scale: function(targetScaling, tweenFn, callback, startXY, targetXY) {
-            // if the start XY is not defined, used the center
-            if (! startXY) {
-                startXY = T5.D.getCenter(dimensions);
-            } // if
-            
-            // if the target xy is not defined, then use the canvas center
-            if (! targetXY) {
-                targetXY = T5.D.getCenter(dimensions);
-            } // if
-            
-            self.animate(
-                    targetScaling, 
-                    startXY, 
-                    targetXY, 
-                    tweenFn, 
-                    callback);
 
-            return self;
-        },
-        
+        scale: scale,
         triggerAll: triggerAll,
         
         /**
@@ -5778,30 +5768,7 @@ T5.View = function(params) {
         getViewRect: getViewRect,
         updateOffset: updateOffset,
         pan: pan,
-        
-        /**
-        ### zoom(targetXY, newScaleFactor, rescaleAfter)
-        */
-        zoom: function(targetXY, newScaleFactor, rescaleAfter) {
-            panimating = false;
-            scaleFactor = newScaleFactor;
-            scaling = scaleFactor !== 1;
-            
-            interactCenter = T5.XY.offset(targetXY, offsetX, offsetY);
-            clearTimeout(rescaleTimeout);
-
-            if (scaling) {
-                state = stateZoom;
-                invalidate();
-
-                if (rescaleAfter) {
-                    rescaleTimeout = setTimeout(function() {
-                        scaleView();
-                        resetZoom();
-                    }, parseInt(rescaleAfter, 10));
-                } // if
-            } // if
-        }
+        zoom: zoom
     };
 
     deviceScaling = T5.getConfig().getScaling();
@@ -5820,7 +5787,7 @@ T5.View = function(params) {
     // if this is pannable, then attach event handlers
     if (params.pannable) {
         self.bind("pan", handlePan);
-        self.bind("panEnd", panEnd);
+        self.bind("panEnd", handlePanEnd);
 
         // handle intertia events
         self.bind("inertiaCancel", function(evt) {
@@ -5831,9 +5798,9 @@ T5.View = function(params) {
 
     // if this view is scalable, attach zooming event handlers
     if (params.scalable) {
-        self.bind("pinchZoom", pinchZoom);
-        self.bind("pinchZoomEnd", pinchZoomEnd);
-        self.bind("wheelZoom", wheelZoom);
+        self.bind('pinchZoom', handlePinchZoom);
+        // self.bind("pinchZoomEnd", pinchZoomEnd);
+        self.bind('wheelZoom', handleWheelZoom);
     } // if
     
     // handle tap events
@@ -6985,41 +6952,37 @@ T5.ImageLayer = function(genId, params) {
     
     // initialise variables
     var generator = genId ? T5.Generator.init(genId, params) : null,
-        generatedImages = null,
+        generatedImages = [],
         lastViewRect = T5.XYRect.init(),
-        loadArgs = params.imageLoadArgs,
-        stateZoom = T5.viewState('ZOOM');
+        loadArgs = params.imageLoadArgs;
     
     /* private internal functions */
     
     function eachImage(viewRect, viewState, callback) {
-        if (generatedImages) {
-            for (var ii = generatedImages.length; ii--; ) {
-                var imageData = generatedImages[ii],
-                    xx = imageData.x,
-                    yy = imageData.y,
-                    // TODO: more efficient please...
-                    imageRect = T5.XYRect.init(
-                        imageData.x,
-                        imageData.y,
-                        imageData.x + imageData.width,
-                        imageData.y + imageData.height);
+        for (var ii = generatedImages.length; ii--; ) {
+            var imageData = generatedImages[ii],
+                xx = imageData.x,
+                yy = imageData.y,
+                // TODO: more efficient please...
+                imageRect = T5.XYRect.init(
+                    imageData.x,
+                    imageData.y,
+                    imageData.x + imageData.width,
+                    imageData.y + imageData.height);
 
-                // draw the image
-                if (callback && T5.XYRect.intersect(viewRect, imageRect)) {
-                    // determine the callback to pass to the image get method
-                    // no callback is supplied on the zoom view state which prevents 
-                    // loading images that would just been thrown away
-                    var imageLoadCallback = (viewState & stateZoom) === 0 ? handleLoadImage : null, 
-                    
-                        // get and possibly load the image
-                        image = T5.Images.get(imageData.url, imageLoadCallback, loadArgs);
+            // draw the image
+            if (callback && T5.XYRect.intersect(viewRect, imageRect)) {
+                // determine the callback to pass to the image get method
+                // no callback is supplied on the zoom view state which prevents 
+                // loading images that would just been thrown away
+                var image = T5.Images.get(imageData.url, function(loadedImage) {
+                    self.changed();
+                }, loadArgs);
 
-                    // trigger the eachImage callback
-                    callback(image, xx, yy, imageData.width, imageData.height);
-                } // if
-            } // for
-        } // if
+                // trigger the eachImage callback
+                callback(image, xx, yy, imageData.width, imageData.height);
+            } // if
+        } // for
     } // eachImage
     
     /* every library should have a regenerate function - here's mine ;) */
@@ -7032,7 +6995,7 @@ T5.ImageLayer = function(genId, params) {
         } // if
 
         generator.run(viewRect, function(images) {
-            generatedImages = images;
+            generatedImages = [].concat(images);
             self.changed();
         });
     } // regenerate
@@ -7048,10 +7011,6 @@ T5.ImageLayer = function(genId, params) {
     function handleIdle(evt, view) {
         regenerate(lastViewRect);
     } // handleViewIdle
-    
-    function handleLoadImage(image) {
-        self.changed();
-    } // handleLoadImage
     
     function handleTap(evt, absXY, relXY, offsetXY) {
         var tappedImages = [],
@@ -7558,158 +7517,143 @@ T5.Geo = (function() {
         VECTORIZE_PER_CYCLE: 500
     };
     
-    /* define the exported functions */
+    /* function exports */
+    
+    /**
+    ### distanceToString(distance)
+    This function simply formats a distance value (in meters) into a human readable string.
+    
+    #### TODO
+    - Add internationalization and other formatting support to this function
+    */
+    function distanceToString(distance) {
+        if (distance > 1000) {
+            return (~~(distance / 10) / 100) + " km";
+        } // if
         
-    var exportedFunctions = {
-        /**
-        ### getEngine(requiredCapability)
-        Returns the engine that provides the required functionality.  If preferred engines are supplied
-        as additional arguments, then those are looked for first
-        */
-        getEngine: function(requiredCapability) {
-            // initialise variables
-            var fnresult = null;
+        return distance ? distance + " m" : '';
+    } // distanceToString
+    
+    /**
+    ### dist2rad(distance)
+    To be completed
+    */
+    function dist2rad(distance) {
+        return distance / KM_PER_RAD;
+    } // dist2rad
+    
+    /**
+    ### getEngine(requiredCapability)
+    Returns the engine that provides the required functionality.  If preferred engines are supplied
+    as additional arguments, then those are looked for first
+    */
+    function getEngine(requiredCapability) {
+        // initialise variables
+        var fnresult = null;
 
-            // iterate through the arguments beyond the capabililty for the preferred engine
-            for (var ii = 1; (! fnresult) && (ii < arguments.length); ii++) {
-                fnresult = findEngine(requiredCapability, arguments[ii]);
-            } // for
+        // iterate through the arguments beyond the capabililty for the preferred engine
+        for (var ii = 1; (! fnresult) && (ii < arguments.length); ii++) {
+            fnresult = findEngine(requiredCapability, arguments[ii]);
+        } // for
 
-            // if we found an engine using preferences, return that otherwise return an alternative
-            fnresult = fnresult ? fnresult : findEngine(requiredCapability);
+        // if we found an engine using preferences, return that otherwise return an alternative
+        fnresult = fnresult ? fnresult : findEngine(requiredCapability);
 
-            // if no engine was found, then throw an exception
-            if (! fnresult) {
-                throw new Error("Unable to find GEO engine with " + requiredCapability + " capability");
-            }
-
-            return fnresult;
-        },
-
-        /**
-        ### rankGeocodeResponses(requestAddress, responseAddress, engine)
-        To be completed
-        */
-        rankGeocodeResponses: function(requestAddress, responseAddresses, engine) {
-            var matches = [],
-                compareFns = module.AddressCompareFns;
-
-            // if the engine is specified and the engine has compare fns, then extend them
-            if (engine && engine.compareFns) {
-                compareFns = T5.ex({}, compareFns, engine.compareFns);
-            } // if
-
-            // iterate through the response addresses and compare against the request address
-            for (var ii = 0; ii < responseAddresses.length; ii++) {
-                matches.push(new module.GeoSearchResult({
-                    caption: addrTools.toString(responseAddresses[ii]),
-                    data: responseAddresses[ii],
-                    pos: responseAddresses[ii].pos,
-                    matchWeight: plainTextAddressMatch(requestAddress, responseAddresses[ii], compareFns, module.GeocodeFieldWeights)
-                }));
-            } // for
-
-            // TODO: sort the matches
-            matches.sort(function(itemA, itemB) {
-                return itemB.matchWeight - itemA.matchWeight;
-            });
-
-            return matches;
-        },
-        
-        /**
-        ### distanceToString(distance)
-        This function simply formats a distance value (in meters) into a human readable string.
-        
-        #### TODO
-        - Add internationalization and other formatting support to this function
-        */
-        distanceToString: function(distance) {
-            if (distance > 1000) {
-                return (~~(distance / 10) / 100) + " km";
-            } // if
-            
-            return distance ? distance + " m" : '';
-        },
-
-        /**
-        ### dist2rad(distance)
-        To be completed
-        */
-        dist2rad: function(distance) {
-            return distance / KM_PER_RAD;
-        },
-
-        /**
-        ### lat2pix(lat)
-        To be completed
-        */
-        lat2pix: function(lat) {
-            var radLat = parseFloat(lat) * DEGREES_TO_RADIANS,
-                sinPhi = Math.sin(radLat),
-                eSinPhi = ECC * sinPhi,
-                retVal = Math.log(((1.0 + sinPhi) / (1.0 - sinPhi)) * Math.pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
-
-            return retVal;
-        },
-
-        /**
-        ### lon2pix(lon)
-        To be completed
-        */
-        lon2pix: function(lon) {
-            return parseFloat(lon) * DEGREES_TO_RADIANS;
-        },
-
-        /**
-        ### pix2lon(mercX)
-        To be completed
-        */
-        pix2lon: function(mercX) {
-            return module.normalizeLon(mercX) * RADIANS_TO_DEGREES;
-        },
-
-        /**
-        ### pix2lat(mercY)
-        To be completed
-        */
-        pix2lat: function(mercY) {
-            var t = Math.pow(Math.E, -mercY),
-                prevPhi = mercatorUnproject(t),
-                newPhi = findRadPhi(prevPhi, t),
-                iterCount = 0;
-
-            while (iterCount < PHI_MAXITER && Math.abs(prevPhi - newPhi) > PHI_EPSILON) {
-                prevPhi = newPhi;
-                newPhi = findRadPhi(prevPhi, t);
-                iterCount++;
-            } // while
-
-            return newPhi * RADIANS_TO_DEGREES;
-        },
-
-        /**
-        ### normalizeLon(lon)
-        To be completed
-        */
-        normalizeLon: function (lon) {
-            // return lon;
-            while (lon < -180) {
-                lon += 360;
-            } // while
-
-            while (lon > 180) {
-                lon -= 360;
-            } // while
-
-            return lon;
-        },
-        
-        radsPerPixel: function(zoomLevel) {
-            return 2*Math.PI / (256 << zoomLevel);
+        // if no engine was found, then throw an exception
+        if (! fnresult) {
+            throw new Error("Unable to find GEO engine with " + requiredCapability + " capability");
         }
-    }; // exportedFunctions
-        
+
+        return fnresult;
+    } // getEngine
+    
+    /**
+    ### lat2pix(lat)
+    To be completed
+    */
+    function lat2pix(lat) {
+        var radLat = parseFloat(lat) * DEGREES_TO_RADIANS,
+            sinPhi = Math.sin(radLat),
+            eSinPhi = ECC * sinPhi,
+            retVal = Math.log(((1.0 + sinPhi) / (1.0 - sinPhi)) * Math.pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
+
+        return retVal;
+    } // lat2Pix
+    
+    /**
+    ### lon2pix(lon)
+    To be completed
+    */
+    function lon2pix(lon) {
+        return parseFloat(lon) * DEGREES_TO_RADIANS;
+    } // lon2pix
+    
+    /**
+    ### pix2lat(mercY)
+    To be completed
+    */
+    function pix2lat(mercY) {
+        var t = Math.pow(Math.E, -mercY),
+            prevPhi = mercatorUnproject(t),
+            newPhi = findRadPhi(prevPhi, t),
+            iterCount = 0;
+
+        while (iterCount < PHI_MAXITER && Math.abs(prevPhi - newPhi) > PHI_EPSILON) {
+            prevPhi = newPhi;
+            newPhi = findRadPhi(prevPhi, t);
+            iterCount++;
+        } // while
+
+        return newPhi * RADIANS_TO_DEGREES;
+    } // pix2lat
+    
+    /**
+    ### pix2lon(mercX)
+    To be completed
+    */
+    function pix2lon(mercX) {
+        return (mercX % 360) * RADIANS_TO_DEGREES;
+    } // pix2lon
+    
+    /**
+    ### radsPerPixel(zoomLevel)
+    */
+    function radsPerPixel(zoomLevel) {
+        return 2*Math.PI / (256 << zoomLevel);
+    } // radsPerPixel
+    
+    
+    /**
+    ### rankGeocodeResponses(requestAddress, responseAddress, engine)
+    To be completed
+    */
+    function rankGeocodeResponses(requestAddress, responseAddresses, engine) {
+        var matches = [],
+            compareFns = module.AddressCompareFns;
+
+        // if the engine is specified and the engine has compare fns, then extend them
+        if (engine && engine.compareFns) {
+            compareFns = T5.ex({}, compareFns, engine.compareFns);
+        } // if
+
+        // iterate through the response addresses and compare against the request address
+        for (var ii = 0; ii < responseAddresses.length; ii++) {
+            matches.push(new module.GeoSearchResult({
+                caption: addrTools.toString(responseAddresses[ii]),
+                data: responseAddresses[ii],
+                pos: responseAddresses[ii].pos,
+                matchWeight: plainTextAddressMatch(requestAddress, responseAddresses[ii], compareFns, module.GeocodeFieldWeights)
+            }));
+        } // for
+
+        // TODO: sort the matches
+        matches.sort(function(itemA, itemB) {
+            return itemB.matchWeight - itemA.matchWeight;
+        });
+
+        return matches;
+    } // rankGeocodeResponses
+    
     /* define the geo simple types */
     
     var Radius = function(init_dist, init_uom) {
@@ -8008,10 +7952,7 @@ T5.Geo = (function() {
             */
             fromMercatorPixels: function(mercX, mercY) {
                 // return the new position
-                return new Position(
-                    T5.Geo.pix2lat(mercY),
-                    T5.Geo.normalizeLon(T5.Geo.pix2lon(mercX))
-                );
+                return new Position(pix2lat(mercY), pix2lon(mercX));
             },
             
             /**
@@ -8021,7 +7962,7 @@ T5.Geo = (function() {
             with x and y mercator pixel values back.
             */
             toMercatorPixels: function(pos) {
-                return T5.XY.init(T5.Geo.lon2pix(pos.lon), T5.Geo.lat2pix(pos.lat));
+                return T5.XY.init(lon2pix(pos.lon), lat2pix(pos.lat));
             },
             
             /**
@@ -8243,8 +8184,8 @@ T5.Geo = (function() {
             */
             expand: function(bounds, amount) {
                 return new BoundingBox(
-                    new Position(bounds.min.lat - amount, bounds.min.lon - module.normalizeLon(amount)),
-                    new Position(bounds.max.lat + amount, bounds.max.lon + module.normalizeLon(amount)));
+                    new Position(bounds.min.lat - amount, bounds.min.lon - amount % 360),
+                    new Position(bounds.max.lat + amount, bounds.max.lon + amount % 360));
             },
             
             /**
@@ -8622,7 +8563,7 @@ T5.Geo = (function() {
             function rankResults(searchParams, results) {
                 // if freeform parameters then rank
                 if (searchParams.freeform) {
-                    results = module.rankGeocodeResponses(searchParams.freeform, results, module.getEngine("geocode"));
+                    results = module.rankGeocodeResponses(searchParams.freeform, results, getEngine("geocode"));
                 } // if
                 // TODO: rank structured results
                 else {
@@ -8644,7 +8585,7 @@ T5.Geo = (function() {
                         } // if
                         
                         // get the geocoding engine
-                        var engine = module.getEngine("geocode");
+                        var engine = getEngine("geocode");
                         if (engine) {
                             engine.geocode({
                                 addresses: [searchParams.freeform ? searchParams.freeform : address],
@@ -8689,27 +8630,27 @@ T5.Geo = (function() {
         /* exports */
 
         /**
-        ### init(pos, radsPerPixel)
+        ### init(pos, rpp)
         */
-        function init(pos, radsPerPixel) {
+        function init(pos, rpp) {
             var xy = T5.XY.init();
 
             // update the position
-            updatePos(xy, pos, radsPerPixel);
+            updatePos(xy, pos, rpp);
 
             return xy;
         } // init
 
         /**
-        ### sync(xy, radsPerPixel)
+        ### sync(xy, rpp)
         */
-        function sync(xy, radsPerPixel) {
+        function sync(xy, rpp) {
             // if the xy parameter is an array then process as such
             if (xy.length) {
                 var minX, minY, maxX, maxY;
 
                 for (var ii = xy.length; ii--; ) {
-                    sync(xy[ii], radsPerPixel);
+                    sync(xy[ii], rpp);
 
                     // update the min x and min y
                     minX = (typeof minX === 'undefined') || xy.x < minX ? xy.x : minX;
@@ -8726,11 +8667,11 @@ T5.Geo = (function() {
                 var mercXY = xy.mercXY;
 
                 // calculate the x and y
-                xy.x = ~~(mercXY.x / radsPerPixel);
-                xy.y = ~~((Math.PI - mercXY.y) / radsPerPixel);
+                xy.x = ~~(mercXY.x / rpp);
+                xy.y = ~~((Math.PI - mercXY.y) / rpp);
 
                 // update the rads per pixel
-                xy.radsPerPixel = radsPerPixel;
+                xy.rpp = rpp;
             }
             else {
                 COG.Log.warn('Attempted to sync an XY composite, not a GeoXY');
@@ -8739,22 +8680,22 @@ T5.Geo = (function() {
             return xy;
         } // setRadsPerPixel
         
-        function toPos(xy, radsPerPixel) {
-            radsPerPixel = radsPerPixel ? radsPerPixel : self.radsPerPixel;
+        function toPos(xy, rpp) {
+            rpp = rpp ? rpp : self.rpp;
 
-            return posTools.fromMercatorPixels(xy.x * radsPerPixel, Math.PI - xy.y * radsPerPixel);
+            return posTools.fromMercatorPixels(xy.x * rpp, Math.PI - xy.y * rpp);
         } // toPos
         
-        function updatePos(xy, pos, radsPerPixel) {
+        function updatePos(xy, pos, rpp) {
             // update the position
             xy.pos = pos;
             xy.mercXY = posTools.toMercatorPixels(pos);
             
             // allow for using the xy of the rads per pixel if not supplied
-            radsPerPixel = typeof radsPerPixel !== 'undefined' ? radsPerPixel : xy.radsPerPixel;
+            rpp = typeof rpp !== 'undefined' ? rpp : xy.rpp;
 
-            if (radsPerPixel) {
-                sync(xy, radsPerPixel);
+            if (rpp) {
+                sync(xy, rpp);
             } // if
         } // updatePos
 
@@ -8781,7 +8722,18 @@ T5.Geo = (function() {
         return T5.GeoXY.init(position);
     }; // Vector
 
-    return T5.ex(module, moduleConstants, exportedFunctions);
+    return T5.ex(module, moduleConstants, {
+        distanceToString: distanceToString,
+        dist2rad: dist2rad,
+        getEngine: getEngine,
+        
+        lat2pix: lat2pix,
+        lon2pix: lon2pix,
+        pix2lat: pix2lat,
+        pix2lon: pix2lon,
+        
+        radsPerPixel: radsPerPixel
+    });
 })();/**
 # T5.Geo.GeoHash
 _module_
@@ -8917,13 +8869,13 @@ T5.Geo.GeoHash = (function() {
 })();
 
 /**
-# T5.Geo.JSON
+# T5.GeoJSON
 _module_
 
 
 This module provides GeoJSON support for Tile5.
 */
-T5.Geo.JSON = (function() {
+T5.GeoJSON = (function() {
     
     // define some constants
     var FEATURE_TYPE_COLLECTION = 'featurecollection',
@@ -9246,6 +9198,9 @@ T5.Geo.JSON = (function() {
     
     return module;
 })();
+
+T5.Geo.JSON = T5.GeoJSON;
+
 
 T5.Geo.LocationSearch = function(params) {
     params = T5.ex({

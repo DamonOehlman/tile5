@@ -8,41 +8,37 @@ T5.ImageLayer = function(genId, params) {
     
     // initialise variables
     var generator = genId ? T5.Generator.init(genId, params) : null,
-        generatedImages = null,
+        generatedImages = [],
         lastViewRect = T5.XYRect.init(),
-        loadArgs = params.imageLoadArgs,
-        stateZoom = T5.viewState('ZOOM');
+        loadArgs = params.imageLoadArgs;
     
     /* private internal functions */
     
     function eachImage(viewRect, viewState, callback) {
-        if (generatedImages) {
-            for (var ii = generatedImages.length; ii--; ) {
-                var imageData = generatedImages[ii],
-                    xx = imageData.x,
-                    yy = imageData.y,
-                    // TODO: more efficient please...
-                    imageRect = T5.XYRect.init(
-                        imageData.x,
-                        imageData.y,
-                        imageData.x + imageData.width,
-                        imageData.y + imageData.height);
+        for (var ii = generatedImages.length; ii--; ) {
+            var imageData = generatedImages[ii],
+                xx = imageData.x,
+                yy = imageData.y,
+                // TODO: more efficient please...
+                imageRect = T5.XYRect.init(
+                    imageData.x,
+                    imageData.y,
+                    imageData.x + imageData.width,
+                    imageData.y + imageData.height);
 
-                // draw the image
-                if (callback && T5.XYRect.intersect(viewRect, imageRect)) {
-                    // determine the callback to pass to the image get method
-                    // no callback is supplied on the zoom view state which prevents 
-                    // loading images that would just been thrown away
-                    var imageLoadCallback = (viewState & stateZoom) === 0 ? handleLoadImage : null, 
-                    
-                        // get and possibly load the image
-                        image = T5.Images.get(imageData.url, imageLoadCallback, loadArgs);
+            // draw the image
+            if (callback && T5.XYRect.intersect(viewRect, imageRect)) {
+                // determine the callback to pass to the image get method
+                // no callback is supplied on the zoom view state which prevents 
+                // loading images that would just been thrown away
+                var image = T5.Images.get(imageData.url, function(loadedImage) {
+                    self.changed();
+                }, loadArgs);
 
-                    // trigger the eachImage callback
-                    callback(image, xx, yy, imageData.width, imageData.height);
-                } // if
-            } // for
-        } // if
+                // trigger the eachImage callback
+                callback(image, xx, yy, imageData.width, imageData.height);
+            } // if
+        } // for
     } // eachImage
     
     /* every library should have a regenerate function - here's mine ;) */
@@ -55,7 +51,7 @@ T5.ImageLayer = function(genId, params) {
         } // if
 
         generator.run(viewRect, function(images) {
-            generatedImages = images;
+            generatedImages = [].concat(images);
             self.changed();
         });
     } // regenerate
@@ -71,10 +67,6 @@ T5.ImageLayer = function(genId, params) {
     function handleIdle(evt, view) {
         regenerate(lastViewRect);
     } // handleViewIdle
-    
-    function handleLoadImage(image) {
-        self.changed();
-    } // handleLoadImage
     
     function handleTap(evt, absXY, relXY, offsetXY) {
         var tappedImages = [],
