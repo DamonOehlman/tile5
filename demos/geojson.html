@@ -54,12 +54,12 @@
 			// Set the position each time for the next element in the array
 			var position = new T5.Geo.Position(cities[ii].lat, cities[ii].lng);
 			// Add in the pin to the map
-			map.annotations.add(T5.Geo.UI.ImageAnnotation({
+			map.markers.add(T5.Geo.UI.ImageAnnotation({
 				// set the image you wish to use for the touch Pinå
 				imageUrl: "media/img/pins/pin-158935-1-24.png",
 				// set the image as the pin enters
 				animatingImageUrl: "media/img/pins/pin-158935-1-noshadow-24.png",
-				imageAnchor: new T5.Vector(8, 24),
+				imageAnchor: new T5.XY.init(8, 24),
 				pos: position,
 				tweenIn: T5.easing('bounce.out'),
 				// Randomise the animation speed
