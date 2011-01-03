@@ -8,7 +8,7 @@
 <p><em>extends:</em> <a href="src_js_graphics_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a></p>
 
 <p>The <a href="src_js_graphics_markerlayer.js.html#T5.MarkerLayer">T5.MarkerLayer</a> provides a <a href="src_js_graphics_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a> that can be used to display one
-or more <a href="src_js_graphics_annotation.js.html#T5.Annotation">T5.Annotation</a> on a <a href="src_js_graphics_view.js.html#T5.View">T5.View</a>.  Most commonly used with a <a href="src_js_geo_map.js.html#T5.Map">T5.Map</a> (which 
+or more <a href="src_js_graphics_annotation.js.html#T5.Annotation">T5.Annotation</a> on a <a href="src_js_graphics_view.js.html#T5.View">T5.View</a>.  Most commonly used with a <a href="src_js_geo_ui_map.js.html#T5.Map">T5.Map</a> (which 
 includes a marker layer by default).</p>
 
 <h2>Events</h2>
@@ -40,8 +40,8 @@ layer.bind('markerTap', function(absXY, relXY, markers) {
 </pre>
 
 <ul>
-<li>absXY (<a href="src_js_core.js.html#T5.Vector">T5.Vector</a>) - the absolute tap position (as per <a href="src_js_graphics_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a>)</li>
-<li>relXY (<a href="src_js_core.js.html#T5.Vector">T5.Vector</a>) - the relative tap position (as per <a href="src_js_graphics_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a>)</li>
+<li>absXY (<a href="src_js_core_vector.js.html#T5.Vector">T5.Vector</a>) - the absolute tap position (as per <a href="src_js_graphics_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a>)</li>
+<li>relXY (<a href="src_js_core_vector.js.html#T5.Vector">T5.Vector</a>) - the relative tap position (as per <a href="src_js_graphics_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a>)</li>
 <li>markers (<a href="src_js_graphics_annotation.js.html#T5.Annotation">T5.Annotation</a>[]) - an array of the markers that have been <em>hit</em> in the last tap</li>
 </ul>
 
@@ -56,7 +56,7 @@ add to the layer or alternatively an array of annotations to add.</p>
 
 <pre><code> // adding a single marker 
  layer.add(new <a href="src_js_graphics_annotation.js.html#T5.Annotation">T5.Annotation</a>({
-     xy: <a href="src_js_geo_core.js.html#T5.GeoXY">T5.GeoXY</a>.init(markerPos) // markerPos is a <a href="src_js_geo_core.js.html#T5.Geo.Position">T5.Geo.Position</a>
+     xy: <a href="src_js_geo_types_geoxy.js.html#T5.GeoXY">T5.GeoXY</a>.init(markerPos) // markerPos is a <a href="src_js_geo_types_position.js.html#T5.Geo.Position">T5.Geo.Position</a>
  }));
 
  // adding multiple markers
@@ -82,6 +82,10 @@ removed or not.</p>
      return (marker.country === 'Australia');
  });
 </code></pre>
+
+<h3>each(callback)</h3>
+
+<p>Iterate through each of the markers and fire the callback for each one</p>
 
 <h3>find(testCallback)</h3>
 

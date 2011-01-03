@@ -1,0 +1,28 @@
+{% extends 'apidoc.html' %}
+
+{% block title %}Tile5 API Documentation{% endblock %}
+
+{% block api %}
+<h1><a name="T5.GeoXY">T5.GeoXY</a></h1>
+
+<p>The GeoXY class is used to convert a position (<a href="src_js_geo_types_position.js.html#T5.Geo.Position">T5.Geo.Position</a>) into a
+composite xy that can be used to draw on the various <a href="src_js_graphics_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a> implementations.
+This class provides the necessary mechanism that allows the view layers to 
+assume operation using a simple vector (containing an x and y) with no need
+geospatial awareness built in. <br />
+Layers are aware that particular events may require vector resynchronization 
+which is facilitated by the <code>syncXY</code> method of the <a href="src_js_geo_ui_map.js.html#T5.Map">T5.Map</a>. </p>
+
+<h2>Functions</h2>
+
+<h3>init(pos, rpp)</h3>
+
+<h3>sync(xy, rpp)</h3>
+
+<h1><a name="T5.Geo.GeoVector">T5.Geo.GeoVector</a></h1>
+
+<p><strong>deprecated</strong></p>
+
+<p>please use the <a href="src_js_core.js.html#T5">T5</a>.Geo.GeoXY instead</p>
+
+{% endblock %}

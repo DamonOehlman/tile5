@@ -18,7 +18,7 @@ Any type of <a href="src_js_graphics_pathlayer.js.html#T5.PathLayer">T5.PathLaye
 <h3>Initialization Parameters</h3>
 
 <ul>
-<li><code>path</code> (<a href="src_js_core.js.html#T5.Vector">T5.Vector</a>[], default = []) - An array of screen / grid coordinates that will 
+<li><code>path</code> (<a href="src_js_core_vector.js.html#T5.Vector">T5.Vector</a>[], default = []) - An array of screen / grid coordinates that will 
 be used as anchor points in the animation.</li>
 <li><code>id</code> (String, default = 'pathAni%autoinc') - The id of of the animation layer.  The id will start with 
 pathAni1 and then automatically increment each time a new AnimatedPathLayer is created unless the id is 
@@ -28,7 +28,6 @@ manually specified in the constructor parameters.</li>
 the animation needs to be drawn.  If the parameter is not specified in the constructor the default callback 
 is used, which simply draws a small circle at the current position of the animation.</li>
 <li><code>duration</code> (int, default = 2000) - The animation duration.  See <a href="src_js_core.js.html#T5">T5</a>.Animation module information for more details.</li>
-<li><code>autoCenter</code> (boolean, default = false) - Whether or not the <a href="src_js_graphics_view.js.html#T5.View">T5.View</a> should be panned with the animation.</li>
 </ul>
 
 <h2>Draw Indicator Callback Function</h2>

@@ -1,0 +1,35 @@
+{% extends 'apidoc.html' %}
+
+{% block title %}Tile5 API Documentation{% endblock %}
+
+{% block api %}
+<h1><a name="T5.Dimensions">T5.Dimensions</a></h1>
+
+<p>A module of utility functions for working with dimensions composites</p>
+
+<h2>Dimension Object Literal Properties</h2>
+
+<ul>
+<li><code>width</code></li>
+<li><code>height</code></li>
+</ul>
+
+<h2>Functions</h2>
+
+<h3>getAspectRatio(dimensions)</h3>
+
+<p>Return the aspect ratio for the <code>dimensions</code> (width / height)</p>
+
+<h3>getCenter(dimensions)</h3>
+
+<p>Get the a XY composite for the center of the <code>dimensions</code> (width / 2, height  / 2)</p>
+
+<h3>getSize(dimensions)</h3>
+
+<p>Get the size for the diagonal for the <code>dimensions</code></p>
+
+<h3>init(width, height)</h3>
+
+<p>Create a new dimensions composite (width, height)</p>
+
+{% endblock %}

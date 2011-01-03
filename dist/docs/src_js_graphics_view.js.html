@@ -55,7 +55,7 @@ view.bind('scale', function(evt, scaleFactor, scaleXY) {
 <li>scaleFactor (Float) - the amount the view has been scaled by.
 When the view is being scaled down this will be a value less than
 1 and when it is being scaled up it will be greater than 1.</li>
-<li>scaleXY (<a href="src_js_core.js.html#T5.Vector">T5.Vector</a>) - the relative position on the view where
+<li>scaleXY (<a href="src_js_core_vector.js.html#T5.Vector">T5.Vector</a>) - the relative position on the view where
 the scaling operation is centered.</li>
 </ul>
 
@@ -70,10 +70,10 @@ view.bind('tap', function(evt, absXY, relXY, gridXY) {
 </pre>
 
 <ul>
-<li>absXY (<a href="src_js_core.js.html#T5.Vector">T5.Vector</a>) - the absolute position of the tap</li>
-<li>relXY (<a href="src_js_core.js.html#T5.Vector">T5.Vector</a>) - the position of the tap relative to the top left
+<li>absXY (<a href="src_js_core_vector.js.html#T5.Vector">T5.Vector</a>) - the absolute position of the tap</li>
+<li>relXY (<a href="src_js_core_vector.js.html#T5.Vector">T5.Vector</a>) - the position of the tap relative to the top left
 position of the view.</li>
-<li>gridXY (<a href="src_js_core.js.html#T5.Vector">T5.Vector</a>) - the xy coordinates of the tap relative to the
+<li>gridXY (<a href="src_js_core_vector.js.html#T5.Vector">T5.Vector</a>) - the xy coordinates of the tap relative to the
 scrolling grid offset.</li>
 </ul>
 
@@ -107,7 +107,7 @@ view.bind('drawComplete', function(evt, viewRect, tickCount) {
 </pre>
 
 <ul>
-<li>offset (<a href="src_js_core.js.html#T5.Vector">T5.Vector</a>) - the view offset that was used for the draw operation</li>
+<li>offset (<a href="src_js_core_vector.js.html#T5.Vector">T5.Vector</a>) - the view offset that was used for the draw operation</li>
 <li>tickCount - the tick count at the start of the draw operation.</li>
 </ul>
 
@@ -116,6 +116,8 @@ view.bind('drawComplete', function(evt, viewRect, tickCount) {
 <h3>pan(x, y, tweenFn, tweenDuration, callback)</h3>
 
 <h3>updateOffset(x, y, tweenFn, tweenDuration, callback)</h3>
+
+<h3>zoom(targetXY, scaleChange)</h3>
 
 <h3>eachLayer(callback)</h3>
 
@@ -128,29 +130,21 @@ supplied.</p>
 
 <h3>getViewRect()</h3>
 
-<p>Return a <a href="src_js_core.js.html#T5.XYRect">T5.XYRect</a> for the last drawn view rect</p>
+<p>Return a <a href="src_js_core_xyrect.js.html#T5.XYRect">T5.XYRect</a> for the last drawn view rect</p>
 
 <h3>setLayer(id: String, value: <a href="src_js_graphics_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a>)</h3>
 
 <p>Either add or update the specified view layer</p>
 
+<h3>scale(targetScaling, targetXY, tweenFn, callback)</h3>
+
 <h3>triggerAll(eventName, args*)</h3>
 
 <p>Trigger an event on the view and all layers currently contained in the view</p>
 
-<h3>animate(targetScaleFactor, startXY, targetXY, tweenFn, callback)</h3>
-
-<p>Performs an animated zoom on the <a href="src_js_graphics_view.js.html#T5.View">T5.View</a>.</p>
-
-<h3>centerOn(offset: Vector)</h3>
-
-<p>Move the center of the view to the specified offset</p>
-
 <h3>getDimensions()</h3>
 
 <p>Return the Dimensions of the View</p>
-
-<h3>getZoomCenter()</h3>
 
 <h3>invalidate()</h3>
 
@@ -162,8 +156,6 @@ is required</p>
 <p>Perform a manual resize of the canvas associated with the view.  If the 
 view was originally marked as <code>autosize</code> this will override that instruction.</p>
 
-<h3>scale(targetScaling, tweenFn, callback, startXY, targetXY)</h3>
-
 <h3>removeLayer(id: String)</h3>
 
 <p>Remove the <a href="src_js_graphics_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a> specified by the id</p>
@@ -174,8 +166,6 @@ view was originally marked as <code>autosize</code> this will override that inst
 
 <h3>getOffset()</h3>
 
-<p>Return a <a href="src_js_core.js.html#T5.Vector">T5.Vector</a> containing the current view offset</p>
-
-<h3>zoom(targetXY, newScaleFactor, rescaleAfter)</h3>
+<p>Return a <a href="src_js_core_vector.js.html#T5.Vector">T5.Vector</a> containing the current view offset</p>
 
 {% endblock %}

@@ -1,0 +1,67 @@
+{% extends 'apidoc.html' %}
+
+{% block title %}Tile5 API Documentation{% endblock %}
+
+{% block api %}
+<h1><a name="T5.Geo.BoundingBox">T5.Geo.BoundingBox</a></h1>
+
+<p>A collection of utilities that are primarily designed to help with working 
+with Geo.BoundingBox objects.  The functions are implemented here rather 
+than with the actual object itself to ensure that the object remains lightweight.</p>
+
+<h2>Functions</h2>
+
+<h3>calcSize(min, max, normalize)</h3>
+
+<p>The calcSize function is used to determine the size of a Geo.BoundingBox given 
+a minimum position (relates to the bottom-left / south-western corner) and 
+maximum position (top-right / north-eastern corner) of the bounding box. <br />
+The 3rd parameter specifies whether the size calculations should normalize the 
+calculation in cases where the bounding box crosses the 360 degree boundary.</p>
+
+<h3>createBoundsFromCenter(centerPos, distance)</h3>
+
+<p>This function is very useful for creating a Geo.BoundingBox given a 
+center position and a radial distance (specified in KM) from the center 
+position.  Basically, imagine a circle is drawn around the center 
+position with a radius of distance from the center position, and then 
+a box is drawn to surround that circle.  Adapted from the <a class="external" href="http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates">functions written 
+in Java by Jan Philip Matuschek</a></p>
+
+<h3>expand(bounds, amount)</h3>
+
+<p>A simple function that is used to expand a Geo.BoundingBox 
+by the specified amount (in degrees).</p>
+
+<h3>forPositions(positions, padding)</h3>
+
+<p>This function is very useful when you need to create a 
+Geo.BoundingBox to contain an array of <a href="src_js_geo_types_position.js.html#T5.Geo.Position">T5.Geo.Position</a>. <br />
+The optional second parameter allows you to specify an amount of 
+padding (in degrees) to apply to the bounding box that is created.</p>
+
+<h3>getCenter(bounds)</h3>
+
+<p>Returns a Geo.Position for the center position of the bounding box.</p>
+
+<h3>getGeohash(bounds)</h3>
+
+<p>To be completed</p>
+
+<h3>getZoomLevel(bounds, displaySize)</h3>
+
+<p>This function is used to return the zoom level (seems consistent across 
+mapping providers at this stage) that is required to properly display 
+the specified <a href="src_js_geo_types_boundingbox.js.html#T5.Geo.BoundingBox">T5.Geo.BoundingBox</a> given the screen dimensions (specified as 
+a Dimensions object) of the map display. Adapted from 
+<a class="external" href="http://groups.google.com/group/google-maps-js-api-v3/browse_thread/thread/43958790eafe037f/66e889029c555bee">this code</a></p>
+
+<h3>isEmpty(bounds)</h3>
+
+<p>Returns true if the specified <a href="src_js_geo_types_boundingbox.js.html#T5.Geo.BoundingBox">T5.Geo.BoundingBox</a> is empty.</p>
+
+<h3>toString(bounds)</h3>
+
+<p>Returns a string representation of a Geo.BoundingBox</p>
+
+{% endblock %}

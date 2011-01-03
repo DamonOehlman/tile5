@@ -1,0 +1,45 @@
+{% extends 'apidoc.html' %}
+
+{% block title %}Tile5 API Documentation{% endblock %}
+
+{% block api %}
+<h1><a name="T5.XYRect">T5.XYRect</a></h1>
+
+<p>This module provides helper functions for working with an object literal that represents a set of xy
+values that represent the top-left and bottom-right corners of a rectangle respectively.</p>
+
+<h2>XYRect Object Literal Format</h2>
+
+<p>An XYRect object literal has the following properties.
+- <code>x1</code> - The x value for the top left corner
+- <code>y1</code> - The y value for the top left corner
+- <code>x2</code> - The x value for the bottom right corner
+- <code>y2</code> - The y value for the bottom right corner
+- <code>width</code> - The width of the rect
+- <code>height</code> - The height of the rect</p>
+
+<h2>Functions</h2>
+
+<h3>center(rect)</h3>
+
+<p>Return a xy composite for the center of the rect</p>
+
+<h3>copy(rect)</h3>
+
+<p>Return a duplicate of the XYRect</p>
+
+<h3>diagonalSize(rect)</h3>
+
+<h3>fromCenter(centerX, centerY, width, height)</h3>
+
+<h3>init(x1, y1, x2, y2)</h3>
+
+<p>Create a new XYRect composite object</p>
+
+<h3>intersect(rect1, rect2)</h3>
+
+<p>Returns the intersecting rect between the two specified XYRect composites</p>
+
+<h3>union(rect1, rect2)</h3>
+
+{% endblock %}
