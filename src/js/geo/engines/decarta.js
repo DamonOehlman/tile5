@@ -65,7 +65,7 @@ T5.Geo.Decarta = (function() {
     // define the decarta internal types
     var types = {
         Address: function(params) {
-            params = T5.ex({
+            params = COG.extend({
                 countryCode: currentConfig.geocoding.countryCode,
                 language: currentConfig.geocoding.language,
                 freeform: null,
@@ -98,7 +98,7 @@ T5.Geo.Decarta = (function() {
         },
         
         Place: function(params) {
-            params = T5.ex({
+            params = COG.extend({
                 landmark: "",
                 municipality: "",
                 municipalitySubdivision: "",
@@ -107,7 +107,7 @@ T5.Geo.Decarta = (function() {
             }, params);
             
             // initialise self (including params in self)
-            var self = T5.ex({
+            var self = COG.extend({
                 calcMatchPercentage: function(input) {
                     var fnresult = 0;
                     
@@ -163,7 +163,7 @@ T5.Geo.Decarta = (function() {
                     } // for
                     
                     // apply the updated parameter values to self
-                    T5.ex(self, params);
+                    COG.extend(self, params);
                 },
                 
                 toString: function() {
@@ -183,7 +183,7 @@ T5.Geo.Decarta = (function() {
         },
         
         Street: function(params) {
-            params = T5.ex({
+            params = COG.extend({
                 json: {}
             }, params);
             
@@ -241,7 +241,7 @@ T5.Geo.Decarta = (function() {
         
         CenterContext: function(jsonData) {
             return {
-                centerPos: T5.Geo.P.parse(jsonData.CenterPoint ? jsonData.CenterPoint.pos.content : ""),
+                centerPos: T5.Geo.Position.parse(jsonData.CenterPoint ? jsonData.CenterPoint.pos.content : ""),
                 radius: new T5.Geo.Radius(jsonData.Radius ? jsonData.Radius.content : 0, jsonData.Radius ? jsonData.Radius.unit : null)
             }; // self
         } // CenterContext
@@ -412,7 +412,7 @@ T5.Geo.Decarta = (function() {
             // create the parent
             var parent = new requestTypes.Request();
 
-            var self = T5.ex({}, parent, {
+            var self = COG.extend({}, parent, {
                 // override core properties
                 methodName: "PortrayMap",
                 maxResponses: 10,
@@ -518,7 +518,7 @@ T5.Geo.Decarta = (function() {
         },
 
         GeocodeRequest: function(params) {
-            params = T5.ex({
+            params = COG.extend({
                 addresses: [],
                 parserReport: false,
                 parseOnly: false,
@@ -536,7 +536,7 @@ T5.Geo.Decarta = (function() {
                 if (match && validMatch(match)) {
                     // if the point is defined, then convert that to a position
                     if (match && match.Point) {
-                        matchPos = T5.Geo.P.parse(match.Point.pos);
+                        matchPos = T5.Geo.Position.parse(match.Point.pos);
                     } // if
 
                     // if we have the address then convert that to an address
@@ -583,7 +583,7 @@ T5.Geo.Decarta = (function() {
             var parent = new requestTypes.Request();
             
             // initialise self
-            var self = T5.ex({}, parent, {
+            var self = COG.extend({}, parent, {
                 methodName: "Geocode",
                 
                 getRequestBody: function() {
@@ -622,12 +622,12 @@ T5.Geo.Decarta = (function() {
         },
         
         ReverseGeocodeRequest: function(params) {
-            params = T5.ex({
+            params = COG.extend({
                 position: null,
                 geocodePreference: "StreetAddress"
             }, params);
             
-            var self = T5.ex(new requestTypes.Request(), {
+            var self = COG.extend(new requestTypes.Request(), {
                 methodName: "ReverseGeocode",
                 
                 getRequestBody: function() {
@@ -635,7 +635,7 @@ T5.Geo.Decarta = (function() {
                         "<xls:ReverseGeocodeRequest>" + 
                             "<xls:Position>" + 
                                 "<gml:Point>" + 
-                                    "<gml:pos>" + T5.Geo.P.toString(params.position) + "</gml:pos>" + 
+                                    "<gml:pos>" + T5.Geo.Position.toString(params.position) + "</gml:pos>" + 
                                 "</gml:Point>" + 
                             "</xls:Position>" + 
                             "<xls:ReverseGeocodePreference>" + params.geocodePreference + "</xls:ReverseGeocodePreference>" + 
@@ -647,7 +647,7 @@ T5.Geo.Decarta = (function() {
                     
                     // if the point is defined, then convert that to a position
                     if (response && response.Point) {
-                        matchPos = T5.Geo.P.parse(match.Point.pos);
+                        matchPos = T5.Geo.Position.parse(match.Point.pos);
                     } // if
 
                     // if we have the address then convert that to an address
@@ -664,7 +664,7 @@ T5.Geo.Decarta = (function() {
         
         
         RouteRequest: function(params) {
-            params = T5.ex({
+            params = COG.extend({
                 waypoints: [],
                 provideRouteHandle: false,
                 distanceUnit: "KM",
@@ -695,7 +695,7 @@ T5.Geo.Decarta = (function() {
                     totalTime = T5.TimeLord.addDuration(totalTime, time);
                     
                     fnresult.push(new T5.Geo.Routing.Instruction({
-                        position: T5.Geo.P.parse(instructions[ii].Point),
+                        position: T5.Geo.Position.parse(instructions[ii].Point),
                         description: instructions[ii].Instruction,
                         distance: distance,
                         distanceTotal: totalDistance,
@@ -710,7 +710,7 @@ T5.Geo.Decarta = (function() {
             } // parseInstructions
             
             // initialise self
-            var self = T5.ex({}, parent, {
+            var self = COG.extend({}, parent, {
                 methodName: "DetermineRoute",
                 
                 getRequestBody: function() {
@@ -740,7 +740,7 @@ T5.Geo.Decarta = (function() {
                         // as to why this is required, who knows....
                         var tagName = (ii === 0 ? "StartPoint" : (ii === params.waypoints.length-1 ? "EndPoint" : "ViaPoint"));
                         
-                        body += COG.formatStr("<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>", tagName, T5.Geo.P.toString(params.waypoints[ii]));
+                        body += COG.formatStr("<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>", tagName, T5.Geo.Position.toString(params.waypoints[ii]));
                     }
                     
                     // close the waypoint list
@@ -771,7 +771,7 @@ T5.Geo.Decarta = (function() {
                     
                     // create a new route data object and map items 
                     return new T5.Geo.Routing.RouteData({
-                        geometry: T5.Geo.P.parseArray(response.RouteGeometry.LineString.pos),
+                        geometry: T5.Geo.Position.parseArray(response.RouteGeometry.LineString.pos),
                         instructions: parseInstructions(response.RouteInstructionsList)
                     });
                 }
@@ -788,14 +788,14 @@ T5.Geo.Decarta = (function() {
         
         applyConfig: function(args) {
             // extend the current configuration with the supplied params
-            T5.ex(currentConfig, args);
+            COG.extend(currentConfig, args);
         },
         
         /**
         Send through a route request to the decarta server 
         */
         calculateRoute: function(args, callback) {
-            args = T5.ex({
+            args = COG.extend({
                waypoints: []
             }, args);
             
@@ -809,7 +809,7 @@ T5.Geo.Decarta = (function() {
         },
         
         geocode: function(args) {
-            args = T5.ex({
+            args = COG.extend({
                 addresses: [],
                 complete: null
             }, args);
@@ -858,7 +858,7 @@ T5.Geo.Decarta = (function() {
         },
         
         reverseGeocode: function(args) {
-            args = T5.ex({
+            args = COG.extend({
                 position: null,
                 complete: null
             }, args);
@@ -904,7 +904,7 @@ T5.Geo.Decarta = (function() {
         })(),
         
         MapProvider: function(params) {
-            params = T5.ex({
+            params = COG.extend({
                 pinPosition: false,
                 tileDrawArgs: {},
                 drawGrid: false
@@ -916,7 +916,7 @@ T5.Geo.Decarta = (function() {
             function buildTileGrid(requestedPosition, responseData, containerDimensions) {
                 // initialise the first tile origin
                 var halfWidth = Math.round(responseData.tileSize / 2),
-                    centerXY = T5.D.getCenter(containerDimensions),
+                    centerXY = Dimensions.getCenter(containerDimensions),
                     pos_first = {
                         x: centerXY.x - halfWidth,
                         y: centerXY.y - halfWidth
@@ -929,7 +929,7 @@ T5.Geo.Decarta = (function() {
                         params);
 
                 // create the tile grid
-                var tileGrid = new T5.ImageTileGrid(T5.ex({
+                var tileGrid = new T5.ImageTileGrid(COG.extend({
                     shiftOrigin: function(topLeftOffset, shiftDelta) {
                         return T5.XY.init(topLeftOffset.x + shiftDelta.x, topLeftOffset.y - shiftDelta.y);
                     }
@@ -960,7 +960,7 @@ T5.Geo.Decarta = (function() {
             } // buildTileGrid
 
             // initialise self
-            var self = T5.ex({}, parent, {
+            var self = COG.extend({}, parent, {
                 getCopyright: function() {
                     return "Mapping Webservices &copy; deCarta, Map Data &copy;Navteq";
                 },
@@ -984,7 +984,7 @@ T5.Geo.Decarta = (function() {
     
     // initialise the decarta tile generator
     var DecartaTileGenerator = function(params) {
-        params = T5.ex({
+        params = COG.extend({
             pinPosition: false
         }, params);
         
@@ -1056,7 +1056,7 @@ T5.Geo.Decarta = (function() {
         /* define the generator */
 
         // initialise the generator
-        var self = T5.ex(new T5.MapTileGenerator(params), {
+        var self = COG.extend(new T5.MapTileGenerator(params), {
             initTileCreator: initTileCreator
         });
         

@@ -39,8 +39,8 @@ layer.bind('markerTap', function(absXY, relXY, markers) {
 
 ## Methods
 */
-T5.MarkerLayer = function(params) {
-    params = T5.ex({
+var MarkerLayer = function(params) {
+    params = COG.extend({
         zindex: 100,
         style: 'basic'
     }, params);
@@ -194,7 +194,7 @@ T5.MarkerLayer = function(params) {
     } // testCallback
 
     // create the view layer the we will draw the view
-    var self = T5.ex(new T5.ViewLayer(params), {
+    var self = COG.extend(new ViewLayer(params), {
         draw: function(context, viewRect, state, view) {
             // iterate through the markers and draw them
             for (var ii = markers.length; ii--; ) {

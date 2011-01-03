@@ -48,7 +48,7 @@ T5.Geo.Bing = (function() {
     } // authenticate    
 
     var BingGenerator = function(params) {
-        params = T5.ex({
+        params = COG.extend({
             apikey: null,
             style: 'Road'
         }, params);
@@ -103,7 +103,7 @@ T5.Geo.Bing = (function() {
         } // if
 
         // initialise the generator
-        var self = T5.ex(new T5.Geo.OSM.Generator(params), {
+        var self = COG.extend(new T5.Geo.OSM.Generator(params), {
             buildTileUrl: buildTileUrl,
             prepTileCreator: prepTileCreator
         });

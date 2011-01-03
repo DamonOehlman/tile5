@@ -1,8 +1,8 @@
 /**
 # T5.MapTileGenerator
 */
-T5.MapTileGenerator = function(params) {
-    params = T5.ex({
+var MapTileGenerator = exports.MapTileGenerator = function(params) {
+    params = COG.extend({
         relative: true
     }, params);
     
@@ -42,8 +42,8 @@ T5.MapTileGenerator = function(params) {
     
     /* define self */
     
-    var self = T5.ex(new T5.TileGenerator(params), {
-        minLevel: 3,
+    var self = COG.extend(new TileGenerator(params), {
+        minLevel: 2,
         maxLevel: 20,
         
         getTileCreatorArgs: getTileCreatorArgs,

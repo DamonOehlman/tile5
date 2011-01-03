@@ -28,9 +28,9 @@ in at.  Used in combination with the `tweenIn` parameter.
 ## Methods
 
 */
-T5.Marker = function(params) {
-    params = T5.ex({
-        xy: T5.XY.init(),
+var Marker = function(params) {
+    params = COG.extend({
+        xy: XY.init(),
         offset: true,
         tweenIn: null,
         animationSpeed: null,
@@ -55,7 +55,7 @@ T5.Marker = function(params) {
         // COG.Log.info('bounds: x = ' + boundsX + ', y = ' + boundsY + ', width = ' + boundsWidth + ', height = ' + boundsHeight);
     } // updateBounds
     
-    var self = T5.ex(params, {
+    var self = COG.extend(params, {
         /* 
         ### isAnimating()
         Return true if we are currently animating the marker, false otherwise
@@ -82,7 +82,7 @@ T5.Marker = function(params) {
                 // animate the annotation
                 animating = true;
                 
-                T5.tween(
+                tween(
                     self.xy, 
                     'y',
                     endValue, 

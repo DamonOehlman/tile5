@@ -41,18 +41,18 @@ used when drawing the indicator.  The function takes the following arguments:
 - `xy` - the xy position where the indicator should be drawn 
 - `theta` - the current angle (in radians) given the path positioning.
 */
-T5.AnimatedPathLayer = function(params) {
-    params = T5.ex({
+var AnimatedPathLayer = function(params) {
+    params = COG.extend({
         path: [],
         id: COG.objId('pathAni'),
-        easing: T5.easing('sine.inout'),
-        validStates: T5.viewState('ACTIVE', 'PAN', 'ZOOM'),
+        easing: easing('sine.inout'),
+        validStates: viewState('ACTIVE', 'PAN', 'ZOOM'),
         drawIndicator: null,
         duration: 2000
     }, params);
     
     // generate the edge data for the specified path
-    var edgeData = T5.XY.edges(params.path), 
+    var edgeData = XY.edges(params.path), 
         tween,
         theta,
         indicatorXY = null,
@@ -75,7 +75,7 @@ T5.AnimatedPathLayer = function(params) {
     } // drawDefaultIndicator
     
     // calculate the tween
-    tween = T5.tweenValue(
+    tween = tweenValue(
         0, 
         edgeData.total, 
         params.easing, 
@@ -94,7 +94,7 @@ T5.AnimatedPathLayer = function(params) {
     });
     
     // initialise self
-    var self =  T5.ex(new T5.ViewLayer(params), {
+    var self =  COG.extend(new ViewLayer(params), {
         cycle: function(tickCount, viewRect, state, redraw) {
             var edgeIndex = 0;
 
@@ -112,8 +112,8 @@ T5.AnimatedPathLayer = function(params) {
                     v1 = params.path[edgeIndex],
                     v2 = params.path[edgeIndex + 1];
 
-                theta = T5.XY.theta(v1, v2, edgeData.edges[edgeIndex]);
-                indicatorXY = T5.XY.extendBy(v1, theta, extra);
+                theta = XY.theta(v1, v2, edgeData.edges[edgeIndex]);
+                indicatorXY = XY.extendBy(v1, theta, extra);
             } // if
             
             return indicatorXY;
@@ -125,7 +125,7 @@ T5.AnimatedPathLayer = function(params) {
                 (params.drawIndicator ? params.drawIndicator : drawDefaultIndicator)(
                     context,
                     viewRect,
-                    T5.XY.init(indicatorXY.x, indicatorXY.y),
+                    XY.init(indicatorXY.x, indicatorXY.y),
                     theta
                 );
             } // if

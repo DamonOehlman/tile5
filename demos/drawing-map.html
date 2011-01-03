@@ -6,51 +6,25 @@
   <link rel="stylesheet" href="media/css/style.css"> 
 </head>
 <body> 
-	<header> 
-		<a id="logo" href="http://www.tile5.org/"><img src="media/img/tile5-logo.png" title="Tile5 Official Site" /></a> 
-		<h1>HTML5 Mapping - Tile5 Demos - Drawing the Map</h1> 
-	</header>
-	<div id="main"> 
-		<div id="mapContainer"> 
-			<canvas id="mapCanvas" width="768" height="450"></canvas><br /> 
-			<div id="copyright"></div> 
-		</div> 
- 		<div class="clear"></div>
-			<footer> 
-				<p> 
-	Tile5 is an initiative of cross-platform mobile development firm, <a href="http://www.sidelab.com/">Sidelab</a>. If you 
-	would like assistance with developing a solution, please feel free 
-	to <a href="http://www.sidelab.com/contact">contact Sidelab</a>.  
-	Tile5 is licensed under the MIT license, though, so you are free to use it 
-	however you please.
-				</p> 
-			</footer>
-	</div> 
-   
-<!-- Javascript at the bottom for fast page loading --> 
-	<script src="media/js/jquery-1.4.2.min.js"></script> 
-	<script src="../dist/tile5.js"></script> 
-	<script src="../dist/tile5.osm.js"></script>
-	<script src="../dist/tile5.cloudmade.js"></script>
- 
-<!-- Generate Map and Scripts Here -->   
+<div id="mapContainer"> 
+<canvas id="mapCanvas"></canvas>
+</div>
+<script src="../dist/tile5.js"></script> 
+<script src="../dist/engines/osm.js"></script>
 <script>
-	// Set the map proivder
-	var mapProvider =  new T5.Geo.Cloudmade.MapProvider({
-		// Insert your own API key here
-		apikey: "7960daaf55f84bfdb166014d0b9f8d41"
-	})
-	
-	map = T5.Map({
-    	// Point to which canvas element to draw in
-		container: 'mapCanvas',
-		// Select the mapProvider
-    	provider: mapProvider,
-	});
-// ---------------------------- Essential! If the starting point is not set the map will not draw --------------------------------
-	map.gotoPosition(T5.Geo.P.parse("-27.468 153.028"), 6);
-
+// initialise the map
+var map = T5.Map({
+        container: 'mapCanvas'
+    }),
+    
+    tiles = map.setLayer('tiles', new T5.ImageLayer('osm.cloudmade', {
+            // demo api key, register for an API key
+            // at http://dev.cloudmade.com/
+            apikey: '7960daaf55f84bfdb166014d0b9f8d41'
+    }));
+    
+// goto the specified position
+map.gotoPosition(T5.Geo.Position.init(-37.814, 144.963), 5);
 </script> 
-
 </body> 
 </html>

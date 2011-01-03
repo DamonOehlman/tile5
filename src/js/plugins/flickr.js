@@ -18,7 +18,7 @@ T5.Flickr = (function() {
         DEFAULT_SEARCH_OPTIONS = {};
 
     var FlickrTileGenerator = function(params) {
-        params = T5.ex({
+        params = COG.extend({
             apikey: '',
             mode: 'interesting'
         }, params);
@@ -34,7 +34,7 @@ T5.Flickr = (function() {
             modeMethod = MODE_METHODS[mode],
             noMoreResults = false,
             foundModifiers = [],
-            searchOptions = COG.extend({}, DEFAULT_SEARCH_OPTIONS),
+            searchOptions = COG.COG.extend({}, DEFAULT_SEARCH_OPTIONS),
             userSearchOptions = {};
             
         COG.Log.info('flickr tile generator created, params = ', params);
@@ -164,7 +164,7 @@ T5.Flickr = (function() {
                 } // if..else
             });
 
-            searchOptions = COG.extend(userSearchOptions, DEFAULT_SEARCH_OPTIONS);
+            searchOptions = COG.COG.extend(userSearchOptions, DEFAULT_SEARCH_OPTIONS);
             rules.each(searchText, searchOptions, callback);
         } // parseSearchParams
 
@@ -225,7 +225,7 @@ T5.Flickr = (function() {
                             baseX + (tileX * tileWidth), 
                             baseY + (tileY * tileHeight),
                             tileWidth,
-                            tileHeight, T5.ex({
+                            tileHeight, COG.extend({
                                 url: getPhotoUrl(tileKey, 'm')
                             }, photoData));
                     } // if
@@ -241,7 +241,7 @@ T5.Flickr = (function() {
 
         /* define the generator */
 
-        var self = T5.ex(new T5.TileGenerator(params), {
+        var self = COG.extend(new T5.TileGenerator(params), {
             initTileCreator: initTileCreator
         });
 

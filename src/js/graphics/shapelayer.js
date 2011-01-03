@@ -9,8 +9,8 @@ data and the like.
 
 ## Methods
 */
-T5.ShapeLayer = function(params) {
-    params = T5.ex({
+var ShapeLayer = function(params) {
+    params = COG.extend({
         zindex: 80
     }, params);
     
@@ -50,7 +50,7 @@ T5.ShapeLayer = function(params) {
     
     /* initialise self */
     
-    var self = T5.ex(new T5.ViewLayer(params), {
+    var self = COG.extend(new ViewLayer(params), {
         /**
         ### add(poly)
         Used to add a T5.Poly to the layer
@@ -74,14 +74,14 @@ T5.ShapeLayer = function(params) {
             // iterate through the children and draw the layers
             for (var ii = children.length; ii--; ) {
                 var overrideStyle = children[ii].style,
-                    previousStyle = overrideStyle ? T5.Style.apply(context, overrideStyle) : null;
+                    previousStyle = overrideStyle ? Style.apply(context, overrideStyle) : null;
                     
                 // draw the layer
                 children[ii].draw(context, viewX, viewY, viewWidth, viewHeight, state);
                 
                 // if we have a previous style, then restore that style
                 if (previousStyle) {
-                    T5.Style.apply(context, previousStyle);
+                    Style.apply(context, previousStyle);
                 } // if
             } // for
         }
@@ -93,13 +93,3 @@ T5.ShapeLayer = function(params) {
     
     return self;
 };
-
-/**
-# T5.PolyLayer
-__deprecated__ 
-
-
-What already?  Yes it really should have been called the T5.ShapeLayer from the 
-start, we will remove the T5.PolyLayer before the 0.9.4 release.
-*/
-T5.PolyLayer = T5.ShapeLayer;

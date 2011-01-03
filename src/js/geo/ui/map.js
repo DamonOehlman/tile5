@@ -13,8 +13,7 @@ the map.
 <pre lang='javascript'>
 // create the map
 map = new T5.Map({
-    container: 'mapCanvas',
-    provider: new T5.Geo.Decarta.MapProvider()
+    container: 'mapCanvas'
 });
 </pre>
 
@@ -34,10 +33,9 @@ map.bind('zoomLevelChange', function(evt, newZoomLevel) {
 
 ## Methods
 */
-T5.Map = function(params) {
-    params = T5.ex({
+var Map = exports.Map = function(params) {
+    params = COG.extend({
         tapExtent: 10, // TODO: remove and use the inherited value
-        provider: null,
         crosshair: false,
         zoomLevel: 0,
         boundsChangeThreshold: 30
@@ -51,7 +49,7 @@ T5.Map = function(params) {
     };
     
     // initialise variables
-    var lastBoundsChangeOffset = T5.XY.init(),
+    var lastBoundsChangeOffset = XY.init(),
         locationWatchId = 0,
         locateMode = LOCATE_MODE.NONE,
         initialized = false,
@@ -63,19 +61,13 @@ T5.Map = function(params) {
         initialTrackingUpdate = true,
         radsPerPixel = 0;
         
-    // if the data provider has not been created, 
-    // then create a default one
-    if (! params.provider) {
-        params.provider = new T5.Geo.MapProvider();
-    } // if
-    
     /* internal functions */
     
     /* tracking functions */
     
     function trackingUpdate(position) {
         try {
-            var currentPos = new T5.Geo.Position(
+            var currentPos = Geo.Position.init(
                         position.coords.latitude, 
                         position.coords.longitude),
                 accuracy = position.coords.accuracy / 1000;
@@ -88,7 +80,7 @@ T5.Map = function(params) {
                 // if the geolocation annotation has not 
                 // been created then do that now
                 if (! locationOverlay) {
-                    locationOverlay = new T5.Geo.UI.LocationOverlay({
+                    locationOverlay = new Geo.UI.LocationOverlay({
                         pos: currentPos,
                         accuracy: accuracy
                     });
@@ -100,7 +92,7 @@ T5.Map = function(params) {
                 } // if
 
                 // TODO: fix the magic number
-                var targetBounds = T5.Geo.B.createBoundsFromCenter(
+                var targetBounds = Geo.BoundingBox.createBoundsFromCenter(
                         currentPos, 
                         Math.max(accuracy, 1));
                         
@@ -120,7 +112,7 @@ T5.Map = function(params) {
                 panToPosition(
                     currentPos, 
                     null, 
-                    T5.easing('sine.out'));
+                    easing('sine.out'));
             } // if..else
 
             initialTrackingUpdate = false;
@@ -158,21 +150,21 @@ T5.Map = function(params) {
         if (grid) {
             TODO: get the tap working again...
             var gridPos = self.viewPixToGridPix(
-                    T5.XY.init(relXY.x, relXY.y)),
+                    XY.init(relXY.x, relXY.y)),
                 tapPos = grid.pixelsToPos(gridPos),
                 minPos = grid.pixelsToPos(
-                    T5.XY.offset(
+                    XY.offset(
                         gridPos, 
                         -params.tapExtent, 
                         params.tapExtent)),
                 maxPos = grid.pixelsToPos(
-                    T5.XY.offset(
+                    XY.offset(
                         gridPos,
                          params.tapExtent, 
                          -params.tapExtent));
 
             // turn that into a bounds object
-            tapBounds = new T5.Geo.BoundingBox(minPos, maxPos);
+            tapBounds = BoundingBox.init(minPos, maxPos);
 
             // find the pois in the bounds area
             // tappedPOIs = self.pois.findByBounds(tapBounds);
@@ -185,11 +177,11 @@ T5.Map = function(params) {
     } // handleTap
     
     function handleIdle(evt) {
-        var changeDelta = T5.XY.absSize(T5.XY.diff(
+        var changeDelta = XY.absSize(XY.diff(
                 lastBoundsChangeOffset, self.getOffset()));
                 
         if (changeDelta > params.boundsChangeThreshold) {
-            lastBoundsChangeOffset = T5.XY.copy(self.getOffset());
+            lastBoundsChangeOffset = XY.copy(self.getOffset());
             self.trigger("boundsChange", self.getBoundingBox());
         } // if
     } // handleIdle
@@ -201,15 +193,15 @@ T5.Map = function(params) {
     
     function handleZoomLevelChange(evt, zoomLevel, zoomXY) {
         // update the rads per pixel to reflect the zoom level change
-        radsPerPixel = T5.Geo.radsPerPixel(zoomLevel);
+        radsPerPixel = Geo.radsPerPixel(zoomLevel);
         self.triggerAll('resync', self);
     } // handleZoomLevel
     
     /* internal functions */
     
     function getLayerScaling(oldZoom, newZoom) {
-        return T5.Geo.radsPerPixel(oldZoom) / 
-                    T5.Geo.radsPerPixel(newZoom);
+        return Geo.radsPerPixel(oldZoom) / 
+                    Geo.radsPerPixel(newZoom);
     } // getLayerScaling
     
     /* public methods */
@@ -222,9 +214,9 @@ T5.Map = function(params) {
     function getBoundingBox() {
         var rect = self.getViewRect();
         
-        return new T5.Geo.BoundingBox(
-            T5.GeoXY.toPos(T5.XY.init(rect.x1, rect.y2), radsPerPixel),
-            T5.GeoXY.toPos(T5.XY.init(rect.x2, rect.y1), radsPerPixel));
+        return Geo.BoundingBox.init(
+            GeoXY.toPos(XY.init(rect.x1, rect.y2), radsPerPixel),
+            GeoXY.toPos(XY.init(rect.x2, rect.y1), radsPerPixel));
     } // getBoundingBox
 
     /**
@@ -234,8 +226,8 @@ T5.Map = function(params) {
     function getCenterPosition() {
         var rect = self.getViewRect();
         if (rect) {
-            var xy = T5.XY.init(rect.x1 + rect.width / 2, rect.y1 + rect.height / 2);
-            return T5.GeoXY.toPos(xy, radsPerPixel);
+            var xy = XY.init(rect.x1 + rect.width / 2, rect.y1 + rect.height / 2);
+            return GeoXY.toPos(xy, radsPerPixel);
         } // if
         
         return null;
@@ -249,14 +241,14 @@ T5.Map = function(params) {
     function gotoBounds(bounds, callback) {
         // calculate the zoom level required for the 
         // specified bounds
-        var zoomLevel = T5.Geo.B.getZoomLevel(
+        var zoomLevel = Geo.BoundingBox.getZoomLevel(
                             bounds, 
                             self.getDimensions());
         
         // goto the center position of the bounding box 
         // with the calculated zoom level
         gotoPosition(
-            T5.Geo.B.getCenter(bounds), 
+            Geo.BoundingBox.getCenter(bounds), 
             zoomLevel, 
             callback);
     } // gotoBounds
@@ -275,10 +267,10 @@ T5.Map = function(params) {
         self.setZoomLevel(newZoomLevel);
         
         // remove the grid layer
-        T5.Images.cancelLoad();
+        Images.cancelLoad();
         
         // cancel any animations
-        T5.cancelAnimation();
+        cancelAnimation();
         
         // pan to Position
         panToPosition(position, callback);
@@ -296,7 +288,7 @@ T5.Map = function(params) {
     function panToPosition(position, callback, easingFn, easingDuration) {
         // determine the tile offset for the 
         // requested position
-        var centerXY = T5.GeoXY.init(position, T5.Geo.radsPerPixel(self.getZoomLevel())),
+        var centerXY = GeoXY.init(position, Geo.radsPerPixel(self.getZoomLevel())),
             dimensions = self.getDimensions();
             
         // COG.Log.info('panning to center xy: ', centerXY);
@@ -325,7 +317,7 @@ T5.Map = function(params) {
     grid so they can perform their calculations
     */
     function syncXY(points) {
-        return T5.GeoXY.sync(points, radsPerPixel);
+        return GeoXY.sync(points, radsPerPixel);
     } // syncXY
     
     /* public object definition */
@@ -337,7 +329,7 @@ T5.Map = function(params) {
     };
     
     // initialise self
-    var self = T5.ex(new T5.View(params), {
+    var self = COG.extend(new View(params), {
         
         getBoundingBox: getBoundingBox,
         getCenterPosition: getCenterPosition,
@@ -437,17 +429,8 @@ T5.Map = function(params) {
     self.bind("idle", handleIdle);
     
     // list for zoom level changes
-    T5.zoomable(self, params);
+    zoomable(self, params);
     self.bind('zoomLevelChange', handleZoomLevelChange);
-    
-    // make a few parameter configurable
-    COG.configurable(
-        self, 
-        ["provider"], 
-        COG.paramTweaker(params, null, {
-            "provider": handleProviderUpdate
-        }), 
-        true);
 
     return self;
 }; // T5.Map

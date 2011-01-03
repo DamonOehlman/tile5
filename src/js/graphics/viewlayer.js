@@ -50,13 +50,13 @@ layer.bind('parentChange', function(evt, parent) {
 ## Methods
 
 */
-T5.ViewLayer = function(params) {
-    params = T5.ex({
+var ViewLayer = function(params) {
+    params = COG.extend({
         id: "",
         zindex: 0,
         supportFastDraw: false,
         animated: false,
-        validStates: T5.viewState('ACTIVE', 'ANIMATING', 'PAN', 'ZOOM'),
+        validStates: viewState('ACTIVE', 'ANIMATING', 'PAN', 'ZOOM'),
         style: null,
         minXY: null,
         maxXY: null
@@ -67,12 +67,12 @@ T5.ViewLayer = function(params) {
         changed = false,
         supportFastDraw = params.supportFastDraw,
         id = params.id,
-        activeState = T5.viewState("ACTIVE"),
+        activeState = viewState("ACTIVE"),
         validStates = params.validStates,
         lastOffsetX = 0,
         lastOffsetY = 0;
     
-    var self = T5.ex({
+    var self = COG.extend({
         /**
         ### addToView(view)
         Used to add the layer to a view.  This simply calls T5.View.setLayer

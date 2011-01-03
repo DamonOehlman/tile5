@@ -5,8 +5,8 @@ _extends:_ T5.ViewLayer
 
 The T5.PathLayer is used to display a single path on a T5.View
 */
-T5.PathLayer = function(params) {
-    params = T5.ex({
+var PathLayer = function(params) {
+    params = COG.extend({
         style: 'waypoints',
         pixelGeneralization: 8,
         zindex: 50
@@ -37,18 +37,18 @@ T5.PathLayer = function(params) {
     } // resyncPath
     
     // create the view layer the we will draw the view
-    var self = T5.ex(new T5.ViewLayer(params), {
+    var self = COG.extend(new ViewLayer(params), {
         getAnimation: function(easingFn, duration, drawCallback, autoCenter) {
             // define the layer id
             var layerId = 'pathAnimation' + pathAnimationCounter++;
             spawnedAnimations.push(layerId);
 
             // create a new animation layer based on the coordinates
-            return new T5.AnimatedPathLayer({
+            return new AnimatedPathLayer({
                 id: layerId,
                 path: coordinates,
                 zindex: params.zindex + 1,
-                easing: easingFn ? easingFn : T5.easing('sine.inout'),
+                easing: easingFn ? easingFn : easing('sine.inout'),
                 duration: duration ? duration : 5000,
                 drawIndicator: drawCallback,
                 autoCenter: autoCenter ? autoCenter : false
@@ -65,7 +65,7 @@ T5.PathLayer = function(params) {
                 
             context.save();
             try {
-                T5.Style.apply(context, params.style);
+                Style.apply(context, params.style);
                 
                 if (coordLength > 0) {
                     // start drawing the path
@@ -120,8 +120,8 @@ T5.PathLayer = function(params) {
     });
     
     self.bind('tidy', function(evt) {
-        coordinates = T5.XY.simplify(rawCoords, params.pixelGeneralization);
-        markerCoordinates = T5.XY.simplify(rawMarkers, params.pixelGeneralization);
+        coordinates = XY.simplify(rawCoords, params.pixelGeneralization);
+        markerCoordinates = XY.simplify(rawMarkers, params.pixelGeneralization);
 
         // wake the parent
         redraw = true;

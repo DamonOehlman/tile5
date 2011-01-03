@@ -51,8 +51,8 @@ overhead as the canvas context needs to be saved and restored as part of the ope
 
 ## Methods
 */
-T5.ImageMarker = function(params) {
-    params = T5.ex({
+var ImageMarker = function(params) {
+    params = COG.extend({
         image: null,
         imageUrl: null,
         animatingImage: null,
@@ -90,7 +90,7 @@ T5.ImageMarker = function(params) {
                 
         if (image && (image.width > 0)) {
             if (! imageOffset) {
-                imageOffset = T5.XY.init(
+                imageOffset = XY.init(
                     -image.width >> 1, 
                     -image.height >> 1
                 );
@@ -135,7 +135,7 @@ T5.ImageMarker = function(params) {
         } // if
     } // drawImage
     
-    var self = T5.ex(new T5.Marker(params), {
+    var self = COG.extend(new Marker(params), {
         /**
         ### drawMarker(context, offset, xy, state, overlay, view)
         An overriden implementation of the T5.Annotation.drawMarker which 
@@ -145,13 +145,13 @@ T5.ImageMarker = function(params) {
     });
     
     if (! self.image) {
-        self.image = T5.Images.get(params.imageUrl, function(loadedImage) {
+        self.image = Images.get(params.imageUrl, function(loadedImage) {
             self.image = loadedImage;
         });
     } // if
     
     if (! self.animatingImage) {
-        self.animatingImage = T5.Images.get(params.animatingImageUrl, function(loadedImage) {
+        self.animatingImage = Images.get(params.animatingImageUrl, function(loadedImage) {
             self.animatingImage = loadedImage;
         });
     } // if    

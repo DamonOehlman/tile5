@@ -105,16 +105,16 @@ view.bind('drawComplete', function(evt, viewRect, tickCount) {
 
 ## Methods
 */
-T5.View = function(params) {
+var View = function(params) {
     // initialise defaults
-    params = T5.ex({
+    params = COG.extend({
         id: COG.objId('view'),
         container: "",
         fastDraw: false,
         inertia: true,
         pannable: true,
         scalable: true,
-        panAnimationEasing: T5.easing('sine.out'),
+        panAnimationEasing: easing('sine.out'),
         panAnimationDuration: 750,
         pinchZoomAnimateTrigger: 400,
         adjustScaleFactor: null,
@@ -137,7 +137,7 @@ T5.View = function(params) {
         cycleWorker = null,
         guides = params.guides,
         deviceScaling = 1,
-        dimensions = T5.D.init(),
+        dimensions = Dimensions.init(),
         wakeTriggers = 0,
         halfWidth = 0,
         halfHeight = 0,
@@ -162,22 +162,21 @@ T5.View = function(params) {
         tweenStart = null,
         isFlash = typeof FlashCanvas !== 'undefined',
         cycleDelay = ~~(1000 / params.fps),
-        touchHelper = null,
         zoomX, zoomY,
         
         /* state shortcuts */
         
-        stateActive = T5.viewState('ACTIVE'),
-        statePan = T5.viewState('PAN'),
-        stateZoom = T5.viewState('ZOOM'),
-        stateAnimating = T5.viewState('ANIMATING'),
+        stateActive = viewState('ACTIVE'),
+        statePan = viewState('PAN'),
+        stateZoom = viewState('ZOOM'),
+        stateAnimating = viewState('ANIMATING'),
         
         state = stateActive;
         
     // some function references for speed
-    var vectorRect = T5.XY.getRect,
-        rectDiagonal = T5.XYRect.diagonalSize,
-        rectCenter = T5.XYRect.center;
+    var vectorRect = XY.getRect,
+        rectDiagonal = XYRect.diagonalSize,
+        rectCenter = XYRect.center;
         
     /* event handlers */
     
@@ -202,12 +201,7 @@ T5.View = function(params) {
     function handlePanEnd(evt, x, y) {
         state = stateActive;
         panimating = false;
-        
-        COG.Loopage.join({
-            execute: invalidate,
-            after: 50,
-            single: true
-        });
+        invalidate();
     } // handlePanEnd
     
     /* scaling functions */
@@ -247,7 +241,7 @@ T5.View = function(params) {
     
     function handleWheelZoom(evt, relXY, zoom) {
         // TODO: the xy position should be between the relXY and the center of the view
-        self.zoom(T5.D.getCenter(dimensions), zoom);
+        self.zoom(Dimensions.getCenter(dimensions), zoom);
     } // handleWheelZoom
     
     function scaleView(fullInvalidate) {
@@ -255,7 +249,7 @@ T5.View = function(params) {
         
         var scaledHalfWidth = (cycleRect.width / (scaleFactor * 2)) >> 0,
             scaledHalfHeight = (cycleRect.height / (scaleFactor * 2)) >> 0,
-            scaleEndXY = T5.XY.init(zoomX - scaledHalfWidth, zoomY - scaledHalfHeight),
+            scaleEndXY = XY.init(zoomX - scaledHalfWidth, zoomY - scaledHalfHeight),
             scaleFactorExp = (Math.log(scaleFactor) / Math.LN2) >> 0;
             
         if (scaleFactor !== 1) {
@@ -288,8 +282,8 @@ T5.View = function(params) {
     } // scaleView
     
     function setZoomCenter(xy) {
-        interactOffset = T5.XY.init(offsetX, offsetY);
-        interactCenter = T5.XY.offset(xy, offsetX, offsetY);
+        interactOffset = XY.init(offsetX, offsetY);
+        interactCenter = XY.offset(xy, offsetX, offsetY);
     } // setZoomCenter
     
     function handleContainerUpdate(name, value) {
@@ -316,7 +310,7 @@ T5.View = function(params) {
     
     function handleTap(evt, absXY, relXY) {
         // calculate the grid xy
-        var offsetXY = T5.XY.offset(relXY, offsetX, offsetY);
+        var offsetXY = XY.offset(relXY, offsetX, offsetY);
         
         // iterate through the layers, and inform of the tap event
         for (var ii = layers.length; ii--; ) {
@@ -341,8 +335,8 @@ T5.View = function(params) {
         
         // initialise variables
         var tweensComplete = 0,
-            minXYOffset = layerMinXY ? T5.XY.offset(layerMinXY, -halfWidth, -halfHeight) : null,
-            maxXYOffset = layerMaxXY ? T5.XY.offset(layerMaxXY, -halfWidth, -halfHeight) : null;
+            minXYOffset = layerMinXY ? XY.offset(layerMinXY, -halfWidth, -halfHeight) : null,
+            maxXYOffset = layerMaxXY ? XY.offset(layerMaxXY, -halfWidth, -halfHeight) : null;
         
         function updateOffsetAnimationEnd() {
             tweensComplete += 1;
@@ -373,10 +367,10 @@ T5.View = function(params) {
                 return;
             } // if
             
-            var tweenX = T5.tweenValue(offsetX, x, tweenFn, 
+            var tweenX = tweenValue(offsetX, x, tweenFn, 
                     updateOffsetAnimationEnd, tweenDuration),
                     
-                tweenY = T5.tweenValue(offsetY, y, tweenFn, 
+                tweenY = tweenValue(offsetY, y, tweenFn, 
                     updateOffsetAnimationEnd, tweenDuration);
                     
             // attach update listeners
@@ -420,8 +414,6 @@ T5.View = function(params) {
         var ii;
         
         if (canvas) {
-            COG.Touch.release(canvas);
-
             // if we are autosizing the set the size
             if (params.autoSize && canvas.parentNode) {
                 var rect = canvas.parentNode.getBoundingClientRect();
@@ -446,14 +438,9 @@ T5.View = function(params) {
                 throw new Error("Could not initialise canvas on specified view element");
             }
             
-            // capture touch events
-            touchHelper = COG.Touch.capture(canvas, {
-                observable: self
-            });
-            
             // initialise the dimensions
             if (dimensions.height !== canvas.height || dimensions.width !== canvas.width) {
-                dimensions = T5.D.init(canvas.width, canvas.height);
+                dimensions = Dimensions.init(canvas.width, canvas.height);
                 halfWidth = (dimensions.width / 2) >> 0;
                 halfHeight = (dimensions.height / 2) >> 0;
                 
@@ -464,11 +451,6 @@ T5.View = function(params) {
                 for (ii = layerCount; ii--; ) {
                     layers[ii].trigger('resize', canvas.width, canvas.height);
                 } // for
-            } // if
-            
-            // enable inertia if configured
-            if (params.inertia) {
-                touchHelper.inertiaEnable(params.panAnimationDuration, dimensions);
             } // if
             
             // iterate through the layers, and change the context
@@ -484,7 +466,7 @@ T5.View = function(params) {
     function addLayer(id, value) {
         // make sure the layer has the correct id
         value.setId(id);
-        value.added = T5.ticks();
+        value.added = ticks();
         
         // bind to the remove event
         value.bind('remove', function() {
@@ -543,7 +525,7 @@ T5.View = function(params) {
         zoomY = interactCenter.y + (offsetY - interactOffset.y);
 
         if (drawRect) {
-            return T5.XYRect.fromCenter(
+            return XYRect.fromCenter(
                 zoomX >> 0, 
                 zoomY >> 0, 
                 (drawRect.width * invScaleFactor) >> 0, 
@@ -552,7 +534,7 @@ T5.View = function(params) {
     } // calcZoomRect
     
     function drawView(drawState, rect, redraw, tickCount) {
-        var drawRect = T5.XYRect.copy(rect),
+        var drawRect = XYRect.copy(rect),
             drawLayer,
             ii = 0;
             
@@ -605,19 +587,19 @@ T5.View = function(params) {
                 
                 // if the layer has style, then apply it and save the current style
                 var layerStyle = drawLayer.style,
-                    previousStyle = layerStyle ? T5.Style.apply(mainContext, layerStyle) : null;
+                    previousStyle = layerStyle ? Style.apply(mainContext, layerStyle) : null;
 
                 // if the layer has bounds, then update the layer bounds
                 if (drawLayer.minXY) {
                     layerMinXY = layerMinXY ? 
-                        T5.XY.min(layerMinXY, drawLayer.minXY) : 
-                        T5.XY.copy(drawLayer.minXY);
+                        XY.min(layerMinXY, drawLayer.minXY) : 
+                        XY.copy(drawLayer.minXY);
                 } // if
 
                 if (drawLayer.maxXY) {
                     layerMaxXY = layerMaxXY ? 
-                        T5.XY.max(layerMaxXY, drawLayer.maxXY) :
-                        T5.XY.copy(drawLayer.maxXY);
+                        XY.max(layerMaxXY, drawLayer.maxXY) :
+                        XY.copy(drawLayer.maxXY);
                 } // if
 
                 // draw the layer
@@ -631,7 +613,7 @@ T5.View = function(params) {
 
                 // if we applied a style, then restore the previous style if supplied
                 if (previousStyle) {
-                    T5.Style.apply(mainContext, previousStyle);
+                    Style.apply(mainContext, previousStyle);
                 } // if
             } // for
         }
@@ -666,13 +648,13 @@ T5.View = function(params) {
             requireRedraw = redrawView || 
                         currentState === statePan || 
                         currentState === stateZoom || 
-                        T5.isTweening();
+                        (tweens.length > 0);
 
         // calculate the cycle rect
         cycleRect = getViewRect();
         
         if (interacting) {
-            T5.cancelAnimation(function(tweenInstance) {
+            cancelAnimation(function(tweenInstance) {
                 return tweenInstance.cancelOnInteract;
             });
             
@@ -775,7 +757,7 @@ T5.View = function(params) {
     Return a T5.XYRect for the last drawn view rect
     */
     function getViewRect() {
-        return T5.XYRect.init(
+        return XYRect.init(
             offsetX, 
             offsetY, 
             offsetX + dimensions.width,
@@ -830,14 +812,14 @@ T5.View = function(params) {
 
         // if the target xy is not defined, then use the canvas center
         if (! targetXY) {
-            targetXY = T5.D.getCenter(dimensions);
+            targetXY = Dimensions.getCenter(dimensions);
         } // if
         
         setZoomCenter(targetXY);
 
         // if tweening then update the targetXY
         if (tweenFn) {
-            var tween = T5.tweenValue(
+            var tween = tweenValue(
                             0, 
                             targetScaling - scaleFactorFrom, 
                             tweenFn, 
@@ -880,7 +862,7 @@ T5.View = function(params) {
     var self = {
         id: params.id,
         deviceScaling: deviceScaling,
-        fastDraw: params.fastDraw || T5.getConfig().requireFastDraw,
+        fastDraw: params.fastDraw || getConfig().requireFastDraw,
         
         /**
         ### getDimensions()
@@ -932,7 +914,7 @@ T5.View = function(params) {
         removeLayer: function(id) {
             var layerIndex = getLayerIndex(id);
             if ((layerIndex >= 0) && (layerIndex < layerCount)) {
-                COG.say("layer.removed", { layer: layers[layerIndex] });
+                self.trigger('layerRemoved', layers[layerIndex]);
 
                 layers.splice(layerIndex, 1);
                 invalidate();
@@ -958,7 +940,7 @@ T5.View = function(params) {
         */
         getOffset: function() {
             // return the last calculated cycle offset
-            return T5.XY.init(offsetX, offsetY);
+            return XY.init(offsetX, offsetY);
         },
         
         getViewRect: getViewRect,
@@ -967,10 +949,10 @@ T5.View = function(params) {
         zoom: zoom
     };
 
-    deviceScaling = T5.getConfig().getScaling();
+    deviceScaling = getConfig().getScaling();
     
     // add the markers layer
-    self.markers = addLayer('markers', new T5.MarkerLayer());
+    self.markers = addLayer('markers', new MarkerLayer());
     
     // make the view observable
     COG.observable(self);

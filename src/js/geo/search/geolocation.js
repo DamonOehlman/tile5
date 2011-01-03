@@ -1,5 +1,5 @@
-T5.Geo.LocationSearch = function(params) {
-    params = T5.ex({
+var LocationSearch = function(params) {
+    params = COG.extend({
         name: "Geolocation Search",
         requiredAccuracy: null,
         searchTimeout: 5000,
@@ -13,11 +13,11 @@ T5.Geo.LocationSearch = function(params) {
     /* tracking functions */
     
     function parsePosition(position) {
-        var currentPos = new T5.Geo.Position(
+        var currentPos = Position.init(
                 position.coords.latitude, 
                 position.coords.longitude);
 
-        return new T5.Geo.GeoSearchResult({
+        return new GeoSearchResult({
             id: 1,
             caption: 'Current Location',
             pos: currentPos,
@@ -46,7 +46,7 @@ T5.Geo.LocationSearch = function(params) {
     } // trackingError
     
     // initialise the geosearch agent
-    var self = new T5.Geo.GeoSearchAgent(T5.ex({
+    var self = new T5.Geo.GeoSearchAgent(COG.extend({
         execute: function(searchParams, callback) {
             if (navigator.geolocation && (! geoWatchId)) {
                 // watch for position updates

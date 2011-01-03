@@ -3,12 +3,12 @@
 This mixin is used to make an object support integer zoom levels which are 
 implemented when the view scales
 */
-T5.zoomable = function(view, params) {
-    params = T5.ex({
+function zoomable(view, params) {
+    params = COG.extend({
         initial: 1,
         min: 0,
         max: null,
-        zoomAnimation: T5.easing('quad.out')
+        zoomAnimation: easing('quad.out')
     }, params);
 
     // initialise variables
@@ -20,13 +20,13 @@ T5.zoomable = function(view, params) {
         if (view.scalable()) {
             // cancel any current animations
             // TODO: review if there is a better place to do this
-            T5.cancelAnimation(function(tweenInstance) {
+            cancelAnimation(function(tweenInstance) {
                 return tweenInstance.cancelOnInteract;
             });
             
             // animate the scaling
             // TODO: reinstate the animated zoom
-            view.scale(2, T5.XY.init(relXY.x, relXY.y)); // , params.zoomAnimation);
+            view.scale(2, XY.init(relXY.x, relXY.y)); // , params.zoomAnimation);
         } // if
     } // handleDoubleTap
     
@@ -35,7 +35,7 @@ T5.zoomable = function(view, params) {
 
         // cancel any current animations
         // TODO: review if there is a better place to do this
-        T5.cancelAnimation(function(tweenInstance) {
+        cancelAnimation(function(tweenInstance) {
             return tweenInstance.cancelOnInteract;
         });
         
@@ -73,33 +73,10 @@ T5.zoomable = function(view, params) {
         } // if
     } // setZoomLevel
     
-    /**
-    ### zoomIn()
-    Zoom in one zoom level
-    */
-    function zoomIn() {
-        if (! view.scale(2, T5.easing('sine.out'))) {
-            view.setZoomLevel(zoomLevel + 1);
-        } // if
-    } // zoomIn
-
-    /**
-    ### zoomOut()
-    Zoom out one zoom level
-    */
-    function zoomOut() {
-        if (! view.scale(0.5, T5.easing('sine.out'))) {
-            view.setZoomLevel(zoomLevel - 1);
-        } // if
-    } // zoomOut
-
     // apply the mixin
-    T5.ex(view, {
+    COG.extend(view, {
         getZoomLevel: getZoomLevel,
-        setZoomLevel: setZoomLevel,
-        
-        zoomIn: zoomIn,
-        zoomOut: zoomOut
+        setZoomLevel: setZoomLevel
     });
     
     // handle scale events

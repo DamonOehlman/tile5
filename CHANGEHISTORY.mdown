@@ -1,6 +1,14 @@
 # Tile5 Change History
 
-## 0.9.4 (release TBA)
+## 0.9.5 (est mid Jan 2011)
+
+The primary focus of the 0.9.5 release are changes to the interaction model for Tile5.  Presently, interaction (panning, pinch zoom, etc) are tightly coupled to a `T5.View` and it would be better to implement a more loosely coupled interaction system.
+
+### Detailed Changes
+
+- 
+
+## 0.9.4 (unstable tagged in Github 2010-12-30)
 
 Some major rework of the handling of virtual display offsets in Tile5.  Previously a bit of double-handling was going on, however, this has been significantly improved.  Complete removal of the poi functionality as this is well handled through good marker management techniques so it's just
 wasting space.

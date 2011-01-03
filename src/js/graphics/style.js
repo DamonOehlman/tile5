@@ -4,7 +4,7 @@ The T5.Style module is used to define and apply styles.
 
 ## Functions 
 */
-T5.Style = (function() {
+var Style = (function() {
     
     // define variables
     var previousStyles = {},
@@ -60,7 +60,7 @@ T5.Style = (function() {
     ### init(params)
     */
     function init(params) {
-        params = T5.ex({
+        params = COG.extend({
             // line styles
             lineWidth: undefined,
             lineCap: undefined,
@@ -130,7 +130,7 @@ T5.Style = (function() {
     */
     function load(path, callback) {
         COG.jsonp(path, function(data) {
-            T5.resetStyles(data);
+            defineMany(data);
         });
     } // load
     

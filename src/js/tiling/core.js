@@ -1,14 +1,14 @@
 /**
 # T5.Tiling
 */
-T5.Tiling = (function() {
+var Tiling = (function() {
     
     /* internal functions */
     
     /* exports */
     
     function init(x, y, width, height, data) {
-        return T5.ex({
+        return COG.extend({
             x: x,
             y: y,
             width: width,
@@ -18,11 +18,8 @@ T5.Tiling = (function() {
     
     /* module definition */
     
-    var module = {
+    return {
         tileSize: 256,
-        
         init: init
     };
-    
-    return module;
 })();

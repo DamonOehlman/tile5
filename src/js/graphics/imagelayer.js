@@ -1,15 +1,15 @@
 /**
 # T5.ImageLayer
 */
-T5.ImageLayer = function(genId, params) {
-    params = T5.ex({
+var ImageLayer = function(genId, params) {
+    params = COG.extend({
         imageLoadArgs: {}
     }, params);
     
     // initialise variables
-    var generator = genId ? T5.Generator.init(genId, params) : null,
+    var generator = genId ? Generator.init(genId, params) : null,
         generatedImages = [],
-        lastViewRect = T5.XYRect.init(),
+        lastViewRect = XYRect.init(),
         loadArgs = params.imageLoadArgs;
     
     /* private internal functions */
@@ -20,18 +20,18 @@ T5.ImageLayer = function(genId, params) {
                 xx = imageData.x,
                 yy = imageData.y,
                 // TODO: more efficient please...
-                imageRect = T5.XYRect.init(
+                imageRect = XYRect.init(
                     imageData.x,
                     imageData.y,
                     imageData.x + imageData.width,
                     imageData.y + imageData.height);
 
             // draw the image
-            if (callback && T5.XYRect.intersect(viewRect, imageRect)) {
+            if (callback && XYRect.intersect(viewRect, imageRect)) {
                 // determine the callback to pass to the image get method
                 // no callback is supplied on the zoom view state which prevents 
                 // loading images that would just been thrown away
-                var image = T5.Images.get(imageData.url, function(loadedImage) {
+                var image = Images.get(imageData.url, function(loadedImage) {
                     self.changed();
                 }, loadArgs);
 
@@ -105,7 +105,7 @@ T5.ImageLayer = function(genId, params) {
     */
     function changeGenerator(generatorId, args) {
         // update the generator
-        generator = T5.Generator.init(generatorId, T5.ex({}, params, args));
+        generator = Generator.init(generatorId, COG.extend({}, params, args));
         generator.bindToView(self.getParent());
 
         // clear the generated images and regenerate
@@ -128,7 +128,7 @@ T5.ImageLayer = function(genId, params) {
             self.drawImage(context, image, x, y, width, height, viewRect, state);
         });
         
-        lastViewRect = T5.XYRect.copy(viewRect);
+        lastViewRect = XYRect.copy(viewRect);
     } // draw
     
     function drawImage(context, image, x, y, width, height, viewRect, state) {
@@ -144,7 +144,7 @@ T5.ImageLayer = function(genId, params) {
     
     /* definition */
     
-    var self = T5.ex(new T5.ViewLayer(params), {
+    var self = COG.extend(new ViewLayer(params), {
         changeGenerator: changeGenerator,
         clip: clip,
         

@@ -7,7 +7,7 @@ Define functions for geo search operations
 
 ## Functions
 */
-T5.Geo.Search = (function() {
+var Search = (function() {
     var DEFAULT_MAXDIFF = 20;
     
     var module = {
@@ -39,4 +39,3 @@ T5.Geo.Search = (function() {
     
     return module;
 })();
-

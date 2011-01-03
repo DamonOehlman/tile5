@@ -5,8 +5,8 @@
 
 ### update
 */
-T5.TileGenerator = function(params) {
-    params = T5.ex({
+var TileGenerator = function(params) {
+    params = COG.extend({
         tileWidth: 256,
         tileHeight: 256,
         relative: false,
@@ -16,7 +16,7 @@ T5.TileGenerator = function(params) {
     // initialise variables
     var targetView = null,
         lastRect = null,
-        requestXY = T5.XY.init(),
+        requestXY = XY.init(),
         tileLoader = null,
         padding = params.padding,
         requestedTileCreator = false,
@@ -72,7 +72,7 @@ T5.TileGenerator = function(params) {
             callback(tiles);
         } // if
         
-        lastRect = T5.XYRect.copy(viewRect);
+        lastRect = XYRect.copy(viewRect);
     } // runTileCreator
     
     /* event handlers */
@@ -119,7 +119,7 @@ T5.TileGenerator = function(params) {
             // if we haven't yet created a tile creator then do that now
             // OR: the current tile creator is invalid
             if (((! tileCreator) && (! requestedTileCreator)) || self.requireRefresh()) {
-                requestXY = params.relative ? T5.XY.init(viewRect.x1, viewRect.y1) : T5.XY.init();
+                requestXY = params.relative ? XY.init(viewRect.x1, viewRect.y1) : XY.init();
                 xTiles = Math.ceil(viewRect.width / tileWidth) + padding;
                 yTiles = Math.ceil(viewRect.height / tileHeight) + padding;
 

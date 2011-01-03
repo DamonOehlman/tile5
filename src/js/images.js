@@ -9,7 +9,7 @@ Tile5 library.
 
 ## Module Functions
 */
-T5.Images = (function() {
+var Images = (function() {
     // initialise image loader internal variables
     var images = {},
         canvasCounter = 0,
@@ -30,7 +30,7 @@ T5.Images = (function() {
         }
         
         // get the max image loads
-        var maxImageLoads = T5.getConfig().maxImageLoads;
+        var maxImageLoads = getConfig().maxImageLoads;
         
         // initialise the load worker
         loadWorker = COG.Loopage.join({
@@ -47,7 +47,7 @@ T5.Images = (function() {
 
                         // reset the queued flag and attempt to load the image
                         imageData.image.onload = handleImageLoad;
-                        imageData.image.src = T5.Resources.getPath(imageData.url);
+                        imageData.image.src = imageData.url;
                         imageData.requested = T5.ticks();
                     } // if..else
                 } // if
@@ -84,12 +84,12 @@ T5.Images = (function() {
             clearingCache = false;
         } // try..finally
         
-        COG.say("imagecache.cleared");
+        module.trigger('cacheCleared');
     } // cleanupImageCache
 
     function checkTimeoutsAndCache(currentTickCount) {
         var timedOutLoad = false, ii = 0,
-            config = T5.getConfig();
+            config = getConfig();
             
         // iterate through the loading images, and check if any of them have been active too long
         while (ii < loadingImages.length) {
@@ -258,7 +258,7 @@ T5.Images = (function() {
         // if the image data is not defined, then create new image data
         if (! imageData) {
             // initialise the image data
-            imageData = T5.ex({
+            imageData = COG.extend({
                 url: url,
                 image: new Image(),
                 loaded: false,
@@ -346,6 +346,9 @@ T5.Images = (function() {
         }
     }; // 
     
+    // make the images observable
+    COG.observable(module);
+
     COG.Loopage.join({
         execute: checkTimeoutsAndCache,
         frequency: 20000

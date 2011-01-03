@@ -48,7 +48,7 @@ T5.Dispatcher = (function() {
         
         Action: function(params) {
             // use default parameter when insufficient are provided
-            params = T5.ex({
+            params = COG.extend({
                 autoRegister: true,
                 id: '',
                 title: '',
@@ -87,7 +87,7 @@ T5.Dispatcher = (function() {
         /* agents */
         
         Agent: function(params) {
-            params = COG.extend({
+            params = COG.COG.extend({
                 name: "Untitled",
                 translator: null,
                 execute: null

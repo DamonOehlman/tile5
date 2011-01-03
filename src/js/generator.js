@@ -1,9 +1,9 @@
 /**
-# T5.Generators
-The generators module is used to manage the registration and creation
+# T5.Generator
+The generator module is used to manage the registration and creation
 of generators.  Image generators, etc
 */
-T5.Generator = (function() {
+var Generator = (function() {
     
     // initialise variables
     var generatorRegistry = {};

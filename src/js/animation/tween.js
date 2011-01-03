@@ -1,17 +1,20 @@
-T5.Tween = function(params) {
-    params = T5.ex({
+/**
+# T5.Tween
+*/
+var Tween = function(params) {
+    params = COG.extend({
         target: null,
         property: null,
         startValue: 0,
         endValue: null,
         duration: 2000,
-        tweenFn: T5.easing('sine.out'),
+        tweenFn: easing('sine.out'),
         complete: null,
         cancelOnInteract: false
     }, params);
     
     // get the start ticks
-    var startTicks = T5.ticks(),
+    var startTicks = ticks(),
         updateListeners = [],
         complete = false,
         beginningValue = 0.0,
@@ -90,7 +93,7 @@ T5.Tween = function(params) {
     } // if..else
     
     // wake the tween timer
-    T5.wakeTweens();
+    wakeTweens();
     
     return self;
-}; 
+};

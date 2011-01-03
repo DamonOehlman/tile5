@@ -3,7 +3,7 @@ T5.Zoomify = (function() {
     /* internals */
     
     var ZoomifyGenerator = function(params) {
-        params = T5.ex({
+        params = COG.extend({
             imagePath: 'img/',
             fullWidth: 0,
             fullHeight: 0
@@ -55,7 +55,7 @@ T5.Zoomify = (function() {
     
         /* define self */
     
-        var self = T5.ex(new T5.TileGenerator(params), {
+        var self = COG.extend(new T5.TileGenerator(params), {
             initTileCreator: initTileCreator
         });
     
@@ -73,7 +73,7 @@ T5.Zoomify = (function() {
     /* exports */
     
     var ZoomifyView = function(params) {
-        params = T5.ex({
+        params = COG.extend({
             imagePath: 'img/'
         }, params);
         
@@ -81,7 +81,7 @@ T5.Zoomify = (function() {
         
         /* exports */
         
-        var self = T5.ex(new T5.View(params), {
+        var self = COG.extend(new T5.View(params), {
         });
         
         // make zoomable

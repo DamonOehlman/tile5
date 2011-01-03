@@ -10,13 +10,13 @@ that need to be implemented for shapes that can be drawn in a T5.ShapeLayer.
 
 - 
 */
-T5.Shape = function(params) {
-    params = T5.ex({
+var Shape = function(params) {
+    params = COG.extend({
         style: null,
         properties: {}
     }, params);
     
-    return T5.ex(params, {
+    return COG.extend(params, {
         rect: null,
         
         /**
@@ -33,16 +33,16 @@ T5.Shape = function(params) {
     });
 };
 
-T5.Arc = function(origin, params) {
-   params = T5.ex({
+var Arc = function(origin, params) {
+   params = COG.extend({
        size: 4
    }, params);
    
    // iniitialise variables
-   var drawXY = T5.XY.init();
+   var drawXY = XY.init();
    
    // initialise self
-   var self = T5.ex(params, {
+   var self = COG.extend(params, {
        /**
        ### draw(context, offsetX, offsetY, width, height, state)
        */
@@ -65,7 +65,7 @@ T5.Arc = function(origin, params) {
        */
        resync: function(view) {
            var centerXY = view.syncXY([origin]).origin;
-           drawXY = T5.XY.floor([origin])[0];
+           drawXY = XY.floor([origin])[0];
        }
    });
    
@@ -95,8 +95,8 @@ is specified then the style of the T5.PolyLayer is used.
 
 ## Methods
 */
-T5.Poly = function(points, params) {
-    params = T5.ex({
+var Poly = function(points, params) {
+    params = COG.extend({
         fill: false,
         simplify: false
     }, params);
@@ -105,7 +105,7 @@ T5.Poly = function(points, params) {
     var haveData = false,
         fill = params.fill,
         simplify = params.simplify,
-        stateZoom = T5.viewState('ZOOM'),
+        stateZoom = viewState('ZOOM'),
         drawPoints = [];
     
     /* exported functions */
@@ -163,14 +163,14 @@ T5.Poly = function(points, params) {
         self.xy = view.syncXY(points);
         
         // simplify the vectors for drawing (if required)
-        drawPoints = T5.XY.floor(simplify ? T5.XY.simplify(points) : points);
+        drawPoints = XY.floor(simplify ? XY.simplify(points) : points);
         
         // TODO: determine the bounding rect of the shape
     } // resyncToGrid
     
     /* define self */
     
-    var self = T5.ex(new T5.Shape(params), {
+    var self = COG.extend(new Shape(params), {
         draw: draw,
         resync: resync
     });

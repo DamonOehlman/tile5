@@ -7,7 +7,7 @@ Define functionality to enable routing for mapping
 
 ## Module Functions
 */
-T5.Geo.Routing = (function() {
+var Routing = (function() {
     
     /* internal functions */
     
@@ -32,7 +32,7 @@ T5.Geo.Routing = (function() {
         To be completed
         */
         calculate: function(args) {
-            args = T5.ex({
+            args = COG.extend({
                 engineId: "",
                 waypoints: [],
                 map: null,
@@ -48,7 +48,7 @@ T5.Geo.Routing = (function() {
             if (engine) {
                 engine.route(args, function(routeData) {
                     if (args.generalize) {
-                        routeData.geometry = T5.Geo.P.generalize(routeData.geometry, routeData.getInstructionPositions());
+                        routeData.geometry = T5.Geo.Position.generalize(routeData.geometry, routeData.getInstructionPositions());
                     } // if
                     
                     // firstly, if we have a map defined, then let's place the route on the map
@@ -165,7 +165,7 @@ T5.Geo.Routing = (function() {
         
         */
         Instruction: function(params) {
-            params = T5.ex({
+            params = COG.extend({
                 position: null,
                 description: "",
                 distance: 0,
@@ -192,7 +192,7 @@ T5.Geo.Routing = (function() {
         
         */
         RouteData: function(params) {
-            params = T5.ex({
+            params = COG.extend({
                 geometry: [],
                 instructions: [],
                 boundingBox: null
@@ -200,10 +200,10 @@ T5.Geo.Routing = (function() {
             
             // update the bounding box
             if (! params.boundingBox) {
-                params.boundingBox = T5.Geo.B.forPositions(params.geometry);
+                params.boundingBox = T5.Geo.BoundingBox.forPositions(params.geometry);
             } // if
             
-            var self = T5.ex({
+            var self = COG.extend({
                 getInstructionPositions: function() {
                     var positions = [];
                         
@@ -223,4 +223,3 @@ T5.Geo.Routing = (function() {
     
     return module;
 })();
-

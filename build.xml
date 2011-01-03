@@ -107,6 +107,9 @@ http://github.com/jquery/jquery/blob/master/build.xml
 			<fileset file="src/js/timelord.js" />
 			<fileset file="src/js/zoomable.js" />
 			
+			<!-- include interaction -->
+			<fileset file="src/js/interact/core.js" />
+			
 			<!-- include the animation functionality -->
 			<fileset file="src/js/animation/easing.js" />
 			<fileset file="src/js/animation/tween.js" />
