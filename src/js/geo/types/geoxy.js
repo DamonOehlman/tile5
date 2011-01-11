@@ -63,7 +63,7 @@ var GeoXY = exports.GeoXY = (function() {
             xy.rpp = rpp;
         }
         else {
-            COG.Log.warn('Attempted to sync an XY composite, not a GeoXY');
+            COG.warn('Attempted to sync an XY composite, not a GeoXY');
         } // if..else
 
         return xy;
@@ -106,7 +106,7 @@ __deprecated__
 please use the T5.Geo.GeoXY instead
 */
 exports.GeoVector = function(position) {
-    COG.Log.warn('The T5.Geo.GeoVector class has been deprecated, please use T5.GeoXY.init instead');
+    COG.warn('The T5.Geo.GeoVector class has been deprecated, please use T5.GeoXY.init instead');
 
     return GeoXY.init(position);
 }; // Vector

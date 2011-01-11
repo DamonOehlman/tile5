@@ -48,7 +48,7 @@ var PathLayer = function(params) {
                 id: layerId,
                 path: coordinates,
                 zindex: params.zindex + 1,
-                easing: easingFn ? easingFn : easing('sine.inout'),
+                easing: easingFn ? easingFn : COG.easing('sine.inout'),
                 duration: duration ? duration : 5000,
                 drawIndicator: drawCallback,
                 autoCenter: autoCenter ? autoCenter : false

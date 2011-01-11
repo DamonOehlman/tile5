@@ -237,7 +237,7 @@ var GeoJSONParser = function(data, callback, options, builders) {
             return;
         }
         
-        // COG.Log.info('processing data, featureIndex = ' + featureIndex + ', total features = ' + totalFeatures);
+        // COG.info('processing data, featureIndex = ' + featureIndex + ', total features = ' + totalFeatures);
         for (; ii < totalFeatures; ii++) {
             // get the feature data
             // if a row preparser is defined, then use that

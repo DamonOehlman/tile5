@@ -112,18 +112,18 @@ var Map = exports.Map = function(params) {
                 panToPosition(
                     currentPos, 
                     null, 
-                    easing('sine.out'));
+                    COG.easing('sine.out'));
             } // if..else
 
             initialTrackingUpdate = false;
         }
         catch (e) {
-            COG.Log.exception(e);
+            COG.exception(e);
         }
     } // trackingUpdate
     
     function trackingError(error) {
-        COG.Log.info('caught location tracking error:', error);
+        COG.info('caught location tracking error:', error);
     } // trackingError
     
     /* event handlers */
@@ -168,7 +168,7 @@ var Map = exports.Map = function(params) {
 
             // find the pois in the bounds area
             // tappedPOIs = self.pois.findByBounds(tapBounds);
-            // COG.Log.info('TAPPED POIS = ', tappedPOIs);
+            // COG.info('TAPPED POIS = ', tappedPOIs);
             
             self.trigger('geotap', absXY, relXY, tapPos, tapBounds);
             // self.trigger('tapPOI', tappedPOIs);
@@ -177,9 +177,9 @@ var Map = exports.Map = function(params) {
     } // handleTap
     
     function handleIdle(evt) {
-        var changeDelta = XY.absSize(XY.diff(
-                lastBoundsChangeOffset, self.getOffset()));
+        var changeDelta = XY.absSize(XY.diff(lastBoundsChangeOffset, self.getOffset()));
                 
+        COG.info('idle detected, change delta = ' + changeDelta);
         if (changeDelta > params.boundsChangeThreshold) {
             lastBoundsChangeOffset = XY.copy(self.getOffset());
             self.trigger("boundsChange", self.getBoundingBox());
@@ -226,7 +226,7 @@ var Map = exports.Map = function(params) {
     function getCenterPosition() {
         var rect = self.getViewRect();
         if (rect) {
-            var xy = XY.init(rect.x1 + rect.width / 2, rect.y1 + rect.height / 2);
+            var xy = XY.init(rect.x1 + (rect.width >> 1), rect.y1 + (rect.height >> 1));
             return GeoXY.toPos(xy, radsPerPixel);
         } // if
         
@@ -261,7 +261,7 @@ var Map = exports.Map = function(params) {
     the position of the map has been updated.
     */
     function gotoPosition(position, newZoomLevel, callback) {
-        // COG.Log.info('position updated to: ', position);
+        // COG.info('position updated to: ', position);
         
         // update the zoom level
         self.setZoomLevel(newZoomLevel);
@@ -270,7 +270,7 @@ var Map = exports.Map = function(params) {
         Images.cancelLoad();
         
         // cancel any animations
-        cancelAnimation();
+        COG.endTweens();
         
         // pan to Position
         panToPosition(position, callback);
@@ -291,10 +291,10 @@ var Map = exports.Map = function(params) {
         var centerXY = GeoXY.init(position, Geo.radsPerPixel(self.getZoomLevel())),
             dimensions = self.getDimensions();
             
-        // COG.Log.info('panning to center xy: ', centerXY);
+        // COG.info('panning to center xy: ', centerXY);
         self.updateOffset(
-            centerXY.x - dimensions.width / 2, 
-            centerXY.y - dimensions.height / 2, 
+            centerXY.x - (dimensions.width >> 1), 
+            centerXY.y - (dimensions.height >> 1), 
             easingFn, 
             easingDuration, 
             callback);
@@ -426,7 +426,7 @@ var Map = exports.Map = function(params) {
     // self.markers.bind('markerUpdate', handleMarkerUpdate);
     
     // listen for the view idling
-    self.bind("idle", handleIdle);
+    self.bind('idle', handleIdle);
     
     // list for zoom level changes
     zoomable(self, params);

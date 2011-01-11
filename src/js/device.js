@@ -37,7 +37,7 @@ function messageToUrl(message, args) {
     
 function bridgeNotifyLog(message, args) {
     if (shouldBridgeMessage(message)) {
-        COG.Log.info("would push url: " + messageToUrl(message, args));
+        COG.info("would push url: " + messageToUrl(message, args));
     } // if
 } // bridgeCommandEmpty
 
@@ -179,7 +179,7 @@ function getConfig() {
     
     // if the device configuration hasn't already been detected do that now
     if (! detectedConfig) {
-        COG.Log.info("ATTEMPTING TO DETECT PLATFORM: UserAgent = " + navigator.userAgent);
+        COG.info("ATTEMPTING TO DETECT PLATFORM: UserAgent = " + navigator.userAgent);
 
         // iterate through the platforms and run detection on the platform
         for (var ii = 0; ii < deviceCheckOrder.length; ii++) {
@@ -187,17 +187,17 @@ function getConfig() {
 
             if (testPlatform.regex && testPlatform.regex.test(navigator.userAgent)) {
                 detectedConfig = COG.extend({}, deviceConfigs.base, testPlatform);
-                COG.Log.info("PLATFORM DETECTED AS: " + detectedConfig.name);
+                COG.info("PLATFORM DETECTED AS: " + detectedConfig.name);
                 break;
             } // if
         } // for
 
         if (! detectedConfig) {
-            COG.Log.warn("UNABLE TO DETECT PLATFORM, REVERTING TO BASE CONFIGURATION");
+            COG.warn("UNABLE TO DETECT PLATFORM, REVERTING TO BASE CONFIGURATION");
             detectedConfig = deviceConfigs.base;
         }
         
-        COG.Log.info("CURRENT DEVICE PIXEL RATIO = " + window.devicePixelRatio);
+        COG.info("CURRENT DEVICE PIXEL RATIO = " + window.devicePixelRatio);
     } // if
     
     return detectedConfig;        

@@ -74,7 +74,7 @@ T5.Geo.OSM = (function() {
                     tileX,
                     flipY ? Math.abs(tileY - maxTileY + 1) : tileY);
 
-            // COG.Log.info('getting url for tile x = ' + tileX + ', y = ' + tileY);
+            // COG.info('getting url for tile x = ' + tileX + ', y = ' + tileY);
             if (serverDetails) {
                 tileUrl = (subDomains.length ? 
                     COG.formatStr(serverDetails.baseUrl, subDomains[tileX % subDomains.length]) :

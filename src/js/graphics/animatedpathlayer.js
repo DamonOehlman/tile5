@@ -19,7 +19,7 @@ be used as anchor points in the animation.
 pathAni1 and then automatically increment each time a new AnimatedPathLayer is created unless the id is 
 manually specified in the constructor parameters.
 
-- `easing` (easing function, default = T5.easing('sine.inout')) - the easing function to use for the animation
+- `easing` (easing function, default = COG.easing('sine.inout')) - the easing function to use for the animation
 
 - `drawIndicator` (callback, default = defaultDraw) - A callback function that is called every time the indicator for 
 the animation needs to be drawn.  If the parameter is not specified in the constructor the default callback 
@@ -45,7 +45,7 @@ var AnimatedPathLayer = function(params) {
     params = COG.extend({
         path: [],
         id: COG.objId('pathAni'),
-        easing: easing('sine.inout'),
+        easing: COG.easing('sine.inout'),
         validStates: viewState('ACTIVE', 'PAN', 'ZOOM'),
         drawIndicator: null,
         duration: 2000
@@ -75,7 +75,7 @@ var AnimatedPathLayer = function(params) {
     } // drawDefaultIndicator
     
     // calculate the tween
-    tween = tweenValue(
+    tween = COG.tweenValue(
         0, 
         edgeData.total, 
         params.easing, 

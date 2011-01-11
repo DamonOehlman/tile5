@@ -11,425 +11,50 @@
 
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true */
 
-/*
-    http://www.JSON.org/json2.js
-    2010-03-20
-
-    Public Domain.
-
-    NO WARRANTY EXPRESSED OR IMPLIED. USE AT YOUR OWN RISK.
-
-    See http://www.JSON.org/js.html
-
-
-    This code should be minified before deployment.
-    See http://javascript.crockford.com/jsmin.html
-
-    USE YOUR OWN COPY. IT IS EXTREMELY UNWISE TO LOAD CODE FROM SERVERS YOU DO
-    NOT CONTROL.
-
-
-    This file creates a global JSON object containing two methods: stringify
-    and parse.
-
-        JSON.stringify(value, replacer, space)
-            value       any JavaScript value, usually an object or array.
-
-            replacer    an optional parameter that determines how object
-                        values are stringified for objects. It can be a
-                        function or an array of strings.
-
-            space       an optional parameter that specifies the indentation
-                        of nested structures. If it is omitted, the text will
-                        be packed without extra whitespace. If it is a number,
-                        it will specify the number of spaces to indent at each
-                        level. If it is a string (such as '\t' or '&nbsp;'),
-                        it contains the characters used to indent at each level.
-
-            This method produces a JSON text from a JavaScript value.
-
-            When an object value is found, if the object contains a toJSON
-            method, its toJSON method will be called and the result will be
-            stringified. A toJSON method does not serialize: it returns the
-            value represented by the name/value pair that should be serialized,
-            or undefined if nothing should be serialized. The toJSON method
-            will be passed the key associated with the value, and this will be
-            bound to the value
-
-            For example, this would serialize Dates as ISO strings.
-
-                Date.prototype.toJSON = function (key) {
-                    function f(n) {
-                        return n < 10 ? '0' + n : n;
-                    }
-
-                    return this.getUTCFullYear()   + '-' +
-                         f(this.getUTCMonth() + 1) + '-' +
-                         f(this.getUTCDate())      + 'T' +
-                         f(this.getUTCHours())     + ':' +
-                         f(this.getUTCMinutes())   + ':' +
-                         f(this.getUTCSeconds())   + 'Z';
-                };
-
-            You can provide an optional replacer method. It will be passed the
-            key and value of each member, with this bound to the containing
-            object. The value that is returned from your method will be
-            serialized. If your method returns undefined, then the member will
-            be excluded from the serialization.
-
-            If the replacer parameter is an array of strings, then it will be
-            used to select the members to be serialized. It filters the results
-            such that only members with keys listed in the replacer array are
-            stringified.
-
-            Values that do not have JSON representations, such as undefined or
-            functions, will not be serialized. Such values in objects will be
-            dropped; in arrays they will be replaced with null. You can use
-            a replacer function to replace those with JSON values.
-            JSON.stringify(undefined) returns undefined.
-
-            The optional space parameter produces a stringification of the
-            value that is filled with line breaks and indentation to make it
-            easier to read.
-
-            If the space parameter is a non-empty string, then that string will
-            be used for indentation. If the space parameter is a number, then
-            the indentation will be that many spaces.
-
-            Example:
-
-            text = JSON.stringify(['e', {pluribus: 'unum'}]);
-
-
-            text = JSON.stringify(['e', {pluribus: 'unum'}], null, '\t');
-
-            text = JSON.stringify([new Date()], function (key, value) {
-                return this[key] instanceof Date ?
-                    'Date(' + this[key] + ')' : value;
-            });
-
-
-        JSON.parse(text, reviver)
-            This method parses a JSON text to produce an object or array.
-            It can throw a SyntaxError exception.
-
-            The optional reviver parameter is a function that can filter and
-            transform the results. It receives each of the keys and values,
-            and its return value is used instead of the original value.
-            If it returns what it received, then the structure is not modified.
-            If it returns undefined then the member is deleted.
-
-            Example:
-
-
-            myData = JSON.parse(text, function (key, value) {
-                var a;
-                if (typeof value === 'string') {
-                    a =
-/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*)?)Z$/.exec(value);
-                    if (a) {
-                        return new Date(Date.UTC(+a[1], +a[2] - 1, +a[3], +a[4],
-                            +a[5], +a[6]));
-                    }
-                }
-                return value;
-            });
-
-            myData = JSON.parse('["Date(09/09/2001)"]', function (key, value) {
-                var d;
-                if (typeof value === 'string' &&
-                        value.slice(0, 5) === 'Date(' &&
-                        value.slice(-1) === ')') {
-                    d = new Date(value.slice(5, -1));
-                    if (d) {
-                        return d;
-                    }
-                }
-                return value;
-            });
-
-
-    This is a reference implementation. You are free to copy, modify, or
-    redistribute.
-*/
-
-/*jslint evil: true, strict: false */
-
-/*members "", "\b", "\t", "\n", "\f", "\r", "\"", JSON, "\\", apply,
-    call, charCodeAt, getUTCDate, getUTCFullYear, getUTCHours,
-    getUTCMinutes, getUTCMonth, getUTCSeconds, hasOwnProperty, join,
-    lastIndex, length, parse, prototype, push, replace, slice, stringify,
-    test, toJSON, toString, valueOf
-*/
-
-
-
-if (!this.JSON) {
-    this.JSON = {};
-}
-
-(function () {
-
-    function f(n) {
-        return n < 10 ? '0' + n : n;
-    }
-
-    if (typeof Date.prototype.toJSON !== 'function') {
-
-        Date.prototype.toJSON = function (key) {
-
-            return isFinite(this.valueOf()) ?
-                   this.getUTCFullYear()   + '-' +
-                 f(this.getUTCMonth() + 1) + '-' +
-                 f(this.getUTCDate())      + 'T' +
-                 f(this.getUTCHours())     + ':' +
-                 f(this.getUTCMinutes())   + ':' +
-                 f(this.getUTCSeconds())   + 'Z' : null;
-        };
-
-        String.prototype.toJSON =
-        Number.prototype.toJSON =
-        Boolean.prototype.toJSON = function (key) {
-            return this.valueOf();
-        };
-    }
-
-    var cx = /[\u0000\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
-        escapable = /[\\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
-        gap,
-        indent,
-        meta = {    // table of character substitutions
-            '\b': '\\b',
-            '\t': '\\t',
-            '\n': '\\n',
-            '\f': '\\f',
-            '\r': '\\r',
-            '"' : '\\"',
-            '\\': '\\\\'
-        },
-        rep;
-
-
-    function quote(string) {
-
-
-        escapable.lastIndex = 0;
-        return escapable.test(string) ?
-            '"' + string.replace(escapable, function (a) {
-                var c = meta[a];
-                return typeof c === 'string' ? c :
-                    '\\u' + ('0000' + a.charCodeAt(0).toString(16)).slice(-4);
-            }) + '"' :
-            '"' + string + '"';
-    }
-
-
-    function str(key, holder) {
-
-
-        var i,          // The loop counter.
-            k,          // The member key.
-            v,          // The member value.
-            length,
-            mind = gap,
-            partial,
-            value = holder[key];
-
-
-        if (value && typeof value === 'object' &&
-                typeof value.toJSON === 'function') {
-            value = value.toJSON(key);
-        }
-
-
-        if (typeof rep === 'function') {
-            value = rep.call(holder, key, value);
-        }
-
-
-        switch (typeof value) {
-        case 'string':
-            return quote(value);
-
-        case 'number':
-
-
-            return isFinite(value) ? String(value) : 'null';
-
-        case 'boolean':
-        case 'null':
-
-
-            return String(value);
-
-
-        case 'object':
-
-
-            if (!value) {
-                return 'null';
-            }
-
-
-            gap += indent;
-            partial = [];
-
-
-            if (Object.prototype.toString.apply(value) === '[object Array]') {
-
-
-                length = value.length;
-                for (i = 0; i < length; i += 1) {
-                    partial[i] = str(i, value) || 'null';
-                }
-
-
-                v = partial.length === 0 ? '[]' :
-                    gap ? '[\n' + gap +
-                            partial.join(',\n' + gap) + '\n' +
-                                mind + ']' :
-                          '[' + partial.join(',') + ']';
-                gap = mind;
-                return v;
-            }
-
-
-            if (rep && typeof rep === 'object') {
-                length = rep.length;
-                for (i = 0; i < length; i += 1) {
-                    k = rep[i];
-                    if (typeof k === 'string') {
-                        v = str(k, value);
-                        if (v) {
-                            partial.push(quote(k) + (gap ? ': ' : ':') + v);
-                        }
-                    }
-                }
-            } else {
-
-
-                for (k in value) {
-                    if (Object.hasOwnProperty.call(value, k)) {
-                        v = str(k, value);
-                        if (v) {
-                            partial.push(quote(k) + (gap ? ': ' : ':') + v);
-                        }
-                    }
-                }
-            }
-
-
-            v = partial.length === 0 ? '{}' :
-                gap ? '{\n' + gap + partial.join(',\n' + gap) + '\n' +
-                        mind + '}' : '{' + partial.join(',') + '}';
-            gap = mind;
-            return v;
-        }
-    }
-
-
-    if (typeof JSON.stringify !== 'function') {
-        JSON.stringify = function (value, replacer, space) {
-
-
-            var i;
-            gap = '';
-            indent = '';
-
-
-            if (typeof space === 'number') {
-                for (i = 0; i < space; i += 1) {
-                    indent += ' ';
-                }
-
-
-            } else if (typeof space === 'string') {
-                indent = space;
-            }
-
-
-            rep = replacer;
-            if (replacer && typeof replacer !== 'function' &&
-                    (typeof replacer !== 'object' ||
-                     typeof replacer.length !== 'number')) {
-                throw new Error('JSON.stringify');
-            }
-
-
-            return str('', {'': value});
-        };
-    }
-
-
-
-    if (typeof JSON.parse !== 'function') {
-        JSON.parse = function (text, reviver) {
-
-
-            var j;
-
-            function walk(holder, key) {
-
-
-                var k, v, value = holder[key];
-                if (value && typeof value === 'object') {
-                    for (k in value) {
-                        if (Object.hasOwnProperty.call(value, k)) {
-                            v = walk(value, k);
-                            if (v !== undefined) {
-                                value[k] = v;
-                            } else {
-                                delete value[k];
-                            }
-                        }
-                    }
-                }
-                return reviver.call(holder, key, value);
-            }
-
-
-
-            text = String(text);
-            cx.lastIndex = 0;
-            if (cx.test(text)) {
-                text = text.replace(cx, function (a) {
-                    return '\\u' +
-                        ('0000' + a.charCodeAt(0).toString(16)).slice(-4);
-                });
-            }
-
-
-
-            if (/^[\],:{}\s]*$/.
-test(text.replace(/\\(?:["\\\/bfnrt]|u[0-9a-fA-F]{4})/g, '@').
-replace(/"[^"\\\n\r]*"|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?/g, ']').
-replace(/(?:^|:|,)(?:\s*\[)+/g, ''))) {
-
-
-                j = eval('(' + text + ')');
-
-
-                return typeof reviver === 'function' ?
-                    walk({'': j}, '') : j;
-            }
-
-
-            throw new SyntaxError('JSON.parse');
-        };
-    }
-}());
-
+/*!
+ * Sidelab COG Javascript Library v0.2.0
+ * http://www.sidelab.com/
+ *
+ * Copyright 2011, Damon Oehlman <damon.oehlman@sidelab.com>
+ * Licensed under the MIT licence
+ * https://github.com/sidelab/cog
+ *
+ */
+
+COG = typeof COG !== 'undefined' ? COG : {};
 
 /**
-# COG
-
-## Module Functions
+# COG.extend
 */
-COG = (function() {
+COG.extend = function() {
+    var target = arguments[0] || {},
+        source;
+
+    for (var ii = 1, argCount = arguments.length; ii < argCount; ii++) {
+        if ((source = arguments[ii]) !== null) {
+            for (var name in source) {
+                var copy = source[name];
+
+                if (target === copy) {
+                    continue;
+                } // if
+
+                if (copy !== undefined) {
+                    target[name] = copy;
+                } // if
+            } // for
+        } // if
+    } // for
+
+    return target;
+}; // extend
+
+(function() {
     var REGEX_TEMPLATE_VAR = /\$\{(.*?)\}/ig;
 
     var hasOwn = Object.prototype.hasOwnProperty,
-        objectCounter = 0;
+        objectCounter = 0,
+        extend = COG.extend;
 
     /* exports */
 
@@ -443,194 +68,6 @@ COG = (function() {
             return (prefix ? prefix : "obj") + objectCounter++;
         };
 
-var Log = exports.Log = (function() {
-    var listeners = [];
-    var jsonAvailable = (typeof JSON !== 'undefined'),
-        traceAvailable = window.console && window.console.markTimeline;
-
-    function writeEntry(level, entryDetails) {
-        var ii;
-        var message = entryDetails && (entryDetails.length > 0) ? entryDetails[0] : "";
-
-        for (ii = 1; entryDetails && (ii < entryDetails.length); ii++) {
-            message += " " + (jsonAvailable && isPlainObject(entryDetails[ii]) ? JSON.stringify(entryDetails[ii]) : entryDetails[ii]);
-        } // for
-
-        if (typeof console !== 'undefined') {
-            console[level](message);
-        } // if
-
-        for (ii = 0; ii < listeners.length; ii++) {
-            listeners[ii].call(module, message, level);
-        } // for
-    } // writeEntry
-
-    var module = {
-        /* logging functions */
-
-        getTraceTicks: function() {
-            return traceAvailable ? new Date().getTime() : null;
-        },
-
-        trace: function(message, startTicks) {
-            if (traceAvailable) {
-                console.markTimeline(message + (startTicks ? ": " + (module.getTraceTicks() - startTicks) + "ms" : ""));
-            } // if
-        },
-
-        debug: function(message) {
-            writeEntry("debug", arguments);
-        },
-
-        info: function(message) {
-            writeEntry("info", arguments);
-        },
-
-        warn: function(message) {
-            writeEntry("warn", arguments);
-        },
-
-        error: function(message) {
-            writeEntry("error", arguments);
-        },
-
-        exception: function(error) {
-            module.error(arguments);
-
-            for (var keyname in error) {
-                module.info("ERROR DETAIL: " + keyname + ": " + error[keyname]);
-            } // for
-        },
-
-        /* error monitoring, exception raising functions */
-
-        watch: function(sectionDesc, callback) {
-            try {
-                callback();
-            }
-            catch (e) {
-                module.exception(e, sectionDesc);
-            } // try..catch
-        },
-
-        throwError: function(errorMsg) {
-            module.error(errorMsg);
-            throw new Error(errorMsg);
-        },
-
-        /* event handler functions */
-
-        requestUpdates: function(callback) {
-            listeners.push(callback);
-        }
-    };
-
-    return module;
-})();
-
-
-/**
-### contains(obj, members)
-This function is used to determine whether an object contains the specified names
-as specified by arguments beyond and including index 1.  For instance, if you wanted
-to check whether object 'foo' contained the member 'name' then you would simply call
-COG.contains(foo, 'name').
-*/
-var contains = exports.contains = function(obj, members) {
-    var fnresult = obj;
-    var memberArray = arguments;
-    var startIndex = 1;
-
-    if (members && module.isArray(members)) {
-        memberArray = members;
-        startIndex = 0;
-    } // if
-
-    for (var ii = startIndex; ii < memberArray; ii++) {
-        fnresult = fnresult && (typeof foo[memberArray[ii]] !== 'undefined');
-    } // for
-
-    return fnresult;
-}; // contains
-
-/**
-### extends(args*)
-*/
-var extend = exports.extend = function() {
-    var target = arguments[0] || {}, i = 1, length = arguments.length, deep = false, options, name, src, copy;
-
-    if ( typeof target === "boolean" ) {
-        deep = target;
-        target = arguments[1] || {};
-        i = 2;
-    }
-
-    if ( typeof target !== "object" && !module.isFunction(target) ) {
-        target = {};
-    }
-
-    if ( length === i ) {
-        target = this;
-        --i;
-    }
-
-    for ( ; i < length; i++ ) {
-        if ( (options = arguments[ i ]) != null ) {
-            for ( name in options ) {
-                src = target[ name ];
-                copy = options[ name ];
-
-                if ( target === copy ) {
-                    continue;
-                }
-
-                if ( deep && copy && ( module.isPlainObject(copy) || module.isArray(copy) ) ) {
-                    var clone = src && ( module.isPlainObject(src) || module.isArray(src) ) ? src
-                        : module.isArray(copy) ? [] : {};
-
-                    target[ name ] = module.extend( deep, clone, copy );
-
-                } else if ( copy !== undefined ) {
-                    target[ name ] = copy;
-                }
-            }
-        }
-    }
-
-    return target;
-}; // extend
-/**
-### formatStr(text, args*)
-*/
-var formatStr = exports.formatStr = function(text) {
-    if ( arguments.length <= 1 )
-    {
-        return text;
-    }
-    var tokenCount = arguments.length - 2;
-    for( var token = 0; token <= tokenCount; token++ )
-    {
-        text = text.replace( new RegExp( "\\{" + token + "\\}", "gi" ),
-                                                arguments[ token + 1 ] );
-    }
-    return text;
-}; // formatStr
-
-var wordExists = exports.wordExists = function(stringToCheck, word) {
-    var testString = "";
-
-    if (word.toString) {
-        word = word.toString();
-    } // if
-
-    for (var ii = 0; ii < word.length; ii++) {
-        testString += (! (/\w/).test(word[ii])) ? "\\" + word[ii] : word[ii];
-    } // for
-
-    var regex = new RegExp("(^|\\s|\\,)" + testString + "(\\,|\\s|$)", "i");
-
-    return regex.test(stringToCheck);
-}; // wordExists
 var isFunction = exports.isFunction = function( obj ) {
     return toString.call(obj) === "[object Function]";
 };
@@ -667,6 +104,120 @@ var isEmptyObject = exports.isEmptyObject = function( obj ) {
 var isXmlDocument = exports.isXmlDocument = function(obj) {
     return toString.call(obj) === "[object Document]";
 };
+/**
+### contains(obj, members)
+This function is used to determine whether an object contains the specified names
+as specified by arguments beyond and including index 1.  For instance, if you wanted
+to check whether object 'foo' contained the member 'name' then you would simply call
+COG.contains(foo, 'name').
+*/
+var contains = exports.contains = function(obj, members) {
+    var fnresult = obj;
+    var memberArray = arguments;
+    var startIndex = 1;
+
+    if (members && module.isArray(members)) {
+        memberArray = members;
+        startIndex = 0;
+    } // if
+
+    for (var ii = startIndex; ii < memberArray; ii++) {
+        fnresult = fnresult && (typeof foo[memberArray[ii]] !== 'undefined');
+    } // for
+
+    return fnresult;
+}; // contains
+/**
+### formatStr(text, args*)
+*/
+var formatStr = exports.formatStr = function(text) {
+    if ( arguments.length <= 1 )
+    {
+        return text;
+    }
+    var tokenCount = arguments.length - 2;
+    for( var token = 0; token <= tokenCount; token++ )
+    {
+        text = text.replace( new RegExp( "\\{" + token + "\\}", "gi" ),
+                                                arguments[ token + 1 ] );
+    }
+    return text;
+}; // formatStr
+
+var wordExists = exports.wordExists = function(stringToCheck, word) {
+    var testString = "";
+
+    if (word.toString) {
+        word = word.toString();
+    } // if
+
+    for (var ii = 0; ii < word.length; ii++) {
+        testString += (! (/\w/).test(word[ii])) ? "\\" + word[ii] : word[ii];
+    } // for
+
+    var regex = new RegExp("(^|\\s|\\,)" + testString + "(\\,|\\s|$)", "i");
+
+    return regex.test(stringToCheck);
+}; // wordExists
+
+    COG.extend(COG, exports);
+})();
+
+
+(function() {
+    var traceAvailable = window.console && window.console.markTimeline,
+        logError = writer('error'),
+        logInfo = writer('info');
+
+    /* internal functions */
+
+    function writer(level) {
+        if (typeof console !== 'undefined') {
+            return function() {
+                console[level](Array.prototype.slice.call(arguments, 0).join(' '));
+
+                return true;
+            };
+        }
+        else {
+            return function() {
+                return false;
+            };
+        } // if..else
+    } // writer
+
+    /* exports */
+
+    var trace = (function() {
+        if (traceAvailable) {
+            return function(message, startTicks) {
+                console.markTimeline(message + (startTicks ? ": " +
+                    (new Date().getTime() - startTicks) + "ms" : ""));
+            };
+        }
+        else {
+            return function() {};
+        } // if..else
+    })();
+
+    COG.extend(COG, {
+        trace: trace,
+        debug: writer('debug'),
+        info: logInfo,
+        warn: writer('warn'),
+        error: logError,
+
+        exception: function(error) {
+            if (logError) {
+                for (var keyname in error) {
+                    logInfo("ERROR DETAIL: " + keyname + ": " + error[keyname]);
+                } // for
+            }
+        }
+
+    });
+})();
+
 
 /**
 # COG.Loopage
@@ -674,7 +225,7 @@ This module implements a control loop that can be used to centralize
 jobs draw loops, animation calculations, partial calculations for COG.Job
 instances, etc.
 */
-var Loopage = exports.Loopage = (function() {
+COG.Loopage = (function() {
     var MIN_SLEEP = 60 * 1000;
 
     var workerCount = 0,
@@ -685,7 +236,7 @@ var Loopage = exports.Loopage = (function() {
         recalcSleepFrequency = true;
 
     function LoopWorker(params) {
-        var self = extend({
+        var self = COG.extend({
             id: workerCount++,
             frequency: 0,
             after: 0,
@@ -706,7 +257,7 @@ var Loopage = exports.Loopage = (function() {
             worker.lastTick = new Date().getTime() + worker.after;
         } // if
 
-        observable(worker);
+        COG.observable(worker);
         worker.bind('complete', function() {
             leaveLoop(worker.id);
         });
@@ -774,179 +325,195 @@ var Loopage = exports.Loopage = (function() {
         loopTimeout = workerCount ? setTimeout(runLoop, sleepFrequency) : 0;
     } // runLoop
 
-    var module = {
+    return {
         join: joinLoop,
         leave: leaveLoop
     };
-
-    return module;
 })();
-function getHandlers(target) {
-    return target.gtObsHandlers;
-} // getHandlers
 
-function getHandlersForName(target, eventName) {
-    var handlers = getHandlers(target);
-    if (! handlers[eventName]) {
-        handlers[eventName] = [];
-    } // if
+(function() {
+    var callbackCounter = 0;
 
-    return handlers[eventName];
-} // getHandlersForName
+    function getHandlers(target) {
+        return target.obsHandlers;
+    } // getHandlers
 
-var observable = exports.observable = function(target) {
-    if (! target) { return; }
-
-    /* initialization code */
-
-    if (! getHandlers(target)) {
-        target.gtObsHandlers = {};
-    } // if
-
-    var attached = target.bind || target.trigger || target.unbind;
-    if (! attached) {
-        target.bind = function(eventName, callback) {
-            var callbackId = objId("callback");
-            getHandlersForName(target, eventName).unshift({
-                fn: callback,
-                id: callbackId
-            });
-
-            return callbackId;
-        }; // bind
-
-        target.trigger = function(eventName) {
-            var eventCallbacks = getHandlersForName(target, eventName),
-                evt = {
-                    cancel: false,
-                    tickCount: new Date().getTime()
-                },
-                eventArgs;
-
-            if (! eventCallbacks) {
-                return null;
-            } // if
-
-            eventArgs = Array.prototype.slice.call(arguments, 1);
-            eventArgs.unshift(evt);
-
-            for (var ii = eventCallbacks.length; ii-- && (! evt.cancel); ) {
-                eventCallbacks[ii].fn.apply(self, eventArgs);
-            } // for
-
-            return evt;
-        }; // trigger
-
-        target.unbind = function(eventName, callbackId) {
-            var eventCallbacks = getHandlersForName(target, eventName);
-            for (var ii = 0; eventCallbacks && (ii < eventCallbacks.length); ii++) {
-                if (eventCallbacks[ii].id === callbackId) {
-                    eventCallbacks.splice(ii, 1);
-                    break;
-                } // if
-            } // for
-
-            return target;
-        }; // unbind
-    } // if
-};
-var configurables = {};
-
-/* internal functions */
-
-function attachHelper(target, helperName) {
-    if (! target[helperName]) {
-        target[helperName] = function(value) {
-            return target.configure(helperName, value);
-        };
-    } // if
-} // attachHelper
-
-function getSettings(target) {
-    return target.gtConfig;
-} // getSettings
-
-function getConfigCallbacks(target) {
-    return target.gtConfigFns;
-} // getConfigGetters
-
-function initSettings(target) {
-    target.gtConfId = objId("configurable");
-    target.gtConfig = {};
-    target.gtConfigFns = [];
-
-    return target.gtConfig;
-} // initSettings
-
-/* define the param tweaker */
-
-var paramTweaker = exports.paramTweaker = function(params, getCallbacks, setCallbacks) {
-    return function(name, value) {
-        if (typeof value !== "undefined") {
-            if (name in params) {
-                params[name] = value;
-            } // if
-
-            if (setCallbacks && (name in setCallbacks)) {
-                setCallbacks[name](name, value);
-            } // if
-        }
-        else {
-            return (getCallbacks && (name in getCallbacks)) ?
-                getCallbacks[name](name) :
-                params[name];
-        } // if..else
-
-        return undefined;
-    };
-}; // paramTweaker
-
-/* define configurable */
-
-var configurable = exports.configurable = function(target, configParams, callback, bindHelpers) {
-    if (! target) { return; }
-
-    if (! target.gtConfId) {
-        initSettings(target);
-    } // if
-
-    var ii,
-        targetId = target.gtConfId,
-        targetSettings = getSettings(target),
-        targetCallbacks = getConfigCallbacks(target);
-
-    configurables[targetId] = target;
-
-    targetCallbacks.push(callback);
-
-    for (ii = configParams.length; ii--; ) {
-        targetSettings[configParams[ii]] = true;
-
-        if (bindHelpers) {
-            attachHelper(target, configParams[ii]);
+    function getHandlersForName(target, eventName) {
+        var handlers = getHandlers(target);
+        if (! handlers[eventName]) {
+            handlers[eventName] = [];
         } // if
-    } // for
 
-    if (! target.configure) {
-        target.configure = function(name, value) {
-            if (targetSettings[name]) {
-                for (var ii = targetCallbacks.length; ii--; ) {
-                    var result = targetCallbacks[ii](name, value);
-                    if (typeof result !== "undefined") {
-                        return result;
-                    } // if
+        return handlers[eventName];
+    } // getHandlersForName
+
+    /**
+    # COG.observable
+    */
+    COG.observable = function(target) {
+        if (! target) { return null; }
+
+        /* initialization code */
+
+        if (! getHandlers(target)) {
+            target.obsHandlers = {};
+        } // if
+
+        var attached = target.bind || target.trigger || target.unbind;
+        if (! attached) {
+            target.bind = function(eventName, callback) {
+                var callbackId = "callback" + (callbackCounter++);
+                getHandlersForName(target, eventName).unshift({
+                    fn: callback,
+                    id: callbackId
+                });
+
+                return callbackId;
+            }; // bind
+
+            target.trigger = function(eventName) {
+                var eventCallbacks = getHandlersForName(target, eventName),
+                    evt = {
+                        cancel: false,
+                        tickCount: new Date().getTime()
+                    },
+                    eventArgs;
+
+                if (! eventCallbacks) {
+                    return null;
+                } // if
+
+                eventArgs = Array.prototype.slice.call(arguments, 1);
+                eventArgs.unshift(evt);
+
+                for (var ii = eventCallbacks.length; ii-- && (! evt.cancel); ) {
+                    eventCallbacks[ii].fn.apply(self, eventArgs);
                 } // for
 
-                return configurables[targetId];
-            } // if
+                return evt;
+            }; // trigger
 
-            return null;
+            target.unbind = function(eventName, callbackId) {
+                if (typeof eventName === 'undefined') {
+                    target.obsHandlers = {};
+                }
+                else {
+                    var eventCallbacks = getHandlersForName(target, eventName);
+                    for (var ii = 0; eventCallbacks && (ii < eventCallbacks.length); ii++) {
+                        if (eventCallbacks[ii].id === callbackId) {
+                            eventCallbacks.splice(ii, 1);
+                            break;
+                        } // if
+                    } // for
+                } // if..else
+
+                return target;
+            }; // unbind
+        } // if
+
+        return target;
+    };
+})();
+
+(function() {
+    var configurables = {},
+        counter = 0;
+
+    /* internal functions */
+
+    function attachHelper(target, helperName) {
+        if (! target[helperName]) {
+            target[helperName] = function(value) {
+                return target.configure(helperName, value);
+            };
+        } // if
+    } // attachHelper
+
+    function getSettings(target) {
+        return target.gtConfig;
+    } // getSettings
+
+    function getConfigCallbacks(target) {
+        return target.gtConfigFns;
+    } // getConfigGetters
+
+    function initSettings(target) {
+        target.gtConfId = 'configurable' + (counter++);
+        target.gtConfig = {};
+        target.gtConfigFns = [];
+
+        return target.gtConfig;
+    } // initSettings
+
+    /* define the param tweaker */
+
+    COG.paramTweaker = function(params, getCallbacks, setCallbacks) {
+        return function(name, value) {
+            if (typeof value !== "undefined") {
+                if (name in params) {
+                    params[name] = value;
+                } // if
+
+                if (setCallbacks && (name in setCallbacks)) {
+                    setCallbacks[name](name, value);
+                } // if
+            }
+            else {
+                return (getCallbacks && (name in getCallbacks)) ?
+                    getCallbacks[name](name) :
+                    params[name];
+            } // if..else
+
+            return undefined;
         };
-    } // if
-};
+    }; // paramTweaker
 
-/** @namespace
+    /* define configurable */
 
+    COG.configurable = function(target, configParams, callback, bindHelpers) {
+        if (! target) { return; }
+
+        if (! target.gtConfId) {
+            initSettings(target);
+        } // if
+
+        var ii,
+            targetId = target.gtConfId,
+            targetSettings = getSettings(target),
+            targetCallbacks = getConfigCallbacks(target);
+
+        configurables[targetId] = target;
+
+        targetCallbacks.push(callback);
+
+        for (ii = configParams.length; ii--; ) {
+            targetSettings[configParams[ii]] = true;
+
+            if (bindHelpers) {
+                attachHelper(target, configParams[ii]);
+            } // if
+        } // for
+
+        if (! target.configure) {
+            target.configure = function(name, value) {
+                if (targetSettings[name]) {
+                    for (var ii = targetCallbacks.length; ii--; ) {
+                        var result = targetCallbacks[ii](name, value);
+                        if (typeof result !== "undefined") {
+                            return result;
+                        } // if
+                    } // for
+
+                    return configurables[targetId];
+                } // if
+
+                return null;
+            };
+        } // if
+    };
+})();
+
+/**
 Lightweight JSONP fetcher - www.nonobstrusive.com
 The JSONP namespace provides a lightweight JSONP implementation.  This code
 is implemented as-is from the code released on www.nonobtrusive.com, as per the
@@ -981,7 +548,7 @@ http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-l
         head.appendChild( script );
     } // load
 
-    exports.jsonp = function(url, callback, callbackParam) {
+    COG.jsonp = function(url, callback, callbackParam) {
         url += url.indexOf("?") >= 0 ? "&" : "?";
 
         var jsonp = "json" + (++counter);
@@ -998,19 +565,991 @@ http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-l
     }; // jsonp
 }());
 
-    return exports;
+(function() {
+    var BACK_S = 1.70158,
+        HALF_PI = Math.PI / 2,
+
+        abs = Math.abs,
+        pow = Math.pow,
+        sin = Math.sin,
+        asin = Math.asin,
+        cos = Math.cos,
+
+        tweens = [],
+        tweenWorker = null,
+        updatingTweens = false;
+
+    /*
+    Easing functions
+
+    sourced from Robert Penner's excellent work:
+    http://www.robertpenner.com/easing/
+
+    Functions follow the function format of fn(t, b, c, d, s) where:
+    - t = time
+    - b = beginning position
+    - c = change
+    - d = duration
+    */
+    var easingFns = {
+        linear: function(t, b, c, d) {
+            return c*t/d + b;
+        },
+
+        /* back easing functions */
+
+        backin: function(t, b, c, d) {
+            return c*(t/=d)*t*((BACK_S+1)*t - BACK_S) + b;
+        },
+
+        backout: function(t, b, c, d) {
+            return c*((t=t/d-1)*t*((BACK_S+1)*t + BACK_S) + 1) + b;
+        },
+
+        backinout: function(t, b, c, d) {
+            return ((t/=d/2)<1) ? c/2*(t*t*(((BACK_S*=(1.525))+1)*t-BACK_S))+b : c/2*((t-=2)*t*(((BACK_S*=(1.525))+1)*t+BACK_S)+2)+b;
+        },
+
+        /* bounce easing functions */
+
+        bouncein: function(t, b, c, d) {
+            return c - easingFns.bounceout(d-t, 0, c, d) + b;
+        },
+
+        bounceout: function(t, b, c, d) {
+            if ((t/=d) < (1/2.75)) {
+                return c*(7.5625*t*t) + b;
+            } else if (t < (2/2.75)) {
+                return c*(7.5625*(t-=(1.5/2.75))*t + 0.75) + b;
+            } else if (t < (2.5/2.75)) {
+                return c*(7.5625*(t-=(2.25/2.75))*t + 0.9375) + b;
+            } else {
+                return c*(7.5625*(t-=(2.625/2.75))*t + 0.984375) + b;
+            }
+        },
+
+        bounceinout: function(t, b, c, d) {
+            if (t < d/2) return easingFns.bouncein(t*2, 0, c, d) / 2 + b;
+            else return easingFns.bounceout(t*2-d, 0, c, d) / 2 + c/2 + b;
+        },
+
+        /* cubic easing functions */
+
+        cubicin: function(t, b, c, d) {
+            return c*(t/=d)*t*t + b;
+        },
+
+        cubicout: function(t, b, c, d) {
+            return c*((t=t/d-1)*t*t + 1) + b;
+        },
+
+        cubicinout: function(t, b, c, d) {
+            if ((t/=d/2) < 1) return c/2*t*t*t + b;
+            return c/2*((t-=2)*t*t + 2) + b;
+        },
+
+        /* elastic easing functions */
+
+        elasticin: function(t, b, c, d, a, p) {
+            var s;
+
+            if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*0.3;
+            if (!a || a < abs(c)) { a=c; s=p/4; }
+            else s = p/TWO_PI * asin (c/a);
+            return -(a*pow(2,10*(t-=1)) * sin( (t*d-s)*TWO_PI/p )) + b;
+        },
+
+        elasticout: function(t, b, c, d, a, p) {
+            var s;
+
+            if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*0.3;
+            if (!a || a < abs(c)) { a=c; s=p/4; }
+            else s = p/TWO_PI * asin (c/a);
+            return (a*pow(2,-10*t) * sin( (t*d-s)*TWO_PI/p ) + c + b);
+        },
+
+        elasticinout: function(t, b, c, d, a, p) {
+            var s;
+
+            if (t==0) return b;  if ((t/=d/2)==2) return b+c;  if (!p) p=d*(0.3*1.5);
+            if (!a || a < abs(c)) { a=c; s=p/4; }
+            else s = p/TWO_PI * asin (c/a);
+            if (t < 1) return -0.5*(a*pow(2,10*(t-=1)) * sin( (t*d-s)*TWO_PI/p )) + b;
+            return a*pow(2,-10*(t-=1)) * sin( (t*d-s)*TWO_PI/p )*0.5 + c + b;
+        },
+
+        /* quad easing */
+
+        quadin: function(t, b, c, d) {
+            return c*(t/=d)*t + b;
+        },
+
+        quadout: function(t, b, c, d) {
+            return -c *(t/=d)*(t-2) + b;
+        },
+
+        quadinout: function(t, b, c, d) {
+            if ((t/=d/2) < 1) return c/2*t*t + b;
+            return -c/2 * ((--t)*(t-2) - 1) + b;
+        },
+
+        /* sine easing */
+
+        sinein: function(t, b, c, d) {
+            return -c * cos(t/d * HALF_PI) + c + b;
+        },
+
+        sineout: function(t, b, c, d) {
+            return c * sin(t/d * HALF_PI) + b;
+        },
+
+        sineinout: function(t, b, c, d) {
+            return -c/2 * (cos(Math.PI*t/d) - 1) + b;
+        }
+    };
+
+    /* define the Tween class */
+
+    /**
+    # COG.Tween
+    */
+    var Tween = COG.Tween = function(params) {
+        params = COG.extend({
+            target: null,
+            property: null,
+            startValue: 0,
+            endValue: null,
+            duration: 2000,
+            tweenFn: easing('sine.out'),
+            complete: null
+        }, params);
+
+        var startTicks = new Date().getTime(),
+            updateListeners = [],
+            complete = false,
+            beginningValue = 0.0,
+            change = 0;
+
+        function notifyListeners(updatedValue, complete) {
+            for (var ii = updateListeners.length; ii--; ) {
+                updateListeners[ii](updatedValue, complete);
+            } // for
+        } // notifyListeners
+
+        var self = {
+            isComplete: function() {
+                return complete;
+            },
+
+            triggerComplete: function(cancelled) {
+                if (params.complete) {
+                    params.complete(cancelled);
+                } // if
+            },
+
+            update: function(tickCount) {
+                try {
+                    var elapsed = tickCount - startTicks,
+                        updatedValue = params.tweenFn(
+                                            elapsed,
+                                            beginningValue,
+                                            change,
+                                            params.duration);
+
+                    if (params.target) {
+                        params.target[params.property] = updatedValue;
+                    } // if
+
+                    notifyListeners(updatedValue);
+
+                    complete = startTicks + params.duration <= tickCount;
+                    if (complete) {
+                        if (params.target) {
+                            params.target[params.property] = params.tweenFn(params.duration, beginningValue, change, params.duration);
+                        } // if
+
+                        notifyListeners(updatedValue, true);
+                    } // if
+                }
+                catch (e) {
+                    COG.exception(e);
+                } // try..catch
+            },
+
+            requestUpdates: function(callback) {
+                updateListeners.push(callback);
+            }
+        };
+
+        beginningValue =
+            (params.target && params.property && params.target[params.property]) ? params.target[params.property] : params.startValue;
+
+        if (typeof params.endValue !== 'undefined') {
+            change = (params.endValue - beginningValue);
+        } // if
+
+        if (change == 0) {
+            complete = true;
+        } // if..else
+
+        wakeTweens();
+
+        return self;
+    };
+
+    /* animation internals */
+
+    function simpleTypeName(typeName) {
+        return typeName.replace(/[\-\_\s\.]/g, '').toLowerCase();
+    } // simpleTypeName
+
+    function updateTweens(tickCount, worker) {
+        if (updatingTweens) { return tweens.length; }
+
+        updatingTweens = true;
+        try {
+            var ii = 0;
+            while (ii < tweens.length) {
+                if (tweens[ii].isComplete()) {
+                    tweens[ii].triggerComplete(false);
+                    tweens.splice(ii, 1);
+                }
+                else {
+                    tweens[ii].update(tickCount);
+                    ii++;
+                } // if..else
+            } // while
+        }
+        finally {
+            updatingTweens = false;
+        } // try..finally
+
+        if (tweens.length === 0) {
+            tweenWorker.trigger('complete');
+        } // if
+
+        return tweens.length;
+    } // update
+
+    function wakeTweens() {
+        if (tweenWorker) { return; }
+
+        tweenWorker = COG.Loopage.join({
+            execute: updateTweens,
+            frequency: 20
+        });
+
+        tweenWorker.bind('complete', function(evt) {
+            tweenWorker = null;
+        });
+    } // wakeTweens
+
+    /* tween exports */
+
+    /**
+    # COG.tweenValue
+    */
+    COG.tweenValue = function(startValue, endValue, fn, callback, duration) {
+        var fnresult = new Tween({
+            startValue: startValue,
+            endValue: endValue,
+            tweenFn: fn,
+            complete: callback,
+            duration: duration
+        });
+
+        tweens.push(fnresult);
+        return fnresult;
+    }; // T5.tweenValue
+
+
+
+    /*
+    # T5.tween
+    */
+    COG.tween = function(target, property, targetValue, fn, callback, duration) {
+        var fnresult = new Tween({
+            target: target,
+            property: property,
+            endValue: targetValue,
+            tweenFn: fn,
+            duration: duration,
+            complete: callback
+        });
+
+        tweens.push(fnresult);
+        return fnresult;
+    }; // T5.tween
+
+    /**
+    # COG.endTweens
+    */
+    COG.endTweens = function(checkCallback) {
+        if (updatingTweens) { return ; }
+
+        updatingTweens = true;
+        try {
+            var ii = 0;
+
+            while (ii < tweens.length) {
+                if ((! checkCallback) || checkCallback(tweens[ii])) {
+                    tweens[ii].triggerComplete(true);
+                    tweens.splice(ii, 1);
+                }
+                else {
+                    ii++;
+                } // if..else
+            } // for
+        }
+        finally {
+            updatingTweens = false;
+        } // try..finally
+    };
+
+    /**
+    # COG.getTweens
+    */
+    COG.getTweens = function() {
+        return [].concat(tweens);
+    };
+
+    /**
+    # COG.easing
+    */
+    var easing = COG.easing = function(typeName) {
+        return easingFns[simpleTypeName(typeName)];
+    }; // easing
+
+    /**
+    # COG.registerEasingType
+    */
+    COG.registerEasingType = function(typeName, callback) {
+        easingFns[simpleTypeName(typeName)] = callback;
+    }; // registerEasingType
 })();
 
+/**
+# INTERACT
+*/
+INTERACT = (function() {
+    var interactors = [];
+
+var EventMonitor = function(target, handlers, params) {
+    params = COG.extend({
+        binder: null,
+        unbinder: null,
+        observable: null
+    }, params);
+
+    var observable = params.observable,
+        handlerInstances = [];
+
+
+    /* internals */
+
+    function handlePanMove(evt, absXY, relXY, deltaXY) {
+        observable.trigger('pan', deltaXY.x, deltaXY.y);
+    } // handlePanMove
+
+    /* exports */
+
+    function bind() {
+        return observable.bind.apply(null, arguments);
+    } // bind
+
+    function pannable(opts) {
+        opts = COG.extend({
+            inertia: true
+        }, opts);
+
+        observable.bind('pointerMove', handlePanMove);
+
+        return self;
+    } // pannable
+
+    function unbind() {
+        observable.unbind();
+
+        for (var ii = 0; ii < handlerInstances.length; ii++) {
+            handlerInstances[ii].unbind();
+        } // for
+
+        return self;
+    } // unbind
+
+    /* define the object */
+
+    var self = {
+        bind: bind,
+        pannable: pannable,
+        unbind: unbind
+    };
+
+    for (var ii = 0; ii < handlers.length; ii++) {
+        handlerInstances.push(handlers[ii](target, observable, params));
+    } // for
+
+    return self;
+};
+
+    /* internal functions */
+
+    function genBinder(useBody) {
+        return function(evtName, callback, customTarget) {
+            var target = customTarget ? customTarget : (useBody ? document.body : document);
+
+            target.addEventListener(evtName, callback, false);
+        };
+    } // bindDoc
+
+    function genUnbinder(useBody) {
+        return function(evtName, callback, customTarget) {
+            var target = customTarget ? customTarget : (useBody ? document.body : document);
+
+            target.removeEventListener(evtName, callback, false);
+        };
+    } // unbindDoc
+
+    function getHandlers(types, capabilities) {
+        var handlers = [];
+
+        for (var ii = interactors.length; ii--; ) {
+            var interactor = interactors[ii],
+                selected = (! types) || (types.indexOf(interactor.type) >= 0),
+                checksPass = true;
+
+            for (var checkKey in interactor.checks) {
+                var check = interactor.checks[checkKey];
+                COG.info('checking ' + checkKey + ' capability. require: ' + check + ', capability = ' + capabilities[checkKey]);
+
+                checksPass = checksPass && (check === capabilities[checkKey]);
+            } // for
+
+            if (selected && checksPass) {
+                handlers[handlers.length] = interactor.handler;
+            } // if
+        } // for
+
+        return handlers;
+    } // getHandlers
+
+    function ieBind(evtName, callback, customTarget) {
+        (customTarget ? customTarget : document).attachEvent('on' + evtName, callback);
+    } // ieBind
+
+    function ieUnbind(evtName, callback, customTarget) {
+        (customTarget ? customTarget : document).detachEvent('on' + evtName, callback);
+    } // ieUnbind
+
+    function point(x, y) {
+        return {
+            x: x ? x : 0,
+            y: y ? y : 0
+        };
+    } // point
+
+    /* exports */
+
+    function register(typeName, opts) {
+        interactors.push(COG.extend({
+            handler: null,
+            checks: {},
+            type: typeName
+        }, opts));
+    } // register
+
+    /**
+    ### watch(target, opts, caps)
+    */
+    function watch(target, opts, caps) {
+        opts = COG.extend({
+            bindToBody: false,
+            observable: null,
+            isIE: false,
+            types: null
+        }, opts);
+
+        capabilities = COG.extend({
+            touch: 'ontouchstart' in window
+        }, caps);
+
+        if (! opts.observable) {
+            COG.info('creating observable');
+            opts.observable = COG.observable({});
+            globalOpts = opts;
+        } // if
+
+        opts.binder = opts.isIE ? ieBind : genBinder(opts.bindToBody);
+        opts.unbinder = opts.isIE ? ieUnbind : genUnbinder(opts.bindToBody);
+
+        return new EventMonitor(target, getHandlers(opts.types, capabilities), opts);
+    } // watch
+
+/* common pointer (mouse, touch, etc) functions */
+
+function getOffset(obj) {
+    var calcLeft = 0,
+        calcTop = 0;
+
+    if (obj.offsetParent) {
+        do {
+            calcLeft += obj.offsetLeft;
+            calcTop += obj.offsetTop;
+
+            obj = obj.offsetParent;
+        } while (obj);
+    } // if
+
+    return {
+        x: calcLeft,
+        y: calcTop
+    };
+} // getOffset
+
+function pointerOffset(absPoint, offset) {
+    return {
+        x: absPoint.x - (offset ? offset.x : 0),
+        y: absPoint.y - (offset ? offset.y : 0)
+    };
+} // triggerPositionEvent
+
+function preventDefault(evt) {
+    if (evt.preventDefault) {
+        evt.preventDefault();
+        evt.stopPropagation();
+    }
+    else if (evt.cancelBubble) {
+        evt.cancelBubble();
+    } // if..else
+} // preventDefault
+var MouseHandler = function(targetElement, observable, opts) {
+    var WHEEL_DELTA_STEP = 120,
+        WHEEL_DELTA_LEVEL = WHEEL_DELTA_STEP * 8;
+
+    var aggressiveCapture = false,
+        buttonDown = false,
+        start,
+        offset,
+        currentX,
+        currentY,
+        lastX,
+        lastY;
+
+    /* internal functions */
+
+    function handleMouseDown(evt) {
+        var targ = evt.target ? evt.target : evt.srcElement;
+
+        if (aggressiveCapture || targ && (targ === targetElement)) {
+            buttonDown = (evt.button === 0);
+            if (buttonDown) {
+                lastX = evt.pageX ? evt.pageX : evt.screenX;
+                lastY = evt.pageY ? evt.pageY : evt.screenY;
+                start = point(lastX, lastY);
+                offset = getOffset(targetElement);
+
+                observable.trigger(
+                    'pointerDown',
+                    start,
+                    pointerOffset(start, offset)
+                );
+            } // if
+        } // if
+    } // mouseDown
+
+    function handleMouseMove(evt) {
+        var targ = evt.target ? evt.target : evt.srcElement;
+
+        currentX = evt.pageX ? evt.pageX : evt.screenX;
+        currentY = evt.pageY ? evt.pageY : evt.screenY;
+
+        if (buttonDown && (aggressiveCapture || targ && (targ === targetElement))) {
+            triggerCurrent('pointerMove');
+        } // if
+    } // mouseMove
+
+    function handleMouseUp(evt) {
+        var targ = evt.target ? evt.target : evt.srcElement;
+
+        if (buttonDown && (evt.button === 0)) {
+            buttonDown = false;
+
+            if (aggressiveCapture || targ && (targ === targetElement)) {
+                triggerCurrent('pointerUp');
+            } // if
+
+        } // if
+    } // mouseUp
+
+    function handleWheel(evt) {
+        var targ = evt.target ? evt.target : evt.srcElement;
+
+        if (aggressiveCapture || targ && (targ === targetElement)) {
+            var deltaY;
+
+            if (evt.detail) {
+                deltaY = evt.axis === 2 ? -evt.detail * WHEEL_DELTA_STEP : 0;
+            }
+            else {
+                deltaY = evt.wheelDeltaY;
+            } // if..else
+
+            if (deltaY !== 0) {
+                var current = point(currentX, currentY);
+
+                observable.trigger(
+                    'zoom',
+                    current,
+                    pointerOffset(current, offset),
+                    deltaY / WHEEL_DELTA_LEVEL
+                );
+
+                preventDefault(evt);
+            } // if
+        } // if
+    } // handleWheel
+
+    function triggerCurrent(eventName, includeTotal) {
+        var current = point(currentX, currentY);
+
+        observable.trigger(
+            eventName,
+            current,
+            pointerOffset(current, offset),
+            point(currentX - lastX, currentY - lastY)
+        );
+
+        lastX = currentX;
+        lastY = currentY;
+    } // triggerCurrent
+
+    /* exports */
+
+    function unbind() {
+        opts.unbinder('mousedown', handleMouseDown, false);
+        opts.unbinder('mousemove', handleMouseMove, false);
+        opts.unbinder('mouseup', handleMouseUp, false);
+
+        opts.unbinder("mousewheel", handleWheel, window);
+        opts.unbinder("DOMMouseScroll", handleWheel, window);
+    } // unbind
+
+    opts.binder('mousedown', handleMouseDown, false);
+    opts.binder('mousemove', handleMouseMove, false);
+    opts.binder('mouseup', handleMouseUp, false);
+
+    opts.binder("mousewheel", handleWheel, window);
+    opts.binder("DOMMouseScroll", handleWheel, window);
+
+    return {
+        unbind: unbind
+    };
+}; // MouseHandler
+
+register('pointer', {
+    handler: MouseHandler,
+    checks: {
+        touch: false
+    }
+});
+var TouchHandler = function(targetElement, observable, opts) {
+    opts = COG.extend({
+        detailedEvents: false
+    }, opts);
+
+    var DEFAULT_INERTIA_MAX = 500,
+        INERTIA_TIMEOUT_MOUSE = 100,
+        INERTIA_TIMEOUT_TOUCH = 250,
+        THRESHOLD_DOUBLETAP = 300,
+        THRESHOLD_PINCHZOOM = 5,
+        MIN_MOVEDIST = 7,
+        EMPTY_TOUCH_DATA = {
+            x: 0,
+            y: 0
+        };
+
+    var TOUCH_MODE_UNKNOWN = 0,
+        TOUCH_MODE_TAP = 1,
+        TOUCH_MODE_MOVE = 2,
+        TOUCH_MODE_PINCH = 3;
+
+    var offset,
+        touchMode,
+        touchDown = false,
+        touchesStart,
+        touchesCurrent,
+        startDistance,
+        touchesLast,
+        detailedEvents = opts.detailedEvents,
+        scaling = 1;
+
+    /* internal functions */
+
+    function calcChange(first, second) {
+        var srcVector = (first && (first.count > 0)) ? first.touches[0] : null;
+        if (srcVector && second && (second.count > 0)) {
+            return calcDiff(srcVector, second.touches[0]);
+        } // if
+
+        return null;
+    } // calcChange
+
+    function calcTouchDistance(touchData) {
+        if (touchData.count < 2) {
+            return 0;
+        } // if
+
+        var xDist = touchData.x - touchData.next.x,
+            yDist = touchData.y - touchData.next.y;
+
+        return ~~Math.sqrt(xDist * xDist + yDist * yDist);
+    } // touches
+
+    function copyTouches(src, adjustX, adjustY) {
+        adjustX = adjustX ? adjustX : 0;
+        adjustY = adjustY ? adjustY : 0;
+
+        var firstTouch = {
+                x: src.x - adjustX,
+                y: src.y - adjustY,
+                id: src.id,
+                count: src.count
+            },
+            touchData = firstTouch;
+
+        while (src.next) {
+            src = src.next;
+
+            touchData = touchData.next = {
+                x: src.x - adjustX,
+                y: src.y - adjustY,
+                id: src.id
+            };
+        } // while
+
+        return firstTouch;
+    } // copyTouches
+
+    function getTouchCenter(touchData) {
+        var x1 = touchData.x,
+            x2 = touchData.next.x,
+            y1 = touchData.y,
+            y2 = touchData.next.y,
+            minX = x1 < x2 ? x1 : x2,
+            minY = y1 < y2 ? y1 : y2,
+            width = Math.abs(x1 - x2),
+            height = Math.abs(y1 - y2);
+
+        return {
+            x: minX + (width >> 1),
+            y: minY + (height >> 1)
+        };
+    } // getTouchCenter
+
+    function getTouchData(evt, evtProp) {
+        var touches = evt[evtProp ? evtProp : 'touches'],
+            firstTouch, touchData;
+
+        if (touches.length === 0) {
+            return null;
+        } // if
+
+        touchData = firstTouch = {
+                x: touches[0].pageX,
+                y: touches[0].pageY,
+                id: touches[0].identifier,
+                count: touches.length
+        };
+
+        for (var ii = 1, touchCount = touches.length; ii < touchCount; ii++) {
+            touchData = touchData.next = {
+                x: touches[ii].pageX,
+                y: touches[ii].pageY,
+                id: touches[ii].identifier
+            };
+        } // for
+
+        return firstTouch;
+    } // fillTouchData
+
+    function handleTouchStart(evt) {
+        var targ = evt.target ? evt.target : evt.srcElement;
+
+        if (targ && (targ === targetElement)) {
+            var changedTouches = getTouchData(evt, 'changedTouches');
+
+            touchesStart = getTouchData(evt);
+            offset = getOffset(targetElement);
+
+            touchMode = TOUCH_MODE_TAP;
+
+            observable.trigger(
+                'pointerDown',
+                changedTouches,
+                copyTouches(changedTouches, offset.x, offset.y)
+            );
+
+            if (touchesStart.count > 0) {
+                startDistance = calcTouchDistance(touchesStart);
+            } // if
+
+            scaling = 1;
+
+            touchesLast = copyTouches(touchesStart);
+        } // if
+    } // handleTouchStart
+
+    function handleTouchMove(evt) {
+        var targ = evt.target ? evt.target : evt.srcElement;
+
+        if (targ && (targ === targetElement)) {
+            evt.preventDefault();
+
+            touchesCurrent = getTouchData(evt);
+
+            if (touchMode == TOUCH_MODE_TAP) {
+                var cancelTap =
+                        Math.abs(touchesStart.x - touchesCurrent.x) > MIN_MOVEDIST ||
+                        Math.abs(touchesStart.y - touchesCurrent.y) > MIN_MOVEDIST;
+
+                touchMode = cancelTap ? TOUCH_MODE_UNKNOWN : TOUCH_MODE_TAP;
+            } // if
+
+            if (touchMode != TOUCH_MODE_TAP) {
+                touchMode = touchesCurrent.count > 1 ? TOUCH_MODE_PINCH : TOUCH_MODE_MOVE;
+
+                if (touchMode == TOUCH_MODE_PINCH) {
+                    if (touchesStart.count === 1) {
+                        touchesStart = copyTouches(touchesCurrent);
+                        startDistance = calcTouchDistance(touchesStart);
+                    }
+                    else {
+                        var touchDistance = calcTouchDistance(touchesCurrent),
+                            distanceDelta = Math.abs(startDistance - touchDistance);
+
+                        if (detailedEvents) {
+                            observable.trigger('pointerMulti', touchesCurrent, offset);
+                        } // if
+
+                        if (distanceDelta < THRESHOLD_PINCHZOOM) {
+                            touchMode == TOUCH_MODE_MOVE;
+                        }
+                        else {
+                            var current = getTouchCenter(touchesCurrent),
+                                currentScaling = touchDistance / startDistance,
+                                scaleChange = currentScaling - scaling;
+
+                            observable.trigger(
+                                'zoom',
+                                current,
+                                copyTouches(current, offset.x, offset.y),
+                                scaleChange
+                            );
+
+                            scaling = currentScaling;
+                        } // if..else
+                    } // if..else
+                } // if
+
+                if (touchMode == TOUCH_MODE_MOVE) {
+                    observable.trigger(
+                        'pointerMove',
+                        touchesCurrent,
+                        copyTouches(touchesCurrent, offset.x, offset.y),
+                        point(
+                            touchesCurrent.x - touchesLast.x,
+                            touchesCurrent.y - touchesLast.y)
+                    );
+                } // if
+            } // if
+
+            touchesLast = copyTouches(touchesCurrent);
+        } // if
+    } // handleTouchMove
+
+    function handleTouchEnd(evt) {
+        var targ = evt.target ? evt.target : evt.srcElement;
+        if (targ && (targ === targetElement)) {
+            var changedTouches = getTouchData(evt, 'changedTouches'),
+                offsetTouches = copyTouches(changedTouches, offset.x, offset.y);
+
+            touchesCurrent = getTouchData(evt);
+            if ((! touchesCurrent) && touchMode === TOUCH_MODE_TAP) {
+                observable.trigger(
+                    'pointerTap',
+                    changedTouches,
+                    offsetTouches
+                );
+
+                COG.info('tapped');
+            } // if
+
+            observable.trigger(
+                'pointerUp',
+                changedTouches,
+                offsetTouches
+            );
+        } // if
+    } // handleTouchEnd
+
+    function initTouchData() {
+        return {
+            x: 0,
+            y: 0,
+            next: null
+        };
+    } // initTouchData
+
+    /* exports */
+
+    function unbind() {
+        opts.unbinder('touchstart', handleTouchStart, false);
+        opts.unbinder('touchmove', handleTouchMove, false);
+        opts.unbinder('touchend', handleTouchEnd, false);
+    } // unbind
+
+    opts.binder('touchstart', handleTouchStart, false);
+    opts.binder('touchmove', handleTouchMove, false);
+    opts.binder('touchend', handleTouchEnd, false);
+
+    COG.info('initialized touch handler');
+
+    return {
+        unbind: unbind
+    };
+}; // TouchHandler
+
+register('pointer', {
+    handler: TouchHandler,
+    checks: {
+        touch: true
+    }
+});
+
+    return {
+        register: register,
+        watch: watch
+    };
+})();
 
 T5 = (function() {
 var TWO_PI = Math.PI * 2,
     HALF_PI = Math.PI / 2;
 
 var abs = Math.abs,
+    min = Math.min,
+    max = Math.max,
     pow = Math.pow,
+    sqrt = Math.sqrt,
+    log = Math.log,
+    round = Math.round,
     sin = Math.sin,
     asin = Math.asin,
-    cos = Math.cos;
+    cos = Math.cos,
+    acos = Math.acos,
+    tan = Math.tan,
+    atan = Math.atan,
+    atan2 = Math.atan2;
 /**
 # T5
 The T5 core module contains classes and functionality that support basic drawing
@@ -1076,7 +1615,7 @@ var XY = (function() {
     ### absSize(vector)
     */
     function absSize(xy) {
-        return Math.max(Math.abs(xy.x), Math.abs(xy.y));
+        return max(abs(xy.x), abs(xy.y));
     } // absSize
 
     /**
@@ -1127,7 +1666,7 @@ var XY = (function() {
             var diff = difference(points[ii], points[ii + 1]);
 
             fnresult.edges[ii] =
-                Math.sqrt((diff.x * diff.x) + (diff.y * diff.y));
+                sqrt((diff.x * diff.x) + (diff.y * diff.y));
             fnresult.accrued[ii] =
                 fnresult.total + fnresult.edges[ii];
 
@@ -1151,8 +1690,8 @@ var XY = (function() {
     ### extendBy(xy, theta, delta)
     */
     function extendBy(xy, theta, delta) {
-        var xDelta = Math.cos(theta) * delta,
-            yDelta = Math.sin(theta) * delta;
+        var xDelta = cos(theta) * delta,
+            yDelta = sin(theta) * delta;
 
         return init(xy.x - xDelta, xy.y - yDelta);
     } // extendBy
@@ -1162,7 +1701,7 @@ var XY = (function() {
     This function is used to take all the points in the array and convert them to
     integer values
     */
-    function floor(points) {
+    function floorXY(points) {
         var results = new Array(points.length);
         for (var ii = points.length; ii--; ) {
             results[ii] = init(~~points[ii].x, ~~points[ii].y);
@@ -1218,7 +1757,7 @@ var XY = (function() {
     /**
     ### max(xy1, xy2)
     */
-    function max(xy1, xy2) {
+    function maxXY(xy1, xy2) {
         return init(
             xy1.x > xy2.x ? xy1.x : xy2.x,
             xy1.y > xy2.y ? xy1.y : xy2.y);
@@ -1227,7 +1766,7 @@ var XY = (function() {
     /**
     ### min(xy1, xy2)
     */
-    function min(xy1, xy2) {
+    function minXY(xy1, xy2) {
         return init(
             xy1.x < xy2.x ? xy1.x : xy2.x,
             xy1.y < xy2.y ? xy1.y : xy2.y);
@@ -1260,8 +1799,8 @@ var XY = (function() {
             var current = points[ii];
 
             include = !last || ii === 0 ||
-                (Math.abs(current.x - last.x) +
-                    Math.abs(current.y - last.y) >
+                (abs(current.x - last.x) +
+                    abs(current.y - last.y) >
                     generalization);
 
             if (include) {
@@ -1277,7 +1816,7 @@ var XY = (function() {
     ### theta (xy1, xy2, distance)
     */
     function theta(xy1, xy2, distance) {
-        var theta = Math.asin((xy1.y - xy2.y) / distance);
+        var theta = asin((xy1.y - xy2.y) / distance);
         return xy1.x > xy2.x ? theta : Math.PI - theta;
     } // theta
 
@@ -1303,12 +1842,12 @@ var XY = (function() {
         edges: edges,
         equals: equals,
         extendBy: extendBy,
-        floor: floor,
+        floor: floorXY,
         getRect: getRect,
         init: init,
         invert: invert,
-        min: min,
-        max: max,
+        min: minXY,
+        max: maxXY,
         offset: offset,
         simplify: simplify,
         theta: theta
@@ -1358,7 +1897,7 @@ var Vector = (function() {
             } // if
         } // for
 
-        COG.Log.info('max distance = ' + distanceMax + ', unitized distance vector = ', u);
+        COG.info('max distance = ' + distanceMax + ', unitized distance vector = ', u);
 
         if (distanceMax >= epsilon) {
             var r1 = simplify(vectors.slice(0, index), epsilon),
@@ -1432,15 +1971,15 @@ var XYRect = (function() {
     ### diagonalSize(rect)
     */
     function diagonalSize(rect) {
-        return Math.sqrt(rect.width * rect.width + rect.height * rect.height);
+        return sqrt(rect.width * rect.width + rect.height * rect.height);
     } // diagonalSize
 
     /**
     ### fromCenter(centerX, centerY, width, height)
     */
     function fromCenter(centerX, centerY, width, height) {
-        var halfWidth = ~~(width / 2),
-            halfHeight = ~~(height / 2);
+        var halfWidth = width >> 1,
+            halfHeight = height >> 1;
 
         return init(
             centerX - halfWidth,
@@ -1475,10 +2014,10 @@ var XYRect = (function() {
     Returns the intersecting rect between the two specified XYRect composites
     */
     function intersect(rect1, rect2) {
-        var x1 = Math.max(rect1.x1, rect2.x1),
-            y1 = Math.max(rect1.y1, rect2.y1),
-            x2 = Math.min(rect1.x2, rect2.x2),
-            y2 = Math.min(rect1.y2, rect2.y2),
+        var x1 = max(rect1.x1, rect2.x1),
+            y1 = max(rect1.y1, rect2.y1),
+            x2 = min(rect1.x2, rect2.x2),
+            y2 = min(rect1.y2, rect2.y2),
             r = init(x1, y1, x2, y2);
 
         return ((r.width > 0) && (r.height > 0)) ? r : null;
@@ -1495,10 +2034,10 @@ var XYRect = (function() {
             return copy(rect1);
         }
         else {
-            var x1 = Math.min(rect1.x1, rect2.x1),
-                y1 = Math.min(rect1.y1, rect2.y1),
-                x2 = Math.max(rect1.x2, rect2.x2),
-                y2 = Math.max(rect1.y2, rect2.y2),
+            var x1 = min(rect1.x1, rect2.x1),
+                y1 = min(rect1.y1, rect2.y1),
+                x2 = max(rect1.x2, rect2.x2),
+                y2 = max(rect1.y2, rect2.y2),
                 r = init(x1, y1, x2, y2);
 
             return ((r.width > 0) && (r.height > 0)) ? r : null;
@@ -1546,9 +2085,7 @@ var Dimensions = (function() {
     Get the a XY composite for the center of the `dimensions` (width / 2, height  / 2)
     */
     function getCenter(dimensions) {
-        return XY.init(
-                    dimensions.width / 2,
-                    dimensions.height / 2);
+        return XY.init(dimensions.width >> 1, dimensions.height >> 1);
     } // getCenter
 
     /**
@@ -1556,8 +2093,7 @@ var Dimensions = (function() {
     Get the size for the diagonal for the `dimensions`
     */
     function getSize(dimensions) {
-        return Math.sqrt(Math.pow(dimensions.width, 2) +
-                Math.pow(dimensions.height, 2));
+        return sqrt(pow(dimensions.width, 2) + pow(dimensions.height, 2));
     } // getSize
 
     /**
@@ -1621,7 +2157,7 @@ function messageToUrl(message, args) {
 
 function bridgeNotifyLog(message, args) {
     if (shouldBridgeMessage(message)) {
-        COG.Log.info("would push url: " + messageToUrl(message, args));
+        COG.info("would push url: " + messageToUrl(message, args));
     } // if
 } // bridgeCommandEmpty
 
@@ -1759,24 +2295,24 @@ function getConfig() {
     } // if
 
     if (! detectedConfig) {
-        COG.Log.info("ATTEMPTING TO DETECT PLATFORM: UserAgent = " + navigator.userAgent);
+        COG.info("ATTEMPTING TO DETECT PLATFORM: UserAgent = " + navigator.userAgent);
 
         for (var ii = 0; ii < deviceCheckOrder.length; ii++) {
             var testPlatform = deviceCheckOrder[ii];
 
             if (testPlatform.regex && testPlatform.regex.test(navigator.userAgent)) {
                 detectedConfig = COG.extend({}, deviceConfigs.base, testPlatform);
-                COG.Log.info("PLATFORM DETECTED AS: " + detectedConfig.name);
+                COG.info("PLATFORM DETECTED AS: " + detectedConfig.name);
                 break;
             } // if
         } // for
 
         if (! detectedConfig) {
-            COG.Log.warn("UNABLE TO DETECT PLATFORM, REVERTING TO BASE CONFIGURATION");
+            COG.warn("UNABLE TO DETECT PLATFORM, REVERTING TO BASE CONFIGURATION");
             detectedConfig = deviceConfigs.base;
         }
 
-        COG.Log.info("CURRENT DEVICE PIXEL RATIO = " + window.devicePixelRatio);
+        COG.info("CURRENT DEVICE PIXEL RATIO = " + window.devicePixelRatio);
     } // if
 
     return detectedConfig;
@@ -1841,7 +2377,7 @@ var Images = (function() {
     function cleanupImageCache() {
         clearingCache = true;
         try {
-            var halfLen = cachedImages.length / 2 >> 0;
+            var halfLen = cachedImages.length >> 1;
             if (halfLen > 0) {
                 cachedImages.sort(function(itemA, itemB) {
                     return itemA.created - itemB.created;
@@ -2157,7 +2693,7 @@ function zoomable(view, params) {
         initial: 1,
         min: 0,
         max: null,
-        zoomAnimation: easing('quad.out')
+        zoomAnimation: COG.easing('quad.out')
     }, params);
 
     var zoomLevel = params.initial;
@@ -2166,7 +2702,7 @@ function zoomable(view, params) {
 
     function handleDoubleTap(evt, absXY, relXY) {
         if (view.scalable()) {
-            cancelAnimation(function(tweenInstance) {
+            COG.endTweens(function(tweenInstance) {
                 return tweenInstance.cancelOnInteract;
             });
 
@@ -2177,7 +2713,7 @@ function zoomable(view, params) {
     function handleScale(evt, scaleAmount, zoomXY) {
         var zoomChange = Math.log(scaleAmount) / Math.LN2;
 
-        cancelAnimation(function(tweenInstance) {
+        COG.endTweens(function(tweenInstance) {
             return tweenInstance.cancelOnInteract;
         });
 
@@ -2220,342 +2756,6 @@ function zoomable(view, params) {
 
     view.bind('scale', handleScale);
     view.bind('doubleTap', handleDoubleTap);
-};
-
-var tweens = [],
-    tweenWorker = null,
-    updatingTweens = false;
-
-/* animation internals */
-
-function updateTweens(tickCount, worker) {
-    if (updatingTweens) { return tweens.length; }
-
-    updatingTweens = true;
-    try {
-        var ii = 0;
-        while (ii < tweens.length) {
-            if (tweens[ii].isComplete()) {
-                tweens[ii].triggerComplete(false);
-                tweens.splice(ii, 1);
-            }
-            else {
-                tweens[ii].update(tickCount);
-                ii++;
-            } // if..else
-        } // while
-    }
-    finally {
-        updatingTweens = false;
-    } // try..finally
-
-    if (tweens.length === 0) {
-        tweenWorker.trigger('complete');
-    } // if
-
-    return tweens.length;
-} // update
-
-function cancelAnimation(checkCallback) {
-    if (updatingTweens) { return ; }
-
-    updatingTweens = true;
-    try {
-        var ii = 0;
-
-        while (ii < tweens.length) {
-            if ((! checkCallback) || checkCallback(tweens[ii])) {
-                tweens[ii].triggerComplete(true);
-                tweens.splice(ii, 1);
-            }
-            else {
-                ii++;
-            } // if..else
-        } // for
-    }
-    finally {
-        updatingTweens = false;
-    } // try..finally
-} // T5.cancelAnimation
-
-function wakeTweens() {
-    if (tweenWorker) { return; }
-
-    tweenWorker = COG.Loopage.join({
-        execute: updateTweens,
-        frequency: 20
-    });
-
-    tweenWorker.bind('complete', function(evt) {
-        tweenWorker = null;
-    });
-} // wakeTweens
-
-/* animation exports */
-
-/*
-# T5.tweenValue
-*/
-function tweenValue(startValue, endValue, fn, callback, duration) {
-    var fnresult = new Tween({
-        startValue: startValue,
-        endValue: endValue,
-        tweenFn: fn,
-        complete: callback,
-        duration: duration
-    });
-
-    tweens.push(fnresult);
-    return fnresult;
-} // T5.tweenValue
-
-/*
-# T5.tween
-*/
-function tween(target, property, targetValue, fn, callback, duration) {
-    var fnresult = new Tween({
-        target: target,
-        property: property,
-        endValue: targetValue,
-        tweenFn: fn,
-        duration: duration,
-        complete: callback
-    });
-
-    tweens.push(fnresult);
-    return fnresult;
-} // T5.tween
-
-/**
-Easing functions
-
-sourced from Robert Penner's excellent work:
-http://www.robertpenner.com/easing/
-
-Functions follow the function format of fn(t, b, c, d, s) where:
-- t = time
-- b = beginning position
-- c = change
-- d = duration
-*/
-var backAnimationS = 1.70158;
-
-function simpleTypeName(typeName) {
-    return typeName.replace(/[\-\_\s\.]/g, '').toLowerCase();
-} // simpleTypeName
-
-var easingFns = {
-    linear: function(t, b, c, d) {
-        return c*t/d + b;
-    },
-
-    /* back easing functions */
-
-    backin: function(t, b, c, d) {
-        return c*(t/=d)*t*((backAnimationS+1)*t - backAnimationS) + b;
-    },
-
-    backout: function(t, b, c, d) {
-        return c*((t=t/d-1)*t*((backAnimationS+1)*t + backAnimationS) + 1) + b;
-    },
-
-    backinout: function(t, b, c, d) {
-        return ((t/=d/2)<1) ? c/2*(t*t*(((backAnimationS*=(1.525))+1)*t-backAnimationS))+b : c/2*((t-=2)*t*(((backAnimationS*=(1.525))+1)*t+backAnimationS)+2)+b;
-    },
-
-    /* bounce easing functions */
-
-    bouncein: function(t, b, c, d) {
-        return c - easingFns.bounceout(d-t, 0, c, d) + b;
-    },
-
-    bounceout: function(t, b, c, d) {
-        if ((t/=d) < (1/2.75)) {
-            return c*(7.5625*t*t) + b;
-        } else if (t < (2/2.75)) {
-            return c*(7.5625*(t-=(1.5/2.75))*t + 0.75) + b;
-        } else if (t < (2.5/2.75)) {
-            return c*(7.5625*(t-=(2.25/2.75))*t + 0.9375) + b;
-        } else {
-            return c*(7.5625*(t-=(2.625/2.75))*t + 0.984375) + b;
-        }
-    },
-
-    bounceinout: function(t, b, c, d) {
-        if (t < d/2) return easingFns.bouncein(t*2, 0, c, d) / 2 + b;
-        else return easingFns.bounceout(t*2-d, 0, c, d) / 2 + c/2 + b;
-    },
-
-    /* cubic easing functions */
-
-    cubicin: function(t, b, c, d) {
-        return c*(t/=d)*t*t + b;
-    },
-
-    cubicout: function(t, b, c, d) {
-        return c*((t=t/d-1)*t*t + 1) + b;
-    },
-
-    cubicinout: function(t, b, c, d) {
-        if ((t/=d/2) < 1) return c/2*t*t*t + b;
-        return c/2*((t-=2)*t*t + 2) + b;
-    },
-
-    /* elastic easing functions */
-
-    elasticin: function(t, b, c, d, a, p) {
-        var s;
-
-        if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*0.3;
-        if (!a || a < abs(c)) { a=c; s=p/4; }
-        else s = p/TWO_PI * asin (c/a);
-        return -(a*pow(2,10*(t-=1)) * sin( (t*d-s)*TWO_PI/p )) + b;
-    },
-
-    elasticout: function(t, b, c, d, a, p) {
-        var s;
-
-        if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*0.3;
-        if (!a || a < abs(c)) { a=c; s=p/4; }
-        else s = p/TWO_PI * asin (c/a);
-        return (a*pow(2,-10*t) * sin( (t*d-s)*TWO_PI/p ) + c + b);
-    },
-
-    elasticinout: function(t, b, c, d, a, p) {
-        var s;
-
-        if (t==0) return b;  if ((t/=d/2)==2) return b+c;  if (!p) p=d*(0.3*1.5);
-        if (!a || a < abs(c)) { a=c; s=p/4; }
-        else s = p/TWO_PI * asin (c/a);
-        if (t < 1) return -0.5*(a*pow(2,10*(t-=1)) * sin( (t*d-s)*TWO_PI/p )) + b;
-        return a*pow(2,-10*(t-=1)) * sin( (t*d-s)*TWO_PI/p )*0.5 + c + b;
-    },
-
-    /* quad easing */
-
-    quadin: function(t, b, c, d) {
-        return c*(t/=d)*t + b;
-    },
-
-    quadout: function(t, b, c, d) {
-        return -c *(t/=d)*(t-2) + b;
-    },
-
-    quadinout: function(t, b, c, d) {
-        if ((t/=d/2) < 1) return c/2*t*t + b;
-        return -c/2 * ((--t)*(t-2) - 1) + b;
-    },
-
-    /* sine easing */
-
-    sinein: function(t, b, c, d) {
-        return -c * cos(t/d * HALF_PI) + c + b;
-    },
-
-    sineout: function(t, b, c, d) {
-        return c * sin(t/d * HALF_PI) + b;
-    },
-
-    sineinout: function(t, b, c, d) {
-        return -c/2 * (cos(Math.PI*t/d) - 1) + b;
-    }
-};
-
-function easing(typeName) {
-    return easingFns[simpleTypeName(typeName)];
-} // easing
-
-function registerEasingType(typeName, callback) {
-    easingFns[simpleTypeName(typeName)] = callback;
-} // registerEasingType
-/**
-# T5.Tween
-*/
-var Tween = function(params) {
-    params = COG.extend({
-        target: null,
-        property: null,
-        startValue: 0,
-        endValue: null,
-        duration: 2000,
-        tweenFn: easing('sine.out'),
-        complete: null,
-        cancelOnInteract: false
-    }, params);
-
-    var startTicks = ticks(),
-        updateListeners = [],
-        complete = false,
-        beginningValue = 0.0,
-        change = 0;
-
-    function notifyListeners(updatedValue, complete) {
-        for (var ii = updateListeners.length; ii--; ) {
-            updateListeners[ii](updatedValue, complete);
-        } // for
-    } // notifyListeners
-
-    var self = {
-        cancelOnInteract: params.cancelOnInteract,
-
-        isComplete: function() {
-            return complete;
-        },
-
-        triggerComplete: function(cancelled) {
-            if (params.complete) {
-                params.complete(cancelled);
-            } // if
-        },
-
-        update: function(tickCount) {
-            try {
-                var elapsed = tickCount - startTicks,
-                    updatedValue = params.tweenFn(
-                                        elapsed,
-                                        beginningValue,
-                                        change,
-                                        params.duration);
-
-                if (params.target) {
-                    params.target[params.property] = updatedValue;
-                } // if
-
-                notifyListeners(updatedValue);
-
-                complete = startTicks + params.duration <= tickCount;
-                if (complete) {
-                    if (params.target) {
-                        params.target[params.property] = params.tweenFn(params.duration, beginningValue, change, params.duration);
-                    } // if
-
-                    notifyListeners(updatedValue, true);
-                } // if
-            }
-            catch (e) {
-                COG.Log.exception(e);
-            } // try..catch
-        },
-
-        requestUpdates: function(callback) {
-            updateListeners.push(callback);
-        }
-    };
-
-    beginningValue =
-        (params.target && params.property && params.target[params.property]) ? params.target[params.property] : params.startValue;
-
-    if (typeof params.endValue !== 'undefined') {
-        change = (params.endValue - beginningValue);
-    } // if
-
-    if (change == 0) {
-        complete = true;
-    } // if..else
-
-    wakeTweens();
-
-    return self;
 };
 
 /**
@@ -2882,7 +3082,8 @@ var View = function(params) {
         inertia: true,
         pannable: true,
         scalable: true,
-        panAnimationEasing: easing('sine.out'),
+        interactive: true,
+        panAnimationEasing: COG.easing('sine.out'),
         panAnimationDuration: 750,
         pinchZoomAnimateTrigger: 400,
         adjustScaleFactor: null,
@@ -2914,6 +3115,7 @@ var View = function(params) {
         panimating = false,
         paintTimeout = 0,
         idleTimeout = 0,
+        panEndTimeout = 0,
         rescaleTimeout = 0,
         layerMinXY = null,
         layerMaxXY = null,
@@ -2927,6 +3129,7 @@ var View = function(params) {
         scaleFactor = 1,
         lastScaleFactor = 0,
         tweenStart = null,
+        eventMonitor = null,
         isFlash = typeof FlashCanvas !== 'undefined',
         cycleDelay = ~~(1000 / params.fps),
         zoomX, zoomY,
@@ -2952,57 +3155,31 @@ var View = function(params) {
 
         if (inertia && params.inertia) {
             updateOffset(
-                offsetX + x,
-                offsetY + y,
+                offsetX - x,
+                offsetY - y,
                 params.panAnimationEasing,
                 params.panAnimationDuration);
         }
         else if (! inertia) {
             updateOffset(
-                offsetX + x,
-                offsetY + y);
+                offsetX - x,
+                offsetY - y);
         } // if..else
-    } // pan
 
-    function handlePanEnd(evt, x, y) {
-        state = stateActive;
-        panimating = false;
-        invalidate();
-    } // handlePanEnd
+        clearTimeout(panEndTimeout);
+        panEndTimeout = setTimeout(panEnd, 100);
+    } // pan
 
     /* scaling functions */
 
-    function checkTouches(start, end) {
-        var startRect = vectorRect(start),
-            startCenter = rectCenter(startRect),
-            startSize = rectDiagonal(startRect),
-            endRect = vectorRect(end),
-            endCenter = rectCenter(endRect),
-            endSize = rectDiagonal(endRect),
-            diffX = startCenter.x - endCenter.x,
-            diffY = startCenter.y - endCenter.y;
+    function panEnd() {
+        state = stateActive;
+        panimating = false;
+        invalidate();
+    } // panEnd
 
-        setZoomCenter(endCenter);
-
-        scaleFactor = (startRect && (startSize !== 0)) ? (endSize / startSize) : 1;
-    } // checkTouches
-
-    function handlePinchZoom(evt, touchesStart, touchesCurrent) {
-        if (! scaleTouchesStart) {
-            scaleTouchesStart = [].concat(touchesCurrent);
-        } // if
-
-        checkTouches(scaleTouchesStart, touchesCurrent);
-        scaleView();
-    } // handlePinchZoom
-
-    function pinchZoomEnd(evt, touchesStart, touchesEnd, pinchZoomTime) {
-        scaleFactor = Math.pow(2, Math.round(Math.log(scaleFactor) / Math.LN2));
-        scaleView(true);
-    } // pinchZoomEnd
-
-    function handleWheelZoom(evt, relXY, zoom) {
-        self.zoom(Dimensions.getCenter(dimensions), zoom);
+    function handleZoom(evt, absXY, relXY, scaleChange) {
+        self.zoom(relXY, scaleChange);
     } // handleWheelZoom
 
     function scaleView(fullInvalidate) {
@@ -3017,12 +3194,10 @@ var View = function(params) {
             state = stateZoom;
         } // if
 
-        COG.Log.info('scale factor = ' + scaleFactor + ', exp = ' + scaleFactorExp);
         if (scaleFactorExp !== 0) {
             scaleFactor = Math.pow(2, scaleFactorExp);
 
             if (! self.trigger('scale', scaleFactor, scaleEndXY).cancel) {
-                COG.Log.info('ok to scale');
 
                 for (var ii = layers.length; ii--; ) {
                     layers[ii].trigger('scale', scaleFactor, scaleEndXY);
@@ -3094,7 +3269,7 @@ var View = function(params) {
             tweensComplete += 1;
 
             if (tweensComplete >= 2) {
-                handlePanEnd(0, 0);
+                panEnd();
                 if (callback) {
                     callback();
                 } // if
@@ -3116,10 +3291,10 @@ var View = function(params) {
                 return;
             } // if
 
-            var tweenX = tweenValue(offsetX, x, tweenFn,
+            var tweenX = COG.tweenValue(offsetX, x, tweenFn,
                     updateOffsetAnimationEnd, tweenDuration),
 
-                tweenY = tweenValue(offsetY, y, tweenFn,
+                tweenY = COG.tweenValue(offsetY, y, tweenFn,
                     updateOffsetAnimationEnd, tweenDuration);
 
             tweenX.cancelOnInteract = true;
@@ -3151,7 +3326,6 @@ var View = function(params) {
         panimating = false;
         scaleFactor = Math.max(scaleFactor + Math.pow(2, scaleChange) - 1, 0.25);
 
-        COG.Log.info('zooming, scale change = ' + scaleChange + ', targetXY = ', targetXY);
         scaleView();
     } // zoom
 
@@ -3162,6 +3336,10 @@ var View = function(params) {
         var ii;
 
         if (canvas) {
+            if (eventMonitor) {
+                eventMonitor.unbind();
+            } // if
+
             if (params.autoSize && canvas.parentNode) {
                 var rect = canvas.parentNode.getBoundingClientRect();
 
@@ -3179,20 +3357,26 @@ var View = function(params) {
                 mainContext = canvas.getContext('2d');
             }
             catch (e) {
-                COG.Log.exception(e);
+                COG.exception(e);
                 throw new Error("Could not initialise canvas on specified view element");
             }
 
             if (dimensions.height !== canvas.height || dimensions.width !== canvas.width) {
                 dimensions = Dimensions.init(canvas.width, canvas.height);
-                halfWidth = (dimensions.width / 2) >> 0;
-                halfHeight = (dimensions.height / 2) >> 0;
+                halfWidth = dimensions.width >> 1;
+                halfHeight = dimensions.height >> 1;
 
                 self.trigger('resize', canvas.width, canvas.height);
 
                 for (ii = layerCount; ii--; ) {
                     layers[ii].trigger('resize', canvas.width, canvas.height);
                 } // for
+            } // if
+
+            if (params.interactive) {
+                eventMonitor = INTERACT.watch(canvas, {
+                    observable: self
+                }).pannable();
             } // if
 
             for (ii = layerCount; ii--; ) {
@@ -3348,15 +3532,15 @@ var View = function(params) {
             mainContext.globalCompositeOperation = 'source-over';
             mainContext.strokeStyle = '#f00';
             mainContext.beginPath();
-            mainContext.moveTo(canvas.width / 2, 0);
-            mainContext.lineTo(canvas.width / 2, canvas.height);
-            mainContext.moveTo(0, canvas.height / 2);
-            mainContext.lineTo(canvas.width, canvas.height / 2);
+            mainContext.moveTo(canvas.width >> 1, 0);
+            mainContext.lineTo(canvas.width >> 1, canvas.height);
+            mainContext.moveTo(0, canvas.height >> 1);
+            mainContext.lineTo(canvas.width, canvas.height >> 1);
             mainContext.stroke();
         } // if
 
         triggerAll('drawComplete', rect, tickCount);
-        COG.Log.trace("draw complete", tickCount);
+        COG.trace("draw complete", tickCount);
     } // drawView
 
     function cycle(tickCount, worker) {
@@ -3367,12 +3551,12 @@ var View = function(params) {
             requireRedraw = redrawView ||
                         currentState === statePan ||
                         currentState === stateZoom ||
-                        (tweens.length > 0);
+                        (COG.getTweens().length > 0);
 
         cycleRect = getViewRect();
 
         if (interacting) {
-            cancelAnimation(function(tweenInstance) {
+            COG.endTweens(function(tweenInstance) {
                 return tweenInstance.cancelOnInteract;
             });
 
@@ -3411,7 +3595,7 @@ var View = function(params) {
         } // if
 
         wakeTriggers = 0;
-        COG.Log.trace("Completed draw cycle", tickCount);
+        COG.trace("Completed draw cycle", tickCount);
     } // cycle
 
     function invalidate(redraw) {
@@ -3520,7 +3704,7 @@ var View = function(params) {
         setZoomCenter(targetXY);
 
         if (tweenFn) {
-            var tween = tweenValue(
+            var tween = COG.tweenValue(
                             0,
                             targetScaling - scaleFactorFrom,
                             tweenFn,
@@ -3651,8 +3835,7 @@ var View = function(params) {
     });
 
     if (params.pannable) {
-        self.bind("pan", handlePan);
-        self.bind("panEnd", handlePanEnd);
+        self.bind('pan', handlePan);
 
         self.bind("inertiaCancel", function(evt) {
             panimating = false;
@@ -3661,8 +3844,7 @@ var View = function(params) {
     } // if
 
     if (params.scalable) {
-        self.bind('pinchZoom', handlePinchZoom);
-        self.bind('wheelZoom', handleWheelZoom);
+        self.bind('zoom', handleZoom);
     } // if
 
     self.bind('tap', handleTap);
@@ -4137,7 +4319,7 @@ var Marker = function(params) {
 
                 animating = true;
 
-                tween(
+                COG.tween(
                     self.xy,
                     'y',
                     endValue,
@@ -4608,7 +4790,7 @@ var PathLayer = function(params) {
                 id: layerId,
                 path: coordinates,
                 zindex: params.zindex + 1,
-                easing: easingFn ? easingFn : easing('sine.inout'),
+                easing: easingFn ? easingFn : COG.easing('sine.inout'),
                 duration: duration ? duration : 5000,
                 drawIndicator: drawCallback,
                 autoCenter: autoCenter ? autoCenter : false
@@ -4706,7 +4888,7 @@ be used as anchor points in the animation.
 pathAni1 and then automatically increment each time a new AnimatedPathLayer is created unless the id is
 manually specified in the constructor parameters.
 
-- `easing` (easing function, default = T5.easing('sine.inout')) - the easing function to use for the animation
+- `easing` (easing function, default = COG.easing('sine.inout')) - the easing function to use for the animation
 
 - `drawIndicator` (callback, default = defaultDraw) - A callback function that is called every time the indicator for
 the animation needs to be drawn.  If the parameter is not specified in the constructor the default callback
@@ -4732,7 +4914,7 @@ var AnimatedPathLayer = function(params) {
     params = COG.extend({
         path: [],
         id: COG.objId('pathAni'),
-        easing: easing('sine.inout'),
+        easing: COG.easing('sine.inout'),
         validStates: viewState('ACTIVE', 'PAN', 'ZOOM'),
         drawIndicator: null,
         duration: 2000
@@ -4759,7 +4941,7 @@ var AnimatedPathLayer = function(params) {
         context.fill();
     } // drawDefaultIndicator
 
-    tween = tweenValue(
+    tween = COG.tweenValue(
         0,
         edgeData.total,
         params.easing,
@@ -4882,7 +5064,7 @@ var Arc = function(origin, params) {
        }
    });
 
-   COG.Log.info('created arc = ', origin);
+   COG.info('created arc = ', origin);
    return self;
 };
 
@@ -5120,9 +5302,9 @@ var TileGenerator = function(params) {
         padding = params.padding,
         requestedTileCreator = false,
         tileWidth = params.tileWidth,
-        halfTileWidth = tileWidth / 2,
+        halfTileWidth = tileWidth >> 1,
         tileHeight = params.tileHeight,
-        halfTileHeight = tileHeight / 2,
+        halfTileHeight = tileHeight >> 1,
         tileCreator = null,
         xTiles = 0,
         yTiles = 0,
@@ -5180,7 +5362,7 @@ var TileGenerator = function(params) {
     ### bindToView(view)
     */
     function bindToView(view) {
-        COG.Log.info('initializing generator');
+        COG.info('initializing generator');
 
         targetView = view;
         self.trigger('bindView', view);
@@ -5248,7 +5430,7 @@ var TileGenerator = function(params) {
     COG.observable(self);
 
     self.bind('update', function(evt) {
-        COG.Log.info('captured generator update');
+        COG.info('captured generator update');
         lastRect = null;
     });
 
@@ -5272,11 +5454,10 @@ var TileGenerator = function(params) {
 
         Generator: Generator,
 
-        tween: tween,
-        tweenValue: tweenValue,
-        easing: easing,
-        registerEasingType: registerEasingType,
-        Tween: Tween,
+        tween: COG.tween,
+        tweenValue: COG.tweenValue,
+        easing: COG.easing,
+        Tween: COG.Tween,
 
         Style: Style,
         viewState: viewState,
@@ -5396,9 +5577,9 @@ To be completed
 */
 function lat2pix(lat) {
     var radLat = parseFloat(lat) * DEGREES_TO_RADIANS,
-        sinPhi = Math.sin(radLat),
+        sinPhi = sin(radLat),
         eSinPhi = ECC * sinPhi,
-        retVal = Math.log(((1.0 + sinPhi) / (1.0 - sinPhi)) * Math.pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
+        retVal = log(((1.0 + sinPhi) / (1.0 - sinPhi)) * pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
 
     return retVal;
 } // lat2Pix
@@ -5416,12 +5597,12 @@ function lon2pix(lon) {
 To be completed
 */
 function pix2lat(mercY) {
-    var t = Math.pow(Math.E, -mercY),
+    var t = pow(Math.E, -mercY),
         prevPhi = mercatorUnproject(t),
         newPhi = findRadPhi(prevPhi, t),
         iterCount = 0;
 
-    while (iterCount < PHI_MAXITER && Math.abs(prevPhi - newPhi) > PHI_EPSILON) {
+    while (iterCount < PHI_MAXITER && abs(prevPhi - newPhi) > PHI_EPSILON) {
         prevPhi = newPhi;
         newPhi = findRadPhi(prevPhi, t);
         iterCount++;
@@ -5442,7 +5623,7 @@ function pix2lon(mercX) {
 ### radsPerPixel(zoomLevel)
 */
 function radsPerPixel(zoomLevel) {
-    return 2*Math.PI / (256 << zoomLevel);
+    return TWO_PI / (256 << zoomLevel);
 } // radsPerPixel
 
 
@@ -5496,13 +5677,13 @@ function findEngine(capability, preference) {
 } // findEngine
 
 function findRadPhi(phi, t) {
-    var eSinPhi = ECC * Math.sin(phi);
+    var eSinPhi = ECC * sin(phi);
 
-    return HALF_PI - (2 * Math.atan (t * Math.pow((1 - eSinPhi) / (1 + eSinPhi), ECC / 2)));
+    return HALF_PI - (2 * atan (t * pow((1 - eSinPhi) / (1 + eSinPhi), ECC / 2)));
 } // findRadPhi
 
 function mercatorUnproject(t) {
-    return HALF_PI - 2 * Math.atan(t);
+    return HALF_PI - 2 * atan(t);
 } // mercatorUnproject
 
 /*
@@ -5557,14 +5738,13 @@ var Position = (function() {
             return 0;
         } // if
 
-        var halfdelta_lat = toRad(pos2.lat - pos1.lat) / 2;
-        var halfdelta_lon = toRad(pos2.lon - pos1.lon) / 2;
+        var halfdelta_lat = toRad(pos2.lat - pos1.lat) >> 1;
+        var halfdelta_lon = toRad(pos2.lon - pos1.lon) >> 1;
 
-        var a = (Math.sin(halfdelta_lat) * Math.sin(halfdelta_lat)) +
-                (Math.cos(toRad(pos1.lat)) * Math.cos(toRad(pos2.lat))) *
-                (Math.sin(halfdelta_lon) * Math.sin(halfdelta_lon));
-
-        var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        var a = sin(halfdelta_lat) * sin(halfdelta_lat) +
+                (cos(toRad(pos1.lat)) * cos(toRad(pos2.lat))) *
+                (sin(halfdelta_lon) * sin(halfdelta_lon)),
+            c = 2 * atan2(sqrt(a), sqrt(1 - a));
 
         return KM_PER_RAD * c;
     } // calcDistance
@@ -5619,7 +5799,7 @@ var Position = (function() {
 
         minDist = minDist / 1000;
 
-        COG.Log.info("generalizing positions, must include " + requiredPositions.length + " positions");
+        COG.info("generalizing positions, must include " + requiredPositions.length + " positions");
 
         for (var ii = sourceLen; ii--; ) {
             if (ii === 0) {
@@ -5637,7 +5817,7 @@ var Position = (function() {
             } // if..else
         } // for
 
-        COG.Log.info("generalized " + sourceLen + " positions into " + positions.length + " positions");
+        COG.info("generalized " + sourceLen + " positions into " + positions.length + " positions");
         return positions;
     } // generalize
 
@@ -5696,20 +5876,11 @@ var Position = (function() {
             radLat = pos.lat * DEGREES_TO_RADIANS,
             radLon = pos.lon * DEGREES_TO_RADIANS,
             newLat = radLat + radOffsetLat,
-            deltaLon = Math.asin(Math.sin(radOffsetLon) / Math.cos(radLat)),
+            deltaLon = asin(sin(radOffsetLon) / cos(radLat)),
             newLon = radLon + deltaLon;
 
-        while (newLat < MIN_LAT) {
-            newLat += Math.PI;
-        } // if
-
-        while (newLat > MAX_LAT) {
-            newLat -= Math.PI;
-        } // while
-
-        while (newLon > MAX_LON) {
-            newLon -= 2 * Math.PI;
-        } // if
+        newLat = ((newLat + HALF_PI) % Math.PI) - HALF_PI;
+        newLon = newLon % TWO_PI;
 
         return init(newLat * RADIANS_TO_DEGREES, newLon * RADIANS_TO_DEGREES);
     } // offset
@@ -5915,21 +6086,14 @@ var BoundingBox = (function() {
 
 
         if ((minLat > MIN_LAT) && (maxLat < MAX_LAT)) {
-            var deltaLon = Math.asin(Math.sin(radDist) / Math.cos(radLat));
+            var deltaLon = asin(sin(radDist) / cos(radLat));
 
-            minLon = radLon - deltaLon;
-            if (minLon < MIN_LON) {
-                minLon += 2 * Math.PI;
-            } // if
-
-            maxLon = radLon + deltaLon;
-            if (maxLon > MAX_LON) {
-                maxLon -= 2 * Math.PI;
-            } // if
+            minLon = (radLon - deltaLon) % TWO_PI;
+            maxLon = (radLon + deltaLon) % TWO_PI;
         }
         else {
-            minLat = Math.max(minLat, MIN_LAT);
-            maxLat = Math.min(maxLat, MAX_LAT);
+            minLat = max(minLat, MIN_LAT);
+            maxLat = min(maxLat, MAX_LAT);
             minLon = MIN_LON;
             maxLon = MAX_LON;
         } // if..else
@@ -5985,13 +6149,13 @@ var BoundingBox = (function() {
             if (padding == "auto") {
                 var size = calcSize(bounds.min, bounds.max);
 
-                padding = Math.max(size.x, size.y) * 0.3;
+                padding = max(size.x, size.y) * 0.3;
             } // if
 
             bounds = expand(bounds, padding);
         } // if
 
-        COG.Log.trace("calculated bounds for " + positions.length + " positions", startTicks);
+        COG.trace("calculated bounds for " + positions.length + " positions", startTicks);
         return bounds;
     } // forPositions
 
@@ -6002,7 +6166,7 @@ var BoundingBox = (function() {
     function getCenter(bounds) {
         var size = calcSize(bounds.min, bounds.max);
 
-        return Position.init(bounds.min.lat + (size.y / 2), bounds.min.lon + (size.x / 2));
+        return Position.init(bounds.min.lat + (size.y >> 1), bounds.min.lon + (size.x >> 1));
     } // getCenter
 
 
@@ -6014,7 +6178,7 @@ var BoundingBox = (function() {
         var minHash = T5.Geo.GeoHash.encode(bounds.min.lat, bounds.min.lon),
             maxHash = T5.Geo.GeoHash.encode(bounds.max.lat, bounds.max.lon);
 
-        COG.Log.info("min hash = " + minHash + ", max hash = " + maxHash);
+        COG.info("min hash = " + minHash + ", max hash = " + maxHash);
     } // getGeoHash
 
     /**
@@ -6029,14 +6193,14 @@ var BoundingBox = (function() {
     function getZoomLevel(bounds, displaySize) {
         var boundsCenter = getCenter(bounds),
             maxZoom = 1000,
-            variabilityIndex = Math.min(Math.round(Math.abs(boundsCenter.lat) * 0.05), LAT_VARIABILITIES.length),
+            variabilityIndex = min(round(abs(boundsCenter.lat) * 0.05), LAT_VARIABILITIES.length),
             variability = LAT_VARIABILITIES[variabilityIndex],
             delta = calcSize(bounds.min, bounds.max),
-            bestZoomH = Math.ceil(Math.log(LAT_VARIABILITIES[3] * displaySize.height / delta.y) / Math.log(2)),
-            bestZoomW = Math.ceil(Math.log(variability * displaySize.width / delta.x) / Math.log(2));
+            bestZoomH = ceil(log(LAT_VARIABILITIES[3] * displaySize.height / delta.y) / log(2)),
+            bestZoomW = ceil(log(variability * displaySize.width / delta.x) / log(2));
 
 
-        return Math.min(isNaN(bestZoomH) ? maxZoom : bestZoomH, isNaN(bestZoomW) ? maxZoom : bestZoomW);
+        return min(isNaN(bestZoomH) ? maxZoom : bestZoomH, isNaN(bestZoomW) ? maxZoom : bestZoomW);
     } // getZoomLevel
 
     function init(initMin, initMax) {
@@ -6239,7 +6403,7 @@ var GeoXY = exports.GeoXY = (function() {
             xy.rpp = rpp;
         }
         else {
-            COG.Log.warn('Attempted to sync an XY composite, not a GeoXY');
+            COG.warn('Attempted to sync an XY composite, not a GeoXY');
         } // if..else
 
         return xy;
@@ -6280,7 +6444,7 @@ __deprecated__
 please use the T5.Geo.GeoXY instead
 */
 exports.GeoVector = function(position) {
-    COG.Log.warn('The T5.Geo.GeoVector class has been deprecated, please use T5.GeoXY.init instead');
+    COG.warn('The T5.Geo.GeoVector class has been deprecated, please use T5.GeoXY.init instead');
 
     return GeoXY.init(position);
 }; // Vector
@@ -6408,7 +6572,7 @@ var LocationSearch = function(params) {
     } // sendPosition
 
     function trackingError(error) {
-        COG.Log.info('caught location tracking error:', error);
+        COG.info('caught location tracking error:', error);
     } // trackingError
 
     var self = new T5.Geo.GeoSearchAgent(COG.extend({
@@ -7039,18 +7203,18 @@ var Map = exports.Map = function(params) {
                 panToPosition(
                     currentPos,
                     null,
-                    easing('sine.out'));
+                    COG.easing('sine.out'));
             } // if..else
 
             initialTrackingUpdate = false;
         }
         catch (e) {
-            COG.Log.exception(e);
+            COG.exception(e);
         }
     } // trackingUpdate
 
     function trackingError(error) {
-        COG.Log.info('caught location tracking error:', error);
+        COG.info('caught location tracking error:', error);
     } // trackingError
 
     /* event handlers */
@@ -7099,9 +7263,9 @@ var Map = exports.Map = function(params) {
     } // handleTap
 
     function handleIdle(evt) {
-        var changeDelta = XY.absSize(XY.diff(
-                lastBoundsChangeOffset, self.getOffset()));
+        var changeDelta = XY.absSize(XY.diff(lastBoundsChangeOffset, self.getOffset()));
 
+        COG.info('idle detected, change delta = ' + changeDelta);
         if (changeDelta > params.boundsChangeThreshold) {
             lastBoundsChangeOffset = XY.copy(self.getOffset());
             self.trigger("boundsChange", self.getBoundingBox());
@@ -7147,7 +7311,7 @@ var Map = exports.Map = function(params) {
     function getCenterPosition() {
         var rect = self.getViewRect();
         if (rect) {
-            var xy = XY.init(rect.x1 + rect.width / 2, rect.y1 + rect.height / 2);
+            var xy = XY.init(rect.x1 + (rect.width >> 1), rect.y1 + (rect.height >> 1));
             return GeoXY.toPos(xy, radsPerPixel);
         } // if
 
@@ -7183,7 +7347,7 @@ var Map = exports.Map = function(params) {
 
         Images.cancelLoad();
 
-        cancelAnimation();
+        COG.endTweens();
 
         panToPosition(position, callback);
     } // gotoPosition
@@ -7202,8 +7366,8 @@ var Map = exports.Map = function(params) {
             dimensions = self.getDimensions();
 
         self.updateOffset(
-            centerXY.x - dimensions.width / 2,
-            centerXY.y - dimensions.height / 2,
+            centerXY.x - (dimensions.width >> 1),
+            centerXY.y - (dimensions.height >> 1),
             easingFn,
             easingDuration,
             callback);
@@ -7319,7 +7483,7 @@ var Map = exports.Map = function(params) {
     self.bind('tap', handleTap);
 
 
-    self.bind("idle", handleIdle);
+    self.bind('idle', handleIdle);
 
     zoomable(self, params);
     self.bind('zoomLevelChange', handleZoomLevelChange);
@@ -7343,7 +7507,7 @@ var MapTileGenerator = exports.MapTileGenerator = function(params) {
         var zoomOK = newZoomLevel >= self.minLevel && (
             (! self.maxLevel) || (newZoomLevel <= self.maxLevel));
 
-        COG.Log.info('new zoom level = ' + newZoomLevel + ', zoom ok = ' + zoomOK);
+        COG.info('new zoom level = ' + newZoomLevel + ', zoom ok = ' + zoomOK);
 
         evt.cancel = ! zoomOK;
         if (zoomOK) {
@@ -7516,8 +7680,8 @@ var LocationOverlay = exports.LocationOverlay = function(params) {
     iconImage.src = LOCATOR_IMAGE;
     iconImage.onload = function() {
         iconOffset = T5.XY.init(
-            iconImage.width / 2,
-            iconImage.height / 2);
+            iconImage.width >> 1,
+            iconImage.height >> 1);
     };
 
     var self = COG.extend(new T5.ViewLayer(params), {
@@ -7557,7 +7721,7 @@ var LocationOverlay = exports.LocationOverlay = function(params) {
 
         update: function(grid) {
             if (grid) {
-                indicatorRadius = Math.floor(grid.getPixelDistance(self.accuracy) * 0.5);
+                indicatorRadius = grid.getPixelDistance(self.accuracy) >> 1;
                 centerXY = grid.getGridXYForPosition(self.pos);
 
                 self.changed();

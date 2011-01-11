@@ -64,7 +64,7 @@ var Images = (function() {
     function cleanupImageCache() {
         clearingCache = true;
         try {
-            var halfLen = cachedImages.length / 2 >> 0;
+            var halfLen = cachedImages.length >> 1;
             if (halfLen > 0) {
                 // TODO: make this more selective... currently some images on screen may be removed :/
                 cachedImages.sort(function(itemA, itemB) {
@@ -268,7 +268,7 @@ var Images = (function() {
                 callbacks: [callback]
             }, loadArgs);
             
-            // COG.Log.info("loading image, image args = ", loadArgs);
+            // COG.info("loading image, image args = ", loadArgs);
             
             // initialise the image id
             imageData.image.id = "resourceLoaderImage" + (imageCounter++);

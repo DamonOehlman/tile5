@@ -108,7 +108,7 @@ var ImageMarker = function(params) {
             // update the bounds
             self.updateBounds(drawX, drawY, drawWidth, drawWidth);
             
-            // COG.Log.info('drawing image @ x: ' + x + ', y: ' + y);
+            // COG.info('drawing image @ x: ' + x + ', y: ' + y);
             if (self.rotation || (self.opacity !== 1)) {
                 context.save();
                 try {

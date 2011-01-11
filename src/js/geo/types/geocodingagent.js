@@ -43,7 +43,7 @@ var GeocodingAgent = function(params) {
                 } // if
             } 
             catch (e) {
-                COG.Log.exception(e);
+                COG.exception(e);
             } // try..catch
         }
     }, params);

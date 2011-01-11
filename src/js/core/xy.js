@@ -28,7 +28,7 @@ var XY = (function() {
     ### absSize(vector)
     */
     function absSize(xy) {
-        return Math.max(Math.abs(xy.x), Math.abs(xy.y));
+        return max(abs(xy.x), abs(xy.y));
     } // absSize
     
     /**
@@ -81,7 +81,7 @@ var XY = (function() {
             var diff = difference(points[ii], points[ii + 1]);
             
             fnresult.edges[ii] = 
-                Math.sqrt((diff.x * diff.x) + (diff.y * diff.y));
+                sqrt((diff.x * diff.x) + (diff.y * diff.y));
             fnresult.accrued[ii] = 
                 fnresult.total + fnresult.edges[ii];
                 
@@ -105,8 +105,8 @@ var XY = (function() {
     ### extendBy(xy, theta, delta)
     */
     function extendBy(xy, theta, delta) {
-        var xDelta = Math.cos(theta) * delta,
-            yDelta = Math.sin(theta) * delta;
+        var xDelta = cos(theta) * delta,
+            yDelta = sin(theta) * delta;
         
         return init(xy.x - xDelta, xy.y - yDelta);
     } // extendBy
@@ -116,7 +116,7 @@ var XY = (function() {
     This function is used to take all the points in the array and convert them to
     integer values
     */
-    function floor(points) {
+    function floorXY(points) {
         var results = new Array(points.length);
         for (var ii = points.length; ii--; ) {
             results[ii] = init(~~points[ii].x, ~~points[ii].y);
@@ -174,7 +174,7 @@ var XY = (function() {
     /**
     ### max(xy1, xy2)
     */
-    function max(xy1, xy2) {
+    function maxXY(xy1, xy2) {
         return init(
             xy1.x > xy2.x ? xy1.x : xy2.x, 
             xy1.y > xy2.y ? xy1.y : xy2.y);
@@ -183,7 +183,7 @@ var XY = (function() {
     /**
     ### min(xy1, xy2)
     */
-    function min(xy1, xy2) {
+    function minXY(xy1, xy2) {
         return init(
             xy1.x < xy2.x ? xy1.x : xy2.x, 
             xy1.y < xy2.y ? xy1.y : xy2.y);
@@ -218,8 +218,8 @@ var XY = (function() {
 
             // determine whether the current point should be included
             include = !last || ii === 0 || 
-                (Math.abs(current.x - last.x) + 
-                    Math.abs(current.y - last.y) >
+                (abs(current.x - last.x) + 
+                    abs(current.y - last.y) >
                     generalization);
 
             if (include) {
@@ -235,7 +235,7 @@ var XY = (function() {
     ### theta (xy1, xy2, distance)
     */
     function theta(xy1, xy2, distance) {
-        var theta = Math.asin((xy1.y - xy2.y) / distance);
+        var theta = asin((xy1.y - xy2.y) / distance);
         return xy1.x > xy2.x ? theta : Math.PI - theta;
     } // theta
     
@@ -261,12 +261,12 @@ var XY = (function() {
         edges: edges,
         equals: equals,
         extendBy: extendBy,
-        floor: floor,
+        floor: floorXY,
         getRect: getRect,
         init: init,
         invert: invert,
-        min: min,
-        max: max,
+        min: minXY,
+        max: maxXY,
         offset: offset,
         simplify: simplify,
         theta: theta

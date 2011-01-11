@@ -97,14 +97,14 @@ var GeoHash = (function() {
 
         while (geohash.length < precision) {
           if (is_even) {
-                mid = (lon[0] + lon[1]) / 2;
+                mid = (lon[0] + lon[1]) >> 1;
             if (longitude > mid) {
                     ch |= BITS[bit];
                     lon[0] = mid;
             } else
                     lon[1] = mid;
           } else {
-                mid = (lat[0] + lat[1]) / 2;
+                mid = (lat[0] + lat[1]) >> 1;
             if (latitude > mid) {
                     ch |= BITS[bit];
                     lat[0] = mid;

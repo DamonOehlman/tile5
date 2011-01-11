@@ -42,7 +42,7 @@ var LocationSearch = function(params) {
     } // sendPosition
     
     function trackingError(error) {
-        COG.Log.info('caught location tracking error:', error);
+        COG.info('caught location tracking error:', error);
     } // trackingError
     
     // initialise the geosearch agent

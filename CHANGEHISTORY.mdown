@@ -6,7 +6,11 @@ The primary focus of the 0.9.5 release are changes to the interaction model for 
 
 ### Detailed Changes
 
-- 
+- Breaking changes to `T5.Geo.Position` and `T5.Geo.BoundingBox` - see the API docs for more details.
+
+- Transitioned away from using [ant](http://ant.apache.org/) for builds and a concatenation style, to using [sprockets](http://www.getsprockets.com/) instead.
+
+- Interaction handlers decoupled from views and are now external drivers.  This creates opportunities for different interaction handlers and more automated testing opportunities.
 
 ## 0.9.4 (unstable tagged in Github 2010-12-30)
 

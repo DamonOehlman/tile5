@@ -12,14 +12,14 @@
             title: 'Intersect Valid',
             runner: function(test, testData) {
                 var r = T5.XYRect.intersect(r1, r2);
-                COG.Log.info('intersection = ', r);
+                COG.info('intersection = ', r);
             }
         }, 
         {
             title: 'Intersect Miss',
             runner: function(test, testData) {
                 var r = T5.XYRect.intersect(r1, r3);
-                COG.Log.info('intersection = ', r);
+                COG.info('intersection = ', r);
             }
         }
         ]

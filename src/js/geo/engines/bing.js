@@ -10,7 +10,7 @@ T5.Geo.Bing = (function() {
     /* internal functions */
     
     function authenticate(apikey, style, callback) {
-        COG.Log.info('attempting authentication, apikey = ' + apikey + ', style = ' + style);
+        COG.info('attempting authentication, apikey = ' + apikey + ', style = ' + style);
         
         // if we already have the image urls for that style, then just fire the callback
         if (imageUrls[style]) {

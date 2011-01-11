@@ -61,7 +61,7 @@ var MarkerLayer = function(params) {
             } // if
         } // for
         
-        // COG.Log.info('testing for tapped markers, tap count = ' + tappedMarkers.length);
+        // COG.info('testing for tapped markers, tap count = ' + tappedMarkers.length);
         
         // if we have tapped markers, then cancel the tap event
         if (tappedMarkers.length > 0) {

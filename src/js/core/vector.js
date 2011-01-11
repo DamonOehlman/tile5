@@ -39,14 +39,14 @@ var Vector = (function() {
             var diffVector = difference(vectors[ii], vectors[0]),
                 orthDist = dotProduct(diffVector, u);
 
-            // COG.Log.info('orth dist = ' + orthDist + ', diff Vector = ', diffVector);
+            // COG.info('orth dist = ' + orthDist + ', diff Vector = ', diffVector);
             if (orthDist > distanceMax) {
                 index = ii;
                 distanceMax = orthDist;
             } // if
         } // for
 
-        COG.Log.info('max distance = ' + distanceMax + ', unitized distance vector = ', u);
+        COG.info('max distance = ' + distanceMax + ', unitized distance vector = ', u);
 
         // find the point with the max distance
         if (distanceMax >= epsilon) {
@@ -72,7 +72,7 @@ var Vector = (function() {
             absX = unitLength !== 0 ? (v2.x - v1.x) / unitLength : 0, 
             absY = unitLength !== 0 ? (v2.y - v1.y) / unitLength : 0;
 
-        // COG.Log.info('unitizing vectors, length = ' + unitLength);
+        // COG.info('unitizing vectors, length = ' + unitLength);
         return XY.init(absX, absY);
     } // unitize
     

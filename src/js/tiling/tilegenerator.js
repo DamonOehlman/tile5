@@ -21,9 +21,9 @@ var TileGenerator = function(params) {
         padding = params.padding,
         requestedTileCreator = false,
         tileWidth = params.tileWidth,
-        halfTileWidth = tileWidth / 2,
+        halfTileWidth = tileWidth >> 1,
         tileHeight = params.tileHeight,
-        halfTileHeight = tileHeight / 2,
+        halfTileHeight = tileHeight >> 1,
         tileCreator = null,
         xTiles = 0,
         yTiles = 0,
@@ -83,7 +83,7 @@ var TileGenerator = function(params) {
     ### bindToView(view)
     */
     function bindToView(view) {
-        COG.Log.info('initializing generator');
+        COG.info('initializing generator');
         
         // update the target view
         targetView = view;
@@ -158,7 +158,7 @@ var TileGenerator = function(params) {
     
     // handle change events by clearing the last rect
     self.bind('update', function(evt) {
-        COG.Log.info('captured generator update');
+        COG.info('captured generator update');
         lastRect = null;
     });
     

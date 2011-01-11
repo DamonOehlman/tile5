@@ -15,7 +15,7 @@ T5.Zoomify = (function() {
         /* internal functions */
     
         function handleZoomLevelChange(evt, newZoomLevel) {
-            COG.Log.info('zoom level changed, reset');
+            COG.info('zoom level changed, reset');
             zoomLevel = newZoomLevel;
             self.reset();
         } // handleZoomLevelChange;

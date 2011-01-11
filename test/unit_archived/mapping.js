@@ -43,8 +43,8 @@
             engine.geocode({
                 addresses: mappingTestData.addresses[addressIndex], 
                 complete: function(requestAddress, possibleMatches) {
-                    COG.Log.info("REQUESTED ADDRESS: " + requestAddress);
-                    COG.Log.info("got address matches: ", possibleMatches);
+                    COG.info("REQUESTED ADDRESS: " + requestAddress);
+                    COG.info("got address matches: ", possibleMatches);
                     
                     geocodeTestAddresses(engine, addressIndex + 1, listCompleteCallback);
                 }
@@ -80,7 +80,7 @@
             title: "Route from Brisbane to Sydney",
             autoReady: false,
             runner: function(test, testData) {
-                COG.Log.info("requesting the route from brisbane to sydney");
+                COG.info("requesting the route from brisbane to sydney");
                 
                 // calculate the route between brisbane and sydney
                 T5.Geo.Routing.calculate({
@@ -118,7 +118,7 @@
                 } // if
 
                 geocodeTestAddresses(engine, 0, function() {
-                    COG.Log.info("geocoding test complete");
+                    COG.info("geocoding test complete");
                     test.ready();
                 });
             }

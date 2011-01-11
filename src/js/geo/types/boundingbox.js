@@ -52,28 +52,20 @@ var BoundingBox = (function() {
             maxLat = radLat + radDist,
             minLon, maxLon;
             
-        // COG.Log.info("rad distance = " + radDist);
-        // COG.Log.info("rad lat = " + radLat + ", lon = " + radLon);
-        // COG.Log.info("min lat = " + minLat + ", max lat = " + maxLat);
+        // COG.info("rad distance = " + radDist);
+        // COG.info("rad lat = " + radLat + ", lon = " + radLon);
+        // COG.info("min lat = " + minLat + ", max lat = " + maxLat);
             
         if ((minLat > MIN_LAT) && (maxLat < MAX_LAT)) {
-            var deltaLon = Math.asin(Math.sin(radDist) / Math.cos(radLat));
+            var deltaLon = asin(sin(radDist) / cos(radLat));
             
             // determine the min longitude
-            minLon = radLon - deltaLon;
-            if (minLon < MIN_LON) {
-                minLon += 2 * Math.PI;
-            } // if
-            
-            // determine the max longitude
-            maxLon = radLon + deltaLon;
-            if (maxLon > MAX_LON) {
-                maxLon -= 2 * Math.PI;
-            } // if
+            minLon = (radLon - deltaLon) % TWO_PI;
+            maxLon = (radLon + deltaLon) % TWO_PI;
         }
         else {
-            minLat = Math.max(minLat, MIN_LAT);
-            maxLat = Math.min(maxLat, MAX_LAT);
+            minLat = max(minLat, MIN_LAT);
+            maxLat = min(maxLat, MAX_LAT);
             minLon = MIN_LON;
             maxLon = MAX_LON;
         } // if..else
@@ -132,13 +124,13 @@ var BoundingBox = (function() {
                 var size = calcSize(bounds.min, bounds.max);
 
                 // update padding to be a third of the max size
-                padding = Math.max(size.x, size.y) * 0.3;
+                padding = max(size.x, size.y) * 0.3;
             } // if
 
             bounds = expand(bounds, padding);
         } // if
 
-        COG.Log.trace("calculated bounds for " + positions.length + " positions", startTicks);
+        COG.trace("calculated bounds for " + positions.length + " positions", startTicks);
         return bounds;
     } // forPositions
     
@@ -151,7 +143,7 @@ var BoundingBox = (function() {
         var size = calcSize(bounds.min, bounds.max);
         
         // create a new position offset from the current min
-        return Position.init(bounds.min.lat + (size.y / 2), bounds.min.lon + (size.x / 2));
+        return Position.init(bounds.min.lat + (size.y >> 1), bounds.min.lon + (size.x >> 1));
     } // getCenter
     
         
@@ -163,7 +155,7 @@ var BoundingBox = (function() {
         var minHash = T5.Geo.GeoHash.encode(bounds.min.lat, bounds.min.lon),
             maxHash = T5.Geo.GeoHash.encode(bounds.max.lat, bounds.max.lon);
             
-        COG.Log.info("min hash = " + minHash + ", max hash = " + maxHash);
+        COG.info("min hash = " + minHash + ", max hash = " + maxHash);
     } // getGeoHash
     
     /** 
@@ -179,21 +171,21 @@ var BoundingBox = (function() {
         // get the constant index for the center of the bounds
         var boundsCenter = getCenter(bounds),
             maxZoom = 1000,
-            variabilityIndex = Math.min(Math.round(Math.abs(boundsCenter.lat) * 0.05), LAT_VARIABILITIES.length),
+            variabilityIndex = min(round(abs(boundsCenter.lat) * 0.05), LAT_VARIABILITIES.length),
             variability = LAT_VARIABILITIES[variabilityIndex],
             delta = calcSize(bounds.min, bounds.max),
             // interestingly, the original article had the variability included, when in actual reality it isn't, 
             // however a constant value is required. must find out exactly what it is.  At present, though this
             // works fine.
-            bestZoomH = Math.ceil(Math.log(LAT_VARIABILITIES[3] * displaySize.height / delta.y) / Math.log(2)),
-            bestZoomW = Math.ceil(Math.log(variability * displaySize.width / delta.x) / Math.log(2));
+            bestZoomH = ceil(log(LAT_VARIABILITIES[3] * displaySize.height / delta.y) / log(2)),
+            bestZoomW = ceil(log(variability * displaySize.width / delta.x) / log(2));
 
-        // COG.Log.info("constant index for bbox: " + bounds + " (center = " + boundsCenter + ") is " + variabilityIndex);
-        // COG.Log.info("distances  = " + delta);
-        // COG.Log.info("optimal zoom levels: height = " + bestZoomH + ", width = " + bestZoomW);
+        // COG.info("constant index for bbox: " + bounds + " (center = " + boundsCenter + ") is " + variabilityIndex);
+        // COG.info("distances  = " + delta);
+        // COG.info("optimal zoom levels: height = " + bestZoomH + ", width = " + bestZoomW);
 
         // return the lower of the two zoom levels
-        return Math.min(isNaN(bestZoomH) ? maxZoom : bestZoomH, isNaN(bestZoomW) ? maxZoom : bestZoomW);
+        return min(isNaN(bestZoomH) ? maxZoom : bestZoomH, isNaN(bestZoomW) ? maxZoom : bestZoomW);
     } // getZoomLevel
     
     function init(initMin, initMax) {

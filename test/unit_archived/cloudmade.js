@@ -42,7 +42,7 @@
         }, {
             title: "Add Some Pins",
             runner: function(test, testData) {
-                COG.Log.info("adding some pins");
+                COG.info("adding some pins");
                 
                 // pin the gold coast
                 map.addPOI(new T5.Geo.PointOfInterest({

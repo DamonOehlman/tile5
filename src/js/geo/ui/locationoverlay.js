@@ -34,8 +34,8 @@ var LocationOverlay = exports.LocationOverlay = function(params) {
     iconImage.src = LOCATOR_IMAGE;
     iconImage.onload = function() {
         iconOffset = T5.XY.init(
-            iconImage.width / 2, 
-            iconImage.height / 2);
+            iconImage.width >> 1, 
+            iconImage.height >> 1);
     };
     
     var self = COG.extend(new T5.ViewLayer(params), {
@@ -75,7 +75,7 @@ var LocationOverlay = exports.LocationOverlay = function(params) {
         
         update: function(grid) {
             if (grid) {
-                indicatorRadius = Math.floor(grid.getPixelDistance(self.accuracy) * 0.5);
+                indicatorRadius = grid.getPixelDistance(self.accuracy) >> 1;
                 centerXY = grid.getGridXYForPosition(self.pos);
                 
                 self.changed();

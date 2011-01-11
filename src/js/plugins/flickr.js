@@ -37,7 +37,7 @@ T5.Flickr = (function() {
             searchOptions = COG.COG.extend({}, DEFAULT_SEARCH_OPTIONS),
             userSearchOptions = {};
             
-        COG.Log.info('flickr tile generator created, params = ', params);
+        COG.info('flickr tile generator created, params = ', params);
 
         /* internal functions */
 
@@ -46,7 +46,7 @@ T5.Flickr = (function() {
 
             if (searchText) {
                 parseSearchParams(function() {
-                    COG.Log.info("search params parsed");
+                    COG.info("search params parsed");
                     url = getApiUrl('method=' + METHOD_SEARCH + getSearchParams() + 
                             '&per_page=' + IMAGES_PER_REQUEST + '&page=' + pageIndex++);
 
@@ -180,21 +180,21 @@ T5.Flickr = (function() {
                         callback(data);
                     }
                     
-                    COG.Log.info('triggering update');
+                    COG.info('triggering update');
                     self.trigger('update');
                 }, "jsoncallback");
             });
         } // queryFlickr
 
         function processPhotoInfo(data) {
-            // COG.Log.info("got photo info:", data);
+            // COG.info("got photo info:", data);
         } // processPhotoInfo
 
         function processSearchResults(data) {
             Ext.getBody().unmask();
 
             if (! data.photos) {
-                COG.Log.error("Unable to retrieve photos, response from flickr was: ", data);
+                COG.error("Unable to retrieve photos, response from flickr was: ", data);
                 return;
             } // if
 

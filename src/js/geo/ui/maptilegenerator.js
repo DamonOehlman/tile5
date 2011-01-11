@@ -16,7 +16,7 @@ var MapTileGenerator = exports.MapTileGenerator = function(params) {
         var zoomOK = newZoomLevel >= self.minLevel && (
             (! self.maxLevel) || (newZoomLevel <= self.maxLevel));
             
-        COG.Log.info('new zoom level = ' + newZoomLevel + ', zoom ok = ' + zoomOK);
+        COG.info('new zoom level = ' + newZoomLevel + ', zoom ok = ' + zoomOK);
 
         evt.cancel = ! zoomOK;
         if (zoomOK) {

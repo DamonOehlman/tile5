@@ -39,15 +39,15 @@ var XYRect = (function() {
     ### diagonalSize(rect)
     */
     function diagonalSize(rect) {
-        return Math.sqrt(rect.width * rect.width + rect.height * rect.height);
+        return sqrt(rect.width * rect.width + rect.height * rect.height);
     } // diagonalSize
     
     /**
     ### fromCenter(centerX, centerY, width, height)
     */
     function fromCenter(centerX, centerY, width, height) {
-        var halfWidth = ~~(width / 2),
-            halfHeight = ~~(height / 2);
+        var halfWidth = width >> 1,
+            halfHeight = height >> 1;
         
         return init(
             centerX - halfWidth, 
@@ -83,10 +83,10 @@ var XYRect = (function() {
     Returns the intersecting rect between the two specified XYRect composites
     */
     function intersect(rect1, rect2) {
-        var x1 = Math.max(rect1.x1, rect2.x1),
-            y1 = Math.max(rect1.y1, rect2.y1),
-            x2 = Math.min(rect1.x2, rect2.x2),
-            y2 = Math.min(rect1.y2, rect2.y2),
+        var x1 = max(rect1.x1, rect2.x1),
+            y1 = max(rect1.y1, rect2.y1),
+            x2 = min(rect1.x2, rect2.x2),
+            y2 = min(rect1.y2, rect2.y2),
             r = init(x1, y1, x2, y2);
             
         return ((r.width > 0) && (r.height > 0)) ? r : null;
@@ -103,10 +103,10 @@ var XYRect = (function() {
             return copy(rect1);
         }
         else {
-            var x1 = Math.min(rect1.x1, rect2.x1),
-                y1 = Math.min(rect1.y1, rect2.y1),
-                x2 = Math.max(rect1.x2, rect2.x2),
-                y2 = Math.max(rect1.y2, rect2.y2),
+            var x1 = min(rect1.x1, rect2.x1),
+                y1 = min(rect1.y1, rect2.y1),
+                x2 = max(rect1.x2, rect2.x2),
+                y2 = max(rect1.y2, rect2.y2),
                 r = init(x1, y1, x2, y2);
 
             return ((r.width > 0) && (r.height > 0)) ? r : null;

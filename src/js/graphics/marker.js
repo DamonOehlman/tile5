@@ -52,7 +52,7 @@ var Marker = function(params) {
         boundsWidth = newWidth;
         boundsHeight = newHeight;
         
-        // COG.Log.info('bounds: x = ' + boundsX + ', y = ' + boundsY + ', width = ' + boundsWidth + ', height = ' + boundsHeight);
+        // COG.info('bounds: x = ' + boundsX + ', y = ' + boundsY + ', width = ' + boundsWidth + ', height = ' + boundsHeight);
     } // updateBounds
     
     var self = COG.extend(params, {
@@ -82,7 +82,7 @@ var Marker = function(params) {
                 // animate the annotation
                 animating = true;
                 
-                tween(
+                COG.tween(
                     self.xy, 
                     'y',
                     endValue, 

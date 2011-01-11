@@ -27,9 +27,7 @@ var Dimensions = (function() {
     Get the a XY composite for the center of the `dimensions` (width / 2, height  / 2)
     */
     function getCenter(dimensions) {
-        return XY.init(
-                    dimensions.width / 2, 
-                    dimensions.height / 2);
+        return XY.init(dimensions.width >> 1, dimensions.height >> 1);
     } // getCenter
 
     /**
@@ -37,8 +35,7 @@ var Dimensions = (function() {
     Get the size for the diagonal for the `dimensions`
     */
     function getSize(dimensions) {
-        return Math.sqrt(Math.pow(dimensions.width, 2) + 
-                Math.pow(dimensions.height, 2));
+        return sqrt(pow(dimensions.width, 2) + pow(dimensions.height, 2));
     } // getSize
     
     /** 

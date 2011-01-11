@@ -69,7 +69,7 @@ var Arc = function(origin, params) {
        }
    });
    
-   COG.Log.info('created arc = ', origin);
+   COG.info('created arc = ', origin);
    return self;
 }; 
 
@@ -125,7 +125,7 @@ var Poly = function(points, params) {
             context.beginPath();
             
             // now draw the lines
-            // COG.Log.info('drawing poly: have ' + drawVectors.length + ' vectors');
+            // COG.info('drawing poly: have ' + drawVectors.length + ' vectors');
             for (var ii = drawPoints.length; ii--; ) {
                 var x = drawPoints[ii].x,
                     y = drawPoints[ii].y;

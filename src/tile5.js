@@ -12,7 +12,8 @@
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true */
 
 // TODO: replace with a github dependency once getjs is done
-//= require <cog/cog>
+//= require <cog/src/cog>
+//= require <interact/src/interact>
 
 T5 = (function() {
     //= require "js/math"
@@ -22,10 +23,6 @@ T5 = (function() {
     //= require "js/generator"
     //= require "js/zoomable"
     
-    //= require "js/animation/core"
-    //= require "js/animation/easing"
-    //= require "js/animation/tween"
-
     //= require "js/graphics/style"
     //= require "js/graphics/viewstate"
     //= require "js/graphics/view"
@@ -64,11 +61,10 @@ T5 = (function() {
         Generator: Generator,
         
         // animation functions and modules
-        tween: tween,
-        tweenValue: tweenValue,
-        easing: easing,
-        registerEasingType: registerEasingType,
-        Tween: Tween,
+        tween: COG.tween,
+        tweenValue: COG.tweenValue,
+        easing: COG.easing,
+        Tween: COG.Tween,
         
         // core graphics modules
         Style: Style,

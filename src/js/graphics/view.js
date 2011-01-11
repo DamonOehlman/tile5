@@ -114,7 +114,8 @@ var View = function(params) {
         inertia: true,
         pannable: true,
         scalable: true,
-        panAnimationEasing: easing('sine.out'),
+        interactive: true,
+        panAnimationEasing: COG.easing('sine.out'),
         panAnimationDuration: 750,
         pinchZoomAnimateTrigger: 400,
         adjustScaleFactor: null,
@@ -147,6 +148,7 @@ var View = function(params) {
         panimating = false,
         paintTimeout = 0,
         idleTimeout = 0,
+        panEndTimeout = 0,
         rescaleTimeout = 0,
         layerMinXY = null,
         layerMaxXY = null,
@@ -160,6 +162,7 @@ var View = function(params) {
         scaleFactor = 1,
         lastScaleFactor = 0,
         tweenStart = null,
+        eventMonitor = null,
         isFlash = typeof FlashCanvas !== 'undefined',
         cycleDelay = ~~(1000 / params.fps),
         zoomX, zoomY,
@@ -186,62 +189,32 @@ var View = function(params) {
         
         if (inertia && params.inertia) {
             updateOffset(
-                offsetX + x, 
-                offsetY + y, 
+                offsetX - x, 
+                offsetY - y, 
                 params.panAnimationEasing, 
                 params.panAnimationDuration);
         }
         else if (! inertia) {
             updateOffset(
-                offsetX + x, 
-                offsetY + y);
+                offsetX - x, 
+                offsetY - y);
         } // if..else
+        
+        clearTimeout(panEndTimeout);
+        panEndTimeout = setTimeout(panEnd, 100);
     } // pan
-    
-    function handlePanEnd(evt, x, y) {
-        state = stateActive;
-        panimating = false;
-        invalidate();
-    } // handlePanEnd
     
     /* scaling functions */
     
-    function checkTouches(start, end) {
-        var startRect = vectorRect(start),
-            startCenter = rectCenter(startRect),
-            startSize = rectDiagonal(startRect),
-            endRect = vectorRect(end),
-            endCenter = rectCenter(endRect),
-            endSize = rectDiagonal(endRect),
-            diffX = startCenter.x - endCenter.x,
-            diffY = startCenter.y - endCenter.y;
-
-        // update the zoom center
-        // TODO: apply the difference so that the center of the interaction changes relative
-        // to movements between the start center and end center
-        setZoomCenter(endCenter);
-
-        // determine the ratio between the start rect and the end rect
-        scaleFactor = (startRect && (startSize !== 0)) ? (endSize / startSize) : 1;
-    } // checkTouches            
+    function panEnd() {
+        state = stateActive;
+        panimating = false;
+        invalidate();
+    } // panEnd
     
-    function handlePinchZoom(evt, touchesStart, touchesCurrent) {
-        if (! scaleTouchesStart) {
-            scaleTouchesStart = [].concat(touchesCurrent);
-        } // if
-        
-        checkTouches(scaleTouchesStart, touchesCurrent);
-        scaleView();
-    } // handlePinchZoom
-    
-    function pinchZoomEnd(evt, touchesStart, touchesEnd, pinchZoomTime) {
-        scaleFactor = Math.pow(2, Math.round(Math.log(scaleFactor) / Math.LN2));
-        scaleView(true);
-    } // pinchZoomEnd
-    
-    function handleWheelZoom(evt, relXY, zoom) {
+    function handleZoom(evt, absXY, relXY, scaleChange) {
         // TODO: the xy position should be between the relXY and the center of the view
-        self.zoom(Dimensions.getCenter(dimensions), zoom);
+        self.zoom(relXY, scaleChange);
     } // handleWheelZoom
     
     function scaleView(fullInvalidate) {
@@ -256,13 +229,13 @@ var View = function(params) {
             state = stateZoom;
         } // if
 
-        COG.Log.info('scale factor = ' + scaleFactor + ', exp = ' + scaleFactorExp);
+        // COG.info('scale factor = ' + scaleFactor + ', exp = ' + scaleFactorExp);
         if (scaleFactorExp !== 0) {
             scaleFactor = Math.pow(2, scaleFactorExp);
 
             // trigger the scale
             if (! self.trigger('scale', scaleFactor, scaleEndXY).cancel) {
-                COG.Log.info('ok to scale');
+                // COG.info('ok to scale');
                 
                 // flag to the layers that we are scaling
                 for (var ii = layers.length; ii--; ) {
@@ -342,7 +315,7 @@ var View = function(params) {
             tweensComplete += 1;
             
             if (tweensComplete >= 2) {
-                handlePanEnd(0, 0);
+                panEnd();
                 if (callback) {
                     callback();
                 } // if
@@ -367,10 +340,10 @@ var View = function(params) {
                 return;
             } // if
             
-            var tweenX = tweenValue(offsetX, x, tweenFn, 
+            var tweenX = COG.tweenValue(offsetX, x, tweenFn, 
                     updateOffsetAnimationEnd, tweenDuration),
                     
-                tweenY = tweenValue(offsetY, y, tweenFn, 
+                tweenY = COG.tweenValue(offsetY, y, tweenFn, 
                     updateOffsetAnimationEnd, tweenDuration);
                     
             // attach update listeners
@@ -403,7 +376,7 @@ var View = function(params) {
         panimating = false;
         scaleFactor = Math.max(scaleFactor + Math.pow(2, scaleChange) - 1, 0.25);
         
-        COG.Log.info('zooming, scale change = ' + scaleChange + ', targetXY = ', targetXY);
+        // COG.info('zooming, scale change = ' + scaleChange + ', targetXY = ', targetXY);
         scaleView();
     } // zoom
     
@@ -414,6 +387,10 @@ var View = function(params) {
         var ii;
         
         if (canvas) {
+            if (eventMonitor) {
+                eventMonitor.unbind();
+            } // if
+            
             // if we are autosizing the set the size
             if (params.autoSize && canvas.parentNode) {
                 var rect = canvas.parentNode.getBoundingClientRect();
@@ -434,15 +411,15 @@ var View = function(params) {
                 mainContext = canvas.getContext('2d');
             } 
             catch (e) {
-                COG.Log.exception(e);
+                COG.exception(e);
                 throw new Error("Could not initialise canvas on specified view element");
             }
             
             // initialise the dimensions
             if (dimensions.height !== canvas.height || dimensions.width !== canvas.width) {
                 dimensions = Dimensions.init(canvas.width, canvas.height);
-                halfWidth = (dimensions.width / 2) >> 0;
-                halfHeight = (dimensions.height / 2) >> 0;
+                halfWidth = dimensions.width >> 1;
+                halfHeight = dimensions.height >> 1;
                 
                 // trigger the resize event for the view
                 self.trigger('resize', canvas.width, canvas.height);
@@ -451,6 +428,14 @@ var View = function(params) {
                 for (ii = layerCount; ii--; ) {
                     layers[ii].trigger('resize', canvas.width, canvas.height);
                 } // for
+            } // if
+            
+            // create the event monitor
+            // TODO: pass through detected device configuration details
+            if (params.interactive) {
+                eventMonitor = INTERACT.watch(canvas, {
+                    observable: self
+                }).pannable();
             } // if
             
             // iterate through the layers, and change the context
@@ -509,6 +494,7 @@ var View = function(params) {
     /* draw code */
     
     function triggerIdle() {
+        // COG.info('idle');
         triggerAll('idle', self);
         
         idle = true;
@@ -545,7 +531,7 @@ var View = function(params) {
 
         // save the context states
         mainContext.save();
-        // COG.Log.info('offsetX = ' + offsetX + ', offsetY = ', offsetY + ', drawing rect = ', rect);
+        // COG.info('offsetX = ' + offsetX + ', offsetY = ', offsetY + ', drawing rect = ', rect);
         
         try {
             // initialise the composite operation
@@ -626,16 +612,16 @@ var View = function(params) {
             mainContext.globalCompositeOperation = 'source-over';
             mainContext.strokeStyle = '#f00';
             mainContext.beginPath();
-            mainContext.moveTo(canvas.width / 2, 0);
-            mainContext.lineTo(canvas.width / 2, canvas.height);
-            mainContext.moveTo(0, canvas.height / 2);
-            mainContext.lineTo(canvas.width, canvas.height / 2);
+            mainContext.moveTo(canvas.width >> 1, 0);
+            mainContext.lineTo(canvas.width >> 1, canvas.height);
+            mainContext.moveTo(0, canvas.height >> 1);
+            mainContext.lineTo(canvas.width, canvas.height >> 1);
             mainContext.stroke();
         } // if
 
         // trigger the draw complete for the view
         triggerAll('drawComplete', rect, tickCount);
-        COG.Log.trace("draw complete", tickCount);
+        COG.trace("draw complete", tickCount);
     } // drawView
     
     function cycle(tickCount, worker) {
@@ -648,13 +634,13 @@ var View = function(params) {
             requireRedraw = redrawView || 
                         currentState === statePan || 
                         currentState === stateZoom || 
-                        (tweens.length > 0);
+                        (COG.getTweens().length > 0);
 
         // calculate the cycle rect
         cycleRect = getViewRect();
         
         if (interacting) {
-            cancelAnimation(function(tweenInstance) {
+            COG.endTweens(function(tweenInstance) {
                 return tweenInstance.cancelOnInteract;
             });
             
@@ -687,7 +673,7 @@ var View = function(params) {
             // reset draw monitoring variables
             redrawView = false;
         } // if
-
+        
         // include wake triggers in the change count
         if ((! draw) && (wakeTriggers === 0) && (! isFlash)) {
             if ((! idle) && (idleTimeout === 0)) {
@@ -698,7 +684,7 @@ var View = function(params) {
         } // if
         
         wakeTriggers = 0;
-        COG.Log.trace("Completed draw cycle", tickCount);
+        COG.trace("Completed draw cycle", tickCount);
     } // cycle
     
     function invalidate(redraw) {
@@ -819,7 +805,7 @@ var View = function(params) {
 
         // if tweening then update the targetXY
         if (tweenFn) {
-            var tween = tweenValue(
+            var tween = COG.tweenValue(
                             0, 
                             targetScaling - scaleFactorFrom, 
                             tweenFn, 
@@ -964,8 +950,7 @@ var View = function(params) {
     
     // if this is pannable, then attach event handlers
     if (params.pannable) {
-        self.bind("pan", handlePan);
-        self.bind("panEnd", handlePanEnd);
+        self.bind('pan', handlePan);
 
         // handle intertia events
         self.bind("inertiaCancel", function(evt) {
@@ -976,9 +961,7 @@ var View = function(params) {
 
     // if this view is scalable, attach zooming event handlers
     if (params.scalable) {
-        self.bind('pinchZoom', handlePinchZoom);
-        // self.bind("pinchZoomEnd", pinchZoomEnd);
-        self.bind('wheelZoom', handleWheelZoom);
+        self.bind('zoom', handleZoom);
     } // if
     
     // handle tap events

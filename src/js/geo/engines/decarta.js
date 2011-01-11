@@ -281,7 +281,7 @@ T5.Geo.Decarta = (function() {
 
     function generateRequestUrl(request, request_data) {
         if (! currentConfig.server) {
-            COG.Log.warn("No server configured for deCarta - we are going to have issues");
+            COG.warn("No server configured for deCarta - we are going to have issues");
         } // if
         
         return COG.formatStr("{0}/JSON?reqID={1}&chunkNo=1&numChunks=1&data={2}&responseFormat=JSON",
@@ -291,7 +291,7 @@ T5.Geo.Decarta = (function() {
     } // generateRequestUrl
 
     function makeServerRequest(request, callback) {
-        // COG.Log.info("making request: " + generateRequest(request));
+        // COG.info("making request: " + generateRequest(request));
         
         // make the request to the server
         // TODO: convert ajax request to UG
@@ -314,7 +314,7 @@ T5.Geo.Decarta = (function() {
             }
             // otherwise, report the error
             else {
-                COG.Log.error("no responses from server: " + JSON.stringify(data.response));
+                COG.error("no responses from server: " + data.response);
             } // if..else
         });
     } // openlsComms
@@ -406,7 +406,7 @@ T5.Geo.Decarta = (function() {
             var zoomString = zoom_level;
             if (lastZoom) {
                 zoomString += ":" + lastZoom;
-                // COG.Log.info("zoom string = " + zoomString);
+                // COG.info("zoom string = " + zoomString);
             } // if
 
             // create the parent
@@ -477,11 +477,11 @@ T5.Geo.Decarta = (function() {
                     
                     function applyPanOffset(offset, tileSize, panInfo) {
                         if (panInfo.direction == "E") {
-                            // COG.Log.info("E pan offset = " + panInfo.numTiles);
+                            // COG.info("E pan offset = " + panInfo.numTiles);
                             offset.x = (panInfo.numTiles * tileSize);
                         }
                         else if (panInfo.direction == "N") {
-                            // COG.Log.info("N pan offset = " + panInfo.numTiles);
+                            // COG.info("N pan offset = " + panInfo.numTiles);
                             offset.y = (panInfo.numTiles * tileSize) - tileSize;
                         } // if..else
                     } // applyPanOffset
@@ -493,7 +493,7 @@ T5.Geo.Decarta = (function() {
                         var tileSize = grid.Tile.Map.Content.height;
                         var panOffset = T5.XY.init();
 
-                        // COG.Log.info(COG.formatStr("parsed image url: {0}, N = {1}, E = {2}", urlData.mask, urlData.N, urlData.E));
+                        // COG.info(COG.formatStr("parsed image url: {0}, N = {1}, E = {2}", urlData.mask, urlData.N, urlData.E));
                         
                         // calculate the pan offset 
                         for (var ii = 0; ii < grid.Pan.length; ii++) {
@@ -573,7 +573,7 @@ T5.Geo.Decarta = (function() {
                     } // for
                 } 
                 catch (e) {
-                    COG.Log.exception(e);
+                    COG.exception(e);
                 } // try..except
                 
                 return addresses;                
@@ -601,7 +601,7 @@ T5.Geo.Decarta = (function() {
                 },
                 
                 parseResponse: function(response) {
-                    // COG.Log.info("got response: ", response);
+                    // COG.info("got response: ", response);
 
                     if (params.addresses.length === 1) {
                         return [getResponseAddresses(response.GeocodeResponseList)];
@@ -684,7 +684,7 @@ T5.Geo.Decarta = (function() {
                     totalDistance = 0,
                     totalTime = new T5.TimeLord.Duration();
 
-                // COG.Log.info("parsing " + instructions.length + " instructions", instructions[0], instructions[1], instructions[2]);
+                // COG.info("parsing " + instructions.length + " instructions", instructions[0], instructions[1], instructions[2]);
                 for (var ii = 0; ii < instructions.length; ii++) {
                     // initialise the time and duration for this instruction
                     var distance = distanceToMeters(instructions[ii].distance),
@@ -705,7 +705,7 @@ T5.Geo.Decarta = (function() {
                 } // for
                 
 
-                // COG.Log.info("parsed " + fnresult.length + " instructions", fnresult[0], fnresult[1], fnresult[2]);
+                // COG.info("parsed " + fnresult.length + " instructions", fnresult[0], fnresult[1], fnresult[2]);
                 return fnresult;
             } // parseInstructions
             
@@ -767,7 +767,7 @@ T5.Geo.Decarta = (function() {
                 },
                 
                 parseResponse: function(response) {
-                    // COG.Log.info("received route request response:", response);
+                    // COG.info("received route request response:", response);
                     
                     // create a new route data object and map items 
                     return new T5.Geo.Routing.RouteData({
@@ -826,7 +826,7 @@ T5.Geo.Decarta = (function() {
             for (ii = 0; ii < args.addresses.length; ii++) {
                 // TODO: if the element is a simple object, then treat as a structured geocode
                 if (COG.isPlainObject(args.addresses[ii])) {
-                    COG.Log.warn("attempting to geocode a simple object - not implemented");
+                    COG.warn("attempting to geocode a simple object - not implemented");
                 }
                 // else assume we are dealing with a free form routing request
                 else {
@@ -837,7 +837,7 @@ T5.Geo.Decarta = (function() {
             } // if
             
             // if we have request addresses to process, then issue a geocoding request
-            // COG.Log.info("attempting to geocode addresses: ", requestAddresses);
+            // COG.info("attempting to geocode addresses: ", requestAddresses);
             if (requestAddresses.length > 0) {
                 // create the geocoding request and execute it
                 var request = new requestTypes.GeocodeRequest({
@@ -889,7 +889,7 @@ T5.Geo.Decarta = (function() {
                 /* start forum extracted functions */
 
                 radsPerPixelAtZoom: function(tileSize, gxZoom) {
-                    // COG.Log.info("calculating rpp@z for gx zoomlevel = " + gxZoom + ", tilesize = " + tileSize);
+                    // COG.info("calculating rpp@z for gx zoomlevel = " + gxZoom + ", tilesize = " + tileSize);
                     return 2*Math.PI / (tileSize << gxZoom);
                 },
 
@@ -915,7 +915,7 @@ T5.Geo.Decarta = (function() {
             
             function buildTileGrid(requestedPosition, responseData, containerDimensions) {
                 // initialise the first tile origin
-                var halfWidth = Math.round(responseData.tileSize / 2),
+                var halfWidth = responseData.tileSize >> 1,
                     centerXY = Dimensions.getCenter(containerDimensions),
                     pos_first = {
                         x: centerXY.x - halfWidth,
@@ -1036,8 +1036,8 @@ T5.Geo.Decarta = (function() {
                     
                     // determine the center xy (note - decarta centerPos compatible with T5.Geo.Position)
                     baseXY = T5.GeoXY.init(response.centerContext.centerPos, radsPerPixel);
-                    baseX = baseXY.x - tileWidth / 2;
-                    baseY = baseXY.y - tileHeight / 2;
+                    baseX = baseXY.x - (tileWidth >> 1);
+                    baseY = baseXY.y - (tileHeight >> 1);
                     
                     if (callback) {
                         callback(creator);

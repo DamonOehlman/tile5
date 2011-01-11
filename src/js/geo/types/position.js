@@ -22,16 +22,14 @@ var Position = (function() {
             return 0;
         } // if
         
-        var halfdelta_lat = toRad(pos2.lat - pos1.lat) / 2;
-        var halfdelta_lon = toRad(pos2.lon - pos1.lon) / 2;
+        var halfdelta_lat = toRad(pos2.lat - pos1.lat) >> 1;
+        var halfdelta_lon = toRad(pos2.lon - pos1.lon) >> 1;
 
         // TODO: find out what a stands for, I don't like single char variables in code (same goes for c)
-        var a = (Math.sin(halfdelta_lat) * Math.sin(halfdelta_lat)) + 
-                (Math.cos(toRad(pos1.lat)) * Math.cos(toRad(pos2.lat))) * 
-                (Math.sin(halfdelta_lon) * Math.sin(halfdelta_lon));
-
-        // calculate c (whatever c is)
-        var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        var a = sin(halfdelta_lat) * sin(halfdelta_lat) + 
+                (cos(toRad(pos1.lat)) * cos(toRad(pos2.lat))) * 
+                (sin(halfdelta_lon) * sin(halfdelta_lon)),
+            c = 2 * atan2(sqrt(a), sqrt(1 - a));
 
         // calculate the distance
         return KM_PER_RAD * c;
@@ -89,7 +87,7 @@ var Position = (function() {
         // convert min distance to km
         minDist = minDist / 1000;
 
-        COG.Log.info("generalizing positions, must include " + requiredPositions.length + " positions");
+        COG.info("generalizing positions, must include " + requiredPositions.length + " positions");
 
         // iterate thorugh the source data and add positions the differ by the required amount to 
         // the result positions
@@ -111,7 +109,7 @@ var Position = (function() {
             } // if..else
         } // for
 
-        COG.Log.info("generalized " + sourceLen + " positions into " + positions.length + " positions");
+        COG.info("generalized " + sourceLen + " positions into " + positions.length + " positions");
         return positions;
     } // generalize    
     
@@ -174,23 +172,12 @@ var Position = (function() {
             radLat = pos.lat * DEGREES_TO_RADIANS,
             radLon = pos.lon * DEGREES_TO_RADIANS,
             newLat = radLat + radOffsetLat,
-            deltaLon = Math.asin(Math.sin(radOffsetLon) / Math.cos(radLat)),
+            deltaLon = asin(sin(radOffsetLon) / cos(radLat)),
             newLon = radLon + deltaLon;
            
-         // TODO: optimize this with a MOD function
         // if the new latitude has wrapped, then update
-        while (newLat < MIN_LAT) {
-            newLat += Math.PI;
-        } // if
-        
-        while (newLat > MAX_LAT) {
-            newLat -= Math.PI;
-        } // while
-            
-        // calculate the new longitude
-        while (newLon > MAX_LON) {
-            newLon -= 2 * Math.PI;
-        } // if
+        newLat = ((newLat + HALF_PI) % Math.PI) - HALF_PI;
+        newLon = newLon % TWO_PI;
         
         return init(newLat * RADIANS_TO_DEGREES, newLon * RADIANS_TO_DEGREES);
     } // offset
@@ -237,7 +224,7 @@ var Position = (function() {
             positions[ii] = parse(sourceData[ii]);
         } // for
 
-        // COG.Log.info("parsed " + positions.length + " positions");
+        // COG.info("parsed " + positions.length + " positions");
         return positions;
     } // parseArray
     

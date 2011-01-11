@@ -8,7 +8,7 @@ function zoomable(view, params) {
         initial: 1,
         min: 0,
         max: null,
-        zoomAnimation: easing('quad.out')
+        zoomAnimation: COG.easing('quad.out')
     }, params);
 
     // initialise variables
@@ -20,7 +20,7 @@ function zoomable(view, params) {
         if (view.scalable()) {
             // cancel any current animations
             // TODO: review if there is a better place to do this
-            cancelAnimation(function(tweenInstance) {
+            COG.endTweens(function(tweenInstance) {
                 return tweenInstance.cancelOnInteract;
             });
             
@@ -35,7 +35,7 @@ function zoomable(view, params) {
 
         // cancel any current animations
         // TODO: review if there is a better place to do this
-        cancelAnimation(function(tweenInstance) {
+        COG.endTweens(function(tweenInstance) {
             return tweenInstance.cancelOnInteract;
         });
         

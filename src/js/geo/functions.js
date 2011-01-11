@@ -54,9 +54,9 @@ To be completed
 */
 function lat2pix(lat) {
     var radLat = parseFloat(lat) * DEGREES_TO_RADIANS,
-        sinPhi = Math.sin(radLat),
+        sinPhi = sin(radLat),
         eSinPhi = ECC * sinPhi,
-        retVal = Math.log(((1.0 + sinPhi) / (1.0 - sinPhi)) * Math.pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
+        retVal = log(((1.0 + sinPhi) / (1.0 - sinPhi)) * pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
 
     return retVal;
 } // lat2Pix
@@ -74,12 +74,12 @@ function lon2pix(lon) {
 To be completed
 */
 function pix2lat(mercY) {
-    var t = Math.pow(Math.E, -mercY),
+    var t = pow(Math.E, -mercY),
         prevPhi = mercatorUnproject(t),
         newPhi = findRadPhi(prevPhi, t),
         iterCount = 0;
 
-    while (iterCount < PHI_MAXITER && Math.abs(prevPhi - newPhi) > PHI_EPSILON) {
+    while (iterCount < PHI_MAXITER && abs(prevPhi - newPhi) > PHI_EPSILON) {
         prevPhi = newPhi;
         newPhi = findRadPhi(prevPhi, t);
         iterCount++;
@@ -100,7 +100,7 @@ function pix2lon(mercX) {
 ### radsPerPixel(zoomLevel)
 */
 function radsPerPixel(zoomLevel) {
-    return 2*Math.PI / (256 << zoomLevel);
+    return TWO_PI / (256 << zoomLevel);
 } // radsPerPixel
 
 
@@ -158,13 +158,13 @@ function findEngine(capability, preference) {
 } // findEngine
 
 function findRadPhi(phi, t) {
-    var eSinPhi = ECC * Math.sin(phi);
+    var eSinPhi = ECC * sin(phi);
 
-    return HALF_PI - (2 * Math.atan (t * Math.pow((1 - eSinPhi) / (1 + eSinPhi), ECC / 2)));
+    return HALF_PI - (2 * atan (t * pow((1 - eSinPhi) / (1 + eSinPhi), ECC / 2)));
 } // findRadPhi
 
 function mercatorUnproject(t) {
-    return HALF_PI - 2 * Math.atan(t);
+    return HALF_PI - 2 * atan(t);
 } // mercatorUnproject
 
 /*
@@ -177,7 +177,7 @@ function plainTextAddressMatch(request, response, compareFns, fieldWeights) {
     // uppercase the request for comparisons
     request = request.toUpperCase();
     
-    // COG.Log.info("CALCULATING MATCH WEIGHT FOR [" + request + "] = [" + response + "]");
+    // COG.info("CALCULATING MATCH WEIGHT FOR [" + request + "] = [" + response + "]");
     
     // iterate through the field weights
     for (var fieldId in fieldWeights) {

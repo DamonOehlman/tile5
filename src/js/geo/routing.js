@@ -58,7 +58,7 @@ var Routing = (function() {
                         
                         // if we are to auto fit the map to the bounds, then do that now
                         if (args.autoFit) {
-                            // COG.Log.info("AUTOFITTING MAP TO ROUTE: bounds = " + routeData.boundingBox);
+                            // COG.info("AUTOFITTING MAP TO ROUTE: bounds = " + routeData.boundingBox);
                             args.map.gotoBounds(routeData.boundingBox);
                         } // if
                     } // if
@@ -79,7 +79,7 @@ var Routing = (function() {
             // get the map dimensions
             var dimensions = map.getDimensions();
 
-            // COG.Log.info("creating route overlay with route data: ", routeData);
+            // COG.info("creating route overlay with route data: ", routeData);
 
             // create a new route overlay for the specified data
             var overlay = new T5.Geo.UI.RouteOverlay({
