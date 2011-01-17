@@ -59,7 +59,8 @@ var Map = exports.Map = function(params) {
         locationOverlay = null,
         geoWatchId = 0,
         initialTrackingUpdate = true,
-        radsPerPixel = 0;
+        radsPerPixel = 0,
+        tapExtent = params.tapExtent;
         
     /* internal functions */
     
@@ -142,7 +143,25 @@ var Map = exports.Map = function(params) {
         } // if
     } // handlePan
     
-    function handleTap(evt, absXY, relXY) {
+    function handleTap(evt, absXY, relXY, offsetXY) {
+        var radsPerPixel = Geo.radsPerPixel(self.getZoomLevel()),
+            tapPos = GeoXY.toPos(offsetXY, radsPerPixel),
+            minPos = GeoXY.toPos(
+                XY.offset(offsetXY, -tapExtent, tapExtent),
+                radsPerPixel),
+            maxPos = GeoXY.toPos(
+                XY.offset(offsetXY, tapExtent, -tapExtent),
+                radsPerPixel);
+                
+        self.trigger(
+            'geotap', 
+            absXY, 
+            relXY, 
+            tapPos,
+            BoundingBox.init(minPos, maxPos)
+        );
+        
+        
         /*
         var grid = self.getTileLayer();
         var tapBounds = null;

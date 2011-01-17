@@ -375,6 +375,7 @@ COG.Loopage = (function() {
                 var eventCallbacks = getHandlersForName(target, eventName),
                     evt = {
                         cancel: false,
+                        name: eventName,
                         tickCount: new Date().getTime()
                     },
                     eventArgs;
@@ -384,11 +385,17 @@ COG.Loopage = (function() {
                 } // if
 
                 eventArgs = Array.prototype.slice.call(arguments, 1);
+
+                if (target.eventInterceptor) {
+                    target.eventInterceptor(eventName, evt, eventArgs);
+                } // if
+
                 eventArgs.unshift(evt);
 
                 for (var ii = eventCallbacks.length; ii-- && (! evt.cancel); ) {
                     eventCallbacks[ii].fn.apply(self, eventArgs);
                 } // for
+
 
                 return evt;
             }; // trigger
@@ -1044,7 +1051,8 @@ var EventMonitor = function(target, handlers, params) {
     function point(x, y) {
         return {
             x: x ? x : 0,
-            y: y ? y : 0
+            y: y ? y : 0,
+            count: 1
         };
     } // point
 
@@ -1123,6 +1131,10 @@ function preventDefault(evt) {
     } // if..else
 } // preventDefault
 var MouseHandler = function(targetElement, observable, opts) {
+    opts = COG.extend({
+        inertia: false
+    }, opts);
+
     var WHEEL_DELTA_STEP = 120,
         WHEEL_DELTA_LEVEL = WHEEL_DELTA_STEP * 8;
 
@@ -1136,6 +1148,22 @@ var MouseHandler = function(targetElement, observable, opts) {
         lastY;
 
     /* internal functions */
+
+    function handleClick(evt) {
+        var targ = evt.target ? evt.target : evt.srcElement;
+
+        if (aggressiveCapture || targ && (targ === targetElement)) {
+            var clickXY = point(
+                evt.pageX ? evt.pageX : evt.screenX,
+                evt.pageY ? evt.pageY : evt.screenY);
+
+            observable.trigger(
+                'pointerTap',
+                clickXY,
+                pointerOffset(clickXY, getOffset(targetElement))
+            );
+        } // if
+    } // handleClick
 
     function handleMouseDown(evt) {
         var targ = evt.target ? evt.target : evt.srcElement;
@@ -1237,6 +1265,7 @@ var MouseHandler = function(targetElement, observable, opts) {
     opts.binder('mousedown', handleMouseDown, false);
     opts.binder('mousemove', handleMouseMove, false);
     opts.binder('mouseup', handleMouseUp, false);
+    opts.binder('click', handleClick, false);
 
     opts.binder("mousewheel", handleWheel, window);
     opts.binder("DOMMouseScroll", handleWheel, window);
@@ -1254,14 +1283,15 @@ register('pointer', {
 });
 var TouchHandler = function(targetElement, observable, opts) {
     opts = COG.extend({
-        detailedEvents: false
+        detailed: false,
+        inertia: false
     }, opts);
 
     var DEFAULT_INERTIA_MAX = 500,
         INERTIA_TIMEOUT_MOUSE = 100,
         INERTIA_TIMEOUT_TOUCH = 250,
         THRESHOLD_DOUBLETAP = 300,
-        THRESHOLD_PINCHZOOM = 5,
+        THRESHOLD_PINCHZOOM = 20,
         MIN_MOVEDIST = 7,
         EMPTY_TOUCH_DATA = {
             x: 0,
@@ -1280,7 +1310,7 @@ var TouchHandler = function(targetElement, observable, opts) {
         touchesCurrent,
         startDistance,
         touchesLast,
-        detailedEvents = opts.detailedEvents,
+        detailedEvents = opts.detailed,
         scaling = 1;
 
     /* internal functions */
@@ -1376,20 +1406,30 @@ var TouchHandler = function(targetElement, observable, opts) {
         var targ = evt.target ? evt.target : evt.srcElement;
 
         if (targ && (targ === targetElement)) {
-            var changedTouches = getTouchData(evt, 'changedTouches');
-
-            touchesStart = getTouchData(evt);
             offset = getOffset(targetElement);
 
-            touchMode = TOUCH_MODE_TAP;
+            var changedTouches = getTouchData(evt, 'changedTouches'),
+                relTouches = copyTouches(changedTouches, offset.x, offset.y);
 
-            observable.trigger(
-                'pointerDown',
-                changedTouches,
-                copyTouches(changedTouches, offset.x, offset.y)
-            );
+            if (! touchesStart) {
+                touchMode = TOUCH_MODE_TAP;
 
-            if (touchesStart.count > 0) {
+                observable.trigger(
+                    'pointerDown',
+                    changedTouches,
+                    relTouches);
+            } // if
+
+            if (detailedEvents) {
+                observable.trigger(
+                    'pointerDownMulti',
+                    changedTouches,
+                    relTouches);
+            } // if
+
+            touchesStart = getTouchData(evt);
+
+            if (touchesStart.count > 1) {
                 startDistance = calcTouchDistance(touchesStart);
             } // if
 
@@ -1427,12 +1467,8 @@ var TouchHandler = function(targetElement, observable, opts) {
                         var touchDistance = calcTouchDistance(touchesCurrent),
                             distanceDelta = Math.abs(startDistance - touchDistance);
 
-                        if (detailedEvents) {
-                            observable.trigger('pointerMulti', touchesCurrent, offset);
-                        } // if
-
                         if (distanceDelta < THRESHOLD_PINCHZOOM) {
-                            touchMode == TOUCH_MODE_MOVE;
+                            touchMode = TOUCH_MODE_MOVE;
                         }
                         else {
                             var current = getTouchCenter(touchesCurrent),
@@ -1442,7 +1478,7 @@ var TouchHandler = function(targetElement, observable, opts) {
                             observable.trigger(
                                 'zoom',
                                 current,
-                                copyTouches(current, offset.x, offset.y),
+                                pointerOffset(current, offset),
                                 scaleChange
                             );
 
@@ -1461,6 +1497,14 @@ var TouchHandler = function(targetElement, observable, opts) {
                             touchesCurrent.y - touchesLast.y)
                     );
                 } // if
+
+                if (detailedEvents) {
+                    observable.trigger(
+                        'pointerMoveMulti',
+                        touchesCurrent,
+                        copyTouches(touchesCurrent, offset.x, offset.y)
+                    );
+                } // if
             } // if
 
             touchesLast = copyTouches(touchesCurrent);
@@ -1474,21 +1518,32 @@ var TouchHandler = function(targetElement, observable, opts) {
                 offsetTouches = copyTouches(changedTouches, offset.x, offset.y);
 
             touchesCurrent = getTouchData(evt);
-            if ((! touchesCurrent) && touchMode === TOUCH_MODE_TAP) {
+
+            if (! touchesCurrent) {
+                if (touchMode === TOUCH_MODE_TAP) {
+                    observable.trigger(
+                        'pointerTap',
+                        changedTouches,
+                        offsetTouches
+                    );
+                } // if
+
                 observable.trigger(
-                    'pointerTap',
+                    'pointerUp',
                     changedTouches,
                     offsetTouches
                 );
 
-                COG.info('tapped');
+                touchesStart = null;
             } // if
 
-            observable.trigger(
-                'pointerUp',
-                changedTouches,
-                offsetTouches
-            );
+            if (detailedEvents) {
+                observable.trigger(
+                    'pointerUpMulti',
+                    changedTouches,
+                    offsetTouches
+                );
+            } // if..else
         } // if
     } // handleTouchEnd
 
@@ -3238,14 +3293,14 @@ var View = function(params) {
         rotation = value;
     } // handlePrepCanvasCallback
 
-    function handleTap(evt, absXY, relXY) {
-        var offsetXY = XY.offset(relXY, offsetX, offsetY);
-
-        for (var ii = layers.length; ii--; ) {
-            evt.cancel = evt.cancel ||
-                layers[ii].trigger('tap', absXY, relXY, offsetXY).cancel;
-        } // for
-    } // handleTap
+    function handlePointerTap(evt, absXY, relXY) {
+        triggerAll(
+            'tap',
+            absXY,
+            relXY,
+            XY.offset(relXY, offsetX, offsetY)
+        );
+    } // handlePointerTap
 
     /* exports */
 
@@ -3738,6 +3793,15 @@ var View = function(params) {
         return (! cancel);
     } // triggerAll
 
+    function triggerAllUntilCancelled() {
+        var cancel = self.trigger.apply(null, arguments).cancel;
+        for (var ii = layers.length; ii--; ) {
+            cancel = layers[ii].trigger.apply(null, arguments).cancel || cancel;
+        } // for
+
+        return (! cancel);
+    } // triggerAllUntilCancelled
+
     /* object definition */
 
     var self = {
@@ -3847,7 +3911,7 @@ var View = function(params) {
         self.bind('zoom', handleZoom);
     } // if
 
-    self.bind('tap', handleTap);
+    self.bind('pointerTap', handlePointerTap);
 
     self.bind('resync', handleResync);
 
@@ -4588,8 +4652,8 @@ var MarkerLayer = function(params) {
 
     function handleTap(evt, absXY, relXY, gridXY) {
         var tappedMarkers = [],
-            testX = relXY.x,
-            testY = relXY.y;
+            testX = gridXY.x,
+            testY = gridXY.y;
 
         for (var ii = markers.length; ii--; ) {
             if (markers[ii].hitTest(testX, testY)) {

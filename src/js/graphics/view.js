@@ -281,16 +281,14 @@ var View = function(params) {
         rotation = value;
     } // handlePrepCanvasCallback
     
-    function handleTap(evt, absXY, relXY) {
-        // calculate the grid xy
-        var offsetXY = XY.offset(relXY, offsetX, offsetY);
-        
-        // iterate through the layers, and inform of the tap event
-        for (var ii = layers.length; ii--; ) {
-            evt.cancel = evt.cancel || 
-                layers[ii].trigger('tap', absXY, relXY, offsetXY).cancel;
-        } // for
-    } // handleTap
+    function handlePointerTap(evt, absXY, relXY) {
+        triggerAll(
+            'tap', 
+            absXY,
+            relXY,
+            XY.offset(relXY, offsetX, offsetY)
+        );
+    } // handlePointerTap
     
     /* exports */
     
@@ -842,6 +840,15 @@ var View = function(params) {
         return (! cancel);
     } // triggerAll
     
+    function triggerAllUntilCancelled() {
+        var cancel = self.trigger.apply(null, arguments).cancel;
+        for (var ii = layers.length; ii--; ) {
+            cancel = layers[ii].trigger.apply(null, arguments).cancel || cancel;
+        } // for
+        
+        return (! cancel);
+    } // triggerAllUntilCancelled
+    
     /* object definition */
     
     // initialise self
@@ -965,7 +972,7 @@ var View = function(params) {
     } // if
     
     // handle tap events
-    self.bind('tap', handleTap);
+    self.bind('pointerTap', handlePointerTap);
     
     // handle the view being resynced
     self.bind('resync', handleResync);
