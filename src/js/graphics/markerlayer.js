@@ -51,9 +51,9 @@ var MarkerLayer = function(params) {
         
     function handleTap(evt, absXY, relXY, gridXY) {
         var tappedMarkers = [],
-            testX = relXY.x,
-            testY = relXY.y;
-        
+            testX = gridXY.x,
+            testY = gridXY.y;
+            
         // iterate through the markers and look for matches
         for (var ii = markers.length; ii--; ) {
             if (markers[ii].hitTest(testX, testY)) {
