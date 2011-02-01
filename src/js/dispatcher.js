@@ -17,7 +17,8 @@ T5.Dispatcher = (function() {
         
         findAction: function(actionId) {
             for (var ii = registeredActions.length; ii--; ) {
-                if (registeredActions[ii].id == actionId) {
+                var testId = registeredActions[ii].id;
+                if (testId && testId.toLowerCase() === actionId.toLowerCase()) {
                     return registeredActions[ii];
                 } // if
             } // for

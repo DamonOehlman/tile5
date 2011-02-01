@@ -28,7 +28,8 @@ T5.Marker = function(params) {
     params = T5.ex({
         xy: new T5.Vector(),
         tweenIn: null,
-        animationSpeed: null
+        animationSpeed: null,
+        padding: 0
     }, params);
     
     // initialise defaults
@@ -37,13 +38,14 @@ T5.Marker = function(params) {
         boundsX = 0,
         boundsY = 0,
         boundsWidth = 0,
-        boundsHeight = 0;
+        boundsHeight = 0,
+        padding = params.padding;
         
     function updateBounds(newX, newY, newWidth, newHeight) {
-        boundsX = newX;
-        boundsY = newY;
-        boundsWidth = newWidth;
-        boundsHeight = newHeight;
+        boundsX = newX - padding;
+        boundsY = newY - padding;
+        boundsWidth = newWidth + padding*2;
+        boundsHeight = newHeight + padding*2;
         
         // COG.Log.info('bounds: x = ' + boundsX + ', y = ' + boundsY + ', width = ' + boundsWidth + ', height = ' + boundsHeight);
     } // updateBounds
