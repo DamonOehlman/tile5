@@ -1228,7 +1228,7 @@ var MouseHandler = function(targetElement, observable, opts) {
                 observable.trigger(
                     'zoom',
                     current,
-                    pointerOffset(current, offset),
+                    pointerOffset(current, getOffset(targetElement)),
                     deltaY / WHEEL_DELTA_LEVEL
                 );
 
@@ -3158,6 +3158,7 @@ var View = function(params) {
         clipping = false,
         cycleRect = null,
         cycleWorker = null,
+        drawRect,
         guides = params.guides,
         deviceScaling = 1,
         dimensions = Dimensions.init(),
@@ -3187,6 +3188,7 @@ var View = function(params) {
         eventMonitor = null,
         isFlash = typeof FlashCanvas !== 'undefined',
         cycleDelay = ~~(1000 / params.fps),
+        zoomCenter,
         zoomX, zoomY,
 
         /* state shortcuts */
@@ -3269,8 +3271,13 @@ var View = function(params) {
     } // scaleView
 
     function setZoomCenter(xy) {
-        interactOffset = XY.init(offsetX, offsetY);
-        interactCenter = XY.offset(xy, offsetX, offsetY);
+        xy.x = (xy.x + halfWidth) >> 1;
+        xy.y = (xy.y + halfHeight) >> 1;
+
+        zoomCenter = XY.copy(xy);
+
+        interactOffset = XY.init(drawRect.x1, drawRect.y1);
+        interactCenter = XY.offset(xy, drawRect.x1, drawRect.y1);
     } // setZoomCenter
 
     function handleContainerUpdate(name, value) {
@@ -3495,6 +3502,17 @@ var View = function(params) {
         zoomX = interactCenter.x + (offsetX - interactOffset.x);
         zoomY = interactCenter.y + (offsetY - interactOffset.y);
 
+        /*
+        COG.info(
+            'scale factor = ' + scaleFactor +
+            ', inv scale factor = ' + invScaleFactor +
+            ', inv scale factor norm = ' + invScaleFactorNorm);
+
+        COG.info('zoom x = ' + zoomX + ', y = ' + zoomY);
+        COG.info('offset x = ' + offsetX + ', y = ' + offsetY);
+        COG.info('interact offset x = ' + interactOffset.x + ', y = ' + interactOffset.y);
+        */
+
         if (drawRect) {
             return XYRect.fromCenter(
                 zoomX >> 0,
@@ -3505,9 +3523,10 @@ var View = function(params) {
     } // calcZoomRect
 
     function drawView(drawState, rect, redraw, tickCount) {
-        var drawRect = XYRect.copy(rect),
-            drawLayer,
+        var drawLayer,
             ii = 0;
+
+        drawRect = XYRect.copy(rect);
 
         if (redraw) {
             mainContext.clearRect(0, 0, canvas.width, canvas.height);
@@ -3577,6 +3596,13 @@ var View = function(params) {
                     Style.apply(mainContext, previousStyle);
                 } // if
             } // for
+
+            if (zoomCenter) {
+                mainContext.fillStyle = '#00f';
+                mainContext.beginPath();
+                mainContext.arc(zoomX, zoomY, 5, 0, Math.PI * 2, false);
+                mainContext.fill();
+            } // if
         }
         finally {
             mainContext.restore();
@@ -3594,6 +3620,13 @@ var View = function(params) {
             mainContext.stroke();
         } // if
 
+        if (zoomCenter) {
+            mainContext.fillStyle = '#f00';
+            mainContext.beginPath();
+            mainContext.arc(zoomCenter.x, zoomCenter.y, 5, 0, Math.PI * 2, false);
+            mainContext.fill();
+        } // if
+
         triggerAll('drawComplete', rect, tickCount);
         COG.trace("draw complete", tickCount);
     } // drawView
@@ -3605,7 +3638,6 @@ var View = function(params) {
                 ((currentState === stateZoom) || (currentState === statePan)),
             requireRedraw = redrawView ||
                         currentState === statePan ||
-                        currentState === stateZoom ||
                         (COG.getTweens().length > 0);
 
         cycleRect = getViewRect();
