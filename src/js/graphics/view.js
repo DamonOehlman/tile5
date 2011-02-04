@@ -113,6 +113,7 @@ var View = function(params) {
         fastDraw: false,
         inertia: true,
         pannable: true,
+        clipping: false,
         scalable: true,
         interactive: true,
         panAnimationEasing: COG.easing('sine.out'),
@@ -133,13 +134,12 @@ var View = function(params) {
         mainContext = null,
         offsetX = 0,
         offsetY = 0,
-        clipping = false,
+        clipping = params.clipping,
         cycleRect = null,
         cycleWorker = null,
         drawRect,
         guides = params.guides,
         deviceScaling = 1,
-        dimensions = Dimensions.init(),
         wakeTriggers = 0,
         halfWidth = 0,
         halfHeight = 0,
@@ -162,8 +162,11 @@ var View = function(params) {
         scaleTouchesStart = null,
         scaleFactor = 1,
         lastScaleFactor = 0,
+        sizeChanged = false,
         tweenStart = null,
         eventMonitor = null,
+        viewHeight,
+        viewWidth,
         isFlash = typeof FlashCanvas !== 'undefined',
         cycleDelay = ~~(1000 / params.fps),
         zoomCenter,
@@ -257,11 +260,6 @@ var View = function(params) {
     } // scaleView
     
     function setZoomCenter(xy) {
-        xy.x = (xy.x + halfWidth) >> 1;
-        xy.y = (xy.y + halfHeight) >> 1;
-        
-        zoomCenter = XY.copy(xy);
-        
         interactOffset = XY.init(drawRect.x1, drawRect.y1);
         interactCenter = XY.offset(xy, drawRect.x1, drawRect.y1);
     } // setZoomCenter
@@ -275,7 +273,7 @@ var View = function(params) {
     
     function handleResize(evt) {
         clearTimeout(resizeCanvasTimeout);
-        resizeCanvasTimeout = setTimeout(attachToCanvas, 50);
+        resizeCanvasTimeout = setTimeout(attachToCanvas, 250);
     } // handleResize
     
     function handleResync(evt, view) {
@@ -388,7 +386,7 @@ var View = function(params) {
     
     /* private functions */
     
-    function attachToCanvas() {
+    function attachToCanvas(newWidth, newHeight) {
         var ii;
         
         if (canvas) {
@@ -401,8 +399,8 @@ var View = function(params) {
                 var rect = canvas.parentNode.getBoundingClientRect();
                 
                 if (rect.height !== 0 && rect.width !== 0) {
-                    canvas.height = rect.height;
-                    canvas.width = rect.width;
+                    newWidth = rect.width;
+                    newHeight = rect.height;
                 } // if
             } // if
 
@@ -420,27 +418,31 @@ var View = function(params) {
                 throw new Error("Could not initialise canvas on specified view element");
             }
             
-            // initialise the dimensions
-            if (dimensions.height !== canvas.height || dimensions.width !== canvas.width) {
-                dimensions = Dimensions.init(canvas.width, canvas.height);
-                halfWidth = dimensions.width >> 1;
-                halfHeight = dimensions.height >> 1;
+            // initialise the views width and height
+            if ((newWidth && newHeight) && (viewHeight !== newHeight || viewWidth !== newWidth)) {
+                // flag the size as changed
+                sizeChanged = true;
+                
+                // initialise the width and height locals
+                viewWidth = newWidth;
+                viewHeight = newHeight;
+                halfWidth = viewWidth >> 1;
+                halfHeight = viewHeight >> 1;
                 
                 // trigger the resize event for the view
-                self.trigger('resize', canvas.width, canvas.height);
+                self.trigger('resize', viewWidth, viewHeight);
                 
                 // and then tell all the layers
                 for (ii = layerCount; ii--; ) {
-                    layers[ii].trigger('resize', canvas.width, canvas.height);
+                    layers[ii].trigger('resize', viewWidth, viewHeight);
                 } // for
             } // if
             
             // create the event monitor
             // TODO: pass through detected device configuration details
             if (params.interactive) {
-                eventMonitor = INTERACT.watch(canvas, {
-                    observable: self
-                }).pannable();
+                eventMonitor = INTERACT.watch(canvas).pannable();
+                captureInteractionEvents();
             } // if
             
             // iterate through the layers, and change the context
@@ -448,8 +450,8 @@ var View = function(params) {
                 layerContextChanged(layers[ii]);
             } // for
 
-            // tell the view to redraw
-            invalidate();
+            // invalidate the canvas
+            invalidate(true);
         } // if        
     } // attachToCanvas
     
@@ -485,6 +487,31 @@ var View = function(params) {
         layerCount = layers.length;
         return value;
     } // addLayer
+    
+    function captureInteractionEvents() {
+        if (! eventMonitor) {
+            return;
+        }
+        
+        // if this is pannable, then attach event handlers
+        if (params.pannable) {
+            eventMonitor.bind('pan', handlePan);
+
+            // handle intertia events
+            eventMonitor.bind("inertiaCancel", function(evt) {
+                panimating = false;
+                invalidate();
+            });
+        } // if
+
+        // if this view is scalable, attach zooming event handlers
+        if (params.scalable) {
+            eventMonitor.bind('zoom', handleZoom);
+        } // if
+
+        // handle tap events
+        eventMonitor.bind('pointerTap', handlePointerTap);
+    } // captureInteractionEvents
     
     function getLayerIndex(id) {
         for (var ii = layerCount; ii--; ) {
@@ -544,7 +571,7 @@ var View = function(params) {
             
         // fill the mask context with black
         if (redraw) {
-            mainContext.clearRect(0, 0, canvas.width, canvas.height);
+            mainContext.clearRect(0, 0, viewWidth, viewHeight);
         } // if
 
         // save the context states
@@ -568,20 +595,22 @@ var View = function(params) {
             layerMaxXY = null;
             
             /* first pass - clip */
-            
-            mainContext.beginPath();
-            
-            clipping = false;
-            for (ii = layerCount; ii--; ) {
-                if (layers[ii].clip) {
-                    layers[ii].clip(mainContext, drawRect, drawState, self, redraw, tickCount);
-                    clipping = true;
-                } // if
-            } // for
-            
-            mainContext.closePath();
+
             if (clipping) {
-                mainContext.clip();
+                mainContext.beginPath();
+
+                clipped = false;
+                for (ii = layerCount; ii--; ) {
+                    if (layers[ii].clip) {
+                        layers[ii].clip(mainContext, drawRect, drawState, self, redraw, tickCount);
+                        clipped = true;
+                    } // if
+                } // for
+
+                mainContext.closePath();
+                if (clipped) {
+                    mainContext.clip();
+                } // if
             } // if
             
             /* second pass - draw */
@@ -620,13 +649,6 @@ var View = function(params) {
                     Style.apply(mainContext, previousStyle);
                 } // if
             } // for
-            
-            if (zoomCenter) {
-                mainContext.fillStyle = '#00f';
-                mainContext.beginPath();
-                mainContext.arc(zoomX, zoomY, 5, 0, Math.PI * 2, false);
-                mainContext.fill();
-            } // if
         }
         finally {
             mainContext.restore();
@@ -637,18 +659,11 @@ var View = function(params) {
             mainContext.globalCompositeOperation = 'source-over';
             mainContext.strokeStyle = '#f00';
             mainContext.beginPath();
-            mainContext.moveTo(canvas.width >> 1, 0);
-            mainContext.lineTo(canvas.width >> 1, canvas.height);
-            mainContext.moveTo(0, canvas.height >> 1);
-            mainContext.lineTo(canvas.width, canvas.height >> 1);
+            mainContext.moveTo(halfWidth, 0);
+            mainContext.lineTo(halfWidth, viewHeight);
+            mainContext.moveTo(0, halfHeight);
+            mainContext.lineTo(viewWidth, halfHeight);
             mainContext.stroke();
-        } // if
-        
-        if (zoomCenter) {
-            mainContext.fillStyle = '#f00';
-            mainContext.beginPath();
-            mainContext.arc(zoomCenter.x, zoomCenter.y, 5, 0, Math.PI * 2, false);
-            mainContext.fill();
         } // if
 
         // trigger the draw complete for the view
@@ -667,7 +682,17 @@ var View = function(params) {
                         currentState === statePan || 
                         // currentState === stateZoom || 
                         (COG.getTweens().length > 0);
-
+               
+        // handle any size changes if we have them
+        if (sizeChanged && canvas) {
+            // update the canvas width
+            canvas.width = viewWidth;
+            canvas.height = viewHeight;
+            
+            // flag the size is not changed now as we have handled the update
+            sizeChanged = false;
+        } // if
+        
         // calculate the cycle rect
         cycleRect = getViewRect();
         
@@ -756,6 +781,14 @@ var View = function(params) {
     } // eachLayer
     
     /**
+    ### getDimensions()
+    Return the Dimensions of the View
+    */
+    function getDimensions() {
+        return Dimensions.init(viewWidth, viewHeight);
+    } // getDimensions
+    
+    /**
     ### getLayer(id)
     Get the ViewLayer with the specified id, return null if not found
     */
@@ -778,8 +811,8 @@ var View = function(params) {
         return XYRect.init(
             offsetX, 
             offsetY, 
-            offsetX + dimensions.width,
-            offsetY + dimensions.height);
+            offsetX + viewWidth,
+            offsetY + viewHeight);
     } // getViewRect
     
     /**
@@ -830,7 +863,7 @@ var View = function(params) {
 
         // if the target xy is not defined, then use the canvas center
         if (! targetXY) {
-            targetXY = Dimensions.getCenter(dimensions);
+            targetXY = Dimensions.getCenter(getDimensions());
         } // if
         
         setZoomCenter(targetXY);
@@ -891,14 +924,8 @@ var View = function(params) {
         deviceScaling: deviceScaling,
         fastDraw: params.fastDraw || getConfig().requireFastDraw,
         
-        /**
-        ### getDimensions()
-        Return the Dimensions of the View
-        */
-        getDimensions: function() {
-            return dimensions;
-        },
         
+        getDimensions: getDimensions,
         getLayer: getLayer,
         setLayer: setLayer,
         eachLayer: eachLayer,
@@ -921,13 +948,9 @@ var View = function(params) {
                 // flag the canvas as not autosize
                 params.autoSize = false;
                 
-                // update the canvas width and height
-                canvas.width = width;
-                canvas.height = height;
-                attachToCanvas();
-
-                // trigger the resize event for the view
-                self.trigger('resize', canvas.width, canvas.height);
+                if (viewWidth !== width || viewHeight !== height) {
+                    attachToCanvas(width, height);
+                } // if
             } // if
         },
 
@@ -988,25 +1011,6 @@ var View = function(params) {
     self.bind('invalidate', function(evt, redraw) {
         invalidate(redraw);
     });
-    
-    // if this is pannable, then attach event handlers
-    if (params.pannable) {
-        self.bind('pan', handlePan);
-
-        // handle intertia events
-        self.bind("inertiaCancel", function(evt) {
-            panimating = false;
-            invalidate();
-        });
-    } // if
-
-    // if this view is scalable, attach zooming event handlers
-    if (params.scalable) {
-        self.bind('zoom', handleZoom);
-    } // if
-    
-    // handle tap events
-    self.bind('pointerTap', handlePointerTap);
     
     // handle the view being resynced
     self.bind('resync', handleResync);
