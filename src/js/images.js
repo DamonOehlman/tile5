@@ -301,24 +301,16 @@ var Images = (function() {
     */
     function newCanvas(width, height) {
         var tmpCanvas = document.createElement('canvas');
+        COG.info('creating new canvas');
 
         // set the size of the canvas if specified
         tmpCanvas.width = width ? width : 0;
         tmpCanvas.height = height ? height : 0;
-
-        // flash canvas initialization
-        if (typeof FlashCanvas !== 'undefined') {
-            tmpCanvas.id = 'tmpCanvas' + (canvasCounter++);
-            tmpCanvas.style.cssText = 'position: absolute; top: -' + (height-1) + 'px; left: -' + (width-1) + 'px;';
-
-            document.body.appendChild(tmpCanvas);
-
-            FlashCanvas.initElement(tmpCanvas);
-        } // if
         
-        // explorer canvas initialization
-        if (typeof G_vmlCanvasManager !== 'undefined') {
-            G_vmlCanvasManager.initElement(tmpCanvas);
+        // flash canvas initialization
+        if (typeof FlashCanvas != 'undefined') {
+            document.body.appendChild(tmpCanvas);
+            FlashCanvas.initElement(tmpCanvas);
         } // if
 
         return tmpCanvas;

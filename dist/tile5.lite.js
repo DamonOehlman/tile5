@@ -1073,7 +1073,7 @@ var EventMonitor = function(target, handlers, params) {
         opts = COG.extend({
             bindToBody: false,
             observable: null,
-            isIE: false,
+            isIE: typeof window.attachEvent != 'undefined',
             types: null
         }, opts);
 
@@ -1138,7 +1138,8 @@ var MouseHandler = function(targetElement, observable, opts) {
     var WHEEL_DELTA_STEP = 120,
         WHEEL_DELTA_LEVEL = WHEEL_DELTA_STEP * 8;
 
-    var aggressiveCapture = false,
+    var ignoreButton = opts.isIE,
+        isFlashCanvas = typeof FlashCanvas != 'undefined',
         buttonDown = false,
         start,
         offset,
@@ -1150,27 +1151,44 @@ var MouseHandler = function(targetElement, observable, opts) {
     /* internal functions */
 
     function handleClick(evt) {
-        var targ = evt.target ? evt.target : evt.srcElement;
-
-        if (aggressiveCapture || targ && (targ === targetElement)) {
+        if (matchTarget(evt)) {
             var clickXY = point(
                 evt.pageX ? evt.pageX : evt.screenX,
                 evt.pageY ? evt.pageY : evt.screenY);
 
             observable.trigger(
-                'pointerTap',
+                'tap',
                 clickXY,
                 pointerOffset(clickXY, getOffset(targetElement))
             );
         } // if
     } // handleClick
 
-    function handleMouseDown(evt) {
-        var targ = evt.target ? evt.target : evt.srcElement;
+    function handleDoubleClick(evt) {
+        COG.info('captured double click');
 
-        if (aggressiveCapture || targ && (targ === targetElement)) {
-            buttonDown = (evt.button === 0);
+        if (matchTarget(evt)) {
+            var clickXY = point(
+                evt.pageX ? evt.pageX : evt.screenX,
+                evt.pageY ? evt.pageY : evt.screenY);
+
+            COG.info('captured double click + target matched');
+
+            observable.trigger(
+                'doubleTap',
+                clickXY,
+                pointerOffset(clickXY, getOffset(targetElement))
+            );
+        } // if
+    } // handleDoubleClick
+
+    function handleMouseDown(evt) {
+        if (matchTarget(evt)) {
+            buttonDown = isLeftButton(evt);
             if (buttonDown) {
+                targetElement.style.cursor = 'move';
+                preventDefault(evt);
+
                 lastX = evt.pageX ? evt.pageX : evt.screenX;
                 lastY = evt.pageY ? evt.pageY : evt.screenY;
                 start = point(lastX, lastY);
@@ -1186,23 +1204,20 @@ var MouseHandler = function(targetElement, observable, opts) {
     } // mouseDown
 
     function handleMouseMove(evt) {
-        var targ = evt.target ? evt.target : evt.srcElement;
-
         currentX = evt.pageX ? evt.pageX : evt.screenX;
         currentY = evt.pageY ? evt.pageY : evt.screenY;
 
-        if (buttonDown && (aggressiveCapture || targ && (targ === targetElement))) {
+        if (buttonDown && matchTarget(evt)) {
             triggerCurrent('pointerMove');
         } // if
     } // mouseMove
 
     function handleMouseUp(evt) {
-        var targ = evt.target ? evt.target : evt.srcElement;
-
-        if (buttonDown && (evt.button === 0)) {
+        if (buttonDown && isLeftButton(evt)) {
             buttonDown = false;
 
-            if (aggressiveCapture || targ && (targ === targetElement)) {
+            if (matchTarget(evt)) {
+                targetElement.style.cursor = 'default';
                 triggerCurrent('pointerUp');
             } // if
 
@@ -1210,16 +1225,19 @@ var MouseHandler = function(targetElement, observable, opts) {
     } // mouseUp
 
     function handleWheel(evt) {
-        var targ = evt.target ? evt.target : evt.srcElement;
-
-        if (aggressiveCapture || targ && (targ === targetElement)) {
+        if (matchTarget(evt)) {
             var deltaY;
+
+            evt = evt || window.event;
 
             if (evt.detail) {
                 deltaY = evt.axis === 2 ? -evt.detail * WHEEL_DELTA_STEP : 0;
             }
             else {
-                deltaY = evt.wheelDeltaY;
+                deltaY = evt.wheelDeltaY ? evt.wheelDeltaY : evt.wheelDelta;
+                if (window.opera) {
+                    deltaY = -deltaY;
+                } // if
             } // if..else
 
             if (deltaY !== 0) {
@@ -1233,9 +1251,25 @@ var MouseHandler = function(targetElement, observable, opts) {
                 );
 
                 preventDefault(evt);
+                evt.returnValue = false;
             } // if
         } // if
     } // handleWheel
+
+    function isLeftButton(evt) {
+        evt = evt || window.event;
+        var button = evt.which || evt.button;
+        return button == 1;
+    } // leftPressed
+
+    function matchTarget(evt) {
+        var targ = evt.target ? evt.target : evt.srcElement;
+        while (targ && targ.nodeName && (targ.nodeName.toUpperCase() != 'CANVAS')) {
+            targ = targ.parentNode;
+        } // while
+
+        return targ && (targ === targetElement);
+    } // matchTarget
 
     function triggerCurrent(eventName, includeTotal) {
         var current = point(currentX, currentY);
@@ -1258,17 +1292,18 @@ var MouseHandler = function(targetElement, observable, opts) {
         opts.unbinder('mousemove', handleMouseMove, false);
         opts.unbinder('mouseup', handleMouseUp, false);
 
-        opts.unbinder("mousewheel", handleWheel, window);
-        opts.unbinder("DOMMouseScroll", handleWheel, window);
+        opts.unbinder("mousewheel", handleWheel, document);
+        opts.unbinder("DOMMouseScroll", handleWheel, document);
     } // unbind
 
     opts.binder('mousedown', handleMouseDown, false);
     opts.binder('mousemove', handleMouseMove, false);
     opts.binder('mouseup', handleMouseUp, false);
     opts.binder('click', handleClick, false);
+    opts.binder('dblclick', handleDoubleClick, false);
 
-    opts.binder("mousewheel", handleWheel, window);
-    opts.binder("DOMMouseScroll", handleWheel, window);
+    opts.binder('mousewheel', handleWheel, document);
+    opts.binder('DOMMouseScroll', handleWheel, document);
 
     return {
         unbind: unbind
@@ -2644,21 +2679,14 @@ var Images = (function() {
     */
     function newCanvas(width, height) {
         var tmpCanvas = document.createElement('canvas');
+        COG.info('creating new canvas');
 
         tmpCanvas.width = width ? width : 0;
         tmpCanvas.height = height ? height : 0;
 
-        if (typeof FlashCanvas !== 'undefined') {
-            tmpCanvas.id = 'tmpCanvas' + (canvasCounter++);
-            tmpCanvas.style.cssText = 'position: absolute; top: -' + (height-1) + 'px; left: -' + (width-1) + 'px;';
-
+        if (typeof FlashCanvas != 'undefined') {
             document.body.appendChild(tmpCanvas);
-
             FlashCanvas.initElement(tmpCanvas);
-        } // if
-
-        if (typeof G_vmlCanvasManager !== 'undefined') {
-            G_vmlCanvasManager.initElement(tmpCanvas);
         } // if
 
         return tmpCanvas;
@@ -2757,11 +2785,7 @@ function zoomable(view, params) {
 
     function handleDoubleTap(evt, absXY, relXY) {
         if (view.scalable()) {
-            COG.endTweens(function(tweenInstance) {
-                return tweenInstance.cancelOnInteract;
-            });
 
-            view.scale(2, XY.init(relXY.x, relXY.y)); // , params.zoomAnimation);
         } // if
     } // handleDoubleTap
 
@@ -2810,7 +2834,6 @@ function zoomable(view, params) {
     });
 
     view.bind('scale', handleScale);
-    view.bind('doubleTap', handleDoubleTap);
 };
 
 /**
@@ -3147,13 +3170,15 @@ var View = function(params) {
         tapExtent: 10,
         mask: true,
         guides: false,
-        fps: 25
+        fps: 25,
+        zoomAnimation: COG.easing('quad.out')
     }, params);
 
     var layers = [],
         layerCount = 0,
         canvas = document.getElementById(params.container),
         mainContext = null,
+        isIE = typeof window.attachEvent != 'undefined',
         offsetX = 0,
         offsetY = 0,
         clipping = params.clipping,
@@ -3239,16 +3264,13 @@ var View = function(params) {
     } // panEnd
 
     function handleZoom(evt, absXY, relXY, scaleChange) {
-        self.zoom(relXY, scaleChange);
+        var newScaleFactor = Math.max(scaleFactor + Math.pow(2, scaleChange) - 1, 0.25);
+
+        scale(newScaleFactor);
     } // handleWheelZoom
 
     function scaleView(fullInvalidate) {
-        calcZoomRect();
-
-        var scaledHalfWidth = (cycleRect.width / (scaleFactor * 2)) >> 0,
-            scaledHalfHeight = (cycleRect.height / (scaleFactor * 2)) >> 0,
-            scaleEndXY = XY.init(zoomX - scaledHalfWidth, zoomY - scaledHalfHeight),
-            scaleFactorExp = (Math.log(scaleFactor) / Math.LN2) >> 0;
+        var scaleFactorExp = (Math.log(scaleFactor) / Math.LN2) >> 0;
 
         if (scaleFactor !== 1) {
             state = stateZoom;
@@ -3256,6 +3278,18 @@ var View = function(params) {
 
         if (scaleFactorExp !== 0) {
             scaleFactor = Math.pow(2, scaleFactorExp);
+
+            var scaledHalfWidth = (halfWidth / scaleFactor) >> 0,
+                scaledHalfHeight = (halfHeight / scaleFactor) >> 0,
+                scaleEndXY = XY.init(zoomX - scaledHalfWidth, zoomY - scaledHalfHeight);
+
+            /*
+            COG.info('zoom x = ' + zoomX + ', y = ' + zoomY);
+            COG.info('cycleRect width = ' + cycleRect.width);
+            COG.info('drawRect width = ' + drawRect.width);
+            COG.info('scaled half width = ' + scaledHalfWidth + ', height = ' + scaledHalfHeight);
+            COG.info('scaled end x = ' + scaleEndXY.x + ', y = ' + scaleEndXY.y);
+            */
 
             if (! self.trigger('scale', scaleFactor, scaleEndXY).cancel) {
 
@@ -3274,8 +3308,16 @@ var View = function(params) {
     } // scaleView
 
     function setZoomCenter(xy) {
-        interactOffset = XY.init(drawRect.x1, drawRect.y1);
-        interactCenter = XY.offset(xy, drawRect.x1, drawRect.y1);
+        if (! xy) {
+            xy = XY.init(halfWidth, halfHeight);
+        } // if
+
+        interactOffset = XY.init(offsetX, offsetY);
+        interactCenter = XY.offset(xy, offsetX, offsetY);
+
+        zoomX = interactCenter.x;
+        zoomY = interactCenter.y;
+
     } // setZoomCenter
 
     function handleContainerUpdate(name, value) {
@@ -3283,6 +3325,22 @@ var View = function(params) {
 
         attachToCanvas();
     } // handleContainerUpdate
+
+    function handleDoubleTap(evt, absXY, relXY) {
+        triggerAll(
+            'doubleTap',
+            absXY,
+            relXY,
+            XY.offset(relXY, offsetX, offsetY));
+
+        if (params.scalable) {
+            COG.endTweens(function(tweenInstance) {
+                return tweenInstance.cancelOnInteract;
+            });
+
+            scale(2, relXY, params.zoomAnimation);
+        } // if
+    } // handleDoubleTap
 
     function handleResize(evt) {
         clearTimeout(resizeCanvasTimeout);
@@ -3377,18 +3435,6 @@ var View = function(params) {
         } // if..else
     } // updateOffset
 
-    /**
-    ### zoom(targetXY, scaleChange)
-    */
-    function zoom(targetXY, scaleChange) {
-        setZoomCenter(targetXY);
-
-        panimating = false;
-        scaleFactor = Math.max(scaleFactor + Math.pow(2, scaleChange) - 1, 0.25);
-
-        scaleView();
-    } // zoom
-
 
     /* private functions */
 
@@ -3403,10 +3449,8 @@ var View = function(params) {
             if (params.autoSize && canvas.parentNode) {
                 var rect = canvas.parentNode.getBoundingClientRect();
 
-                if (rect.height !== 0 && rect.width !== 0) {
-                    newWidth = rect.width;
-                    newHeight = rect.height;
-                } // if
+                newWidth = rect.right - rect.left;
+                newHeight = rect.bottom - rect.top;
             } // if
 
             try {
@@ -3492,9 +3536,10 @@ var View = function(params) {
 
         if (params.scalable) {
             eventMonitor.bind('zoom', handleZoom);
+            eventMonitor.bind('doubleTap', handleDoubleTap);
         } // if
 
-        eventMonitor.bind('pointerTap', handlePointerTap);
+        eventMonitor.bind('tap', handlePointerTap);
     } // captureInteractionEvents
 
     function getLayerIndex(id) {
@@ -3650,8 +3695,15 @@ var View = function(params) {
                         (COG.getTweens().length > 0);
 
         if (sizeChanged && canvas) {
+            if (typeof FlashCanvas != 'undefined') {
+                FlashCanvas.initElement(canvas);
+            } // if
+
             canvas.width = viewWidth;
             canvas.height = viewHeight;
+
+            canvas.style.width = viewWidth + 'px';
+            canvas.style.height = viewHeight + 'px';
 
             sizeChanged = false;
         } // if
@@ -3808,10 +3860,6 @@ var View = function(params) {
 
         var scaleFactorFrom = scaleFactor;
 
-        if (! targetXY) {
-            targetXY = Dimensions.getCenter(getDimensions());
-        } // if
-
         setZoomCenter(targetXY);
 
         if (tweenFn) {
@@ -3830,7 +3878,7 @@ var View = function(params) {
         }
         else {
             scaleFactor = targetScaling;
-            finishAnimation();
+            scaleView();
         }  // if..else
 
         return self;
@@ -3932,8 +3980,7 @@ var View = function(params) {
 
         getViewRect: getViewRect,
         updateOffset: updateOffset,
-        pan: pan,
-        zoom: zoom
+        pan: pan
     };
 
     deviceScaling = getConfig().getScaling();
@@ -3960,7 +4007,12 @@ var View = function(params) {
     attachToCanvas();
 
     if (params.autoSize) {
-        window.addEventListener('resize', handleResize, false);
+        if (isIE) {
+            window.attachEvent('onresize', handleResize);
+        }
+        else {
+            window.addEventListener('resize', handleResize, false);
+        }
     } // if
 
     return self;
@@ -5539,6 +5591,8 @@ var TileGenerator = function(params) {
         ticks: ticks,
         getConfig: getConfig,
         userMessage: userMessage,
+
+        zoomable: zoomable,
 
         XY: XY,
         XYRect: XYRect,

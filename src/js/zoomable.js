@@ -18,15 +18,7 @@ function zoomable(view, params) {
     
     function handleDoubleTap(evt, absXY, relXY) {
         if (view.scalable()) {
-            // cancel any current animations
-            // TODO: review if there is a better place to do this
-            COG.endTweens(function(tweenInstance) {
-                return tweenInstance.cancelOnInteract;
-            });
-            
-            // animate the scaling
-            // TODO: reinstate the animated zoom
-            view.scale(2, XY.init(relXY.x, relXY.y)); // , params.zoomAnimation);
+
         } // if
     } // handleDoubleTap
     
@@ -81,5 +73,4 @@ function zoomable(view, params) {
     
     // handle scale events
     view.bind('scale', handleScale);
-    view.bind('doubleTap', handleDoubleTap);
 };

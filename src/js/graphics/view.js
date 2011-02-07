@@ -124,7 +124,8 @@ var View = function(params) {
         tapExtent: 10,
         mask: true,
         guides: false,
-        fps: 25
+        fps: 25,
+        zoomAnimation: COG.easing('quad.out')
     }, params);
     
     // get the container context
@@ -132,6 +133,7 @@ var View = function(params) {
         layerCount = 0,
         canvas = document.getElementById(params.container),
         mainContext = null,
+        isIE = typeof window.attachEvent != 'undefined',
         offsetX = 0,
         offsetY = 0,
         clipping = params.clipping,
@@ -218,18 +220,15 @@ var View = function(params) {
     } // panEnd
     
     function handleZoom(evt, absXY, relXY, scaleChange) {
+        var newScaleFactor = Math.max(scaleFactor + Math.pow(2, scaleChange) - 1, 0.25);
+        
         // TODO: the xy position should be between the relXY and the center of the view
-        self.zoom(relXY, scaleChange);
+        scale(newScaleFactor);
     } // handleWheelZoom
     
     function scaleView(fullInvalidate) {
-        calcZoomRect();
+        var scaleFactorExp = (Math.log(scaleFactor) / Math.LN2) >> 0;
         
-        var scaledHalfWidth = (cycleRect.width / (scaleFactor * 2)) >> 0,
-            scaledHalfHeight = (cycleRect.height / (scaleFactor * 2)) >> 0,
-            scaleEndXY = XY.init(zoomX - scaledHalfWidth, zoomY - scaledHalfHeight),
-            scaleFactorExp = (Math.log(scaleFactor) / Math.LN2) >> 0;
-            
         if (scaleFactor !== 1) {
             state = stateZoom;
         } // if
@@ -237,6 +236,18 @@ var View = function(params) {
         // COG.info('scale factor = ' + scaleFactor + ', exp = ' + scaleFactorExp);
         if (scaleFactorExp !== 0) {
             scaleFactor = Math.pow(2, scaleFactorExp);
+            
+            var scaledHalfWidth = (halfWidth / scaleFactor) >> 0,
+                scaledHalfHeight = (halfHeight / scaleFactor) >> 0,
+                scaleEndXY = XY.init(zoomX - scaledHalfWidth, zoomY - scaledHalfHeight);
+            
+            /*
+            COG.info('zoom x = ' + zoomX + ', y = ' + zoomY);
+            COG.info('cycleRect width = ' + cycleRect.width);
+            COG.info('drawRect width = ' + drawRect.width);
+            COG.info('scaled half width = ' + scaledHalfWidth + ', height = ' + scaledHalfHeight);
+            COG.info('scaled end x = ' + scaleEndXY.x + ', y = ' + scaleEndXY.y);
+            */
 
             // trigger the scale
             if (! self.trigger('scale', scaleFactor, scaleEndXY).cancel) {
@@ -260,8 +271,20 @@ var View = function(params) {
     } // scaleView
     
     function setZoomCenter(xy) {
-        interactOffset = XY.init(drawRect.x1, drawRect.y1);
-        interactCenter = XY.offset(xy, drawRect.x1, drawRect.y1);
+        // if the xy is not defined, then use canvas center
+        if (! xy) {
+            xy = XY.init(halfWidth, halfHeight);
+        } // if
+        
+        interactOffset = XY.init(offsetX, offsetY);
+        interactCenter = XY.offset(xy, offsetX, offsetY);
+        
+        // initialise the zoom x and y to the interact center initially
+        zoomX = interactCenter.x;
+        zoomY = interactCenter.y;
+        
+        // COG.info('interact offset, x = ' + interactOffset.x + ', y = ' + interactOffset.y);
+        // COG.info('interact center, x = ' + interactCenter.x + ', y = ' + interactCenter.y);
     } // setZoomCenter
     
     function handleContainerUpdate(name, value) {
@@ -270,6 +293,25 @@ var View = function(params) {
         // attach to the new canvas
         attachToCanvas();
     } // handleContainerUpdate
+    
+    function handleDoubleTap(evt, absXY, relXY) {
+        triggerAll(
+            'doubleTap', 
+            absXY,
+            relXY,
+            XY.offset(relXY, offsetX, offsetY));
+            
+        if (params.scalable) {
+            // cancel any current animations
+            // TODO: review if there is a better place to do this
+            COG.endTweens(function(tweenInstance) {
+                return tweenInstance.cancelOnInteract;
+            });
+
+            // animate the scaling
+            scale(2, relXY, params.zoomAnimation);            
+        } // if
+    } // handleDoubleTap
     
     function handleResize(evt) {
         clearTimeout(resizeCanvasTimeout);
@@ -370,19 +412,6 @@ var View = function(params) {
         } // if..else
     } // updateOffset
     
-    /**
-    ### zoom(targetXY, scaleChange)
-    */
-    function zoom(targetXY, scaleChange) {
-        setZoomCenter(targetXY);
-
-        panimating = false;
-        scaleFactor = Math.max(scaleFactor + Math.pow(2, scaleChange) - 1, 0.25);
-        
-        // COG.info('zooming, scale change = ' + scaleChange + ', targetXY = ', targetXY);
-        scaleView();
-    } // zoom
-    
     
     /* private functions */
     
@@ -398,10 +427,9 @@ var View = function(params) {
             if (params.autoSize && canvas.parentNode) {
                 var rect = canvas.parentNode.getBoundingClientRect();
                 
-                if (rect.height !== 0 && rect.width !== 0) {
-                    newWidth = rect.width;
-                    newHeight = rect.height;
-                } // if
+                // update the width and the height based on the size of the bounding rect
+                newWidth = rect.right - rect.left;
+                newHeight = rect.bottom - rect.top;
             } // if
 
             try {
@@ -507,10 +535,11 @@ var View = function(params) {
         // if this view is scalable, attach zooming event handlers
         if (params.scalable) {
             eventMonitor.bind('zoom', handleZoom);
+            eventMonitor.bind('doubleTap', handleDoubleTap);
         } // if
 
         // handle tap events
-        eventMonitor.bind('pointerTap', handlePointerTap);
+        eventMonitor.bind('tap', handlePointerTap);
     } // captureInteractionEvents
     
     function getLayerIndex(id) {
@@ -685,9 +714,16 @@ var View = function(params) {
                
         // handle any size changes if we have them
         if (sizeChanged && canvas) {
+            if (typeof FlashCanvas != 'undefined') {
+                FlashCanvas.initElement(canvas);
+            } // if
+            
             // update the canvas width
             canvas.width = viewWidth;
             canvas.height = viewHeight;
+            
+            canvas.style.width = viewWidth + 'px';
+            canvas.style.height = viewHeight + 'px';
             
             // flag the size is not changed now as we have handled the update
             sizeChanged = false;
@@ -861,11 +897,7 @@ var View = function(params) {
         
         var scaleFactorFrom = scaleFactor;
 
-        // if the target xy is not defined, then use the canvas center
-        if (! targetXY) {
-            targetXY = Dimensions.getCenter(getDimensions());
-        } // if
-        
+        // update the zoom center
         setZoomCenter(targetXY);
 
         // if tweening then update the targetXY
@@ -888,7 +920,7 @@ var View = function(params) {
         // otherwise, update the scale factor and fire the callback
         else {
             scaleFactor = targetScaling;
-            finishAnimation();
+            scaleView();
         }  // if..else        
 
         return self;
@@ -995,8 +1027,7 @@ var View = function(params) {
         
         getViewRect: getViewRect,
         updateOffset: updateOffset,
-        pan: pan,
-        zoom: zoom
+        pan: pan
     };
 
     deviceScaling = getConfig().getScaling();
@@ -1030,7 +1061,12 @@ var View = function(params) {
     
     // if autosized, then listen for resize events
     if (params.autoSize) {
-        window.addEventListener('resize', handleResize, false);
+        if (isIE) {
+            window.attachEvent('onresize', handleResize);
+        }
+        else {
+            window.addEventListener('resize', handleResize, false);
+        }
     } // if
     
     return self;

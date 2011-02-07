@@ -48,6 +48,9 @@ T5 = (function() {
         getConfig: getConfig,
         userMessage: userMessage,
         
+        // zoomable
+        zoomable: zoomable,
+        
         XY: XY,
         XYRect: XYRect,
         Dimensions: Dimensions,
