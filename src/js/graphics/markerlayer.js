@@ -152,11 +152,15 @@ T5.MarkerLayer = function(params) {
         // if we have a test callback, then iterate through the markers and 
         // only remove ones that match the requirements
         if (testCallback) {
-            for (var ii = 0; ii < markers.length; ii++) {
+            var ii = 0;
+            while (ii < markers.length) {
                 if (testCallback(markers[ii])) {
                     markers.splice(ii, 1);
-                } // if
-            } // for
+                }
+                else {
+                    ii += 1;
+                } // if..else
+            } // while
         }
         // otherwise, reset the markers
         else {

@@ -3083,7 +3083,8 @@ T5.Dispatcher = (function() {
         
         findAction: function(actionId) {
             for (var ii = registeredActions.length; ii--; ) {
-                if (registeredActions[ii].id == actionId) {
+                var testId = registeredActions[ii].id;
+                if (testId && testId.toLowerCase() === actionId.toLowerCase()) {
                     return registeredActions[ii];
                 } // if
             } // for
@@ -5963,7 +5964,8 @@ T5.Marker = function(params) {
     params = T5.ex({
         xy: new T5.Vector(),
         tweenIn: null,
-        animationSpeed: null
+        animationSpeed: null,
+        padding: 0
     }, params);
     
     // initialise defaults
@@ -5972,13 +5974,14 @@ T5.Marker = function(params) {
         boundsX = 0,
         boundsY = 0,
         boundsWidth = 0,
-        boundsHeight = 0;
+        boundsHeight = 0,
+        padding = params.padding;
         
     function updateBounds(newX, newY, newWidth, newHeight) {
-        boundsX = newX;
-        boundsY = newY;
-        boundsWidth = newWidth;
-        boundsHeight = newHeight;
+        boundsX = newX - padding;
+        boundsY = newY - padding;
+        boundsWidth = newWidth + padding*2;
+        boundsHeight = newHeight + padding*2;
         
         // COG.Log.info('bounds: x = ' + boundsX + ', y = ' + boundsY + ', width = ' + boundsWidth + ', height = ' + boundsHeight);
     } // updateBounds
@@ -6416,11 +6419,15 @@ T5.MarkerLayer = function(params) {
         // if we have a test callback, then iterate through the markers and 
         // only remove ones that match the requirements
         if (testCallback) {
-            for (var ii = 0; ii < markers.length; ii++) {
+            var ii = 0;
+            while (ii < markers.length) {
                 if (testCallback(markers[ii])) {
                     markers.splice(ii, 1);
-                } // if
-            } // for
+                }
+                else {
+                    ii += 1;
+                } // if..else
+            } // while
         }
         // otherwise, reset the markers
         else {
