@@ -133,7 +133,7 @@ var View = function(params) {
     var layers = [],
         layerCount = 0,
         container = document.getElementById (params.container),
-        canvas = document.createElement ('canvas'),
+	canvas,
         mainContext = null,
         isIE = typeof window.attachEvent != 'undefined',
         offsetX = 0,
@@ -191,8 +191,11 @@ var View = function(params) {
         rectCenter = XYRect.center;
 
     //Add the canvas to the container
-    container.appendChild (canvas);
-
+    if(container.nodeName.toLowerCase() === 'canvas'){
+	canvas = container;
+    } else {
+	canvas = Images.newCanvas();
+    }
     /* event handlers */
     
     function handlePan(evt, x, y, inertia) {

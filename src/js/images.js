@@ -297,21 +297,32 @@ var Images = (function() {
     } // load
     
     /**
-    ### newCanvas(width, height)
+    ### newCanvas()
     */
-    function newCanvas(width, height) {
-        var tmpCanvas = document.createElement('canvas');
+    function newCanvas() {
+	var args = arguments, //Little expensive, or so I hear
+	    parent = args[0] && args[0].nodeName ? args[0] : undefined,
+	    tmpCanvas = document.createElement('canvas');
+	
         COG.info('creating new canvas');
-
         // set the size of the canvas if specified
-        tmpCanvas.width = width ? width : 0;
-        tmpCanvas.height = height ? height : 0;
-        
+	if (parent) {
+            tmpCanvas.width = args[1] ? args[1] : 0;
+            tmpCanvas.height = args[2] ? args[2] : 0;
+	} else {
+            tmpCanvas.width = args[0] ? args[0] : 0;
+            tmpCanvas.height = args[1] ? args[1] : 0;
+	}
+	if (parent) {
+	    parent.appendChild(tmpCanvas);		
+	} else {
+	    document.body.appendChild(tmpCanvas);		
+	}
         // flash canvas initialization
         if (typeof FlashCanvas != 'undefined') {
-            document.body.appendChild(tmpCanvas);
+	    
             FlashCanvas.initElement(tmpCanvas);
-        } // if
+        }
 
         return tmpCanvas;
     } // newCanvas    
