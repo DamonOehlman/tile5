@@ -110,6 +110,7 @@ var View = function(params) {
     params = COG.extend({
         id: COG.objId('view'),
         container: "",
+	canvas: undefined,
         fastDraw: false,
         inertia: true,
         pannable: true,
@@ -131,7 +132,8 @@ var View = function(params) {
     // get the container context
     var layers = [],
         layerCount = 0,
-        canvas = document.getElementById(params.container),
+        container = document.getElementById (params.container),
+        canvas = document.createElement ('canvas'),
         mainContext = null,
         isIE = typeof window.attachEvent != 'undefined',
         offsetX = 0,
@@ -187,7 +189,10 @@ var View = function(params) {
     var vectorRect = XY.getRect,
         rectDiagonal = XYRect.diagonalSize,
         rectCenter = XYRect.center;
-        
+
+    //Add the canvas to the container
+    container.appendChild (canvas);
+
     /* event handlers */
     
     function handlePan(evt, x, y, inertia) {
