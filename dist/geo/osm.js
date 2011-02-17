@@ -35,11 +35,19 @@ T5.Geo.OSM = (function() {
         function calculateTileOffset(position, zoomLevel) {
             var lon = position.lon % 360,
                 lat = position.lat,
-                zoomFactor = 2 << (zoomLevel - 1),
+                numTiles = 2 << (zoomLevel - 1),
                 tileX, tileY;
                 
-            tileX = ~~((lon+180) / 360 * zoomFactor);
-            tileY = ~~((1-Math.log(Math.tan(lat*DEGREES_TO_RADIANS) + 1/Math.cos(lat*DEGREES_TO_RADIANS))/Math.PI)/2 * zoomFactor);
+            tileX = Math.floor((lon+180) / 360 * numTiles) % numTiles;
+            tileY = Math.floor((1-Math.log(Math.tan(lat*DEGREES_TO_RADIANS) + 1/Math.cos(lat*DEGREES_TO_RADIANS))/Math.PI)/2 * numTiles) % numTiles;
+            
+            while (tileX < 0) {
+                tileX += numTiles;
+            } // while
+            
+            while (tileY < 0) {
+                tileY += numTiles;
+            } // while
                 
             return T5.XY.init(tileX, tileY);
         } // calculateTileOffset
