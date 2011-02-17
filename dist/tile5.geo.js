@@ -1114,6 +1114,15 @@ function getOffset(obj) {
     };
 } // getOffset
 
+function matchTarget(evt, targetElement) {
+    var targ = evt.target ? evt.target : evt.srcElement;
+    while (targ && targ.nodeName && (targ.nodeName.toUpperCase() != 'CANVAS')) {
+        targ = targ.parentNode;
+    } // while
+
+    return targ && (targ === targetElement);
+} // matchTarget
+
 function pointerOffset(absPoint, offset) {
     return {
         x: absPoint.x - (offset ? offset.x : 0),
@@ -1151,7 +1160,7 @@ var MouseHandler = function(targetElement, observable, opts) {
     /* internal functions */
 
     function handleClick(evt) {
-        if (matchTarget(evt)) {
+        if (matchTarget(evt, targetElement)) {
             var clickXY = point(
                 evt.pageX ? evt.pageX : evt.screenX,
                 evt.pageY ? evt.pageY : evt.screenY);
@@ -1167,7 +1176,7 @@ var MouseHandler = function(targetElement, observable, opts) {
     function handleDoubleClick(evt) {
         COG.info('captured double click');
 
-        if (matchTarget(evt)) {
+        if (matchTarget(evt, targetElement)) {
             var clickXY = point(
                 evt.pageX ? evt.pageX : evt.screenX,
                 evt.pageY ? evt.pageY : evt.screenY);
@@ -1183,7 +1192,7 @@ var MouseHandler = function(targetElement, observable, opts) {
     } // handleDoubleClick
 
     function handleMouseDown(evt) {
-        if (matchTarget(evt)) {
+        if (matchTarget(evt, targetElement)) {
             buttonDown = isLeftButton(evt);
             if (buttonDown) {
                 targetElement.style.cursor = 'move';
@@ -1207,7 +1216,7 @@ var MouseHandler = function(targetElement, observable, opts) {
         currentX = evt.pageX ? evt.pageX : evt.screenX;
         currentY = evt.pageY ? evt.pageY : evt.screenY;
 
-        if (buttonDown && matchTarget(evt)) {
+        if (buttonDown && matchTarget(evt, targetElement)) {
             triggerCurrent('pointerMove');
         } // if
     } // mouseMove
@@ -1216,7 +1225,7 @@ var MouseHandler = function(targetElement, observable, opts) {
         if (buttonDown && isLeftButton(evt)) {
             buttonDown = false;
 
-            if (matchTarget(evt)) {
+            if (matchTarget(evt, targetElement)) {
                 targetElement.style.cursor = 'default';
                 triggerCurrent('pointerUp');
             } // if
@@ -1225,7 +1234,7 @@ var MouseHandler = function(targetElement, observable, opts) {
     } // mouseUp
 
     function handleWheel(evt) {
-        if (matchTarget(evt)) {
+        if (matchTarget(evt, targetElement)) {
             var deltaY;
 
             evt = evt || window.event;
@@ -1247,7 +1256,8 @@ var MouseHandler = function(targetElement, observable, opts) {
                     'zoom',
                     current,
                     pointerOffset(current, getOffset(targetElement)),
-                    deltaY / WHEEL_DELTA_LEVEL
+                    deltaY / WHEEL_DELTA_LEVEL,
+                    'wheel'
                 );
 
                 preventDefault(evt);
@@ -1261,15 +1271,6 @@ var MouseHandler = function(targetElement, observable, opts) {
         var button = evt.which || evt.button;
         return button == 1;
     } // leftPressed
-
-    function matchTarget(evt) {
-        var targ = evt.target ? evt.target : evt.srcElement;
-        while (targ && targ.nodeName && (targ.nodeName.toUpperCase() != 'CANVAS')) {
-            targ = targ.parentNode;
-        } // while
-
-        return targ && (targ === targetElement);
-    } // matchTarget
 
     function triggerCurrent(eventName, includeTotal) {
         var current = point(currentX, currentY);
@@ -1438,9 +1439,7 @@ var TouchHandler = function(targetElement, observable, opts) {
     } // fillTouchData
 
     function handleTouchStart(evt) {
-        var targ = evt.target ? evt.target : evt.srcElement;
-
-        if (targ && (targ === targetElement)) {
+        if (matchTarget(evt, targetElement)) {
             offset = getOffset(targetElement);
 
             var changedTouches = getTouchData(evt, 'changedTouches'),
@@ -1475,9 +1474,7 @@ var TouchHandler = function(targetElement, observable, opts) {
     } // handleTouchStart
 
     function handleTouchMove(evt) {
-        var targ = evt.target ? evt.target : evt.srcElement;
-
-        if (targ && (targ === targetElement)) {
+        if (matchTarget(evt, targetElement)) {
             evt.preventDefault();
 
             touchesCurrent = getTouchData(evt);
@@ -1514,7 +1511,8 @@ var TouchHandler = function(targetElement, observable, opts) {
                                 'zoom',
                                 current,
                                 pointerOffset(current, offset),
-                                scaleChange
+                                scaleChange,
+                                'pinch'
                             );
 
                             scaling = currentScaling;
@@ -1547,8 +1545,7 @@ var TouchHandler = function(targetElement, observable, opts) {
     } // handleTouchMove
 
     function handleTouchEnd(evt) {
-        var targ = evt.target ? evt.target : evt.srcElement;
-        if (targ && (targ === targetElement)) {
+        if (matchTarget(evt, targetElement)) {
             var changedTouches = getTouchData(evt, 'changedTouches'),
                 offsetTouches = copyTouches(changedTouches, offset.x, offset.y);
 
@@ -1627,6 +1624,8 @@ var TWO_PI = Math.PI * 2,
     HALF_PI = Math.PI / 2;
 
 var abs = Math.abs,
+    ceil = Math.ceil,
+    floor = Math.floor,
     min = Math.min,
     max = Math.max,
     pow = Math.pow,
@@ -2114,6 +2113,13 @@ var XYRect = (function() {
     } // intersect
 
     /**
+    ### toString(rect)
+    */
+    function toString(rect) {
+        return '[' + rect.x1 + ', ' + rect.y1 + ', ' + rect.x2 + ', ' + rect.y2 + ']';
+    } // toString
+
+    /**
     ### union(rect1, rect2)
     */
     function union(rect1, rect2) {
@@ -2143,6 +2149,7 @@ var XYRect = (function() {
         fromCenter: fromCenter,
         init: init,
         intersect: intersect,
+        toString: toString,
         union: union
     };
 })();
@@ -2775,19 +2782,12 @@ function zoomable(view, params) {
     params = COG.extend({
         initial: 1,
         min: 0,
-        max: null,
-        zoomAnimation: COG.easing('quad.out')
+        max: null
     }, params);
 
     var zoomLevel = params.initial;
 
     /* internal functions */
-
-    function handleDoubleTap(evt, absXY, relXY) {
-        if (view.scalable()) {
-
-        } // if
-    } // handleDoubleTap
 
     function handleScale(evt, scaleAmount, zoomXY) {
         var zoomChange = Math.log(scaleAmount) / Math.LN2;
@@ -3131,11 +3131,11 @@ view.bind('resize', function(evt, width, height) {
 });
 </pre>
 
-### idle
-This event is fired once the view has gone into an idle state (once draw
-operations haven't been required for 500ms).
+### refresh
+This event is fired once the view has gone into an idle state or every second
+(configurable).
 <pre>
-view.bind('idle', function(evt) {
+view.bind('refresh', function(evt) {
 });
 </pre>
 
@@ -3158,6 +3158,8 @@ var View = function(params) {
         container: "",
         fastDraw: false,
         inertia: true,
+        idleDelay: 100,
+        minRefresh: 1000,
         pannable: true,
         clipping: false,
         scalable: true,
@@ -3171,14 +3173,18 @@ var View = function(params) {
         mask: true,
         guides: false,
         fps: 25,
-        zoomAnimation: COG.easing('quad.out')
+        zoomAnimation: COG.easing('quad.out'),
+        zoomDuration: 300
     }, params);
 
     var layers = [],
+        aniZoomTimeout,
         layerCount = 0,
         canvas = document.getElementById(params.container),
         mainContext = null,
         isIE = typeof window.attachEvent != 'undefined',
+        idleDelay = params.idleDelay,
+        minRefresh = params.minRefresh,
         offsetX = 0,
         offsetY = 0,
         clipping = params.clipping,
@@ -3200,6 +3206,7 @@ var View = function(params) {
         rescaleTimeout = 0,
         layerMinXY = null,
         layerMaxXY = null,
+        lastRefresh = 0,
         rotation = 0,
         tickCount = 0,
         stateOverride = null,
@@ -3214,6 +3221,7 @@ var View = function(params) {
         eventMonitor = null,
         viewHeight,
         viewWidth,
+        totalScaleChange = 0,
         isFlash = typeof FlashCanvas !== 'undefined',
         cycleDelay = ~~(1000 / params.fps),
         zoomCenter,
@@ -3236,6 +3244,7 @@ var View = function(params) {
 
     function handlePan(evt, x, y, inertia) {
         state = statePan;
+
         invalidate();
 
         if (inertia && params.inertia) {
@@ -3263,21 +3272,19 @@ var View = function(params) {
         invalidate();
     } // panEnd
 
-    function handleZoom(evt, absXY, relXY, scaleChange) {
-        var newScaleFactor = Math.max(scaleFactor + Math.pow(2, scaleChange) - 1, 0.25);
-
-        scale(newScaleFactor);
+    function handleZoom(evt, absXY, relXY, scaleChange, source) {
+        scale(max(scaleFactor + pow(2, scaleChange) - 1, 0.25));
     } // handleWheelZoom
 
     function scaleView(fullInvalidate) {
-        var scaleFactorExp = (Math.log(scaleFactor) / Math.LN2) >> 0;
+        var scaleFactorExp = (log(scaleFactor) / Math.LN2) >> 0;
 
         if (scaleFactor !== 1) {
             state = stateZoom;
         } // if
 
         if (scaleFactorExp !== 0) {
-            scaleFactor = Math.pow(2, scaleFactorExp);
+            scaleFactor = pow(2, scaleFactorExp);
 
             var scaledHalfWidth = (halfWidth / scaleFactor) >> 0,
                 scaledHalfHeight = (halfHeight / scaleFactor) >> 0,
@@ -3338,7 +3345,7 @@ var View = function(params) {
                 return tweenInstance.cancelOnInteract;
             });
 
-            scale(2, relXY, params.zoomAnimation);
+            scale(2, relXY, params.zoomAnimation, null, params.zoomDuration);
         } // if
     } // handleDoubleTap
 
@@ -3430,8 +3437,10 @@ var View = function(params) {
             });
         }
         else {
-            offsetX = x >> 0;
-            offsetY = y >> 0;
+            offsetX = x | 0;
+            offsetY = y | 0;
+
+            COG.info('offset updated: x = ' + offsetX + ', y = ' + offsetY);
         } // if..else
     } // updateOffset
 
@@ -3447,10 +3456,8 @@ var View = function(params) {
             } // if
 
             if (params.autoSize && canvas.parentNode) {
-                var rect = canvas.parentNode.getBoundingClientRect();
-
-                newWidth = rect.right - rect.left;
-                newHeight = rect.bottom - rect.top;
+                newWidth = canvas.parentNode.offsetWidth;
+                newHeight = canvas.parentNode.offsetHeight;
             } // if
 
             try {
@@ -3555,7 +3562,7 @@ var View = function(params) {
     /* draw code */
 
     function triggerIdle() {
-        triggerAll('idle', self);
+        refresh();
 
         idle = true;
         idleTimeout = 0;
@@ -3590,9 +3597,12 @@ var View = function(params) {
 
     function drawView(drawState, rect, redraw, tickCount) {
         var drawLayer,
+            rectCenter = XYRect.center(rect),
             ii = 0;
 
         drawRect = XYRect.copy(rect);
+
+        drawRect.scaleFactor = scaleFactor;
 
         if (redraw) {
             mainContext.clearRect(0, 0, viewWidth, viewHeight);
@@ -3743,10 +3753,14 @@ var View = function(params) {
 
         if ((! draw) && (wakeTriggers === 0) && (! isFlash)) {
             if ((! idle) && (idleTimeout === 0)) {
-                idleTimeout = setTimeout(triggerIdle, 500);
+                idleTimeout = setTimeout(triggerIdle, idleDelay);
             } // if
 
             worker.trigger('complete');
+        } // if
+
+        if (tickCount - lastRefresh > minRefresh) {
+            refresh();
         } // if
 
         wakeTriggers = 0;
@@ -3842,9 +3856,19 @@ var View = function(params) {
     } // setLayer
 
     /**
+    ### refresh()
+    */
+    function refresh() {
+        lastRefresh = new Date().getTime();
+        triggerAll('refresh', self);
+
+        invalidate();
+    } // refresh
+
+    /**
     ### scale(targetScaling, targetXY, tweenFn, callback)
     */
-    function scale(targetScaling, targetXY, tweenFn, callback) {
+    function scale(targetScaling, targetXY, tweenFn, callback, duration) {
 
         function finishAnimation() {
             var scaleFactorExp = Math.round(Math.log(scaleFactor) / Math.LN2);
@@ -3868,7 +3892,7 @@ var View = function(params) {
                             targetScaling - scaleFactorFrom,
                             tweenFn,
                             finishAnimation,
-                            1000);
+                            duration);
 
             tween.requestUpdates(function(updatedValue, completed) {
                 scaleFactor = scaleFactorFrom + updatedValue;
@@ -3941,6 +3965,7 @@ var View = function(params) {
             } // if
         },
 
+        refresh: refresh,
         scale: scale,
         triggerAll: triggerAll,
 
@@ -7436,15 +7461,13 @@ var Map = exports.Map = function(params) {
         */
     } // handleTap
 
-    function handleIdle(evt) {
+    function handleRefresh(evt) {
         var changeDelta = XY.absSize(XY.diff(lastBoundsChangeOffset, self.getOffset()));
-
-        COG.info('idle detected, change delta = ' + changeDelta);
         if (changeDelta > params.boundsChangeThreshold) {
             lastBoundsChangeOffset = XY.copy(self.getOffset());
             self.trigger("boundsChange", self.getBoundingBox());
         } // if
-    } // handleIdle
+    } // handleWork
 
     function handleProviderUpdate(name, value) {
         self.cleanup();
@@ -7657,7 +7680,7 @@ var Map = exports.Map = function(params) {
     self.bind('tap', handleTap);
 
 
-    self.bind('idle', handleIdle);
+    self.bind('refresh', handleRefresh);
 
     zoomable(self, params);
     self.bind('zoomLevelChange', handleZoomLevelChange);
