@@ -195,15 +195,13 @@ var Map = exports.Map = function(params) {
         */
     } // handleTap
     
-    function handleIdle(evt) {
+    function handleRefresh(evt) {
         var changeDelta = XY.absSize(XY.diff(lastBoundsChangeOffset, self.getOffset()));
-                
-        COG.info('idle detected, change delta = ' + changeDelta);
         if (changeDelta > params.boundsChangeThreshold) {
             lastBoundsChangeOffset = XY.copy(self.getOffset());
             self.trigger("boundsChange", self.getBoundingBox());
         } // if
-    } // handleIdle
+    } // handleWork
     
     function handleProviderUpdate(name, value) {
         self.cleanup();
@@ -445,7 +443,7 @@ var Map = exports.Map = function(params) {
     // self.markers.bind('markerUpdate', handleMarkerUpdate);
     
     // listen for the view idling
-    self.bind('idle', handleIdle);
+    self.bind('refresh', handleRefresh);
     
     // list for zoom level changes
     zoomable(self, params);
