@@ -4,6 +4,8 @@ var TWO_PI = Math.PI * 2,
     
 // define some function references
 var abs = Math.abs,
+    ceil = Math.ceil,
+    floor = Math.floor,
     min = Math.min,
     max = Math.max,
     pow = Math.pow,
