@@ -2781,11 +2781,13 @@ implemented when the view scales
 function zoomable(view, params) {
     params = COG.extend({
         initial: 1,
-        min: 0,
-        max: null
+        minZoom: 1,
+        maxZoom: 16
     }, params);
 
-    var zoomLevel = params.initial;
+    var zoomLevel = params.initial,
+        minZoom = params.minZoom,
+        maxZoom = params.maxZoom;
 
     /* internal functions */
 
@@ -2818,7 +2820,10 @@ function zoomable(view, params) {
     */
     function setZoomLevel(value, zoomXY) {
         if (value && (zoomLevel !== value)) {
-            var zoomOK = view.triggerAll('zoomLevelChange', value, zoomXY);
+            var zoomOK =
+                value >= minZoom &&
+                value <= maxZoom &&
+                view.triggerAll('zoomLevelChange', value, zoomXY);
 
             if (zoomOK) {
                 zoomLevel = value;
