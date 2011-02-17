@@ -3439,8 +3439,6 @@ var View = function(params) {
         else {
             offsetX = x | 0;
             offsetY = y | 0;
-
-            COG.info('offset updated: x = ' + offsetX + ', y = ' + offsetY);
         } // if..else
     } // updateOffset
 
@@ -4300,28 +4298,17 @@ var ImageLayer = function(genId, params) {
 
     /* every library should have a regenerate function - here's mine ;) */
     function regenerate(viewRect) {
-        var removeIndexes = [],
-            ii;
-
-        if (! generator) {
-            return;
+        if (generator) {
+            generator.run(viewRect, self.getParent(), function(images) {
+                generatedImages = [].concat(images);
+                self.changed();
+            });
         } // if
-
-        generator.run(viewRect, function(images) {
-            generatedImages = [].concat(images);
-            self.changed();
-        });
     } // regenerate
 
     /* event handlers */
 
-    function handleParentChange(evt, parent) {
-        if (generator) {
-            generator.bindToView(parent);
-        } // if
-    } // handleParent
-
-    function handleIdle(evt, view) {
+    function handleRefresh(evt, view) {
         regenerate(lastViewRect);
     } // handleViewIdle
 
@@ -4359,7 +4346,6 @@ var ImageLayer = function(genId, params) {
     */
     function changeGenerator(generatorId, args) {
         generator = Generator.init(generatorId, COG.extend({}, params, args));
-        generator.bindToView(self.getParent());
 
         generatedImages = null;
         regenerate(lastViewRect);
@@ -4407,8 +4393,7 @@ var ImageLayer = function(genId, params) {
         drawImage: drawImage
     });
 
-    self.bind('idle', handleIdle);
-    self.bind('parentChange', handleParentChange);
+    self.bind('refresh', handleRefresh);
     self.bind('tap', handleTap);
 
     return self;
@@ -5473,8 +5458,7 @@ var TileGenerator = function(params) {
         padding: 2
     }, params);
 
-    var targetView = null,
-        lastRect = null,
+    var lastRect = null,
         requestXY = XY.init(),
         tileLoader = null,
         padding = params.padding,
@@ -5537,20 +5521,10 @@ var TileGenerator = function(params) {
     /* exports */
 
     /**
-    ### bindToView(view)
-    */
-    function bindToView(view) {
-        COG.info('initializing generator');
-
-        targetView = view;
-        self.trigger('bindView', view);
-    } // bindToView
-
-    /**
-    ### requireRefresh(viewRect)
+    ### requireRefresh(viewRect, view)
     This function is used to determine whether or not a new tile creator is required
     */
-    function requireRefresh(viewRect) {
+    function requireRefresh(viewRect, view) {
         return false;
     } // requireRefresh
 
@@ -5564,15 +5538,16 @@ var TileGenerator = function(params) {
     } // resetTileCreator
 
     /**
-    ### run(viewRect, callback)
+    ### run(viewRect, view, callback)
     */
-    function run(viewRect, callback) {
+    function run(viewRect, view, callback) {
         var recalc = (! lastRect) ||
-            (Math.abs(viewRect.x1 - lastRect.x1) > tileWidth) ||
-            (Math.abs(viewRect.y1 - lastRect.y1) > tileHeight);
+                (Math.abs(viewRect.x1 - lastRect.x1) > tileWidth) ||
+                (Math.abs(viewRect.y1 - lastRect.y1) > tileHeight),
+            requireRefresh = recalc ? self.requireRefresh(viewRect, view) : false;
 
         if (recalc) {
-            if (((! tileCreator) && (! requestedTileCreator)) || self.requireRefresh()) {
+            if (((! tileCreator) && (! requestedTileCreator)) || requireRefresh) {
                 requestXY = params.relative ? XY.init(viewRect.x1, viewRect.y1) : XY.init();
                 xTiles = Math.ceil(viewRect.width / tileWidth) + padding;
                 yTiles = Math.ceil(viewRect.height / tileHeight) + padding;
@@ -5580,7 +5555,7 @@ var TileGenerator = function(params) {
                 makeTileCreator(
                     tileWidth,
                     tileHeight,
-                    self.getTileCreatorArgs ? self.getTileCreatorArgs(targetView) : {},
+                    self.getTileCreatorArgs ? self.getTileCreatorArgs(view) : {},
                     function(creator) {
                         tileCreator = creator;
                         requestedTileCreator = false;
@@ -5596,7 +5571,6 @@ var TileGenerator = function(params) {
     } // run
 
     var self = {
-        bindToView: bindToView,
         getTileCreatorArgs: null,
         initTileCreator: null,
         prepTileCreator: null,

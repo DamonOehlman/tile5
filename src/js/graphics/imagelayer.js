@@ -43,28 +43,17 @@ var ImageLayer = function(genId, params) {
     
     /* every library should have a regenerate function - here's mine ;) */
     function regenerate(viewRect) {
-        var removeIndexes = [],
-            ii;
-            
-        if (! generator) {
-            return;
+        if (generator) {
+            generator.run(viewRect, self.getParent(), function(images) {
+                generatedImages = [].concat(images);
+                self.changed();
+            });
         } // if
-
-        generator.run(viewRect, function(images) {
-            generatedImages = [].concat(images);
-            self.changed();
-        });
     } // regenerate
     
     /* event handlers */
     
-    function handleParentChange(evt, parent) {
-        if (generator) {
-            generator.bindToView(parent);
-        } // if
-    } // handleParent
-    
-    function handleIdle(evt, view) {
+    function handleRefresh(evt, view) {
         regenerate(lastViewRect);
     } // handleViewIdle
     
@@ -106,7 +95,6 @@ var ImageLayer = function(genId, params) {
     function changeGenerator(generatorId, args) {
         // update the generator
         generator = Generator.init(generatorId, COG.extend({}, params, args));
-        generator.bindToView(self.getParent());
 
         // clear the generated images and regenerate
         generatedImages = null;
@@ -156,8 +144,7 @@ var ImageLayer = function(genId, params) {
         drawImage: drawImage
     });
     
-    self.bind('idle', handleIdle);
-    self.bind('parentChange', handleParentChange);
+    self.bind('refresh', handleRefresh);
     self.bind('tap', handleTap);
     
     return self;

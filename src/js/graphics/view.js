@@ -416,8 +416,6 @@ var View = function(params) {
         else {
             offsetX = x | 0;
             offsetY = y | 0;
-            
-            COG.info('offset updated: x = ' + offsetX + ', y = ' + offsetY);
         } // if..else
     } // updateOffset
     

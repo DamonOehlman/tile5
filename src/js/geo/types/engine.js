@@ -1,7 +1,8 @@
+// initialise the engine registry
+var engines = {};
+
 /**
 # T5.Geo.Engine
-
-TODO
 */
 var GeoEngine = function(params) {
     // if the id for the engine is not specified, throw an exception
@@ -18,6 +19,5 @@ var GeoEngine = function(params) {
 
     // register the engine
     engines[self.id] = self;
-
     return self;
 };

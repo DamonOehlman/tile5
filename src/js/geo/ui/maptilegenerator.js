@@ -12,23 +12,11 @@ var MapTileGenerator = exports.MapTileGenerator = function(params) {
     
     /* internal functions */
     
-    function handleZoomLevelChange(evt, newZoomLevel) {
-        var zoomOK = newZoomLevel >= self.minLevel && (
-            (! self.maxLevel) || (newZoomLevel <= self.maxLevel));
-            
-        COG.info('new zoom level = ' + newZoomLevel + ', zoom ok = ' + zoomOK);
-
-        evt.cancel = ! zoomOK;
-        if (zoomOK) {
-            zoomLevel = newZoomLevel;
-            self.reset();
-        } // if
-    } // handleZoomLevelChange;
-    
     /* exports */
     
     function getTileCreatorArgs(view) {
         initPos = view.getCenterPosition();
+        zoomLevel = view.getZoomLevel();
         
         return {
             zoomLevel: zoomLevel,
@@ -36,8 +24,8 @@ var MapTileGenerator = exports.MapTileGenerator = function(params) {
         };
     } // getTileCreatorArgs
     
-    function requireRefresh(viewRect) {
-        return !initPos;
+    function requireRefresh(viewRect, view) {
+        return (! initPos) || (zoomLevel !== view.getZoomLevel());
     } // requireRefresh    
     
     /* define self */
@@ -48,14 +36,6 @@ var MapTileGenerator = exports.MapTileGenerator = function(params) {
         
         getTileCreatorArgs: getTileCreatorArgs,
         requireRefresh: requireRefresh
-    });
-    
-    self.bind('bindView', function(evt, view) {
-        // if the view is a zoomable then get the zoom level and bind to the zoom change event
-        if (view.getZoomLevel) {
-            zoomLevel = view.getZoomLevel();
-            view.bind('zoomLevelChange', handleZoomLevelChange);
-        } // if
     });
     
     return self;
