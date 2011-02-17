@@ -7,20 +7,13 @@ function zoomable(view, params) {
     params = COG.extend({
         initial: 1,
         min: 0,
-        max: null,
-        zoomAnimation: COG.easing('quad.out')
+        max: null
     }, params);
 
     // initialise variables
     var zoomLevel = params.initial;
     
     /* internal functions */
-    
-    function handleDoubleTap(evt, absXY, relXY) {
-        if (view.scalable()) {
-
-        } // if
-    } // handleDoubleTap
     
     function handleScale(evt, scaleAmount, zoomXY) {
         var zoomChange = Math.log(scaleAmount) / Math.LN2;
