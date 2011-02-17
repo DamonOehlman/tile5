@@ -84,11 +84,11 @@ view.bind('resize', function(evt, width, height) {
 });
 </pre>
 
-### idle
-This event is fired once the view has gone into an idle state (once draw
-operations haven't been required for 500ms).
+### refresh
+This event is fired once the view has gone into an idle state or every second
+(configurable).
 <pre>
-view.bind('idle', function(evt) {
+view.bind('refresh', function(evt) {
 });
 </pre>
 
@@ -112,6 +112,8 @@ var View = function(params) {
         container: "",
         fastDraw: false,
         inertia: true,
+        idleDelay: 100,
+        minRefresh: 1000,
         pannable: true,
         clipping: false,
         scalable: true,
@@ -125,15 +127,19 @@ var View = function(params) {
         mask: true,
         guides: false,
         fps: 25,
-        zoomAnimation: COG.easing('quad.out')
+        zoomAnimation: COG.easing('quad.out'),
+        zoomDuration: 300
     }, params);
     
     // get the container context
     var layers = [],
+        aniZoomTimeout,
         layerCount = 0,
         canvas = document.getElementById(params.container),
         mainContext = null,
         isIE = typeof window.attachEvent != 'undefined',
+        idleDelay = params.idleDelay,
+        minRefresh = params.minRefresh,
         offsetX = 0,
         offsetY = 0,
         clipping = params.clipping,
@@ -155,6 +161,7 @@ var View = function(params) {
         rescaleTimeout = 0,
         layerMinXY = null,
         layerMaxXY = null,
+        lastRefresh = 0,
         rotation = 0,
         tickCount = 0,
         stateOverride = null,
@@ -169,6 +176,7 @@ var View = function(params) {
         eventMonitor = null,
         viewHeight,
         viewWidth,
+        totalScaleChange = 0,
         isFlash = typeof FlashCanvas !== 'undefined',
         cycleDelay = ~~(1000 / params.fps),
         zoomCenter,
@@ -192,6 +200,8 @@ var View = function(params) {
     
     function handlePan(evt, x, y, inertia) {
         state = statePan;
+        
+        // invalidate the display
         invalidate();
         
         if (inertia && params.inertia) {
@@ -219,15 +229,12 @@ var View = function(params) {
         invalidate();
     } // panEnd
     
-    function handleZoom(evt, absXY, relXY, scaleChange) {
-        var newScaleFactor = Math.max(scaleFactor + Math.pow(2, scaleChange) - 1, 0.25);
-        
-        // TODO: the xy position should be between the relXY and the center of the view
-        scale(newScaleFactor);
+    function handleZoom(evt, absXY, relXY, scaleChange, source) {
+        scale(max(scaleFactor + pow(2, scaleChange) - 1, 0.25));
     } // handleWheelZoom
     
     function scaleView(fullInvalidate) {
-        var scaleFactorExp = (Math.log(scaleFactor) / Math.LN2) >> 0;
+        var scaleFactorExp = (log(scaleFactor) / Math.LN2) >> 0;
         
         if (scaleFactor !== 1) {
             state = stateZoom;
@@ -235,7 +242,7 @@ var View = function(params) {
 
         // COG.info('scale factor = ' + scaleFactor + ', exp = ' + scaleFactorExp);
         if (scaleFactorExp !== 0) {
-            scaleFactor = Math.pow(2, scaleFactorExp);
+            scaleFactor = pow(2, scaleFactorExp);
             
             var scaledHalfWidth = (halfWidth / scaleFactor) >> 0,
                 scaledHalfHeight = (halfHeight / scaleFactor) >> 0,
@@ -309,7 +316,7 @@ var View = function(params) {
             });
 
             // animate the scaling
-            scale(2, relXY, params.zoomAnimation);            
+            scale(2, relXY, params.zoomAnimation, null, params.zoomDuration);            
         } // if
     } // handleDoubleTap
     
@@ -407,8 +414,10 @@ var View = function(params) {
             });
         }
         else {
-            offsetX = x >> 0;
-            offsetY = y >> 0;
+            offsetX = x | 0;
+            offsetY = y | 0;
+            
+            COG.info('offset updated: x = ' + offsetX + ', y = ' + offsetY);
         } // if..else
     } // updateOffset
     
@@ -425,11 +434,8 @@ var View = function(params) {
             
             // if we are autosizing the set the size
             if (params.autoSize && canvas.parentNode) {
-                var rect = canvas.parentNode.getBoundingClientRect();
-                
-                // update the width and the height based on the size of the bounding rect
-                newWidth = rect.right - rect.left;
-                newHeight = rect.bottom - rect.top;
+                newWidth = canvas.parentNode.offsetWidth;
+                newHeight = canvas.parentNode.offsetHeight;
             } // if
 
             try {
@@ -555,9 +561,9 @@ var View = function(params) {
     /* draw code */
     
     function triggerIdle() {
-        // COG.info('idle');
-        triggerAll('idle', self);
-        
+        refresh();
+
+        // update the idle flags
         idle = true;
         idleTimeout = 0;
     } // idle
@@ -593,10 +599,14 @@ var View = function(params) {
     
     function drawView(drawState, rect, redraw, tickCount) {
         var drawLayer,
+            rectCenter = XYRect.center(rect),
             ii = 0;
             
         // update the draw rect
         drawRect = XYRect.copy(rect);
+        
+        // include the scale factor information in the draw rect
+        drawRect.scaleFactor = scaleFactor;
             
         // fill the mask context with black
         if (redraw) {
@@ -615,7 +625,7 @@ var View = function(params) {
                 drawRect = calcZoomRect(drawRect);
                 mainContext.scale(scaleFactor, scaleFactor);
             } // if
-            
+
             // translate the display appropriately
             mainContext.translate(-drawRect.x1, -drawRect.y1);
             
@@ -770,10 +780,15 @@ var View = function(params) {
         // include wake triggers in the change count
         if ((! draw) && (wakeTriggers === 0) && (! isFlash)) {
             if ((! idle) && (idleTimeout === 0)) {
-                idleTimeout = setTimeout(triggerIdle, 500);
+                idleTimeout = setTimeout(triggerIdle, idleDelay);
             } // if
 
             worker.trigger('complete');
+        } // if
+        
+        // check whether a forced refresh is required
+        if (tickCount - lastRefresh > minRefresh) {
+            refresh();
         } // if
         
         wakeTriggers = 0;
@@ -874,11 +889,23 @@ var View = function(params) {
         // return the layer so we can chain if we want
         return value;
     } // setLayer
+
+    /**
+    ### refresh() 
+    */
+    function refresh() {
+        // update the last refresh tick count
+        lastRefresh = new Date().getTime();
+        triggerAll('refresh', self);
+        
+        // invalidate
+        invalidate();
+    } // refresh
     
     /**
     ### scale(targetScaling, targetXY, tweenFn, callback)
     */
-    function scale(targetScaling, targetXY, tweenFn, callback) {
+    function scale(targetScaling, targetXY, tweenFn, callback, duration) {
         
         function finishAnimation() {
             var scaleFactorExp = Math.round(Math.log(scaleFactor) / Math.LN2);
@@ -907,7 +934,7 @@ var View = function(params) {
                             targetScaling - scaleFactorFrom, 
                             tweenFn, 
                             finishAnimation, 
-                            1000);
+                            duration);
                             
             tween.requestUpdates(function(updatedValue, completed) {
                 // update the scale factor
@@ -986,6 +1013,7 @@ var View = function(params) {
             } // if
         },
 
+        refresh: refresh,
         scale: scale,
         triggerAll: triggerAll,
         
