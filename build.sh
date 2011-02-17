@@ -30,6 +30,8 @@ done;
 cp src/js/geo/engines/*.js dist/geo/
 cp src/js/plugins/*.js dist/plugins/
 
+# copy the styles across
+cp src/style/* dist/style/
 
 # the main variant is the geo variant so copy that to tile5.js
 cp dist/tile5.geo.js dist/tile5.js
