@@ -93,6 +93,13 @@ var XYRect = (function() {
     } // intersect
     
     /**
+    ### toString(rect)
+    */
+    function toString(rect) {
+        return '[' + rect.x1 + ', ' + rect.y1 + ', ' + rect.x2 + ', ' + rect.y2 + ']';
+    } // toString
+    
+    /**
     ### union(rect1, rect2)
     */
     function union(rect1, rect2) {
@@ -122,6 +129,7 @@ var XYRect = (function() {
         fromCenter: fromCenter,
         init: init,
         intersect: intersect,
+        toString: toString,
         union: union
     };
 })();
