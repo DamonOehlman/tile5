@@ -209,7 +209,29 @@ var Images = (function() {
     ### cancelLoad()
     */
     function cancelLoad() {
+        var ii;
+        
+        // if we have a load worker, then leave the loop
+        if (loadWorker) {
+            COG.Loopage.leave(loadWorker.id);
+            loadWorker = null;
+        } // if
+        
+        // iterate through the loading images and remove them from the images
+        for (ii = loadingImages.length; ii--; ) {
+            delete images[loadingImages[ii].url];
+        } // for
+        
+        // reset the loading images array
         loadingImages = [];
+        
+        // remove the queued images from the queue
+        for (ii = queuedImages.length; ii--; ) {
+            delete images[queuedImages[ii].url];
+        } // for
+
+        // reset the queued images array
+        queuedImages = [];
     } // cancelLoad
     
     /**
