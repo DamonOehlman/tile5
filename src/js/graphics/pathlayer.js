@@ -128,5 +128,7 @@ var PathLayer = function(params) {
         self.changed();
     });
     
+    self.bind('resync', resyncPath);
+    
     return self;
 };
