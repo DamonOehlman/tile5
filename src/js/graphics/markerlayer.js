@@ -78,7 +78,7 @@ var MarkerLayer = function(params) {
     */
     function markerUpdate() {
         // wake and invalidate the parent
-        self.changed();
+        self.changed(true);
         
         // trigger the markers changed event
         self.trigger('markerUpdate', markers);
