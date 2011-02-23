@@ -9,6 +9,43 @@ Define functionality to enable routing for mapping
 */
 var Routing = (function() {
     
+    // define the turn types
+    var TurnType = {
+        Unknown: "turn-unknown",
+        
+        // continue maneuver
+        Start: "turn-none-start",
+        Continue: "turn-none",
+        Arrive: "turn-none-arrive",
+        
+        // turn left maneuvers
+        TurnLeft: "turn-left",
+        TurnLeftSlight: "turn-left-slight",
+        TurnLeftSharp: "turn-left-sharp",
+        
+        // turn right maneuvers
+        TurnRight: "turn-right",
+        TurnRightSlight: "turn-right-slight",
+        TurnRightSharp: "turn-right-sharp",
+        
+        // merge maneuvers
+        Merge: "merge",
+        
+        // uturn
+        UTurnLeft:  "uturn-left",
+        UTurnRight: "uturn-right",
+        
+        // enter roundabout maneuver
+        EnterRoundabout: "roundabout-enter",
+        
+        // ramp maneuvers
+        Ramp: "ramp",
+        RampExit: "ramp-exit"
+    }; 
+    
+    // include the turntype rules based on the locale (something TODO)
+    //= require "localization/turntype-rules.en"
+    
     /* internal functions */
     
     /*
@@ -23,142 +60,117 @@ var Routing = (function() {
         return text;
     } // markupInstruction
     
+    /* exports */
+    
+    /**
+    ### calculate(args)
+    To be completed
+    */
+    function calculate(args) {
+        args = COG.extend({
+            engineId: "",
+            waypoints: [],
+            map: null,
+            error: null,
+            autoFit: true,
+            success: null,
+            // TODO: reimplement generalization...
+            generalize: false
+        }, args);
+        
+        // find an available routing engine
+        var engine = getEngine("route");
+        if (engine) {
+            engine.route(args, function(routeData) {
+                if (args.generalize) {
+                    routeData.geometry = Position.generalize(routeData.geometry, routeData.getInstructionPositions());
+                } // if
+                
+                // firstly, if we have a map defined, then let's place the route on the map
+                // you know, just because we are nice like that
+                if (args.map) {
+                    createMapOverlay(args.map, routeData);
+                    
+                    // if we are to auto fit the map to the bounds, then do that now
+                    if (args.autoFit) {
+                        // COG.info("AUTOFITTING MAP TO ROUTE: bounds = " + routeData.boundingBox);
+                        args.map.gotoBounds(routeData.boundingBox);
+                    } // if
+                } // if
+                
+                // if we have a success handler, then call it
+                if (args.success) {
+                    args.success(routeData);
+                } // if
+            });
+        } // if
+    } // calculate
+    
+    /**
+    ### createMapOverlay(map, routeData)
+    To be completed
+    */
+    function createMapOverlay(map, routeData) {
+        // get the map dimensions
+        var dimensions = map.getDimensions();
+
+        // COG.info("creating route overlay with route data: ", routeData);
+
+        // create a new route overlay for the specified data
+        var overlay = new RouteOverlay({
+            data: routeData,
+            width: dimensions.width,
+            height: dimensions.height
+        });
+
+        // add the overlay to the map
+        map.setLayer("route", overlay);
+    } // createMapOverlay
+    
+    /**
+    ### parseTurnType(text)
+    To be completed
+    */
+    function parseTurnType(text) {
+        var turnType = TurnType.Unknown,
+            rules = TurnTypeRules;
+        
+        // run the text through the manuever rules
+        for (var ii = 0; ii < rules.length; ii++) {
+            rules[ii].regex.lastIndex = -1;
+            
+            var matches = rules[ii].regex.exec(text);
+            if (matches) {
+                // if we have a custom check defined for the rule, then pass the text in 
+                // for the manuever result
+                if (rules[ii].customCheck) {
+                    turnType = rules[ii].customCheck(text, matches);
+                }
+                // otherwise, take the manuever provided by the rule
+                else {
+                    turnType = rules[ii].turnType;
+                } // if..else
+                
+                break;
+            } // if
+        } // for
+        
+        return turnType;
+    } // parseTurnType
+    
     // define the module
     var module = {
         /* module functions */
         
-        /**
-        ### calculate(args)
-        To be completed
-        */
-        calculate: function(args) {
-            args = COG.extend({
-                engineId: "",
-                waypoints: [],
-                map: null,
-                error: null,
-                autoFit: true,
-                success: null,
-                // TODO: reimplement generalization...
-                generalize: false
-            }, args);
-            
-            // find an available routing engine
-            var engine = T5.Geo.getEngine("route");
-            if (engine) {
-                engine.route(args, function(routeData) {
-                    if (args.generalize) {
-                        routeData.geometry = T5.Geo.Position.generalize(routeData.geometry, routeData.getInstructionPositions());
-                    } // if
-                    
-                    // firstly, if we have a map defined, then let's place the route on the map
-                    // you know, just because we are nice like that
-                    if (args.map) {
-                        module.createMapOverlay(args.map, routeData);
-                        
-                        // if we are to auto fit the map to the bounds, then do that now
-                        if (args.autoFit) {
-                            // COG.info("AUTOFITTING MAP TO ROUTE: bounds = " + routeData.boundingBox);
-                            args.map.gotoBounds(routeData.boundingBox);
-                        } // if
-                    } // if
-                    
-                    // if we have a success handler, then call it
-                    if (args.success) {
-                        args.success(routeData);
-                    } // if
-                });
-            } // if
-        },
-        
-        /**
-        ### createMapOverlay(map, routeData)
-        To be completed
-        */
-        createMapOverlay: function(map, routeData) {
-            // get the map dimensions
-            var dimensions = map.getDimensions();
-
-            // COG.info("creating route overlay with route data: ", routeData);
-
-            // create a new route overlay for the specified data
-            var overlay = new T5.Geo.UI.RouteOverlay({
-                data: routeData,
-                width: dimensions.width,
-                height: dimensions.height
-            });
-
-            // add the overlay to the map
-            map.setLayer("route", overlay);
-        },
-        
-        /**
-        ### parseTurnType(text)
-        To be completed
-        */
-        parseTurnType: function(text) {
-            var turnType = module.TurnType.Unknown,
-                rules = T5.Geo.Routing.TurnTypeRules;
-            
-            // run the text through the manuever rules
-            for (var ii = 0; ii < rules.length; ii++) {
-                rules[ii].regex.lastIndex = -1;
-                
-                var matches = rules[ii].regex.exec(text);
-                if (matches) {
-                    // if we have a custom check defined for the rule, then pass the text in 
-                    // for the manuever result
-                    if (rules[ii].customCheck) {
-                        turnType = rules[ii].customCheck(text, matches);
-                    }
-                    // otherwise, take the manuever provided by the rule
-                    else {
-                        turnType = rules[ii].turnType;
-                    } // if..else
-                    
-                    break;
-                } // if
-            } // for
-            
-            return turnType;
-        },
+        calculate: calculate,
+        createMapOverlay: createMapOverlay,
+        parseTurnType: parseTurnType,
         
         /**
         # T5.Geo.Routing.TurnType
         
         */
-        TurnType: {
-            Unknown: "turn-unknown",
-            
-            // continue maneuver
-            Start: "turn-none-start",
-            Continue: "turn-none",
-            Arrive: "turn-none-arrive",
-            
-            // turn left maneuvers
-            TurnLeft: "turn-left",
-            TurnLeftSlight: "turn-left-slight",
-            TurnLeftSharp: "turn-left-sharp",
-            
-            // turn right maneuvers
-            TurnRight: "turn-right",
-            TurnRightSlight: "turn-right-slight",
-            TurnRightSharp: "turn-right-sharp",
-            
-            // merge maneuvers
-            Merge: "merge",
-            
-            // uturn
-            UTurnLeft:  "uturn-left",
-            UTurnRight: "uturn-right",
-            
-            // enter roundabout maneuver
-            EnterRoundabout: "roundabout-enter",
-            
-            // ramp maneuvers
-            Ramp: "ramp",
-            RampExit: "ramp-exit"
-        },
+        TurnType: TurnType,
         
         /**
         # T5.Geo.Routing.Instruction
@@ -180,7 +192,7 @@ var Routing = (function() {
             
             // if the manuever has not been defined, then attempt to parse the description
             if (! params.turnType) {
-                params.turnType = module.parseTurnType(params.description);
+                params.turnType = parseTurnType(params.description);
             } // if
             
             return params;
@@ -200,7 +212,7 @@ var Routing = (function() {
             
             // update the bounding box
             if (! params.boundingBox) {
-                params.boundingBox = T5.Geo.BoundingBox.forPositions(params.geometry);
+                params.boundingBox = BoundingBox.forPositions(params.geometry);
             } // if
             
             var self = COG.extend({

@@ -7,14 +7,14 @@ var LAT_VARIABILITIES = [
 ];
 
 // define some constants
-var MIN_LAT = -HALF_PI,
-    MAX_LAT = HALF_PI,
-    MIN_LON = -TWO_PI,
+var DEGREES_TO_RADIANS = Math.PI / 180,
+    RADIANS_TO_DEGREES = 180 / Math.PI,
+    MAX_LAT = HALF_PI, //  85.0511 * DEGREES_TO_RADIANS, // TODO: validate this instead of using HALF_PI
+    MIN_LAT = -MAX_LAT,
     MAX_LON = TWO_PI,
+    MIN_LON = -MAX_LON,
     M_PER_KM = 1000,
     KM_PER_RAD = 6371,
-    DEGREES_TO_RADIANS = Math.PI / 180,
-    RADIANS_TO_DEGREES = 180 / Math.PI,
     ECC = 0.08181919084262157,
     PHI_EPSILON = 1E-7,
     PHI_MAXITER = 12,

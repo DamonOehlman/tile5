@@ -209,8 +209,20 @@ var Map = exports.Map = function(params) {
     } // handleProviderUpdate
     
     function handleZoomLevelChange(evt, zoomLevel, zoomXY) {
+        var gridSize;
+        
         // update the rads per pixel to reflect the zoom level change
         radsPerPixel = Geo.radsPerPixel(zoomLevel);
+        
+        // calculate the grid size
+        gridSize = TWO_PI / radsPerPixel | 0;
+        self.setMaxOffset(gridSize, gridSize, true, false);
+        
+        // remove the grid layer
+        Images.cancelLoad();
+        
+        // reset scaling and resync the map
+        self.resetScale();
         self.triggerAll('resync', self);
     } // handleZoomLevel
     
@@ -278,13 +290,7 @@ var Map = exports.Map = function(params) {
     the position of the map has been updated.
     */
     function gotoPosition(position, newZoomLevel, callback) {
-        // COG.info('position updated to: ', position);
-        
-        // update the zoom level
         self.setZoomLevel(newZoomLevel);
-        
-        // remove the grid layer
-        Images.cancelLoad();
         
         // cancel any animations
         COG.endTweens();

@@ -34,7 +34,7 @@ var RouteOverlay = exports.RouteOverlay = function(params) {
                 positions[ii] = instructions[ii].position;
             } // for
 
-            T5.Geo.Position.vectorize(positions).bind(
+            Position.vectorize(positions).bind(
                 'complete',
                 function(evt, coords) {
                     instructionCoords = coords;
@@ -42,7 +42,7 @@ var RouteOverlay = exports.RouteOverlay = function(params) {
         } // if
         
         if (params.data && params.data.geometry) {
-            T5.Geo.Position.vectorize(params.data.geometry).bind(
+            Position.vectorize(params.data.geometry).bind(
                 'complete', 
                 function(evt, coords) {
                     coordinates = coords;

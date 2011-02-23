@@ -56,8 +56,8 @@ var GeoXY = exports.GeoXY = (function() {
             var mercXY = xy.mercXY;
 
             // calculate the x and y
-            xy.x = ~~(mercXY.x / rpp);
-            xy.y = ~~((Math.PI - mercXY.y) / rpp);
+            xy.x = (mercXY.x + Math.PI) / rpp | 0;
+            xy.y = (Math.PI - mercXY.y) / rpp | 0;
 
             // update the rads per pixel
             xy.rpp = rpp;
@@ -72,7 +72,7 @@ var GeoXY = exports.GeoXY = (function() {
     function toPos(xy, rpp) {
         rpp = rpp ? rpp : self.rpp;
 
-        return Position.fromMercatorPixels(xy.x * rpp, Math.PI - xy.y * rpp);
+        return Position.fromMercatorPixels(xy.x * rpp - Math.PI, Math.PI - xy.y * rpp);
     } // toPos
     
     function updatePos(xy, pos, rpp) {

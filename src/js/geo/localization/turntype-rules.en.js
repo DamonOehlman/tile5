@@ -1,11 +1,10 @@
 // EN-* manuever text matching rules 
-T5.Geo.Routing.TurnTypeRules = (function() {
-    var m = T5.Geo.Routing.TurnType,
-        rules = [];
+var TurnTypeRules = (function() {
+    var rules = [];
         
     rules.push({
         regex: /continue/i,
-        turnType: m.Continue
+        turnType: TurnType.Continue
     });
     
     rules.push({
@@ -13,7 +12,7 @@ T5.Geo.Routing.TurnTypeRules = (function() {
         customCheck: function(text, matches) {
             var isSlight = (/bear/i).test(matches[1]);
             
-            return isSlight ? m.TurnLeftSlight : m.TurnLeft;
+            return isSlight ? TurnType.TurnLeftSlight : TurnType.TurnLeft;
         }
     });
     
@@ -22,46 +21,46 @@ T5.Geo.Routing.TurnTypeRules = (function() {
         customCheck: function(text, matches) {
             var isSlight = (/bear/i).test(matches[1]);
             
-            return isSlight ? m.TurnRightSlight : m.TurnRight;
+            return isSlight ? TurnType.TurnRightSlight : TurnType.TurnRight;
         }
     });
     
     rules.push({
         regex: /enter\s(roundabout|rotaty)/i,
-        turnType: m.EnterRoundabout
+        turnType: TurnType.EnterRoundabout
     });
     
     rules.push({
         regex: /take.*?ramp/i,
-        turnType: m.Ramp
+        turnType: TurnType.Ramp
     });
     
     rules.push({
         regex: /take.*?exit/i,
-        turnType: m.RampExit
+        turnType: TurnType.RampExit
     });
     
     rules.push({
         regex: /make(.*?)u\-turn/i,
         customCheck: function(text, matches) {
-            return (/right/i).test(matches[1]) ? m.UTurnRight : m.UTurnLeft;
+            return (/right/i).test(matches[1]) ? TurnType.UTurnRight : TurnType.UTurnLeft;
         }
     });
     
     rules.push({
         regex: /proceed/i,
-        turnType: m.Start
+        turnType: TurnType.Start
     });
     
     rules.push({
         regex: /arrive/i,
-        turnType: m.Arrive
+        turnType: TurnType.Arrive
     });
     
     // "FELL THROUGH" - WTF!
     rules.push({
         regex: /fell\sthrough/i,
-        turnType: m.Merge
+        turnType: TurnType.Merge
     });
     
     return rules;
