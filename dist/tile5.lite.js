@@ -755,32 +755,27 @@ http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-l
             },
 
             update: function(tickCount) {
-                try {
-                    var elapsed = tickCount - startTicks,
-                        updatedValue = params.tweenFn(
-                                            elapsed,
-                                            beginningValue,
-                                            change,
-                                            params.duration);
+                var elapsed = tickCount - startTicks,
+                    updatedValue = params.tweenFn(
+                                        elapsed,
+                                        beginningValue,
+                                        change,
+                                        params.duration);
 
+                if (params.target) {
+                    params.target[params.property] = updatedValue;
+                } // if
+
+                notifyListeners(updatedValue);
+
+                complete = startTicks + params.duration <= tickCount;
+                if (complete) {
                     if (params.target) {
-                        params.target[params.property] = updatedValue;
+                        params.target[params.property] = params.tweenFn(params.duration, beginningValue, change, params.duration);
                     } // if
 
-                    notifyListeners(updatedValue);
-
-                    complete = startTicks + params.duration <= tickCount;
-                    if (complete) {
-                        if (params.target) {
-                            params.target[params.property] = params.tweenFn(params.duration, beginningValue, change, params.duration);
-                        } // if
-
-                        notifyListeners(updatedValue, true);
-                    } // if
-                }
-                catch (e) {
-                    COG.exception(e);
-                } // try..catch
+                    notifyListeners(updatedValue, true);
+                } // if
             },
 
             requestUpdates: function(callback) {
@@ -933,6 +928,139 @@ http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-l
     COG.registerEasingType = function(typeName, callback) {
         easingFns[simpleTypeName(typeName)] = callback;
     }; // registerEasingType
+})();
+
+(function() {
+    var DAY_SECONDS = 86400;
+
+    var periodRegex = /^P(\d+Y)?(\d+M)?(\d+D)?$/,
+        timeRegex = /^(\d+H)?(\d+M)?(\d+S)?$/,
+        durationParsers = {
+            8601: parse8601Duration
+        };
+
+    /* internal functions */
+
+    /*
+    Used to convert a ISO8601 duration value (not W3C subset)
+    (see http://en.wikipedia.org/wiki/ISO_8601#Durations) into a
+    composite value in days and seconds
+    */
+    function parse8601Duration(input) {
+        var durationParts = input.split('T'),
+            periodMatches = null,
+            timeMatches = null,
+            days = 0,
+            seconds = 0;
+
+        periodRegex.lastIndex = -1;
+        periodMatches = periodRegex.exec(durationParts[0]);
+
+        days = days + (periodMatches[3] ? parseInt(periodMatches[3].slice(0, -1), 10) : 0);
+
+        timeRegex.lastIndex = -1;
+        timeMatches = timeRegex.exec(durationParts[1]);
+
+        seconds = seconds + (timeMatches[1] ? parseInt(timeMatches[1].slice(0, -1), 10) * 3600 : 0);
+        seconds = seconds + (timeMatches[2] ? parseInt(timeMatches[2].slice(0, -1), 10) * 60 : 0);
+        seconds = seconds + (timeMatches[3] ? parseInt(timeMatches[3].slice(0, -1), 10) : 0);
+
+        return new Duration(days, seconds);
+    } // parse8601Duration
+
+    /* exports */
+
+    var Duration = COG.Duration = function(days, seconds) {
+        return {
+            days: days ? days : 0,
+            seconds: seconds ? seconds : 0
+        };
+    };
+
+    /**
+    ### addDuration(duration*)
+    This function is used to return a new duration that is the sum of the duration
+    values passed to the function.
+    */
+    var addDuration = COG.addDuration = function() {
+        var result = new Duration();
+
+        for (var ii = arguments.length; ii--; ) {
+            result.days = result.days + arguments[ii].days;
+            result.seconds = result.seconds + arguments[ii].seconds;
+        } // for
+
+        if (result.seconds >= DAY_SECONDS) {
+            result.days = result.days + ~~(result.seconds / DAY_SECONDS);
+            result.seconds = result.seconds % DAY_SECONDS;
+        } // if
+
+        return result;
+    }; // increaseDuration
+
+    /**
+    ### formatDuration(duration)
+
+    This function is used to format the specified duration as a string value
+
+    #### TODO
+    Add formatting options and i18n support
+    */
+    var formatDuration = COG.formatDuration = function(duration) {
+
+        var days, hours, minutes, totalSeconds,
+            output = '';
+
+        if (duration.days) {
+            output = duration.days + ' days ';
+        } // if
+
+        if (duration.seconds) {
+            totalSeconds = duration.seconds;
+
+            if (totalSeconds >= 3600) {
+                hours = ~~(totalSeconds / 3600);
+                totalSeconds = totalSeconds - (hours * 3600);
+            } // if
+
+            if (totalSeconds >= 60) {
+                minutes = Math.round(totalSeconds / 60);
+                totalSeconds = totalSeconds - (minutes * 60);
+            } // if
+
+            if (hours) {
+                output = output + hours +
+                    (hours > 1 ? ' hrs ' : ' hr ') +
+                    (minutes ?
+                        (minutes > 10 ?
+                            minutes :
+                            '0' + minutes) + ' min '
+                        : '');
+            }
+            else if (minutes) {
+                output = output + minutes + ' min';
+            }
+            else if (totalSeconds > 0) {
+                output = output +
+                    (totalSeconds > 10 ?
+                        totalSeconds :
+                        '0' + totalSeconds) + ' sec';
+            } // if..else
+        } // if
+
+        return output;
+    }; // formatDuration
+
+    var parseDuration = COG.parseDuration = function(duration, format) {
+        var parser = format ? durationParsers[format] : null;
+
+        if (parser) {
+            return parser(duration);
+        }
+
+        COG.Log.warn('Could not find duration parser for specified format: ' + format);
+        return new Duration();
+    }; // durationToSeconds
 })();
 
 /**
@@ -1939,7 +2067,8 @@ var XY = (function() {
         max: maxXY,
         offset: offset,
         simplify: simplify,
-        theta: theta
+        theta: theta,
+        toString: toString
     };
 })();
 /**
@@ -2603,7 +2732,24 @@ var Images = (function() {
     ### cancelLoad()
     */
     function cancelLoad() {
+        var ii;
+
+        if (loadWorker) {
+            COG.Loopage.leave(loadWorker.id);
+            loadWorker = null;
+        } // if
+
+        for (ii = loadingImages.length; ii--; ) {
+            delete images[loadingImages[ii].url];
+        } // for
+
         loadingImages = [];
+
+        for (ii = queuedImages.length; ii--; ) {
+            delete images[queuedImages[ii].url];
+        } // for
+
+        queuedImages = [];
     } // cancelLoad
 
     /**
@@ -2781,7 +2927,7 @@ implemented when the view scales
 function zoomable(view, params) {
     params = COG.extend({
         initial: 1,
-        minZoom: 1,
+        minZoom: 0,
         maxZoom: 16
     }, params);
 
@@ -3192,6 +3338,10 @@ var View = function(params) {
         minRefresh = params.minRefresh,
         offsetX = 0,
         offsetY = 0,
+        offsetMaxX = null,
+        offsetMaxY = null,
+        offsetWrapX = false,
+        offsetWrapY = false,
         clipping = params.clipping,
         cycleRect = null,
         cycleWorker = null,
@@ -3220,6 +3370,7 @@ var View = function(params) {
         resizeCanvasTimeout = 0,
         scaleTouchesStart = null,
         scaleFactor = 1,
+        scaleTween = null,
         lastScaleFactor = 0,
         sizeChanged = false,
         tweenStart = null,
@@ -3278,7 +3429,7 @@ var View = function(params) {
     } // panEnd
 
     function handleZoom(evt, absXY, relXY, scaleChange, source) {
-        scale(max(scaleFactor + pow(2, scaleChange) - 1, 0.25));
+        scale(min(max(scaleFactor + pow(2, scaleChange) - 1, 0.5), 2));
     } // handleWheelZoom
 
     function scaleView(fullInvalidate) {
@@ -3332,6 +3483,22 @@ var View = function(params) {
 
     } // setZoomCenter
 
+    function getScaledOffset(srcX, srcY) {
+        var scaledX, scaledY,
+            invScaleFactor = 1 / scaleFactor;
+
+        if (scaleFactor !== 1 && drawRect) {
+            scaledX = drawRect.x1 + srcX * invScaleFactor;
+            scaledY = drawRect.y1 + srcY * invScaleFactor;
+        }
+        else {
+            scaledX = srcX + offsetX;
+            scaledY = srcY + offsetY;
+        } // if..else
+
+        return XY.init(scaledX, scaledY);
+    } // getScaledOffset
+
     function handleContainerUpdate(name, value) {
         canvas = document.getElementById(value);
 
@@ -3343,7 +3510,7 @@ var View = function(params) {
             'doubleTap',
             absXY,
             relXY,
-            XY.offset(relXY, offsetX, offsetY));
+            getScaledOffset(relXY.x, relXY.y));
 
         if (params.scalable) {
             COG.endTweens(function(tweenInstance) {
@@ -3373,7 +3540,7 @@ var View = function(params) {
             'tap',
             absXY,
             relXY,
-            XY.offset(relXY, offsetX, offsetY)
+            getScaledOffset(relXY.x, relXY.y)
         );
     } // handlePointerTap
 
@@ -3429,14 +3596,14 @@ var View = function(params) {
 
             tweenX.cancelOnInteract = true;
             tweenX.requestUpdates(function(updatedVal) {
-                offsetX = updatedVal >> 0;
+                offsetX = updatedVal | 0;
                 panimating = true;
                 invalidate();
             });
 
             tweenY.cancelOnInteract = true;
             tweenY.requestUpdates(function(updatedVal) {
-                offsetY = updatedVal >> 0;
+                offsetY = updatedVal | 0;
                 panimating = true;
                 invalidate();
             });
@@ -3551,6 +3718,44 @@ var View = function(params) {
 
         eventMonitor.bind('tap', handlePointerTap);
     } // captureInteractionEvents
+
+    /*
+    The constrain offset function is used to keep the view offset within a specified
+    offset using wrapping if allowed.  The function is much more 'if / then / elsey'
+    than I would like, and might be optimized at some stage, but it does what it needs to
+    */
+    function constrainOffset() {
+        var testX = offsetWrapX ? offsetX + halfWidth : offsetX,
+            testY = offsetWrapY ? offsetY + halfHeight : offsetY;
+
+        if (offsetMaxX && offsetMaxX > viewWidth) {
+            if (testX + viewWidth > offsetMaxX) {
+                if (offsetWrapX) {
+                    offsetX = testX - offsetMaxX > 0 ? offsetX - offsetMaxX : offsetX;
+                }
+                else {
+                    offsetX = offsetMaxX - viewWidth;
+                } // if..else
+            }
+            else if (testX < 0) {
+                offsetX = offsetWrapX ? offsetX + offsetMaxX : 0;
+            } // if..else
+        } // if
+
+        if (offsetMaxY && offsetMaxY > viewHeight) {
+            if (testY + viewHeight > offsetMaxY) {
+                if (offsetWrapY) {
+                    offsetY = testY - offsetMaxY > 0 ? offsetY - offsetMaxY : offsetY;
+                }
+                else {
+                    offsetY = offsetMaxY - viewHeight;
+                } // if..else
+            }
+            else if (testY < 0) {
+                offsetY = offsetWrapY ? offsetY + offsetMaxY : 0;
+            } // if..else
+        } // if
+    } // constrainOffset
 
     function getLayerIndex(id) {
         for (var ii = layerCount; ii--; ) {
@@ -3677,6 +3882,7 @@ var View = function(params) {
                     Style.apply(mainContext, previousStyle);
                 } // if
             } // for
+
         }
         finally {
             mainContext.restore();
@@ -3719,6 +3925,10 @@ var View = function(params) {
             canvas.style.height = viewHeight + 'px';
 
             sizeChanged = false;
+        } // if
+
+        if (offsetMaxX || offsetMaxY) {
+            constrainOffset();
         } // if
 
         cycleRect = getViewRect();
@@ -3770,6 +3980,11 @@ var View = function(params) {
         COG.trace("Completed draw cycle", tickCount);
     } // cycle
 
+    /**
+    ### invalidate()
+    The `invalidate` method is used to inform the view that a full redraw
+    is required
+    */
     function invalidate(redraw) {
         redrawView = redraw ? true : false;
 
@@ -3826,6 +4041,27 @@ var View = function(params) {
     } // getLayer
 
     /**
+    ### getOffset()
+    Return a T5.XY containing the current view offset
+    */
+    function getOffset() {
+        return XY.init(offsetX, offsetY);
+    } // getOffset
+
+    /**
+    ### setMaxOffset(maxX, maxY, wrapX, wrapY)
+    Set the bounds of the display to the specified area, if wrapX or wrapY parameters
+    are set, then the bounds will be wrapped automatically.
+    */
+    function setMaxOffset(maxX, maxY, wrapX, wrapY) {
+        offsetMaxX = maxX;
+        offsetMaxY = maxY;
+
+        offsetWrapX = typeof wrapX != 'undefined' ? wrapX : false;
+        offsetWrapY = typeof wrapY != 'undefined' ? wrapY : false;
+    } // setMaxOffset
+
+    /**
     ### getViewRect()
     Return a T5.XYRect for the last drawn view rect
     */
@@ -3869,42 +4105,70 @@ var View = function(params) {
     } // refresh
 
     /**
+    ### removeLayer(id: String)
+    Remove the T5.ViewLayer specified by the id
+    */
+    function removeLayer(id) {
+        var layerIndex = getLayerIndex(id);
+        if ((layerIndex >= 0) && (layerIndex < layerCount)) {
+            self.trigger('layerRemoved', layers[layerIndex]);
+
+            layers.splice(layerIndex, 1);
+            invalidate(true);
+        } // if
+
+        layerCount = layers.length;
+    } // removeLayer
+
+    function resetScale() {
+        scaleFactor = 1;
+    } // resetScale
+
+    /**
+    ### resize(width: Int, height: Int)
+    Perform a manual resize of the canvas associated with the view.  If the
+    view was originally marked as `autosize` this will override that instruction.
+    */
+    function resize(width, height) {
+        if (canvas) {
+            params.autoSize = false;
+
+            if (viewWidth !== width || viewHeight !== height) {
+                attachToCanvas(width, height);
+            } // if
+        } // if
+    } // resize
+
+    /**
     ### scale(targetScaling, targetXY, tweenFn, callback)
     */
     function scale(targetScaling, targetXY, tweenFn, callback, duration) {
+        if (tweenFn && (! scaleTween)) {
+            scaleTween = COG.tweenValue(scaleFactor, targetScaling, tweenFn, null, duration);
 
-        function finishAnimation() {
-            var scaleFactorExp = Math.round(Math.log(scaleFactor) / Math.LN2);
+            scaleTween.requestUpdates(function(updatedValue, completed) {
+                scaleFactor = updatedValue;
 
-            scaleFactor = Math.pow(2, scaleFactorExp);
+                if (completed) {
+                    var scaleFactorExp = round(log(scaleFactor) / Math.LN2);
 
-            if (callback) {
-                callback();
-            } // if
+                    scaleFactor = pow(2, scaleFactorExp);
 
-            scaleView(true);
-        } // finishAnimation
+                    if (callback) {
+                        callback();
+                    } // if
 
-        var scaleFactorFrom = scaleFactor;
+                    scaleTween = null;
+                } // if
 
-        setZoomCenter(targetXY);
-
-        if (tweenFn) {
-            var tween = COG.tweenValue(
-                            0,
-                            targetScaling - scaleFactorFrom,
-                            tweenFn,
-                            finishAnimation,
-                            duration);
-
-            tween.requestUpdates(function(updatedValue, completed) {
-                scaleFactor = scaleFactorFrom + updatedValue;
-
-                scaleView();
+                setZoomCenter(targetXY);
+                scaleView(completed);
             });
         }
         else {
             scaleFactor = targetScaling;
+
+            setZoomCenter(targetXY);
             scaleView();
         }  // if..else
 
@@ -3940,53 +4204,17 @@ var View = function(params) {
         deviceScaling: deviceScaling,
         fastDraw: params.fastDraw || getConfig().requireFastDraw,
 
-
         getDimensions: getDimensions,
         getLayer: getLayer,
         setLayer: setLayer,
         eachLayer: eachLayer,
-
-        /**
-        ### invalidate()
-        The `invalidate` method is used to inform the view that a full redraw
-        is required
-        */
         invalidate: invalidate,
-
-        /**
-        ### resize(width: Int, height: Int)
-        Perform a manual resize of the canvas associated with the view.  If the
-        view was originally marked as `autosize` this will override that instruction.
-        */
-        resize: function(width, height) {
-            if (canvas) {
-                params.autoSize = false;
-
-                if (viewWidth !== width || viewHeight !== height) {
-                    attachToCanvas(width, height);
-                } // if
-            } // if
-        },
-
         refresh: refresh,
+        resetScale: resetScale,
+        resize: resize,
         scale: scale,
         triggerAll: triggerAll,
-
-        /**
-        ### removeLayer(id: String)
-        Remove the T5.ViewLayer specified by the id
-        */
-        removeLayer: function(id) {
-            var layerIndex = getLayerIndex(id);
-            if ((layerIndex >= 0) && (layerIndex < layerCount)) {
-                self.trigger('layerRemoved', layers[layerIndex]);
-
-                layers.splice(layerIndex, 1);
-                invalidate();
-            } // if
-
-            layerCount = layers.length;
-        },
+        removeLayer: removeLayer,
 
         /**
         ### stateOverride(state)
@@ -3998,14 +4226,8 @@ var View = function(params) {
 
         /* offset methods */
 
-        /**
-        ### getOffset()
-        Return a T5.Vector containing the current view offset
-        */
-        getOffset: function() {
-            return XY.init(offsetX, offsetY);
-        },
-
+        getOffset: getOffset,
+        setMaxOffset: setMaxOffset,
         getViewRect: getViewRect,
         updateOffset: updateOffset,
         pan: pan
@@ -4775,7 +4997,7 @@ var MarkerLayer = function(params) {
     additionally, firing the markers changed event
     */
     function markerUpdate() {
-        self.changed();
+        self.changed(true);
 
         self.trigger('markerUpdate', markers);
     } // markerUpdate
@@ -5032,6 +5254,8 @@ var PathLayer = function(params) {
         redraw = true;
         self.changed();
     });
+
+    self.bind('resync', resyncPath);
 
     return self;
 };

@@ -34,7 +34,7 @@ T5.Flickr = (function() {
             modeMethod = MODE_METHODS[mode],
             noMoreResults = false,
             foundModifiers = [],
-            searchOptions = COG.COG.extend({}, DEFAULT_SEARCH_OPTIONS),
+            searchOptions = COG.extend({}, DEFAULT_SEARCH_OPTIONS),
             userSearchOptions = {};
             
         COG.info('flickr tile generator created, params = ', params);

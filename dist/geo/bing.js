@@ -71,7 +71,7 @@ T5.Geo.Bing = (function() {
         /* exports */
         
         // initialise the url builder
-        function buildTileUrl(tileX, tileY, maxTileX, maxTileY, zoomLevel) {
+        function buildTileUrl(tileX, tileY, numTiles, zoomLevel) {
             // initialise the image url
             var quadKey = quad(tileX, tileY, zoomLevel);
                 tileUrl = 

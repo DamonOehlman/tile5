@@ -1,3 +1,5 @@
+//= require <cog/src/timelord>
+
 // define the DECARTA library
 T5.Geo.Decarta = (function() {
     // initialise the default configuration parameters
@@ -682,17 +684,17 @@ T5.Geo.Decarta = (function() {
                     instructions = instructionList && instructionList.RouteInstruction ? 
                         instructionList.RouteInstruction : [],
                     totalDistance = 0,
-                    totalTime = new T5.TimeLord.Duration();
+                    totalTime = new COG.Duration();
 
                 // COG.info("parsing " + instructions.length + " instructions", instructions[0], instructions[1], instructions[2]);
                 for (var ii = 0; ii < instructions.length; ii++) {
                     // initialise the time and duration for this instruction
                     var distance = distanceToMeters(instructions[ii].distance),
-                        time = T5.TimeLord.parseDuration(instructions[ii].duration, '8601');
+                        time = COG.parseDuration(instructions[ii].duration, '8601');
                         
                     // increment the total distance and total time
                     totalDistance = totalDistance + distance;
-                    totalTime = T5.TimeLord.addDuration(totalTime, time);
+                    totalTime = COG.addDuration(totalTime, time);
                     
                     fnresult.push(new T5.Geo.Routing.Instruction({
                         position: T5.Geo.Position.parse(instructions[ii].Point),

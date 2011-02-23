@@ -16,12 +16,15 @@ T5.Geo.OSM = (function() {
     */
     var OSMGenerator = function(params) {
         params = COG.extend({
-            flipY: false
+            flipX: false,
+            flipY: false,
+            tilePath: '{0}/{1}/{2}.png'
         }, params);
         
         // initialise variables
         var serverDetails = null,
-            subDomains = [];
+            subDomains = [],
+            tilePath = params.tilePath;
         
         /* internal functions */
         
@@ -38,17 +41,9 @@ T5.Geo.OSM = (function() {
                 numTiles = 2 << (zoomLevel - 1),
                 tileX, tileY;
                 
-            tileX = Math.floor((lon+180) / 360 * numTiles) % numTiles;
+            tileX = Math.floor((lon+180) / 360 * numTiles);
             tileY = Math.floor((1-Math.log(Math.tan(lat*DEGREES_TO_RADIANS) + 1/Math.cos(lat*DEGREES_TO_RADIANS))/Math.PI)/2 * numTiles) % numTiles;
             
-            while (tileX < 0) {
-                tileX += numTiles;
-            } // while
-            
-            while (tileY < 0) {
-                tileY += numTiles;
-            } // while
-                
             return T5.XY.init(tileX, tileY);
         } // calculateTileOffset
         
@@ -75,12 +70,12 @@ T5.Geo.OSM = (function() {
         
         /* exports */
         
-        function buildTileUrl(tileX, tileY, maxTileX, maxTileY, zoomLevel, flipY) {
+        function buildTileUrl(tileX, tileY, zoomLevel, numTiles, flipX, flipY) {
             // determine the tile url
-            var tileUrl = COG.formatStr("{0}/{1}/{2}.png",
+            var tileUrl = COG.formatStr(tilePath,
                     zoomLevel,
-                    tileX,
-                    flipY ? Math.abs(tileY - maxTileY + 1) : tileY);
+                    flipX ? Math.abs(tileX - numTiles + 1) : tileX,
+                    flipY ? Math.abs(tileY - numTiles + 1) : tileY);
 
             // COG.info('getting url for tile x = ' + tileX + ', y = ' + tileY);
             if (serverDetails) {
@@ -100,9 +95,8 @@ T5.Geo.OSM = (function() {
                 baseX = baseXY.x,
                 baseY = baseXY.y,
                 
-                maxTileX = 2 << (zoomLevel - 1),
-                maxTileY = Math.pow(2, zoomLevel),
-                
+                numTiles = 2 << (zoomLevel - 1),
+                flipX = params.flipX,
                 flipY = params.flipY,
                 
                 // initialise the tile creator
@@ -116,11 +110,18 @@ T5.Geo.OSM = (function() {
                         tileUrl;
                         
                     // bring the real tile x into the appropriate range
-                    realTileX = (realTileX % maxTileX);
-                    realTileX = realTileX + (realTileX < 0 ? maxTileX : 0);
+                    realTileX = realTileX % numTiles;
+                    while (realTileX < 0) {
+                        realTileX += numTiles;
+                    } // while
+                    
+                    realTileY = realTileY % numTiles;
+                    while (realTileY < 0) {
+                        realTileY += numTiles;
+                    } // while
 
                     // build the tile url 
-                    tileUrl = self.buildTileUrl(realTileX, realTileY, maxTileX, maxTileY, zoomLevel, flipY);
+                    tileUrl = self.buildTileUrl(realTileX, realTileY, zoomLevel, numTiles, flipX, flipY);
                     if (tileUrl) {
                         return T5.Tiling.init(
                             baseX + (tileX * tileWidth), 
@@ -134,7 +135,8 @@ T5.Geo.OSM = (function() {
                 
             // initialise the server details
             serverDetails = self.getServerDetails ? self.getServerDetails() : null;
-            subDomains = serverDetails ? serverDetails.subDomains : [];
+            subDomains = serverDetails && serverDetails.subDomains ? 
+                serverDetails.subDomains : [];
 
             // if the callback is assigned, then pass back the creator
             if (callback) {
