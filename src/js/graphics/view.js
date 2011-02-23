@@ -142,6 +142,10 @@ var View = function(params) {
         minRefresh = params.minRefresh,
         offsetX = 0,
         offsetY = 0,
+        offsetMaxX = null,
+        offsetMaxY = null,
+        offsetWrapX = false,
+        offsetWrapY = false,
         clipping = params.clipping,
         cycleRect = null,
         cycleWorker = null,
@@ -170,6 +174,7 @@ var View = function(params) {
         resizeCanvasTimeout = 0,
         scaleTouchesStart = null,
         scaleFactor = 1,
+        scaleTween = null,
         lastScaleFactor = 0,
         sizeChanged = false,
         tweenStart = null,
@@ -230,7 +235,7 @@ var View = function(params) {
     } // panEnd
     
     function handleZoom(evt, absXY, relXY, scaleChange, source) {
-        scale(max(scaleFactor + pow(2, scaleChange) - 1, 0.25));
+        scale(min(max(scaleFactor + pow(2, scaleChange) - 1, 0.5), 2));
     } // handleWheelZoom
     
     function scaleView(fullInvalidate) {
@@ -294,6 +299,22 @@ var View = function(params) {
         // COG.info('interact center, x = ' + interactCenter.x + ', y = ' + interactCenter.y);
     } // setZoomCenter
     
+    function getScaledOffset(srcX, srcY) {
+        var scaledX, scaledY,
+            invScaleFactor = 1 / scaleFactor;
+        
+        if (scaleFactor !== 1 && drawRect) {
+            scaledX = drawRect.x1 + srcX * invScaleFactor;
+            scaledY = drawRect.y1 + srcY * invScaleFactor;
+        }
+        else {
+            scaledX = srcX + offsetX;
+            scaledY = srcY + offsetY;
+        } // if..else
+        
+        return XY.init(scaledX, scaledY);        
+    } // getScaledOffset
+    
     function handleContainerUpdate(name, value) {
         canvas = document.getElementById(value);
         
@@ -306,7 +327,7 @@ var View = function(params) {
             'doubleTap', 
             absXY,
             relXY,
-            XY.offset(relXY, offsetX, offsetY));
+            getScaledOffset(relXY.x, relXY.y));
             
         if (params.scalable) {
             // cancel any current animations
@@ -340,7 +361,7 @@ var View = function(params) {
             'tap', 
             absXY,
             relXY,
-            XY.offset(relXY, offsetX, offsetY)
+            getScaledOffset(relXY.x, relXY.y)
         );
     } // handlePointerTap
     
@@ -401,14 +422,14 @@ var View = function(params) {
             // attach update listeners
             tweenX.cancelOnInteract = true;
             tweenX.requestUpdates(function(updatedVal) {
-                offsetX = updatedVal >> 0;
+                offsetX = updatedVal | 0;
                 panimating = true;
                 invalidate();
             });
             
             tweenY.cancelOnInteract = true;
             tweenY.requestUpdates(function(updatedVal) {
-                offsetY = updatedVal >> 0;
+                offsetY = updatedVal | 0;
                 panimating = true;
                 invalidate();
             });
@@ -545,6 +566,46 @@ var View = function(params) {
         // handle tap events
         eventMonitor.bind('tap', handlePointerTap);
     } // captureInteractionEvents
+    
+    /*
+    The constrain offset function is used to keep the view offset within a specified
+    offset using wrapping if allowed.  The function is much more 'if / then / elsey' 
+    than I would like, and might be optimized at some stage, but it does what it needs to
+    */
+    function constrainOffset() {
+        var testX = offsetWrapX ? offsetX + halfWidth : offsetX,
+            testY = offsetWrapY ? offsetY + halfHeight : offsetY;
+        
+        // check the x
+        if (offsetMaxX && offsetMaxX > viewWidth) {
+            if (testX + viewWidth > offsetMaxX) {
+                if (offsetWrapX) {
+                    offsetX = testX - offsetMaxX > 0 ? offsetX - offsetMaxX : offsetX;
+                }
+                else {
+                    offsetX = offsetMaxX - viewWidth;
+                } // if..else
+            }
+            else if (testX < 0) {
+                offsetX = offsetWrapX ? offsetX + offsetMaxX : 0;
+            } // if..else
+        } // if
+        
+        // check the y
+        if (offsetMaxY && offsetMaxY > viewHeight) {
+            if (testY + viewHeight > offsetMaxY) {
+                if (offsetWrapY) {
+                    offsetY = testY - offsetMaxY > 0 ? offsetY - offsetMaxY : offsetY;
+                }
+                else {
+                    offsetY = offsetMaxY - viewHeight;
+                } // if..else
+            }
+            else if (testY < 0) {
+                offsetY = offsetWrapY ? offsetY + offsetMaxY : 0;
+            } // if..else
+        } // if
+    } // constrainOffset
     
     function getLayerIndex(id) {
         for (var ii = layerCount; ii--; ) {
@@ -686,6 +747,8 @@ var View = function(params) {
                     Style.apply(mainContext, previousStyle);
                 } // if
             } // for
+
+            //= debug:require "debug/offsetbounds"
         }
         finally {
             mainContext.restore();
@@ -735,6 +798,11 @@ var View = function(params) {
             
             // flag the size is not changed now as we have handled the update
             sizeChanged = false;
+        } // if
+        
+        // check that the offset is within bounds
+        if (offsetMaxX || offsetMaxY) {
+            constrainOffset();
         } // if
         
         // calculate the cycle rect
@@ -793,6 +861,11 @@ var View = function(params) {
         COG.trace("Completed draw cycle", tickCount);
     } // cycle
     
+    /**
+    ### invalidate()
+    The `invalidate` method is used to inform the view that a full redraw
+    is required
+    */
     function invalidate(redraw) {
         redrawView = redraw ? true : false;
 
@@ -853,6 +926,30 @@ var View = function(params) {
     } // getLayer
     
     /**
+    ### getOffset()
+    Return a T5.XY containing the current view offset
+    */
+    function getOffset() {
+        // return the last calculated cycle offset
+        return XY.init(offsetX, offsetY);
+    } // getOffset
+    
+    /**
+    ### setMaxOffset(maxX, maxY, wrapX, wrapY)
+    Set the bounds of the display to the specified area, if wrapX or wrapY parameters
+    are set, then the bounds will be wrapped automatically.
+    */
+    function setMaxOffset(maxX, maxY, wrapX, wrapY) {
+        // update the offset bounds
+        offsetMaxX = maxX;
+        offsetMaxY = maxY;
+        
+        // update the wrapping flags
+        offsetWrapX = typeof wrapX != 'undefined' ? wrapX : false;
+        offsetWrapY = typeof wrapY != 'undefined' ? wrapY : false;
+    } // setMaxOffset
+
+    /**
     ### getViewRect()
     Return a T5.XYRect for the last drawn view rect
     */
@@ -901,50 +998,81 @@ var View = function(params) {
     } // refresh
     
     /**
+    ### removeLayer(id: String)
+    Remove the T5.ViewLayer specified by the id
+    */
+    function removeLayer(id) {
+        var layerIndex = getLayerIndex(id);
+        if ((layerIndex >= 0) && (layerIndex < layerCount)) {
+            self.trigger('layerRemoved', layers[layerIndex]);
+
+            layers.splice(layerIndex, 1);
+            invalidate(true);
+        } // if
+        
+        // update the layer count
+        layerCount = layers.length;
+    } // removeLayer
+    
+    function resetScale() {
+        scaleFactor = 1;
+    } // resetScale
+    
+    /**
+    ### resize(width: Int, height: Int)
+    Perform a manual resize of the canvas associated with the view.  If the 
+    view was originally marked as `autosize` this will override that instruction.
+    */
+    function resize(width, height) {
+        // if the canvas is assigned, then update the height and width and reattach
+        if (canvas) {
+            // flag the canvas as not autosize
+            params.autoSize = false;
+            
+            if (viewWidth !== width || viewHeight !== height) {
+                attachToCanvas(width, height);
+            } // if
+        } // if
+    } // resize
+    
+    /**
     ### scale(targetScaling, targetXY, tweenFn, callback)
     */
     function scale(targetScaling, targetXY, tweenFn, callback, duration) {
-        
-        function finishAnimation() {
-            var scaleFactorExp = Math.round(Math.log(scaleFactor) / Math.LN2);
-            
-            // round the scale factor to the nearest power of 2
-            scaleFactor = Math.pow(2, scaleFactorExp);
-            
-            // if we have a callback to complete, then call it
-            if (callback) {
-                callback();
-            } // if
-
-            // scale the view
-            scaleView(true);
-        } // finishAnimation
-        
-        var scaleFactorFrom = scaleFactor;
-
-        // update the zoom center
-        setZoomCenter(targetXY);
-
         // if tweening then update the targetXY
-        if (tweenFn) {
-            var tween = COG.tweenValue(
-                            0, 
-                            targetScaling - scaleFactorFrom, 
-                            tweenFn, 
-                            finishAnimation, 
-                            duration);
+        if (tweenFn && (! scaleTween)) {
+            scaleTween = COG.tweenValue(scaleFactor, targetScaling, tweenFn, null, duration);
                             
-            tween.requestUpdates(function(updatedValue, completed) {
+            scaleTween.requestUpdates(function(updatedValue, completed) {
                 // update the scale factor
-                scaleFactor = scaleFactorFrom + updatedValue;
+                scaleFactor = updatedValue;
+                
+                if (completed) {
+                    var scaleFactorExp = round(log(scaleFactor) / Math.LN2);
+
+                    // round the scale factor to the nearest power of 2
+                    scaleFactor = pow(2, scaleFactorExp);
+
+                    // if we have a callback to complete, then call it
+                    if (callback) {
+                        callback();
+                    } // if
+                    
+                    // clear the scale tween
+                    scaleTween = null;
+                } // if
 
                 // trigger the on animate handler
-                scaleView();
+                setZoomCenter(targetXY);
+                scaleView(completed);
             });
         }
         // otherwise, update the scale factor and fire the callback
         else {
             scaleFactor = targetScaling;
+            
+            // update the zoom center
+            setZoomCenter(targetXY);
             scaleView();
         }  // if..else        
 
@@ -981,56 +1109,17 @@ var View = function(params) {
         deviceScaling: deviceScaling,
         fastDraw: params.fastDraw || getConfig().requireFastDraw,
         
-        
         getDimensions: getDimensions,
         getLayer: getLayer,
         setLayer: setLayer,
         eachLayer: eachLayer,
-        
-        /**
-        ### invalidate()
-        The `invalidate` method is used to inform the view that a full redraw
-        is required
-        */
         invalidate: invalidate,
-        
-        /**
-        ### resize(width: Int, height: Int)
-        Perform a manual resize of the canvas associated with the view.  If the 
-        view was originally marked as `autosize` this will override that instruction.
-        */
-        resize: function(width, height) {
-            // if the canvas is assigned, then update the height and width and reattach
-            if (canvas) {
-                // flag the canvas as not autosize
-                params.autoSize = false;
-                
-                if (viewWidth !== width || viewHeight !== height) {
-                    attachToCanvas(width, height);
-                } // if
-            } // if
-        },
-
         refresh: refresh,
+        resetScale: resetScale,
+        resize: resize,
         scale: scale,
         triggerAll: triggerAll,
-        
-        /**
-        ### removeLayer(id: String)
-        Remove the T5.ViewLayer specified by the id
-        */
-        removeLayer: function(id) {
-            var layerIndex = getLayerIndex(id);
-            if ((layerIndex >= 0) && (layerIndex < layerCount)) {
-                self.trigger('layerRemoved', layers[layerIndex]);
-
-                layers.splice(layerIndex, 1);
-                invalidate();
-            } // if
-            
-            // update the layer count
-            layerCount = layers.length;
-        },
+        removeLayer: removeLayer,
         
         /**
         ### stateOverride(state)
@@ -1042,15 +1131,8 @@ var View = function(params) {
         
         /* offset methods */
         
-        /**
-        ### getOffset()
-        Return a T5.Vector containing the current view offset
-        */
-        getOffset: function() {
-            // return the last calculated cycle offset
-            return XY.init(offsetX, offsetY);
-        },
-        
+        getOffset: getOffset,
+        setMaxOffset: setMaxOffset,
         getViewRect: getViewRect,
         updateOffset: updateOffset,
         pan: pan
