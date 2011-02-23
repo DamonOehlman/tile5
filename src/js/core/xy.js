@@ -269,6 +269,7 @@ var XY = (function() {
         max: maxXY,
         offset: offset,
         simplify: simplify,
-        theta: theta
+        theta: theta,
+        toString: toString
     };
 })();
