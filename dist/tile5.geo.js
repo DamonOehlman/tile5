@@ -6819,19 +6819,6 @@ var GeoXY = exports.GeoXY = (function() {
     };
 })();
 
-/**
-# T5.Geo.GeoVector
-__deprecated__
-
-
-please use the T5.Geo.GeoXY instead
-*/
-exports.GeoVector = function(position) {
-    COG.warn('The T5.Geo.GeoVector class has been deprecated, please use T5.GeoXY.init instead');
-
-    return GeoXY.init(position);
-}; // Vector
-
 var engines = {};
 
 /**

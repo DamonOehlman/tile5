@@ -6,11 +6,15 @@ The primary focus of the 0.9.4.1 release are changes to the interaction model fo
 
 ### Detailed Changes
 
+- __BREAKING CHANGE__: `T5.Geo.XY` becomes `T5.GeoXY` and is not longer created using a "new" method but rather an object literal is returned when `T5.GeoXY.init` is called.
+
+- __BREAKING CHANGE__: `T5.Geo.Position` is now a full helper module for all position methods and replaces the somewhat obscurely named `T5.Geo.P` module.  Creating new Position objects is done through a call to `T5.Geo.Position.init()` rather than `new T5.Geo.Position()`
+
+- __BREAKING CHANGE__: `T5.Geo.BoundingBox` is now a helper module for bounding box operations in a similar way to the position helper as described above.  This replaces the `T5.Geo.B` module.  As per position objects, bounding boxes are now created with a call to `T5.Geo.BoundingBox.init()` rather than `new T5.Geo.BoundingBox()`
+
 - Offsets now consistently 0 based, rather than using a mix of 0 based for y offset and -x to +x for the xoffset.  This will hopefully help prevent [me](http://twitter.com/DamonOehlman) insane in the future.
 
 - Maps and views wrap more effectively, which means that overlays such as the shape and marker overlays display more effectively when wrapping around the x-axis (as is fairly common when playing with maps).
-
-- Breaking changes to `T5.Geo.Position` and `T5.Geo.BoundingBox` - see the API docs for more details.
 
 - Transitioned away from using [ant](http://ant.apache.org/) for builds and a concatenation style, to using [sprockets](http://www.getsprockets.com/) instead.
 
