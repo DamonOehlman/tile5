@@ -4169,7 +4169,7 @@ var View = function(params) {
             scaleFactor = targetScaling;
 
             setZoomCenter(targetXY);
-            scaleView();
+            scaleView(true);
         }  // if..else
 
         return self;

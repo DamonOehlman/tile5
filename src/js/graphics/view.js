@@ -1073,7 +1073,7 @@ var View = function(params) {
             
             // update the zoom center
             setZoomCenter(targetXY);
-            scaleView();
+            scaleView(true);
         }  // if..else        
 
         return self;
