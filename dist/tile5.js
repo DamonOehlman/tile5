@@ -2927,7 +2927,7 @@ implemented when the view scales
 function zoomable(view, params) {
     params = COG.extend({
         initial: 1,
-        minZoom: 0,
+        minZoom: 1,
         maxZoom: 16
     }, params);
 

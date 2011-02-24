@@ -87,13 +87,13 @@ view.bind('resize', function(evt, width, height) {
 });
 </pre>
 
-<h3>idle</h3>
+<h3>refresh</h3>
 
-<p>This event is fired once the view has gone into an idle state (once draw
-operations haven't been required for 500ms).</p>
+<p>This event is fired once the view has gone into an idle state or every second
+(configurable).</p>
 
 <pre>
-view.bind('idle', function(evt) {
+view.bind('refresh', function(evt) {
 });
 </pre>
 
@@ -117,16 +117,32 @@ view.bind('drawComplete', function(evt, viewRect, tickCount) {
 
 <h3>updateOffset(x, y, tweenFn, tweenDuration, callback)</h3>
 
-<h3>zoom(targetXY, scaleChange)</h3>
+<h3>invalidate()</h3>
+
+<p>The <code>invalidate</code> method is used to inform the view that a full redraw
+is required</p>
 
 <h3>eachLayer(callback)</h3>
 
 <p>Iterate through each of the ViewLayers and pass each to the callback function 
 supplied.</p>
 
+<h3>getDimensions()</h3>
+
+<p>Return the Dimensions of the View</p>
+
 <h3>getLayer(id)</h3>
 
 <p>Get the ViewLayer with the specified id, return null if not found</p>
+
+<h3>getOffset()</h3>
+
+<p>Return a <a href="src_js_core_xy.js.html#T5.XY">T5.XY</a> containing the current view offset</p>
+
+<h3>setMaxOffset(maxX, maxY, wrapX, wrapY)</h3>
+
+<p>Set the bounds of the display to the specified area, if wrapX or wrapY parameters
+are set, then the bounds will be wrapped automatically.</p>
 
 <h3>getViewRect()</h3>
 
@@ -136,36 +152,25 @@ supplied.</p>
 
 <p>Either add or update the specified view layer</p>
 
-<h3>scale(targetScaling, targetXY, tweenFn, callback)</h3>
+<h3>refresh()</h3>
 
-<h3>triggerAll(eventName, args*)</h3>
+<h3>removeLayer(id: String)</h3>
 
-<p>Trigger an event on the view and all layers currently contained in the view</p>
-
-<h3>getDimensions()</h3>
-
-<p>Return the Dimensions of the View</p>
-
-<h3>invalidate()</h3>
-
-<p>The <code>invalidate</code> method is used to inform the view that a full redraw
-is required</p>
+<p>Remove the <a href="src_js_graphics_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a> specified by the id</p>
 
 <h3>resize(width: Int, height: Int)</h3>
 
 <p>Perform a manual resize of the canvas associated with the view.  If the 
 view was originally marked as <code>autosize</code> this will override that instruction.</p>
 
-<h3>removeLayer(id: String)</h3>
+<h3>scale(targetScaling, targetXY, tweenFn, callback)</h3>
 
-<p>Remove the <a href="src_js_graphics_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a> specified by the id</p>
+<h3>triggerAll(eventName, args*)</h3>
+
+<p>Trigger an event on the view and all layers currently contained in the view</p>
 
 <h3>stateOverride(state)</h3>
 
 <p>This function is used to define an override state for the view</p>
-
-<h3>getOffset()</h3>
-
-<p>Return a <a href="src_js_core_vector.js.html#T5.Vector">T5.Vector</a> containing the current view offset</p>
 
 {% endblock %}
