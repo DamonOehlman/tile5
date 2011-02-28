@@ -74,27 +74,15 @@ var Marker = function(params) {
         draw: function(context, viewRect, state, overlay, view) {
             if (self.isNew && (params.tweenIn)) {
                 // get the end value and update the y value
-                var endValue = self.xy.y;
-
-                // set the y to offscreen
-                self.xy.y = viewRect.y1 - 20;
+                var duration = params.animationSpeed ? params.animationSpeed : 250 + (Math.random() * 500);
                 
-                // animate the annotation
-                animating = true;
-                
-                COG.tween(
-                    self.xy, 
-                    'y',
-                    endValue, 
-                    params.tweenIn, 
-                    function() {
-                        self.xy.y = endValue >> 0;
-                        animating = false;
-                    }, 
-                    params.animationSpeed ? 
-                        params.animationSpeed : 
-                        250 + (Math.random() * 500)
-                );
+                // tween the marker
+                COG.tweenValue(viewRect.y1 - 20, self.xy.y, params.tweenIn, duration, function(val, completed) {
+                    self.xy.y = val | 0;
+                    animating = !completed;
+                    
+                    view.invalidate();
+                });
             } // if
             
             // draw ther marker

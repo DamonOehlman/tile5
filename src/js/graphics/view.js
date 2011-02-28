@@ -115,7 +115,7 @@ var View = function(params) {
         idleDelay: 100,
         minRefresh: 1000,
         pannable: true,
-        clipping: false,
+        clipping: true,
         scalable: true,
         interactive: true,
         panAnimationEasing: COG.easing('sine.out'),
@@ -133,7 +133,6 @@ var View = function(params) {
     
     // get the container context
     var layers = [],
-        aniZoomTimeout,
         layerCount = 0,
         canvas = document.getElementById(params.container),
         mainContext = null,
@@ -148,7 +147,7 @@ var View = function(params) {
         offsetWrapY = false,
         clipping = params.clipping,
         cycleRect = null,
-        cycleWorker = null,
+        cycling = false,
         drawRect,
         guides = params.guides,
         deviceScaling = 1,
@@ -157,34 +156,26 @@ var View = function(params) {
         halfHeight = 0,
         interactOffset = null,
         interactCenter = null,
+        interacting = false,
         idle = false,
-        panimating = false,
-        paintTimeout = 0,
         idleTimeout = 0,
         panEndTimeout = 0,
-        rescaleTimeout = 0,
         layerMinXY = null,
         layerMaxXY = null,
         lastRefresh = 0,
         rotation = 0,
-        tickCount = 0,
-        stateOverride = null,
-        redrawView = false,
-        redrawEvery = 40,
         resizeCanvasTimeout = 0,
-        scaleTouchesStart = null,
         scaleFactor = 1,
         scaleTween = null,
         lastScaleFactor = 0,
+        lastCycleTicks = 0,
         sizeChanged = false,
-        tweenStart = null,
         eventMonitor = null,
         viewHeight,
         viewWidth,
-        totalScaleChange = 0,
         isFlash = typeof FlashCanvas !== 'undefined',
-        cycleDelay = ~~(1000 / params.fps),
-        zoomCenter,
+        cycleDelay = 1000 / params.fps | 0,
+        viewChanges = 0,
         zoomX, zoomY,
         
         /* state shortcuts */
@@ -196,31 +187,16 @@ var View = function(params) {
         
         state = stateActive;
         
-    // some function references for speed
-    var vectorRect = XY.getRect,
-        rectDiagonal = XYRect.diagonalSize,
-        rectCenter = XYRect.center;
-        
     /* event handlers */
     
     function handlePan(evt, x, y, inertia) {
         state = statePan;
         
-        // invalidate the display
-        invalidate();
-        
-        if (inertia && params.inertia) {
-            updateOffset(
-                offsetX - x, 
-                offsetY - y, 
-                params.panAnimationEasing, 
-                params.panAnimationDuration);
-        }
-        else if (! inertia) {
-            updateOffset(
-                offsetX - x, 
-                offsetY - y);
-        } // if..else
+        updateOffset(
+            offsetX - x, 
+            offsetY - y,
+            inertia ? params.panAnimationEasing : null,
+            inertia ? params.panAnimationDuration : null);
         
         clearTimeout(panEndTimeout);
         panEndTimeout = setTimeout(panEnd, 100);
@@ -230,7 +206,6 @@ var View = function(params) {
     
     function panEnd() {
         state = stateActive;
-        panimating = false;
         invalidate();
     } // panEnd
     
@@ -238,13 +213,9 @@ var View = function(params) {
         scale(min(max(scaleFactor + pow(2, scaleChange) - 1, 0.5), 2));
     } // handleWheelZoom
     
-    function scaleView(fullInvalidate) {
+    function scaleView() {
         var scaleFactorExp = (log(scaleFactor) / Math.LN2) >> 0;
         
-        if (scaleFactor !== 1) {
-            state = stateZoom;
-        } // if
-
         // COG.info('scale factor = ' + scaleFactor + ', exp = ' + scaleFactorExp);
         if (scaleFactorExp !== 0) {
             scaleFactor = pow(2, scaleFactorExp);
@@ -272,14 +243,12 @@ var View = function(params) {
 
                 // flag scaling as false
                 scaleFactor = 1;
-                scaleTouchesStart = null;
                 state = stateActive;
-                fullInvalidate = true;
             } // if
         } // if
 
         // invalidate the view
-        invalidate(fullInvalidate);
+        invalidate();
     } // scaleView
     
     function setZoomCenter(xy) {
@@ -384,7 +353,7 @@ var View = function(params) {
             minXYOffset = layerMinXY ? XY.offset(layerMinXY, -halfWidth, -halfHeight) : null,
             maxXYOffset = layerMaxXY ? XY.offset(layerMaxXY, -halfWidth, -halfHeight) : null;
         
-        function updateOffsetAnimationEnd() {
+        function endTween() {
             tweensComplete += 1;
             
             if (tweensComplete >= 2) {
@@ -393,7 +362,7 @@ var View = function(params) {
                     callback();
                 } // if
             } // if
-        } // updateOffsetAnimationEnd
+        } // endOffsetUpdate
         
         // check that the x and y values are within acceptable bounds
         if (minXYOffset) {
@@ -409,34 +378,38 @@ var View = function(params) {
         if (tweenFn) {
             // if the interface is already being move about, then don't set up additional
             // tweens, that will just ruin it for everybody
-            if (panimating) {
+            if ((state & statePan) !== 0) {
                 return;
             } // if
             
-            var tweenX = COG.tweenValue(offsetX, x, tweenFn, 
-                    updateOffsetAnimationEnd, tweenDuration),
-                    
-                tweenY = COG.tweenValue(offsetY, y, tweenFn, 
-                    updateOffsetAnimationEnd, tweenDuration);
-                    
-            // attach update listeners
-            tweenX.cancelOnInteract = true;
-            tweenX.requestUpdates(function(updatedVal) {
-                offsetX = updatedVal | 0;
-                panimating = true;
-                invalidate();
+            COG.tweenValue(offsetX, x, tweenFn, tweenDuration, function(val, complete){
+                offsetX = val | 0;
+                
+                (complete ? endTween : invalidate)();
+                return !interacting;
             });
             
-            tweenY.cancelOnInteract = true;
-            tweenY.requestUpdates(function(updatedVal) {
-                offsetY = updatedVal | 0;
-                panimating = true;
-                invalidate();
+            COG.tweenValue(offsetY, y, tweenFn, tweenDuration, function(val, complete) {
+                offsetY = val | 0;
+
+                (complete ? endTween : invalidate)();
+                return !interacting;
             });
+            
+            // update the state to pan and animating
+            state = statePan | stateAnimating;
         }
         else {
             offsetX = x | 0;
             offsetY = y | 0;
+            
+            // invalidate the display
+            invalidate();
+            
+            // trigger the callback
+            if (callback) {
+                callback();
+            } // if
         } // if..else
     } // updateOffset
     
@@ -504,7 +477,7 @@ var View = function(params) {
             } // for
 
             // invalidate the canvas
-            invalidate(true);
+            invalidate();
         } // if        
     } // attachToCanvas
     
@@ -552,7 +525,6 @@ var View = function(params) {
 
             // handle intertia events
             eventMonitor.bind("inertiaCancel", function(evt) {
-                panimating = false;
                 invalidate();
             });
         } // if
@@ -619,13 +591,6 @@ var View = function(params) {
     
     /* draw code */
     
-    function triggerIdle() {
-        refresh();
-
-        // update the idle flags
-        idle = true;
-        idleTimeout = 0;
-    } // idle
     
     // TODO: investigate whether to go back to floating point math for improved display or not
     function calcZoomRect(drawRect) {
@@ -656,7 +621,7 @@ var View = function(params) {
         } // if
     } // calcZoomRect
     
-    function drawView(drawState, rect, redraw, tickCount) {
+    function drawView(drawState, rect, canClip, tickCount) {
         var drawLayer,
             rectCenter = XYRect.center(rect),
             ii = 0;
@@ -668,7 +633,7 @@ var View = function(params) {
         drawRect.scaleFactor = scaleFactor;
             
         // fill the mask context with black
-        if (redraw) {
+        if (! canClip) {
             mainContext.clearRect(0, 0, viewWidth, viewHeight);
         } // if
 
@@ -694,21 +659,17 @@ var View = function(params) {
             
             /* first pass - clip */
 
-            if (clipping) {
+            if (canClip) {
                 mainContext.beginPath();
 
-                clipped = false;
                 for (ii = layerCount; ii--; ) {
                     if (layers[ii].clip) {
-                        layers[ii].clip(mainContext, drawRect, drawState, self, redraw, tickCount);
-                        clipped = true;
+                        layers[ii].clip(mainContext, drawRect, drawState, self, tickCount);
                     } // if
                 } // for
 
                 mainContext.closePath();
-                if (clipped) {
-                    mainContext.clip();
-                } // if
+                mainContext.clip();
             } // if
             
             /* second pass - draw */
@@ -739,7 +700,6 @@ var View = function(params) {
                     drawRect, 
                     drawState, 
                     self,
-                    redraw,
                     tickCount);
 
                 // if we applied a style, then restore the previous style if supplied
@@ -766,123 +726,104 @@ var View = function(params) {
             mainContext.stroke();
         } // if
 
+        // reset the view changes
+        viewChanges = 0;
+
         // trigger the draw complete for the view
         triggerAll('drawComplete', rect, tickCount);
-        COG.trace("draw complete", tickCount);
     } // drawView
     
-    function cycle(tickCount, worker) {
+    function cycle(tickCount) {
         // check to see if we are panning
-        var draw = false, 
-            currentState = stateOverride ? stateOverride : (panimating ? statePan : state),
-            interacting = (! panimating) && 
-                ((currentState === stateZoom) || (currentState === statePan)),
-            // if any of the following are true, then we need to draw the whole canvas so just
-            requireRedraw = redrawView || 
-                        currentState === statePan || 
-                        // currentState === stateZoom || 
-                        (COG.getTweens().length > 0);
-               
-        // handle any size changes if we have them
-        if (sizeChanged && canvas) {
-            if (typeof FlashCanvas != 'undefined') {
-                FlashCanvas.initElement(canvas);
-            } // if
+        var redrawBG,
+            clippable = false,
+            layerArgs = {};
             
-            // update the canvas width
-            canvas.width = viewWidth;
-            canvas.height = viewHeight;
+        if (! viewChanges) {
+            cycling = false;
+            return;
+        }
             
-            canvas.style.width = viewWidth + 'px';
-            canvas.style.height = viewHeight + 'px';
-            
-            // flag the size is not changed now as we have handled the update
-            sizeChanged = false;
-        } // if
-        
-        // check that the offset is within bounds
-        if (offsetMaxX || offsetMaxY) {
-            constrainOffset();
-        } // if
-        
-        // calculate the cycle rect
-        cycleRect = getViewRect();
-        
-        if (interacting) {
-            COG.endTweens(function(tweenInstance) {
-                return tweenInstance.cancelOnInteract;
-            });
-            
-            idle = false;
-            if (idleTimeout !== 0) {
-                clearTimeout(idleTimeout);
-                idleTimeout = 0;
-            } // if
-        }  // if
-        
-        for (var ii = layerCount; ii--; ) {
-            if (layers[ii].animated) {
-                // add the animating state to the current state
-                state = state | stateAnimating;
-            } // if
-            
-            layers[ii].cycle(tickCount, cycleRect, state, requireRedraw);
-            draw = layers[ii].shouldDraw(state, cycleRect, requireRedraw) || draw;
-        } // for
-        
-        // update the require redraw state based on whether we are now in an animating state
-        requireRedraw = requireRedraw || ((state & stateAnimating) !== 0);
-        
-        // if we are scaling and at the same scale factor, don't redraw as its a waste of time
-        draw = draw || requireRedraw || ((scaleFactor !== 1) && (scaleFactor !== lastScaleFactor));
-        if (draw) {
-            drawView(currentState, cycleRect, requireRedraw, tickCount);
-            lastScaleFactor = scaleFactor;
-            
-            // reset draw monitoring variables
-            redrawView = false;
-        } // if
-        
-        // include wake triggers in the change count
-        if ((! draw) && (wakeTriggers === 0) && (! isFlash)) {
-            if ((! idle) && (idleTimeout === 0)) {
-                idleTimeout = setTimeout(triggerIdle, idleDelay);
+        if (tickCount - lastCycleTicks > cycleDelay) {
+
+            // if the scale factor is !== 1 then set the state to zoom
+            if (scaleFactor !== 1) {
+                state = state | stateZoom;
             } // if
 
-            worker.trigger('complete');
+            // update the redraw background flags
+            redrawBG = (state & (stateZoom | statePan)) !== 0;
+            interacting = redrawBG && (state & stateAnimating) === 0;
+
+
+            // handle any size changes if we have them
+            if (sizeChanged && canvas) {
+                if (typeof FlashCanvas != 'undefined') {
+                    FlashCanvas.initElement(canvas);
+                } // if
+
+                // update the canvas width
+                canvas.width = viewWidth;
+                canvas.height = viewHeight;
+
+                canvas.style.width = viewWidth + 'px';
+                canvas.style.height = viewHeight + 'px';
+
+                // flag the size is not changed now as we have handled the update
+                sizeChanged = false;
+            } // if
+
+            // check that the offset is within bounds
+            if (offsetMaxX || offsetMaxY) {
+                constrainOffset();
+            } // if
+
+            // calculate the cycle rect
+            cycleRect = getViewRect();
+
+            if (interacting) {
+                COG.endTweens(function(tweenInstance) {
+                    return tweenInstance.cancelOnInteract;
+                });
+
+                idle = false;
+                if (idleTimeout !== 0) {
+                    clearTimeout(idleTimeout);
+                    idleTimeout = 0;
+                } // if
+            }  // if
+
+            for (var ii = layerCount; ii--; ) {
+                if (layers[ii].animated) {
+                    // add the animating state to the current state
+                    state = state | stateAnimating;
+                } // if
+
+                // cycle the layer
+                layers[ii].cycle(tickCount, cycleRect, state);
+
+                // determine whether we need to draw
+                layers[ii].shouldDraw(state, cycleRect);
+
+                // then determine if we have a clippable layer
+                clippable = layers[ii].clip || clippable;
+            } // for
+
+            // draw the view
+            drawView(state, cycleRect, clipping && clippable && (! redrawBG), tickCount);
+
+            // check whether a forced refresh is required
+            // TODO: include some state checks here...
+            if (tickCount - lastRefresh > minRefresh) {
+                refresh();
+            } // if
+            
+            // update the last cycle ticks
+            lastCycleTicks = tickCount;
         } // if
-        
-        // check whether a forced refresh is required
-        if (tickCount - lastRefresh > minRefresh) {
-            refresh();
-        } // if
-        
-        wakeTriggers = 0;
-        COG.trace("Completed draw cycle", tickCount);
+
+        COG.animFrame(cycle);
     } // cycle
-    
-    /**
-    ### invalidate()
-    The `invalidate` method is used to inform the view that a full redraw
-    is required
-    */
-    function invalidate(redraw) {
-        redrawView = redraw ? true : false;
-
-        wakeTriggers += 1;
-        if (cycleWorker) { return; }
-        
-        // create the cycle worker
-        cycleWorker = COG.Loopage.join({
-            execute: cycle,
-            frequency: cycleDelay
-        });
-        
-        // bind to the complete method
-        cycleWorker.bind('complete', function(evt) {
-            cycleWorker = null;
-        });
-    } // invalidate
     
     function layerContextChanged(layer) {
         layer.trigger("contextChanged", mainContext);
@@ -901,6 +842,15 @@ var View = function(params) {
             callback(layers[ii]);
         } // for
     } // eachLayer
+    
+    function invalidate() {
+        viewChanges += 1;
+        
+        if (! cycling) {
+            cycling = true;
+            COG.animFrame(cycle);
+        } // if
+    } // invalidate
     
     /**
     ### getDimensions()
@@ -976,6 +926,7 @@ var View = function(params) {
         
         if (value) {
             addLayer(id, value);
+            value.trigger('refresh', self, getViewRect());
         } // if
 
         // invalidate the view
@@ -991,7 +942,7 @@ var View = function(params) {
     function refresh() {
         // update the last refresh tick count
         lastRefresh = new Date().getTime();
-        triggerAll('refresh', self);
+        triggerAll('refresh', self, getViewRect());
         
         // invalidate
         invalidate();
@@ -1007,7 +958,7 @@ var View = function(params) {
             self.trigger('layerRemoved', layers[layerIndex]);
 
             layers.splice(layerIndex, 1);
-            invalidate(true);
+            invalidate();
         } // if
         
         // update the layer count
@@ -1040,12 +991,10 @@ var View = function(params) {
     */
     function scale(targetScaling, targetXY, tweenFn, callback, duration) {
         // if tweening then update the targetXY
-        if (tweenFn && (! scaleTween)) {
-            scaleTween = COG.tweenValue(scaleFactor, targetScaling, tweenFn, null, duration);
-                            
-            scaleTween.requestUpdates(function(updatedValue, completed) {
+        if (tweenFn) {
+            COG.tweenValue(scaleFactor, targetScaling, tweenFn, duration, function(val, completed) {
                 // update the scale factor
-                scaleFactor = updatedValue;
+                scaleFactor = val;
                 
                 if (completed) {
                     var scaleFactorExp = round(log(scaleFactor) / Math.LN2);
@@ -1057,14 +1006,11 @@ var View = function(params) {
                     if (callback) {
                         callback();
                     } // if
-                    
-                    // clear the scale tween
-                    scaleTween = null;
                 } // if
 
                 // trigger the on animate handler
                 setZoomCenter(targetXY);
-                scaleView(completed);
+                scaleView();
             });
         }
         // otherwise, update the scale factor and fire the callback
@@ -1073,7 +1019,7 @@ var View = function(params) {
             
             // update the zoom center
             setZoomCenter(targetXY);
-            scaleView(true);
+            scaleView();
         }  // if..else        
 
         return self;
@@ -1121,14 +1067,6 @@ var View = function(params) {
         triggerAll: triggerAll,
         removeLayer: removeLayer,
         
-        /**
-        ### stateOverride(state)
-        This function is used to define an override state for the view
-        */
-        stateOverride: function(value) {
-            stateOverride = value;
-        },
-        
         /* offset methods */
         
         getOffset: getOffset,
@@ -1147,8 +1085,8 @@ var View = function(params) {
     COG.observable(self);
     
     // listen for being woken up
-    self.bind('invalidate', function(evt, redraw) {
-        invalidate(redraw);
+    self.bind('invalidate', function(evt) {
+        invalidate();
     });
     
     // handle the view being resynced
@@ -1176,7 +1114,7 @@ var View = function(params) {
             window.addEventListener('resize', handleResize, false);
         }
     } // if
-    
+
     return self;
 }; // T5.View
 

@@ -8,15 +8,15 @@ var ImageLayer = function(genId, params) {
     
     // initialise variables
     var generator = genId ? Generator.init(genId, params) : null,
-        generatedImages = [],
-        lastViewRect = XYRect.init(),
+        generateCount = 0,
+        images = [],
         loadArgs = params.imageLoadArgs;
     
     /* private internal functions */
     
     function eachImage(viewRect, viewState, callback) {
-        for (var ii = generatedImages.length; ii--; ) {
-            var imageData = generatedImages[ii],
+        for (var ii = images.length; ii--; ) {
+            var imageData = images[ii],
                 xx = imageData.x,
                 yy = imageData.y,
                 // TODO: more efficient please...
@@ -36,25 +36,34 @@ var ImageLayer = function(genId, params) {
                 }, loadArgs);
 
                 // trigger the eachImage callback
-                callback(image, xx, yy, imageData.width, imageData.height);
+                if (image) {
+                    callback(image, xx, yy, imageData.width, imageData.height);
+                } // if
             } // if
         } // for
     } // eachImage
     
     /* every library should have a regenerate function - here's mine ;) */
     function regenerate(viewRect) {
+        var sequenceId = ++generateCount,
+            view = self.getParent();
+
         if (generator) {
-            generator.run(viewRect, self.getParent(), function(images) {
-                generatedImages = [].concat(images);
-                self.changed();
+            COG.info('generating: ' + XYRect.toString(viewRect) + ', sequence = ' + sequenceId);
+
+            generator.run(view, viewRect, function(newImages) {
+                if (sequenceId == generateCount) {
+                    images = [].concat(newImages);
+                    self.changed();
+                } // if
             });
         } // if
     } // regenerate
     
     /* event handlers */
     
-    function handleRefresh(evt, view) {
-        regenerate(lastViewRect);
+    function handleRefresh(evt, view, viewRect) {
+        regenerate(viewRect);
     } // handleViewIdle
     
     function handleTap(evt, absXY, relXY, offsetXY) {
@@ -64,9 +73,9 @@ var ImageLayer = function(genId, params) {
             genImage,
             tapped;
         
-        if (generatedImages) {
-            for (var ii = generatedImages.length; ii--; ) {
-                genImage = generatedImages[ii];
+        if (images) {
+            for (var ii = images.length; ii--; ) {
+                genImage = images[ii];
                
                 // determine if the image is tapped
                 tapped = offsetX >= genImage.x && 
@@ -97,15 +106,13 @@ var ImageLayer = function(genId, params) {
         generator = Generator.init(generatorId, COG.extend({}, params, args));
 
         // clear the generated images and regenerate
-        generatedImages = null;
-        regenerate(lastViewRect);
+        images = null;
+        regenerate(self.getParent().getViewRect());
     } // changeGenerator
     
     function clip(context, viewRect, state, view) {
         eachImage(viewRect, state, function(image, x, y, width, height) {
-            if (image) {
-                context.rect(x, y, width, height);
-            } // if
+            context.rect(x, y, width, height);
         });
     } // clip
     
@@ -115,8 +122,6 @@ var ImageLayer = function(genId, params) {
         eachImage(viewRect, state, function(image, x, y, width, height) {
             self.drawImage(context, image, x, y, width, height, viewRect, state);
         });
-        
-        lastViewRect = XYRect.copy(viewRect);
     } // draw
     
     function drawImage(context, image, x, y, width, height, viewRect, state) {
@@ -135,11 +140,6 @@ var ImageLayer = function(genId, params) {
     var self = COG.extend(new ViewLayer(params), {
         changeGenerator: changeGenerator,
         clip: clip,
-        
-        cycle: function(tickCount, rect, state, redraw) {
-            regenerate(rect);
-        },
-        
         draw: draw,
         drawImage: drawImage
     });

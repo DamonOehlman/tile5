@@ -1,6 +1,6 @@
 /**
-# T5.GeoPoly
-_extends:_ T5.Poly
+# T5.GeoShape
+_extends:_ T5.Shape
 
 
 This is a special type of T5.Poly that will take positions for the first
@@ -9,7 +9,7 @@ parameter `autoParse` is set to true (which it is by default), this will
 parsed by the T5.Geo.Position.parse function and converted into a GeoXY.
 
 ## Constructor
-`new T5.GeoPoly(positions, params);`
+`new T5.GeoShape(positions, params);`
 
 ### Initialization Parameters
 - autoParse (boolean, default = true) - whether or not the values in the 
@@ -19,7 +19,7 @@ handling both string and T5.Geo.Position values as position values are
 simply passed straight through.
 
 */
-var GeoPoly = exports.GeoPoly = function(positions, params) {
+var GeoShape = exports.GeoShape = function(positions, params) {
     params = COG.extend({
         autoParse: true
     }, params);

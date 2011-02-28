@@ -154,12 +154,11 @@ var GeoJSONParser = function(data, callback, options, builders) {
         totalFeatures = 0,
         childParser = null,
         childCount = 0,
-        layers = {},
-        worker;
+        layers = {};
 
     // if we have no data, then exit
     if (! data) {
-        return null;
+        return;
     } // if
     
     // check that the data is in an array, if not, then make one
@@ -222,13 +221,13 @@ var GeoJSONParser = function(data, callback, options, builders) {
         return layer;
     } // getLayer
     
-    function handleParseComplete(evt) {
+    function parseComplete(evt) {
         if (callback) {
             callback(layers);
         } // if
-    } // handleParseComplete
+    } // parseComplete
 
-    function processData(tickCount, worker) {
+    function processData(tickCount) {
         var cycleCount = 0,
             ii = featureIndex;
             
@@ -282,27 +281,19 @@ var GeoJSONParser = function(data, callback, options, builders) {
         featureIndex = ii + 1;
         
         // if we have finished, then tell the worker we are done
-        if ((! childParser) && (featureIndex >= totalFeatures)) {
-            // TODO: add a sort step to sort the shapes from largest (at the back) to smallest at the front
-            worker.trigger('complete');
-        } // if
+        if (childParser || (featureIndex < totalFeatures)) {
+            COG.animFrame(processData);
+        }
+        else {
+            parseComplete();
+        }
     } // processData
     
     /* run the parser */
     
     // save the total feature count
     totalFeatures = data.length;
-    
-    // create the worker
-    worker = COG.Loopage.join({
-        frequency: 10,
-        execute: processData
-    });
-    
-    // when the worker has completed, fire the callback
-    worker.bind('complete', handleParseComplete);
-    
-    return worker;
+    COG.animFrame(processData);
 };
 
 /* exports */

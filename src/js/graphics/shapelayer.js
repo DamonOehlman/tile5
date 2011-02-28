@@ -65,7 +65,7 @@ var ShapeLayer = function(params) {
             } // for
         },
         
-        draw: function(context, viewRect, state, view, redraw) {
+        draw: function(context, viewRect, state, view) {
             var viewX = viewRect.x1,
                 viewY = viewRect.y1,
                 viewWidth = viewRect.width,

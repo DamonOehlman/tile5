@@ -29,6 +29,7 @@ T5 = (function() {
     //= require "js/graphics/view"
     //= require "js/graphics/viewlayer"
     //= require "js/graphics/imagelayer"
+    //= require "js/graphics/imagegenerator"
     
     //= require "js/graphics/marker"
     //= require "js/graphics/imagemarker"
@@ -41,7 +42,6 @@ T5 = (function() {
     //= require "js/graphics/shapelayer"
     
     //= require "js/tiling/core"
-    //= require "js/tiling/tilegenerator"
     
     var exports = {
         ex: COG.extend,
@@ -76,6 +76,7 @@ T5 = (function() {
         View: View,
         ViewLayer: ViewLayer,
         ImageLayer: ImageLayer,
+        ImageGenerator: ImageGenerator,
         
         // markers
         Marker: Marker,
@@ -93,8 +94,7 @@ T5 = (function() {
         ShapeLayer: ShapeLayer,
         
         // tiling
-        Tiling: Tiling,
-        TileGenerator: TileGenerator
+        Tiling: Tiling
     };
     
     // make T5 observable

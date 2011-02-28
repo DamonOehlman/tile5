@@ -16,8 +16,8 @@ T5.Geo.OSM = (function() {
     */
     var OSMGenerator = function(params) {
         params = COG.extend({
-            flipX: false,
             flipY: false,
+            tileSize: 256,
             tilePath: '{0}/{1}/{2}.png'
         }, params);
         
@@ -35,10 +35,9 @@ T5.Geo.OSM = (function() {
 
         http://developers.cloudmade.com/projects/tiles/examples/convert-coordinates-to-tile-numbers
         */
-        function calculateTileOffset(position, zoomLevel) {
+        function calculateTileOffset(position, numTiles) {
             var lon = position.lon % 360,
                 lat = position.lat,
-                numTiles = 2 << (zoomLevel - 1),
                 tileX, tileY;
                 
             tileX = Math.floor((lon+180) / 360 * numTiles);
@@ -47,34 +46,27 @@ T5.Geo.OSM = (function() {
             return T5.XY.init(tileX, tileY);
         } // calculateTileOffset
         
-        function calculatePosition(x, y, zoomLevel) {
-            var zoomFactor = 2 << (zoomLevel - 1),
-                n = Math.PI - 2*Math.PI * y / zoomFactor,
-                lon = x / zoomFactor * 360 - 180,
+        function calculatePosition(x, y, numTiles) {
+            var n = Math.PI - 2*Math.PI * y / numTiles,
+                lon = x / numTiles * 360 - 180,
                 lat = RADIANS_TO_DEGREES * Math.atan(0.5*(Math.exp(n)-Math.exp(-n)));
             
             return T5.Geo.Position.init(lat, lon);
         } // calculatePosition
         
-        function getBaseXY(position, zoomLevel) {
-            var radsPerPixel = T5.Geo.radsPerPixel(zoomLevel),
-                tileOffset = calculateTileOffset(position, zoomLevel),
-                tilePosition = calculatePosition(tileOffset.x, tileOffset.y, zoomLevel),
-                baseXY = T5.GeoXY.init(position, radsPerPixel),
-                tileXY = T5.GeoXY.init(tilePosition, radsPerPixel);
-                
-            return T5.XY.init(
-                        baseXY.x + (tileXY.x - baseXY.x), 
-                        baseXY.y + (tileXY.y - baseXY.y));
-        } // getBaseXY
+        function getTileXY(x, y, numTiles, radsPerPixel) {
+            var tilePos = calculatePosition(x, y, numTiles);
+            
+            return T5.GeoXY.init(tilePos, radsPerPixel);
+        } // getTileXY
         
         /* exports */
         
-        function buildTileUrl(tileX, tileY, zoomLevel, numTiles, flipX, flipY) {
+        function buildTileUrl(tileX, tileY, zoomLevel, numTiles, flipY) {
             // determine the tile url
             var tileUrl = COG.formatStr(tilePath,
                     zoomLevel,
-                    flipX ? Math.abs(tileX - numTiles + 1) : tileX,
+                    tileX,
                     flipY ? Math.abs(tileY - numTiles + 1) : tileY);
 
             // COG.info('getting url for tile x = ' + tileX + ', y = ' + tileY);
@@ -87,70 +79,101 @@ T5.Geo.OSM = (function() {
             return tileUrl;
         } // buildTileUrl
         
-        function initTileCreator(tileWidth, tileHeight, args, callback) {
-            var zoomLevel = args.zoomLevel,
-                position = args.position,
-                tileOffset = calculateTileOffset(position, zoomLevel),
-                baseXY = getBaseXY(position, zoomLevel, tileOffset),
-                baseX = baseXY.x,
-                baseY = baseXY.y,
-                
-                numTiles = 2 << (zoomLevel - 1),
-                flipX = params.flipX,
-                flipY = params.flipY,
-                
-                // initialise the tile creator
-                creator = function(tileX, tileY) {
-                    if (! tileOffset.x) {
-                        return null;
-                    } // if
-                    
-                    var realTileX = tileOffset.x + tileX,
-                        realTileY = tileOffset.y + tileY,
-                        tileUrl;
-                        
-                    // bring the real tile x into the appropriate range
-                    realTileX = realTileX % numTiles;
-                    while (realTileX < 0) {
-                        realTileX += numTiles;
-                    } // while
-                    
-                    realTileY = realTileY % numTiles;
-                    while (realTileY < 0) {
-                        realTileY += numTiles;
-                    } // while
-
-                    // build the tile url 
-                    tileUrl = self.buildTileUrl(realTileX, realTileY, zoomLevel, numTiles, flipX, flipY);
-                    if (tileUrl) {
-                        return T5.Tiling.init(
-                            baseX + (tileX * tileWidth), 
-                            baseY + (tileY * tileHeight),
-                            tileWidth,
-                            tileHeight, {
-                                url: tileUrl
-                            });
-                    } // if
-                }; // loader
-                
-            // initialise the server details
-            serverDetails = self.getServerDetails ? self.getServerDetails() : null;
-            subDomains = serverDetails && serverDetails.subDomains ? 
-                serverDetails.subDomains : [];
-
-            // if the callback is assigned, then pass back the creator
-            if (callback) {
-                callback(creator);
-            } // if
+        function initTileCreator(tileWidth, tileHeight, callback) {
+            
         } // initTileLoader
+        
+        // initialise the tile creator
+        function tileCreator(tileX, tileY) {
+            if (! tileOffset.x) {
+                return null;
+            } // if
+
+            var realTileX = tileOffset.x + tileX,
+                realTileY = tileOffset.y + tileY,
+                tileUrl;
+
+            // bring the real tile x into the appropriate range
+            realTileX = realTileX % numTiles;
+            while (realTileX < 0) {
+                realTileX += numTiles;
+            } // while
+
+            realTileY = realTileY % numTiles;
+            while (realTileY < 0) {
+                realTileY += numTiles;
+            } // while
+
+            // build the tile url 
+            tileUrl = self.buildTileUrl(realTileX, realTileY, zoomLevel, numTiles, flipY);
+            if (tileUrl) {
+                return T5.Tiling.init(
+                    baseX + (tileX * tileWidth), 
+                    baseY + (tileY * tileHeight),
+                    tileWidth,
+                    tileHeight, {
+                        url: tileUrl
+                    });
+            } // if
+        }; // loader
+        
+        function run(view, viewRect, callback) {
+            var zoomLevel = view.getZoomLevel ? view.getZoomLevel() : 0;
+            
+            if (zoomLevel) {
+                var numTiles = 2 << (zoomLevel - 1),
+                    tileSize = params.tileSize,
+                    radsPerPixel = (Math.PI * 2) / (tileSize << zoomLevel),
+                    position = T5.GeoXY.toPos(T5.XY.init(viewRect.x1 - tileSize, viewRect.y1 - tileSize), radsPerPixel),
+                    tileOffset = calculateTileOffset(position, numTiles),
+                    tilePixels = getTileXY(tileOffset.x, tileOffset.y, numTiles, radsPerPixel),
+                    xTiles = (viewRect.width / tileSize | 0) + 2,
+                    yTiles = (viewRect.height / tileSize | 0) + 2,
+                    images = [],
+                    flipY = params.flipY;
+                    
+                // initialise the server details
+                serverDetails = self.getServerDetails ? self.getServerDetails() : null;
+                subDomains = serverDetails && serverDetails.subDomains ? 
+                    serverDetails.subDomains : [];
+                    
+                COG.info('tile pixels = ' + T5.XY.toString(tilePixels));
+                    
+                for (var xx = 0; xx <= xTiles; xx++) {
+                    for (var yy = 0; yy <= yTiles; yy++) {
+                        // build the tile url 
+                        tileUrl = self.buildTileUrl(
+                            tileOffset.x + xx, 
+                            tileOffset.y + yy, 
+                            zoomLevel, 
+                            numTiles, 
+                            flipY);
+                            
+                        if (tileUrl) {
+                            images[images.length] = T5.Tiling.init(
+                                tilePixels.x + xx * tileSize,
+                                tilePixels.y + yy * tileSize, 
+                                tileSize,
+                                tileSize, {
+                                    url: tileUrl
+                                });
+                        } // if
+                    } // for
+                } // for
+                    
+                // if the callback is assigned, then pass back the creator
+                if (callback) {
+                    callback(images);
+                } // if                
+            } // if
+        } // callback
         
         /* define the generator */
 
         // initialise the generator
-        var self = COG.extend(new T5.MapTileGenerator(params), {
+        var self = COG.extend(new T5.ImageGenerator(params), {
             buildTileUrl: buildTileUrl,
-            getServerDetails: null,
-            initTileCreator: initTileCreator
+            run: run
         });
         
         // trigger an attribution requirement

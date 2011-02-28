@@ -17,7 +17,7 @@ be animated and examples of this can be seen in the <a class="external" href="ht
 
 <ul>
 <li><code>xy</code> (<a href="src_js_core_vector.js.html#T5.Vector">T5.Vector</a>) - a vector that specifies the grid position of the marker. When
-working with Geo data, the <a href="src_js_geo_types_geoxy.js.html#T5.Geo.GeoVector">T5.Geo.GeoVector</a> provides a simple way to specify this
+working with Geo data, the <a href="src_js_core.js.html#T5">T5</a>.Geo.GeoVector provides a simple way to specify this
 position.</li>
 <li><code>offset</code> (boolean, default = true) - whether or not the <code>xy</code> vector is relative to the 
 current grid offset.  In the case where you wish to create a marker that is relative to the
@@ -41,9 +41,9 @@ method rather than this method.</p>
 <h3>drawMarker(context, offset, x, y, state, overlay, view)</h3>
 
 <p>The <code>drawMarker</code> method is the place holder implementation for drawing
-markers.  In the case of a <a href="src_js_graphics_annotation.js.html#T5.Annotation">T5.Annotation</a> a simple circle is drawn, but
-extensions of <a href="src_js_graphics_annotation.js.html#T5.Annotation">T5.Annotation</a> would normally replace this implementation
-with their own modified implementation (such as <a href="src_js_graphics_annotation.js.html#T5.ImageAnnotation">T5.ImageAnnotation</a> does).</p>
+markers.  In the case of a <a href="src_js_core.js.html#T5">T5</a>.Annotation a simple circle is drawn, but
+extensions of <a href="src_js_core.js.html#T5">T5</a>.Annotation would normally replace this implementation
+with their own modified implementation (such as <a href="src_js_core.js.html#T5">T5</a>.ImageAnnotation does).</p>
 
 <h3>hitTest(testX, testY)</h3>
 

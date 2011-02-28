@@ -90,9 +90,8 @@ var ViewLayer = function(params) {
         and then continues to do a bitmask operation against the validStates property 
         to see if the current display state is acceptable.
         */
-        shouldDraw: function(displayState, viewRect, redraw) {
+        shouldDraw: function(displayState, viewRect) {
             var drawOK = changed || 
-                    redraw || 
                     (lastOffsetX !== viewRect.x1) || 
                     (lastOffsetY !== viewRect.y1);
                     
@@ -106,12 +105,12 @@ var ViewLayer = function(params) {
         clip: null,
         
         /**
-        ### cycle(tickCount, offset, state, redraw)
+        ### cycle(tickCount, offset, state)
         
         Called in the View method of the same name, each layer has an opportunity 
         to update itself in the current animation cycle before it is drawn.
         */
-        cycle: function(tickCount, offset, state, redraw) {
+        cycle: function(tickCount, offset, state) {
         },
         
         /**
@@ -124,10 +123,9 @@ var ViewLayer = function(params) {
             - viewRect - the current view rect
             - state - the current DisplayState of the view
             - view - a reference to the View
-            - redraw - whether a redraw is required
             - tickCount - the current tick count
         */
-        draw: function(context, viewRect, state, view, redraw, tickCount) {
+        draw: function(context, viewRect, state, view, tickCount) {
         },
         
         /**
@@ -142,20 +140,20 @@ var ViewLayer = function(params) {
         },
         
         /**
-        ### changed(redraw)
+        ### changed()
         
         The changed method is used to flag the layer has been modified and will require 
         a redraw
         
         */
-        changed: function(redraw) {
+        changed: function() {
             // flag as changed
             changed = true;
             self.trigger('changed', self);
             
             // invalidate the parent
             if (parent) {
-                parent.trigger('invalidate', redraw);
+                parent.invalidate();
             } // if
         },
         

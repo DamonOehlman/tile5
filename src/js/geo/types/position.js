@@ -258,13 +258,8 @@ var Position = (function() {
     
     #### Example Usage (Asyncronous)
     ~ // default options are used (async + 500 conversions per cycle)
-    ~ var worker = T5.Geo.Position.vectorize(positions);
+    ~ T5.Geo.Position.vectorize(positions);
     ~ 
-    ~ // bind to the complete event for the worker
-    ~ worker.bind('complete', function(vectors) {
-    ~     // DO SOMETHING WITH YOUR VECTORS HERE
-    ~ });
-    
     #### Example Usage (Synchronous)
     ~ var vectors = T5.Geo.Position.vectorize(positions, {
     ~     async: false
@@ -277,8 +272,39 @@ var Position = (function() {
         // initialise options
         options = COG.extend({
             chunkSize: VECTORIZE_PER_CYCLE,
-            async: true
+            async: true,
+            callback: null
         }, options);
+        
+        function processPositions(tickCount) {
+            // initialise variables
+            var chunkCounter = 0,
+                chunkSize = options.chunkSize,
+                ii = posIndex;
+            
+            // process from the last position index
+            for (; ii--;) {
+                vectors[ii] = T5.GeoXY.init(positions[ii]);
+                
+                // increase the chunk counter
+                chunkCounter += 1;
+                
+                // if we have hit the chunk size, then break
+                if (chunkCounter > chunkSize) {
+                    break;
+                } // if
+            } // for
+            
+            posIndex = ii;
+            if (posIndex <= 0) {
+                if (options.callback) {
+                    options.callback(vectors);
+                }
+            }
+            else {
+                COG.animFrame(processPositions);
+            } // if..else
+        } // processPositions
         
         // if we are not processing async, then do it right now
         if (! options.async) {
@@ -289,35 +315,8 @@ var Position = (function() {
             return vectors;
         } // if
         
-        // create a new loopage worker to manage the conversion 
-        // as there could be a lot of positions...
-        return COG.Loopage.join({
-            frequency: 10,
-            execute: function(tickCount, worker) {
-                // initialise variables
-                var chunkCounter = 0,
-                    chunkSize = options.chunkSize,
-                    ii = posIndex;
-                
-                // process from the last position index
-                for (; ii--;) {
-                    vectors[ii] = T5.GeoXY.init(positions[ii]);
-                    
-                    // increase the chunk counter
-                    chunkCounter += 1;
-                    
-                    // if we have hit the chunk size, then break
-                    if (chunkCounter > chunkSize) {
-                        break;
-                    } // if
-                } // for
-                
-                posIndex = ii;
-                if (posIndex <= 0) {
-                    worker.trigger('complete', vectors);
-                } // if
-            }
-        });
+        COG.animFrame(processPositions);
+        return null;
     } // vectorize
     
     return {

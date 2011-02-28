@@ -1,5 +1,13 @@
 # Tile5 Change History
 
+## 0.9.4.2 (TBA)
+
+Continued refinement of the 0.9.4 branch ready to implement new features in 0.9.5
+
+### Detailed Changes
+
+- Moved from using `COG.Loopage` to schedule updates to `COG.animFrame` which wraps the various `*RequestAnimationFrame` events if available. 
+
 ## 0.9.4.1 (2011-02-25)
 
 The primary focus of the 0.9.4.1 release are changes to the interaction model for Tile5.  Previously interaction (panning, pinch zoom, etc) were tightly coupled to a `T5.View` and these interaction handlers have been broken out into a [separate library](https://github.com/sidelab/interact).

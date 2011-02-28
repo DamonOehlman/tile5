@@ -224,6 +224,7 @@ var Map = exports.Map = function(params) {
         // reset scaling and resync the map
         self.resetScale();
         self.triggerAll('resync', self);
+        self.refresh();
     } // handleZoomLevel
     
     /* internal functions */
@@ -290,10 +291,11 @@ var Map = exports.Map = function(params) {
     the position of the map has been updated.
     */
     function gotoPosition(position, newZoomLevel, callback) {
-        self.setZoomLevel(newZoomLevel);
-        
         // cancel any animations
         COG.endTweens();
+
+        // update the zoom level
+        self.setZoomLevel(newZoomLevel);
         
         // pan to Position
         panToPosition(position, callback);
@@ -312,25 +314,23 @@ var Map = exports.Map = function(params) {
         // determine the tile offset for the 
         // requested position
         var centerXY = GeoXY.init(position, Geo.radsPerPixel(self.getZoomLevel())),
-            dimensions = self.getDimensions();
+            dimensions = self.getDimensions(),
+            offsetX = centerXY.x - (dimensions.width >> 1),
+            offsetY = centerXY.y - (dimensions.height >> 1);
             
         // COG.info('panning to center xy: ', centerXY);
-        self.updateOffset(
-            centerXY.x - (dimensions.width >> 1), 
-            centerXY.y - (dimensions.height >> 1), 
-            easingFn, 
-            easingDuration, 
-            callback);
+        self.updateOffset(offsetX, offsetY, easingFn, easingDuration, function() {
+            // refresh the display
+            self.refresh();
             
-        self.trigger('wake');
-
-        // trigger a bounds change event
-        self.trigger("boundsChange", self.getBoundingBox());
-
-        // if we have a callback defined, then run it
-        if (callback && (typeof easingFn === 'undefined')) {
-            callback(self);
-        } // if
+            // trigger a bounds change event
+            self.trigger("boundsChange", self.getBoundingBox());
+            
+            // if a callback is defined, then pass that on
+            if (callback) {
+                callback(self); 
+            } // if
+        });
     } // panToPosition
     
     /**

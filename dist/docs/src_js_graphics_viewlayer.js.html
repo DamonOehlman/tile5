@@ -67,7 +67,7 @@ to see if the current display state is acceptable.</p>
 
 <h3>clip(context, offset, dimensions, state)</h3>
 
-<h3>cycle(tickCount, offset, state, redraw)</h3>
+<h3>cycle(tickCount, offset, state)</h3>
 
 <p>Called in the View method of the same name, each layer has an opportunity 
 to update itself in the current animation cycle before it is drawn.</p>
@@ -82,7 +82,6 @@ drawn and the following parameters are passed to the method:</p>
 <li>viewRect - the current view rect</li>
 <li>state - the current DisplayState of the view</li>
 <li>view - a reference to the View</li>
-<li>redraw - whether a redraw is required</li>
 <li>tickCount - the current tick count</li>
 </ul>
 
@@ -92,7 +91,7 @@ drawn and the following parameters are passed to the method:</p>
 from any views that it is contained in.  This was introduced specifically for
 animation layers that should only exist as long as an animation is active.</p>
 
-<h3>changed(redraw)</h3>
+<h3>changed()</h3>
 
 <p>The changed method is used to flag the layer has been modified and will require 
 a redraw</p>

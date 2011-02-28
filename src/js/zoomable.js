@@ -11,7 +11,7 @@ function zoomable(view, params) {
     }, params);
 
     // initialise variables
-    var zoomLevel = params.initial,
+    var zoomLevel = null,
         minZoom = params.minZoom,
         maxZoom = params.maxZoom;
     
@@ -26,10 +26,8 @@ function zoomable(view, params) {
             return tweenInstance.cancelOnInteract;
         });
         
-        evt.cancel = ! setZoomLevel(zoomLevel + zoomChange, zoomXY);
-        if (! evt.cancel) {
-            view.updateOffset(zoomXY.x * scaleAmount, zoomXY.y * scaleAmount);
-        } // if
+        setZoomLevel(zoomLevel + zoomChange, zoomXY);
+        view.updateOffset(zoomXY.x * scaleAmount, zoomXY.y * scaleAmount);
     } // handleScale
     
     /* exports */
@@ -47,19 +45,12 @@ function zoomable(view, params) {
     Update the map's zoom level to the specified zoom level
     */
     function setZoomLevel(value, zoomXY) {
-        if (value && (zoomLevel !== value)) {
-            // trigger the zoom level change
-            var zoomOK = 
-                value >= minZoom && 
-                value <= maxZoom && 
-                view.triggerAll('zoomLevelChange', value, zoomXY);
-
-            // update the zoom level
-            if (zoomOK) {
-                zoomLevel = value;
-            } // if
-            
-            return zoomOK;
+        value = value ? max(min(value, maxZoom), minZoom) : minZoom;
+        
+        // update the zoom level
+        if (value != zoomLevel) {
+            zoomLevel = value;
+            view.triggerAll('zoomLevelChange', value, zoomXY);
         } // if
     } // setZoomLevel
     

@@ -13,8 +13,7 @@ var PathLayer = function(params) {
     }, params);
     
     // initialise variables
-    var redraw = false,
-        coordinates = [],
+    var coordinates = [],
         markerCoordinates = null,
         rawCoords = [],
         rawMarkers = null,
@@ -55,10 +54,6 @@ var PathLayer = function(params) {
             });
         },
         
-        cycle: function(tickCount, viewRect, state, redraw) {
-            return redraw;
-        },
-
         draw: function(context, viewRect, state, view) {
             var ii,
                 coordLength = coordinates.length;
@@ -106,8 +101,6 @@ var PathLayer = function(params) {
             finally {
                 context.restore();
             }
-            
-            redraw = false;
         },
         
         updateCoordinates: function(coords, markerCoords) {
@@ -122,10 +115,7 @@ var PathLayer = function(params) {
     self.bind('tidy', function(evt) {
         coordinates = XY.simplify(rawCoords, params.pixelGeneralization);
         markerCoordinates = XY.simplify(rawMarkers, params.pixelGeneralization);
-
-        // wake the parent
-        redraw = true;
-        self.changed();
+        self.changed(true);
     });
     
     self.bind('resync', resyncPath);

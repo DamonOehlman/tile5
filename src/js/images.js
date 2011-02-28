@@ -19,46 +19,30 @@ var Images = (function() {
         loadingImages = [],
         cachedImages = [],
         imageCacheFullness = 0,
-        loadWorker = null,
         clearingCache = false;
 
     /* internal functions */
     
     function loadNextImage() {
-        if (loadWorker) { 
-            return;
-        }
-        
         // get the max image loads
         var maxImageLoads = getConfig().maxImageLoads;
         
         // initialise the load worker
-        loadWorker = COG.Loopage.join({
-            execute: function(tickCount, worker) {
-                if ((! maxImageLoads) || (loadingImages.length < maxImageLoads)) {
-                    var imageData = queuedImages.shift();
-                    
-                    if (! imageData) {
-                        worker.trigger('complete');
-                    }
-                    else {
-                        // add the image data to the loading images
-                        loadingImages[loadingImages.length] = imageData;
+        if ((! maxImageLoads) || (loadingImages.length < maxImageLoads)) {
+            var imageData = queuedImages.shift();
+            
+            if (imageData) {
+                // add the image data to the loading images
+                loadingImages[loadingImages.length] = imageData;
 
-                        // reset the queued flag and attempt to load the image
-                        imageData.image.onload = handleImageLoad;
-                        imageData.image.src = imageData.url;
-                        imageData.requested = T5.ticks();
-                    } // if..else
-                } // if
-            },
-            frequency: 10
-        });
+                // reset the queued flag and attempt to load the image
+                imageData.image.onload = handleImageLoad;
+                imageData.image.src = imageData.url;
+                imageData.requested = T5.ticks();
+            } // if..else
+        } // if
         
-        // handle the load worker finishing
-        loadWorker.bind('complete', function(evt) {
-            loadWorker = null;
-        });
+        // TODO: check timeouts and cache
     } // loadNextImage
     
     function cleanupImageCache() {
@@ -211,12 +195,6 @@ var Images = (function() {
     function cancelLoad() {
         var ii;
         
-        // if we have a load worker, then leave the loop
-        if (loadWorker) {
-            COG.Loopage.leave(loadWorker.id);
-            loadWorker = null;
-        } // if
-        
         // iterate through the loading images and remove them from the images
         for (ii = loadingImages.length; ii--; ) {
             delete images[loadingImages[ii].url];
@@ -362,11 +340,5 @@ var Images = (function() {
     
     // make the images observable
     COG.observable(module);
-
-    COG.Loopage.join({
-        execute: checkTimeoutsAndCache,
-        frequency: 20000
-    });
-    
     return module;
 })();

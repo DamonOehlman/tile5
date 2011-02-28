@@ -219,6 +219,49 @@ var wordExists = exports.wordExists = function(stringToCheck, word) {
 })();
 
 
+var FNS_TIME = [
+        'webkitAnimationTime',
+        'mozAnimationTime',
+        'animationTime',
+        'webkitAnimationStartTime',
+        'mozAnimationStartTime',
+        'animationStartTime'
+    ],
+    FNS_FRAME = [
+        'webkitRequestAnimationFrame',
+        'mozRequestAnimationFrame',
+        'requestAnimationFrame'
+    ];
+
+var animTime = function() {
+    return new Date().getTime();
+};
+
+var animFrame = function(callback) {
+    setTimeout(function() {
+        callback(animTime());
+    }, 1000 / 60);
+};
+
+FNS_TIME.forEach(function(fn) {
+    if (fn in window) {
+        animTime = function() {
+            return window[fn];
+        };
+    } // if
+});
+
+FNS_FRAME.forEach(function(fn) {
+    if (fn in window) {
+        animFrame = function(callback) {
+            window[fn](callback);
+        };
+    } // if
+});
+
+COG.animTime = animTime;
+COG.animFrame = animFrame;
+
 /**
 # COG.Loopage
 This module implements a control loop that can be used to centralize
@@ -226,14 +269,10 @@ jobs draw loops, animation calculations, partial calculations for COG.Job
 instances, etc.
 */
 COG.Loopage = (function() {
-    var MIN_SLEEP = 60 * 1000;
-
-    var workerCount = 0,
+    var frameId = 0,
+        workerCount = 0,
         workers = [],
-        removalQueue = [],
-        loopTimeout = 0,
-        sleepFrequency = MIN_SLEEP,
-        recalcSleepFrequency = true;
+        removalQueue = [];
 
     function LoopWorker(params) {
         var self = COG.extend({
@@ -274,18 +313,16 @@ COG.Loopage = (function() {
     } // leaveLoop
 
     function reschedule() {
-        if (loopTimeout) {
-            clearTimeout(loopTimeout);
+        if (! frameId) {
+            frameId = animFrame(runLoop);
         } // if
-
-        loopTimeout = setTimeout(runLoop, 0);
 
         recalcSleepFrequency = true;
     } // reschedule
 
     function runLoop() {
         var ii,
-            tickCount = new Date().getTime(),
+            tickCount = animTime(),
             workerCount = workers.length;
 
         while (removalQueue.length > 0) {
@@ -298,16 +335,8 @@ COG.Loopage = (function() {
                 } // if
             } // for
 
-            recalcSleepFrequency = true;
             workerCount = workers.length;
         } // while
-
-        if (recalcSleepFrequency) {
-            sleepFrequency = MIN_SLEEP;
-            for (ii = workerCount; ii--; ) {
-                sleepFrequency = workers[ii].frequency < sleepFrequency ? workers[ii].frequency : sleepFrequency;
-            } // for
-        } // if
 
         for (ii = workerCount; ii--; ) {
             var workerDiff = tickCount - workers[ii].lastTick;
@@ -322,7 +351,7 @@ COG.Loopage = (function() {
             } // if
         } // for
 
-        loopTimeout = workerCount ? setTimeout(runLoop, sleepFrequency) : 0;
+        frameId = workerCount ? animFrame(runLoop) : 0;
     } // runLoop
 
     return {
@@ -375,8 +404,7 @@ COG.Loopage = (function() {
                 var eventCallbacks = getHandlersForName(target, eventName),
                     evt = {
                         cancel: false,
-                        name: eventName,
-                        tickCount: new Date().getTime()
+                        name: eventName
                     },
                     eventArgs;
 
@@ -851,20 +879,34 @@ http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-l
     /**
     # COG.tweenValue
     */
-    COG.tweenValue = function(startValue, endValue, fn, callback, duration) {
-        var fnresult = new Tween({
-            startValue: startValue,
-            endValue: endValue,
-            tweenFn: fn,
-            complete: callback,
-            duration: duration
-        });
+    COG.tweenValue = function(startValue, endValue, fn, duration, callback) {
 
-        tweens.push(fnresult);
-        return fnresult;
+        var startTicks = animTime(),
+            change = endValue - startValue,
+            tween = {};
+
+        function runTween(tickCount) {
+            var elapsed = tickCount - startTicks,
+                updatedValue = fn(elapsed, startValue, change, duration),
+                complete = startTicks + duration <= tickCount,
+                cont = !complete,
+                retVal;
+
+            if (callback) {
+                retVal = callback(updatedValue, complete, elapsed);
+
+                cont = typeof retVal != 'undefined' ? retVal && cont : cont;
+            } // if
+
+            if (cont) {
+                animFrame(runTween);
+            } // if
+        } // runTween
+
+        animFrame(runTween);
+
+        return tween;
     }; // T5.tweenValue
-
-
 
     /*
     # T5.tween
@@ -1077,14 +1119,26 @@ var EventMonitor = function(target, handlers, params) {
     }, params);
 
     var observable = params.observable,
-        handlerInstances = [];
+        handlerInstances = [],
+        pans = [];
 
 
     /* internals */
 
     function handlePanMove(evt, absXY, relXY, deltaXY) {
+        pans[pans.length] = {
+            ticks: new Date().getTime(),
+            x: deltaXY.x,
+            y: deltaXY.y
+        };
+
         observable.trigger('pan', deltaXY.x, deltaXY.y);
     } // handlePanMove
+
+    function handlePointerDown(evt, absXY, relXY) {
+        COG.info('reset ' + pans.length + ' pan history');
+        pans = [];
+    } // handlePointerDown
 
     /* exports */
 
@@ -1097,6 +1151,7 @@ var EventMonitor = function(target, handlers, params) {
             inertia: true
         }, opts);
 
+        observable.bind('pointerDown', handlePointerDown);
         observable.bind('pointerMove', handlePanMove);
 
         return self;
@@ -1221,6 +1276,66 @@ var EventMonitor = function(target, handlers, params) {
         return new EventMonitor(target, getHandlers(opts.types, capabilities), opts);
     } // watch
 
+var InertiaMonitor = function(upX, upY, params) {
+    params = COG.extend({
+        inertiaTrigger: 20
+    }, params);
+
+    var INERTIA_TIMEOUT = 300,
+        INERTIA_DURATION = 300,
+        INERTIA_MAXDIST = 500;
+
+    var startTicks = new Date().getTime(),
+        worker;
+
+    /* internals */
+
+    function calcDistance(x1, y1, x2, y2) {
+        var distX = x1 - x2,
+            distY = y1 - y2;
+
+        return Math.sqrt(distX * distX + distY * distY);
+    } // calcDistance
+
+    function calculateInertia(currentX, currentY, distance, tickDiff) {
+        var theta = Math.asin((upY - currentY) / distance),
+            extraDistance = distance * (INERTIA_DURATION / tickDiff) >> 0;
+
+        extraDistance = extraDistance > INERTIA_MAXDIST ? INERTIA_MAXDIST : extraDistance;
+
+        theta = currentX > upX ? theta : Math.PI - theta;
+
+        self.trigger(
+            'inertia',
+            upX,
+            upY,
+            Math.cos(theta) * extraDistance | 0,
+            Math.sin(theta) * -extraDistance | 0);
+    } // calculateInertia
+
+    /* exports */
+
+    function check(currentX, currentY) {
+        var distance = calcDistance(upX, upY, currentX, currentY),
+            tickDiff = new Date().getTime() - startTicks;
+
+        if ((tickDiff < INERTIA_TIMEOUT) && (distance > params.inertiaTrigger)) {
+            calculateInertia(currentX, currentY, distance, tickDiff);
+        }
+        else if (tickDiff > INERTIA_TIMEOUT) {
+            self.trigger('timeout');
+        } // if..else
+    } // check
+
+    var self = {
+        check: check
+    };
+
+    COG.observable(self);
+
+    return self;
+};
+
 /* common pointer (mouse, touch, etc) functions */
 
 function getOffset(obj) {
@@ -1269,7 +1384,6 @@ function preventDefault(evt) {
 } // preventDefault
 var MouseHandler = function(targetElement, observable, opts) {
     opts = COG.extend({
-        inertia: false
     }, opts);
 
     var WHEEL_DELTA_STEP = 120,
@@ -1322,6 +1436,7 @@ var MouseHandler = function(targetElement, observable, opts) {
     function handleMouseDown(evt) {
         if (matchTarget(evt, targetElement)) {
             buttonDown = isLeftButton(evt);
+
             if (buttonDown) {
                 targetElement.style.cursor = 'move';
                 preventDefault(evt);
@@ -1336,7 +1451,7 @@ var MouseHandler = function(targetElement, observable, opts) {
                     start,
                     pointerOffset(start, offset)
                 );
-            } // if
+            }
         } // if
     } // mouseDown
 
@@ -1344,8 +1459,8 @@ var MouseHandler = function(targetElement, observable, opts) {
         currentX = evt.pageX ? evt.pageX : evt.screenX;
         currentY = evt.pageY ? evt.pageY : evt.screenY;
 
-        if (buttonDown && matchTarget(evt, targetElement)) {
-            triggerCurrent('pointerMove');
+        if (matchTarget(evt, targetElement)) {
+            triggerCurrent(buttonDown ? 'pointerMove' : 'pointerHover');
         } // if
     } // mouseMove
 
@@ -1357,7 +1472,6 @@ var MouseHandler = function(targetElement, observable, opts) {
                 targetElement.style.cursor = 'default';
                 triggerCurrent('pointerUp');
             } // if
-
         } // if
     } // mouseUp
 
@@ -1400,18 +1514,22 @@ var MouseHandler = function(targetElement, observable, opts) {
         return button == 1;
     } // leftPressed
 
-    function triggerCurrent(eventName, includeTotal) {
-        var current = point(currentX, currentY);
+    function triggerCurrent(eventName, overrideX, overrideY, updateLast) {
+        var evtX = typeof overrideX != 'undefined' ? overrideX : currentX,
+            evtY = typeof overrideY != 'undefined' ? overrideY : currentY,
+            current = point(evtX, evtY);
 
         observable.trigger(
             eventName,
             current,
             pointerOffset(current, offset),
-            point(currentX - lastX, currentY - lastY)
+            point(evtX - lastX, evtY - lastY)
         );
 
-        lastX = currentX;
-        lastY = currentY;
+        if (typeof updateLast == 'undefined' || updateLast) {
+            lastX = evtX;
+            lastY = evtY;
+        } // if
     } // triggerCurrent
 
     /* exports */
@@ -2563,41 +2681,25 @@ var Images = (function() {
         loadingImages = [],
         cachedImages = [],
         imageCacheFullness = 0,
-        loadWorker = null,
         clearingCache = false;
 
     /* internal functions */
 
     function loadNextImage() {
-        if (loadWorker) {
-            return;
-        }
-
         var maxImageLoads = getConfig().maxImageLoads;
 
-        loadWorker = COG.Loopage.join({
-            execute: function(tickCount, worker) {
-                if ((! maxImageLoads) || (loadingImages.length < maxImageLoads)) {
-                    var imageData = queuedImages.shift();
+        if ((! maxImageLoads) || (loadingImages.length < maxImageLoads)) {
+            var imageData = queuedImages.shift();
 
-                    if (! imageData) {
-                        worker.trigger('complete');
-                    }
-                    else {
-                        loadingImages[loadingImages.length] = imageData;
+            if (imageData) {
+                loadingImages[loadingImages.length] = imageData;
 
-                        imageData.image.onload = handleImageLoad;
-                        imageData.image.src = imageData.url;
-                        imageData.requested = T5.ticks();
-                    } // if..else
-                } // if
-            },
-            frequency: 10
-        });
+                imageData.image.onload = handleImageLoad;
+                imageData.image.src = imageData.url;
+                imageData.requested = T5.ticks();
+            } // if..else
+        } // if
 
-        loadWorker.bind('complete', function(evt) {
-            loadWorker = null;
-        });
     } // loadNextImage
 
     function cleanupImageCache() {
@@ -2734,11 +2836,6 @@ var Images = (function() {
     function cancelLoad() {
         var ii;
 
-        if (loadWorker) {
-            COG.Loopage.leave(loadWorker.id);
-            loadWorker = null;
-        } // if
-
         for (ii = loadingImages.length; ii--; ) {
             delete images[loadingImages[ii].url];
         } // for
@@ -2868,12 +2965,6 @@ var Images = (function() {
     }; //
 
     COG.observable(module);
-
-    COG.Loopage.join({
-        execute: checkTimeoutsAndCache,
-        frequency: 20000
-    });
-
     return module;
 })();
 /**
@@ -2931,7 +3022,7 @@ function zoomable(view, params) {
         maxZoom: 16
     }, params);
 
-    var zoomLevel = params.initial,
+    var zoomLevel = null,
         minZoom = params.minZoom,
         maxZoom = params.maxZoom;
 
@@ -2944,10 +3035,8 @@ function zoomable(view, params) {
             return tweenInstance.cancelOnInteract;
         });
 
-        evt.cancel = ! setZoomLevel(zoomLevel + zoomChange, zoomXY);
-        if (! evt.cancel) {
-            view.updateOffset(zoomXY.x * scaleAmount, zoomXY.y * scaleAmount);
-        } // if
+        setZoomLevel(zoomLevel + zoomChange, zoomXY);
+        view.updateOffset(zoomXY.x * scaleAmount, zoomXY.y * scaleAmount);
     } // handleScale
 
     /* exports */
@@ -2965,17 +3054,11 @@ function zoomable(view, params) {
     Update the map's zoom level to the specified zoom level
     */
     function setZoomLevel(value, zoomXY) {
-        if (value && (zoomLevel !== value)) {
-            var zoomOK =
-                value >= minZoom &&
-                value <= maxZoom &&
-                view.triggerAll('zoomLevelChange', value, zoomXY);
+        value = value ? max(min(value, maxZoom), minZoom) : minZoom;
 
-            if (zoomOK) {
-                zoomLevel = value;
-            } // if
-
-            return zoomOK;
+        if (value != zoomLevel) {
+            zoomLevel = value;
+            view.triggerAll('zoomLevelChange', value, zoomXY);
         } // if
     } // setZoomLevel
 
@@ -3312,7 +3395,7 @@ var View = function(params) {
         idleDelay: 100,
         minRefresh: 1000,
         pannable: true,
-        clipping: false,
+        clipping: true,
         scalable: true,
         interactive: true,
         panAnimationEasing: COG.easing('sine.out'),
@@ -3329,7 +3412,6 @@ var View = function(params) {
     }, params);
 
     var layers = [],
-        aniZoomTimeout,
         layerCount = 0,
         canvas = document.getElementById(params.container),
         mainContext = null,
@@ -3344,7 +3426,7 @@ var View = function(params) {
         offsetWrapY = false,
         clipping = params.clipping,
         cycleRect = null,
-        cycleWorker = null,
+        cycling = false,
         drawRect,
         guides = params.guides,
         deviceScaling = 1,
@@ -3353,34 +3435,26 @@ var View = function(params) {
         halfHeight = 0,
         interactOffset = null,
         interactCenter = null,
+        interacting = false,
         idle = false,
-        panimating = false,
-        paintTimeout = 0,
         idleTimeout = 0,
         panEndTimeout = 0,
-        rescaleTimeout = 0,
         layerMinXY = null,
         layerMaxXY = null,
         lastRefresh = 0,
         rotation = 0,
-        tickCount = 0,
-        stateOverride = null,
-        redrawView = false,
-        redrawEvery = 40,
         resizeCanvasTimeout = 0,
-        scaleTouchesStart = null,
         scaleFactor = 1,
         scaleTween = null,
         lastScaleFactor = 0,
+        lastCycleTicks = 0,
         sizeChanged = false,
-        tweenStart = null,
         eventMonitor = null,
         viewHeight,
         viewWidth,
-        totalScaleChange = 0,
         isFlash = typeof FlashCanvas !== 'undefined',
-        cycleDelay = ~~(1000 / params.fps),
-        zoomCenter,
+        cycleDelay = 1000 / params.fps | 0,
+        viewChanges = 0,
         zoomX, zoomY,
 
         /* state shortcuts */
@@ -3392,29 +3466,16 @@ var View = function(params) {
 
         state = stateActive;
 
-    var vectorRect = XY.getRect,
-        rectDiagonal = XYRect.diagonalSize,
-        rectCenter = XYRect.center;
-
     /* event handlers */
 
     function handlePan(evt, x, y, inertia) {
         state = statePan;
 
-        invalidate();
-
-        if (inertia && params.inertia) {
-            updateOffset(
-                offsetX - x,
-                offsetY - y,
-                params.panAnimationEasing,
-                params.panAnimationDuration);
-        }
-        else if (! inertia) {
-            updateOffset(
-                offsetX - x,
-                offsetY - y);
-        } // if..else
+        updateOffset(
+            offsetX - x,
+            offsetY - y,
+            inertia ? params.panAnimationEasing : null,
+            inertia ? params.panAnimationDuration : null);
 
         clearTimeout(panEndTimeout);
         panEndTimeout = setTimeout(panEnd, 100);
@@ -3424,7 +3485,6 @@ var View = function(params) {
 
     function panEnd() {
         state = stateActive;
-        panimating = false;
         invalidate();
     } // panEnd
 
@@ -3432,12 +3492,8 @@ var View = function(params) {
         scale(min(max(scaleFactor + pow(2, scaleChange) - 1, 0.5), 2));
     } // handleWheelZoom
 
-    function scaleView(fullInvalidate) {
+    function scaleView() {
         var scaleFactorExp = (log(scaleFactor) / Math.LN2) >> 0;
-
-        if (scaleFactor !== 1) {
-            state = stateZoom;
-        } // if
 
         if (scaleFactorExp !== 0) {
             scaleFactor = pow(2, scaleFactorExp);
@@ -3461,13 +3517,11 @@ var View = function(params) {
                 } // for
 
                 scaleFactor = 1;
-                scaleTouchesStart = null;
                 state = stateActive;
-                fullInvalidate = true;
             } // if
         } // if
 
-        invalidate(fullInvalidate);
+        invalidate();
     } // scaleView
 
     function setZoomCenter(xy) {
@@ -3562,7 +3616,7 @@ var View = function(params) {
             minXYOffset = layerMinXY ? XY.offset(layerMinXY, -halfWidth, -halfHeight) : null,
             maxXYOffset = layerMaxXY ? XY.offset(layerMaxXY, -halfWidth, -halfHeight) : null;
 
-        function updateOffsetAnimationEnd() {
+        function endTween() {
             tweensComplete += 1;
 
             if (tweensComplete >= 2) {
@@ -3571,7 +3625,7 @@ var View = function(params) {
                     callback();
                 } // if
             } // if
-        } // updateOffsetAnimationEnd
+        } // endOffsetUpdate
 
         if (minXYOffset) {
             x = x < minXYOffset.x ? minXYOffset.x : x;
@@ -3584,33 +3638,35 @@ var View = function(params) {
         } // if
 
         if (tweenFn) {
-            if (panimating) {
+            if ((state & statePan) !== 0) {
                 return;
             } // if
 
-            var tweenX = COG.tweenValue(offsetX, x, tweenFn,
-                    updateOffsetAnimationEnd, tweenDuration),
+            COG.tweenValue(offsetX, x, tweenFn, tweenDuration, function(val, complete){
+                offsetX = val | 0;
 
-                tweenY = COG.tweenValue(offsetY, y, tweenFn,
-                    updateOffsetAnimationEnd, tweenDuration);
-
-            tweenX.cancelOnInteract = true;
-            tweenX.requestUpdates(function(updatedVal) {
-                offsetX = updatedVal | 0;
-                panimating = true;
-                invalidate();
+                (complete ? endTween : invalidate)();
+                return !interacting;
             });
 
-            tweenY.cancelOnInteract = true;
-            tweenY.requestUpdates(function(updatedVal) {
-                offsetY = updatedVal | 0;
-                panimating = true;
-                invalidate();
+            COG.tweenValue(offsetY, y, tweenFn, tweenDuration, function(val, complete) {
+                offsetY = val | 0;
+
+                (complete ? endTween : invalidate)();
+                return !interacting;
             });
+
+            state = statePan | stateAnimating;
         }
         else {
             offsetX = x | 0;
             offsetY = y | 0;
+
+            invalidate();
+
+            if (callback) {
+                callback();
+            } // if
         } // if..else
     } // updateOffset
 
@@ -3666,7 +3722,7 @@ var View = function(params) {
                 layerContextChanged(layers[ii]);
             } // for
 
-            invalidate(true);
+            invalidate();
         } // if
     } // attachToCanvas
 
@@ -3706,7 +3762,6 @@ var View = function(params) {
             eventMonitor.bind('pan', handlePan);
 
             eventMonitor.bind("inertiaCancel", function(evt) {
-                panimating = false;
                 invalidate();
             });
         } // if
@@ -3769,12 +3824,6 @@ var View = function(params) {
 
     /* draw code */
 
-    function triggerIdle() {
-        refresh();
-
-        idle = true;
-        idleTimeout = 0;
-    } // idle
 
     function calcZoomRect(drawRect) {
         var invScaleFactor = 1 / scaleFactor,
@@ -3803,7 +3852,7 @@ var View = function(params) {
         } // if
     } // calcZoomRect
 
-    function drawView(drawState, rect, redraw, tickCount) {
+    function drawView(drawState, rect, canClip, tickCount) {
         var drawLayer,
             rectCenter = XYRect.center(rect),
             ii = 0;
@@ -3812,7 +3861,7 @@ var View = function(params) {
 
         drawRect.scaleFactor = scaleFactor;
 
-        if (redraw) {
+        if (! canClip) {
             mainContext.clearRect(0, 0, viewWidth, viewHeight);
         } // if
 
@@ -3833,21 +3882,17 @@ var View = function(params) {
 
             /* first pass - clip */
 
-            if (clipping) {
+            if (canClip) {
                 mainContext.beginPath();
 
-                clipped = false;
                 for (ii = layerCount; ii--; ) {
                     if (layers[ii].clip) {
-                        layers[ii].clip(mainContext, drawRect, drawState, self, redraw, tickCount);
-                        clipped = true;
+                        layers[ii].clip(mainContext, drawRect, drawState, self, tickCount);
                     } // if
                 } // for
 
                 mainContext.closePath();
-                if (clipped) {
-                    mainContext.clip();
-                } // if
+                mainContext.clip();
             } // if
 
             /* second pass - draw */
@@ -3875,7 +3920,6 @@ var View = function(params) {
                     drawRect,
                     drawState,
                     self,
-                    redraw,
                     tickCount);
 
                 if (previousStyle) {
@@ -3900,106 +3944,86 @@ var View = function(params) {
             mainContext.stroke();
         } // if
 
+        viewChanges = 0;
+
         triggerAll('drawComplete', rect, tickCount);
-        COG.trace("draw complete", tickCount);
     } // drawView
 
-    function cycle(tickCount, worker) {
-        var draw = false,
-            currentState = stateOverride ? stateOverride : (panimating ? statePan : state),
-            interacting = (! panimating) &&
-                ((currentState === stateZoom) || (currentState === statePan)),
-            requireRedraw = redrawView ||
-                        currentState === statePan ||
-                        (COG.getTweens().length > 0);
+    function cycle(tickCount) {
+        var redrawBG,
+            clippable = false,
+            layerArgs = {};
 
-        if (sizeChanged && canvas) {
-            if (typeof FlashCanvas != 'undefined') {
-                FlashCanvas.initElement(canvas);
+        if (! viewChanges) {
+            cycling = false;
+            return;
+        }
+
+        if (tickCount - lastCycleTicks > cycleDelay) {
+
+            if (scaleFactor !== 1) {
+                state = state | stateZoom;
             } // if
 
-            canvas.width = viewWidth;
-            canvas.height = viewHeight;
+            redrawBG = (state & (stateZoom | statePan)) !== 0;
+            interacting = redrawBG && (state & stateAnimating) === 0;
 
-            canvas.style.width = viewWidth + 'px';
-            canvas.style.height = viewHeight + 'px';
 
-            sizeChanged = false;
-        } // if
+            if (sizeChanged && canvas) {
+                if (typeof FlashCanvas != 'undefined') {
+                    FlashCanvas.initElement(canvas);
+                } // if
 
-        if (offsetMaxX || offsetMaxY) {
-            constrainOffset();
-        } // if
+                canvas.width = viewWidth;
+                canvas.height = viewHeight;
 
-        cycleRect = getViewRect();
+                canvas.style.width = viewWidth + 'px';
+                canvas.style.height = viewHeight + 'px';
 
-        if (interacting) {
-            COG.endTweens(function(tweenInstance) {
-                return tweenInstance.cancelOnInteract;
-            });
-
-            idle = false;
-            if (idleTimeout !== 0) {
-                clearTimeout(idleTimeout);
-                idleTimeout = 0;
-            } // if
-        }  // if
-
-        for (var ii = layerCount; ii--; ) {
-            if (layers[ii].animated) {
-                state = state | stateAnimating;
+                sizeChanged = false;
             } // if
 
-            layers[ii].cycle(tickCount, cycleRect, state, requireRedraw);
-            draw = layers[ii].shouldDraw(state, cycleRect, requireRedraw) || draw;
-        } // for
-
-        requireRedraw = requireRedraw || ((state & stateAnimating) !== 0);
-
-        draw = draw || requireRedraw || ((scaleFactor !== 1) && (scaleFactor !== lastScaleFactor));
-        if (draw) {
-            drawView(currentState, cycleRect, requireRedraw, tickCount);
-            lastScaleFactor = scaleFactor;
-
-            redrawView = false;
-        } // if
-
-        if ((! draw) && (wakeTriggers === 0) && (! isFlash)) {
-            if ((! idle) && (idleTimeout === 0)) {
-                idleTimeout = setTimeout(triggerIdle, idleDelay);
+            if (offsetMaxX || offsetMaxY) {
+                constrainOffset();
             } // if
 
-            worker.trigger('complete');
+            cycleRect = getViewRect();
+
+            if (interacting) {
+                COG.endTweens(function(tweenInstance) {
+                    return tweenInstance.cancelOnInteract;
+                });
+
+                idle = false;
+                if (idleTimeout !== 0) {
+                    clearTimeout(idleTimeout);
+                    idleTimeout = 0;
+                } // if
+            }  // if
+
+            for (var ii = layerCount; ii--; ) {
+                if (layers[ii].animated) {
+                    state = state | stateAnimating;
+                } // if
+
+                layers[ii].cycle(tickCount, cycleRect, state);
+
+                layers[ii].shouldDraw(state, cycleRect);
+
+                clippable = layers[ii].clip || clippable;
+            } // for
+
+            drawView(state, cycleRect, clipping && clippable && (! redrawBG), tickCount);
+
+            if (tickCount - lastRefresh > minRefresh) {
+                refresh();
+            } // if
+
+            lastCycleTicks = tickCount;
         } // if
 
-        if (tickCount - lastRefresh > minRefresh) {
-            refresh();
-        } // if
-
-        wakeTriggers = 0;
-        COG.trace("Completed draw cycle", tickCount);
+        COG.animFrame(cycle);
     } // cycle
-
-    /**
-    ### invalidate()
-    The `invalidate` method is used to inform the view that a full redraw
-    is required
-    */
-    function invalidate(redraw) {
-        redrawView = redraw ? true : false;
-
-        wakeTriggers += 1;
-        if (cycleWorker) { return; }
-
-        cycleWorker = COG.Loopage.join({
-            execute: cycle,
-            frequency: cycleDelay
-        });
-
-        cycleWorker.bind('complete', function(evt) {
-            cycleWorker = null;
-        });
-    } // invalidate
 
     function layerContextChanged(layer) {
         layer.trigger("contextChanged", mainContext);
@@ -4017,6 +4041,15 @@ var View = function(params) {
             callback(layers[ii]);
         } // for
     } // eachLayer
+
+    function invalidate() {
+        viewChanges += 1;
+
+        if (! cycling) {
+            cycling = true;
+            COG.animFrame(cycle);
+        } // if
+    } // invalidate
 
     /**
     ### getDimensions()
@@ -4087,6 +4120,7 @@ var View = function(params) {
 
         if (value) {
             addLayer(id, value);
+            value.trigger('refresh', self, getViewRect());
         } // if
 
         invalidate();
@@ -4099,7 +4133,7 @@ var View = function(params) {
     */
     function refresh() {
         lastRefresh = new Date().getTime();
-        triggerAll('refresh', self);
+        triggerAll('refresh', self, getViewRect());
 
         invalidate();
     } // refresh
@@ -4114,7 +4148,7 @@ var View = function(params) {
             self.trigger('layerRemoved', layers[layerIndex]);
 
             layers.splice(layerIndex, 1);
-            invalidate(true);
+            invalidate();
         } // if
 
         layerCount = layers.length;
@@ -4143,11 +4177,9 @@ var View = function(params) {
     ### scale(targetScaling, targetXY, tweenFn, callback)
     */
     function scale(targetScaling, targetXY, tweenFn, callback, duration) {
-        if (tweenFn && (! scaleTween)) {
-            scaleTween = COG.tweenValue(scaleFactor, targetScaling, tweenFn, null, duration);
-
-            scaleTween.requestUpdates(function(updatedValue, completed) {
-                scaleFactor = updatedValue;
+        if (tweenFn) {
+            COG.tweenValue(scaleFactor, targetScaling, tweenFn, duration, function(val, completed) {
+                scaleFactor = val;
 
                 if (completed) {
                     var scaleFactorExp = round(log(scaleFactor) / Math.LN2);
@@ -4157,19 +4189,17 @@ var View = function(params) {
                     if (callback) {
                         callback();
                     } // if
-
-                    scaleTween = null;
                 } // if
 
                 setZoomCenter(targetXY);
-                scaleView(completed);
+                scaleView();
             });
         }
         else {
             scaleFactor = targetScaling;
 
             setZoomCenter(targetXY);
-            scaleView(true);
+            scaleView();
         }  // if..else
 
         return self;
@@ -4216,14 +4246,6 @@ var View = function(params) {
         triggerAll: triggerAll,
         removeLayer: removeLayer,
 
-        /**
-        ### stateOverride(state)
-        This function is used to define an override state for the view
-        */
-        stateOverride: function(value) {
-            stateOverride = value;
-        },
-
         /* offset methods */
 
         getOffset: getOffset,
@@ -4239,8 +4261,8 @@ var View = function(params) {
 
     COG.observable(self);
 
-    self.bind('invalidate', function(evt, redraw) {
-        invalidate(redraw);
+    self.bind('invalidate', function(evt) {
+        invalidate();
     });
 
     self.bind('resync', handleResync);
@@ -4360,9 +4382,8 @@ var ViewLayer = function(params) {
         and then continues to do a bitmask operation against the validStates property
         to see if the current display state is acceptable.
         */
-        shouldDraw: function(displayState, viewRect, redraw) {
+        shouldDraw: function(displayState, viewRect) {
             var drawOK = changed ||
-                    redraw ||
                     (lastOffsetX !== viewRect.x1) ||
                     (lastOffsetY !== viewRect.y1);
 
@@ -4376,12 +4397,12 @@ var ViewLayer = function(params) {
         clip: null,
 
         /**
-        ### cycle(tickCount, offset, state, redraw)
+        ### cycle(tickCount, offset, state)
 
         Called in the View method of the same name, each layer has an opportunity
         to update itself in the current animation cycle before it is drawn.
         */
-        cycle: function(tickCount, offset, state, redraw) {
+        cycle: function(tickCount, offset, state) {
         },
 
         /**
@@ -4394,10 +4415,9 @@ var ViewLayer = function(params) {
             - viewRect - the current view rect
             - state - the current DisplayState of the view
             - view - a reference to the View
-            - redraw - whether a redraw is required
             - tickCount - the current tick count
         */
-        draw: function(context, viewRect, state, view, redraw, tickCount) {
+        draw: function(context, viewRect, state, view, tickCount) {
         },
 
         /**
@@ -4412,18 +4432,18 @@ var ViewLayer = function(params) {
         },
 
         /**
-        ### changed(redraw)
+        ### changed()
 
         The changed method is used to flag the layer has been modified and will require
         a redraw
 
         */
-        changed: function(redraw) {
+        changed: function() {
             changed = true;
             self.trigger('changed', self);
 
             if (parent) {
-                parent.trigger('invalidate', redraw);
+                parent.invalidate();
             } // if
         },
 
@@ -4496,15 +4516,15 @@ var ImageLayer = function(genId, params) {
     }, params);
 
     var generator = genId ? Generator.init(genId, params) : null,
-        generatedImages = [],
-        lastViewRect = XYRect.init(),
+        generateCount = 0,
+        images = [],
         loadArgs = params.imageLoadArgs;
 
     /* private internal functions */
 
     function eachImage(viewRect, viewState, callback) {
-        for (var ii = generatedImages.length; ii--; ) {
-            var imageData = generatedImages[ii],
+        for (var ii = images.length; ii--; ) {
+            var imageData = images[ii],
                 xx = imageData.x,
                 yy = imageData.y,
                 imageRect = XYRect.init(
@@ -4518,25 +4538,34 @@ var ImageLayer = function(genId, params) {
                     self.changed();
                 }, loadArgs);
 
-                callback(image, xx, yy, imageData.width, imageData.height);
+                if (image) {
+                    callback(image, xx, yy, imageData.width, imageData.height);
+                } // if
             } // if
         } // for
     } // eachImage
 
     /* every library should have a regenerate function - here's mine ;) */
     function regenerate(viewRect) {
+        var sequenceId = ++generateCount,
+            view = self.getParent();
+
         if (generator) {
-            generator.run(viewRect, self.getParent(), function(images) {
-                generatedImages = [].concat(images);
-                self.changed();
+            COG.info('generating: ' + XYRect.toString(viewRect) + ', sequence = ' + sequenceId);
+
+            generator.run(view, viewRect, function(newImages) {
+                if (sequenceId == generateCount) {
+                    images = [].concat(newImages);
+                    self.changed();
+                } // if
             });
         } // if
     } // regenerate
 
     /* event handlers */
 
-    function handleRefresh(evt, view) {
-        regenerate(lastViewRect);
+    function handleRefresh(evt, view, viewRect) {
+        regenerate(viewRect);
     } // handleViewIdle
 
     function handleTap(evt, absXY, relXY, offsetXY) {
@@ -4546,9 +4575,9 @@ var ImageLayer = function(genId, params) {
             genImage,
             tapped;
 
-        if (generatedImages) {
-            for (var ii = generatedImages.length; ii--; ) {
-                genImage = generatedImages[ii];
+        if (images) {
+            for (var ii = images.length; ii--; ) {
+                genImage = images[ii];
 
                 tapped = offsetX >= genImage.x &&
                     offsetX <= genImage.x + genImage.width &&
@@ -4574,15 +4603,13 @@ var ImageLayer = function(genId, params) {
     function changeGenerator(generatorId, args) {
         generator = Generator.init(generatorId, COG.extend({}, params, args));
 
-        generatedImages = null;
-        regenerate(lastViewRect);
+        images = null;
+        regenerate(self.getParent().getViewRect());
     } // changeGenerator
 
     function clip(context, viewRect, state, view) {
         eachImage(viewRect, state, function(image, x, y, width, height) {
-            if (image) {
-                context.rect(x, y, width, height);
-            } // if
+            context.rect(x, y, width, height);
         });
     } // clip
 
@@ -4591,8 +4618,6 @@ var ImageLayer = function(genId, params) {
         eachImage(viewRect, state, function(image, x, y, width, height) {
             self.drawImage(context, image, x, y, width, height, viewRect, state);
         });
-
-        lastViewRect = XYRect.copy(viewRect);
     } // draw
 
     function drawImage(context, image, x, y, width, height, viewRect, state) {
@@ -4611,11 +4636,6 @@ var ImageLayer = function(genId, params) {
     var self = COG.extend(new ViewLayer(params), {
         changeGenerator: changeGenerator,
         clip: clip,
-
-        cycle: function(tickCount, rect, state, redraw) {
-            regenerate(rect);
-        },
-
         draw: draw,
         drawImage: drawImage
     });
@@ -4623,6 +4643,33 @@ var ImageLayer = function(genId, params) {
     self.bind('refresh', handleRefresh);
     self.bind('tap', handleTap);
 
+    return self;
+};
+/**
+# T5.ImageGenerator
+
+## Events
+
+### update
+*/
+var ImageGenerator = function(params) {
+    params = COG.extend({
+        relative: false,
+        padding: 2
+    }, params);
+
+    /**
+    ### run(viewRect, view, callback)
+    */
+    function run(view, viewRect, callback) {
+        COG.warn('running base generator - this should be overriden');
+    } // run
+
+    var self = {
+        run: run
+    };
+
+    COG.observable(self);
     return self;
 };
 
@@ -4699,25 +4746,14 @@ var Marker = function(params) {
         */
         draw: function(context, viewRect, state, overlay, view) {
             if (self.isNew && (params.tweenIn)) {
-                var endValue = self.xy.y;
+                var duration = params.animationSpeed ? params.animationSpeed : 250 + (Math.random() * 500);
 
-                self.xy.y = viewRect.y1 - 20;
+                COG.tweenValue(viewRect.y1 - 20, self.xy.y, params.tweenIn, duration, function(val, completed) {
+                    self.xy.y = val | 0;
+                    animating = !completed;
 
-                animating = true;
-
-                COG.tween(
-                    self.xy,
-                    'y',
-                    endValue,
-                    params.tweenIn,
-                    function() {
-                        self.xy.y = endValue >> 0;
-                        animating = false;
-                    },
-                    params.animationSpeed ?
-                        params.animationSpeed :
-                        250 + (Math.random() * 500)
-                );
+                    view.invalidate();
+                });
             } // if
 
             self.drawMarker(
@@ -5149,8 +5185,7 @@ var PathLayer = function(params) {
         zindex: 50
     }, params);
 
-    var redraw = false,
-        coordinates = [],
+    var coordinates = [],
         markerCoordinates = null,
         rawCoords = [],
         rawMarkers = null,
@@ -5185,10 +5220,6 @@ var PathLayer = function(params) {
                 drawIndicator: drawCallback,
                 autoCenter: autoCenter ? autoCenter : false
             });
-        },
-
-        cycle: function(tickCount, viewRect, state, redraw) {
-            return redraw;
         },
 
         draw: function(context, viewRect, state, view) {
@@ -5235,8 +5266,6 @@ var PathLayer = function(params) {
             finally {
                 context.restore();
             }
-
-            redraw = false;
         },
 
         updateCoordinates: function(coords, markerCoords) {
@@ -5250,9 +5279,7 @@ var PathLayer = function(params) {
     self.bind('tidy', function(evt) {
         coordinates = XY.simplify(rawCoords, params.pixelGeneralization);
         markerCoordinates = XY.simplify(rawMarkers, params.pixelGeneralization);
-
-        redraw = true;
-        self.changed();
+        self.changed(true);
     });
 
     self.bind('resync', resyncPath);
@@ -5622,7 +5649,7 @@ var ShapeLayer = function(params) {
             } // for
         },
 
-        draw: function(context, viewRect, state, view, redraw) {
+        draw: function(context, viewRect, state, view) {
             var viewX = viewRect.x1,
                 viewY = viewRect.y1,
                 viewWidth = viewRect.width,
@@ -5672,151 +5699,6 @@ var Tiling = (function() {
         init: init
     };
 })();
-/**
-# T5.TileGenerator
-
-## Events
-
-### update
-*/
-var TileGenerator = function(params) {
-    params = COG.extend({
-        tileWidth: 256,
-        tileHeight: 256,
-        relative: false,
-        padding: 2
-    }, params);
-
-    var lastRect = null,
-        requestXY = XY.init(),
-        tileLoader = null,
-        padding = params.padding,
-        requestedTileCreator = false,
-        tileWidth = params.tileWidth,
-        halfTileWidth = tileWidth >> 1,
-        tileHeight = params.tileHeight,
-        halfTileHeight = tileHeight >> 1,
-        tileCreator = null,
-        xTiles = 0,
-        yTiles = 0,
-        imageQueue = [];
-
-    /* internal functions */
-
-    function makeTileCreator(tileWidth, tileHeight, creatorArgs, callback) {
-
-        function innerInit() {
-            if (self.initTileCreator) {
-                requestedTileCreator = true;
-
-                self.initTileCreator(tileWidth, tileHeight, creatorArgs, callback);
-            } // if
-        } // if
-
-        if (self.prepTileCreator) {
-            self.prepTileCreator(tileWidth, tileHeight, creatorArgs, innerInit);
-        }
-        else {
-            innerInit();
-        } // if..else
-    } // makeTileCreator
-
-    function runTileCreator(viewRect, callback) {
-        var relX = ~~((viewRect.x1 - requestXY.x) / tileWidth),
-            relY = ~~((viewRect.y1 - requestXY.y) / tileHeight),
-            endX = viewRect.width,
-            endY = viewRect.height,
-            tiles = [];
-
-        for (var xx = -padding; xx < xTiles; xx++) {
-            for (var yy = -padding; yy < yTiles; yy++) {
-                var tile = tileCreator(relX + xx, relY + yy);
-
-                if (tile) {
-                    tiles[tiles.length] = tile;
-                } // if
-            } // for
-        } // for
-
-        if (callback) {
-            callback(tiles);
-        } // if
-
-        lastRect = XYRect.copy(viewRect);
-    } // runTileCreator
-
-    /* event handlers */
-
-    /* exports */
-
-    /**
-    ### requireRefresh(viewRect, view)
-    This function is used to determine whether or not a new tile creator is required
-    */
-    function requireRefresh(viewRect, view) {
-        return false;
-    } // requireRefresh
-
-    /**
-    ### reset()
-    */
-    function reset() {
-        tileCreator = null;
-        requestedTileCreator = false;
-        lastRect = null;
-    } // resetTileCreator
-
-    /**
-    ### run(viewRect, view, callback)
-    */
-    function run(viewRect, view, callback) {
-        var recalc = (! lastRect) ||
-                (Math.abs(viewRect.x1 - lastRect.x1) > tileWidth) ||
-                (Math.abs(viewRect.y1 - lastRect.y1) > tileHeight),
-            requireRefresh = recalc ? self.requireRefresh(viewRect, view) : false;
-
-        if (recalc) {
-            if (((! tileCreator) && (! requestedTileCreator)) || requireRefresh) {
-                requestXY = params.relative ? XY.init(viewRect.x1, viewRect.y1) : XY.init();
-                xTiles = Math.ceil(viewRect.width / tileWidth) + padding;
-                yTiles = Math.ceil(viewRect.height / tileHeight) + padding;
-
-                makeTileCreator(
-                    tileWidth,
-                    tileHeight,
-                    self.getTileCreatorArgs ? self.getTileCreatorArgs(view) : {},
-                    function(creator) {
-                        tileCreator = creator;
-                        requestedTileCreator = false;
-
-                        runTileCreator(viewRect, callback);
-                    });
-            } // if
-
-            if (tileCreator) {
-                runTileCreator(viewRect, callback);
-            } // if
-        } //  if
-    } // run
-
-    var self = {
-        getTileCreatorArgs: null,
-        initTileCreator: null,
-        prepTileCreator: null,
-        requireRefresh: requireRefresh,
-        reset: reset,
-        run: run
-    };
-
-    COG.observable(self);
-
-    self.bind('update', function(evt) {
-        COG.info('captured generator update');
-        lastRect = null;
-    });
-
-    return self;
-};
 
     var exports = {
         ex: COG.extend,
@@ -5847,6 +5729,7 @@ var TileGenerator = function(params) {
         View: View,
         ViewLayer: ViewLayer,
         ImageLayer: ImageLayer,
+        ImageGenerator: ImageGenerator,
 
         Marker: Marker,
         ImageMarker: ImageMarker,
@@ -5860,8 +5743,7 @@ var TileGenerator = function(params) {
         Poly: Poly,
         ShapeLayer: ShapeLayer,
 
-        Tiling: Tiling,
-        TileGenerator: TileGenerator
+        Tiling: Tiling
     };
 
     COG.observable(exports);

@@ -3,6 +3,12 @@ T5.Style.defineMany({
         lineWidth: 3,
         strokeStyle: 'rgba(0,126,232,0.8)'
     },
+    
+    'area.simple': {
+       lineWidth: 1,
+       strokeStyle: 'rgba(0, 0, 0, 0.8)',
+       fillStyle: 'rgba(255, 255, 255, 0.7)'
+    },
 
     'area.parkland': {
         lineWidth: 1,

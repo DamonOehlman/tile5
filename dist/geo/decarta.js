@@ -1058,7 +1058,7 @@ T5.Geo.Decarta = (function() {
         /* define the generator */
 
         // initialise the generator
-        var self = COG.extend(new T5.MapTileGenerator(params), {
+        var self = COG.extend(new T5.ImageGenerator(params), {
             initTileCreator: initTileCreator
         });
         

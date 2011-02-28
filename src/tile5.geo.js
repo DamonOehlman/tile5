@@ -26,7 +26,6 @@ var Geo = exports.Geo = (function() {
     //= require "js/geo/geojson"
 
     //= require "js/geo/ui/map"
-    //= require "js/geo/ui/maptilegenerator"
     //= require "js/geo/ui/geopoly"
     //= require "js/geo/ui/routeoverlay"
     //= require "js/geo/ui/locationoverlay"
