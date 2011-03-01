@@ -34,22 +34,22 @@ var RouteOverlay = exports.RouteOverlay = function(params) {
                 positions[ii] = instructions[ii].position;
             } // for
 
-            Position.vectorize(positions).bind(
-                'complete',
-                function(evt, coords) {
+            Position.vectorize(positions, {
+                callback: function(coords) {
                     instructionCoords = coords;
-                });
+                }
+            });
         } // if
         
         if (params.data && params.data.geometry) {
-            Position.vectorize(params.data.geometry).bind(
-                'complete', 
-                function(evt, coords) {
+            Position.vectorize(params.data.geometry, {
+                callback: function(coords) {
                     coordinates = coords;
                     
                     // now update the coordinates
                     self.updateCoordinates(coordinates, instructionCoords, true);
-                });
+                }
+            });
         } // if
     } // vectorizeRoute
     
