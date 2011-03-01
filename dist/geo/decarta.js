@@ -841,10 +841,16 @@ T5.Geo.Decarta = (function() {
                     hosts = [];
 
                     // initialise the hosts
-                    for (var ii = 0; ii < tileConfig.aliasCount; ii++) {
-                        hosts[ii] = 'http://' + tileConfig.host.replace('^(.*?)\.(.*)$', '\1-0' + (ii + 1) + '.\2');
-                    } // for
+                    if (tileConfig.aliasCount) {
+                        for (var ii = 0; ii < tileConfig.aliasCount; ii++) {
+                            hosts[ii] = 'http://' + tileConfig.host.replace('^(.*?)\.(.*)$', '\1-0' + (ii + 1) + '.\2');
+                        } // for
+                    }
+                    else {
+                        hosts = ['http://' + tileConfig.host];
+                    } // if..else
 
+                    // create the tiles
                     createTiles(view, viewRect, callback);
                 });
             }
