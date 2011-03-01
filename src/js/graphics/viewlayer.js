@@ -91,12 +91,7 @@ var ViewLayer = function(params) {
         to see if the current display state is acceptable.
         */
         shouldDraw: function(displayState, viewRect) {
-            var drawOK = changed || 
-                    (lastOffsetX !== viewRect.x1) || 
-                    (lastOffsetY !== viewRect.y1);
-                    
-            return drawOK && ((displayState & validStates) !== 0) && 
-                (parentFastDraw ? supportFastDraw: true);
+            return ((displayState & validStates) !== 0);
         },
 
         /**
@@ -149,7 +144,6 @@ var ViewLayer = function(params) {
         changed: function() {
             // flag as changed
             changed = true;
-            self.trigger('changed', self);
             
             // invalidate the parent
             if (parent) {

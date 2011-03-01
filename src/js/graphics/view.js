@@ -245,6 +245,10 @@ var View = function(params) {
                 scaleFactor = 1;
                 state = stateActive;
             } // if
+            
+            // refresh the display
+            // TODO: check whether this should be triggered elsewhere
+            refresh();
         } // if
 
         // invalidate the view

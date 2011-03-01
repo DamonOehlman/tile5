@@ -63,11 +63,13 @@ T5.Geo.OSM = (function() {
         /* exports */
         
         function buildTileUrl(tileX, tileY, zoomLevel, numTiles, flipY) {
+            var tileUrl;
+            
             // determine the tile url
-            var tileUrl = COG.formatStr(tilePath,
-                    zoomLevel,
-                    tileX,
-                    flipY ? Math.abs(tileY - numTiles + 1) : tileY);
+            tileUrl = COG.formatStr(tilePath,
+                zoomLevel,
+                tileX % numTiles,
+                flipY ? Math.abs(tileY - numTiles + 1) : tileY);
 
             // COG.info('getting url for tile x = ' + tileX + ', y = ' + tileY);
             if (serverDetails) {
@@ -78,44 +80,6 @@ T5.Geo.OSM = (function() {
             
             return tileUrl;
         } // buildTileUrl
-        
-        function initTileCreator(tileWidth, tileHeight, callback) {
-            
-        } // initTileLoader
-        
-        // initialise the tile creator
-        function tileCreator(tileX, tileY) {
-            if (! tileOffset.x) {
-                return null;
-            } // if
-
-            var realTileX = tileOffset.x + tileX,
-                realTileY = tileOffset.y + tileY,
-                tileUrl;
-
-            // bring the real tile x into the appropriate range
-            realTileX = realTileX % numTiles;
-            while (realTileX < 0) {
-                realTileX += numTiles;
-            } // while
-
-            realTileY = realTileY % numTiles;
-            while (realTileY < 0) {
-                realTileY += numTiles;
-            } // while
-
-            // build the tile url 
-            tileUrl = self.buildTileUrl(realTileX, realTileY, zoomLevel, numTiles, flipY);
-            if (tileUrl) {
-                return T5.Tiling.init(
-                    baseX + (tileX * tileWidth), 
-                    baseY + (tileY * tileHeight),
-                    tileWidth,
-                    tileHeight, {
-                        url: tileUrl
-                    });
-            } // if
-        }; // loader
         
         function run(view, viewRect, callback) {
             var zoomLevel = view.getZoomLevel ? view.getZoomLevel() : 0;

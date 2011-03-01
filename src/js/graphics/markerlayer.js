@@ -77,8 +77,11 @@ var MarkerLayer = function(params) {
     additionally, firing the markers changed event
     */
     function markerUpdate() {
+        // resync the markers
+        resyncMarkers();
+        
         // wake and invalidate the parent
-        self.changed(true);
+        self.changed();
         
         // trigger the markers changed event
         self.trigger('markerUpdate', markers);
@@ -221,7 +224,6 @@ var MarkerLayer = function(params) {
     self.bind('tap', handleTap);
     self.bind('parentChange', resyncMarkers);
     self.bind('resync', resyncMarkers);
-    self.bind('changed', resyncMarkers);
     
     return self;
 };

@@ -54,7 +54,7 @@ var ImageLayer = function(genId, params) {
             generator.run(view, viewRect, function(newImages) {
                 if (sequenceId == generateCount) {
                     images = [].concat(newImages);
-                    self.changed();
+                    view.invalidate();
                 } // if
             });
         } // if

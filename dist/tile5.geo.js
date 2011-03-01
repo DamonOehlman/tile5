@@ -3519,6 +3519,8 @@ var View = function(params) {
                 scaleFactor = 1;
                 state = stateActive;
             } // if
+
+            refresh();
         } // if
 
         invalidate();
@@ -4383,12 +4385,7 @@ var ViewLayer = function(params) {
         to see if the current display state is acceptable.
         */
         shouldDraw: function(displayState, viewRect) {
-            var drawOK = changed ||
-                    (lastOffsetX !== viewRect.x1) ||
-                    (lastOffsetY !== viewRect.y1);
-
-            return drawOK && ((displayState & validStates) !== 0) &&
-                (parentFastDraw ? supportFastDraw: true);
+            return ((displayState & validStates) !== 0);
         },
 
         /**
@@ -4440,7 +4437,6 @@ var ViewLayer = function(params) {
         */
         changed: function() {
             changed = true;
-            self.trigger('changed', self);
 
             if (parent) {
                 parent.invalidate();
@@ -4556,7 +4552,7 @@ var ImageLayer = function(genId, params) {
             generator.run(view, viewRect, function(newImages) {
                 if (sequenceId == generateCount) {
                     images = [].concat(newImages);
-                    self.changed();
+                    view.invalidate();
                 } // if
             });
         } // if
@@ -5033,7 +5029,9 @@ var MarkerLayer = function(params) {
     additionally, firing the markers changed event
     */
     function markerUpdate() {
-        self.changed(true);
+        resyncMarkers();
+
+        self.changed();
 
         self.trigger('markerUpdate', markers);
     } // markerUpdate
@@ -5166,7 +5164,6 @@ var MarkerLayer = function(params) {
     self.bind('tap', handleTap);
     self.bind('parentChange', resyncMarkers);
     self.bind('resync', resyncMarkers);
-    self.bind('changed', resyncMarkers);
 
     return self;
 };
@@ -7906,21 +7903,21 @@ var RouteOverlay = exports.RouteOverlay = function(params) {
                 positions[ii] = instructions[ii].position;
             } // for
 
-            Position.vectorize(positions).bind(
-                'complete',
-                function(evt, coords) {
+            Position.vectorize(positions, {
+                callback: function(coords) {
                     instructionCoords = coords;
-                });
+                }
+            });
         } // if
 
         if (params.data && params.data.geometry) {
-            Position.vectorize(params.data.geometry).bind(
-                'complete',
-                function(evt, coords) {
+            Position.vectorize(params.data.geometry, {
+                callback: function(coords) {
                     coordinates = coords;
 
                     self.updateCoordinates(coordinates, instructionCoords, true);
-                });
+                }
+            });
         } // if
     } // vectorizeRoute
 

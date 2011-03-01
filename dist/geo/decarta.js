@@ -14,6 +14,7 @@ T5.Geo.Decarta = (function() {
         tileFormat: "PNG",
         fixedGrid: true,
         useCache: true,
+        tileHosts: [],
         
         // REQUEST TIMEOUT in milliseconds
         requestTimeout: 30000,
@@ -345,443 +346,302 @@ T5.Geo.Decarta = (function() {
         return new T5.Geo.Address(addressParams);
     } // parseAddress
 
-    var requestTypes = {
-        Request: function() {
-            // initialise self
-            var self = {
-                methodName: "",
-                maxResponses: 25,
-                version: "1.0",
-                requestID: requestCounter++,
+    // define the basic request type
+    var Request = function() {
+        // initialise self
+        var self = {
+            methodName: "",
+            maxResponses: 25,
+            version: "1.0",
+            requestID: requestCounter++,
 
-                getRequestBody: function() {
-                    return "";
-                },
+            getRequestBody: function() {
+                return "";
+            },
 
-                parseResponse: function(response) {
-                    return response;
-                }
-            }; // self
+            parseResponse: function(response) {
+                return response;
+            }
+        }; // self
 
-            return self;
-        },
-        
-        PortrayMapRequest: function(lat, lon, zoom_level, pinPosition) {
-            // initialise variables
-
-            function findGridLayer(layers, layer_name) {
-                for (var ii = 0; ii < layers.length; ii++) {
-                    if (layers[ii].GridLayer.name == layer_name) {
-                        return layers[ii];
-                    } // if
-                } // for
-
-                return null;
-            } // findGridLayer
-
-            function parseImageUrl(url) {
-                var fnresult = {
-                    mask: url
+        return self;
+    };
+    
+    var RUOKRequest = function(params) {
+        return COG.extend(new Request(), {
+            methodName: 'RUOK',
+            
+            parseResponse: function(response) {
+                return {
+                    aliasCount: response.maxHostAliases,
+                    host: response.hostName
                 };
-                var regexes = [
-                    (/(\?|\&)(N)\=(\-?\d+)/i),
-                    (/(\?|\&)(E)\=(\-?\d+)/i)
-                ]; 
+            }
+        });
+    }; // RUOKRequest
+        
+    var GeocodeRequest = function(params) {
+        params = COG.extend({
+            addresses: [],
+            parserReport: false,
+            parseOnly: false,
+            returnSpatialKeys: false
+        }, params);
+        
+        function validMatch(match) {
+            return match.GeocodeMatchCode && match.GeocodeMatchCode.matchType !== "NO_MATCH";
+        } // validMatch
+        
+        function parseMatchResult(match) {
+            var matchAddress = null;
+            var matchPos = null;
 
-                // iterate through the regular expressions and capture north position and east positio
-                for (var ii = 0; ii < regexes.length; ii++) {
-                    // get the matches
-                    var matches = regexes[ii].exec(url);
+            if (match && validMatch(match)) {
+                // if the point is defined, then convert that to a position
+                if (match && match.Point) {
+                    matchPos = T5.Geo.Position.parse(match.Point.pos);
+                } // if
 
-                    // update the fnresult with the appropriate parameter
-                    fnresult[matches[2]] = matches[3];
-                    fnresult.mask = fnresult.mask.replace(regexes[ii], "$1$2=${" + matches[2] + "}");
+                // if we have the address then convert that to an address
+                if (match && match.Address) {
+                    matchAddress = parseAddress(match.Address, matchPos);
+                } // if
+            }
+            
+            return matchAddress;
+        } // parseMatchResult
+        
+        function getResponseAddresses(responseList) {
+            // get the number of responses
+            var addresses = [];
+            var responseCount = responseList ? responseList.numberOfGeocodedAddresses : 0;
+            var matchList = [];
+            
+            // NOTE: this code has been implemented to compensate for strangeness in deCarta JSON land...
+            // see https://github.com/sidelab/T5-closed/wikis/geocoder-json-response for more information
+            if (responseCount > 1) {
+                matchList = responseList.GeocodedAddress;
+            }
+            else if (responseCount == 1) {
+                matchList = [responseList.GeocodedAddress];
+            } // if..else
+            
+            try {
+                // iterate through the response list
+                for (var ii = 0; matchList && (ii < matchList.length); ii++) {
+                    var matchResult = parseMatchResult(matchList[ii]);
+                    if (matchResult) {
+                        addresses.push(matchResult);
+                    } // if
                 } // for
-
-                return fnresult;
-            } // parseImageUrl
+            } 
+            catch (e) {
+                COG.exception(e);
+            } // try..except
             
-            // check the zoom level is within tolerances
-            zoom_level = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom_level));
-            
-            // if the last zoom level is defined, then set the zoom string 
-            var zoomString = zoom_level;
-            if (lastZoom) {
-                zoomString += ":" + lastZoom;
-                // COG.info("zoom string = " + zoomString);
-            } // if
-
-            // create the parent
-            var parent = new requestTypes.Request();
-
-            var self = COG.extend({}, parent, {
-                // override core properties
-                methodName: "PortrayMap",
-                maxResponses: 10,
-
-                // initialise map request props
-                latitude: lat,
-                longitude: lon,
-                zoom: zoom_level,
-
-                getRequestBody: function() {
-                    // update the last zoom
-                    lastZoom = zoom_level;
+            return addresses;                
+        } // getResponseAddresses
                     
-                    return COG.formatStr(
-                        // initialise the xml request content
-                        "<xls:PortrayMapRequest>" + 
-                            "<xls:Output height='{0}' width='{0}' format='{1}' fixedgrid='{2}' useCache='{3}'>" + 
-                                "<xls:CenterContext SRS='WGS-84'>" + 
-                                    "<xls:CenterPoint>" + 
-                                        "<gml:pos>{4} {5}</gml:pos>" + 
-                                    "</xls:CenterPoint>" +
-                                    "<xls:Radius unit='{6}'>{7}</xls:Radius>" + 
-                                "</xls:CenterContext>" +
-                                "<xls:TileGrid rows='1' columns='1'>" + 
-                                    "<xls:GridLayer name='deCarta' />" + 
-                                    "<xls:GridLayer name='globexplorer' meta-inf='{8}' />" + 
-                                "</xls:TileGrid>" + 
-                            "</xls:Output>" +
-                            (pinPosition ? 
-                            // TODO: encapsulate this center overlay request in a debug setting...
-                            "<xls:Overlay>" + 
-                                "<xls:Position>" + 
-                                    "<gml:Point>" +
-                                        "<gml:pos>{4} {5}</gml:pos>" + 
-                                    "</gml:Point>" +
-                                "</xls:Position>" +
-                                "<xls:Style><xls:StyleContent>poi.gif:Center</xls:StyleContent></xls:Style>" +
-                            "</xls:Overlay>" : "") +
-                        "</xls:PortrayMapRequest>",
+        // create the parent
+        var parent = new Request();
+        
+        // initialise self
+        var self = COG.extend({}, parent, {
+            methodName: "Geocode",
+            
+            getRequestBody: function() {
+                var body = COG.formatStr("<xls:GeocodeRequest parserReport=\"{0}\" parseOnly=\"{1}\" returnSpatialKeys=\"{2}\">", 
+                                params.parserReport, 
+                                params.parseOnly,
+                                params.returnSpatialKeys);
+                
+                // iterate through the addresses and create the inner tags
+                for (var ii = 0; ii < params.addresses.length; ii++) {
+                    body += params.addresses[ii].getXML();
+                } // for
+                
+                return body + "</xls:GeocodeRequest>";
+            },
+            
+            parseResponse: function(response) {
+                // COG.info("got response: ", response);
 
-                        // set the variables in the order they were used
-                        T5.Tiling.tileSize,
-                        currentConfig.tileFormat,
-                        currentConfig.fixedGrid,
-                        currentConfig.useCache,
-
-                        // set lat and lon
-                        self.latitude,
-                        self.longitude,
-
-                        // set zoom measurement and radius
-                        // TODO: pass these in effectively...
-                        "KM",
-                        0,
-                        "zoom=" + zoomString
-                    );
-                },
-
-                parseResponse: function(response) {
-                    // find the decarta tile grid layer
-                    var grid = findGridLayer(response.TileGrid, "deCarta");
-                    
-                    function applyPanOffset(offset, tileSize, panInfo) {
-                        if (panInfo.direction == "E") {
-                            // COG.info("E pan offset = " + panInfo.numTiles);
-                            offset.x = (panInfo.numTiles * tileSize);
-                        }
-                        else if (panInfo.direction == "N") {
-                            // COG.info("N pan offset = " + panInfo.numTiles);
-                            offset.y = (panInfo.numTiles * tileSize) - tileSize;
-                        } // if..else
-                    } // applyPanOffset
-
-                    // if we have found the grid, then get the map content url
-                    if (grid) {
-                        // parse out the tile url details
-                        var urlData = parseImageUrl(grid.Tile.Map.Content.URL);
-                        var tileSize = grid.Tile.Map.Content.height;
-                        var panOffset = T5.XY.init();
-
-                        // COG.info(COG.formatStr("parsed image url: {0}, N = {1}, E = {2}", urlData.mask, urlData.N, urlData.E));
-                        
-                        // calculate the pan offset 
-                        for (var ii = 0; ii < grid.Pan.length; ii++) {
-                            applyPanOffset(panOffset, tileSize, grid.Pan[ii]);
-                        } // for
-
-                        return {
-                            imageUrl: urlData.mask,
-                            tileSize: tileSize,
-                            centerContext: new types.CenterContext(grid.CenterContext),
-                            centerTile: {
-                                N: parseInt(urlData.N, 10),
-                                E: parseInt(urlData.E, 10)
-                            },
-                            panOffset: panOffset
-                        };
-                    } // if
+                if (params.addresses.length === 1) {
+                    return [getResponseAddresses(response.GeocodeResponseList)];
                 }
-            });
-
-            return self;
-        },
-
-        GeocodeRequest: function(params) {
-            params = COG.extend({
-                addresses: [],
-                parserReport: false,
-                parseOnly: false,
-                returnSpatialKeys: false
-            }, params);
-            
-            function validMatch(match) {
-                return match.GeocodeMatchCode && match.GeocodeMatchCode.matchType !== "NO_MATCH";
-            } // validMatch
-            
-            function parseMatchResult(match) {
-                var matchAddress = null;
-                var matchPos = null;
-
-                if (match && validMatch(match)) {
-                    // if the point is defined, then convert that to a position
-                    if (match && match.Point) {
-                        matchPos = T5.Geo.Position.parse(match.Point.pos);
-                    } // if
-
-                    // if we have the address then convert that to an address
-                    if (match && match.Address) {
-                        matchAddress = parseAddress(match.Address, matchPos);
-                    } // if
-                }
-                
-                return matchAddress;
-            } // parseMatchResult
-            
-            function getResponseAddresses(responseList) {
-                // get the number of responses
-                var addresses = [];
-                var responseCount = responseList ? responseList.numberOfGeocodedAddresses : 0;
-                var matchList = [];
-                
-                // NOTE: this code has been implemented to compensate for strangeness in deCarta JSON land...
-                // see https://github.com/sidelab/T5-closed/wikis/geocoder-json-response for more information
-                if (responseCount > 1) {
-                    matchList = responseList.GeocodedAddress;
-                }
-                else if (responseCount == 1) {
-                    matchList = [responseList.GeocodedAddress];
-                } // if..else
-                
-                try {
-                    // iterate through the response list
-                    for (var ii = 0; matchList && (ii < matchList.length); ii++) {
-                        var matchResult = parseMatchResult(matchList[ii]);
-                        if (matchResult) {
-                            addresses.push(matchResult);
-                        } // if
-                    } // for
-                } 
-                catch (e) {
-                    COG.exception(e);
-                } // try..except
-                
-                return addresses;                
-            } // getResponseAddresses
-                        
-            // create the parent
-            var parent = new requestTypes.Request();
-            
-            // initialise self
-            var self = COG.extend({}, parent, {
-                methodName: "Geocode",
-                
-                getRequestBody: function() {
-                    var body = COG.formatStr("<xls:GeocodeRequest parserReport=\"{0}\" parseOnly=\"{1}\" returnSpatialKeys=\"{2}\">", 
-                                    params.parserReport, 
-                                    params.parseOnly,
-                                    params.returnSpatialKeys);
-                    
-                    // iterate through the addresses and create the inner tags
+                else {
+                    var results = [];
                     for (var ii = 0; ii < params.addresses.length; ii++) {
-                        body += params.addresses[ii].getXML();
+                        results.push(getResponseAddresses(response.GeocodeResponseList[ii]));
                     } // for
                     
-                    return body + "</xls:GeocodeRequest>";
-                },
-                
-                parseResponse: function(response) {
-                    // COG.info("got response: ", response);
-
-                    if (params.addresses.length === 1) {
-                        return [getResponseAddresses(response.GeocodeResponseList)];
-                    }
-                    else {
-                        var results = [];
-                        for (var ii = 0; ii < params.addresses.length; ii++) {
-                            results.push(getResponseAddresses(response.GeocodeResponseList[ii]));
-                        } // for
-                        
-                        return results;
-                    } // if..else
-                }
-            });
-            
-            // return self
-            return self;
-        },
+                    return results;
+                } // if..else
+            }
+        });
         
-        ReverseGeocodeRequest: function(params) {
-            params = COG.extend({
-                position: null,
-                geocodePreference: "StreetAddress"
-            }, params);
+        // return self
+        return self;
+    };
+        
+    var ReverseGeocodeRequest = function(params) {
+        params = COG.extend({
+            position: null,
+            geocodePreference: "StreetAddress"
+        }, params);
+        
+        var self = COG.extend(new Request(), {
+            methodName: "ReverseGeocode",
             
-            var self = COG.extend(new requestTypes.Request(), {
-                methodName: "ReverseGeocode",
+            getRequestBody: function() {
+                return "" +
+                    "<xls:ReverseGeocodeRequest>" + 
+                        "<xls:Position>" + 
+                            "<gml:Point>" + 
+                                "<gml:pos>" + T5.Geo.Position.toString(params.position) + "</gml:pos>" + 
+                            "</gml:Point>" + 
+                        "</xls:Position>" + 
+                        "<xls:ReverseGeocodePreference>" + params.geocodePreference + "</xls:ReverseGeocodePreference>" + 
+                    "</xls:ReverseGeocodeRequest>";
+            },
+            
+            parseResponse: function(response) {
+                var matchPos = null;
                 
-                getRequestBody: function() {
-                    return "" +
-                        "<xls:ReverseGeocodeRequest>" + 
-                            "<xls:Position>" + 
-                                "<gml:Point>" + 
-                                    "<gml:pos>" + T5.Geo.Position.toString(params.position) + "</gml:pos>" + 
-                                "</gml:Point>" + 
-                            "</xls:Position>" + 
-                            "<xls:ReverseGeocodePreference>" + params.geocodePreference + "</xls:ReverseGeocodePreference>" + 
-                        "</xls:ReverseGeocodeRequest>";
-                },
-                
-                parseResponse: function(response) {
-                    var matchPos = null;
-                    
-                    // if the point is defined, then convert that to a position
-                    if (response && response.Point) {
-                        matchPos = T5.Geo.Position.parse(match.Point.pos);
-                    } // if
+                // if the point is defined, then convert that to a position
+                if (response && response.Point) {
+                    matchPos = T5.Geo.Position.parse(match.Point.pos);
+                } // if
 
-                    // if we have the address then convert that to an address
-                    if (response && response.ReverseGeocodedLocation && response.ReverseGeocodedLocation.Address) {
-                        return parseAddress(response.ReverseGeocodedLocation.Address, matchPos);
-                    } // if                    
-                    
-                    return null;
-                }
-            });
-            
-            return self;
-        },
+                // if we have the address then convert that to an address
+                if (response && response.ReverseGeocodedLocation && response.ReverseGeocodedLocation.Address) {
+                    return parseAddress(response.ReverseGeocodedLocation.Address, matchPos);
+                } // if                    
+                
+                return null;
+            }
+        });
+        
+        return self;
+    }; 
         
         
-        RouteRequest: function(params) {
-            params = COG.extend({
-                waypoints: [],
-                provideRouteHandle: false,
-                distanceUnit: "KM",
-                routeQueryType: "RMAN",
-                routePreference: "Fastest",
-                routeInstructions: true,
-                routeGeometry: true
-            }, params);
-            
-            // define the base request
-            var parent = new requestTypes.Request();
-            
-            function parseInstructions(instructionList) {
-                var fnresult = [],
-                    instructions = instructionList && instructionList.RouteInstruction ? 
-                        instructionList.RouteInstruction : [],
-                    totalDistance = 0,
-                    totalTime = new COG.Duration();
+    var RouteRequest = function(params) {
+        params = COG.extend({
+            waypoints: [],
+            provideRouteHandle: false,
+            distanceUnit: "KM",
+            routeQueryType: "RMAN",
+            routePreference: "Fastest",
+            routeInstructions: true,
+            routeGeometry: true
+        }, params);
+        
+        // define the base request
+        var parent = new Request();
+        
+        function parseInstructions(instructionList) {
+            var fnresult = [],
+                instructions = instructionList && instructionList.RouteInstruction ? 
+                    instructionList.RouteInstruction : [],
+                totalDistance = 0,
+                totalTime = new COG.Duration();
 
-                // COG.info("parsing " + instructions.length + " instructions", instructions[0], instructions[1], instructions[2]);
-                for (var ii = 0; ii < instructions.length; ii++) {
-                    // initialise the time and duration for this instruction
-                    var distance = distanceToMeters(instructions[ii].distance),
-                        time = COG.parseDuration(instructions[ii].duration, '8601');
-                        
-                    // increment the total distance and total time
-                    totalDistance = totalDistance + distance;
-                    totalTime = COG.addDuration(totalTime, time);
+            // COG.info("parsing " + instructions.length + " instructions", instructions[0], instructions[1], instructions[2]);
+            for (var ii = 0; ii < instructions.length; ii++) {
+                // initialise the time and duration for this instruction
+                var distance = distanceToMeters(instructions[ii].distance),
+                    time = COG.parseDuration(instructions[ii].duration, '8601');
                     
-                    fnresult.push(new T5.Geo.Routing.Instruction({
-                        position: T5.Geo.Position.parse(instructions[ii].Point),
-                        description: instructions[ii].Instruction,
-                        distance: distance,
-                        distanceTotal: totalDistance,
-                        time: time,
-                        timeTotal: totalTime
-                    }));
-                } // for
+                // increment the total distance and total time
+                totalDistance = totalDistance + distance;
+                totalTime = COG.addDuration(totalTime, time);
                 
-
-                // COG.info("parsed " + fnresult.length + " instructions", fnresult[0], fnresult[1], fnresult[2]);
-                return fnresult;
-            } // parseInstructions
+                fnresult.push(new T5.Geo.Routing.Instruction({
+                    position: T5.Geo.Position.parse(instructions[ii].Point),
+                    description: instructions[ii].Instruction,
+                    distance: distance,
+                    distanceTotal: totalDistance,
+                    time: time,
+                    timeTotal: totalTime
+                }));
+            } // for
             
-            // initialise self
-            var self = COG.extend({}, parent, {
-                methodName: "DetermineRoute",
+
+            // COG.info("parsed " + fnresult.length + " instructions", fnresult[0], fnresult[1], fnresult[2]);
+            return fnresult;
+        } // parseInstructions
+        
+        // initialise self
+        var self = COG.extend({}, parent, {
+            methodName: "DetermineRoute",
+            
+            getRequestBody: function() {
+                // check that we have some waypoints, if not throw an exception 
+                if (params.waypoints.length < 2) {
+                    throw new Error("Cannot send RouteRequest, less than 2 waypoints specified");
+                } // if
                 
-                getRequestBody: function() {
-                    // check that we have some waypoints, if not throw an exception 
-                    if (params.waypoints.length < 2) {
-                        throw new Error("Cannot send RouteRequest, less than 2 waypoints specified");
-                    } // if
-                    
-                    var body = COG.formatStr(
-                                    "<xls:DetermineRouteRequest provideRouteHandle=\"{0}\" distanceUnit=\"{1}\" routeQueryType=\"{2}\">",
-                                    params.provideRouteHandle, 
-                                    params.distanceUnit,
-                                    params.routeQueryType);
-                                    
-                    // open the route plan tag
-                    body += "<xls:RoutePlan>";
-                                    
-                    // specify the route preference
-                    body += "<xls:RoutePreference>" + params.routePreference + "</xls:RoutePreference>";
-                    
-                    // open the waypoint list
-                    body += "<xls:WayPointList>";
-                    
-                    // add the waypoints
-                    for (var ii = 0; ii < params.waypoints.length; ii++) {
-                        // determine the appropriate tag to use for the waypoint
-                        // as to why this is required, who knows....
-                        var tagName = (ii === 0 ? "StartPoint" : (ii === params.waypoints.length-1 ? "EndPoint" : "ViaPoint"));
-                        
-                        body += COG.formatStr("<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>", tagName, T5.Geo.Position.toString(params.waypoints[ii]));
-                    }
-                    
-                    // close the waypoint list
-                    body += "</xls:WayPointList>";
-                    
-                    // TODO: add the avoid list
-                    
-                    // close the route plan tag
-                    body += "</xls:RoutePlan>";
-                    
-                    // add the route instruction request
-                    if (params.routeInstructions) {
-                        body += "<xls:RouteInstructionsRequest rules=\"maneuver-rules\" providePoint=\"true\" />";
-                    } // if
-                    
-                    // add the geometry request
-                    if (params.routeGeometry) {
-                        body += "<xls:RouteGeometryRequest />";
-                    } // if
-                    
-                    // close the route request tag
-                    body += "</xls:DetermineRouteRequest>";
-                    return body;
-                },
+                var body = COG.formatStr(
+                                "<xls:DetermineRouteRequest provideRouteHandle=\"{0}\" distanceUnit=\"{1}\" routeQueryType=\"{2}\">",
+                                params.provideRouteHandle, 
+                                params.distanceUnit,
+                                params.routeQueryType);
+                                
+                // open the route plan tag
+                body += "<xls:RoutePlan>";
+                                
+                // specify the route preference
+                body += "<xls:RoutePreference>" + params.routePreference + "</xls:RoutePreference>";
                 
-                parseResponse: function(response) {
-                    // COG.info("received route request response:", response);
+                // open the waypoint list
+                body += "<xls:WayPointList>";
+                
+                // add the waypoints
+                for (var ii = 0; ii < params.waypoints.length; ii++) {
+                    // determine the appropriate tag to use for the waypoint
+                    // as to why this is required, who knows....
+                    var tagName = (ii === 0 ? "StartPoint" : (ii === params.waypoints.length-1 ? "EndPoint" : "ViaPoint"));
                     
-                    // create a new route data object and map items 
-                    return new T5.Geo.Routing.RouteData({
-                        geometry: T5.Geo.Position.parseArray(response.RouteGeometry.LineString.pos),
-                        instructions: parseInstructions(response.RouteInstructionsList)
-                    });
+                    body += COG.formatStr("<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>", tagName, T5.Geo.Position.toString(params.waypoints[ii]));
                 }
-            });
+                
+                // close the waypoint list
+                body += "</xls:WayPointList>";
+                
+                // TODO: add the avoid list
+                
+                // close the route plan tag
+                body += "</xls:RoutePlan>";
+                
+                // add the route instruction request
+                if (params.routeInstructions) {
+                    body += "<xls:RouteInstructionsRequest rules=\"maneuver-rules\" providePoint=\"true\" />";
+                } // if
+                
+                // add the geometry request
+                if (params.routeGeometry) {
+                    body += "<xls:RouteGeometryRequest />";
+                } // if
+                
+                // close the route request tag
+                body += "</xls:DetermineRouteRequest>";
+                return body;
+            },
             
-            return self;
-        }
-    }; // requestTypes
+            parseResponse: function(response) {
+                // COG.info("received route request response:", response);
+                
+                // create a new route data object and map items 
+                return new T5.Geo.Routing.RouteData({
+                    geometry: T5.Geo.Position.parseArray(response.RouteGeometry.LineString.pos),
+                    instructions: parseInstructions(response.RouteInstructionsList)
+                });
+            }
+        });
+        
+        return self;
+    };
     
     /* exposed module functionality */
     
@@ -802,7 +662,7 @@ T5.Geo.Decarta = (function() {
             }, args);
             
             // create the geocoding request and execute it
-            var request = new requestTypes.RouteRequest(args);
+            var request = new RouteRequest(args);
             makeServerRequest(request, function(routeData) {
                 if (callback) {
                     callback(routeData);
@@ -842,7 +702,7 @@ T5.Geo.Decarta = (function() {
             // COG.info("attempting to geocode addresses: ", requestAddresses);
             if (requestAddresses.length > 0) {
                 // create the geocoding request and execute it
-                var request = new requestTypes.GeocodeRequest({
+                var request = new GeocodeRequest({
                     addresses: requestAddresses
                 });
             
@@ -871,195 +731,131 @@ T5.Geo.Decarta = (function() {
             } // if
             
             // create the geocoding request and execute it
-            var request = new requestTypes.ReverseGeocodeRequest(args);
+            var request = new ReverseGeocodeRequest(args);
         
             makeServerRequest(request, function(matchingAddress) {
                 if (args.complete) {
                     args.complete(matchingAddress);
                 }
             });
-        },
-        
-        // define the decarta utilities as per this thread on the decarta forum
-        // http://devzone.decarta.com/web/guest/forums?p_p_id=19&p_p_action=0&p_p_state=maximized&p_p_mode=view&_19_struts_action=/message_boards/view_message&_19_messageId=43131
-        
-        Utilities: (function() {
-            // define some constants
-            var MAX_GX_ZOOM = 21;
-
-            var self = {
-                /* start forum extracted functions */
-
-                radsPerPixelAtZoom: function(tileSize, gxZoom) {
-                    // COG.info("calculating rpp@z for gx zoomlevel = " + gxZoom + ", tilesize = " + tileSize);
-                    return 2*Math.PI / (tileSize << gxZoom);
-                },
-
-                /* end forum extracted functions */
-
-                zoomLevelToGXZoom: function(zoom_level) {
-                    return Math.abs(MAX_GX_ZOOM - parseInt(zoom_level, 10));
-                }
-            };
-
-            return self;
-        })(),
-        
-        MapProvider: function(params) {
-            params = COG.extend({
-                pinPosition: false,
-                tileDrawArgs: {},
-                drawGrid: false
-            }, params);
-            
-            // initialise parent
-            var parent = new T5.Geo.MapProvider();
-            
-            function buildTileGrid(requestedPosition, responseData, containerDimensions) {
-                // initialise the first tile origin
-                var halfWidth = responseData.tileSize >> 1,
-                    centerXY = Dimensions.getCenter(containerDimensions),
-                    pos_first = {
-                        x: centerXY.x - halfWidth,
-                        y: centerXY.y - halfWidth
-                    },
-                    gridInitArgs = self.prepTileGridArgs(
-                        containerDimensions.width,
-                        containerDimensions.height, 
-                        responseData.tileSize,
-                        T5.XY.init(responseData.centerTile.E, responseData.centerTile.N),
-                        params);
-
-                // create the tile grid
-                var tileGrid = new T5.ImageTileGrid(COG.extend({
-                    shiftOrigin: function(topLeftOffset, shiftDelta) {
-                        return T5.XY.init(topLeftOffset.x + shiftDelta.x, topLeftOffset.y - shiftDelta.y);
-                    }
-                }, gridInitArgs));
-                
-                // set the tile grid origin
-                tileGrid.populate(function(col, row, topLeftOffset, gridSize) {
-                    return new T5.ImageTile({ 
-                        url: responseData.imageUrl.replace("${N}", topLeftOffset.y + (gridSize - row)).replace("${E}", topLeftOffset.x + col),
-                        sessionParamRegex: /(SESSIONID)/i,
-                        size: responseData.tileSize
-                    });
-                });
-
-                // get the virtual xy
-                var virtualXY = tileGrid.getTileVirtualXY(responseData.centerTile.E, responseData.centerTile.N, true);
-                
-                // apply the pan offset and half tiles
-                virtualXY = T5.XY.offset(virtualXY, responseData.panOffset.x, responseData.panOffset.y);
-                
-                return new T5.Geo.UI.GeoTileGrid({
-                    grid: tileGrid, 
-                    centerXY:  virtualXY,
-                    centerPos: requestedPosition,
-                    offsetAdjustment: T5.XY.init(),
-                    radsPerPixel: module.Utilities.radsPerPixelAtZoom(responseData.tileSize, self.zoomLevel)
-                });
-            } // buildTileGrid
-
-            // initialise self
-            var self = COG.extend({}, parent, {
-                getCopyright: function() {
-                    return "Mapping Webservices &copy; deCarta, Map Data &copy;Navteq";
-                },
-                
-                getMapTiles: function(tiler, position, callback) {
-                    makeServerRequest(
-                            new requestTypes.PortrayMapRequest(position.lat, position.lon, self.zoomLevel, params.pinPosition),
-                            function (response) {
-                                if (callback) {
-                                    callback(buildTileGrid(position, response, tiler.getDimensions()));
-                                } // if
-                            });
-                }
-            });
-            
-            self.setZoomRange(ZOOM_MIN, ZOOM_MAX);
-
-            return self;
-        } // MapProvider
+        }
     };
-    
+        
     // initialise the decarta tile generator
     var DecartaTileGenerator = function(params) {
         params = COG.extend({
-            pinPosition: false
+            tileSize: 256
         }, params);
         
-        /* internal functions */
+        // initialise constants
+        var DEGREES_TO_RADIANS = Math.PI / 180,
+            RADIANS_TO_DEGREES = 180 / Math.PI;
+
+        // Taken from deCarta's new mobile JS library
+        // check it out at: http://developer.decarta.com/docs/read/Mobile_JS
+        var _ll_LUT = [
+            "89.787438015348100000,360.00000000000000000",
+            "85.084059050110410000,180.00000000000000000",
+            "66.653475896509040000,90.00000000000000000",
+            "41.170427238429790000,45.000000000000000000",
+            "22.076741328793200000,22.500000000000000000",
+            "11.251819676168665000,11.250000000000000000",
+            "5.653589942659626000,5.625000000000000000",
+            "2.830287664051185000,2.812500000000000000",
+            "1.415581451872543800,1.406250000000000000",
+            "0.707845460801532700,0.703125000000000000",
+            "0.353929573271679340,0.351562500000000000",
+            "0.176965641673330230,0.175781250000000000",
+            "0.088482927761462040,0.087890625000000000",
+            "0.044241477246363230,0.043945312500000000",
+            "0.022120740293895182,0.021972656250000000",
+            "0.011060370355776452,0.010986328125000000",
+            "0.005530185203987857,0.005493164062500000",
+            "0.002765092605263539,0.002746582031250000",
+            "0.001382546303032519,0.001373291015625000",
+            "0.000691272945568983,0.000686645507812500",
+            "0.000345636472797214,0.000343322753906250"
+        ],
+        hosts = null;
+        
+        /* internals */
+        
+        function createTiles(view, viewRect, callback) {
+            var zoomLevel = view.getZoomLevel ? view.getZoomLevel() : 0;
+            
+            if (zoomLevel) {
+                var numTiles = 2 << (zoomLevel - 1),
+                    numTilesHalf = numTiles >> 1,
+                    tileSize = params.tileSize,
+                    xTiles = (viewRect.width / tileSize | 0) + 2,
+                    yTiles = (viewRect.height / tileSize | 0) + 2,
+                    xTile = (viewRect.x1 / tileSize | 0) - numTilesHalf,
+                    yTile = numTiles - (viewRect.y1 / tileSize | 0) - numTilesHalf - yTiles,
+                    images = [];
+                    
+                for (var xx = 0; xx <= xTiles; xx++) {
+                    for (var yy = 0; yy <= yTiles; yy++) {
+                        // build the tile url 
+                        tileUrl = hosts[xx % hosts.length] + '/openls/image-cache/TILE?'+
+                           'LLMIN=0.0,0.0' +
+                           '&LLMAX=' + _ll_LUT[zoomLevel] +
+                           '&CACHEABLE=true' + 
+                           '&DS=navteq-world' +
+                           '&WIDTH=' + (256 /* * dpr*/) +
+                           '&HEIGHT=' + (256 /* * dpr*/) +
+                           '&CLIENTNAME=' + currentConfig.clientName +
+                           '&SESSIONID=' + currentConfig.sessionID +
+                           '&FORMAT=PNG' +
+                           '&CONFIG=' + currentConfig.configuration +
+                           '&N=' + (yTile + yy - 1) +
+                           '&E=' + (xTile + xx);
+                           
+                        images[images.length] = T5.Tiling.init(
+                            (numTilesHalf + xTile + xx) * tileSize,
+                            (numTilesHalf + yTile*-1 - yy) * tileSize, 
+                            tileSize,
+                            tileSize, {
+                                url: tileUrl
+                            });
+                    } // for
+                } // for
+                    
+                // if the callback is assigned, then pass back the creator
+                if (callback) {
+                    callback(images);
+                } // if                
+            } // if
+        } // createTiles
+        
         
         /* exports */
         
-        function initTileCreator(tileWidth, tileHeight, args, callback) {
-            var zoomLevel = args.zoomLevel,
-                position = args.position,
-                radsPerPixel = T5.Geo.radsPerPixel(zoomLevel),
-                
-                baseXY,
-                baseX,
-                baseY,
-                tileOffset = null,
-                baseUrl = '';
-                
-                // initialise the tile creator
-                creator = function(tileX, tileY) {
-                    if (! tileOffset) {
-                        return null;
-                    } // if
-                    
-                    var realTileX = tileOffset.x + tileX,
-                        realTileY = tileOffset.y - tileY,
-                        tileUrl;
-                        
-                    // build the tile url 
-                    tileUrl = baseUrl.replace("${N}", realTileY).replace("${E}", realTileX);
-                    if (tileUrl) {
-                        return T5.Tiling.init(
-                            baseX + (tileX * tileWidth), 
-                            baseY + (tileY * tileHeight),
-                            tileWidth,
-                            tileHeight, {
-                                url: tileUrl
-                            });
-                    } // if
-                }; // loader
-                
-            makeServerRequest(
-                new requestTypes.PortrayMapRequest(position.lat, position.lon, zoomLevel, params.pinPosition),
-                function (response) {
-                    globalResponse = response;
-                    tileOffset = T5.XY.init(response.centerTile.E, response.centerTile.N);
-                    
-                    baseUrl = response.imageUrl;
-                    
-                    // determine the center xy (note - decarta centerPos compatible with T5.Geo.Position)
-                    baseXY = T5.GeoXY.init(response.centerContext.centerPos, radsPerPixel);
-                    baseX = baseXY.x - (tileWidth >> 1);
-                    baseY = baseXY.y - (tileHeight >> 1);
-                    
-                    if (callback) {
-                        callback(creator);
-                    } // if
-                });                
-                
-            // initialise the server details
-            serverDetails = self.getServerDetails ? self.getServerDetails() : null;
+        function run(view, viewRect, callback) {
+            if (hosts) {
+                createTiles(view, viewRect, callback);
+            }
+            else {
+                // make an RUOK request to retrieve configuration information
+                makeServerRequest(new RUOKRequest(), function(tileConfig) {
+                    // reset the tile hosts
+                    hosts = [];
 
-            // if the callback is assigned, then pass back the creator
-            if (callback) {
-                callback(creator);
-            } // if
-        } // initTileLoader
+                    // initialise the hosts
+                    for (var ii = 0; ii < tileConfig.aliasCount; ii++) {
+                        hosts[ii] = 'http://' + tileConfig.host.replace('^(.*?)\.(.*)$', '\1-0' + (ii + 1) + '.\2');
+                    } // for
+
+                    console.debug(currentConfig);
+                    createTiles(view, viewRect, callback);
+                });
+            }
+        } // run
         
         /* define the generator */
-
+        
         // initialise the generator
         var self = COG.extend(new T5.ImageGenerator(params), {
-            initTileCreator: initTileCreator
+            run: run
         });
         
         return self;

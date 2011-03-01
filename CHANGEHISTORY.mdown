@@ -6,7 +6,11 @@ Continued refinement of the 0.9.4 branch ready to implement new features in 0.9.
 
 ### Detailed Changes
 
-- Moved from using `COG.Loopage` to schedule updates to `COG.animFrame` which wraps the various `*RequestAnimationFrame` events if available. 
+- Moved from using `COG.Loopage` to schedule updates to `COG.animFrame` which wraps the various `*RequestAnimationFrame` events if available.
+
+- Removed the `T5.MapTileGenerator` and `T5.TileGenerator` and replaced with a more generic `T5.ImageGenerator`.
+
+- Changed the mapping engine generators in line with inclusion of the `T5.ImageGenerator`
 
 ## 0.9.4.1 (2011-02-25)
 
