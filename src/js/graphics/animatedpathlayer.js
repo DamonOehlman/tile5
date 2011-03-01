@@ -56,7 +56,10 @@ var AnimatedPathLayer = function(params) {
         tween,
         theta,
         indicatorXY = null,
+        drawIndicator = params.drawIndicator ? params.drawIndicator : drawDefaultIndicator,
         pathOffset = 0;
+        
+    /* internals */
     
     function drawDefaultIndicator(context, viewRect, indicatorXY) {
         // draw an arc at the specified position
@@ -74,63 +77,63 @@ var AnimatedPathLayer = function(params) {
         context.fill();
     } // drawDefaultIndicator
     
-    // calculate the tween
-    tween = COG.tweenValue(
-        0, 
-        edgeData.total, 
-        params.easing, 
-        function() {
-            self.remove();
-        },
-        params.duration);
-        
-    // request updates from the tween
-    tween.requestUpdates(function(updatedValue, complete) {
+    function handleUpdates(updatedValue, complete) {
         pathOffset = updatedValue;
 
         if (complete) {
             self.remove();
         } // if
-    });
+        
+        self.changed();
+    }
+    
+    /* exports */
+    
+    function cycle(tickCount, viewRect, state, redraw) {
+        var edgeIndex = 0;
+
+        // iterate through the edge data and determine the current journey coordinate index
+        while ((edgeIndex < edgeData.accrued.length) && (edgeData.accrued[edgeIndex] < pathOffset)) {
+            edgeIndex++;
+        } // while
+
+        // reset offset xy
+        indicatorXY = null;
+
+        // if the edge index is valid, then let's determine the xy coordinate
+        if (edgeIndex < params.path.length-1) {
+            var extra = pathOffset - (edgeIndex > 0 ? edgeData.accrued[edgeIndex - 1] : 0),
+                v1 = params.path[edgeIndex],
+                v2 = params.path[edgeIndex + 1];
+
+            theta = XY.theta(v1, v2, edgeData.edges[edgeIndex]);
+            indicatorXY = XY.extendBy(v1, theta, extra);
+        } // if
+        
+        return indicatorXY;
+    } // cycle
+    
+    function draw(context, viewRect, state, view) {
+        if (indicatorXY && drawIndicator) {
+            // if the draw indicator method is specified, then draw
+            drawIndicator(
+                context,
+                viewRect,
+                XY.init(indicatorXY.x, indicatorXY.y),
+                theta
+            );
+        } // if
+    } // draw
+    
     
     // initialise self
     var self =  COG.extend(new ViewLayer(params), {
-        cycle: function(tickCount, viewRect, state, redraw) {
-            var edgeIndex = 0;
-
-            // iterate through the edge data and determine the current journey coordinate index
-            while ((edgeIndex < edgeData.accrued.length) && (edgeData.accrued[edgeIndex] < pathOffset)) {
-                edgeIndex++;
-            } // while
-
-            // reset offset xy
-            indicatorXY = null;
-
-            // if the edge index is valid, then let's determine the xy coordinate
-            if (edgeIndex < params.path.length-1) {
-                var extra = pathOffset - (edgeIndex > 0 ? edgeData.accrued[edgeIndex - 1] : 0),
-                    v1 = params.path[edgeIndex],
-                    v2 = params.path[edgeIndex + 1];
-
-                theta = XY.theta(v1, v2, edgeData.edges[edgeIndex]);
-                indicatorXY = XY.extendBy(v1, theta, extra);
-            } // if
-            
-            return indicatorXY;
-        },
-        
-        draw: function(context, viewRect, state, view) {
-            if (indicatorXY) {
-                // if the draw indicator method is specified, then draw
-                (params.drawIndicator ? params.drawIndicator : drawDefaultIndicator)(
-                    context,
-                    viewRect,
-                    XY.init(indicatorXY.x, indicatorXY.y),
-                    theta
-                );
-            } // if
-        }
+        cycle: cycle,
+        draw: draw
     });
-
+    
+    // calculate the tween
+    COG.tweenValue(0, edgeData.total, params.easing, params.duration, handleUpdates);
+        
     return self;
 }; // T5.AnimatedPathLayer

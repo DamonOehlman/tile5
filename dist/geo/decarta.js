@@ -845,7 +845,6 @@ T5.Geo.Decarta = (function() {
                         hosts[ii] = 'http://' + tileConfig.host.replace('^(.*?)\.(.*)$', '\1-0' + (ii + 1) + '.\2');
                     } // for
 
-                    console.debug(currentConfig);
                     createTiles(view, viewRect, callback);
                 });
             }

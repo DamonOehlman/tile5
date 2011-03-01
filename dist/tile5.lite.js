@@ -1118,27 +1118,50 @@ var EventMonitor = function(target, handlers, params) {
         observable: null
     }, params);
 
+    var MAXMOVE_TAP = 20;
+
     var observable = params.observable,
+        pannableOpts = null,
         handlerInstances = [],
-        pans = [];
+        pans = [],
+        totalDeltaX,
+        totalDeltaY;
 
 
     /* internals */
 
-    function handlePanMove(evt, absXY, relXY, deltaXY) {
-        pans[pans.length] = {
-            ticks: new Date().getTime(),
-            x: deltaXY.x,
-            y: deltaXY.y
-        };
+    function deltaGreaterThan(value) {
+        return Math.abs(totalDeltaX) > value || Math.abs(totalDeltaY) > value;
+    } // deltaGreaterThan
 
-        observable.trigger('pan', deltaXY.x, deltaXY.y);
+    function handlePointerMove(evt, absXY, relXY, deltaXY) {
+        if (pannableOpts) {
+            pans[pans.length] = {
+                ticks: new Date().getTime(),
+                x: deltaXY.x,
+                y: deltaXY.y
+            };
+
+            observable.trigger('pan', deltaXY.x, deltaXY.y);
+        } // if
+
+        totalDeltaX += deltaXY.x ? deltaXY.x : 0;
+        totalDeltaY += deltaXY.y ? deltaXY.y : 0;
     } // handlePanMove
 
     function handlePointerDown(evt, absXY, relXY) {
         COG.info('reset ' + pans.length + ' pan history');
         pans = [];
+
+        totalDeltaX = 0;
+        totalDeltaY = 0;
     } // handlePointerDown
+
+    function handlePointerUp(evt, absXY, relXY) {
+        if (! deltaGreaterThan(MAXMOVE_TAP)) {
+            observable.trigger('tap', absXY, relXY);
+        } // if
+    } // handlePointerUP
 
     /* exports */
 
@@ -1147,12 +1170,9 @@ var EventMonitor = function(target, handlers, params) {
     } // bind
 
     function pannable(opts) {
-        opts = COG.extend({
+        pannableOpts = COG.extend({
             inertia: true
         }, opts);
-
-        observable.bind('pointerDown', handlePointerDown);
-        observable.bind('pointerMove', handlePanMove);
 
         return self;
     } // pannable
@@ -1178,6 +1198,10 @@ var EventMonitor = function(target, handlers, params) {
     for (var ii = 0; ii < handlers.length; ii++) {
         handlerInstances.push(handlers[ii](target, observable, params));
     } // for
+
+    observable.bind('pointerDown', handlePointerDown);
+    observable.bind('pointerMove', handlePointerMove);
+    observable.bind('pointerUp', handlePointerUp);
 
     return self;
 };
@@ -1517,13 +1541,15 @@ var MouseHandler = function(targetElement, observable, opts) {
     function triggerCurrent(eventName, overrideX, overrideY, updateLast) {
         var evtX = typeof overrideX != 'undefined' ? overrideX : currentX,
             evtY = typeof overrideY != 'undefined' ? overrideY : currentY,
+            deltaX = evtX - lastX,
+            deltaY = evtY - lastY,
             current = point(evtX, evtY);
 
         observable.trigger(
             eventName,
             current,
             pointerOffset(current, offset),
-            point(evtX - lastX, evtY - lastY)
+            point(deltaX, deltaY)
         );
 
         if (typeof updateLast == 'undefined' || updateLast) {
@@ -1546,7 +1572,6 @@ var MouseHandler = function(targetElement, observable, opts) {
     opts.binder('mousedown', handleMouseDown, false);
     opts.binder('mousemove', handleMouseMove, false);
     opts.binder('mouseup', handleMouseUp, false);
-    opts.binder('click', handleClick, false);
     opts.binder('dblclick', handleDoubleClick, false);
 
     opts.binder('mousewheel', handleWheel, document);
@@ -5340,7 +5365,10 @@ var AnimatedPathLayer = function(params) {
         tween,
         theta,
         indicatorXY = null,
+        drawIndicator = params.drawIndicator ? params.drawIndicator : drawDefaultIndicator,
         pathOffset = 0;
+
+    /* internals */
 
     function drawDefaultIndicator(context, viewRect, indicatorXY) {
         context.fillStyle = "#FFFFFF";
@@ -5357,56 +5385,57 @@ var AnimatedPathLayer = function(params) {
         context.fill();
     } // drawDefaultIndicator
 
-    tween = COG.tweenValue(
-        0,
-        edgeData.total,
-        params.easing,
-        function() {
-            self.remove();
-        },
-        params.duration);
-
-    tween.requestUpdates(function(updatedValue, complete) {
+    function handleUpdates(updatedValue, complete) {
         pathOffset = updatedValue;
 
         if (complete) {
             self.remove();
         } // if
-    });
+
+        self.changed();
+    }
+
+    /* exports */
+
+    function cycle(tickCount, viewRect, state, redraw) {
+        var edgeIndex = 0;
+
+        while ((edgeIndex < edgeData.accrued.length) && (edgeData.accrued[edgeIndex] < pathOffset)) {
+            edgeIndex++;
+        } // while
+
+        indicatorXY = null;
+
+        if (edgeIndex < params.path.length-1) {
+            var extra = pathOffset - (edgeIndex > 0 ? edgeData.accrued[edgeIndex - 1] : 0),
+                v1 = params.path[edgeIndex],
+                v2 = params.path[edgeIndex + 1];
+
+            theta = XY.theta(v1, v2, edgeData.edges[edgeIndex]);
+            indicatorXY = XY.extendBy(v1, theta, extra);
+        } // if
+
+        return indicatorXY;
+    } // cycle
+
+    function draw(context, viewRect, state, view) {
+        if (indicatorXY && drawIndicator) {
+            drawIndicator(
+                context,
+                viewRect,
+                XY.init(indicatorXY.x, indicatorXY.y),
+                theta
+            );
+        } // if
+    } // draw
+
 
     var self =  COG.extend(new ViewLayer(params), {
-        cycle: function(tickCount, viewRect, state, redraw) {
-            var edgeIndex = 0;
-
-            while ((edgeIndex < edgeData.accrued.length) && (edgeData.accrued[edgeIndex] < pathOffset)) {
-                edgeIndex++;
-            } // while
-
-            indicatorXY = null;
-
-            if (edgeIndex < params.path.length-1) {
-                var extra = pathOffset - (edgeIndex > 0 ? edgeData.accrued[edgeIndex - 1] : 0),
-                    v1 = params.path[edgeIndex],
-                    v2 = params.path[edgeIndex + 1];
-
-                theta = XY.theta(v1, v2, edgeData.edges[edgeIndex]);
-                indicatorXY = XY.extendBy(v1, theta, extra);
-            } // if
-
-            return indicatorXY;
-        },
-
-        draw: function(context, viewRect, state, view) {
-            if (indicatorXY) {
-                (params.drawIndicator ? params.drawIndicator : drawDefaultIndicator)(
-                    context,
-                    viewRect,
-                    XY.init(indicatorXY.x, indicatorXY.y),
-                    theta
-                );
-            } // if
-        }
+        cycle: cycle,
+        draw: draw
     });
+
+    COG.tweenValue(0, edgeData.total, params.easing, params.duration, handleUpdates);
 
     return self;
 }; // T5.AnimatedPathLayer
