@@ -152,6 +152,11 @@ var ViewLayer = function(params) {
         },
         
         /**
+        ### hitTest(offsetX, offsetY, state, view)
+        */
+        hitTest: null,
+        
+        /**
         ### getId()
         
         */

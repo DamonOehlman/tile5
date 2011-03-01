@@ -400,7 +400,7 @@ COG.Loopage = (function() {
                 return callbackId;
             }; // bind
 
-            target.trigger = function(eventName) {
+            target.triggerCustom = function(eventName, args) {
                 var eventCallbacks = getHandlersForName(target, eventName),
                     evt = {
                         cancel: false,
@@ -408,11 +408,15 @@ COG.Loopage = (function() {
                     },
                     eventArgs;
 
+                if (args) {
+                    COG.extend(evt, args);
+                } // if
+
                 if (! eventCallbacks) {
                     return null;
                 } // if
 
-                eventArgs = Array.prototype.slice.call(arguments, 1);
+                eventArgs = Array.prototype.slice.call(arguments, 2);
 
                 if (target.eventInterceptor) {
                     target.eventInterceptor(eventName, evt, eventArgs);
@@ -421,11 +425,17 @@ COG.Loopage = (function() {
                 eventArgs.unshift(evt);
 
                 for (var ii = eventCallbacks.length; ii-- && (! evt.cancel); ) {
-                    eventCallbacks[ii].fn.apply(self, eventArgs);
+                    eventCallbacks[ii].fn.apply(this, eventArgs);
                 } // for
 
-
                 return evt;
+            };
+
+            target.trigger = function(eventName) {
+                var eventArgs = Array.prototype.slice.call(arguments, 1);
+                eventArgs.splice(0, 0, eventName, null);
+
+                return target.triggerCustom.apply(this, eventArgs);
             }; // trigger
 
             target.unbind = function(eventName, callbackId) {
@@ -1118,7 +1128,10 @@ var EventMonitor = function(target, handlers, params) {
         observable: null
     }, params);
 
-    var MAXMOVE_TAP = 20;
+    var MAXMOVE_TAP = 20,
+        INERTIA_DURATION = 500,
+        INERTIA_MAXDIST = 300,
+        INERTIA_TIMEOUT = 50;
 
     var observable = params.observable,
         pannableOpts = null,
@@ -1129,6 +1142,41 @@ var EventMonitor = function(target, handlers, params) {
 
 
     /* internals */
+
+    function checkInertia(events) {
+        var evtCount = events.length,
+            includedCount,
+            vectorX = 0,
+            vectorY = 0,
+            diffX,
+            diffY,
+            diffTicks,
+            totalTicks = evtCount > 0 ? (new Date().getTime() - events[evtCount-1].ticks) : 0,
+            ii;
+
+        ii = events.length;
+        while (--ii > 1 && totalTicks < INERTIA_TIMEOUT) {
+            totalTicks += (events[ii].ticks - events[ii - 1].ticks);
+        } // while
+
+        includedCount = evtCount - ii;
+
+        if (includedCount > 1) {
+            for (; ii < evtCount; ii++) {
+                diffX = events[ii].x - events[ii - 1].x;
+                diffY = events[ii].y - events[ii - 1].y;
+                diffTicks = events[ii].ticks - events[ii - 1].ticks;
+
+                vectorX += diffX / diffTicks;
+                vectorY += diffY / diffTicks;
+            } // for
+
+            vectorX = Math.min((vectorX / includedCount) * INERTIA_DURATION | 0, INERTIA_MAXDIST);
+            vectorY = Math.min((vectorY / includedCount) * INERTIA_DURATION | 0, INERTIA_MAXDIST);
+
+            inertiaPan(vectorX, vectorY, COG.easing('quad.out'), INERTIA_DURATION);
+        } // if
+    } // checkInertia
 
     function deltaGreaterThan(value) {
         return Math.abs(totalDeltaX) > value || Math.abs(totalDeltaY) > value;
@@ -1150,7 +1198,6 @@ var EventMonitor = function(target, handlers, params) {
     } // handlePanMove
 
     function handlePointerDown(evt, absXY, relXY) {
-        COG.info('reset ' + pans.length + ' pan history');
         pans = [];
 
         totalDeltaX = 0;
@@ -1160,8 +1207,27 @@ var EventMonitor = function(target, handlers, params) {
     function handlePointerUp(evt, absXY, relXY) {
         if (! deltaGreaterThan(MAXMOVE_TAP)) {
             observable.trigger('tap', absXY, relXY);
-        } // if
+        }
+        else if (pannableOpts) {
+            checkInertia(pans);
+        }
     } // handlePointerUP
+
+    function inertiaPan(changeX, changeY, easing, duration) {
+        var currentX = 0,
+            currentY = 0,
+            lastX = 0;
+
+        COG.tweenValue(0, changeX, easing, duration, function(val, complete) {
+            lastX = currentX;
+            currentX = val;
+        });
+
+        COG.tweenValue(0, changeY, easing, duration, function(val, complete) {
+            observable.trigger('pan', currentX - lastX, val - currentY);
+            currentY = val;
+        });
+    } // inertia pan
 
     /* exports */
 
@@ -1381,9 +1447,16 @@ function getOffset(obj) {
     };
 } // getOffset
 
+function genEventProps(source, evt) {
+    return {
+        source: source,
+        target: evt.target ? evt.target : evt.srcElement
+    };
+} // genEventProps
+
 function matchTarget(evt, targetElement) {
     var targ = evt.target ? evt.target : evt.srcElement;
-    while (targ && targ.nodeName && (targ.nodeName.toUpperCase() != 'CANVAS')) {
+    while (targ && (targ !== targetElement) && targ.nodeName && (targ.nodeName.toUpperCase() != 'CANVAS')) {
         targ = targ.parentNode;
     } // while
 
@@ -1431,8 +1504,9 @@ var MouseHandler = function(targetElement, observable, opts) {
                 evt.pageX ? evt.pageX : evt.screenX,
                 evt.pageY ? evt.pageY : evt.screenY);
 
-            observable.trigger(
+            observable.triggerCustom(
                 'tap',
+                genEventProps('mouse', evt),
                 clickXY,
                 pointerOffset(clickXY, getOffset(targetElement))
             );
@@ -1449,8 +1523,9 @@ var MouseHandler = function(targetElement, observable, opts) {
 
             COG.info('captured double click + target matched');
 
-            observable.trigger(
+            observable.triggerCustom(
                 'doubleTap',
+                genEventProps('mouse', evt),
                 clickXY,
                 pointerOffset(clickXY, getOffset(targetElement))
             );
@@ -1470,8 +1545,9 @@ var MouseHandler = function(targetElement, observable, opts) {
                 start = point(lastX, lastY);
                 offset = getOffset(targetElement);
 
-                observable.trigger(
+                observable.triggerCustom(
                     'pointerDown',
+                    genEventProps('mouse', evt),
                     start,
                     pointerOffset(start, offset)
                 );
@@ -1484,7 +1560,7 @@ var MouseHandler = function(targetElement, observable, opts) {
         currentY = evt.pageY ? evt.pageY : evt.screenY;
 
         if (matchTarget(evt, targetElement)) {
-            triggerCurrent(buttonDown ? 'pointerMove' : 'pointerHover');
+            triggerCurrent(evt, buttonDown ? 'pointerMove' : 'pointerHover');
         } // if
     } // mouseMove
 
@@ -1494,7 +1570,7 @@ var MouseHandler = function(targetElement, observable, opts) {
 
             if (matchTarget(evt, targetElement)) {
                 targetElement.style.cursor = 'default';
-                triggerCurrent('pointerUp');
+                triggerCurrent(evt, 'pointerUp');
             } // if
         } // if
     } // mouseUp
@@ -1518,8 +1594,9 @@ var MouseHandler = function(targetElement, observable, opts) {
             if (deltaY !== 0) {
                 var current = point(currentX, currentY);
 
-                observable.trigger(
+                observable.triggerCustom(
                     'zoom',
+                    genEventProps('mouse', evt),
                     current,
                     pointerOffset(current, getOffset(targetElement)),
                     deltaY / WHEEL_DELTA_LEVEL,
@@ -1538,15 +1615,16 @@ var MouseHandler = function(targetElement, observable, opts) {
         return button == 1;
     } // leftPressed
 
-    function triggerCurrent(eventName, overrideX, overrideY, updateLast) {
+    function triggerCurrent(evt, eventName, overrideX, overrideY, updateLast) {
         var evtX = typeof overrideX != 'undefined' ? overrideX : currentX,
             evtY = typeof overrideY != 'undefined' ? overrideY : currentY,
             deltaX = evtX - lastX,
             deltaY = evtY - lastY,
             current = point(evtX, evtY);
 
-        observable.trigger(
+        observable.triggerCustom(
             eventName,
+            genEventProps('mouse', evt),
             current,
             pointerOffset(current, offset),
             point(deltaX, deltaY)
@@ -1719,15 +1797,17 @@ var TouchHandler = function(targetElement, observable, opts) {
             if (! touchesStart) {
                 touchMode = TOUCH_MODE_TAP;
 
-                observable.trigger(
+                observable.triggerCustom(
                     'pointerDown',
+                    genEventProps('touch', evt),
                     changedTouches,
                     relTouches);
             } // if
 
             if (detailedEvents) {
-                observable.trigger(
+                observable.triggerCustom(
                     'pointerDownMulti',
+                    genEventProps('touch', evt),
                     changedTouches,
                     relTouches);
             } // if
@@ -1778,8 +1858,9 @@ var TouchHandler = function(targetElement, observable, opts) {
                                 currentScaling = touchDistance / startDistance,
                                 scaleChange = currentScaling - scaling;
 
-                            observable.trigger(
+                            observable.triggerCustom(
                                 'zoom',
+                                genEventProps('touch', evt),
                                 current,
                                 pointerOffset(current, offset),
                                 scaleChange,
@@ -1792,8 +1873,9 @@ var TouchHandler = function(targetElement, observable, opts) {
                 } // if
 
                 if (touchMode == TOUCH_MODE_MOVE) {
-                    observable.trigger(
+                    observable.triggerCustom(
                         'pointerMove',
+                        genEventProps('touch', evt),
                         touchesCurrent,
                         copyTouches(touchesCurrent, offset.x, offset.y),
                         point(
@@ -1803,8 +1885,9 @@ var TouchHandler = function(targetElement, observable, opts) {
                 } // if
 
                 if (detailedEvents) {
-                    observable.trigger(
+                    observable.triggerCustom(
                         'pointerMoveMulti',
+                        genEventProps('touch', evt),
                         touchesCurrent,
                         copyTouches(touchesCurrent, offset.x, offset.y)
                     );
@@ -1824,15 +1907,17 @@ var TouchHandler = function(targetElement, observable, opts) {
 
             if (! touchesCurrent) {
                 if (touchMode === TOUCH_MODE_TAP) {
-                    observable.trigger(
-                        'pointerTap',
+                    observable.triggerCustom(
+                        'tap',
+                        genEventProps('touch', evt),
                         changedTouches,
                         offsetTouches
                     );
                 } // if
 
-                observable.trigger(
+                observable.triggerCustom(
                     'pointerUp',
+                    genEventProps('touch', evt),
                     changedTouches,
                     offsetTouches
                 );
@@ -1841,8 +1926,9 @@ var TouchHandler = function(targetElement, observable, opts) {
             } // if
 
             if (detailedEvents) {
-                observable.trigger(
+                observable.triggerCustom(
                     'pointerUpMulti',
+                    genEventProps('touch', evt),
                     changedTouches,
                     offsetTouches
                 );
@@ -3415,6 +3501,7 @@ var View = function(params) {
     params = COG.extend({
         id: COG.objId('view'),
         container: "",
+        captureHover: true,
         fastDraw: false,
         inertia: true,
         idleDelay: 100,
@@ -3443,6 +3530,7 @@ var View = function(params) {
         isIE = typeof window.attachEvent != 'undefined',
         idleDelay = params.idleDelay,
         minRefresh = params.minRefresh,
+        hoverOffset = null,
         offsetX = 0,
         offsetY = 0,
         offsetMaxX = null,
@@ -3602,6 +3690,15 @@ var View = function(params) {
         } // if
     } // handleDoubleTap
 
+    function handlePointerDown(evt, absXY, relXY) {
+        hoverOffset = null;
+    } // handlePointerDown
+
+    function handlePointerHover(evt, absXY, relXY) {
+        hoverOffset = getScaledOffset(relXY.x, relXY.y);
+        hitTest(absXY, relXY, hoverOffset, 'hover');
+    } // handlePointerHover
+
     function handleResize(evt) {
         clearTimeout(resizeCanvasTimeout);
         resizeCanvasTimeout = setTimeout(attachToCanvas, 250);
@@ -3617,6 +3714,8 @@ var View = function(params) {
     } // handlePrepCanvasCallback
 
     function handlePointerTap(evt, absXY, relXY) {
+        hitTest(absXY, relXY, getScaledOffset(relXY.x, relXY.y), 'tap');
+
         triggerAll(
             'tap',
             absXY,
@@ -3624,6 +3723,24 @@ var View = function(params) {
             getScaledOffset(relXY.x, relXY.y)
         );
     } // handlePointerTap
+
+    function hitTest(absXY, relXY, offsetXY, eventType) {
+        var hitElements = [];
+
+        for (var ii = layerCount; ii--; ) {
+            if (layers[ii].hitTest) {
+                hitElements = hitElements.concat(layers[ii].hitTest(
+                                                    offsetXY.x,
+                                                    offsetXY.y,
+                                                    state,
+                                                    self));
+            } // if
+        } // for
+
+        if (hitElements.length > 0) {
+            self.trigger(eventType + 'Hit', hitElements, absXY, relXY, offsetXY);
+        } // if
+    } // hitTest
 
     /* exports */
 
@@ -3796,6 +3913,11 @@ var View = function(params) {
         if (params.scalable) {
             eventMonitor.bind('zoom', handleZoom);
             eventMonitor.bind('doubleTap', handleDoubleTap);
+        } // if
+
+        if (params.captureHover) {
+            eventMonitor.bind('pointerDown', handlePointerDown);
+            eventMonitor.bind('pointerHover', handlePointerHover);
         } // if
 
         eventMonitor.bind('tap', handlePointerTap);
@@ -4027,6 +4149,7 @@ var View = function(params) {
                     idleTimeout = 0;
                 } // if
             }  // if
+
 
             for (var ii = layerCount; ii--; ) {
                 if (layers[ii].animated) {
@@ -4469,6 +4592,11 @@ var ViewLayer = function(params) {
         },
 
         /**
+        ### hitTest(offsetX, offsetY, state, view)
+        */
+        hitTest: null,
+
+        /**
         ### getId()
 
         */
@@ -4572,7 +4700,6 @@ var ImageLayer = function(genId, params) {
             view = self.getParent();
 
         if (generator) {
-            COG.info('generating: ' + XYRect.toString(viewRect) + ', sequence = ' + sequenceId);
 
             generator.run(view, viewRect, function(newImages) {
                 if (sequenceId == generateCount) {
@@ -5079,7 +5206,7 @@ var MarkerLayer = function(params) {
 
     #### Example Usage
     ~ // adding a single marker
-    ~ layer.add(new T5.Annotation({
+    ~ layer.add(new T5.Marker({
     ~     xy: T5.GeoXY.init(markerPos) // markerPos is a T5.Geo.Position
     ~ }));
     ~
@@ -5166,7 +5293,22 @@ var MarkerLayer = function(params) {
 
 
         return results;
-    } // testCallback
+    } // find
+
+    function hitTest(offsetX, offsetY, state, view) {
+        var hitMarkers = [];
+
+        for (var ii = markers.length; ii--; ) {
+            if (markers[ii].hitTest(offsetX, offsetY)) {
+                hitMarkers[hitMarkers.length] = {
+                    type: 'marker',
+                    data: markers[ii]
+                };
+            } // if
+        } // for
+
+        return hitMarkers;
+    } // hitTest
 
     var self = COG.extend(new ViewLayer(params), {
         draw: function(context, viewRect, state, view) {
@@ -5183,7 +5325,8 @@ var MarkerLayer = function(params) {
         add: add,
         clear: clear,
         each: each,
-        find: find
+        find: find,
+        hitTest: hitTest
     });
 
     self.bind('tap', handleTap);

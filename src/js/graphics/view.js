@@ -110,6 +110,7 @@ var View = function(params) {
     params = COG.extend({
         id: COG.objId('view'),
         container: "",
+        captureHover: true,
         fastDraw: false,
         inertia: true,
         idleDelay: 100,
@@ -139,6 +140,7 @@ var View = function(params) {
         isIE = typeof window.attachEvent != 'undefined',
         idleDelay = params.idleDelay,
         minRefresh = params.minRefresh,
+        hoverOffset = null,
         offsetX = 0,
         offsetY = 0,
         offsetMaxX = null,
@@ -314,6 +316,15 @@ var View = function(params) {
         } // if
     } // handleDoubleTap
     
+    function handlePointerDown(evt, absXY, relXY) {
+        hoverOffset = null;
+    } // handlePointerDown
+    
+    function handlePointerHover(evt, absXY, relXY) {
+        hoverOffset = getScaledOffset(relXY.x, relXY.y);
+        hitTest(absXY, relXY, hoverOffset, 'hover');
+    } // handlePointerHover
+    
     function handleResize(evt) {
         clearTimeout(resizeCanvasTimeout);
         resizeCanvasTimeout = setTimeout(attachToCanvas, 250);
@@ -330,6 +341,8 @@ var View = function(params) {
     } // handlePrepCanvasCallback
     
     function handlePointerTap(evt, absXY, relXY) {
+        hitTest(absXY, relXY, getScaledOffset(relXY.x, relXY.y), 'tap');
+
         triggerAll(
             'tap', 
             absXY,
@@ -337,6 +350,25 @@ var View = function(params) {
             getScaledOffset(relXY.x, relXY.y)
         );
     } // handlePointerTap
+    
+    function hitTest(absXY, relXY, offsetXY, eventType) {
+        var hitElements = [];
+        
+        // iterate through the layers and check for elements under the cursor
+        for (var ii = layerCount; ii--; ) {
+            if (layers[ii].hitTest) {
+                hitElements = hitElements.concat(layers[ii].hitTest(
+                                                    offsetXY.x, 
+                                                    offsetXY.y, 
+                                                    state, 
+                                                    self));
+            } // if
+        } // for
+        
+        if (hitElements.length > 0) {
+            self.trigger(eventType + 'Hit', hitElements, absXY, relXY, offsetXY);
+        } // if
+    } // hitTest
     
     /* exports */
     
@@ -537,6 +569,11 @@ var View = function(params) {
         if (params.scalable) {
             eventMonitor.bind('zoom', handleZoom);
             eventMonitor.bind('doubleTap', handleDoubleTap);
+        } // if
+        
+        if (params.captureHover) {
+            eventMonitor.bind('pointerDown', handlePointerDown);
+            eventMonitor.bind('pointerHover', handlePointerHover);
         } // if
 
         // handle tap events
@@ -796,6 +833,8 @@ var View = function(params) {
                     idleTimeout = 0;
                 } // if
             }  // if
+            
+            // TODO: if we have a hover offset, check that no elements have moved under the cursor (maybe)
 
             for (var ii = layerCount; ii--; ) {
                 if (layers[ii].animated) {

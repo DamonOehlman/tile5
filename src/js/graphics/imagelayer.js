@@ -49,7 +49,7 @@ var ImageLayer = function(genId, params) {
             view = self.getParent();
 
         if (generator) {
-            COG.info('generating: ' + XYRect.toString(viewRect) + ', sequence = ' + sequenceId);
+            // COG.info('generating: ' + XYRect.toString(viewRect) + ', sequence = ' + sequenceId);
 
             generator.run(view, viewRect, function(newImages) {
                 if (sequenceId == generateCount) {

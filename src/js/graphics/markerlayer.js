@@ -106,7 +106,7 @@ var MarkerLayer = function(params) {
     
     #### Example Usage
     ~ // adding a single marker 
-    ~ layer.add(new T5.Annotation({
+    ~ layer.add(new T5.Marker({
     ~     xy: T5.GeoXY.init(markerPos) // markerPos is a T5.Geo.Position
     ~ }));
     ~ 
@@ -198,7 +198,23 @@ var MarkerLayer = function(params) {
         
         
         return results;
-    } // testCallback
+    } // find
+    
+    function hitTest(offsetX, offsetY, state, view) {
+        var hitMarkers = [];
+            
+        // iterate through the markers and look for matches
+        for (var ii = markers.length; ii--; ) {
+            if (markers[ii].hitTest(offsetX, offsetY)) {
+                hitMarkers[hitMarkers.length] = {
+                    type: 'marker',
+                    data: markers[ii]
+                };
+            } // if
+        } // for
+        
+        return hitMarkers;
+    } // hitTest
 
     // create the view layer the we will draw the view
     var self = COG.extend(new ViewLayer(params), {
@@ -217,7 +233,8 @@ var MarkerLayer = function(params) {
         add: add,
         clear: clear,
         each: each,
-        find: find
+        find: find,
+        hitTest: hitTest
     });
     
     // handle tap events
