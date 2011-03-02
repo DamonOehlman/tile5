@@ -277,7 +277,7 @@ var View = function(params) {
     function getScaledOffset(srcX, srcY) {
         var scaledX, scaledY,
             invScaleFactor = 1 / scaleFactor;
-        
+            
         if (scaleFactor !== 1 && drawRect) {
             scaledX = drawRect.x1 + srcX * invScaleFactor;
             scaledY = drawRect.y1 + srcY * invScaleFactor;
@@ -318,10 +318,12 @@ var View = function(params) {
     
     function handlePointerDown(evt, absXY, relXY) {
         hoverOffset = null;
+        hitTest(absXY, relXY, getScaledOffset(relXY.x, relXY.y), 'down');
     } // handlePointerDown
     
     function handlePointerHover(evt, absXY, relXY) {
         hoverOffset = getScaledOffset(relXY.x, relXY.y);
+        // COG.info('relxy = ' + T5.XY.toString(relXY) + ', hover offset = ' + T5.XY.toString(hoverOffset));
         hitTest(absXY, relXY, hoverOffset, 'hover');
     } // handlePointerHover
     
@@ -366,7 +368,14 @@ var View = function(params) {
         } // for
         
         if (hitElements.length > 0) {
-            self.trigger(eventType + 'Hit', hitElements, absXY, relXY, offsetXY);
+            self.triggerCustom(
+                eventType + 'Hit', {
+                    hitType: eventType
+                },
+                hitElements, 
+                absXY, 
+                relXY, 
+                offsetXY);
         } // if
     } // hitTest
     

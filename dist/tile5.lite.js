@@ -1622,6 +1622,10 @@ var MouseHandler = function(targetElement, observable, opts) {
             deltaY = evtY - lastY,
             current = point(evtX, evtY);
 
+        if (! offset) {
+            offset = getOffset(targetElement);
+        } // if
+
         observable.triggerCustom(
             eventName,
             genEventProps('mouse', evt),
@@ -3692,6 +3696,7 @@ var View = function(params) {
 
     function handlePointerDown(evt, absXY, relXY) {
         hoverOffset = null;
+        hitTest(absXY, relXY, getScaledOffset(relXY.x, relXY.y), 'down');
     } // handlePointerDown
 
     function handlePointerHover(evt, absXY, relXY) {
@@ -3738,7 +3743,14 @@ var View = function(params) {
         } // for
 
         if (hitElements.length > 0) {
-            self.trigger(eventType + 'Hit', hitElements, absXY, relXY, offsetXY);
+            self.triggerCustom(
+                eventType + 'Hit', {
+                    hitType: eventType
+                },
+                hitElements,
+                absXY,
+                relXY,
+                offsetXY);
         } // if
     } // hitTest
 
@@ -5037,6 +5049,12 @@ var ImageMarker = function(params) {
 
     /* exports */
 
+    function changeImage(imageUrl) {
+        self.image = Images.get(imageUrl, function(loadedImage) {
+            self.image = loadedImage;
+        });
+    } // changeImage
+
     function drawMarker(context, viewRect, x, y, state, overlay, view) {
         var image = self.isAnimating() && self.animatingImage ?
                 self.animatingImage : self.image;
@@ -5083,6 +5101,7 @@ var ImageMarker = function(params) {
     } // drawImage
 
     var self = COG.extend(new Marker(params), {
+        changeImage: changeImage,
         /**
         ### drawMarker(context, offset, xy, state, overlay, view)
         An overriden implementation of the T5.Annotation.drawMarker which
@@ -5195,6 +5214,15 @@ var MarkerLayer = function(params) {
                 parent.syncXY([markers[ii].xy]);
             } // for
         } // if
+
+        markers.sort(function(itemA, itemB) {
+            var retVal = itemB.xy.y - itemA.xy.y;
+            if (retVal == 0) {
+                retVal = itemB.xy.x - itemA.xy.x;
+            } // if
+
+            return retVal;
+        });
     } // resyncMarkers
 
     /* exports */

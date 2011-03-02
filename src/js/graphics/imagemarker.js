@@ -83,6 +83,12 @@ var ImageMarker = function(params) {
     
     /* exports */
     
+    function changeImage(imageUrl) {
+        self.image = Images.get(imageUrl, function(loadedImage) {
+            self.image = loadedImage;
+        });
+    } // changeImage
+    
     function drawMarker(context, viewRect, x, y, state, overlay, view) {
         // get the image
         var image = self.isAnimating() && self.animatingImage ? 
@@ -136,6 +142,7 @@ var ImageMarker = function(params) {
     } // drawImage
     
     var self = COG.extend(new Marker(params), {
+        changeImage: changeImage,
         /**
         ### drawMarker(context, offset, xy, state, overlay, view)
         An overriden implementation of the T5.Annotation.drawMarker which 
