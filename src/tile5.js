@@ -17,6 +17,8 @@
 //= require <interact/src/interact>
 
 T5 = (function() {
+    //= require "js/animframe"
+    
     //= require "js/math"
     //= require "js/core"
     //= require "js/device"

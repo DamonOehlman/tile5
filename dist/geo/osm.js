@@ -101,8 +101,6 @@ T5.Geo.OSM = (function() {
                 subDomains = serverDetails && serverDetails.subDomains ? 
                     serverDetails.subDomains : [];
                     
-                COG.info('tile pixels = ' + T5.XY.toString(tilePixels));
-                    
                 for (var xx = 0; xx <= xTiles; xx++) {
                     for (var yy = 0; yy <= yTiles; yy++) {
                         // build the tile url 

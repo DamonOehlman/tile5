@@ -282,7 +282,7 @@ var GeoJSONParser = function(data, callback, options, builders) {
         
         // if we have finished, then tell the worker we are done
         if (childParser || (featureIndex < totalFeatures)) {
-            COG.animFrame(processData);
+            animFrame(processData);
         }
         else {
             parseComplete();
@@ -293,7 +293,7 @@ var GeoJSONParser = function(data, callback, options, builders) {
     
     // save the total feature count
     totalFeatures = data.length;
-    COG.animFrame(processData);
+    animFrame(processData);
 };
 
 /* exports */

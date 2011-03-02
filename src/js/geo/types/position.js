@@ -302,7 +302,7 @@ var Position = (function() {
                 }
             }
             else {
-                COG.animFrame(processPositions);
+                animFrame(processPositions);
             } // if..else
         } // processPositions
         
@@ -315,7 +315,7 @@ var Position = (function() {
             return vectors;
         } // if
         
-        COG.animFrame(processPositions);
+        animFrame(processPositions);
         return null;
     } // vectorize
     

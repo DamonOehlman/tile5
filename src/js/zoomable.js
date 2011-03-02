@@ -20,12 +20,6 @@ function zoomable(view, params) {
     function handleScale(evt, scaleAmount, zoomXY) {
         var zoomChange = Math.log(scaleAmount) / Math.LN2;
 
-        // cancel any current animations
-        // TODO: review if there is a better place to do this
-        COG.endTweens(function(tweenInstance) {
-            return tweenInstance.cancelOnInteract;
-        });
-        
         setZoomLevel(zoomLevel + zoomChange, zoomXY);
         view.updateOffset(zoomXY.x * scaleAmount, zoomXY.y * scaleAmount);
     } // handleScale

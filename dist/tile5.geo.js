@@ -219,147 +219,6 @@ var wordExists = exports.wordExists = function(stringToCheck, word) {
 })();
 
 
-var FNS_TIME = [
-        'webkitAnimationTime',
-        'mozAnimationTime',
-        'animationTime',
-        'webkitAnimationStartTime',
-        'mozAnimationStartTime',
-        'animationStartTime'
-    ],
-    FNS_FRAME = [
-        'webkitRequestAnimationFrame',
-        'mozRequestAnimationFrame',
-        'requestAnimationFrame'
-    ];
-
-var animTime = function() {
-    return new Date().getTime();
-};
-
-var animFrame = function(callback) {
-    setTimeout(function() {
-        callback(animTime());
-    }, 1000 / 60);
-};
-
-FNS_TIME.forEach(function(fn) {
-    if (fn in window) {
-        animTime = function() {
-            return window[fn];
-        };
-    } // if
-});
-
-FNS_FRAME.forEach(function(fn) {
-    if (fn in window) {
-        animFrame = function(callback) {
-            window[fn](callback);
-        };
-    } // if
-});
-
-COG.animTime = animTime;
-COG.animFrame = animFrame;
-
-/**
-# COG.Loopage
-This module implements a control loop that can be used to centralize
-jobs draw loops, animation calculations, partial calculations for COG.Job
-instances, etc.
-*/
-COG.Loopage = (function() {
-    var frameId = 0,
-        workerCount = 0,
-        workers = [],
-        removalQueue = [];
-
-    function LoopWorker(params) {
-        var self = COG.extend({
-            id: workerCount++,
-            frequency: 0,
-            after: 0,
-            single: false,
-            lastTick: 0,
-            execute: function() {}
-        }, params);
-
-        return self;
-    } // LoopWorker
-
-
-    /* internal functions */
-
-    function joinLoop(params) {
-        var worker = new LoopWorker(params);
-        if (worker.after > 0) {
-            worker.lastTick = new Date().getTime() + worker.after;
-        } // if
-
-        COG.observable(worker);
-        worker.bind('complete', function() {
-            leaveLoop(worker.id);
-        });
-
-        workers.unshift(worker);
-        reschedule();
-
-        return worker;
-    } // joinLoop
-
-    function leaveLoop(workerId) {
-        removalQueue.push(workerId);
-        reschedule();
-    } // leaveLoop
-
-    function reschedule() {
-        if (! frameId) {
-            frameId = animFrame(runLoop);
-        } // if
-
-        recalcSleepFrequency = true;
-    } // reschedule
-
-    function runLoop() {
-        var ii,
-            tickCount = animTime(),
-            workerCount = workers.length;
-
-        while (removalQueue.length > 0) {
-            var workerId = removalQueue.shift();
-
-            for (ii = workerCount; ii--; ) {
-                if (workers[ii].id === workerId) {
-                    workers.splice(ii, 1);
-                    break;
-                } // if
-            } // for
-
-            workerCount = workers.length;
-        } // while
-
-        for (ii = workerCount; ii--; ) {
-            var workerDiff = tickCount - workers[ii].lastTick;
-
-            if (workers[ii].lastTick === 0 || workerDiff >= workers[ii].frequency) {
-                workers[ii].execute(tickCount, workers[ii]);
-                workers[ii].lastTick = tickCount;
-
-                if (workers[ii].single) {
-                    workers[ii].trigger('complete');
-                } // if
-            } // if
-        } // for
-
-        frameId = workerCount ? animFrame(runLoop) : 0;
-    } // runLoop
-
-    return {
-        join: joinLoop,
-        leave: leaveLoop
-    };
-})();
-
 (function() {
     var callbackCounter = 0;
 
@@ -620,7 +479,6 @@ http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-l
         asin = Math.asin,
         cos = Math.cos,
 
-        tweens = [],
         tweenWorker = null,
         updatingTweens = false;
 
@@ -753,136 +611,11 @@ http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-l
         }
     };
 
-    /* define the Tween class */
-
-    /**
-    # COG.Tween
-    */
-    var Tween = COG.Tween = function(params) {
-        params = COG.extend({
-            target: null,
-            property: null,
-            startValue: 0,
-            endValue: null,
-            duration: 2000,
-            tweenFn: easing('sine.out'),
-            complete: null
-        }, params);
-
-        var startTicks = new Date().getTime(),
-            updateListeners = [],
-            complete = false,
-            beginningValue = 0.0,
-            change = 0;
-
-        function notifyListeners(updatedValue, complete) {
-            for (var ii = updateListeners.length; ii--; ) {
-                updateListeners[ii](updatedValue, complete);
-            } // for
-        } // notifyListeners
-
-        var self = {
-            isComplete: function() {
-                return complete;
-            },
-
-            triggerComplete: function(cancelled) {
-                if (params.complete) {
-                    params.complete(cancelled);
-                } // if
-            },
-
-            update: function(tickCount) {
-                var elapsed = tickCount - startTicks,
-                    updatedValue = params.tweenFn(
-                                        elapsed,
-                                        beginningValue,
-                                        change,
-                                        params.duration);
-
-                if (params.target) {
-                    params.target[params.property] = updatedValue;
-                } // if
-
-                notifyListeners(updatedValue);
-
-                complete = startTicks + params.duration <= tickCount;
-                if (complete) {
-                    if (params.target) {
-                        params.target[params.property] = params.tweenFn(params.duration, beginningValue, change, params.duration);
-                    } // if
-
-                    notifyListeners(updatedValue, true);
-                } // if
-            },
-
-            requestUpdates: function(callback) {
-                updateListeners.push(callback);
-            }
-        };
-
-        beginningValue =
-            (params.target && params.property && params.target[params.property]) ? params.target[params.property] : params.startValue;
-
-        if (typeof params.endValue !== 'undefined') {
-            change = (params.endValue - beginningValue);
-        } // if
-
-        if (change == 0) {
-            complete = true;
-        } // if..else
-
-        wakeTweens();
-
-        return self;
-    };
-
     /* animation internals */
 
     function simpleTypeName(typeName) {
         return typeName.replace(/[\-\_\s\.]/g, '').toLowerCase();
     } // simpleTypeName
-
-    function updateTweens(tickCount, worker) {
-        if (updatingTweens) { return tweens.length; }
-
-        updatingTweens = true;
-        try {
-            var ii = 0;
-            while (ii < tweens.length) {
-                if (tweens[ii].isComplete()) {
-                    tweens[ii].triggerComplete(false);
-                    tweens.splice(ii, 1);
-                }
-                else {
-                    tweens[ii].update(tickCount);
-                    ii++;
-                } // if..else
-            } // while
-        }
-        finally {
-            updatingTweens = false;
-        } // try..finally
-
-        if (tweens.length === 0) {
-            tweenWorker.trigger('complete');
-        } // if
-
-        return tweens.length;
-    } // update
-
-    function wakeTweens() {
-        if (tweenWorker) { return; }
-
-        tweenWorker = COG.Loopage.join({
-            execute: updateTweens,
-            frequency: 20
-        });
-
-        tweenWorker.bind('complete', function(evt) {
-            tweenWorker = null;
-        });
-    } // wakeTweens
 
     /* tween exports */
 
@@ -891,7 +624,7 @@ http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-l
     */
     COG.tweenValue = function(startValue, endValue, fn, duration, callback) {
 
-        var startTicks = animTime(),
+        var startTicks = new Date().getTime(),
             change = endValue - startValue,
             tween = {};
 
@@ -917,55 +650,6 @@ http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-l
 
         return tween;
     }; // T5.tweenValue
-
-    /*
-    # T5.tween
-    */
-    COG.tween = function(target, property, targetValue, fn, callback, duration) {
-        var fnresult = new Tween({
-            target: target,
-            property: property,
-            endValue: targetValue,
-            tweenFn: fn,
-            duration: duration,
-            complete: callback
-        });
-
-        tweens.push(fnresult);
-        return fnresult;
-    }; // T5.tween
-
-    /**
-    # COG.endTweens
-    */
-    COG.endTweens = function(checkCallback) {
-        if (updatingTweens) { return ; }
-
-        updatingTweens = true;
-        try {
-            var ii = 0;
-
-            while (ii < tweens.length) {
-                if ((! checkCallback) || checkCallback(tweens[ii])) {
-                    tweens[ii].triggerComplete(true);
-                    tweens.splice(ii, 1);
-                }
-                else {
-                    ii++;
-                } // if..else
-            } // for
-        }
-        finally {
-            updatingTweens = false;
-        } // try..finally
-    };
-
-    /**
-    # COG.getTweens
-    */
-    COG.getTweens = function() {
-        return [].concat(tweens);
-    };
 
     /**
     # COG.easing
@@ -1981,6 +1665,19 @@ register('pointer', {
 })();
 
 T5 = (function() {
+window.animFrame = (function() {
+    return  window.requestAnimationFrame       ||
+            window.webkitRequestAnimationFrame ||
+            window.mozRequestAnimationFrame    ||
+            window.oRequestAnimationFrame      ||
+            window.msRequestAnimationFrame     ||
+            function(callback){
+                setTimeout(function() {
+                    window.callback(new Date().getTime());
+                }, 1000 / 60);
+            };
+})();
+
 var TWO_PI = Math.PI * 2,
     HALF_PI = Math.PI / 2;
 
@@ -3146,10 +2843,6 @@ function zoomable(view, params) {
     function handleScale(evt, scaleAmount, zoomXY) {
         var zoomChange = Math.log(scaleAmount) / Math.LN2;
 
-        COG.endTweens(function(tweenInstance) {
-            return tweenInstance.cancelOnInteract;
-        });
-
         setZoomLevel(zoomLevel + zoomChange, zoomXY);
         view.updateOffset(zoomXY.x * scaleAmount, zoomXY.y * scaleAmount);
     } // handleScale
@@ -3686,10 +3379,6 @@ var View = function(params) {
             getScaledOffset(relXY.x, relXY.y));
 
         if (params.scalable) {
-            COG.endTweens(function(tweenInstance) {
-                return tweenInstance.cancelOnInteract;
-            });
-
             scale(2, relXY, params.zoomAnimation, null, params.zoomDuration);
         } // if
     } // handleDoubleTap
@@ -4129,7 +3818,6 @@ var View = function(params) {
             redrawBG = (state & (stateZoom | statePan)) !== 0;
             interacting = redrawBG && (state & stateAnimating) === 0;
 
-
             if (sizeChanged && canvas) {
                 if (typeof FlashCanvas != 'undefined') {
                     FlashCanvas.initElement(canvas);
@@ -4151,10 +3839,6 @@ var View = function(params) {
             cycleRect = getViewRect();
 
             if (interacting) {
-                COG.endTweens(function(tweenInstance) {
-                    return tweenInstance.cancelOnInteract;
-                });
-
                 idle = false;
                 if (idleTimeout !== 0) {
                     clearTimeout(idleTimeout);
@@ -4184,7 +3868,7 @@ var View = function(params) {
             lastCycleTicks = tickCount;
         } // if
 
-        COG.animFrame(cycle);
+        animFrame(cycle);
     } // cycle
 
     function layerContextChanged(layer) {
@@ -4209,7 +3893,7 @@ var View = function(params) {
 
         if (! cycling) {
             cycling = true;
-            COG.animFrame(cycle);
+            animFrame(cycle);
         } // if
     } // invalidate
 
@@ -6459,7 +6143,7 @@ var Position = (function() {
                 }
             }
             else {
-                COG.animFrame(processPositions);
+                animFrame(processPositions);
             } // if..else
         } // processPositions
 
@@ -6471,7 +6155,7 @@ var Position = (function() {
             return vectors;
         } // if
 
-        COG.animFrame(processPositions);
+        animFrame(processPositions);
         return null;
     } // vectorize
 
@@ -7597,7 +7281,7 @@ var GeoJSONParser = function(data, callback, options, builders) {
         featureIndex = ii + 1;
 
         if (childParser || (featureIndex < totalFeatures)) {
-            COG.animFrame(processData);
+            animFrame(processData);
         }
         else {
             parseComplete();
@@ -7607,7 +7291,7 @@ var GeoJSONParser = function(data, callback, options, builders) {
     /* run the parser */
 
     totalFeatures = data.length;
-    COG.animFrame(processData);
+    animFrame(processData);
 };
 
 /* exports */
@@ -7887,8 +7571,6 @@ var Map = exports.Map = function(params) {
     the position of the map has been updated.
     */
     function gotoPosition(position, newZoomLevel, callback) {
-        COG.endTweens();
-
         self.setZoomLevel(newZoomLevel);
 
         panToPosition(position, callback);

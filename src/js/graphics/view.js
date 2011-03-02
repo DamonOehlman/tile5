@@ -305,12 +305,6 @@ var View = function(params) {
             getScaledOffset(relXY.x, relXY.y));
             
         if (params.scalable) {
-            // cancel any current animations
-            // TODO: review if there is a better place to do this
-            COG.endTweens(function(tweenInstance) {
-                return tweenInstance.cancelOnInteract;
-            });
-
             // animate the scaling
             scale(2, relXY, params.zoomAnimation, null, params.zoomDuration);            
         } // if
@@ -805,7 +799,6 @@ var View = function(params) {
             redrawBG = (state & (stateZoom | statePan)) !== 0;
             interacting = redrawBG && (state & stateAnimating) === 0;
 
-
             // handle any size changes if we have them
             if (sizeChanged && canvas) {
                 if (typeof FlashCanvas != 'undefined') {
@@ -832,10 +825,6 @@ var View = function(params) {
             cycleRect = getViewRect();
 
             if (interacting) {
-                COG.endTweens(function(tweenInstance) {
-                    return tweenInstance.cancelOnInteract;
-                });
-
                 idle = false;
                 if (idleTimeout !== 0) {
                     clearTimeout(idleTimeout);
@@ -874,7 +863,7 @@ var View = function(params) {
             lastCycleTicks = tickCount;
         } // if
 
-        COG.animFrame(cycle);
+        animFrame(cycle);
     } // cycle
     
     function layerContextChanged(layer) {
@@ -900,7 +889,7 @@ var View = function(params) {
         
         if (! cycling) {
             cycling = true;
-            COG.animFrame(cycle);
+            animFrame(cycle);
         } // if
     } // invalidate
     

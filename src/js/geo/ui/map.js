@@ -291,9 +291,6 @@ var Map = exports.Map = function(params) {
     the position of the map has been updated.
     */
     function gotoPosition(position, newZoomLevel, callback) {
-        // cancel any animations
-        COG.endTweens();
-
         // update the zoom level
         self.setZoomLevel(newZoomLevel);
         
