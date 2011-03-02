@@ -4,15 +4,6 @@ The T5 core module contains classes and functionality that support basic drawing
 operations and math that are used in managing and drawing the graphical and tiling interfaces 
 that are provided in the Tile5 library.
 
-## Classes
-- T5.Vector (deprecated)
-
-## Submodules
-- T5.XY
-- T5.XYRect
-- T5.V
-- T5.D
-
 ## Module Functions
 */
 

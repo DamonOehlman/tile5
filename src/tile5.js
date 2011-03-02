@@ -40,7 +40,9 @@ T5 = (function() {
     //= require "js/graphics/pathlayer"
     //= require "js/graphics/animatedpathlayer"
     
-    //= require "js/graphics/shapes"
+    //= require "js/graphics/shapes/core"
+    //= require "js/graphics/shapes/arc"
+    //= require "js/graphics/shapes/poly"
     //= require "js/graphics/shapelayer"
     
     //= require "js/tiling/core"

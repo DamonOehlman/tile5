@@ -7,4 +7,4 @@ perl $JODOC_PATH/joDoc \
      --smartypants $JODOC_DEPS_PATH/SmartyPants.pl \
      --title "Tile5 API Documentation" \
      --template docs/html/template.html \
-     README.mdown LICENSE.mdown docs/ src/js
+     docs/ src/js

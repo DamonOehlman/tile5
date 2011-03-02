@@ -1,13 +1,13 @@
-{% extends 'apidoc.html' %}
+---
+layout: apidoc
+title: Tile5 API Documentation
+---
 
-{% block title %}Tile5 API Documentation{% endblock %}
-
-{% block api %}
 <h1><a name="T5.GeoShape">T5.GeoShape</a></h1>
 
-<p><em>extends:</em> <a href="src_js_graphics_shapes.js.html#T5.Shape">T5.Shape</a></p>
+<p><em>extends:</em> <a href="src_js_graphics_shapes_core.js.html#T5.Shape">T5.Shape</a></p>
 
-<p>This is a special type of <a href="src_js_graphics_shapes.js.html#T5.Poly">T5.Poly</a> that will take positions for the first
+<p>This is a special type of <a href="src_js_graphics_shapes_poly.js.html#T5.Poly">T5.Poly</a> that will take positions for the first
 argument of the constructor rather than vectors.  If the initialization
 parameter <code>autoParse</code> is set to true (which it is by default), this will 
 parsed by the <a href="src_js_geo_types_position.js.html#T5.Geo.Position">T5.Geo.Position</a>.parse function and converted into a GeoXY.</p>
@@ -25,5 +25,3 @@ the <a href="src_js_geo_types_position.js.html#T5.Geo.Position">T5.Geo.Position<
 handling both string and <a href="src_js_geo_types_position.js.html#T5.Geo.Position">T5.Geo.Position</a> values as position values are
 simply passed straight through.</li>
 </ul>
-
-{% endblock %}

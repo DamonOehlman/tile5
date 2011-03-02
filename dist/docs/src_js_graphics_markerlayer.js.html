@@ -1,8 +1,8 @@
-{% extends 'apidoc.html' %}
+---
+layout: apidoc
+title: Tile5 API Documentation
+---
 
-{% block title %}Tile5 API Documentation{% endblock %}
-
-{% block api %}
 <h1><a name="T5.MarkerLayer">T5.MarkerLayer</a></h1>
 
 <p><em>extends:</em> <a href="src_js_graphics_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a></p>
@@ -55,7 +55,7 @@ add to the layer or alternatively an array of annotations to add.</p>
 <h4>Example Usage</h4>
 
 <pre><code> // adding a single marker 
- layer.add(new <a href="src_js_core.js.html#T5">T5</a>.Annotation({
+ layer.add(new <a href="src_js_graphics_marker.js.html#T5.Marker">T5.Marker</a>({
      xy: <a href="src_js_geo_types_geoxy.js.html#T5.GeoXY">T5.GeoXY</a>.init(markerPos) // markerPos is a <a href="src_js_geo_types_position.js.html#T5.Geo.Position">T5.Geo.Position</a>
  }));
 
@@ -91,5 +91,3 @@ removed or not.</p>
 
 <p>Find markers that match the requirements of the test callback.  For an example
 of test callback usage see the <code>clear</code> method.</p>
-
-{% endblock %}

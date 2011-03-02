@@ -3,8 +3,10 @@
 This module provides helper functions for working with an object literal that represents a set of xy
 values that represent the top-left and bottom-right corners of a rectangle respectively.
 
-## XYRect Object Literal Format
-An XYRect object literal has the following properties.
+## XYRect Attributes
+Calling the `T5.XYRect.init` function produces an object literal with the following
+properties:
+
 
 - `x1` - The x value for the top left corner
 - `y1` - The y value for the top left corner
@@ -12,6 +14,7 @@ An XYRect object literal has the following properties.
 - `y2` - The y value for the bottom right corner
 - `width` - The width of the rect
 - `height` - The height of the rect
+
 
 ## Functions
 */
@@ -37,6 +40,7 @@ var XYRect = (function() {
     
     /**
     ### diagonalSize(rect)
+    Return the distance from corner to corner of the rect
     */
     function diagonalSize(rect) {
         return sqrt(rect.width * rect.width + rect.height * rect.height);
@@ -44,6 +48,8 @@ var XYRect = (function() {
     
     /**
     ### fromCenter(centerX, centerY, width, height)
+    An alternative to the `init` function, this function can create a T5.XYRect
+    given a center x and y position, width and height.
     */
     function fromCenter(centerX, centerY, width, height) {
         var halfWidth = width >> 1,
@@ -94,6 +100,7 @@ var XYRect = (function() {
     
     /**
     ### toString(rect)
+    Return the string representation of the rect
     */
     function toString(rect) {
         return '[' + rect.x1 + ', ' + rect.y1 + ', ' + rect.x2 + ', ' + rect.y2 + ']';
@@ -101,6 +108,7 @@ var XYRect = (function() {
     
     /**
     ### union(rect1, rect2)
+    Return the minimum rect required to contain both of the supplied rects
     */
     function union(rect1, rect2) {
         if (rect1.width === 0 || rect1.height === 0) {

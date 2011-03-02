@@ -1703,15 +1703,6 @@ The T5 core module contains classes and functionality that support basic drawing
 operations and math that are used in managing and drawing the graphical and tiling interfaces
 that are provided in the Tile5 library.
 
-## Classes
-- T5.Vector (deprecated)
-
-## Submodules
-- T5.XY
-- T5.XYRect
-- T5.V
-- T5.D
-
 ## Module Functions
 */
 
@@ -2083,8 +2074,10 @@ var Vector = (function() {
 This module provides helper functions for working with an object literal that represents a set of xy
 values that represent the top-left and bottom-right corners of a rectangle respectively.
 
-## XYRect Object Literal Format
-An XYRect object literal has the following properties.
+## XYRect Attributes
+Calling the `T5.XYRect.init` function produces an object literal with the following
+properties:
+
 
 - `x1` - The x value for the top left corner
 - `y1` - The y value for the top left corner
@@ -2092,6 +2085,7 @@ An XYRect object literal has the following properties.
 - `y2` - The y value for the bottom right corner
 - `width` - The width of the rect
 - `height` - The height of the rect
+
 
 ## Functions
 */
@@ -2117,6 +2111,7 @@ var XYRect = (function() {
 
     /**
     ### diagonalSize(rect)
+    Return the distance from corner to corner of the rect
     */
     function diagonalSize(rect) {
         return sqrt(rect.width * rect.width + rect.height * rect.height);
@@ -2124,6 +2119,8 @@ var XYRect = (function() {
 
     /**
     ### fromCenter(centerX, centerY, width, height)
+    An alternative to the `init` function, this function can create a T5.XYRect
+    given a center x and y position, width and height.
     */
     function fromCenter(centerX, centerY, width, height) {
         var halfWidth = width >> 1,
@@ -2173,6 +2170,7 @@ var XYRect = (function() {
 
     /**
     ### toString(rect)
+    Return the string representation of the rect
     */
     function toString(rect) {
         return '[' + rect.x1 + ', ' + rect.y1 + ', ' + rect.x2 + ', ' + rect.y2 + ']';
@@ -2180,6 +2178,7 @@ var XYRect = (function() {
 
     /**
     ### union(rect1, rect2)
+    Return the minimum rect required to contain both of the supplied rects
     */
     function union(rect1, rect2) {
         if (rect1.width === 0 || rect1.height === 0) {
@@ -2216,7 +2215,9 @@ var XYRect = (function() {
 # T5.Dimensions
 A module of utility functions for working with dimensions composites
 
-## Dimension Object Literal Properties
+## Dimension Attributes
+
+Dimensions created using the init function will have the following attributes:
 - `width`
 - `height`
 
@@ -3100,17 +3101,22 @@ are implemented here around the layering as these are used extensively
 when creating overlays and the like for the map implementations.
 
 ## Constructor
-`T5.View(params)`
 
-### Initialization Parameters
+<pre>
+var view = new T5.View(params);
+</pre>
+
+#### Initialization Parameters
 
 - `container` (required)
 
-- `id`
-
 - `autoSize`
 
-- `fastDraw`
+- `id`
+
+- `captureHover` - whether or not hover events should be intercepted by the View.
+If you are building an application for mobile devices then you may want to set this to
+false, but it's overheads are minimals given no events will be generated.
 
 - `inertia`
 
@@ -3122,15 +3128,17 @@ when creating overlays and the like for the map implementations.
 
 - `panAnimationDuration`
 
-- `pinchZoomAnimateTrigger`
-
-- `adjustScaleFactor`
-
-- `fps` (int, default = 25) - the frame rate of the view, by default this is set to
+- `fps` - (int, default = 25) - the frame rate of the view, by default this is set to
 25 frames per second but can be increased or decreased to compensate for device
 performance.  In reality though on slower devices, the framerate will scale back
 automatically, but it can be prudent to set a lower framerate to leave some cpu for
 other processes :)
+
+- `zoomEasing` - (easing, default = `quad.out`) - The easing effect that should be used when
+the user double taps the display to zoom in on the view.
+
+- `zoomDuration` - (int, default = 300) - If the `zoomEasing` parameter is specified then
+this is the duration for the tween.
 
 
 ## Events
@@ -3149,20 +3157,22 @@ When the view is being scaled down this will be a value less than
 the scaling operation is centered.
 
 
-### tap
+### tapHit
 This event is fired when the view has been tapped (or the left
 mouse button has been pressed)
 <pre>
-view.bind('tap', function(evt, absXY, relXY, gridXY) {
+view.bind('tapHit', function(evt, elements, absXY, relXY, offsetXY) {
 });
 </pre>
 
+- elements ([]) - an array of elements that were "hit"
 - absXY (T5.Vector) - the absolute position of the tap
-- relXY (T5.Vector) - the position of the tap relative to the top left
-position of the view.
-- gridXY (T5.Vector) - the xy coordinates of the tap relative to the
-scrolling grid offset.
+- relXY (T5.Vector) - the position of the tap relative to the top left position of the view.
+- gridXY (T5.Vector) - the xy coordinates of the tap relative to the scrolling grid offset.
 
+
+### hoverHit
+As per the tapHit event, but triggered through a mouse-over event.
 
 ### resize
 This event is fired when the view has been resized (either manually or
@@ -3206,17 +3216,14 @@ var View = function(params) {
         pannable: true,
         clipping: true,
         scalable: true,
-        interactive: true,
         panAnimationEasing: COG.easing('sine.out'),
         panAnimationDuration: 750,
         pinchZoomAnimateTrigger: 400,
-        adjustScaleFactor: null,
         autoSize: true,
         tapExtent: 10,
-        mask: true,
         guides: false,
         fps: 25,
-        zoomAnimation: COG.easing('quad.out'),
+        zoomEasing: COG.easing('quad.out'),
         zoomDuration: 300
     }, params);
 
@@ -3379,7 +3386,7 @@ var View = function(params) {
             getScaledOffset(relXY.x, relXY.y));
 
         if (params.scalable) {
-            scale(2, relXY, params.zoomAnimation, null, params.zoomDuration);
+            scale(2, relXY, params.zoomEasing, null, params.zoomDuration);
         } // if
     } // handleDoubleTap
 
@@ -3443,89 +3450,12 @@ var View = function(params) {
         } // if
     } // hitTest
 
-    /* exports */
-
-    /**
-    ### pan(x, y, tweenFn, tweenDuration, callback)
-    */
-    function pan(x, y, tweenFn, tweenDuration, callback) {
-        updateOffset(offsetX + x, offsetY + y, tweenFn, tweenDuration, callback);
-    } // pan
-
-    /**
-    ### updateOffset(x, y, tweenFn, tweenDuration, callback)
-    */
-    function updateOffset(x, y, tweenFn, tweenDuration, callback) {
-
-        var tweensComplete = 0,
-            minXYOffset = layerMinXY ? XY.offset(layerMinXY, -halfWidth, -halfHeight) : null,
-            maxXYOffset = layerMaxXY ? XY.offset(layerMaxXY, -halfWidth, -halfHeight) : null;
-
-        function endTween() {
-            tweensComplete += 1;
-
-            if (tweensComplete >= 2) {
-                panEnd();
-                if (callback) {
-                    callback();
-                } // if
-            } // if
-        } // endOffsetUpdate
-
-        if (minXYOffset) {
-            x = x < minXYOffset.x ? minXYOffset.x : x;
-            y = y < minXYOffset.y ? minXYOffset.y : y;
-        } // if
-
-        if (maxXYOffset) {
-            x = x > maxXYOffset.x ? maxXYOffset.x : x;
-            y = y > maxXYOffset.y ? maxXYOffset.y : y;
-        } // if
-
-        if (tweenFn) {
-            if ((state & statePan) !== 0) {
-                return;
-            } // if
-
-            COG.tweenValue(offsetX, x, tweenFn, tweenDuration, function(val, complete){
-                offsetX = val | 0;
-
-                (complete ? endTween : invalidate)();
-                return !interacting;
-            });
-
-            COG.tweenValue(offsetY, y, tweenFn, tweenDuration, function(val, complete) {
-                offsetY = val | 0;
-
-                (complete ? endTween : invalidate)();
-                return !interacting;
-            });
-
-            state = statePan | stateAnimating;
-        }
-        else {
-            offsetX = x | 0;
-            offsetY = y | 0;
-
-            invalidate();
-
-            if (callback) {
-                callback();
-            } // if
-        } // if..else
-    } // updateOffset
-
-
     /* private functions */
 
     function attachToCanvas(newWidth, newHeight) {
         var ii;
 
         if (canvas) {
-            if (eventMonitor) {
-                eventMonitor.unbind();
-            } // if
-
             if (params.autoSize && canvas.parentNode) {
                 newWidth = canvas.parentNode.offsetWidth;
                 newHeight = canvas.parentNode.offsetHeight;
@@ -3558,16 +3488,13 @@ var View = function(params) {
                 } // for
             } // if
 
-            if (params.interactive) {
-                eventMonitor = INTERACT.watch(canvas).pannable();
-                captureInteractionEvents();
-            } // if
-
             for (ii = layerCount; ii--; ) {
                 layerContextChanged(layers[ii]);
             } // for
 
             invalidate();
+
+            captureInteractionEvents();
         } // if
     } // attachToCanvas
 
@@ -3599,16 +3526,14 @@ var View = function(params) {
     } // addLayer
 
     function captureInteractionEvents() {
-        if (! eventMonitor) {
-            return;
-        }
+        if (eventMonitor) {
+            eventMonitor.unbind();
+        } // if
+
+        eventMonitor = INTERACT.watch(canvas);
 
         if (params.pannable) {
-            eventMonitor.bind('pan', handlePan);
-
-            eventMonitor.bind("inertiaCancel", function(evt) {
-                invalidate();
-            });
+            eventMonitor.pannable().bind('pan', handlePan);
         } // if
 
         if (params.scalable) {
@@ -3898,7 +3823,7 @@ var View = function(params) {
     } // invalidate
 
     /**
-    ### getDimensions()
+    ### getDimensions(): T5.Dimensions
     Return the Dimensions of the View
     */
     function getDimensions() {
@@ -3906,7 +3831,7 @@ var View = function(params) {
     } // getDimensions
 
     /**
-    ### getLayer(id)
+    ### getLayer(id: String): T5.ViewLayer
     Get the ViewLayer with the specified id, return null if not found
     */
     function getLayer(id) {
@@ -3920,7 +3845,7 @@ var View = function(params) {
     } // getLayer
 
     /**
-    ### getOffset()
+    ### getOffset(): T5.XY
     Return a T5.XY containing the current view offset
     */
     function getOffset() {
@@ -3928,7 +3853,7 @@ var View = function(params) {
     } // getOffset
 
     /**
-    ### setMaxOffset(maxX, maxY, wrapX, wrapY)
+    ### setMaxOffset(maxX: int, maxY: int, wrapX: bool, wrapY: bool)
     Set the bounds of the display to the specified area, if wrapX or wrapY parameters
     are set, then the bounds will be wrapped automatically.
     */
@@ -3941,7 +3866,7 @@ var View = function(params) {
     } // setMaxOffset
 
     /**
-    ### getViewRect()
+    ### getViewRect(): T5.XYRect
     Return a T5.XYRect for the last drawn view rect
     */
     function getViewRect() {
@@ -3951,6 +3876,19 @@ var View = function(params) {
             offsetX + viewWidth,
             offsetY + viewHeight);
     } // getViewRect
+
+    /**
+    ### pan(x: int, y: int, tweenFn: EasingFn, tweenDuration: int, callback: fn)
+
+    Used to pan the view by the specified x and y.  This is simply a wrapper to the
+    updateOffset function that adds the specified x and y to the current view offset.
+    Tweening effects can be applied by specifying values for the optional `tweenFn` and
+    `tweenDuration` arguments, and if a notification is required once the pan has completed
+    then a callback can be supplied as the final argument.
+    */
+    function pan(x, y, tweenFn, tweenDuration, callback) {
+        updateOffset(offsetX + x, offsetY + y, tweenFn, tweenDuration, callback);
+    } // pan
 
     /**
     ### setLayer(id: String, value: T5.ViewLayer)
@@ -3976,6 +3914,8 @@ var View = function(params) {
 
     /**
     ### refresh()
+    Manually trigger a refresh on the view.  Child view layers will likely be listening for `refresh`
+    events and will do some of their recalculations when this is called.
     */
     function refresh() {
         lastRefresh = new Date().getTime();
@@ -4020,7 +3960,8 @@ var View = function(params) {
     } // resize
 
     /**
-    ### scale(targetScaling, targetXY, tweenFn, callback)
+    ### scale(targetScaling: float, targetXY: T5.XY, tweenFn: EasingFn, callback: fn)
+    Scale the view to the specified `targetScaling` (1 = normal, 2 = double-size and 0.5 = half-size).
     */
     function scale(targetScaling, targetXY, tweenFn, callback, duration) {
         if (tweenFn) {
@@ -4052,7 +3993,7 @@ var View = function(params) {
     } // scale
 
     /**
-    ### triggerAll(eventName, args*)
+    ### triggerAll(eventName: string, args*)
     Trigger an event on the view and all layers currently contained in the view
     */
     function triggerAll() {
@@ -4063,6 +4004,74 @@ var View = function(params) {
 
         return (! cancel);
     } // triggerAll
+
+
+    /**
+    ### updateOffset(x: int, y: int, tweenFn: EasingFn, tweenDuration: int, callback: fn)
+
+    This function allows you to specified the absolute x and y offset that should
+    become the top-left corner of the view.  As per the `pan` function documentation, tween and
+    callback arguments can be supplied to animate the transition.
+    */
+    function updateOffset(x, y, tweenFn, tweenDuration, callback) {
+
+        var tweensComplete = 0,
+            minXYOffset = layerMinXY ? XY.offset(layerMinXY, -halfWidth, -halfHeight) : null,
+            maxXYOffset = layerMaxXY ? XY.offset(layerMaxXY, -halfWidth, -halfHeight) : null;
+
+        function endTween() {
+            tweensComplete += 1;
+
+            if (tweensComplete >= 2) {
+                panEnd();
+                if (callback) {
+                    callback();
+                } // if
+            } // if
+        } // endOffsetUpdate
+
+        if (minXYOffset) {
+            x = x < minXYOffset.x ? minXYOffset.x : x;
+            y = y < minXYOffset.y ? minXYOffset.y : y;
+        } // if
+
+        if (maxXYOffset) {
+            x = x > maxXYOffset.x ? maxXYOffset.x : x;
+            y = y > maxXYOffset.y ? maxXYOffset.y : y;
+        } // if
+
+        if (tweenFn) {
+            if ((state & statePan) !== 0) {
+                return;
+            } // if
+
+            COG.tweenValue(offsetX, x, tweenFn, tweenDuration, function(val, complete){
+                offsetX = val | 0;
+
+                (complete ? endTween : invalidate)();
+                return !interacting;
+            });
+
+            COG.tweenValue(offsetY, y, tweenFn, tweenDuration, function(val, complete) {
+                offsetY = val | 0;
+
+                (complete ? endTween : invalidate)();
+                return !interacting;
+            });
+
+            state = statePan | stateAnimating;
+        }
+        else {
+            offsetX = x | 0;
+            offsetY = y | 0;
+
+            invalidate();
+
+            if (callback) {
+                callback();
+            } // if
+        } // if..else
+    } // updateOffset
 
     function triggerAllUntilCancelled() {
         var cancel = self.trigger.apply(null, arguments).cancel;
@@ -4118,7 +4127,9 @@ var View = function(params) {
         ["inertia", "container", 'rotation', 'tapExtent', 'scalable', 'pannable'],
         COG.paramTweaker(params, null, {
             "container": handleContainerUpdate,
-            'rotation':  handleRotationUpdate
+            'rotation':  handleRotationUpdate,
+            'scalable':  captureInteractionEvents,
+            'pannable':  captureInteractionEvents
         }),
         true);
 
@@ -5303,7 +5314,8 @@ that need to be implemented for shapes that can be drawn in a T5.ShapeLayer.
 ## Constructor
 `new T5.Shape(params);`
 
-### Initialization Parameters
+
+#### Initialization Parameters
 
 -
 */
@@ -5329,7 +5341,9 @@ var Shape = function(params) {
         }
     });
 };
-
+/**
+# T5.Arc
+*/
 var Arc = function(origin, params) {
    params = COG.extend({
        size: 4
@@ -5367,11 +5381,9 @@ var Arc = function(origin, params) {
    COG.info('created arc = ', origin);
    return self;
 };
-
 /**
 # T5.Poly
-This class is used to represent individual poly(gon/line)s that are drawn within
-a T5.PolyLayer.
+__extends__: T5.Shape
 
 ## Constructor
 
@@ -5381,7 +5393,7 @@ The constructor requires an array of vectors that represent the poly and
 also accepts optional initialization parameters (see below).
 
 
-### Initialization Parameters
+#### Initialization Parameters
 
 - `fill` (default = true) - whether or not the poly should be filled.
 - `style` (default = null) - the style override for this poly.  If none
@@ -5465,7 +5477,6 @@ var Poly = function(points, params) {
 
     return self;
 };
-
 /**
 # T5.ShapeLayer
 _extends:_ T5.ViewLayer

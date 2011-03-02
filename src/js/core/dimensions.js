@@ -2,7 +2,9 @@
 # T5.Dimensions
 A module of utility functions for working with dimensions composites
 
-## Dimension Object Literal Properties
+## Dimension Attributes
+
+Dimensions created using the init function will have the following attributes:
 - `width`
 - `height`
 

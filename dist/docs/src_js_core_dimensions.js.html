@@ -1,18 +1,17 @@
-{% extends 'apidoc.html' %}
+---
+layout: apidoc
+title: Tile5 API Documentation
+---
 
-{% block title %}Tile5 API Documentation{% endblock %}
-
-{% block api %}
 <h1><a name="T5.Dimensions">T5.Dimensions</a></h1>
 
 <p>A module of utility functions for working with dimensions composites</p>
 
-<h2>Dimension Object Literal Properties</h2>
+<h2>Dimension Attributes</h2>
 
-<ul>
-<li><code>width</code></li>
-<li><code>height</code></li>
-</ul>
+<p>Dimensions created using the init function will have the following attributes:
+- <code>width</code>
+- <code>height</code></p>
 
 <h2>Functions</h2>
 
@@ -31,5 +30,3 @@
 <h3>init(width, height)</h3>
 
 <p>Create a new dimensions composite (width, height)</p>
-
-{% endblock %}
