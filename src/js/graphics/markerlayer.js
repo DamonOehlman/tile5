@@ -95,6 +95,16 @@ var MarkerLayer = function(params) {
                 parent.syncXY([markers[ii].xy]);
             } // for
         } // if
+        
+        // sort the markers
+        markers.sort(function(itemA, itemB) {
+            var retVal = itemB.xy.y - itemA.xy.y;
+            if (retVal == 0) {
+                retVal = itemB.xy.x - itemA.xy.x;
+            } // if
+            
+            return retVal;
+        });
     } // resyncMarkers
     
     /* exports */
