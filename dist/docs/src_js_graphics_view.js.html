@@ -40,6 +40,10 @@ false, but it's overheads are minimals given no events will be generated.</li>
 performance.  In reality though on slower devices, the framerate will scale back 
 automatically, but it can be prudent to set a lower framerate to leave some cpu for 
 other processes :)</li>
+<li><code>turbo</code> - (bool, default = false) - whether or not all possible performance optimizations
+should be implemented.  In this mode certain features such as transparent images in <a href="src_js_graphics_imagelayer.js.html#T5.ImageLayer">T5.ImageLayer</a>
+will not have these effects applied.  Additionally, clipping is disabled and clearing the background
+rectangle never happens.  This is serious stuff folks.</li>
 <li><code>zoomEasing</code> - (easing, default = <code>quad.out</code>) - The easing effect that should be used when 
 the user double taps the display to zoom in on the view.</li>
 <li><code>zoomDuration</code> - (int, default = 300) - If the <code>zoomEasing</code> parameter is specified then 

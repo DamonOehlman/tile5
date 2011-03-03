@@ -3134,6 +3134,11 @@ performance.  In reality though on slower devices, the framerate will scale back
 automatically, but it can be prudent to set a lower framerate to leave some cpu for
 other processes :)
 
+- `turbo` - (bool, default = false) - whether or not all possible performance optimizations
+should be implemented.  In this mode certain features such as transparent images in T5.ImageLayer
+will not have these effects applied.  Additionally, clipping is disabled and clearing the background
+rectangle never happens.  This is serious stuff folks.
+
 - `zoomEasing` - (easing, default = `quad.out`) - The easing effect that should be used when
 the user double taps the display to zoom in on the view.
 
@@ -3211,7 +3216,6 @@ var View = function(params) {
         captureHover: true,
         fastDraw: false,
         inertia: true,
-        idleDelay: 100,
         minRefresh: 1000,
         pannable: true,
         clipping: true,
@@ -3222,17 +3226,19 @@ var View = function(params) {
         autoSize: true,
         tapExtent: 10,
         guides: false,
+        turbo: false,
         fps: 25,
         zoomEasing: COG.easing('quad.out'),
         zoomDuration: 300
     }, params);
+
+    var TURBO_CLEAR_INTERVAL = 500;
 
     var layers = [],
         layerCount = 0,
         canvas = document.getElementById(params.container),
         mainContext = null,
         isIE = typeof window.attachEvent != 'undefined',
-        idleDelay = params.idleDelay,
         minRefresh = params.minRefresh,
         hoverOffset = null,
         offsetX = 0,
@@ -3253,12 +3259,11 @@ var View = function(params) {
         interactOffset = null,
         interactCenter = null,
         interacting = false,
-        idle = false,
-        idleTimeout = 0,
         panEndTimeout = 0,
         layerMinXY = null,
         layerMaxXY = null,
         lastRefresh = 0,
+        lastClear = 0,
         rotation = 0,
         resizeCanvasTimeout = 0,
         scaleFactor = 1,
@@ -3267,6 +3272,7 @@ var View = function(params) {
         lastCycleTicks = 0,
         sizeChanged = false,
         eventMonitor = null,
+        turbo = params.turbo,
         viewHeight,
         viewWidth,
         isFlash = typeof FlashCanvas !== 'undefined',
@@ -3637,14 +3643,15 @@ var View = function(params) {
         drawRect.scaleFactor = scaleFactor;
 
         if (! canClip) {
-            mainContext.clearRect(0, 0, viewWidth, viewHeight);
+            if ((! turbo) || (tickCount - lastClear > TURBO_CLEAR_INTERVAL)) {
+                mainContext.clearRect(0, 0, viewWidth, viewHeight);
+                lastClear = tickCount;
+            } // if
         } // if
 
         mainContext.save();
 
         try {
-            mainContext.globalCompositeOperation = 'source-over';
-
             if (scaleFactor !== 1) {
                 drawRect = calcZoomRect(drawRect);
                 mainContext.scale(scaleFactor, scaleFactor);
@@ -3657,7 +3664,7 @@ var View = function(params) {
 
             /* first pass - clip */
 
-            if (canClip) {
+            if (canClip && (! turbo)) {
                 mainContext.beginPath();
 
                 for (ii = layerCount; ii--; ) {
@@ -3674,6 +3681,8 @@ var View = function(params) {
 
             for (ii = layerCount; ii--; ) {
                 drawLayer = layers[ii];
+
+                mainContext.globalCompositeOperation = (turbo && drawLayer.zIndex <= 0) ? 'copy' : 'source-over';
 
                 var layerStyle = drawLayer.style,
                     previousStyle = layerStyle ? Style.apply(mainContext, layerStyle) : null;
@@ -3726,8 +3735,7 @@ var View = function(params) {
 
     function cycle(tickCount) {
         var redrawBG,
-            clippable = false,
-            layerArgs = {};
+            clippable = false;
 
         if (! viewChanges) {
             cycling = false;
@@ -3763,14 +3771,6 @@ var View = function(params) {
 
             cycleRect = getViewRect();
 
-            if (interacting) {
-                idle = false;
-                if (idleTimeout !== 0) {
-                    clearTimeout(idleTimeout);
-                    idleTimeout = 0;
-                } // if
-            }  // if
-
 
             for (var ii = layerCount; ii--; ) {
                 if (layers[ii].animated) {
@@ -3784,7 +3784,11 @@ var View = function(params) {
                 clippable = layers[ii].clip || clippable;
             } // for
 
-            drawView(state, cycleRect, clipping && clippable && (! redrawBG), tickCount);
+            drawView(
+                state,
+                cycleRect,
+                clipping && clippable && (! redrawBG),
+                tickCount);
 
             if (tickCount - lastRefresh > minRefresh) {
                 refresh();

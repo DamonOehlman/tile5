@@ -32,9 +32,9 @@ SIMULATOR = (function() {
             startTicks = ticks();
         
         function pan() {
-            panAmount -= 1;
+            panAmount -= 2;
             
-            map.pan(1, 1, null, null, function() { 
+            map.pan(2, 2, null, null, function() { 
                 map.invalidate();
                 if (panAmount > 0) {
                     setTimeout(pan, 0);
@@ -57,8 +57,6 @@ SIMULATOR = (function() {
                 xy: T5.GeoXY.init(map.getCenterPosition()),
                 tweenIn: COG.easing('sine.out')
             }));
-            
-            map.invalidate();
             
             markerCount -= 1;
             if (markerCount > 0) {
