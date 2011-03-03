@@ -84,8 +84,6 @@ T5.Zoomify = (function() {
         var self = COG.extend(new T5.View(params), {
         });
         
-        // make zoomable
-        T5.zoomable(self);
         return self;
     }; // ZoomifyView
     

@@ -812,10 +812,11 @@ var EventMonitor = function(target, handlers, params) {
         observable: null
     }, params);
 
-    var MAXMOVE_TAP = 20,
-        INERTIA_DURATION = 500,
-        INERTIA_MAXDIST = 300,
-        INERTIA_TIMEOUT = 50;
+    var MAXMOVE_TAP = 20, // pixels
+        INERTIA_DURATION = 500, // ms
+        INERTIA_MAXDIST = 300, // pixels
+        INERTIA_TIMEOUT = 50, // ms
+        INERTIA_IDLE_DISTANCE = 15; // pixels
 
     var observable = params.observable,
         pannableOpts = null,
@@ -834,8 +835,11 @@ var EventMonitor = function(target, handlers, params) {
             vectorY = 0,
             diffX,
             diffY,
-            diffTicks,
-            totalTicks = evtCount > 0 ? (new Date().getTime() - events[evtCount-1].ticks) : 0,
+            distance,
+            theta,
+            extraDistance,
+            totalTicks = 0, // evtCount > 0 ? (new Date().getTime() - events[evtCount-1].ticks) : 0,
+            xyRatio = 1,
             ii;
 
         ii = events.length;
@@ -846,19 +850,25 @@ var EventMonitor = function(target, handlers, params) {
         includedCount = evtCount - ii;
 
         if (includedCount > 1) {
-            for (; ii < evtCount; ii++) {
-                diffX = events[ii].x - events[ii - 1].x;
-                diffY = events[ii].y - events[ii - 1].y;
-                diffTicks = events[ii].ticks - events[ii - 1].ticks;
+            diffX = events[evtCount - 1].x - events[ii].x;
+            diffY = events[evtCount - 1].y - events[ii].y;
+            distance = Math.sqrt(diffX * diffX + diffY * diffY) | 0;
 
-                vectorX += diffX / diffTicks;
-                vectorY += diffY / diffTicks;
-            } // for
+            if (distance > INERTIA_IDLE_DISTANCE) {
+                diffX = events[evtCount - 1].x - events[0].x;
+                diffY = events[evtCount - 1].y - events[0].y;
+                distance = Math.sqrt(diffX * diffX + diffY * diffY) | 0;
+                theta = Math.asin(diffY / distance);
 
-            vectorX = Math.min((vectorX / includedCount) * INERTIA_DURATION | 0, INERTIA_MAXDIST);
-            vectorY = Math.min((vectorY / includedCount) * INERTIA_DURATION | 0, INERTIA_MAXDIST);
+                extraDistance = distance * INERTIA_DURATION / totalTicks | 0;
+                extraDistance = extraDistance > INERTIA_MAXDIST ? INERTIA_MAXDIST : extraDistance;
 
-            inertiaPan(vectorX, vectorY, COG.easing('quad.out'), INERTIA_DURATION);
+                inertiaPan(
+                    Math.cos(diffX > 0 ? theta : Math.PI - theta) * extraDistance,
+                    Math.sin(theta) * extraDistance,
+                    COG.easing('sine.out'),
+                    INERTIA_DURATION);
+            } // if
         } // if
     } // checkInertia
 
@@ -901,6 +911,7 @@ var EventMonitor = function(target, handlers, params) {
         var currentX = 0,
             currentY = 0,
             lastX = 0;
+
 
         COG.tweenValue(0, changeX, easing, duration, function(val, complete) {
             lastX = currentX;
@@ -1963,7 +1974,7 @@ var XY = (function() {
     Return the string representation of the xy
     */
     function toString(xy) {
-        return xy.x + ', ' + xy.y;
+        return xy ? xy.x + ', ' + xy.y : '';
     } // toString
 
     /* module export */
@@ -2823,61 +2834,6 @@ var Generator = (function() {
         Template: Template
     };
 })();
-/**
-# T5.zoomable(view, params)
-This mixin is used to make an object support integer zoom levels which are
-implemented when the view scales
-*/
-function zoomable(view, params) {
-    params = COG.extend({
-        initial: 1,
-        minZoom: 1,
-        maxZoom: 16
-    }, params);
-
-    var zoomLevel = null,
-        minZoom = params.minZoom,
-        maxZoom = params.maxZoom;
-
-    /* internal functions */
-
-    function handleScale(evt, scaleAmount, zoomXY) {
-        var zoomChange = Math.log(scaleAmount) / Math.LN2;
-
-        setZoomLevel(zoomLevel + zoomChange, zoomXY);
-        view.updateOffset(zoomXY.x * scaleAmount, zoomXY.y * scaleAmount);
-    } // handleScale
-
-    /* exports */
-
-    /**
-    ### getZoomLevel()
-    Get the current zoom level for the map
-    */
-    function getZoomLevel() {
-        return zoomLevel;
-    } // getZoomLevel
-
-    /**
-    ### setZoomLevel(value)
-    Update the map's zoom level to the specified zoom level
-    */
-    function setZoomLevel(value, zoomXY) {
-        value = value ? max(min(value, maxZoom), minZoom) : minZoom;
-
-        if (value != zoomLevel) {
-            zoomLevel = value;
-            view.triggerAll('zoomLevelChange', value, zoomXY);
-        } // if
-    } // setZoomLevel
-
-    COG.extend(view, {
-        getZoomLevel: getZoomLevel,
-        setZoomLevel: setZoomLevel
-    });
-
-    view.bind('scale', handleScale);
-};
 
 /**
 # T5.Style
@@ -3148,20 +3104,6 @@ this is the duration for the tween.
 
 ## Events
 
-### scale
-This event is fired when the view has been scaled.
-<pre>
-view.bind('scale', function(evt, scaleFactor, scaleXY) {
-});
-</pre>
-
-- scaleFactor (Float) - the amount the view has been scaled by.
-When the view is being scaled down this will be a value less than
-1 and when it is being scaled up it will be greater than 1.
-- scaleXY (T5.Vector) - the relative position on the view where
-the scaling operation is centered.
-
-
 ### tapHit
 This event is fired when the view has been tapped (or the left
 mouse button has been pressed)
@@ -3207,6 +3149,19 @@ view.bind('drawComplete', function(evt, viewRect, tickCount) {
 - tickCount - the tick count at the start of the draw operation.
 
 
+### zoomLevelChange
+Triggered when the zoom level of the view has changed.  Given that Tile5 was primarily
+built to serve as a mapping platform zoom levels are critical to the design so a view
+has this functionality.
+
+<pre>
+view.bind('zoomLevelChange', function(evt, zoomLevel) {
+});
+</pre>
+
+- zoomLevel (int) - the new zoom level
+
+
 ## Methods
 */
 var View = function(params) {
@@ -3228,8 +3183,12 @@ var View = function(params) {
         guides: false,
         turbo: false,
         fps: 25,
+
+        minZoom: 1,
+        maxZoom: 1,
         zoomEasing: COG.easing('quad.out'),
-        zoomDuration: 300
+        zoomDuration: 300,
+        zoomLevel: 1
     }, params);
 
     var TURBO_CLEAR_INTERVAL = 500;
@@ -3279,6 +3238,7 @@ var View = function(params) {
         cycleDelay = 1000 / params.fps | 0,
         viewChanges = 0,
         zoomX, zoomY,
+        zoomLevel = params.zoomLevel,
 
         /* state shortcuts */
 
@@ -3320,30 +3280,7 @@ var View = function(params) {
 
         if (scaleFactorExp !== 0) {
             scaleFactor = pow(2, scaleFactorExp);
-
-            var scaledHalfWidth = (halfWidth / scaleFactor) >> 0,
-                scaledHalfHeight = (halfHeight / scaleFactor) >> 0,
-                scaleEndXY = XY.init(zoomX - scaledHalfWidth, zoomY - scaledHalfHeight);
-
-            /*
-            COG.info('zoom x = ' + zoomX + ', y = ' + zoomY);
-            COG.info('cycleRect width = ' + cycleRect.width);
-            COG.info('drawRect width = ' + drawRect.width);
-            COG.info('scaled half width = ' + scaledHalfWidth + ', height = ' + scaledHalfHeight);
-            COG.info('scaled end x = ' + scaleEndXY.x + ', y = ' + scaleEndXY.y);
-            */
-
-            if (! self.trigger('scale', scaleFactor, scaleEndXY).cancel) {
-
-                for (var ii = layers.length; ii--; ) {
-                    layers[ii].trigger('scale', scaleFactor, scaleEndXY);
-                } // for
-
-                scaleFactor = 1;
-                state = stateActive;
-            } // if
-
-            refresh();
+            setZoomLevel(zoomLevel + Math.log(scaleFactor) / Math.LN2, zoomX, zoomY);
         } // if
 
         invalidate();
@@ -3743,10 +3680,7 @@ var View = function(params) {
         }
 
         if (tickCount - lastCycleTicks > cycleDelay) {
-
-            if (scaleFactor !== 1) {
-                state = state | stateZoom;
-            } // if
+            state = scaleFactor !== 1 ? state | stateZoom : state & (~ stateZoom);
 
             redrawBG = (state & (stateZoom | statePan)) !== 0;
             interacting = redrawBG && (state & stateAnimating) === 0;
@@ -3855,6 +3789,15 @@ var View = function(params) {
     function getOffset() {
         return XY.init(offsetX, offsetY);
     } // getOffset
+
+    /**
+    ### getZoomLevel(): int
+    Return the current zoom level of the view, for views that do not support
+    zooming, this will always return a value of 1
+    */
+    function getZoomLevel() {
+        return zoomLevel;
+    }
 
     /**
     ### setMaxOffset(maxX: int, maxY: int, wrapX: bool, wrapY: bool)
@@ -3997,6 +3940,35 @@ var View = function(params) {
     } // scale
 
     /**
+    ### setZoomLevel(value: int, zoomXY: T5.XY): boolean
+    This function is used to update the zoom level of the view.  The zoom level
+    is checked to ensure that it falls within the `minZoom` and `maxZoom` values.  Then
+    if the requested zoom level is different from the current the zoom level is updated
+    and a `zoomLevelChange` event is triggered
+    */
+    function setZoomLevel(value, zoomX, zoomY) {
+        value = max(params.minZoom, min(params.maxZoom, value));
+        if (value !== zoomLevel) {
+            var scaling = pow(2, value - zoomLevel),
+                scaledHalfWidth = halfWidth / scaling | 0,
+                scaledHalfHeight = halfHeight / scaling | 0;
+
+            zoomLevel = value;
+
+            updateOffset(
+                ((zoomX ? zoomX : offsetX + halfWidth) - scaledHalfWidth) * scaling,
+                ((zoomY ? zoomY : offsetY + halfHeight) - scaledHalfHeight) * scaling
+            );
+
+            triggerAll('zoomLevelChange', value);
+
+            scaleFactor = 1;
+
+            refresh();
+        } // if
+    } // setZoomLevel
+
+    /**
     ### triggerAll(eventName: string, args*)
     Trigger an event on the view and all layers currently contained in the view
     */
@@ -4095,6 +4067,7 @@ var View = function(params) {
 
         getDimensions: getDimensions,
         getLayer: getLayer,
+        getZoomLevel: getZoomLevel,
         setLayer: setLayer,
         eachLayer: eachLayer,
         invalidate: invalidate,
@@ -4102,6 +4075,7 @@ var View = function(params) {
         resetScale: resetScale,
         resize: resize,
         scale: scale,
+        setZoomLevel: setZoomLevel,
         triggerAll: triggerAll,
         removeLayer: removeLayer,
 
@@ -4127,11 +4101,18 @@ var View = function(params) {
     self.bind('resync', handleResync);
 
     COG.configurable(
-        self,
-        ["inertia", "container", 'rotation', 'tapExtent', 'scalable', 'pannable'],
+        self, [
+            'container',
+            'scalable',
+            'pannable',
+            'inertia',
+            'minZoom',
+            'maxZoom',
+            'zoom'
+        ],
         COG.paramTweaker(params, null, {
-            "container": handleContainerUpdate,
-            'rotation':  handleRotationUpdate,
+            'container': handleContainerUpdate,
+            'inertia':   captureInteractionEvents,
             'scalable':  captureInteractionEvents,
             'pannable':  captureInteractionEvents
         }),
@@ -5601,8 +5582,6 @@ var Tiling = (function() {
         ticks: ticks,
         getConfig: getConfig,
         userMessage: userMessage,
-
-        zoomable: zoomable,
 
         XY: XY,
         XYRect: XYRect,

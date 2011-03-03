@@ -38,7 +38,9 @@ var Map = exports.Map = function(params) {
         tapExtent: 10, // TODO: remove and use the inherited value
         crosshair: false,
         zoomLevel: 0,
-        boundsChangeThreshold: 30
+        boundsChangeThreshold: 30,
+        minZoom: 1,
+        maxZoom: 18
     }, params);
 
     // define the locate modes
@@ -208,7 +210,7 @@ var Map = exports.Map = function(params) {
         initialized = false;
     } // handleProviderUpdate
     
-    function handleZoomLevelChange(evt, zoomLevel, zoomXY) {
+    function handleZoomLevelChange(evt, zoomLevel) {
         var gridSize;
         
         // update the rads per pixel to reflect the zoom level change
@@ -448,8 +450,7 @@ var Map = exports.Map = function(params) {
     // listen for the view idling
     self.bind('refresh', handleRefresh);
     
-    // list for zoom level changes
-    zoomable(self, params);
+    // listen for zoom level changes
     self.bind('zoomLevelChange', handleZoomLevelChange);
 
     return self;

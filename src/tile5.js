@@ -24,7 +24,6 @@ T5 = (function() {
     //= require "js/device"
     //= require "js/images"
     //= require "js/generator"
-    //= require "js/zoomable"
     
     //= require "js/graphics/style"
     //= require "js/graphics/viewstate"
@@ -52,9 +51,6 @@ T5 = (function() {
         ticks: ticks,
         getConfig: getConfig,
         userMessage: userMessage,
-        
-        // zoomable
-        zoomable: zoomable,
         
         XY: XY,
         XYRect: XYRect,

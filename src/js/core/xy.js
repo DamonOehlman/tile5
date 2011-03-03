@@ -244,7 +244,7 @@ var XY = (function() {
     Return the string representation of the xy
     */
     function toString(xy) {
-        return xy.x + ', ' + xy.y;
+        return xy ? xy.x + ', ' + xy.y : '';
     } // toString
     
     /* module export */

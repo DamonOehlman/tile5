@@ -52,23 +52,6 @@ this is the duration for the tween.</li>
 
 <h2>Events</h2>
 
-<h3>scale</h3>
-
-<p>This event is fired when the view has been scaled.</p>
-
-<pre>
-view.bind('scale', function(evt, scaleFactor, scaleXY) {
-});
-</pre>
-
-<ul>
-<li>scaleFactor (Float) - the amount the view has been scaled by.
-When the view is being scaled down this will be a value less than
-1 and when it is being scaled up it will be greater than 1.</li>
-<li>scaleXY (<a href="src_js_core_vector.js.html#T5.Vector">T5.Vector</a>) - the relative position on the view where
-the scaling operation is centered.</li>
-</ul>
-
 <h3>tapHit</h3>
 
 <p>This event is fired when the view has been tapped (or the left
@@ -124,6 +107,21 @@ view.bind('drawComplete', function(evt, viewRect, tickCount) {
 <li>tickCount - the tick count at the start of the draw operation.</li>
 </ul>
 
+<h3>zoomLevelChange</h3>
+
+<p>Triggered when the zoom level of the view has changed.  Given that <a href="docs_T5_overview.mdown.html#Tile5">Tile5</a> was primarily
+built to serve as a mapping platform zoom levels are critical to the design so a view
+has this functionality.</p>
+
+<pre>
+view.bind('zoomLevelChange', function(evt, zoomLevel) {
+});
+</pre>
+
+<ul>
+<li>zoomLevel (int) - the new zoom level</li>
+</ul>
+
 <h2>Methods</h2>
 
 <h3>eachLayer(callback)</h3>
@@ -142,6 +140,11 @@ supplied.</p>
 <h3>getOffset(): <a href="src_js_core_xy.js.html#T5.XY">T5.XY</a></h3>
 
 <p>Return a <a href="src_js_core_xy.js.html#T5.XY">T5.XY</a> containing the current view offset</p>
+
+<h3>getZoomLevel(): int</h3>
+
+<p>Return the current zoom level of the view, for views that do not support
+zooming, this will always return a value of 1</p>
 
 <h3>setMaxOffset(maxX: int, maxY: int, wrapX: bool, wrapY: bool)</h3>
 
@@ -181,6 +184,13 @@ view was originally marked as <code>autosize</code> this will override that inst
 <h3>scale(targetScaling: float, targetXY: <a href="src_js_core_xy.js.html#T5.XY">T5.XY</a>, tweenFn: EasingFn, callback: fn)</h3>
 
 <p>Scale the view to the specified <code>targetScaling</code> (1 = normal, 2 = double-size and 0.5 = half-size).</p>
+
+<h3>setZoomLevel(value: int, zoomXY: <a href="src_js_core_xy.js.html#T5.XY">T5.XY</a>): boolean</h3>
+
+<p>This function is used to update the zoom level of the view.  The zoom level 
+is checked to ensure that it falls within the <code>minZoom</code> and <code>maxZoom</code> values.  Then
+if the requested zoom level is different from the current the zoom level is updated
+and a <code>zoomLevelChange</code> event is triggered</p>
 
 <h3>triggerAll(eventName: string, args*)</h3>
 

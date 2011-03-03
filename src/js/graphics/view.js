@@ -58,20 +58,6 @@ this is the duration for the tween.
 
 ## Events
 
-### scale
-This event is fired when the view has been scaled.
-<pre>
-view.bind('scale', function(evt, scaleFactor, scaleXY) {
-});
-</pre>
-
-- scaleFactor (Float) - the amount the view has been scaled by.
-When the view is being scaled down this will be a value less than
-1 and when it is being scaled up it will be greater than 1.
-- scaleXY (T5.Vector) - the relative position on the view where
-the scaling operation is centered.
-
-
 ### tapHit
 This event is fired when the view has been tapped (or the left
 mouse button has been pressed)
@@ -117,6 +103,19 @@ view.bind('drawComplete', function(evt, viewRect, tickCount) {
 - tickCount - the tick count at the start of the draw operation.
 
 
+### zoomLevelChange
+Triggered when the zoom level of the view has changed.  Given that Tile5 was primarily
+built to serve as a mapping platform zoom levels are critical to the design so a view
+has this functionality.
+
+<pre>
+view.bind('zoomLevelChange', function(evt, zoomLevel) {
+});
+</pre>
+
+- zoomLevel (int) - the new zoom level
+
+
 ## Methods
 */
 var View = function(params) {
@@ -139,8 +138,13 @@ var View = function(params) {
         guides: false,
         turbo: false,
         fps: 25,
+        
+        // zoom parameters
+        minZoom: 1,
+        maxZoom: 1,
         zoomEasing: COG.easing('quad.out'),
-        zoomDuration: 300
+        zoomDuration: 300,
+        zoomLevel: 1
     }, params);
     
     // initialise constants
@@ -192,6 +196,7 @@ var View = function(params) {
         cycleDelay = 1000 / params.fps | 0,
         viewChanges = 0,
         zoomX, zoomY,
+        zoomLevel = params.zoomLevel,
         
         /* state shortcuts */
         
@@ -234,36 +239,7 @@ var View = function(params) {
         // COG.info('scale factor = ' + scaleFactor + ', exp = ' + scaleFactorExp);
         if (scaleFactorExp !== 0) {
             scaleFactor = pow(2, scaleFactorExp);
-            
-            var scaledHalfWidth = (halfWidth / scaleFactor) >> 0,
-                scaledHalfHeight = (halfHeight / scaleFactor) >> 0,
-                scaleEndXY = XY.init(zoomX - scaledHalfWidth, zoomY - scaledHalfHeight);
-            
-            /*
-            COG.info('zoom x = ' + zoomX + ', y = ' + zoomY);
-            COG.info('cycleRect width = ' + cycleRect.width);
-            COG.info('drawRect width = ' + drawRect.width);
-            COG.info('scaled half width = ' + scaledHalfWidth + ', height = ' + scaledHalfHeight);
-            COG.info('scaled end x = ' + scaleEndXY.x + ', y = ' + scaleEndXY.y);
-            */
-
-            // trigger the scale
-            if (! self.trigger('scale', scaleFactor, scaleEndXY).cancel) {
-                // COG.info('ok to scale');
-                
-                // flag to the layers that we are scaling
-                for (var ii = layers.length; ii--; ) {
-                    layers[ii].trigger('scale', scaleFactor, scaleEndXY);
-                } // for
-
-                // flag scaling as false
-                scaleFactor = 1;
-                state = stateActive;
-            } // if
-            
-            // refresh the display
-            // TODO: check whether this should be triggered elsewhere
-            refresh();
+            setZoomLevel(zoomLevel + Math.log(scaleFactor) / Math.LN2, zoomX, zoomY);
         } // if
 
         // invalidate the view
@@ -714,11 +690,9 @@ var View = function(params) {
         }
             
         if (tickCount - lastCycleTicks > cycleDelay) {
-
-            // if the scale factor is !== 1 then set the state to zoom
-            if (scaleFactor !== 1) {
-                state = state | stateZoom;
-            } // if
+            // set the zoom state appropriately 
+            // TODO: consider removing the zoom state
+            state = scaleFactor !== 1 ? state | stateZoom : state & (~ stateZoom);
 
             // update the redraw background flags
             redrawBG = (state & (stateZoom | statePan)) !== 0;
@@ -847,6 +821,15 @@ var View = function(params) {
     } // getOffset
     
     /**
+    ### getZoomLevel(): int
+    Return the current zoom level of the view, for views that do not support
+    zooming, this will always return a value of 1
+    */
+    function getZoomLevel() {
+        return zoomLevel;
+    }
+    
+    /**
     ### setMaxOffset(maxX: int, maxY: int, wrapX: bool, wrapY: bool)
     Set the bounds of the display to the specified area, if wrapX or wrapY parameters
     are set, then the bounds will be wrapped automatically.
@@ -860,7 +843,7 @@ var View = function(params) {
         offsetWrapX = typeof wrapX != 'undefined' ? wrapX : false;
         offsetWrapY = typeof wrapY != 'undefined' ? wrapY : false;
     } // setMaxOffset
-
+    
     /**
     ### getViewRect(): T5.XYRect
     Return a T5.XYRect for the last drawn view rect
@@ -1004,6 +987,40 @@ var View = function(params) {
     } // scale
     
     /**
+    ### setZoomLevel(value: int, zoomXY: T5.XY): boolean
+    This function is used to update the zoom level of the view.  The zoom level 
+    is checked to ensure that it falls within the `minZoom` and `maxZoom` values.  Then
+    if the requested zoom level is different from the current the zoom level is updated
+    and a `zoomLevelChange` event is triggered
+    */
+    function setZoomLevel(value, zoomX, zoomY) {
+        value = max(params.minZoom, min(params.maxZoom, value));
+        if (value !== zoomLevel) {
+            var scaling = pow(2, value - zoomLevel),
+                scaledHalfWidth = halfWidth / scaling | 0,
+                scaledHalfHeight = halfHeight / scaling | 0;
+            
+            // update the zoom level
+            zoomLevel = value;
+            
+            // update the offset
+            updateOffset(
+                ((zoomX ? zoomX : offsetX + halfWidth) - scaledHalfWidth) * scaling,
+                ((zoomY ? zoomY : offsetY + halfHeight) - scaledHalfHeight) * scaling
+            );
+
+            // trigger the change
+            triggerAll('zoomLevelChange', value);
+            
+            // reset the scale factor
+            scaleFactor = 1;
+            
+            // refresh the display
+            refresh();
+        } // if
+    } // setZoomLevel
+    
+    /**
     ### triggerAll(eventName: string, args*)
     Trigger an event on the view and all layers currently contained in the view
     */
@@ -1110,6 +1127,7 @@ var View = function(params) {
         
         getDimensions: getDimensions,
         getLayer: getLayer,
+        getZoomLevel: getZoomLevel,
         setLayer: setLayer,
         eachLayer: eachLayer,
         invalidate: invalidate,
@@ -1117,6 +1135,7 @@ var View = function(params) {
         resetScale: resetScale,
         resize: resize,
         scale: scale,
+        setZoomLevel: setZoomLevel,
         triggerAll: triggerAll,
         removeLayer: removeLayer,
         
@@ -1147,11 +1166,18 @@ var View = function(params) {
     
     // make the view configurable
     COG.configurable(
-        self, 
-        ["inertia", "container", 'rotation', 'tapExtent', 'scalable', 'pannable'], 
+        self, [
+            'container', 
+            'scalable', 
+            'pannable', 
+            'inertia',
+            'minZoom', 
+            'maxZoom',
+            'zoom'
+        ], 
         COG.paramTweaker(params, null, {
-            "container": handleContainerUpdate,
-            'rotation':  handleRotationUpdate,
+            'container': handleContainerUpdate,
+            'inertia':   captureInteractionEvents,
             'scalable':  captureInteractionEvents,
             'pannable':  captureInteractionEvents
         }),
