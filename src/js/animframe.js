@@ -8,7 +8,7 @@ window.animFrame = (function() {
             window.msRequestAnimationFrame     || 
             function(callback){
                 setTimeout(function() {
-                    window.callback(new Date().getTime());
+                    callback(new Date().getTime());
                 }, 1000 / 60);
             };
 })();
