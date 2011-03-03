@@ -63,22 +63,25 @@ T5.Geo.OSM = (function() {
         /* exports */
         
         function buildTileUrl(tileX, tileY, zoomLevel, numTiles, flipY) {
-            var tileUrl;
-            
-            // determine the tile url
-            tileUrl = COG.formatStr(tilePath,
-                zoomLevel,
-                tileX % numTiles,
-                flipY ? Math.abs(tileY - numTiles + 1) : tileY);
+            if (tileY >= 0 && tileY < numTiles) {
+                // TODO: this seems pretty convoluted...
+                tileX = (tileX % numTiles + numTiles) % numTiles;
+                
+                // determine the tile url
+                var tileUrl = COG.formatStr(tilePath,
+                    zoomLevel,
+                    tileX,
+                    flipY ? Math.abs(tileY - numTiles + 1) : tileY);
 
-            // COG.info('getting url for tile x = ' + tileX + ', y = ' + tileY);
-            if (serverDetails) {
-                tileUrl = (subDomains.length ? 
-                    COG.formatStr(serverDetails.baseUrl, subDomains[tileX % subDomains.length]) :
-                    serverDetails.baseUrl) + tileUrl;
+                // COG.info('getting url for tile x = ' + tileX + ', y = ' + tileY);
+                if (serverDetails) {
+                    tileUrl = (subDomains.length ? 
+                        COG.formatStr(serverDetails.baseUrl, subDomains[tileX % subDomains.length]) :
+                        serverDetails.baseUrl) + tileUrl;
+                } // if
+
+                return tileUrl;
             } // if
-            
-            return tileUrl;
         } // buildTileUrl
         
         function run(view, viewRect, callback) {
@@ -91,18 +94,24 @@ T5.Geo.OSM = (function() {
                     position = T5.GeoXY.toPos(T5.XY.init(viewRect.x1 - tileSize, viewRect.y1 - tileSize), radsPerPixel),
                     tileOffset = calculateTileOffset(position, numTiles),
                     tilePixels = getTileXY(tileOffset.x, tileOffset.y, numTiles, radsPerPixel),
-                    xTiles = (viewRect.width / tileSize | 0) + 2,
+                    xTiles = (viewRect.width  / tileSize | 0) + 2,
                     yTiles = (viewRect.height / tileSize | 0) + 2,
                     images = [],
                     flipY = params.flipY;
+                    
+                if (tilePixels.x < 0) {
+                    xTiles += (tilePixels.x / tileSize | 0) + 1;
+                } // if
+                
+                // COG.info('tile pixels = ' + T5.XY.toString(tilePixels) + ', viewrect.x1 = ' + viewRect.x1);
                     
                 // initialise the server details
                 serverDetails = self.getServerDetails ? self.getServerDetails() : null;
                 subDomains = serverDetails && serverDetails.subDomains ? 
                     serverDetails.subDomains : [];
                     
-                for (var xx = 0; xx <= xTiles; xx++) {
-                    for (var yy = 0; yy <= yTiles; yy++) {
+                for (var xx = -1; xx <= xTiles; xx++) {
+                    for (var yy = -1; yy <= yTiles; yy++) {
                         // build the tile url 
                         tileUrl = self.buildTileUrl(
                             tileOffset.x + xx, 

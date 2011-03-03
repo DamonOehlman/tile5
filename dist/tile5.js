@@ -3497,35 +3497,35 @@ var View = function(params) {
     offset using wrapping if allowed.  The function is much more 'if / then / elsey'
     than I would like, and might be optimized at some stage, but it does what it needs to
     */
-    function constrainOffset() {
+    function constrainOffset(allowWrap) {
         var testX = offsetWrapX ? offsetX + halfWidth : offsetX,
             testY = offsetWrapY ? offsetY + halfHeight : offsetY;
 
         if (offsetMaxX && offsetMaxX > viewWidth) {
             if (testX + viewWidth > offsetMaxX) {
                 if (offsetWrapX) {
-                    offsetX = testX - offsetMaxX > 0 ? offsetX - offsetMaxX : offsetX;
+                    offsetX = allowWrap && (testX - offsetMaxX > 0) ? offsetX - offsetMaxX : offsetX;
                 }
                 else {
                     offsetX = offsetMaxX - viewWidth;
                 } // if..else
             }
             else if (testX < 0) {
-                offsetX = offsetWrapX ? offsetX + offsetMaxX : 0;
+                offsetX = offsetWrapX ? (allowWrap ? offsetX + offsetMaxX : offsetX) : 0;
             } // if..else
         } // if
 
         if (offsetMaxY && offsetMaxY > viewHeight) {
             if (testY + viewHeight > offsetMaxY) {
                 if (offsetWrapY) {
-                    offsetY = testY - offsetMaxY > 0 ? offsetY - offsetMaxY : offsetY;
+                    offsetY = allowWrap && (testY - offsetMaxY > 0) ? offsetY - offsetMaxY : offsetY;
                 }
                 else {
                     offsetY = offsetMaxY - viewHeight;
                 } // if..else
             }
             else if (testY < 0) {
-                offsetY = offsetWrapY ? offsetY + offsetMaxY : 0;
+                offsetY = offsetWrapY ? (allowWrap ? offsetY + offsetMaxY : offsetY) : 0;
             } // if..else
         } // if
     } // constrainOffset
@@ -3865,6 +3865,10 @@ var View = function(params) {
     events and will do some of their recalculations when this is called.
     */
     function refresh() {
+        if (offsetMaxX || offsetMaxY) {
+            constrainOffset(true);
+        } // if
+
         lastRefresh = new Date().getTime();
         triggerAll('refresh', self, getViewRect());
 
