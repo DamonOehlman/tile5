@@ -103,7 +103,7 @@ var XYRect = (function() {
     Return the string representation of the rect
     */
     function toString(rect) {
-        return '[' + rect.x1 + ', ' + rect.y1 + ', ' + rect.x2 + ', ' + rect.y2 + ']';
+        return rect ? ('[' + rect.x1 + ', ' + rect.y1 + ', ' + rect.x2 + ', ' + rect.y2 + ']') : '';
     } // toString
     
     /**

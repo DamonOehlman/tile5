@@ -160,6 +160,8 @@ var View = function(params) {
         hoverOffset = null,
         offsetX = 0,
         offsetY = 0,
+        lastOffsetX = 0,
+        lastOffsetY = 0,
         offsetMaxX = null,
         offsetMaxY = null,
         offsetWrapX = false,
@@ -176,7 +178,6 @@ var View = function(params) {
         interactOffset = null,
         interactCenter = null,
         interacting = false,
-        panEndTimeout = 0,
         layerMinXY = null,
         layerMaxXY = null,
         lastRefresh = 0,
@@ -190,6 +191,7 @@ var View = function(params) {
         sizeChanged = false,
         eventMonitor = null,
         turbo = params.turbo,
+        tweeningOffset = false,
         viewHeight,
         viewWidth,
         isFlash = typeof FlashCanvas !== 'undefined',
@@ -210,24 +212,14 @@ var View = function(params) {
     /* event handlers */
     
     function handlePan(evt, x, y, inertia) {
-        state = statePan;
-        
         updateOffset(
             offsetX - x, 
             offsetY - y,
             inertia ? params.panAnimationEasing : null,
             inertia ? params.panAnimationDuration : null);
-        
-        clearTimeout(panEndTimeout);
-        panEndTimeout = setTimeout(panEnd, 100);
     } // pan
     
     /* scaling functions */
-    
-    function panEnd() {
-        state = stateActive;
-        invalidate();
-    } // panEnd
     
     function handleZoom(evt, absXY, relXY, scaleChange, source) {
         scale(min(max(scaleFactor + pow(2, scaleChange) - 1, 0.5), 2));
@@ -342,11 +334,9 @@ var View = function(params) {
         // iterate through the layers and check for elements under the cursor
         for (var ii = layerCount; ii--; ) {
             if (layers[ii].hitTest) {
-                hitElements = hitElements.concat(layers[ii].hitTest(
-                                                    offsetXY.x, 
-                                                    offsetXY.y, 
-                                                    state, 
-                                                    self));
+                hitElements = hitElements.concat(
+                    layers[ii].hitTest(offsetXY.x, offsetXY.y, state, self)
+                );
             } // if
         } // for
         
@@ -626,7 +616,9 @@ var View = function(params) {
                 // if the layer has style, then apply it and save the current style
                 var layerStyle = drawLayer.style,
                     previousStyle = layerStyle ? Style.apply(mainContext, layerStyle) : null;
-
+                
+                /*
+                TODO: fix the constraining (more appropriate within the constrain offset I would think now)
                 // if the layer has bounds, then update the layer bounds
                 if (drawLayer.minXY) {
                     layerMinXY = layerMinXY ? 
@@ -639,6 +631,7 @@ var View = function(params) {
                         XY.max(layerMaxXY, drawLayer.maxXY) :
                         XY.copy(drawLayer.maxXY);
                 } // if
+                */
                 
                 // draw the layer
                 drawLayer.draw(
@@ -660,18 +653,6 @@ var View = function(params) {
             mainContext.restore();
         } // try..finally
         
-        
-        if (guides) {
-            mainContext.globalCompositeOperation = 'source-over';
-            mainContext.strokeStyle = '#f00';
-            mainContext.beginPath();
-            mainContext.moveTo(halfWidth, 0);
-            mainContext.lineTo(halfWidth, viewHeight);
-            mainContext.moveTo(0, halfHeight);
-            mainContext.lineTo(viewWidth, halfHeight);
-            mainContext.stroke();
-        } // if
-
         // reset the view changes
         viewChanges = 0;
 
@@ -682,6 +663,7 @@ var View = function(params) {
     function cycle(tickCount) {
         // check to see if we are panning
         var redrawBG,
+            panning, 
             clippable = false;
             
         if (! viewChanges) {
@@ -690,9 +672,14 @@ var View = function(params) {
         }
             
         if (tickCount - lastCycleTicks > cycleDelay) {
-            // set the zoom state appropriately 
-            // TODO: consider removing the zoom state
-            state = scaleFactor !== 1 ? state | stateZoom : state & (~ stateZoom);
+            // determine if we are panning
+            panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
+                    
+            // update the state
+            state = stateActive | 
+                        (scaleFactor !== 1 ? stateZoom : 0) | 
+                        (panning ? statePan : 0) | 
+                        (tweeningOffset ? stateAnimating : 0);
 
             // update the redraw background flags
             redrawBG = (state & (stateZoom | statePan)) !== 0;
@@ -726,10 +713,8 @@ var View = function(params) {
             // TODO: if we have a hover offset, check that no elements have moved under the cursor (maybe)
 
             for (var ii = layerCount; ii--; ) {
-                if (layers[ii].animated) {
-                    // add the animating state to the current state
-                    state = state | stateAnimating;
-                } // if
+                // if a layer is animating the flag as such
+                state = state | (layers[ii].animated ? stateAnimating : 0);
 
                 // cycle the layer
                 layers[ii].cycle(tickCount, cycleRect, state);
@@ -756,6 +741,8 @@ var View = function(params) {
             
             // update the last cycle ticks
             lastCycleTicks = tickCount;
+            lastOffsetX = offsetX;
+            lastOffsetY = offsetY;
         } // if
 
         animFrame(cycle);
@@ -1013,6 +1000,10 @@ var View = function(params) {
                 ((zoomX ? zoomX : offsetX + halfWidth) - scaledHalfWidth) * scaling,
                 ((zoomY ? zoomY : offsetY + halfHeight) - scaledHalfHeight) * scaling
             );
+            
+            // reset the last offset
+            lastOffsetX = offsetX;
+            lastOffsetY = offsetY;
 
             // trigger the change
             triggerAll('zoomLevelChange', value);
@@ -1057,7 +1048,8 @@ var View = function(params) {
             tweensComplete += 1;
             
             if (tweensComplete >= 2) {
-                panEnd();
+                tweeningOffset = false;
+                
                 if (callback) {
                     callback();
                 } // if
@@ -1096,8 +1088,7 @@ var View = function(params) {
                 return !interacting;
             });
             
-            // update the state to pan and animating
-            state = statePan | stateAnimating;
+            tweeningOffset = true;
         }
         else {
             offsetX = x | 0;

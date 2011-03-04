@@ -2184,7 +2184,7 @@ var XYRect = (function() {
     Return the string representation of the rect
     */
     function toString(rect) {
-        return '[' + rect.x1 + ', ' + rect.y1 + ', ' + rect.x2 + ', ' + rect.y2 + ']';
+        return rect ? ('[' + rect.x1 + ', ' + rect.y1 + ', ' + rect.x2 + ', ' + rect.y2 + ']') : '';
     } // toString
 
     /**
@@ -3202,6 +3202,8 @@ var View = function(params) {
         hoverOffset = null,
         offsetX = 0,
         offsetY = 0,
+        lastOffsetX = 0,
+        lastOffsetY = 0,
         offsetMaxX = null,
         offsetMaxY = null,
         offsetWrapX = false,
@@ -3218,7 +3220,6 @@ var View = function(params) {
         interactOffset = null,
         interactCenter = null,
         interacting = false,
-        panEndTimeout = 0,
         layerMinXY = null,
         layerMaxXY = null,
         lastRefresh = 0,
@@ -3232,6 +3233,7 @@ var View = function(params) {
         sizeChanged = false,
         eventMonitor = null,
         turbo = params.turbo,
+        tweeningOffset = false,
         viewHeight,
         viewWidth,
         isFlash = typeof FlashCanvas !== 'undefined',
@@ -3252,24 +3254,14 @@ var View = function(params) {
     /* event handlers */
 
     function handlePan(evt, x, y, inertia) {
-        state = statePan;
-
         updateOffset(
             offsetX - x,
             offsetY - y,
             inertia ? params.panAnimationEasing : null,
             inertia ? params.panAnimationDuration : null);
-
-        clearTimeout(panEndTimeout);
-        panEndTimeout = setTimeout(panEnd, 100);
     } // pan
 
     /* scaling functions */
-
-    function panEnd() {
-        state = stateActive;
-        invalidate();
-    } // panEnd
 
     function handleZoom(evt, absXY, relXY, scaleChange, source) {
         scale(min(max(scaleFactor + pow(2, scaleChange) - 1, 0.5), 2));
@@ -3373,11 +3365,9 @@ var View = function(params) {
 
         for (var ii = layerCount; ii--; ) {
             if (layers[ii].hitTest) {
-                hitElements = hitElements.concat(layers[ii].hitTest(
-                                                    offsetXY.x,
-                                                    offsetXY.y,
-                                                    state,
-                                                    self));
+                hitElements = hitElements.concat(
+                    layers[ii].hitTest(offsetXY.x, offsetXY.y, state, self)
+                );
             } // if
         } // for
 
@@ -3624,6 +3614,8 @@ var View = function(params) {
                 var layerStyle = drawLayer.style,
                     previousStyle = layerStyle ? Style.apply(mainContext, layerStyle) : null;
 
+                /*
+                TODO: fix the constraining (more appropriate within the constrain offset I would think now)
                 if (drawLayer.minXY) {
                     layerMinXY = layerMinXY ?
                         XY.min(layerMinXY, drawLayer.minXY) :
@@ -3635,6 +3627,7 @@ var View = function(params) {
                         XY.max(layerMaxXY, drawLayer.maxXY) :
                         XY.copy(drawLayer.maxXY);
                 } // if
+                */
 
                 drawLayer.draw(
                     mainContext,
@@ -3653,18 +3646,6 @@ var View = function(params) {
             mainContext.restore();
         } // try..finally
 
-
-        if (guides) {
-            mainContext.globalCompositeOperation = 'source-over';
-            mainContext.strokeStyle = '#f00';
-            mainContext.beginPath();
-            mainContext.moveTo(halfWidth, 0);
-            mainContext.lineTo(halfWidth, viewHeight);
-            mainContext.moveTo(0, halfHeight);
-            mainContext.lineTo(viewWidth, halfHeight);
-            mainContext.stroke();
-        } // if
-
         viewChanges = 0;
 
         triggerAll('drawComplete', rect, tickCount);
@@ -3672,6 +3653,7 @@ var View = function(params) {
 
     function cycle(tickCount) {
         var redrawBG,
+            panning,
             clippable = false;
 
         if (! viewChanges) {
@@ -3680,7 +3662,12 @@ var View = function(params) {
         }
 
         if (tickCount - lastCycleTicks > cycleDelay) {
-            state = scaleFactor !== 1 ? state | stateZoom : state & (~ stateZoom);
+            panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
+
+            state = stateActive |
+                        (scaleFactor !== 1 ? stateZoom : 0) |
+                        (panning ? statePan : 0) |
+                        (tweeningOffset ? stateAnimating : 0);
 
             redrawBG = (state & (stateZoom | statePan)) !== 0;
             interacting = redrawBG && (state & stateAnimating) === 0;
@@ -3707,9 +3694,7 @@ var View = function(params) {
 
 
             for (var ii = layerCount; ii--; ) {
-                if (layers[ii].animated) {
-                    state = state | stateAnimating;
-                } // if
+                state = state | (layers[ii].animated ? stateAnimating : 0);
 
                 layers[ii].cycle(tickCount, cycleRect, state);
 
@@ -3729,6 +3714,8 @@ var View = function(params) {
             } // if
 
             lastCycleTicks = tickCount;
+            lastOffsetX = offsetX;
+            lastOffsetY = offsetY;
         } // if
 
         animFrame(cycle);
@@ -3964,6 +3951,9 @@ var View = function(params) {
                 ((zoomY ? zoomY : offsetY + halfHeight) - scaledHalfHeight) * scaling
             );
 
+            lastOffsetX = offsetX;
+            lastOffsetY = offsetY;
+
             triggerAll('zoomLevelChange', value);
 
             scaleFactor = 1;
@@ -4003,7 +3993,8 @@ var View = function(params) {
             tweensComplete += 1;
 
             if (tweensComplete >= 2) {
-                panEnd();
+                tweeningOffset = false;
+
                 if (callback) {
                     callback();
                 } // if
@@ -4039,7 +4030,7 @@ var View = function(params) {
                 return !interacting;
             });
 
-            state = statePan | stateAnimating;
+            tweeningOffset = true;
         }
         else {
             offsetX = x | 0;
