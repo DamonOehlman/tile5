@@ -10,6 +10,9 @@ Tile5 library.
 ## Module Functions
 */
 var Images = (function() {
+    // initialise constants
+    var TIMEOUT_CHECK_INTERVAL = 10000;
+    
     // initialise image loader internal variables
     var images = {},
         canvasCounter = 0,
@@ -19,6 +22,7 @@ var Images = (function() {
         loadingImages = [],
         cachedImages = [],
         imageCacheFullness = 0,
+        lastTimeoutCheck = 0,
         clearingCache = false;
 
     /* internal functions */
@@ -29,7 +33,8 @@ var Images = (function() {
         
         // initialise the load worker
         if ((! maxImageLoads) || (loadingImages.length < maxImageLoads)) {
-            var imageData = queuedImages.shift();
+            var imageData = queuedImages.shift(),
+                tickCount = T5.ticks();
             
             if (imageData) {
                 // add the image data to the loading images
@@ -38,8 +43,12 @@ var Images = (function() {
                 // reset the queued flag and attempt to load the image
                 imageData.image.onload = handleImageLoad;
                 imageData.image.src = imageData.url;
-                imageData.requested = T5.ticks();
+                imageData.requested = tickCount;
             } // if..else
+            
+            if (tickCount - lastTimeoutCheck > TIMEOUT_CHECK_INTERVAL) {
+                checkTimeoutsAndCache(tickCount);
+            } // if
         } // if
         
         // TODO: check timeouts and cache
@@ -99,6 +108,9 @@ var Images = (function() {
                 cleanupImageCache();
             } // if
         } // if
+        
+        // update the last timeout check 
+        lastTimeoutCheck = currentTickCount;
     } // checkTimeoutsAndCache
     
     function postProcess(imageData) {
@@ -314,7 +326,7 @@ var Images = (function() {
         } // if
 
         return tmpCanvas;
-    } // newCanvas    
+    } // newCanvas
     
     var module = {
         avgImageSize: 25,
