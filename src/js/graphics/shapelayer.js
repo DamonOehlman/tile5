@@ -41,9 +41,7 @@ var ShapeLayer = function(params) {
     /* event handlers */
     
     function handleResync(evt, parent) {
-        if (parent.syncXY) {
-            performSync(parent);
-        } // if
+        performSync(parent);
     } // handleParentChange
     
     /* exports */

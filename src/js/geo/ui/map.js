@@ -131,14 +131,6 @@ var Map = exports.Map = function(params) {
     
     /* event handlers */
     
-    function handleMarkerUpdate(evt, markers) {
-        var grid = self.getTileLayer();
-        
-        for (var ii = markers.length; ii--; ) {
-            syncXY([markers[ii].xy]);
-        } // for
-    } // handleMarkerUpdate
-    
     function handlePan(evt, x, y) {
         if (locateMode === LOCATE_MODE.SINGLE) {
             self.trackCancel();
@@ -146,8 +138,7 @@ var Map = exports.Map = function(params) {
     } // handlePan
     
     function handleTap(evt, absXY, relXY, offsetXY) {
-        var radsPerPixel = Geo.radsPerPixel(self.getZoomLevel()),
-            tapPos = GeoXY.toPos(offsetXY, radsPerPixel),
+        var tapPos = GeoXY.toPos(offsetXY, radsPerPixel),
             minPos = GeoXY.toPos(
                 XY.offset(offsetXY, -tapExtent, tapExtent),
                 radsPerPixel),
@@ -338,8 +329,8 @@ var Map = exports.Map = function(params) {
     of type GeoXY composite they are provided the rads per pixel of the
     grid so they can perform their calculations
     */
-    function syncXY(points) {
-        return GeoXY.sync(points, radsPerPixel);
+    function syncXY(points, reverse) {
+        return (reverse ? GeoXY.syncPos : GeoXY.sync)(points, radsPerPixel);
     } // syncXY
     
     /* public object definition */
@@ -443,9 +434,6 @@ var Map = exports.Map = function(params) {
     // bind some event handlers
     self.bind('pan', handlePan);
     self.bind('tap', handleTap);
-    
-    // watch for marker updates
-    // self.markers.bind('markerUpdate', handleMarkerUpdate);
     
     // listen for the view idling
     self.bind('refresh', handleRefresh);

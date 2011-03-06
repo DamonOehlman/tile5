@@ -124,6 +124,7 @@ var View = function(params) {
         id: COG.objId('view'),
         container: "",
         captureHover: true,
+        captureDrag: false,
         fastDraw: false,
         inertia: true,
         minRefresh: 1000,
@@ -154,6 +155,7 @@ var View = function(params) {
     var layers = [],
         layerCount = 0,
         canvas = document.getElementById(params.container),
+        dragObject = null,
         mainContext = null,
         isIE = typeof window.attachEvent != 'undefined',
         minRefresh = params.minRefresh,
@@ -211,12 +213,10 @@ var View = function(params) {
         
     /* event handlers */
     
-    function handlePan(evt, x, y, inertia) {
-        updateOffset(
-            offsetX - x, 
-            offsetY - y,
-            inertia ? params.panAnimationEasing : null,
-            inertia ? params.panAnimationDuration : null);
+    function handlePan(evt, x, y) {
+        if (! dragObject) {
+            updateOffset(offsetX - x, offsetY - y);
+        } // if
     } // pan
     
     /* scaling functions */
@@ -292,15 +292,57 @@ var View = function(params) {
     } // handleDoubleTap
     
     function handlePointerDown(evt, absXY, relXY) {
-        hoverOffset = null;
-        hitTest(absXY, relXY, getScaledOffset(relXY.x, relXY.y), 'down');
+        var elements,
+            scaledOffset = getScaledOffset(relXY.x, relXY.y),
+            downX = scaledOffset.x,
+            downY = scaledOffset.y;
+        
+        // reset the hover offset and the drag element
+        dragObject = null;
+
+        // get the objects under the current offset
+        elements = hitTest(absXY, relXY, downX, downY);
+        
+        // iterate through objects from last to first (first get drawn last so sit underneath)
+        for (var ii = elements.length; ii--; ) {
+            if (dragStart(elements[ii], downX, downY)) {
+                break;
+            } // if
+        } // for
+        
+        COG.info('pointer down on ' + elements.length + ' elements');
     } // handlePointerDown
     
     function handlePointerHover(evt, absXY, relXY) {
         hoverOffset = getScaledOffset(relXY.x, relXY.y);
         // COG.info('relxy = ' + T5.XY.toString(relXY) + ', hover offset = ' + T5.XY.toString(hoverOffset));
-        hitTest(absXY, relXY, hoverOffset, 'hover');
+        hitTest(absXY, relXY, hoverOffset.x, hoverOffset.y, 'hover');
     } // handlePointerHover
+    
+    function handlePointerMove(evt, absXY, relXY) {
+        if (dragObject) {
+            var scaledOffset = getScaledOffset(relXY.x, relXY.y);
+            
+            // if the object is dragged, then invalidate the display
+            if (dragObject.drag(dragObject, scaledOffset.x, scaledOffset.y, false)) {
+                invalidate();
+            } // if
+        }
+    } // handlePointerMove
+    
+    function handlePointerUp(evt, absXY, relXY) {
+        if (dragObject) {
+            var scaledOffset = getScaledOffset(relXY.x, relXY.y);
+            
+            // attempt to drag and drop the object (fourth arg signifies a drop operation)
+            if (dragObject.drag(dragObject, scaledOffset.x, scaledOffset.y, true)) {
+                invalidate();
+            } // if
+        } // if
+
+        // reset the drag object
+        dragObject = null;
+    } // handlePointerUp
     
     function handleResize(evt) {
         clearTimeout(resizeCanvasTimeout);
@@ -318,29 +360,27 @@ var View = function(params) {
     } // handlePrepCanvasCallback
     
     function handlePointerTap(evt, absXY, relXY) {
-        hitTest(absXY, relXY, getScaledOffset(relXY.x, relXY.y), 'tap');
-
-        triggerAll(
-            'tap', 
-            absXY,
-            relXY,
-            getScaledOffset(relXY.x, relXY.y)
-        );
+        var scaledOffset = getScaledOffset(relXY.x, relXY.y),
+            tapX = scaledOffset.x,
+            tapY = scaledOffset.y;
+        
+        hitTest(absXY, relXY, tapX, tapY, 'tap');
+        triggerAll('tap', absXY, relXY, scaledOffset);
     } // handlePointerTap
     
-    function hitTest(absXY, relXY, offsetXY, eventType) {
+    function hitTest(absXY, relXY, hitX, hitY, eventType) {
         var hitElements = [];
         
         // iterate through the layers and check for elements under the cursor
         for (var ii = layerCount; ii--; ) {
             if (layers[ii].hitTest) {
                 hitElements = hitElements.concat(
-                    layers[ii].hitTest(offsetXY.x, offsetXY.y, state, self)
+                    layers[ii].hitTest(hitX, hitY, state, self)
                 );
             } // if
         } // for
         
-        if (hitElements.length > 0) {
+        if (eventType && hitElements.length > 0) {
             self.triggerCustom(
                 eventType + 'Hit', {
                     hitType: eventType
@@ -348,8 +388,10 @@ var View = function(params) {
                 hitElements, 
                 absXY, 
                 relXY, 
-                offsetXY);
+                XY.init(hitX, hitY));
         } // if
+        
+        return hitElements;
     } // hitTest
     
     /* private functions */
@@ -463,8 +505,12 @@ var View = function(params) {
             eventMonitor.bind('doubleTap', handleDoubleTap);
         } // if
         
+        // handle pointer down tests
+        eventMonitor.bind('pointerDown', handlePointerDown);
+        eventMonitor.bind('pointerMove', handlePointerMove);
+        eventMonitor.bind('pointerUp', handlePointerUp);
+        
         if (params.captureHover) {
-            eventMonitor.bind('pointerDown', handlePointerDown);
             eventMonitor.bind('pointerHover', handlePointerHover);
         } // if
 
@@ -511,6 +557,21 @@ var View = function(params) {
             } // if..else
         } // if
     } // constrainOffset
+    
+    function dragStart(hitElement, x, y) {
+        var canDrag = hitElement && hitElement.drag && 
+                ((! hitElement.canDrag) || hitElement.canDrag(hitElement, x, y));
+                
+        if (canDrag) {
+            dragObject = hitElement;
+
+            // initialise the
+            dragObject.startX = x;
+            dragObject.startY = y;
+        } // if
+
+        return canDrag;
+    } // dragStart
     
     function getLayerIndex(id) {
         for (var ii = layerCount; ii--; ) {
@@ -1017,6 +1078,18 @@ var View = function(params) {
     } // setZoomLevel
     
     /**
+    ### syncXY(points, reverse)
+    This function is used to keep a T5.XY derivative x and y position in sync
+    with it's real world location (if it has one).  T5.GeoXY are a good example 
+    of this.
+    
+    If the `reverse` argument is specified and true, then the virtual world 
+    coordinate will be updated to match the current x and y offsets.
+    */
+    function syncXY(points, reverse) {
+    } // syncXY
+    
+    /**
     ### triggerAll(eventName: string, args*)
     Trigger an event on the view and all layers currently contained in the view
     */
@@ -1132,6 +1205,7 @@ var View = function(params) {
         resize: resize,
         scale: scale,
         setZoomLevel: setZoomLevel,
+        syncXY: syncXY,
         triggerAll: triggerAll,
         removeLayer: removeLayer,
         
@@ -1163,7 +1237,9 @@ var View = function(params) {
     // make the view configurable
     COG.configurable(
         self, [
-            'container', 
+            'container',
+            'captureHover',
+            'captureDrag', 
             'scalable', 
             'pannable', 
             'inertia',
@@ -1173,9 +1249,10 @@ var View = function(params) {
         ], 
         COG.paramTweaker(params, null, {
             'container': handleContainerUpdate,
-            'inertia':   captureInteractionEvents,
-            'scalable':  captureInteractionEvents,
-            'pannable':  captureInteractionEvents
+            'inertia': captureInteractionEvents,
+            'captureHover': captureInteractionEvents,
+            'scalable': captureInteractionEvents,
+            'pannable': captureInteractionEvents
         }),
         true);
     

@@ -209,14 +209,12 @@ var ViewLayer = function(params) {
     });
     
     self.bind('resync', function(evt, view) {
-       if (view.syncXY) {
-           if (self.minXY) {
-               view.syncXY(self.minXY);
-           } // if
-           
-           if (self.maxXY) {
-               view.syncXY(self.maxXY);
-           } // if
+       if (self.minXY) {
+           view.syncXY(self.minXY);
+       } // if
+       
+       if (self.maxXY) {
+           view.syncXY(self.maxXY);
        } // if
     });
 

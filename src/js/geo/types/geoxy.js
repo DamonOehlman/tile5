@@ -17,7 +17,7 @@ var GeoXY = exports.GeoXY = (function() {
     /* internal functions */
 
     /* exports */
-
+    
     /**
     ### init(pos, rpp)
     */
@@ -69,6 +69,21 @@ var GeoXY = exports.GeoXY = (function() {
         return xy;
     } // setRadsPerPixel
     
+    function syncPos(xy, rpp) {
+        // if the xy parameter is an array then process as such
+        if (xy.length) {
+            for (var ii = xy.length; ii--; ) {
+                syncPos(xy[ii], rpp);
+            } // for
+        }
+        else {
+            xy.mercXY = XY.init(xy.x * rpp - Math.PI, Math.PI - xy.y * rpp);
+            xy.pos = Position.fromMercatorPixels(xy.mercXY.x, xy.mercXY.y);
+        } // if..else
+
+        return xy;
+    } // syncPos
+    
     function toPos(xy, rpp) {
         rpp = rpp ? rpp : self.rpp;
 
@@ -93,6 +108,7 @@ var GeoXY = exports.GeoXY = (function() {
     return {
         init: init,
         sync: sync,
+        syncPos: syncPos,
         toPos: toPos,
         updatePos: updatePos
     };

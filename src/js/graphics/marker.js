@@ -31,7 +31,7 @@ in at.  Used in combination with the `tweenIn` parameter.
 var Marker = function(params) {
     params = COG.extend({
         xy: XY.init(),
-        offset: true,
+        draggable: false,
         tweenIn: null,
         animationSpeed: null,
         isNew: true
@@ -43,8 +43,87 @@ var Marker = function(params) {
         boundsX = 0,
         boundsY = 0,
         boundsWidth = 0,
-        boundsHeight = 0,
-        isOffset = params.offset;
+        boundsHeight = 0;
+        
+    /* exports */
+    
+    /**
+    ### drag(dragData, dragX, dragY, drop)
+    */
+    function drag(dragData, dragX, dragY, drop) {
+        self.xy.x = dragX;
+        self.xy.y = dragY;
+        
+        return true;
+    } // drag
+    
+    /**
+    ### draw(context, offset, state, overlay, view)
+    The draw method is called by the T5.ViewLayer that contains the annotation
+    and is used to draw the annotation to the specified context.  When creating
+    a custom marker, you should provide a custom implementation of the `drawMarker`
+    method rather than this method.
+    */
+    function draw(context, viewRect, state, overlay, view) {
+        if (self.isNew && (params.tweenIn)) {
+            // get the end value and update the y value
+            var duration = params.animationSpeed ? params.animationSpeed : 250 + (Math.random() * 500),
+                targetY = self.xy.y;
+            
+            // tween the marker
+            COG.tweenValue(viewRect.y1 - 20, targetY, params.tweenIn, duration, function(val, completed) {
+                self.xy.y = val | 0;
+                animating = !completed;
+                
+                view.invalidate();
+            });
+        } // if
+        
+        // draw ther marker
+        self.drawMarker(
+            context, 
+            viewRect, 
+            self.xy.x, 
+            self.xy.y,
+            state, 
+            overlay, 
+            view);
+        
+        self.isNew = false;
+    } // draw
+    
+    /**
+    ### drawMarker(context, offset, x, y, state, overlay, view)
+    The `drawMarker` method is the place holder implementation for drawing
+    markers.  In the case of a T5.Annotation a simple circle is drawn, but
+    extensions of T5.Annotation would normally replace this implementation
+    with their own modified implementation (such as T5.ImageAnnotation does).
+    */
+    function drawMarker(context, viewRect, x, y, state, overlay, view) {
+        context.beginPath();
+        context.arc(
+            x, 
+            y,
+            MARKER_SIZE,
+            0,
+            Math.PI * 2,
+            false);                    
+        context.fill();
+        
+        // update the marker bounds
+        updateBounds(x - MARKER_SIZE, y  - MARKER_SIZE, 
+            MARKER_SIZE*2, MARKER_SIZE*2);
+    } // drawMarker
+    
+    /**
+    ### hitTest(testX, testY)
+    This method is used to determine if the marker is located  at the specified 
+    x and y position.
+    */
+    function hitTest(testX, testY) {
+        return (testX >= boundsX) && (testX <= boundsX + boundsWidth) &&
+            (testY >= boundsY) && (testY <= boundsY + boundsHeight);
+    }
         
     function updateBounds(newX, newY, newWidth, newHeight) {
         boundsX = newX;
@@ -56,6 +135,8 @@ var Marker = function(params) {
     } // updateBounds
     
     var self = COG.extend(params, {
+        parent: null,
+        
         /* 
         ### isAnimating()
         Return true if we are currently animating the marker, false otherwise
@@ -64,73 +145,10 @@ var Marker = function(params) {
             return animating;
         },
         
-        /**
-        ### draw(context, offset, state, overlay, view)
-        The draw method is called by the T5.ViewLayer that contains the annotation
-        and is used to draw the annotation to the specified context.  When creating
-        a custom marker, you should provide a custom implementation of the `drawMarker`
-        method rather than this method.
-        */
-        draw: function(context, viewRect, state, overlay, view) {
-            if (self.isNew && (params.tweenIn)) {
-                // get the end value and update the y value
-                var duration = params.animationSpeed ? params.animationSpeed : 250 + (Math.random() * 500);
-                
-                // tween the marker
-                COG.tweenValue(viewRect.y1 - 20, self.xy.y, params.tweenIn, duration, function(val, completed) {
-                    self.xy.y = val | 0;
-                    animating = !completed;
-                    
-                    view.invalidate();
-                });
-            } // if
-            
-            // draw ther marker
-            self.drawMarker(
-                context, 
-                viewRect, 
-                self.xy.x, 
-                self.xy.y,
-                state, 
-                overlay, 
-                view);
-            
-            self.isNew = false;
-        },
-        
-        /**
-        ### drawMarker(context, offset, x, y, state, overlay, view)
-        The `drawMarker` method is the place holder implementation for drawing
-        markers.  In the case of a T5.Annotation a simple circle is drawn, but
-        extensions of T5.Annotation would normally replace this implementation
-        with their own modified implementation (such as T5.ImageAnnotation does).
-        */
-        drawMarker: function(context, viewRect, x, y, state, overlay, view) {
-            context.beginPath();
-            context.arc(
-                x, 
-                y,
-                MARKER_SIZE,
-                0,
-                Math.PI * 2,
-                false);                    
-            context.fill();
-            
-            // update the marker bounds
-            updateBounds(x - MARKER_SIZE, y  - MARKER_SIZE, 
-                MARKER_SIZE*2, MARKER_SIZE*2);
-        },
-        
-        /**
-        ### hitTest(testX, testY)
-        This method is used to determine if the marker is located  at the specified 
-        x and y position.
-        */
-        hitTest: function(testX, testY) {
-            return (testX >= boundsX) && (testX <= boundsX + boundsWidth) &&
-                (testY >= boundsY) && (testY <= boundsY + boundsHeight);
-        },
-        
+        drag: drag,
+        draw: draw,
+        drawMarker: drawMarker,
+        hitTest: hitTest,
         updateBounds: updateBounds
     }); // self
     

@@ -24,7 +24,7 @@ var PathLayer = function(params) {
     
     function resyncPath() {
         var parent = self.getParent();
-        if (parent && parent.syncXY) {
+        if (parent) {
             // update the vectors
             parent.syncXY(rawCoords);
             if (rawMarkers) {

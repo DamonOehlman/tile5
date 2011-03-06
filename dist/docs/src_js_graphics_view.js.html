@@ -192,6 +192,15 @@ is checked to ensure that it falls within the <code>minZoom</code> and <code>max
 if the requested zoom level is different from the current the zoom level is updated
 and a <code>zoomLevelChange</code> event is triggered</p>
 
+<h3>syncXY(points, reverse)</h3>
+
+<p>This function is used to keep a <a href="src_js_core_xy.js.html#T5.XY">T5.XY</a> derivative x and y position in sync
+with it's real world location (if it has one).  <a href="src_js_geo_types_geoxy.js.html#T5.GeoXY">T5.GeoXY</a> are a good example 
+of this.</p>
+
+<p>If the <code>reverse</code> argument is specified and true, then the virtual world 
+coordinate will be updated to match the current x and y offsets.</p>
+
 <h3>triggerAll(eventName: string, args*)</h3>
 
 <p>Trigger an event on the view and all layers currently contained in the view</p>

@@ -89,7 +89,7 @@ var MarkerLayer = function(params) {
     
     function resyncMarkers() {
         var parent = self.getParent();
-        if (parent && parent.syncXY) {
+        if (parent) {
             // iterate through the markers and fire the callback
             for (var ii = markers.length; ii--; ) {
                 parent.syncXY([markers[ii].xy]);
@@ -133,11 +133,18 @@ var MarkerLayer = function(params) {
         if (newItems && (typeof newItems.length !== 'undefined')) {
             for (var ii = newItems.length; ii--; ) {
                 if (newItems[ii]) {
+                    // set the marker parent to this layer
+                    newItems[ii].parent = self;
+                    
+                    // add the marker to the list
                     markers[markers.length] = newItems[ii];
                 } // if
             } // for
         }
         else if (newItems) {
+            // set the marker parent
+            newItems.parent = self;
+            
             markers[markers.length] = newItems;
         } // if..else
         
@@ -210,6 +217,9 @@ var MarkerLayer = function(params) {
         return results;
     } // find
     
+    /**
+    ### hitTest(offsetX, offsetY, state, view)
+    */
     function hitTest(offsetX, offsetY, state, view) {
         var hitMarkers = [];
             
@@ -218,13 +228,24 @@ var MarkerLayer = function(params) {
             if (markers[ii].hitTest(offsetX, offsetY)) {
                 hitMarkers[hitMarkers.length] = {
                     type: 'marker',
-                    data: markers[ii]
+                    target: markers[ii],
+                    drag: markers[ii].draggable ? markers[ii].drag : null
                 };
             } // if
         } // for
         
         return hitMarkers;
     } // hitTest
+    
+    /**
+    ### syncMarker(marker: T5.Marker)
+    */
+    function syncMarker(marker) {
+        var parent = self.getParent();
+        if (parent) {
+            parent.syncXY(marker.xy);
+        } // if
+    } // syncMarker
 
     // create the view layer the we will draw the view
     var self = COG.extend(new ViewLayer(params), {
@@ -244,7 +265,8 @@ var MarkerLayer = function(params) {
         clear: clear,
         each: each,
         find: find,
-        hitTest: hitTest
+        hitTest: hitTest,
+        syncMarker: syncMarker
     });
     
     // handle tap events

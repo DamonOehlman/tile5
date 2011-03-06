@@ -63,7 +63,8 @@ var ImageMarker = function(params) {
         opacity: 1
     }, params);
     
-    var imageOffset = params.imageAnchor ?
+    var dragOffset = null,
+        imageOffset = params.imageAnchor ?
             T5.XY.invert(params.imageAnchor) : 
             null;
     
@@ -89,6 +90,45 @@ var ImageMarker = function(params) {
         });
     } // changeImage
     
+    /**
+    ### drag(dragData, dragX, dragY, drop)
+    */
+    function drag(dragData, dragX, dragY, drop) {
+        // if the drag offset is unknown then calculate
+        if (! dragOffset) {
+            dragOffset = XY.init(
+                dragData.startX - self.xy.x, 
+                dragData.startY - self.xy.y
+            );
+
+            // TODO: increase scale? to highlight dragging
+        }
+
+        // update the xy and accounting for a drag offset
+        self.xy.x = dragX - dragOffset.x;
+        self.xy.y = dragY - dragOffset.y;
+        
+        if (drop) {
+            var view = self.parent ? self.parent.getParent() : null;
+            
+            dragOffset = null;
+            
+            // TODO: reset scale
+            if (view) {
+                view.syncXY([self.xy], true);
+            } // if
+            
+            self.trigger('dragDrop');
+        } // if
+        
+        return true;
+    } // drag    
+    
+    /**
+    ### drawMarker(context, offset, xy, state, overlay, view)
+    An overriden implementation of the T5.Annotation.drawMarker which 
+    draws an image to the canvas.
+    */
     function drawMarker(context, viewRect, x, y, state, overlay, view) {
         // get the image
         var image = self.isAnimating() && self.animatingImage ? 
@@ -143,11 +183,7 @@ var ImageMarker = function(params) {
     
     var self = COG.extend(new Marker(params), {
         changeImage: changeImage,
-        /**
-        ### drawMarker(context, offset, xy, state, overlay, view)
-        An overriden implementation of the T5.Annotation.drawMarker which 
-        draws an image to the canvas.
-        */
+        drag: drag,
         drawMarker: drawMarker
     });
     

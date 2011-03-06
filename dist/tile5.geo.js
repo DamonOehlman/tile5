@@ -263,7 +263,8 @@ var wordExists = exports.wordExists = function(stringToCheck, word) {
                 var eventCallbacks = getHandlersForName(target, eventName),
                     evt = {
                         cancel: false,
-                        name: eventName
+                        name: eventName,
+                        source: target
                     },
                     eventArgs;
 
@@ -2497,6 +2498,8 @@ Tile5 library.
 ## Module Functions
 */
 var Images = (function() {
+    var TIMEOUT_CHECK_INTERVAL = 10000;
+
     var images = {},
         canvasCounter = 0,
         loadWatchers = {},
@@ -2505,6 +2508,7 @@ var Images = (function() {
         loadingImages = [],
         cachedImages = [],
         imageCacheFullness = 0,
+        lastTimeoutCheck = 0,
         clearingCache = false;
 
     /* internal functions */
@@ -2513,15 +2517,20 @@ var Images = (function() {
         var maxImageLoads = getConfig().maxImageLoads;
 
         if ((! maxImageLoads) || (loadingImages.length < maxImageLoads)) {
-            var imageData = queuedImages.shift();
+            var imageData = queuedImages.shift(),
+                tickCount = T5.ticks();
 
             if (imageData) {
                 loadingImages[loadingImages.length] = imageData;
 
                 imageData.image.onload = handleImageLoad;
                 imageData.image.src = imageData.url;
-                imageData.requested = T5.ticks();
+                imageData.requested = tickCount;
             } // if..else
+
+            if (tickCount - lastTimeoutCheck > TIMEOUT_CHECK_INTERVAL) {
+                checkTimeoutsAndCache(tickCount);
+            } // if
         } // if
 
     } // loadNextImage
@@ -2574,6 +2583,8 @@ var Images = (function() {
                 cleanupImageCache();
             } // if
         } // if
+
+        lastTimeoutCheck = currentTickCount;
     } // checkTimeoutsAndCache
 
     function postProcess(imageData) {
@@ -3169,6 +3180,7 @@ var View = function(params) {
         id: COG.objId('view'),
         container: "",
         captureHover: true,
+        captureDrag: false,
         fastDraw: false,
         inertia: true,
         minRefresh: 1000,
@@ -3196,6 +3208,7 @@ var View = function(params) {
     var layers = [],
         layerCount = 0,
         canvas = document.getElementById(params.container),
+        dragObject = null,
         mainContext = null,
         isIE = typeof window.attachEvent != 'undefined',
         minRefresh = params.minRefresh,
@@ -3253,12 +3266,10 @@ var View = function(params) {
 
     /* event handlers */
 
-    function handlePan(evt, x, y, inertia) {
-        updateOffset(
-            offsetX - x,
-            offsetY - y,
-            inertia ? params.panAnimationEasing : null,
-            inertia ? params.panAnimationDuration : null);
+    function handlePan(evt, x, y) {
+        if (! dragObject) {
+            updateOffset(offsetX - x, offsetY - y);
+        } // if
     } // pan
 
     /* scaling functions */
@@ -3326,14 +3337,50 @@ var View = function(params) {
     } // handleDoubleTap
 
     function handlePointerDown(evt, absXY, relXY) {
-        hoverOffset = null;
-        hitTest(absXY, relXY, getScaledOffset(relXY.x, relXY.y), 'down');
+        var elements,
+            scaledOffset = getScaledOffset(relXY.x, relXY.y),
+            downX = scaledOffset.x,
+            downY = scaledOffset.y;
+
+        dragObject = null;
+
+        elements = hitTest(absXY, relXY, downX, downY);
+
+        for (var ii = elements.length; ii--; ) {
+            if (dragStart(elements[ii], downX, downY)) {
+                break;
+            } // if
+        } // for
+
+        COG.info('pointer down on ' + elements.length + ' elements');
     } // handlePointerDown
 
     function handlePointerHover(evt, absXY, relXY) {
         hoverOffset = getScaledOffset(relXY.x, relXY.y);
-        hitTest(absXY, relXY, hoverOffset, 'hover');
+        hitTest(absXY, relXY, hoverOffset.x, hoverOffset.y, 'hover');
     } // handlePointerHover
+
+    function handlePointerMove(evt, absXY, relXY) {
+        if (dragObject) {
+            var scaledOffset = getScaledOffset(relXY.x, relXY.y);
+
+            if (dragObject.drag(dragObject, scaledOffset.x, scaledOffset.y, false)) {
+                invalidate();
+            } // if
+        }
+    } // handlePointerMove
+
+    function handlePointerUp(evt, absXY, relXY) {
+        if (dragObject) {
+            var scaledOffset = getScaledOffset(relXY.x, relXY.y);
+
+            if (dragObject.drag(dragObject, scaledOffset.x, scaledOffset.y, true)) {
+                invalidate();
+            } // if
+        } // if
+
+        dragObject = null;
+    } // handlePointerUp
 
     function handleResize(evt) {
         clearTimeout(resizeCanvasTimeout);
@@ -3350,28 +3397,26 @@ var View = function(params) {
     } // handlePrepCanvasCallback
 
     function handlePointerTap(evt, absXY, relXY) {
-        hitTest(absXY, relXY, getScaledOffset(relXY.x, relXY.y), 'tap');
+        var scaledOffset = getScaledOffset(relXY.x, relXY.y),
+            tapX = scaledOffset.x,
+            tapY = scaledOffset.y;
 
-        triggerAll(
-            'tap',
-            absXY,
-            relXY,
-            getScaledOffset(relXY.x, relXY.y)
-        );
+        hitTest(absXY, relXY, tapX, tapY, 'tap');
+        triggerAll('tap', absXY, relXY, scaledOffset);
     } // handlePointerTap
 
-    function hitTest(absXY, relXY, offsetXY, eventType) {
+    function hitTest(absXY, relXY, hitX, hitY, eventType) {
         var hitElements = [];
 
         for (var ii = layerCount; ii--; ) {
             if (layers[ii].hitTest) {
                 hitElements = hitElements.concat(
-                    layers[ii].hitTest(offsetXY.x, offsetXY.y, state, self)
+                    layers[ii].hitTest(hitX, hitY, state, self)
                 );
             } // if
         } // for
 
-        if (hitElements.length > 0) {
+        if (eventType && hitElements.length > 0) {
             self.triggerCustom(
                 eventType + 'Hit', {
                     hitType: eventType
@@ -3379,8 +3424,10 @@ var View = function(params) {
                 hitElements,
                 absXY,
                 relXY,
-                offsetXY);
+                XY.init(hitX, hitY));
         } // if
+
+        return hitElements;
     } // hitTest
 
     /* private functions */
@@ -3474,8 +3521,11 @@ var View = function(params) {
             eventMonitor.bind('doubleTap', handleDoubleTap);
         } // if
 
+        eventMonitor.bind('pointerDown', handlePointerDown);
+        eventMonitor.bind('pointerMove', handlePointerMove);
+        eventMonitor.bind('pointerUp', handlePointerUp);
+
         if (params.captureHover) {
-            eventMonitor.bind('pointerDown', handlePointerDown);
             eventMonitor.bind('pointerHover', handlePointerHover);
         } // if
 
@@ -3519,6 +3569,20 @@ var View = function(params) {
             } // if..else
         } // if
     } // constrainOffset
+
+    function dragStart(hitElement, x, y) {
+        var canDrag = hitElement && hitElement.drag &&
+                ((! hitElement.canDrag) || hitElement.canDrag(hitElement, x, y));
+
+        if (canDrag) {
+            dragObject = hitElement;
+
+            dragObject.startX = x;
+            dragObject.startY = y;
+        } // if
+
+        return canDrag;
+    } // dragStart
 
     function getLayerIndex(id) {
         for (var ii = layerCount; ii--; ) {
@@ -3963,6 +4027,18 @@ var View = function(params) {
     } // setZoomLevel
 
     /**
+    ### syncXY(points, reverse)
+    This function is used to keep a T5.XY derivative x and y position in sync
+    with it's real world location (if it has one).  T5.GeoXY are a good example
+    of this.
+
+    If the `reverse` argument is specified and true, then the virtual world
+    coordinate will be updated to match the current x and y offsets.
+    */
+    function syncXY(points, reverse) {
+    } // syncXY
+
+    /**
     ### triggerAll(eventName: string, args*)
     Trigger an event on the view and all layers currently contained in the view
     */
@@ -4071,6 +4147,7 @@ var View = function(params) {
         resize: resize,
         scale: scale,
         setZoomLevel: setZoomLevel,
+        syncXY: syncXY,
         triggerAll: triggerAll,
         removeLayer: removeLayer,
 
@@ -4098,6 +4175,8 @@ var View = function(params) {
     COG.configurable(
         self, [
             'container',
+            'captureHover',
+            'captureDrag',
             'scalable',
             'pannable',
             'inertia',
@@ -4107,9 +4186,10 @@ var View = function(params) {
         ],
         COG.paramTweaker(params, null, {
             'container': handleContainerUpdate,
-            'inertia':   captureInteractionEvents,
-            'scalable':  captureInteractionEvents,
-            'pannable':  captureInteractionEvents
+            'inertia': captureInteractionEvents,
+            'captureHover': captureInteractionEvents,
+            'scalable': captureInteractionEvents,
+            'pannable': captureInteractionEvents
         }),
         true);
 
@@ -4330,14 +4410,12 @@ var ViewLayer = function(params) {
     });
 
     self.bind('resync', function(evt, view) {
-       if (view.syncXY) {
-           if (self.minXY) {
-               view.syncXY(self.minXY);
-           } // if
+       if (self.minXY) {
+           view.syncXY(self.minXY);
+       } // if
 
-           if (self.maxXY) {
-               view.syncXY(self.maxXY);
-           } // if
+       if (self.maxXY) {
+           view.syncXY(self.maxXY);
        } // if
     });
 
@@ -4541,7 +4619,7 @@ in at.  Used in combination with the `tweenIn` parameter.
 var Marker = function(params) {
     params = COG.extend({
         xy: XY.init(),
-        offset: true,
+        draggable: false,
         tweenIn: null,
         animationSpeed: null,
         isNew: true
@@ -4552,8 +4630,83 @@ var Marker = function(params) {
         boundsX = 0,
         boundsY = 0,
         boundsWidth = 0,
-        boundsHeight = 0,
-        isOffset = params.offset;
+        boundsHeight = 0;
+
+    /* exports */
+
+    /**
+    ### drag(dragData, dragX, dragY, drop)
+    */
+    function drag(dragData, dragX, dragY, drop) {
+        self.xy.x = dragX;
+        self.xy.y = dragY;
+
+        return true;
+    } // drag
+
+    /**
+    ### draw(context, offset, state, overlay, view)
+    The draw method is called by the T5.ViewLayer that contains the annotation
+    and is used to draw the annotation to the specified context.  When creating
+    a custom marker, you should provide a custom implementation of the `drawMarker`
+    method rather than this method.
+    */
+    function draw(context, viewRect, state, overlay, view) {
+        if (self.isNew && (params.tweenIn)) {
+            var duration = params.animationSpeed ? params.animationSpeed : 250 + (Math.random() * 500),
+                targetY = self.xy.y;
+
+            COG.tweenValue(viewRect.y1 - 20, targetY, params.tweenIn, duration, function(val, completed) {
+                self.xy.y = val | 0;
+                animating = !completed;
+
+                view.invalidate();
+            });
+        } // if
+
+        self.drawMarker(
+            context,
+            viewRect,
+            self.xy.x,
+            self.xy.y,
+            state,
+            overlay,
+            view);
+
+        self.isNew = false;
+    } // draw
+
+    /**
+    ### drawMarker(context, offset, x, y, state, overlay, view)
+    The `drawMarker` method is the place holder implementation for drawing
+    markers.  In the case of a T5.Annotation a simple circle is drawn, but
+    extensions of T5.Annotation would normally replace this implementation
+    with their own modified implementation (such as T5.ImageAnnotation does).
+    */
+    function drawMarker(context, viewRect, x, y, state, overlay, view) {
+        context.beginPath();
+        context.arc(
+            x,
+            y,
+            MARKER_SIZE,
+            0,
+            Math.PI * 2,
+            false);
+        context.fill();
+
+        updateBounds(x - MARKER_SIZE, y  - MARKER_SIZE,
+            MARKER_SIZE*2, MARKER_SIZE*2);
+    } // drawMarker
+
+    /**
+    ### hitTest(testX, testY)
+    This method is used to determine if the marker is located  at the specified
+    x and y position.
+    */
+    function hitTest(testX, testY) {
+        return (testX >= boundsX) && (testX <= boundsX + boundsWidth) &&
+            (testY >= boundsY) && (testY <= boundsY + boundsHeight);
+    }
 
     function updateBounds(newX, newY, newWidth, newHeight) {
         boundsX = newX;
@@ -4564,6 +4717,8 @@ var Marker = function(params) {
     } // updateBounds
 
     var self = COG.extend(params, {
+        parent: null,
+
         /*
         ### isAnimating()
         Return true if we are currently animating the marker, false otherwise
@@ -4572,69 +4727,10 @@ var Marker = function(params) {
             return animating;
         },
 
-        /**
-        ### draw(context, offset, state, overlay, view)
-        The draw method is called by the T5.ViewLayer that contains the annotation
-        and is used to draw the annotation to the specified context.  When creating
-        a custom marker, you should provide a custom implementation of the `drawMarker`
-        method rather than this method.
-        */
-        draw: function(context, viewRect, state, overlay, view) {
-            if (self.isNew && (params.tweenIn)) {
-                var duration = params.animationSpeed ? params.animationSpeed : 250 + (Math.random() * 500);
-
-                COG.tweenValue(viewRect.y1 - 20, self.xy.y, params.tweenIn, duration, function(val, completed) {
-                    self.xy.y = val | 0;
-                    animating = !completed;
-
-                    view.invalidate();
-                });
-            } // if
-
-            self.drawMarker(
-                context,
-                viewRect,
-                self.xy.x,
-                self.xy.y,
-                state,
-                overlay,
-                view);
-
-            self.isNew = false;
-        },
-
-        /**
-        ### drawMarker(context, offset, x, y, state, overlay, view)
-        The `drawMarker` method is the place holder implementation for drawing
-        markers.  In the case of a T5.Annotation a simple circle is drawn, but
-        extensions of T5.Annotation would normally replace this implementation
-        with their own modified implementation (such as T5.ImageAnnotation does).
-        */
-        drawMarker: function(context, viewRect, x, y, state, overlay, view) {
-            context.beginPath();
-            context.arc(
-                x,
-                y,
-                MARKER_SIZE,
-                0,
-                Math.PI * 2,
-                false);
-            context.fill();
-
-            updateBounds(x - MARKER_SIZE, y  - MARKER_SIZE,
-                MARKER_SIZE*2, MARKER_SIZE*2);
-        },
-
-        /**
-        ### hitTest(testX, testY)
-        This method is used to determine if the marker is located  at the specified
-        x and y position.
-        */
-        hitTest: function(testX, testY) {
-            return (testX >= boundsX) && (testX <= boundsX + boundsWidth) &&
-                (testY >= boundsY) && (testY <= boundsY + boundsHeight);
-        },
-
+        drag: drag,
+        draw: draw,
+        drawMarker: drawMarker,
+        hitTest: hitTest,
         updateBounds: updateBounds
     }); // self
 
@@ -4707,7 +4803,8 @@ var ImageMarker = function(params) {
         opacity: 1
     }, params);
 
-    var imageOffset = params.imageAnchor ?
+    var dragOffset = null,
+        imageOffset = params.imageAnchor ?
             T5.XY.invert(params.imageAnchor) :
             null;
 
@@ -4730,6 +4827,41 @@ var ImageMarker = function(params) {
         });
     } // changeImage
 
+    /**
+    ### drag(dragData, dragX, dragY, drop)
+    */
+    function drag(dragData, dragX, dragY, drop) {
+        if (! dragOffset) {
+            dragOffset = XY.init(
+                dragData.startX - self.xy.x,
+                dragData.startY - self.xy.y
+            );
+
+        }
+
+        self.xy.x = dragX - dragOffset.x;
+        self.xy.y = dragY - dragOffset.y;
+
+        if (drop) {
+            var view = self.parent ? self.parent.getParent() : null;
+
+            dragOffset = null;
+
+            if (view) {
+                view.syncXY([self.xy], true);
+            } // if
+
+            self.trigger('dragDrop');
+        } // if
+
+        return true;
+    } // drag
+
+    /**
+    ### drawMarker(context, offset, xy, state, overlay, view)
+    An overriden implementation of the T5.Annotation.drawMarker which
+    draws an image to the canvas.
+    */
     function drawMarker(context, viewRect, x, y, state, overlay, view) {
         var image = self.isAnimating() && self.animatingImage ?
                 self.animatingImage : self.image;
@@ -4777,11 +4909,7 @@ var ImageMarker = function(params) {
 
     var self = COG.extend(new Marker(params), {
         changeImage: changeImage,
-        /**
-        ### drawMarker(context, offset, xy, state, overlay, view)
-        An overriden implementation of the T5.Annotation.drawMarker which
-        draws an image to the canvas.
-        */
+        drag: drag,
         drawMarker: drawMarker
     });
 
@@ -4884,7 +5012,7 @@ var MarkerLayer = function(params) {
 
     function resyncMarkers() {
         var parent = self.getParent();
-        if (parent && parent.syncXY) {
+        if (parent) {
             for (var ii = markers.length; ii--; ) {
                 parent.syncXY([markers[ii].xy]);
             } // for
@@ -4925,11 +5053,15 @@ var MarkerLayer = function(params) {
         if (newItems && (typeof newItems.length !== 'undefined')) {
             for (var ii = newItems.length; ii--; ) {
                 if (newItems[ii]) {
+                    newItems[ii].parent = self;
+
                     markers[markers.length] = newItems[ii];
                 } // if
             } // for
         }
         else if (newItems) {
+            newItems.parent = self;
+
             markers[markers.length] = newItems;
         } // if..else
 
@@ -4998,6 +5130,9 @@ var MarkerLayer = function(params) {
         return results;
     } // find
 
+    /**
+    ### hitTest(offsetX, offsetY, state, view)
+    */
     function hitTest(offsetX, offsetY, state, view) {
         var hitMarkers = [];
 
@@ -5005,13 +5140,24 @@ var MarkerLayer = function(params) {
             if (markers[ii].hitTest(offsetX, offsetY)) {
                 hitMarkers[hitMarkers.length] = {
                     type: 'marker',
-                    data: markers[ii]
+                    target: markers[ii],
+                    drag: markers[ii].draggable ? markers[ii].drag : null
                 };
             } // if
         } // for
 
         return hitMarkers;
     } // hitTest
+
+    /**
+    ### syncMarker(marker: T5.Marker)
+    */
+    function syncMarker(marker) {
+        var parent = self.getParent();
+        if (parent) {
+            parent.syncXY(marker.xy);
+        } // if
+    } // syncMarker
 
     var self = COG.extend(new ViewLayer(params), {
         draw: function(context, viewRect, state, view) {
@@ -5029,7 +5175,8 @@ var MarkerLayer = function(params) {
         clear: clear,
         each: each,
         find: find,
-        hitTest: hitTest
+        hitTest: hitTest,
+        syncMarker: syncMarker
     });
 
     self.bind('tap', handleTap);
@@ -5064,7 +5211,7 @@ var PathLayer = function(params) {
 
     function resyncPath() {
         var parent = self.getParent();
-        if (parent && parent.syncXY) {
+        if (parent) {
             parent.syncXY(rawCoords);
             if (rawMarkers) {
                 parent.syncXY(rawMarkers);
@@ -5497,9 +5644,7 @@ var ShapeLayer = function(params) {
     /* event handlers */
 
     function handleResync(evt, parent) {
-        if (parent.syncXY) {
-            performSync(parent);
-        } // if
+        performSync(parent);
     } // handleParentChange
 
     /* exports */
@@ -6545,6 +6690,20 @@ var GeoXY = exports.GeoXY = (function() {
         return xy;
     } // setRadsPerPixel
 
+    function syncPos(xy, rpp) {
+        if (xy.length) {
+            for (var ii = xy.length; ii--; ) {
+                syncPos(xy[ii], rpp);
+            } // for
+        }
+        else {
+            xy.mercXY = XY.init(xy.x * rpp - Math.PI, Math.PI - xy.y * rpp);
+            xy.pos = Position.fromMercatorPixels(xy.mercXY.x, xy.mercXY.y);
+        } // if..else
+
+        return xy;
+    } // syncPos
+
     function toPos(xy, rpp) {
         rpp = rpp ? rpp : self.rpp;
 
@@ -6567,6 +6726,7 @@ var GeoXY = exports.GeoXY = (function() {
     return {
         init: init,
         sync: sync,
+        syncPos: syncPos,
         toPos: toPos,
         updatePos: updatePos
     };
@@ -7413,14 +7573,6 @@ var Map = exports.Map = function(params) {
 
     /* event handlers */
 
-    function handleMarkerUpdate(evt, markers) {
-        var grid = self.getTileLayer();
-
-        for (var ii = markers.length; ii--; ) {
-            syncXY([markers[ii].xy]);
-        } // for
-    } // handleMarkerUpdate
-
     function handlePan(evt, x, y) {
         if (locateMode === LOCATE_MODE.SINGLE) {
             self.trackCancel();
@@ -7428,8 +7580,7 @@ var Map = exports.Map = function(params) {
     } // handlePan
 
     function handleTap(evt, absXY, relXY, offsetXY) {
-        var radsPerPixel = Geo.radsPerPixel(self.getZoomLevel()),
-            tapPos = GeoXY.toPos(offsetXY, radsPerPixel),
+        var tapPos = GeoXY.toPos(offsetXY, radsPerPixel),
             minPos = GeoXY.toPos(
                 XY.offset(offsetXY, -tapExtent, tapExtent),
                 radsPerPixel),
@@ -7599,8 +7750,8 @@ var Map = exports.Map = function(params) {
     of type GeoXY composite they are provided the rads per pixel of the
     grid so they can perform their calculations
     */
-    function syncXY(points) {
-        return GeoXY.sync(points, radsPerPixel);
+    function syncXY(points, reverse) {
+        return (reverse ? GeoXY.syncPos : GeoXY.sync)(points, radsPerPixel);
     } // syncXY
 
     /* public object definition */
@@ -7693,7 +7844,6 @@ var Map = exports.Map = function(params) {
 
     self.bind('pan', handlePan);
     self.bind('tap', handleTap);
-
 
     self.bind('refresh', handleRefresh);
 

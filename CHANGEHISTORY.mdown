@@ -1,6 +1,14 @@
 # Tile5 Change History
 
-## 0.9.4.2 (TBA)
+## 0.9.5 (TBA)
+
+### Detailed Changes
+
+- HitTest events refer to hit target as `target` rather than `data` which was a poor choice of name.
+
+- Marker dragDrop support implemented, feedback would be great :)
+
+## 0.9.4.2 (2011-03-04)
 
 Continued refinement of the 0.9.4 branch ready to implement new features in 0.9.5
 
