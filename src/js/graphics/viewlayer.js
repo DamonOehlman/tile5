@@ -119,9 +119,22 @@ var ViewLayer = function(params) {
             - state - the current DisplayState of the view
             - view - a reference to the View
             - tickCount - the current tick count
+            - hitData - an object that contains information regarding the current hit data
         */
-        draw: function(context, viewRect, state, view, tickCount) {
+        draw: function(context, viewRect, state, view, tickCount, hitData) {
         },
+        
+        /**
+        ### hitGuess(hitX, hitY, state, view)
+        The hitGuess function is used to determine if a layer would return elements for
+        a more granular hitTest.  Essentially, hitGuess calls are used when events such 
+        as hover and tap events occur on a view and then if a positive result is detected
+        the canvas is invalidated and checked in detail during the view layer `draw` operation.
+        By doing this we can just do simple geometry operations in the hitGuess function
+        and then make use of canvas functions such as `isPointInPath` to do most of the heavy
+        lifting for us
+        */
+        hitGuess: null,
         
         /**
         ### remove()

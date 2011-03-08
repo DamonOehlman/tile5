@@ -45,7 +45,8 @@ var MarkerLayer = function(params) {
         style: 'basic'
     }, params);
     
-    var markers = [];
+    var markers = [],
+        hitMarkers = [];
         
     /* event handlers */
         
@@ -187,6 +188,26 @@ var MarkerLayer = function(params) {
     } // clear
     
     /**
+    ### draw(context, viewRect, state, view, tickCount, hitData)
+    Draw the markers in the marker layer
+    */
+    function draw(context, viewRect, state, view, tickCount, hitData) {
+        // iterate through the markers and draw them
+        for (var ii = markers.length; ii--; ) {
+            markers[ii].draw(
+                context, 
+                viewRect, 
+                state, 
+                self, 
+                view);
+        } // for
+        
+        if (hitData) {
+            hitData.elements = hitData.elements.concat(hitMarkers);
+        } // if
+    } // draw
+    
+    /**
     ### each(callback)
     Iterate through each of the markers and fire the callback for each one
     */
@@ -218,14 +239,16 @@ var MarkerLayer = function(params) {
     } // find
     
     /**
-    ### hitTest(offsetX, offsetY, state, view)
+    ### hitGuess(hitX, hitY, state, view)
+    Return true if any of the markers are hit, additionally, store the hit elements
+    so we don't have to do the work again when drawing
     */
-    function hitTest(offsetX, offsetY, state, view) {
-        var hitMarkers = [];
-            
+    function hitGuess(hitX, hitY, state, view) {
+        hitMarkers = [];
+        
         // iterate through the markers and look for matches
         for (var ii = markers.length; ii--; ) {
-            if (markers[ii].hitTest(offsetX, offsetY)) {
+            if (markers[ii].hitTest(hitX, hitY)) {
                 hitMarkers[hitMarkers.length] = {
                     type: 'marker',
                     target: markers[ii],
@@ -234,8 +257,8 @@ var MarkerLayer = function(params) {
             } // if
         } // for
         
-        return hitMarkers;
-    } // hitTest
+        return hitMarkers.length > 0;
+    } // hitGuess
     
     /**
     ### syncMarker(marker: T5.Marker)
@@ -249,23 +272,12 @@ var MarkerLayer = function(params) {
 
     // create the view layer the we will draw the view
     var self = COG.extend(new ViewLayer(params), {
-        draw: function(context, viewRect, state, view) {
-            // iterate through the markers and draw them
-            for (var ii = markers.length; ii--; ) {
-                markers[ii].draw(
-                    context, 
-                    viewRect, 
-                    state, 
-                    self, 
-                    view);
-            } // for
-        },
-        
         add: add,
         clear: clear,
+        draw: draw,
         each: each,
         find: find,
-        hitTest: hitTest,
+        hitGuess: hitGuess,
         syncMarker: syncMarker
     });
     

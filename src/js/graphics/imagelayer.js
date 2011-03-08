@@ -120,20 +120,21 @@ var ImageLayer = function(genId, params) {
         // COG.info('drawing image layer layer @ ', viewRect);
         
         eachImage(viewRect, state, function(image, x, y, width, height) {
-            self.drawImage(context, image, x, y, width, height, viewRect, state);
-        });
-    } // draw
-    
-    function drawImage(context, image, x, y, width, height, viewRect, state) {
-        if (image) {
             context.drawImage(
                 image, 
                 x, 
                 y,
                 image.width,
                 image.height);
-        }
-    } // drawImage
+        });
+    } // draw
+    
+    function mask(context, viewRect, state, view) {
+        eachImage(viewRect, state, function(image, x, y, width, height) {
+            COG.info('clearing rect @ x = ' + x + ', y = ' + y + ', width = ' + width + ', height = ' + height);
+            context.clearRect(x, y, width, height);
+        });
+    } // mask
     
     /* definition */
     
@@ -141,7 +142,7 @@ var ImageLayer = function(genId, params) {
         changeGenerator: changeGenerator,
         clip: clip,
         draw: draw,
-        drawImage: drawImage
+        mask: mask
     });
     
     self.bind('refresh', handleRefresh);

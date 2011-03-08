@@ -157,6 +157,12 @@ var Style = (function() {
             lineWidth: 4,
             strokeStyle: 'rgba(0, 51, 119, 0.9)',
             fillStyle: '#FFF'
+        },
+
+        waypointsHover: {
+            lineWidth: 4,
+            strokeStyle: '#f00',
+            fillStyle: '#FFF'
         }        
     });
     

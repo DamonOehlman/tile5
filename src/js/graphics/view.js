@@ -159,7 +159,6 @@ var View = function(params) {
         mainContext = null,
         isIE = typeof window.attachEvent != 'undefined',
         minRefresh = params.minRefresh,
-        hoverOffset = null,
         offsetX = 0,
         offsetY = 0,
         lastOffsetX = 0,
@@ -177,6 +176,7 @@ var View = function(params) {
         wakeTriggers = 0,
         halfWidth = 0,
         halfHeight = 0,
+        hitData = null,
         interactOffset = null,
         interactCenter = null,
         interacting = false,
@@ -226,13 +226,13 @@ var View = function(params) {
     } // handleWheelZoom
     
     function scaleView() {
-        var scaleFactorExp = (log(scaleFactor) / Math.LN2) >> 0;
+        var scaleFactorExp = log(scaleFactor) / Math.LN2 | 0;
         
         // COG.info('scale factor = ' + scaleFactor + ', exp = ' + scaleFactorExp);
         if (scaleFactorExp !== 0) {
             scaleFactor = pow(2, scaleFactorExp);
-            setZoomLevel(zoomLevel + Math.log(scaleFactor) / Math.LN2, zoomX, zoomY);
-        } // if
+            setZoomLevel(zoomLevel + scaleFactorExp, zoomX, zoomY);
+        }
 
         // invalidate the view
         invalidate();
@@ -292,14 +292,13 @@ var View = function(params) {
     } // handleDoubleTap
     
     function handlePointerDown(evt, absXY, relXY) {
-        var elements,
-            scaledOffset = getScaledOffset(relXY.x, relXY.y),
-            downX = scaledOffset.x,
-            downY = scaledOffset.y;
-        
         // reset the hover offset and the drag element
         dragObject = null;
 
+        // initialise the hit data
+        hitData = initHitData('down', absXY, relXY);
+
+        /*
         // get the objects under the current offset
         elements = hitTest(absXY, relXY, downX, downY);
         
@@ -311,12 +310,21 @@ var View = function(params) {
         } // for
         
         COG.info('pointer down on ' + elements.length + ' elements');
+        */
     } // handlePointerDown
     
     function handlePointerHover(evt, absXY, relXY) {
-        hoverOffset = getScaledOffset(relXY.x, relXY.y);
+        // initialise the hit data
+        hitData = initHitData('hover', absXY, relXY);
+
+        /*
+        
+        var scaledOffset = getScaledOffset(relXY.x, relXY.y);
+        
+        hitData = initHitData('hover', scaledOffset.x, )
         // COG.info('relxy = ' + T5.XY.toString(relXY) + ', hover offset = ' + T5.XY.toString(hoverOffset));
         hitTest(absXY, relXY, hoverOffset.x, hoverOffset.y, 'hover');
+        */
     } // handlePointerHover
     
     function handlePointerMove(evt, absXY, relXY) {
@@ -342,6 +350,9 @@ var View = function(params) {
 
         // reset the drag object
         dragObject = null;
+        
+        // reset the hit data
+        hitData = null;
     } // handlePointerUp
     
     function handleResize(evt) {
@@ -360,39 +371,14 @@ var View = function(params) {
     } // handlePrepCanvasCallback
     
     function handlePointerTap(evt, absXY, relXY) {
-        var scaledOffset = getScaledOffset(relXY.x, relXY.y),
-            tapX = scaledOffset.x,
-            tapY = scaledOffset.y;
-        
-        hitTest(absXY, relXY, tapX, tapY, 'tap');
+        var scaledOffset = getScaledOffset(relXY.x, relXY.y);
+            
+            // initialise the hit data
+        hitData = initHitData('tap', absXY, relXY);
+
+        // trigger the tap on all layers
         triggerAll('tap', absXY, relXY, scaledOffset);
     } // handlePointerTap
-    
-    function hitTest(absXY, relXY, hitX, hitY, eventType) {
-        var hitElements = [];
-        
-        // iterate through the layers and check for elements under the cursor
-        for (var ii = layerCount; ii--; ) {
-            if (layers[ii].hitTest) {
-                hitElements = hitElements.concat(
-                    layers[ii].hitTest(hitX, hitY, state, self)
-                );
-            } // if
-        } // for
-        
-        if (eventType && hitElements.length > 0) {
-            self.triggerCustom(
-                eventType + 'Hit', {
-                    hitType: eventType
-                },
-                hitElements, 
-                absXY, 
-                relXY, 
-                XY.init(hitX, hitY));
-        } // if
-        
-        return hitElements;
-    } // hitTest
     
     /* private functions */
     
@@ -585,7 +571,6 @@ var View = function(params) {
     
     /* draw code */
     
-    
     // TODO: investigate whether to go back to floating point math for improved display or not
     function calcZoomRect(drawRect) {
         var invScaleFactor = 1 / scaleFactor,
@@ -620,19 +605,20 @@ var View = function(params) {
             rectCenter = XYRect.center(rect),
             ii = 0;
             
-        // update the draw rect
-        drawRect = XYRect.copy(rect);
+        // prep the draw rect
+        if (scaleFactor !== 1) {
+            drawRect = calcZoomRect(rect);
+        } 
+        else {
+            drawRect = XYRect.copy(rect);
+        } // if..else
         
+        if (! canClip) {
+            mainContext.clearRect(0, 0, viewWidth, viewHeight);
+        } // if
+
         // include the scale factor information in the draw rect
         drawRect.scaleFactor = scaleFactor;
-            
-        // fill the mask context with black
-        if (! canClip) {
-            if ((! turbo) || (tickCount - lastClear > TURBO_CLEAR_INTERVAL)) {
-                mainContext.clearRect(0, 0, viewWidth, viewHeight);
-                lastClear = tickCount;
-            } // if
-        } // if
 
         // save the context states
         mainContext.save();
@@ -640,7 +626,6 @@ var View = function(params) {
         
         try {
             if (scaleFactor !== 1) {
-                drawRect = calcZoomRect(drawRect);
                 mainContext.scale(scaleFactor, scaleFactor);
             } // if
 
@@ -651,9 +636,7 @@ var View = function(params) {
             layerMinXY = null;
             layerMaxXY = null;
             
-            /* first pass - clip */
-
-            if (canClip && (! turbo)) {
+            if (canClip) {
                 mainContext.beginPath();
 
                 for (ii = layerCount; ii--; ) {
@@ -668,46 +651,51 @@ var View = function(params) {
             
             /* second pass - draw */
             
+            // initialise the composite operation
+            mainContext.globalCompositeOperation = 'source-over';
+
             for (ii = layerCount; ii--; ) {
                 drawLayer = layers[ii];
                 
-                // initialise the composite operation
-                mainContext.globalCompositeOperation = (turbo && drawLayer.zIndex <= 0) ? 'copy' : 'source-over';
+                // determine whether we need to draw
+                if (drawLayer.shouldDraw(state, cycleRect)) {
+                    // if the layer has style, then apply it and save the current style
+                    var layerStyle = drawLayer.style,
+                        previousStyle = layerStyle ? Style.apply(mainContext, layerStyle) : null;
 
-                // if the layer has style, then apply it and save the current style
-                var layerStyle = drawLayer.style,
-                    previousStyle = layerStyle ? Style.apply(mainContext, layerStyle) : null;
-                
-                /*
-                TODO: fix the constraining (more appropriate within the constrain offset I would think now)
-                // if the layer has bounds, then update the layer bounds
-                if (drawLayer.minXY) {
-                    layerMinXY = layerMinXY ? 
-                        XY.min(layerMinXY, drawLayer.minXY) : 
-                        XY.copy(drawLayer.minXY);
-                } // if
+                    /*
+                    TODO: fix the constraining (more appropriate within the constrain offset I would think now)
+                    // if the layer has bounds, then update the layer bounds
+                    if (drawLayer.minXY) {
+                        layerMinXY = layerMinXY ? 
+                            XY.min(layerMinXY, drawLayer.minXY) : 
+                            XY.copy(drawLayer.minXY);
+                    } // if
 
-                if (drawLayer.maxXY) {
-                    layerMaxXY = layerMaxXY ? 
-                        XY.max(layerMaxXY, drawLayer.maxXY) :
-                        XY.copy(drawLayer.maxXY);
-                } // if
-                */
-                
-                // draw the layer
-                drawLayer.draw(
-                    mainContext, 
-                    drawRect, 
-                    drawState, 
-                    self,
-                    tickCount);
+                    if (drawLayer.maxXY) {
+                        layerMaxXY = layerMaxXY ? 
+                            XY.max(layerMaxXY, drawLayer.maxXY) :
+                            XY.copy(drawLayer.maxXY);
+                    } // if
+                    */
 
-                // if we applied a style, then restore the previous style if supplied
-                if (previousStyle) {
-                    Style.apply(mainContext, previousStyle);
+                    // draw the layer
+                    drawLayer.draw(
+                        mainContext, 
+                        drawRect, 
+                        drawState, 
+                        self,
+                        tickCount,
+                        hitData);
+
+                    // if we applied a style, then restore the previous style if supplied
+                    if (previousStyle) {
+                        Style.apply(mainContext, previousStyle);
+                    } // if
+                    
                 } // if
             } // for
-
+            
             //= debug:require "debug/offsetbounds"
         }
         finally {
@@ -721,6 +709,36 @@ var View = function(params) {
         triggerAll('drawComplete', rect, tickCount);
     } // drawView
     
+    /*
+    ### checkHits
+    */
+    function checkHits() {
+        var elements = hitData ? hitData.elements : [];
+        
+        // check the hit data
+        if (elements.length > 0) {
+            var downX = hitData.x,
+                downY = hitData.y;
+            
+            // iterate through objects from last to first (first get drawn last so sit underneath)
+            for (var ii = elements.length; ii--; ) {
+                if (dragStart(elements[ii], downX, downY)) {
+                    break;
+                } // if
+            } // for
+            
+            
+            self.triggerCustom(
+                hitData.type + 'Hit', {
+                    hitType: hitData.type
+                },
+                elements, 
+                hitData.absXY,
+                hitData.relXY,
+                XY.init(hitData.x, hitData.y));
+        } // if
+    } // checkHits
+    
     function cycle(tickCount) {
         // check to see if we are panning
         var redrawBG,
@@ -732,7 +750,6 @@ var View = function(params) {
             return;
         }
             
-        if (tickCount - lastCycleTicks > cycleDelay) {
             // determine if we are panning
             panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
                     
@@ -758,7 +775,7 @@ var View = function(params) {
 
                 canvas.style.width = viewWidth + 'px';
                 canvas.style.height = viewHeight + 'px';
-
+                
                 // flag the size is not changed now as we have handled the update
                 sizeChanged = false;
             } // if
@@ -780,9 +797,6 @@ var View = function(params) {
                 // cycle the layer
                 layers[ii].cycle(tickCount, cycleRect, state);
 
-                // determine whether we need to draw
-                layers[ii].shouldDraw(state, cycleRect);
-
                 // then determine if we have a clippable layer
                 clippable = layers[ii].clip || clippable;
             } // for
@@ -794,6 +808,9 @@ var View = function(params) {
                 clipping && clippable && (! redrawBG), 
                 tickCount);
 
+            // check for hits 
+            checkHits();
+
             // check whether a forced refresh is required
             // TODO: include some state checks here...
             if (tickCount - lastRefresh > minRefresh) {
@@ -804,16 +821,58 @@ var View = function(params) {
             lastCycleTicks = tickCount;
             lastOffsetX = offsetX;
             lastOffsetY = offsetY;
-        } // if
 
         animFrame(cycle);
     } // cycle
+    
+    function initHitData(hitType, absXY, relXY) {
+        var scaledOffset = getScaledOffset(relXY.x, relXY.y),
+            hitX = scaledOffset.x,
+            hitY = scaledOffset.y,
+            potentialHit = false;
+        
+        // iterate through the layers and check to see if we have hit potential
+        for (var ii = layerCount; (! potentialHit) && ii--; ) {
+            potentialHit = layers[ii].hitGuess ? 
+                layers[ii].hitGuess(hitX, hitY, state, self) :
+                false;
+        } // for
+
+        // if we have a potential hit then invalidate the view so a more detailed
+        // test can be run
+        if (potentialHit) {
+            invalidate();
+        } // if
+
+        return {
+            // store the required hit data
+            type: hitType,
+            x: scaledOffset.x,
+            y: scaledOffset.y,
+            elements: [],
+            
+            // also store the original event data
+            absXY: absXY,
+            relXY: relXY
+        };
+    } // initHitData
     
     function layerContextChanged(layer) {
         layer.trigger("contextChanged", mainContext);
     } // layerContextChanged
     
     /* exports */
+    
+    /**
+    ### detach
+    If you plan on reusing a single canvas element to display different views then you 
+    will definitely want to call the detach method between usages.
+    */
+    function detach() {
+        if (eventMonitor) {
+            eventMonitor.unbind();
+        } // if
+    } // detach
     
     /**
     ### eachLayer(callback)
@@ -1194,11 +1253,12 @@ var View = function(params) {
         deviceScaling: deviceScaling,
         fastDraw: params.fastDraw || getConfig().requireFastDraw,
         
+        detach: detach,
+        eachLayer: eachLayer,
         getDimensions: getDimensions,
         getLayer: getLayer,
         getZoomLevel: getZoomLevel,
         setLayer: setLayer,
-        eachLayer: eachLayer,
         invalidate: invalidate,
         refresh: refresh,
         resetScale: resetScale,

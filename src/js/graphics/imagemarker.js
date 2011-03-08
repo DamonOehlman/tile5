@@ -114,6 +114,7 @@ var ImageMarker = function(params) {
             dragOffset = null;
             
             // TODO: reset scale
+            
             if (view) {
                 view.syncXY([self.xy], true);
             } // if

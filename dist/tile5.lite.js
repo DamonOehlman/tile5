@@ -2995,6 +2995,12 @@ var Style = (function() {
             lineWidth: 4,
             strokeStyle: 'rgba(0, 51, 119, 0.9)',
             fillStyle: '#FFF'
+        },
+
+        waypointsHover: {
+            lineWidth: 4,
+            strokeStyle: '#f00',
+            fillStyle: '#FFF'
         }
     });
 
@@ -3212,7 +3218,6 @@ var View = function(params) {
         mainContext = null,
         isIE = typeof window.attachEvent != 'undefined',
         minRefresh = params.minRefresh,
-        hoverOffset = null,
         offsetX = 0,
         offsetY = 0,
         lastOffsetX = 0,
@@ -3230,6 +3235,7 @@ var View = function(params) {
         wakeTriggers = 0,
         halfWidth = 0,
         halfHeight = 0,
+        hitData = null,
         interactOffset = null,
         interactCenter = null,
         interacting = false,
@@ -3279,12 +3285,12 @@ var View = function(params) {
     } // handleWheelZoom
 
     function scaleView() {
-        var scaleFactorExp = (log(scaleFactor) / Math.LN2) >> 0;
+        var scaleFactorExp = log(scaleFactor) / Math.LN2 | 0;
 
         if (scaleFactorExp !== 0) {
             scaleFactor = pow(2, scaleFactorExp);
-            setZoomLevel(zoomLevel + Math.log(scaleFactor) / Math.LN2, zoomX, zoomY);
-        } // if
+            setZoomLevel(zoomLevel + scaleFactorExp, zoomX, zoomY);
+        }
 
         invalidate();
     } // scaleView
@@ -3337,13 +3343,11 @@ var View = function(params) {
     } // handleDoubleTap
 
     function handlePointerDown(evt, absXY, relXY) {
-        var elements,
-            scaledOffset = getScaledOffset(relXY.x, relXY.y),
-            downX = scaledOffset.x,
-            downY = scaledOffset.y;
-
         dragObject = null;
 
+        hitData = initHitData('down', absXY, relXY);
+
+        /*
         elements = hitTest(absXY, relXY, downX, downY);
 
         for (var ii = elements.length; ii--; ) {
@@ -3353,11 +3357,19 @@ var View = function(params) {
         } // for
 
         COG.info('pointer down on ' + elements.length + ' elements');
+        */
     } // handlePointerDown
 
     function handlePointerHover(evt, absXY, relXY) {
-        hoverOffset = getScaledOffset(relXY.x, relXY.y);
+        hitData = initHitData('hover', absXY, relXY);
+
+        /*
+
+        var scaledOffset = getScaledOffset(relXY.x, relXY.y);
+
+        hitData = initHitData('hover', scaledOffset.x, )
         hitTest(absXY, relXY, hoverOffset.x, hoverOffset.y, 'hover');
+        */
     } // handlePointerHover
 
     function handlePointerMove(evt, absXY, relXY) {
@@ -3380,6 +3392,8 @@ var View = function(params) {
         } // if
 
         dragObject = null;
+
+        hitData = null;
     } // handlePointerUp
 
     function handleResize(evt) {
@@ -3397,38 +3411,12 @@ var View = function(params) {
     } // handlePrepCanvasCallback
 
     function handlePointerTap(evt, absXY, relXY) {
-        var scaledOffset = getScaledOffset(relXY.x, relXY.y),
-            tapX = scaledOffset.x,
-            tapY = scaledOffset.y;
+        var scaledOffset = getScaledOffset(relXY.x, relXY.y);
 
-        hitTest(absXY, relXY, tapX, tapY, 'tap');
+        hitData = initHitData('tap', absXY, relXY);
+
         triggerAll('tap', absXY, relXY, scaledOffset);
     } // handlePointerTap
-
-    function hitTest(absXY, relXY, hitX, hitY, eventType) {
-        var hitElements = [];
-
-        for (var ii = layerCount; ii--; ) {
-            if (layers[ii].hitTest) {
-                hitElements = hitElements.concat(
-                    layers[ii].hitTest(hitX, hitY, state, self)
-                );
-            } // if
-        } // for
-
-        if (eventType && hitElements.length > 0) {
-            self.triggerCustom(
-                eventType + 'Hit', {
-                    hitType: eventType
-                },
-                hitElements,
-                absXY,
-                relXY,
-                XY.init(hitX, hitY));
-        } // if
-
-        return hitElements;
-    } // hitTest
 
     /* private functions */
 
@@ -3596,7 +3584,6 @@ var View = function(params) {
 
     /* draw code */
 
-
     function calcZoomRect(drawRect) {
         var invScaleFactor = 1 / scaleFactor,
             invScaleFactorNorm = (invScaleFactor - 0.5) * 2;
@@ -3629,22 +3616,23 @@ var View = function(params) {
             rectCenter = XYRect.center(rect),
             ii = 0;
 
-        drawRect = XYRect.copy(rect);
-
-        drawRect.scaleFactor = scaleFactor;
+        if (scaleFactor !== 1) {
+            drawRect = calcZoomRect(rect);
+        }
+        else {
+            drawRect = XYRect.copy(rect);
+        } // if..else
 
         if (! canClip) {
-            if ((! turbo) || (tickCount - lastClear > TURBO_CLEAR_INTERVAL)) {
-                mainContext.clearRect(0, 0, viewWidth, viewHeight);
-                lastClear = tickCount;
-            } // if
+            mainContext.clearRect(0, 0, viewWidth, viewHeight);
         } // if
+
+        drawRect.scaleFactor = scaleFactor;
 
         mainContext.save();
 
         try {
             if (scaleFactor !== 1) {
-                drawRect = calcZoomRect(drawRect);
                 mainContext.scale(scaleFactor, scaleFactor);
             } // if
 
@@ -3653,9 +3641,7 @@ var View = function(params) {
             layerMinXY = null;
             layerMaxXY = null;
 
-            /* first pass - clip */
-
-            if (canClip && (! turbo)) {
+            if (canClip) {
                 mainContext.beginPath();
 
                 for (ii = layerCount; ii--; ) {
@@ -3670,38 +3656,42 @@ var View = function(params) {
 
             /* second pass - draw */
 
+            mainContext.globalCompositeOperation = 'source-over';
+
             for (ii = layerCount; ii--; ) {
                 drawLayer = layers[ii];
 
-                mainContext.globalCompositeOperation = (turbo && drawLayer.zIndex <= 0) ? 'copy' : 'source-over';
+                if (drawLayer.shouldDraw(state, cycleRect)) {
+                    var layerStyle = drawLayer.style,
+                        previousStyle = layerStyle ? Style.apply(mainContext, layerStyle) : null;
 
-                var layerStyle = drawLayer.style,
-                    previousStyle = layerStyle ? Style.apply(mainContext, layerStyle) : null;
+                    /*
+                    TODO: fix the constraining (more appropriate within the constrain offset I would think now)
+                    if (drawLayer.minXY) {
+                        layerMinXY = layerMinXY ?
+                            XY.min(layerMinXY, drawLayer.minXY) :
+                            XY.copy(drawLayer.minXY);
+                    } // if
 
-                /*
-                TODO: fix the constraining (more appropriate within the constrain offset I would think now)
-                if (drawLayer.minXY) {
-                    layerMinXY = layerMinXY ?
-                        XY.min(layerMinXY, drawLayer.minXY) :
-                        XY.copy(drawLayer.minXY);
-                } // if
+                    if (drawLayer.maxXY) {
+                        layerMaxXY = layerMaxXY ?
+                            XY.max(layerMaxXY, drawLayer.maxXY) :
+                            XY.copy(drawLayer.maxXY);
+                    } // if
+                    */
 
-                if (drawLayer.maxXY) {
-                    layerMaxXY = layerMaxXY ?
-                        XY.max(layerMaxXY, drawLayer.maxXY) :
-                        XY.copy(drawLayer.maxXY);
-                } // if
-                */
+                    drawLayer.draw(
+                        mainContext,
+                        drawRect,
+                        drawState,
+                        self,
+                        tickCount,
+                        hitData);
 
-                drawLayer.draw(
-                    mainContext,
-                    drawRect,
-                    drawState,
-                    self,
-                    tickCount);
+                    if (previousStyle) {
+                        Style.apply(mainContext, previousStyle);
+                    } // if
 
-                if (previousStyle) {
-                    Style.apply(mainContext, previousStyle);
                 } // if
             } // for
 
@@ -3715,6 +3705,34 @@ var View = function(params) {
         triggerAll('drawComplete', rect, tickCount);
     } // drawView
 
+    /*
+    ### checkHits
+    */
+    function checkHits() {
+        var elements = hitData ? hitData.elements : [];
+
+        if (elements.length > 0) {
+            var downX = hitData.x,
+                downY = hitData.y;
+
+            for (var ii = elements.length; ii--; ) {
+                if (dragStart(elements[ii], downX, downY)) {
+                    break;
+                } // if
+            } // for
+
+
+            self.triggerCustom(
+                hitData.type + 'Hit', {
+                    hitType: hitData.type
+                },
+                elements,
+                hitData.absXY,
+                hitData.relXY,
+                XY.init(hitData.x, hitData.y));
+        } // if
+    } // checkHits
+
     function cycle(tickCount) {
         var redrawBG,
             panning,
@@ -3725,7 +3743,6 @@ var View = function(params) {
             return;
         }
 
-        if (tickCount - lastCycleTicks > cycleDelay) {
             panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
 
             state = stateActive |
@@ -3762,8 +3779,6 @@ var View = function(params) {
 
                 layers[ii].cycle(tickCount, cycleRect, state);
 
-                layers[ii].shouldDraw(state, cycleRect);
-
                 clippable = layers[ii].clip || clippable;
             } // for
 
@@ -3773,6 +3788,8 @@ var View = function(params) {
                 clipping && clippable && (! redrawBG),
                 tickCount);
 
+            checkHits();
+
             if (tickCount - lastRefresh > minRefresh) {
                 refresh();
             } // if
@@ -3780,16 +3797,53 @@ var View = function(params) {
             lastCycleTicks = tickCount;
             lastOffsetX = offsetX;
             lastOffsetY = offsetY;
-        } // if
 
         animFrame(cycle);
     } // cycle
+
+    function initHitData(hitType, absXY, relXY) {
+        var scaledOffset = getScaledOffset(relXY.x, relXY.y),
+            hitX = scaledOffset.x,
+            hitY = scaledOffset.y,
+            potentialHit = false;
+
+        for (var ii = layerCount; (! potentialHit) && ii--; ) {
+            potentialHit = layers[ii].hitGuess ?
+                layers[ii].hitGuess(hitX, hitY, state, self) :
+                false;
+        } // for
+
+        if (potentialHit) {
+            invalidate();
+        } // if
+
+        return {
+            type: hitType,
+            x: scaledOffset.x,
+            y: scaledOffset.y,
+            elements: [],
+
+            absXY: absXY,
+            relXY: relXY
+        };
+    } // initHitData
 
     function layerContextChanged(layer) {
         layer.trigger("contextChanged", mainContext);
     } // layerContextChanged
 
     /* exports */
+
+    /**
+    ### detach
+    If you plan on reusing a single canvas element to display different views then you
+    will definitely want to call the detach method between usages.
+    */
+    function detach() {
+        if (eventMonitor) {
+            eventMonitor.unbind();
+        } // if
+    } // detach
 
     /**
     ### eachLayer(callback)
@@ -4136,11 +4190,12 @@ var View = function(params) {
         deviceScaling: deviceScaling,
         fastDraw: params.fastDraw || getConfig().requireFastDraw,
 
+        detach: detach,
+        eachLayer: eachLayer,
         getDimensions: getDimensions,
         getLayer: getLayer,
         getZoomLevel: getZoomLevel,
         setLayer: setLayer,
-        eachLayer: eachLayer,
         invalidate: invalidate,
         refresh: refresh,
         resetScale: resetScale,
@@ -4328,9 +4383,22 @@ var ViewLayer = function(params) {
             - state - the current DisplayState of the view
             - view - a reference to the View
             - tickCount - the current tick count
+            - hitData - an object that contains information regarding the current hit data
         */
-        draw: function(context, viewRect, state, view, tickCount) {
+        draw: function(context, viewRect, state, view, tickCount, hitData) {
         },
+
+        /**
+        ### hitGuess(hitX, hitY, state, view)
+        The hitGuess function is used to determine if a layer would return elements for
+        a more granular hitTest.  Essentially, hitGuess calls are used when events such
+        as hover and tap events occur on a view and then if a positive result is detected
+        the canvas is invalidated and checked in detail during the view layer `draw` operation.
+        By doing this we can just do simple geometry operations in the hitGuess function
+        and then make use of canvas functions such as `isPointInPath` to do most of the heavy
+        lifting for us
+        */
+        hitGuess: null,
 
         /**
         ### remove()
@@ -4529,20 +4597,21 @@ var ImageLayer = function(genId, params) {
     function draw(context, viewRect, state, view) {
 
         eachImage(viewRect, state, function(image, x, y, width, height) {
-            self.drawImage(context, image, x, y, width, height, viewRect, state);
-        });
-    } // draw
-
-    function drawImage(context, image, x, y, width, height, viewRect, state) {
-        if (image) {
             context.drawImage(
                 image,
                 x,
                 y,
                 image.width,
                 image.height);
-        }
-    } // drawImage
+        });
+    } // draw
+
+    function mask(context, viewRect, state, view) {
+        eachImage(viewRect, state, function(image, x, y, width, height) {
+            COG.info('clearing rect @ x = ' + x + ', y = ' + y + ', width = ' + width + ', height = ' + height);
+            context.clearRect(x, y, width, height);
+        });
+    } // mask
 
     /* definition */
 
@@ -4550,7 +4619,7 @@ var ImageLayer = function(genId, params) {
         changeGenerator: changeGenerator,
         clip: clip,
         draw: draw,
-        drawImage: drawImage
+        mask: mask
     });
 
     self.bind('refresh', handleRefresh);
@@ -4847,6 +4916,7 @@ var ImageMarker = function(params) {
 
             dragOffset = null;
 
+
             if (view) {
                 view.syncXY([self.xy], true);
             } // if
@@ -4974,7 +5044,8 @@ var MarkerLayer = function(params) {
         style: 'basic'
     }, params);
 
-    var markers = [];
+    var markers = [],
+        hitMarkers = [];
 
     /* event handlers */
 
@@ -5101,6 +5172,25 @@ var MarkerLayer = function(params) {
     } // clear
 
     /**
+    ### draw(context, viewRect, state, view, tickCount, hitData)
+    Draw the markers in the marker layer
+    */
+    function draw(context, viewRect, state, view, tickCount, hitData) {
+        for (var ii = markers.length; ii--; ) {
+            markers[ii].draw(
+                context,
+                viewRect,
+                state,
+                self,
+                view);
+        } // for
+
+        if (hitData) {
+            hitData.elements = hitData.elements.concat(hitMarkers);
+        } // if
+    } // draw
+
+    /**
     ### each(callback)
     Iterate through each of the markers and fire the callback for each one
     */
@@ -5131,13 +5221,15 @@ var MarkerLayer = function(params) {
     } // find
 
     /**
-    ### hitTest(offsetX, offsetY, state, view)
+    ### hitGuess(hitX, hitY, state, view)
+    Return true if any of the markers are hit, additionally, store the hit elements
+    so we don't have to do the work again when drawing
     */
-    function hitTest(offsetX, offsetY, state, view) {
-        var hitMarkers = [];
+    function hitGuess(hitX, hitY, state, view) {
+        hitMarkers = [];
 
         for (var ii = markers.length; ii--; ) {
-            if (markers[ii].hitTest(offsetX, offsetY)) {
+            if (markers[ii].hitTest(hitX, hitY)) {
                 hitMarkers[hitMarkers.length] = {
                     type: 'marker',
                     target: markers[ii],
@@ -5146,8 +5238,8 @@ var MarkerLayer = function(params) {
             } // if
         } // for
 
-        return hitMarkers;
-    } // hitTest
+        return hitMarkers.length > 0;
+    } // hitGuess
 
     /**
     ### syncMarker(marker: T5.Marker)
@@ -5160,22 +5252,12 @@ var MarkerLayer = function(params) {
     } // syncMarker
 
     var self = COG.extend(new ViewLayer(params), {
-        draw: function(context, viewRect, state, view) {
-            for (var ii = markers.length; ii--; ) {
-                markers[ii].draw(
-                    context,
-                    viewRect,
-                    state,
-                    self,
-                    view);
-            } // for
-        },
-
         add: add,
         clear: clear,
+        draw: draw,
         each: each,
         find: find,
-        hitTest: hitTest,
+        hitGuess: hitGuess,
         syncMarker: syncMarker
     });
 
@@ -5196,6 +5278,7 @@ The T5.PathLayer is used to display a single path on a T5.View
 var PathLayer = function(params) {
     params = COG.extend({
         style: 'waypoints',
+        hoverStyle: 'waypointsHover',
         pixelGeneralization: 8,
         zindex: 50
     }, params);
@@ -5217,9 +5300,80 @@ var PathLayer = function(params) {
                 parent.syncXY(rawMarkers);
             } // if
 
-            self.trigger('tidy');
+            coordinates = XY.simplify(rawCoords, params.pixelGeneralization);
+            markerCoordinates = XY.simplify(rawMarkers, params.pixelGeneralization);
+
+            self.changed();
         } // if
     } // resyncPath
+
+    /* exports */
+
+    function draw(context, viewRect, state, view, tickCount, hitData) {
+        var ii,
+            coordLength = coordinates.length,
+            style = params.style;
+
+        context.save();
+        try {
+            if (coordLength > 0) {
+                if (hitData) {
+                    context.beginPath();
+
+                    context.moveTo(
+                        coordinates[coordLength - 1].x,
+                        coordinates[coordLength - 1].y);
+
+                    for (ii = coordLength; ii--; ) {
+                        context.lineTo(
+                            coordinates[ii].x,
+                            coordinates[ii].y);
+                    } // for
+
+                    if (context.isPointInPath(hitData.x, hitData.y) ||
+                        context.isPointInPath(hitData.relXY.x, hitData.relXY.y)) {
+                        style = params.hoverStyle;
+                    } // if
+                } // if
+
+                Style.apply(context, style);
+
+                context.beginPath();
+                context.moveTo(
+                    coordinates[coordLength - 1].x,
+                    coordinates[coordLength - 1].y);
+
+                for (ii = coordLength; ii--; ) {
+                    context.lineTo(
+                        coordinates[ii].x,
+                        coordinates[ii].y);
+                } // for
+
+                context.stroke();
+
+                if (markerCoordinates) {
+                    context.fillStyle = params.waypointFillStyle;
+
+                    for (ii = markerCoordinates.length; ii--; ) {
+                        context.beginPath();
+                        context.arc(
+                            markerCoordinates[ii].x,
+                            markerCoordinates[ii].y,
+                            2,
+                            0,
+                            Math.PI * 2,
+                            false);
+
+                        context.stroke();
+                        context.fill();
+                    } // for
+                } // if
+            } // if
+        }
+        finally {
+            context.restore();
+        }
+    } // draw
 
     var self = COG.extend(new ViewLayer(params), {
         getAnimation: function(easingFn, duration, drawCallback, autoCenter) {
@@ -5237,50 +5391,9 @@ var PathLayer = function(params) {
             });
         },
 
-        draw: function(context, viewRect, state, view) {
-            var ii,
-                coordLength = coordinates.length;
-
-            context.save();
-            try {
-                Style.apply(context, params.style);
-
-                if (coordLength > 0) {
-                    context.beginPath();
-                    context.moveTo(
-                        coordinates[coordLength - 1].x,
-                        coordinates[coordLength - 1].y);
-
-                    for (ii = coordLength; ii--; ) {
-                        context.lineTo(
-                            coordinates[ii].x,
-                            coordinates[ii].y);
-                    } // for
-
-                    context.stroke();
-
-                    if (markerCoordinates) {
-                        context.fillStyle = params.waypointFillStyle;
-
-                        for (ii = markerCoordinates.length; ii--; ) {
-                            context.beginPath();
-                            context.arc(
-                                markerCoordinates[ii].x,
-                                markerCoordinates[ii].y,
-                                2,
-                                0,
-                                Math.PI * 2,
-                                false);
-
-                            context.stroke();
-                            context.fill();
-                        } // for
-                    } // if
-                } // if
-            }
-            finally {
-                context.restore();
-            }
+        draw: draw,
+        hitGuess: function() {
+            return true;
         },
 
         updateCoordinates: function(coords, markerCoords) {
@@ -5289,12 +5402,6 @@ var PathLayer = function(params) {
 
             resyncPath();
         }
-    });
-
-    self.bind('tidy', function(evt) {
-        coordinates = XY.simplify(rawCoords, params.pixelGeneralization);
-        markerCoordinates = XY.simplify(rawMarkers, params.pixelGeneralization);
-        self.changed(true);
     });
 
     self.bind('resync', resyncPath);
@@ -5354,7 +5461,8 @@ var AnimatedPathLayer = function(params) {
         duration: 2000
     }, params);
 
-    var edgeData = XY.edges(params.path),
+    var path = params.path,
+        edgeData = XY.edges(path),
         tween,
         theta,
         indicatorXY = null,
@@ -5399,10 +5507,10 @@ var AnimatedPathLayer = function(params) {
 
         indicatorXY = null;
 
-        if (edgeIndex < params.path.length-1) {
+        if (edgeIndex < path.length-1) {
             var extra = pathOffset - (edgeIndex > 0 ? edgeData.accrued[edgeIndex - 1] : 0),
-                v1 = params.path[edgeIndex],
-                v2 = params.path[edgeIndex + 1];
+                v1 = path[edgeIndex],
+                v2 = path[edgeIndex + 1];
 
             theta = XY.theta(v1, v2, edgeData.edges[edgeIndex]);
             indicatorXY = XY.extendBy(v1, theta, extra);

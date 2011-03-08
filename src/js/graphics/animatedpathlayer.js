@@ -52,7 +52,8 @@ var AnimatedPathLayer = function(params) {
     }, params);
     
     // generate the edge data for the specified path
-    var edgeData = XY.edges(params.path), 
+    var path = params.path, 
+        edgeData = XY.edges(path), 
         tween,
         theta,
         indicatorXY = null,
@@ -101,10 +102,10 @@ var AnimatedPathLayer = function(params) {
         indicatorXY = null;
 
         // if the edge index is valid, then let's determine the xy coordinate
-        if (edgeIndex < params.path.length-1) {
+        if (edgeIndex < path.length-1) {
             var extra = pathOffset - (edgeIndex > 0 ? edgeData.accrued[edgeIndex - 1] : 0),
-                v1 = params.path[edgeIndex],
-                v2 = params.path[edgeIndex + 1];
+                v1 = path[edgeIndex],
+                v2 = path[edgeIndex + 1];
 
             theta = XY.theta(v1, v2, edgeData.edges[edgeIndex]);
             indicatorXY = XY.extendBy(v1, theta, extra);
