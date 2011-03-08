@@ -158,6 +158,7 @@ var View = function(params) {
         dragObject = null,
         mainContext = null,
         isIE = typeof window.attachEvent != 'undefined',
+        flashPolyfill,
         minRefresh = params.minRefresh,
         offsetX = 0,
         offsetY = 0,
@@ -196,7 +197,6 @@ var View = function(params) {
         tweeningOffset = false,
         viewHeight,
         viewWidth,
-        isFlash = typeof FlashCanvas !== 'undefined',
         cycleDelay = 1000 / params.fps | 0,
         viewChanges = 0,
         zoomX, zoomY,
@@ -384,6 +384,10 @@ var View = function(params) {
     
     function attachToCanvas(newWidth, newHeight) {
         var ii;
+        
+        // set the flash polyfill flag
+        flashPolyfill = typeof FlashCanvas !== 'undefined';
+        COG.info('is flash = ' + flashPolyfill);
         
         if (canvas) {
             // if we are autosizing the set the size
@@ -745,82 +749,82 @@ var View = function(params) {
             panning, 
             clippable = false;
             
-        if (! viewChanges) {
+        if (! (viewChanges | flashPolyfill)) {
             cycling = false;
             return;
         }
             
-            // determine if we are panning
-            panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
-                    
-            // update the state
-            state = stateActive | 
-                        (scaleFactor !== 1 ? stateZoom : 0) | 
-                        (panning ? statePan : 0) | 
-                        (tweeningOffset ? stateAnimating : 0);
-
-            // update the redraw background flags
-            redrawBG = (state & (stateZoom | statePan)) !== 0;
-            interacting = redrawBG && (state & stateAnimating) === 0;
-
-            // handle any size changes if we have them
-            if (sizeChanged && canvas) {
-                if (typeof FlashCanvas != 'undefined') {
-                    FlashCanvas.initElement(canvas);
-                } // if
-
-                // update the canvas width
-                canvas.width = viewWidth;
-                canvas.height = viewHeight;
-
-                canvas.style.width = viewWidth + 'px';
-                canvas.style.height = viewHeight + 'px';
+        // determine if we are panning
+        panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
                 
-                // flag the size is not changed now as we have handled the update
-                sizeChanged = false;
+        // update the state
+        state = stateActive | 
+                    (scaleFactor !== 1 ? stateZoom : 0) | 
+                    (panning ? statePan : 0) | 
+                    (tweeningOffset ? stateAnimating : 0);
+
+        // update the redraw background flags
+        redrawBG = (state & (stateZoom | statePan)) !== 0;
+        interacting = redrawBG && (state & stateAnimating) === 0;
+
+        // handle any size changes if we have them
+        if (sizeChanged && canvas) {
+            if (flashPolyfill) {
+                FlashCanvas.initElement(canvas);
             } // if
+
+            // update the canvas width
+            canvas.width = viewWidth;
+            canvas.height = viewHeight;
+
+            canvas.style.width = viewWidth + 'px';
+            canvas.style.height = viewHeight + 'px';
             
-            // check that the offset is within bounds
-            if (offsetMaxX || offsetMaxY) {
-                constrainOffset();
-            } // if
+            // flag the size is not changed now as we have handled the update
+            sizeChanged = false;
+        } // if
+        
+        // check that the offset is within bounds
+        if (offsetMaxX || offsetMaxY) {
+            constrainOffset();
+        } // if
 
-            // calculate the cycle rect
-            cycleRect = getViewRect();
+        // calculate the cycle rect
+        cycleRect = getViewRect();
 
-            // TODO: if we have a hover offset, check that no elements have moved under the cursor (maybe)
+        // TODO: if we have a hover offset, check that no elements have moved under the cursor (maybe)
 
-            for (var ii = layerCount; ii--; ) {
-                // if a layer is animating the flag as such
-                state = state | (layers[ii].animated ? stateAnimating : 0);
+        for (var ii = layerCount; ii--; ) {
+            // if a layer is animating the flag as such
+            state = state | (layers[ii].animated ? stateAnimating : 0);
 
-                // cycle the layer
-                layers[ii].cycle(tickCount, cycleRect, state);
+            // cycle the layer
+            layers[ii].cycle(tickCount, cycleRect, state);
 
-                // then determine if we have a clippable layer
-                clippable = layers[ii].clip || clippable;
-            } // for
+            // then determine if we have a clippable layer
+            clippable = layers[ii].clip || clippable;
+        } // for
 
-            // draw the view
-            drawView(
-                state, 
-                cycleRect, 
-                clipping && clippable && (! redrawBG), 
-                tickCount);
+        // draw the view
+        drawView(
+            state, 
+            cycleRect, 
+            clipping && clippable && (! redrawBG), 
+            tickCount);
 
-            // check for hits 
-            checkHits();
+        // check for hits 
+        checkHits();
 
-            // check whether a forced refresh is required
-            // TODO: include some state checks here...
-            if (tickCount - lastRefresh > minRefresh) {
-                refresh();
-            } // if
-            
-            // update the last cycle ticks
-            lastCycleTicks = tickCount;
-            lastOffsetX = offsetX;
-            lastOffsetY = offsetY;
+        // check whether a forced refresh is required
+        // TODO: include some state checks here...
+        if (tickCount - lastRefresh > minRefresh) {
+            refresh();
+        } // if
+        
+        // update the last cycle ticks
+        lastCycleTicks = tickCount;
+        lastOffsetX = offsetX;
+        lastOffsetY = offsetY;
 
         animFrame(cycle);
     } // cycle

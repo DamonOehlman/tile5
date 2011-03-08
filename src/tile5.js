@@ -42,6 +42,7 @@ T5 = (function() {
     //= require "js/graphics/shapes/core"
     //= require "js/graphics/shapes/arc"
     //= require "js/graphics/shapes/poly"
+    //= require "js/graphics/shapes/points"
     //= require "js/graphics/shapelayer"
     
     //= require "js/tiling/core"
@@ -91,6 +92,7 @@ T5 = (function() {
         Shape: Shape,
         Arc: Arc,
         Poly: Poly,
+        Points: Points,
         ShapeLayer: ShapeLayer,
         
         // tiling

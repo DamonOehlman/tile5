@@ -28,11 +28,7 @@ var ShapeLayer = function(params) {
         // sort the children so the topmost, leftmost is drawn first followed by other shapes
         children.sort(function(shapeA, shapeB) {
             var diff = shapeB.xy.y - shapeA.xy.y;
-            if (diff === 0) {
-                diff = shapeB.xy.x - shapeA.xy.y;
-            } // if
-            
-            return diff;
+            return diff != 0 ? diff : shapeB.xy.x - shapeA.xy.y;
         });
         
         self.changed();

@@ -117,8 +117,6 @@ var ImageLayer = function(genId, params) {
     } // clip
     
     function draw(context, viewRect, state, view) {
-        // COG.info('drawing image layer layer @ ', viewRect);
-        
         eachImage(viewRect, state, function(image, x, y, width, height) {
             context.drawImage(
                 image, 

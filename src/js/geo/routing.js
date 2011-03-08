@@ -115,6 +115,7 @@ var Routing = (function() {
         var routeOverlay = new T5.ShapeLayer();
         
         /*
+        TODO: put instruction markers back on the route - maybe markers
         if (routeData.instructions) {
             var instructions = routeData.instructions,
                 positions = new Array(instructions.length);
@@ -125,8 +126,8 @@ var Routing = (function() {
 
             Position.vectorize(positions, {
                 callback: function(coords) {
-                    routeOverlay.add(new T5.Poly(coords, {
-                        style: 'waypoints'
+                    routeOverlay.add(new T5.Points(coords, {
+                        zIndex: 1
                     }));
                 }
             });

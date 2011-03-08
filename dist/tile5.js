@@ -3217,6 +3217,7 @@ var View = function(params) {
         dragObject = null,
         mainContext = null,
         isIE = typeof window.attachEvent != 'undefined',
+        flashPolyfill,
         minRefresh = params.minRefresh,
         offsetX = 0,
         offsetY = 0,
@@ -3255,7 +3256,6 @@ var View = function(params) {
         tweeningOffset = false,
         viewHeight,
         viewWidth,
-        isFlash = typeof FlashCanvas !== 'undefined',
         cycleDelay = 1000 / params.fps | 0,
         viewChanges = 0,
         zoomX, zoomY,
@@ -3422,6 +3422,9 @@ var View = function(params) {
 
     function attachToCanvas(newWidth, newHeight) {
         var ii;
+
+        flashPolyfill = typeof FlashCanvas !== 'undefined';
+        COG.info('is flash = ' + flashPolyfill);
 
         if (canvas) {
             if (params.autoSize && canvas.parentNode) {
@@ -3738,73 +3741,73 @@ var View = function(params) {
             panning,
             clippable = false;
 
-        if (! viewChanges) {
+        if (! (viewChanges | flashPolyfill)) {
             cycling = false;
             return;
         }
 
-            panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
+        panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
 
-            state = stateActive |
-                        (scaleFactor !== 1 ? stateZoom : 0) |
-                        (panning ? statePan : 0) |
-                        (tweeningOffset ? stateAnimating : 0);
+        state = stateActive |
+                    (scaleFactor !== 1 ? stateZoom : 0) |
+                    (panning ? statePan : 0) |
+                    (tweeningOffset ? stateAnimating : 0);
 
-            redrawBG = (state & (stateZoom | statePan)) !== 0;
-            interacting = redrawBG && (state & stateAnimating) === 0;
+        redrawBG = (state & (stateZoom | statePan)) !== 0;
+        interacting = redrawBG && (state & stateAnimating) === 0;
 
-            if (sizeChanged && canvas) {
-                if (typeof FlashCanvas != 'undefined') {
-                    FlashCanvas.initElement(canvas);
-                } // if
-
-                canvas.width = viewWidth;
-                canvas.height = viewHeight;
-
-                canvas.style.width = viewWidth + 'px';
-                canvas.style.height = viewHeight + 'px';
-
-                sizeChanged = false;
+        if (sizeChanged && canvas) {
+            if (flashPolyfill) {
+                FlashCanvas.initElement(canvas);
             } // if
 
-            if (offsetMaxX || offsetMaxY) {
-                constrainOffset();
-            } // if
+            canvas.width = viewWidth;
+            canvas.height = viewHeight;
 
-            cycleRect = getViewRect();
+            canvas.style.width = viewWidth + 'px';
+            canvas.style.height = viewHeight + 'px';
+
+            sizeChanged = false;
+        } // if
+
+        if (offsetMaxX || offsetMaxY) {
+            constrainOffset();
+        } // if
+
+        cycleRect = getViewRect();
 
 
-            for (var ii = layerCount; ii--; ) {
-                state = state | (layers[ii].animated ? stateAnimating : 0);
+        for (var ii = layerCount; ii--; ) {
+            state = state | (layers[ii].animated ? stateAnimating : 0);
 
-                layers[ii].cycle(tickCount, cycleRect, state);
+            layers[ii].cycle(tickCount, cycleRect, state);
 
-                clippable = layers[ii].clip || clippable;
-            } // for
+            clippable = layers[ii].clip || clippable;
+        } // for
 
-            drawView(
-                state,
-                cycleRect,
-                clipping && clippable && (! redrawBG),
-                tickCount);
+        drawView(
+            state,
+            cycleRect,
+            clipping && clippable && (! redrawBG),
+            tickCount);
 
-            checkHits();
+        checkHits();
 
-            if (tickCount - lastRefresh > minRefresh) {
-                refresh();
-            } // if
+        if (tickCount - lastRefresh > minRefresh) {
+            refresh();
+        } // if
 
-            lastCycleTicks = tickCount;
-            lastOffsetX = offsetX;
-            lastOffsetY = offsetY;
+        lastCycleTicks = tickCount;
+        lastOffsetX = offsetX;
+        lastOffsetY = offsetY;
 
         animFrame(cycle);
     } // cycle
 
     function initHitData(hitType, absXY, relXY) {
         var scaledOffset = getScaledOffset(relXY.x, relXY.y),
-            hitX = scaledOffset.x,
-            hitY = scaledOffset.y,
+            hitX = scaledOffset.x | 0,
+            hitY = scaledOffset.y | 0,
             potentialHit = false;
 
         for (var ii = layerCount; (! potentialHit) && ii--; ) {
@@ -4595,7 +4598,6 @@ var ImageLayer = function(genId, params) {
     } // clip
 
     function draw(context, viewRect, state, view) {
-
         eachImage(viewRect, state, function(image, x, y, width, height) {
             context.drawImage(
                 image,
@@ -5292,6 +5294,19 @@ var PathLayer = function(params) {
 
     /* private internal functions */
 
+    function hitTest(hitX, hitY, state, view) {
+        var hit = false,
+            diffX,
+            diffY;
+
+        for (ii = coordinates.length; (! hit) && ii--; ) {
+            diffX = hitX - coordinates[ii].x;
+            diffY = hitY - coordinates[ii].y;
+        } // for
+
+        return true;
+    } // hitTest
+
     function resyncPath() {
         var parent = self.getParent();
         if (parent) {
@@ -5317,23 +5332,8 @@ var PathLayer = function(params) {
         context.save();
         try {
             if (coordLength > 0) {
-                if (hitData) {
-                    context.beginPath();
-
-                    context.moveTo(
-                        coordinates[coordLength - 1].x,
-                        coordinates[coordLength - 1].y);
-
-                    for (ii = coordLength; ii--; ) {
-                        context.lineTo(
-                            coordinates[ii].x,
-                            coordinates[ii].y);
-                    } // for
-
-                    if (context.isPointInPath(hitData.x, hitData.y) ||
-                        context.isPointInPath(hitData.relXY.x, hitData.relXY.y)) {
-                        style = params.hoverStyle;
-                    } // if
+                if (hitData && hitTest(hitData.x, hitData.y, state, view)) {
+                    style = params.hoverStyle;
                 } // if
 
                 Style.apply(context, style);
@@ -5392,9 +5392,6 @@ var PathLayer = function(params) {
         },
 
         draw: draw,
-        hitGuess: function() {
-            return true;
-        },
 
         updateCoordinates: function(coords, markerCoords) {
             rawCoords = coords;
@@ -5713,6 +5710,78 @@ var Poly = function(points, params) {
     return self;
 };
 /**
+# T5.Points
+__extends__: T5.Shape
+
+## Constructor
+
+`new T5.Points(points, params)`
+
+The constructor requires an array of vectors that represent the poly and
+also accepts optional initialization parameters (see below).
+
+
+#### Initialization Parameters
+
+- `fill` (default = true) - whether or not the poly should be filled.
+- `style` (default = null) - the style override for this poly.  If none
+is specified then the style of the T5.PolyLayer is used.
+
+
+## Methods
+*/
+var Points = function(points, params) {
+    params = COG.extend({
+        fill: true,
+        radius: 10
+    }, params);
+
+    var haveData = false,
+        fill = params.fill,
+        drawPoints = [],
+        radius = params.radius;
+
+    /* exported functions */
+
+    /**
+    ### draw(context, offsetX, offsetY, state)
+    This method is used to draw the poly to the specified `context`.  The
+    `offsetX` and `offsetY` arguments specify the panning offset of the T5.View
+    which is taken into account when drawing the poly to the display.  The
+    `state` argument specifies the current T5.ViewState of the view.
+    */
+    function draw(context, offsetX, offsetY, width, height, state) {
+        context.beginPath();
+
+        for (var ii = drawPoints.length; ii--; ) {
+            context.arc(drawPoints[ii].x, drawPoints[ii].y, radius, 0, Math.PI * 2, false);
+        } // for
+
+        if (fill) {
+            context.fill();
+        } // if
+
+        context.stroke();
+    } // drawPoly
+
+    /**
+    ### resync(view)
+    Used to synchronize the points of the poly to the grid.
+    */
+    function resync(view) {
+        drawPoints = XY.floor(points);
+    } // resyncToGrid
+
+    /* define self */
+
+    var self = COG.extend(new Shape(params), {
+        draw: draw,
+        resync: resync
+    });
+
+    return self;
+};
+/**
 # T5.ShapeLayer
 _extends:_ T5.ViewLayer
 
@@ -5739,11 +5808,7 @@ var ShapeLayer = function(params) {
 
         children.sort(function(shapeA, shapeB) {
             var diff = shapeB.xy.y - shapeA.xy.y;
-            if (diff === 0) {
-                diff = shapeB.xy.x - shapeA.xy.y;
-            } // if
-
-            return diff;
+            return diff != 0 ? diff : shapeB.xy.x - shapeA.xy.y;
         });
 
         self.changed();
@@ -5864,6 +5929,7 @@ var Tiling = (function() {
         Shape: Shape,
         Arc: Arc,
         Poly: Poly,
+        Points: Points,
         ShapeLayer: ShapeLayer,
 
         Tiling: Tiling
@@ -7162,16 +7228,40 @@ var TurnTypeRules = (function() {
     To be completed
     */
     function createMapOverlay(map, routeData) {
-        var dimensions = map.getDimensions();
+        var routeOverlay = new T5.ShapeLayer();
 
+        /*
+        TODO: put instruction markers back on the route - maybe markers
+        if (routeData.instructions) {
+            var instructions = routeData.instructions,
+                positions = new Array(instructions.length);
 
-        var overlay = new RouteOverlay({
-            data: routeData,
-            width: dimensions.width,
-            height: dimensions.height
-        });
+            for (var ii = instructions.length; ii--; ) {
+                positions[ii] = instructions[ii].position;
+            } // for
 
-        map.setLayer("route", overlay);
+            Position.vectorize(positions, {
+                callback: function(coords) {
+                    routeOverlay.add(new T5.Points(coords, {
+                        zIndex: 1
+                    }));
+                }
+            });
+        } // if
+        */
+
+        if (routeData.geometry) {
+            Position.vectorize(routeData.geometry, {
+                callback: function(coords) {
+                    routeOverlay.add(new T5.Poly(coords, {
+                        style: 'waypoints',
+                        simplify: true
+                    }));
+
+                    map.setLayer("route", routeOverlay);
+                }
+            });
+        } // if
     } // createMapOverlay
 
     /**
@@ -7996,65 +8086,6 @@ var GeoShape = exports.GeoShape = function(positions, params) {
     } // for
 
     return new T5.Poly(vectors, params);
-};
-/**
-# T5.Geo.UI.RouteOverlay
-_extends:_ T5.PathLayer
-
-
-The RouteOverlay class is used to render the route geometry to the map.
-
-## Constructor
-`new T5.Geo.UI.RouteOverlay(params)`
-
-### Initialization Parameters
-To be completed
-*/
-var RouteOverlay = exports.RouteOverlay = function(params) {
-    params = COG.extend({
-        data: null,
-        pixelGeneralization: 8,
-        partialDraw: false,
-        strokeStyle: 'rgba(0, 51, 119, 0.9)',
-        waypointFillStyle: '#FFFFFF',
-        lineWidth: 4,
-        zindex: 50
-    }, params);
-
-    var coordinates = [],
-        instructionCoords = [];
-
-    function vectorizeRoute() {
-        if (params.data && params.data.instructions) {
-            var instructions = params.data.instructions,
-                positions = new Array(instructions.length);
-
-            for (var ii = instructions.length; ii--; ) {
-                positions[ii] = instructions[ii].position;
-            } // for
-
-            Position.vectorize(positions, {
-                callback: function(coords) {
-                    instructionCoords = coords;
-                }
-            });
-        } // if
-
-        if (params.data && params.data.geometry) {
-            Position.vectorize(params.data.geometry, {
-                callback: function(coords) {
-                    coordinates = coords;
-
-                    self.updateCoordinates(coordinates, instructionCoords, true);
-                }
-            });
-        } // if
-    } // vectorizeRoute
-
-    var self = new T5.PathLayer(params);
-
-    vectorizeRoute();
-    return self;
 };
 var LOCATOR_IMAGE =
 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAA' +

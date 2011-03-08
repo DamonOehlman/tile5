@@ -21,7 +21,7 @@ is specified then the style of the T5.PolyLayer is used.
 */
 var Points = function(points, params) {
     params = COG.extend({
-        fill: false,
+        fill: true,
         radius: 10
     }, params);
 
@@ -41,18 +41,20 @@ var Points = function(points, params) {
     `state` argument specifies the current T5.ViewState of the view.
     */
     function draw(context, offsetX, offsetY, width, height, state) {
+        context.beginPath();
+
         // now draw the lines
         // COG.info('drawing poly: have ' + drawVectors.length + ' vectors');
         for (var ii = drawPoints.length; ii--; ) {
             context.arc(drawPoints[ii].x, drawPoints[ii].y, radius, 0, Math.PI * 2, false);
-            
-            // if the polygon is even partially visible then draw it
-            if (fill) {
-                context.fill();
-            } // if
-
-            context.stroke();
         } // for
+        
+        // if the polygon is even partially visible then draw it
+        if (fill) {
+            context.fill();
+        } // if
+
+        context.stroke();
     } // drawPoly
     
     /**

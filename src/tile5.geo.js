@@ -27,7 +27,6 @@ var Geo = exports.Geo = (function() {
 
     //= require "js/geo/ui/map"
     //= require "js/geo/ui/geopoly"
-    //= require "js/geo/ui/routeoverlay"
     //= require "js/geo/ui/locationoverlay"
     
     return {
