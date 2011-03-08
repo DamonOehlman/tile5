@@ -827,8 +827,8 @@ var View = function(params) {
     
     function initHitData(hitType, absXY, relXY) {
         var scaledOffset = getScaledOffset(relXY.x, relXY.y),
-            hitX = scaledOffset.x,
-            hitY = scaledOffset.y,
+            hitX = scaledOffset.x | 0,
+            hitY = scaledOffset.y | 0,
             potentialHit = false;
         
         // iterate through the layers and check to see if we have hit potential

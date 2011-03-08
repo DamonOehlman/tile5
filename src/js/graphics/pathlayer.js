@@ -23,6 +23,19 @@ var PathLayer = function(params) {
         
     /* private internal functions */
     
+    function hitTest(hitX, hitY, state, view) {
+        var hit = false,
+            diffX,
+            diffY;
+        
+        for (ii = coordinates.length; (! hit) && ii--; ) {
+            diffX = hitX - coordinates[ii].x;
+            diffY = hitY - coordinates[ii].y;
+        } // for        
+        
+        return true;
+    } // hitTest
+    
     function resyncPath() {
         var parent = self.getParent();
         if (parent) {
@@ -52,29 +65,8 @@ var PathLayer = function(params) {
         try {
             if (coordLength > 0) {
                 // test for a hit
-                if (hitData) {
-                    // start drawing the path
-                    context.beginPath();
-                    
-                    context.moveTo(
-                        coordinates[coordLength - 1].x, 
-                        coordinates[coordLength - 1].y);
-
-                    for (ii = coordLength; ii--; ) {
-                        context.lineTo(
-                            coordinates[ii].x,
-                            coordinates[ii].y);
-                    } // for
-                    
-                    // FIXME: this is really not cool
-                    // Basically FF uses the translated position for it's isPointInPath calcs whereas
-                    // the other browsers have implemented it as per the spec which uses the canvas
-                    // position "unaffected by transformation operations":
-                    // http://www.whatwg.org/specs/web-apps/current-work/multipage/the-canvas-element.html#dom-context-2d-ispointinpath
-                    if (context.isPointInPath(hitData.x, hitData.y) || 
-                        context.isPointInPath(hitData.relXY.x, hitData.relXY.y)) {
-                        style = params.hoverStyle;
-                    } // if
+                if (hitData && hitTest(hitData.x, hitData.y, state, view)) {
+                    style = params.hoverStyle;
                 } // if
                 
                 // draw the stroke
@@ -140,9 +132,6 @@ var PathLayer = function(params) {
         },
         
         draw: draw,
-        hitGuess: function() { 
-            return true;
-        },
         
         updateCoordinates: function(coords, markerCoords) {
             // update the coordinates

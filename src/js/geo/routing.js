@@ -111,20 +111,41 @@ var Routing = (function() {
     To be completed
     */
     function createMapOverlay(map, routeData) {
-        // get the map dimensions
-        var dimensions = map.getDimensions();
-
-        // COG.info("creating route overlay with route data: ", routeData);
-
         // create a new route overlay for the specified data
-        var overlay = new RouteOverlay({
-            data: routeData,
-            width: dimensions.width,
-            height: dimensions.height
-        });
+        var routeOverlay = new T5.ShapeLayer();
+        
+        /*
+        if (routeData.instructions) {
+            var instructions = routeData.instructions,
+                positions = new Array(instructions.length);
+            
+            for (var ii = instructions.length; ii--; ) {
+                positions[ii] = instructions[ii].position;
+            } // for
 
-        // add the overlay to the map
-        map.setLayer("route", overlay);
+            Position.vectorize(positions, {
+                callback: function(coords) {
+                    routeOverlay.add(new T5.Poly(coords, {
+                        style: 'waypoints'
+                    }));
+                }
+            });
+        } // if
+        */
+        
+        if (routeData.geometry) {
+            Position.vectorize(routeData.geometry, {
+                callback: function(coords) {
+                    routeOverlay.add(new T5.Poly(coords, {
+                        style: 'waypoints',
+                        simplify: true
+                    }));
+                    
+                    // add the overlay to the map
+                    map.setLayer("route", routeOverlay);
+                }
+            });
+        } // if
     } // createMapOverlay
     
     /**
