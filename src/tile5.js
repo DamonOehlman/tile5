@@ -32,17 +32,12 @@ T5 = (function() {
     //= require "js/graphics/imagelayer"
     //= require "js/graphics/imagegenerator"
     
-    //= require "js/graphics/marker"
-    //= require "js/graphics/imagemarker"
-    //= require "js/graphics/markerlayer"
-    
-    //= require "js/graphics/pathlayer"
-    //= require "js/graphics/animatedpathlayer"
-    
     //= require "js/graphics/shapes/core"
     //= require "js/graphics/shapes/arc"
     //= require "js/graphics/shapes/poly"
     //= require "js/graphics/shapes/points"
+    //= require "js/graphics/shapes/marker"
+    //= require "js/graphics/shapes/imagemarker"
     //= require "js/graphics/shapelayer"
     
     //= require "js/tiling/core"
@@ -57,6 +52,7 @@ T5 = (function() {
         XYRect: XYRect,
         Dimensions: Dimensions,
         Vector: Vector,
+        Hits: Hits,
         
         // TODO: [0.9.7] REMOVE
         D: Dimensions,
@@ -79,6 +75,7 @@ T5 = (function() {
         ImageLayer: ImageLayer,
         ImageGenerator: ImageGenerator,
         
+        /*
         // markers
         Marker: Marker,
         ImageMarker: ImageMarker,
@@ -87,12 +84,15 @@ T5 = (function() {
         // paths
         PathLayer: PathLayer,
         AnimatedPathLayer: AnimatedPathLayer,
+        */
         
         // shapes
         Shape: Shape,
         Arc: Arc,
         Poly: Poly,
         Points: Points,
+        Marker: Marker,
+        ImageMarker: ImageMarker,
         ShapeLayer: ShapeLayer,
         
         // tiling

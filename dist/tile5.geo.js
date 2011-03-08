@@ -1931,6 +1931,14 @@ var XY = (function() {
     } // offset
 
     /**
+    ### scale(xy, scaleFactor)
+    Returns a new composite xy that has been scaled by the specified scale factor
+    */
+    function scale(xy, scaleFactor) {
+        return init(xy.x / scaleFactor | 0, xy.y / scaleFactor | 0);
+    } // scale
+
+    /**
     ### simplify(xy*, generalization)
     This function is used to simplify a xy array by removing what would be considered
     'redundant' xy positions by elimitating at a similar position.
@@ -1999,6 +2007,7 @@ var XY = (function() {
         min: minXY,
         max: maxXY,
         offset: offset,
+        scale: scale,
         simplify: simplify,
         theta: theta,
         toString: toString
@@ -2287,6 +2296,92 @@ var Dimensions = (function() {
         init: init
     };
 })(); // dimensionTools
+/**
+# T5.Hits
+
+Utility module for creating and managing hit tests and the hits that are
+associated with that hit test.
+*/
+Hits = (function() {
+
+    /* interials */
+
+    /* exports */
+
+    /**
+    ### copy(hitData)
+    */
+    function copy(hitData) {
+        var newHitData = init(null, null, hitData);
+
+        newHitData.elements = [].concat(hitData.elements);
+
+        return newHitData;
+    } // hitData
+
+    /**
+    ### diffHits(oldHitData, newHitData)
+    */
+    function diffHits(oldHits, newHits) {
+        var diff = [],
+            objIds = {},
+            ii;
+
+        for (ii = newHits.length; ii--; ) {
+            objIds[newHits[ii].target.id] = true;
+        } // for
+
+        for (ii = oldHits.length; ii--; ) {
+            if (! objIds[oldHits[ii].target.id]) {
+                diff[diff.length] = oldHits[ii];
+            } // for
+        } // for
+
+        return diff;
+    } // diff
+
+    /**
+    ### init
+    */
+    function init(hitType, absXY, relXY, scaleFactor) {
+        var scaledOffset = scaleFactor !== 1 ? XY.scale(relXY, scaleFactor) : relXY,
+            hitX = scaledOffset.x | 0,
+            hitY = scaledOffset.y | 0,
+            potentialHit = false;
+
+        return {
+            type: hitType,
+            x: scaledOffset.x,
+            y: scaledOffset.y,
+            elements: [],
+
+            absXY: absXY,
+            relXY: relXY
+        };
+    } // init
+
+    /**
+    ### initHit(type, target, opts)
+    */
+    function initHit(type, target, opts) {
+        opts = COG.extend({
+            type: type,
+            target: target,
+            drag: false
+        }, opts);
+
+        return opts;
+    } // initHit
+
+    /* define the module */
+
+    return {
+        copy: copy,
+        diffHits: diffHits,
+        init: init,
+        initHit: initHit
+    };
+})();
 var deviceConfigs = null,
     deviceCheckOrder = [],
     detectedConfig = null,
@@ -3244,6 +3339,7 @@ var View = function(params) {
         layerMaxXY = null,
         lastRefresh = 0,
         lastClear = 0,
+        lastHitData = null,
         rotation = 0,
         resizeCanvasTimeout = 0,
         scaleFactor = 1,
@@ -3308,18 +3404,10 @@ var View = function(params) {
 
     } // setZoomCenter
 
-    function getScaledOffset(srcX, srcY) {
-        var scaledX, scaledY,
-            invScaleFactor = 1 / scaleFactor;
-
-        if (scaleFactor !== 1 && drawRect) {
-            scaledX = drawRect.x1 + srcX * invScaleFactor;
-            scaledY = drawRect.y1 + srcY * invScaleFactor;
-        }
-        else {
-            scaledX = srcX + offsetX;
-            scaledY = srcY + offsetY;
-        } // if..else
+    function getScaledOffset(srcX, srcY, offset) {
+        var invScaleFactor = 1 / scaleFactor,
+            scaledX = (offset && drawRect ? drawRect.x1 : 0) + srcX * invScaleFactor,
+            scaledY = (offset && drawRect ? drawRect.y1 : 0) + srcY * invScaleFactor;
 
         return XY.init(scaledX, scaledY);
     } // getScaledOffset
@@ -3345,7 +3433,7 @@ var View = function(params) {
     function handlePointerDown(evt, absXY, relXY) {
         dragObject = null;
 
-        hitData = initHitData('down', absXY, relXY);
+        initHitData('down', absXY, relXY);
 
         /*
         elements = hitTest(absXY, relXY, downX, downY);
@@ -3361,7 +3449,7 @@ var View = function(params) {
     } // handlePointerDown
 
     function handlePointerHover(evt, absXY, relXY) {
-        hitData = initHitData('hover', absXY, relXY);
+        initHitData('hover', absXY, relXY, scaleFactor);
 
         /*
 
@@ -3411,11 +3499,9 @@ var View = function(params) {
     } // handlePrepCanvasCallback
 
     function handlePointerTap(evt, absXY, relXY) {
-        var scaledOffset = getScaledOffset(relXY.x, relXY.y);
+        initHitData('tap', absXY, relXY);
 
-        hitData = initHitData('tap', absXY, relXY);
-
-        triggerAll('tap', absXY, relXY, scaledOffset);
+        triggerAll('tap', absXY, relXY, getScaledOffset(relXY.x, relXY.y, true));
     } // handlePointerTap
 
     /* private functions */
@@ -3617,6 +3703,7 @@ var View = function(params) {
     function drawView(drawState, rect, canClip, tickCount) {
         var drawLayer,
             rectCenter = XYRect.center(rect),
+            rotation = Math.PI,
             ii = 0;
 
         if (scaleFactor !== 1) {
@@ -3638,8 +3725,6 @@ var View = function(params) {
             if (scaleFactor !== 1) {
                 mainContext.scale(scaleFactor, scaleFactor);
             } // if
-
-            mainContext.translate(-drawRect.x1, -drawRect.y1);
 
             layerMinXY = null;
             layerMaxXY = null;
@@ -3712,13 +3797,29 @@ var View = function(params) {
     ### checkHits
     */
     function checkHits() {
-        var elements = hitData ? hitData.elements : [];
+        var elements = hitData ? hitData.elements : [],
+            ii;
+
+        if (lastHitData && hitData && hitData.type === 'hover') {
+            var diffElements = Hits.diffHits(lastHitData.elements, elements);
+
+            if (diffElements.length > 0) {
+                self.triggerCustom(
+                    hitData.type + 'Out', {
+                        hitType: hitData.type
+                    },
+                    diffElements,
+                    hitData.absXY,
+                    hitData.relXY,
+                    XY.init(hitData.x, hitData.y));
+            } // if
+        } // if
 
         if (elements.length > 0) {
             var downX = hitData.x,
                 downY = hitData.y;
 
-            for (var ii = elements.length; ii--; ) {
+            for (ii = elements.length; ii--; ) {
                 if (dragStart(elements[ii], downX, downY)) {
                     break;
                 } // if
@@ -3734,6 +3835,8 @@ var View = function(params) {
                 hitData.relXY,
                 XY.init(hitData.x, hitData.y));
         } // if
+
+        lastHitData = elements.length > 0 ? Hits.copy(hitData) : null;
     } // checkHits
 
     function cycle(tickCount) {
@@ -3805,30 +3908,19 @@ var View = function(params) {
     } // cycle
 
     function initHitData(hitType, absXY, relXY) {
-        var scaledOffset = getScaledOffset(relXY.x, relXY.y),
-            hitX = scaledOffset.x | 0,
-            hitY = scaledOffset.y | 0,
-            potentialHit = false;
+        var potentialHit = false;
 
-        for (var ii = layerCount; (! potentialHit) && ii--; ) {
-            potentialHit = layers[ii].hitGuess ?
-                layers[ii].hitGuess(hitX, hitY, state, self) :
-                false;
+        hitData = Hits.init(hitType, absXY, relXY, scaleFactor);
+
+        for (var ii = layerCount; ii--; ) {
+            potentialHit = (layers[ii].hitGuess ?
+                layers[ii].hitGuess(hitData.x, hitData.y, state, self) :
+                false) | potentialHit;
         } // for
 
         if (potentialHit) {
             invalidate();
         } // if
-
-        return {
-            type: hitType,
-            x: scaledOffset.x,
-            y: scaledOffset.y,
-            elements: [],
-
-            absXY: absXY,
-            relXY: relXY
-        };
     } // initHitData
 
     function layerContextChanged(layer) {
@@ -4220,7 +4312,9 @@ var View = function(params) {
 
     deviceScaling = getConfig().getScaling();
 
-    self.markers = addLayer('markers', new MarkerLayer());
+    self.markers = addLayer('markers', new ShapeLayer({
+        zindex: 20
+    }));
 
     COG.observable(self);
 
@@ -4592,17 +4686,23 @@ var ImageLayer = function(genId, params) {
     } // changeGenerator
 
     function clip(context, viewRect, state, view) {
+        var offsetX = viewRect.x1,
+            offsetY = viewRect.y1;
+
         eachImage(viewRect, state, function(image, x, y, width, height) {
-            context.rect(x, y, width, height);
+            context.rect(x - offsetX, y - offsetY, width, height);
         });
     } // clip
 
     function draw(context, viewRect, state, view) {
+        var offsetX = viewRect.x1,
+            offsetY = viewRect.y1;
+
         eachImage(viewRect, state, function(image, x, y, width, height) {
             context.drawImage(
                 image,
-                x,
-                y,
+                x - offsetX,
+                y - offsetY,
                 image.width,
                 image.height);
         });
@@ -4658,887 +4758,6 @@ var ImageGenerator = function(params) {
 };
 
 /**
-# T5.Marker
-This is a generic marker that can be applied via a T5.MarkerLayer
-to any T5.View, but is commonly used in a T5.Map.  An marker is able to
-be animated and examples of this can be seen in the [Tile5 Sandbox](http://sandbox.tile5.org)
-
-## Constructor
-`new T5.Marker(params);`
-
-### Initialization Parameters
-
-- `xy` (T5.Vector) - a vector that specifies the grid position of the marker. When
-working with Geo data, the T5.Geo.GeoVector provides a simple way to specify this
-position.
-
-- `offset` (boolean, default = true) - whether or not the `xy` vector is relative to the
-current grid offset.  In the case where you wish to create a marker that is relative to the
-view and not the grid, set this parameter to false.
-
-- `tweenIn` (easing function, default = null) - the easing function that is used to
-animate the entry of the annotation.  When not provided, the annotation is simply
-displayed statically.
-
-- `animationSpeed` (int, default = 0) - the speed that the annotation should be animated
-in at.  Used in combination with the `tweenIn` parameter.
-
-
-## Methods
-
-*/
-var Marker = function(params) {
-    params = COG.extend({
-        xy: XY.init(),
-        draggable: false,
-        tweenIn: null,
-        animationSpeed: null,
-        isNew: true
-    }, params);
-
-    var MARKER_SIZE = 4,
-        animating = false,
-        boundsX = 0,
-        boundsY = 0,
-        boundsWidth = 0,
-        boundsHeight = 0;
-
-    /* exports */
-
-    /**
-    ### drag(dragData, dragX, dragY, drop)
-    */
-    function drag(dragData, dragX, dragY, drop) {
-        self.xy.x = dragX;
-        self.xy.y = dragY;
-
-        return true;
-    } // drag
-
-    /**
-    ### draw(context, offset, state, overlay, view)
-    The draw method is called by the T5.ViewLayer that contains the annotation
-    and is used to draw the annotation to the specified context.  When creating
-    a custom marker, you should provide a custom implementation of the `drawMarker`
-    method rather than this method.
-    */
-    function draw(context, viewRect, state, overlay, view) {
-        if (self.isNew && (params.tweenIn)) {
-            var duration = params.animationSpeed ? params.animationSpeed : 250 + (Math.random() * 500),
-                targetY = self.xy.y;
-
-            COG.tweenValue(viewRect.y1 - 20, targetY, params.tweenIn, duration, function(val, completed) {
-                self.xy.y = val | 0;
-                animating = !completed;
-
-                view.invalidate();
-            });
-        } // if
-
-        self.drawMarker(
-            context,
-            viewRect,
-            self.xy.x,
-            self.xy.y,
-            state,
-            overlay,
-            view);
-
-        self.isNew = false;
-    } // draw
-
-    /**
-    ### drawMarker(context, offset, x, y, state, overlay, view)
-    The `drawMarker` method is the place holder implementation for drawing
-    markers.  In the case of a T5.Annotation a simple circle is drawn, but
-    extensions of T5.Annotation would normally replace this implementation
-    with their own modified implementation (such as T5.ImageAnnotation does).
-    */
-    function drawMarker(context, viewRect, x, y, state, overlay, view) {
-        context.beginPath();
-        context.arc(
-            x,
-            y,
-            MARKER_SIZE,
-            0,
-            Math.PI * 2,
-            false);
-        context.fill();
-
-        updateBounds(x - MARKER_SIZE, y  - MARKER_SIZE,
-            MARKER_SIZE*2, MARKER_SIZE*2);
-    } // drawMarker
-
-    /**
-    ### hitTest(testX, testY)
-    This method is used to determine if the marker is located  at the specified
-    x and y position.
-    */
-    function hitTest(testX, testY) {
-        return (testX >= boundsX) && (testX <= boundsX + boundsWidth) &&
-            (testY >= boundsY) && (testY <= boundsY + boundsHeight);
-    }
-
-    function updateBounds(newX, newY, newWidth, newHeight) {
-        boundsX = newX;
-        boundsY = newY;
-        boundsWidth = newWidth;
-        boundsHeight = newHeight;
-
-    } // updateBounds
-
-    var self = COG.extend(params, {
-        parent: null,
-
-        /*
-        ### isAnimating()
-        Return true if we are currently animating the marker, false otherwise
-        */
-        isAnimating: function() {
-            return animating;
-        },
-
-        drag: drag,
-        draw: draw,
-        drawMarker: drawMarker,
-        hitTest: hitTest,
-        updateBounds: updateBounds
-    }); // self
-
-    COG.observable(self);
-
-    return self;
-};
-/**
-# T5.ImageMarker
-_extends:_ T5.Marker
-
-
-An image annotation is simply a T5.Annotation that has been extended to
-display an image rather than a simple circle.  Probably the most common type
-of annotation used.  Supports using either the `image` or `imageUrl` parameters
-to use preloaded or an imageurl for displaying the annotation.
-
-## TODO
-
-- currently hits on animated markers not working as well as they should, need to
-tweak touch handling to get this better...
-
-
-## Constructor
-`new T5.ImageMarker(params);`
-
-### Initialization Parameters
-
-- `image` (HTMLImage, default = null) - one of either this or the `imageUrl` parameter
-is required and the specified image is used to display the annotation.
-
-- `imageUrl` (String, default = null) - one of either this of the `image` parameter is
-required.  If specified, the image is obtained using T5.Images module and then drawn
-to the canvas.
-
-- `animatingImage` (HTMLImage, default = null) - an optional image that can be supplied,
-and if so, the specified image will be used when the annotation is animating rather than
-the standard `image`.  If no `animatingImage` (or `animatingImageUrl`) is specified then
-the standard image is used as a fallback when the marker is animating.
-
-- `animatingImageUrl` (String, default = null) - as per the `animatingImage` but a url
-for an image that will be loaded via T5.Images
-
-- `imageAnchor` (T5.Vector, default = null) - a T5.Vector that optionally specifies the
-anchor position for an annotation.  Consider that your annotation is "pin-like" then you
-would want to provide an anchor vector that specified the pixel position in the image
-around the center and base of the image.  If not `imageAnchor` parameter is provided, then
-the center of the image is assumed for the anchor position.
-
-- `rotation` (float, default = 0) - the value of the rotation for the image marker
-(in radians).  Be aware that applying rotation to a marker does add an extra processing
-overhead as the canvas context needs to be saved and restored as part of the operation.
-
-- `scale` (float, default = 1)
-
-- `opacity` (float, default = 1)
-
-
-## Methods
-*/
-var ImageMarker = function(params) {
-    params = COG.extend({
-        image: null,
-        imageUrl: null,
-        animatingImage: null,
-        animatingImageUrl: null,
-        imageAnchor: null,
-        rotation: 0,
-        scale: 1,
-        opacity: 1
-    }, params);
-
-    var dragOffset = null,
-        imageOffset = params.imageAnchor ?
-            T5.XY.invert(params.imageAnchor) :
-            null;
-
-    function getImageUrl() {
-        if (params.animatingImageUrl && self.isAnimating()) {
-            T5.Images.load(params.imageUrl);
-
-            return params.animatingImageUrl;
-        }
-        else {
-            return params.imageUrl;
-        } // if..else
-    } // getImageUrl
-
-    /* exports */
-
-    function changeImage(imageUrl) {
-        self.image = Images.get(imageUrl, function(loadedImage) {
-            self.image = loadedImage;
-        });
-    } // changeImage
-
-    /**
-    ### drag(dragData, dragX, dragY, drop)
-    */
-    function drag(dragData, dragX, dragY, drop) {
-        if (! dragOffset) {
-            dragOffset = XY.init(
-                dragData.startX - self.xy.x,
-                dragData.startY - self.xy.y
-            );
-
-        }
-
-        self.xy.x = dragX - dragOffset.x;
-        self.xy.y = dragY - dragOffset.y;
-
-        if (drop) {
-            var view = self.parent ? self.parent.getParent() : null;
-
-            dragOffset = null;
-
-
-            if (view) {
-                view.syncXY([self.xy], true);
-            } // if
-
-            self.trigger('dragDrop');
-        } // if
-
-        return true;
-    } // drag
-
-    /**
-    ### drawMarker(context, offset, xy, state, overlay, view)
-    An overriden implementation of the T5.Annotation.drawMarker which
-    draws an image to the canvas.
-    */
-    function drawMarker(context, viewRect, x, y, state, overlay, view) {
-        var image = self.isAnimating() && self.animatingImage ?
-                self.animatingImage : self.image;
-
-        if (image && (image.width > 0)) {
-            if (! imageOffset) {
-                imageOffset = XY.init(
-                    -image.width >> 1,
-                    -image.height >> 1
-                );
-            } // if
-
-            var currentScale = self.scale,
-                drawX = x + ~~(imageOffset.x * currentScale),
-                drawY = y + ~~(imageOffset.y * currentScale),
-                drawWidth = ~~(image.width * currentScale),
-                drawHeight = ~~(image.height * currentScale);
-
-
-            self.updateBounds(drawX, drawY, drawWidth, drawWidth);
-
-            if (self.rotation || (self.opacity !== 1)) {
-                context.save();
-                try {
-                    context.globalAlpha = self.opacity;
-                    context.translate(x, y);
-                    context.rotate(self.rotation);
-
-                    context.drawImage(
-                        image,
-                        imageOffset.x * currentScale,
-                        imageOffset.y * currentScale,
-                        drawWidth,
-                        drawHeight);
-                }
-                finally {
-                    context.restore();
-                } // try..finally
-            }
-            else {
-                context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
-            } // if..else
-        } // if
-    } // drawImage
-
-    var self = COG.extend(new Marker(params), {
-        changeImage: changeImage,
-        drag: drag,
-        drawMarker: drawMarker
-    });
-
-    if (! self.image) {
-        self.image = Images.get(params.imageUrl, function(loadedImage) {
-            self.image = loadedImage;
-        });
-    } // if
-
-    if (! self.animatingImage) {
-        self.animatingImage = Images.get(params.animatingImageUrl, function(loadedImage) {
-            self.animatingImage = loadedImage;
-        });
-    } // if
-
-    return self;
-};
-/**
-# T5.MarkerLayer
-_extends:_ T5.ViewLayer
-
-
-The T5.MarkerLayer provides a T5.ViewLayer that can be used to display one
-or more T5.Annotation on a T5.View.  Most commonly used with a T5.Map (which
-includes a marker layer by default).
-
-## Events
-
-### markerUpdate
-This event is triggered when the markers have been updated (new markers added,
-markers cleared, etc)
-
-<pre>
-layer.bind('markerUpdate', function(markers) {
-});
-</pre>
-
-- markers (T5.Annotation[]) - the markers in the marker layer after the update has
-been completed
-
-
-### markerTap
-The markerTap event is triggered when markers have been tapped in the marker layer.
-The T5.MarkerLayer listens for `tap` events on itself and when triggered looks for
-any markers within a tapExtent and if found fires the markerTap event.
-
-<pre>
-layer.bind('markerTap', function(absXY, relXY, markers) {
-});
-</pre>
-
-- absXY (T5.Vector) - the absolute tap position (as per T5.ViewLayer)
-- relXY (T5.Vector) - the relative tap position (as per T5.ViewLayer)
-- markers (T5.Annotation[]) - an array of the markers that have been _hit_ in the last tap
-
-
-## Methods
-*/
-var MarkerLayer = function(params) {
-    params = COG.extend({
-        zindex: 100,
-        style: 'basic'
-    }, params);
-
-    var markers = [],
-        hitMarkers = [];
-
-    /* event handlers */
-
-    function handleTap(evt, absXY, relXY, gridXY) {
-        var tappedMarkers = [],
-            testX = gridXY.x,
-            testY = gridXY.y;
-
-        for (var ii = markers.length; ii--; ) {
-            if (markers[ii].hitTest(testX, testY)) {
-                tappedMarkers[tappedMarkers.length] = markers[ii];
-            } // if
-        } // for
-
-
-        if (tappedMarkers.length > 0) {
-            evt.cancel = self.trigger('markerTap', absXY, relXY, tappedMarkers).cancel;
-        } // if
-    } // handleTap
-
-    /* internal functions */
-
-    /*
-    This function is used to provide updates when the markers have changed. This
-    involves informing other waking the parent view and having a redraw occur and
-    additionally, firing the markers changed event
-    */
-    function markerUpdate() {
-        resyncMarkers();
-
-        self.changed();
-
-        self.trigger('markerUpdate', markers);
-    } // markerUpdate
-
-    function resyncMarkers() {
-        var parent = self.getParent();
-        if (parent) {
-            for (var ii = markers.length; ii--; ) {
-                parent.syncXY([markers[ii].xy]);
-            } // for
-        } // if
-
-        markers.sort(function(itemA, itemB) {
-            var retVal = itemB.xy.y - itemA.xy.y;
-            if (retVal == 0) {
-                retVal = itemB.xy.x - itemA.xy.x;
-            } // if
-
-            return retVal;
-        });
-    } // resyncMarkers
-
-    /* exports */
-
-    /**
-    ### add(items)
-    The add method of the marker layer can accept either a single T5.Annotation to
-    add to the layer or alternatively an array of annotations to add.
-
-    #### Example Usage
-    ~ // adding a single marker
-    ~ layer.add(new T5.Marker({
-    ~     xy: T5.GeoXY.init(markerPos) // markerPos is a T5.Geo.Position
-    ~ }));
-    ~
-    ~ // adding multiple markers
-    ~ var markers = [];
-    ~
-    ~ // you would populate the markers array here...
-    ~
-    ~ // add the markers to the layer
-    ~ layer.add(markers);
-    */
-    function add(newItems) {
-        if (newItems && (typeof newItems.length !== 'undefined')) {
-            for (var ii = newItems.length; ii--; ) {
-                if (newItems[ii]) {
-                    newItems[ii].parent = self;
-
-                    markers[markers.length] = newItems[ii];
-                } // if
-            } // for
-        }
-        else if (newItems) {
-            newItems.parent = self;
-
-            markers[markers.length] = newItems;
-        } // if..else
-
-        markerUpdate();
-    } // add
-
-    /**
-    ### clear(testCallback)
-    The clear method is used to clear markers from the marker layer.  The optional
-    `testCallback` argument can be specified to determine whether a marker should be
-    removed or not.
-
-    #### Example Usage
-    ~ layer.clear(function(marker) {
-    ~     // check an arbitrary property of the annotation
-    ~     // if Australia, then flag for removal
-    ~     return (marker.country === 'Australia');
-    ~ });
-    */
-    function clear(testCallback) {
-        if (testCallback) {
-            var ii = 0;
-            while (ii < markers.length) {
-                if (testCallback(markers[ii])) {
-                    markers.splice(ii, 1);
-                }
-                else {
-                    ii += 1;
-                } // if..else
-            } // while
-        }
-        else {
-            markers = [];
-        } // if..else
-
-        markerUpdate();
-    } // clear
-
-    /**
-    ### draw(context, viewRect, state, view, tickCount, hitData)
-    Draw the markers in the marker layer
-    */
-    function draw(context, viewRect, state, view, tickCount, hitData) {
-        for (var ii = markers.length; ii--; ) {
-            markers[ii].draw(
-                context,
-                viewRect,
-                state,
-                self,
-                view);
-        } // for
-
-        if (hitData) {
-            hitData.elements = hitData.elements.concat(hitMarkers);
-        } // if
-    } // draw
-
-    /**
-    ### each(callback)
-    Iterate through each of the markers and fire the callback for each one
-    */
-    function each(callback) {
-        if (callback) {
-            for (var ii = markers.length; ii--; ) {
-                callback(markers[ii]);
-            } // for
-        } // if
-    } // each
-
-    /**
-    ### find(testCallback)
-    Find markers that match the requirements of the test callback.  For an example
-    of test callback usage see the `clear` method.
-    */
-    function find(testCallback) {
-        var results = [];
-
-        for (var ii = markers.length; ii--; ) {
-            if ((! testCallback) || testCallback(markers[ii])) {
-                results[results.length] = markers[ii];
-            } // if
-        } // for
-
-
-        return results;
-    } // find
-
-    /**
-    ### hitGuess(hitX, hitY, state, view)
-    Return true if any of the markers are hit, additionally, store the hit elements
-    so we don't have to do the work again when drawing
-    */
-    function hitGuess(hitX, hitY, state, view) {
-        hitMarkers = [];
-
-        for (var ii = markers.length; ii--; ) {
-            if (markers[ii].hitTest(hitX, hitY)) {
-                hitMarkers[hitMarkers.length] = {
-                    type: 'marker',
-                    target: markers[ii],
-                    drag: markers[ii].draggable ? markers[ii].drag : null
-                };
-            } // if
-        } // for
-
-        return hitMarkers.length > 0;
-    } // hitGuess
-
-    /**
-    ### syncMarker(marker: T5.Marker)
-    */
-    function syncMarker(marker) {
-        var parent = self.getParent();
-        if (parent) {
-            parent.syncXY(marker.xy);
-        } // if
-    } // syncMarker
-
-    var self = COG.extend(new ViewLayer(params), {
-        add: add,
-        clear: clear,
-        draw: draw,
-        each: each,
-        find: find,
-        hitGuess: hitGuess,
-        syncMarker: syncMarker
-    });
-
-    self.bind('tap', handleTap);
-    self.bind('parentChange', resyncMarkers);
-    self.bind('resync', resyncMarkers);
-
-    return self;
-};
-
-/**
-# T5.PathLayer
-_extends:_ T5.ViewLayer
-
-
-The T5.PathLayer is used to display a single path on a T5.View
-*/
-var PathLayer = function(params) {
-    params = COG.extend({
-        style: 'waypoints',
-        hoverStyle: 'waypointsHover',
-        pixelGeneralization: 8,
-        zindex: 50
-    }, params);
-
-    var coordinates = [],
-        markerCoordinates = null,
-        rawCoords = [],
-        rawMarkers = null,
-        pathAnimationCounter = 0,
-        spawnedAnimations = [];
-
-    /* private internal functions */
-
-    function hitTest(hitX, hitY, state, view) {
-        var hit = false,
-            diffX,
-            diffY;
-
-        for (ii = coordinates.length; (! hit) && ii--; ) {
-            diffX = hitX - coordinates[ii].x;
-            diffY = hitY - coordinates[ii].y;
-        } // for
-
-        return true;
-    } // hitTest
-
-    function resyncPath() {
-        var parent = self.getParent();
-        if (parent) {
-            parent.syncXY(rawCoords);
-            if (rawMarkers) {
-                parent.syncXY(rawMarkers);
-            } // if
-
-            coordinates = XY.simplify(rawCoords, params.pixelGeneralization);
-            markerCoordinates = XY.simplify(rawMarkers, params.pixelGeneralization);
-
-            self.changed();
-        } // if
-    } // resyncPath
-
-    /* exports */
-
-    function draw(context, viewRect, state, view, tickCount, hitData) {
-        var ii,
-            coordLength = coordinates.length,
-            style = params.style;
-
-        context.save();
-        try {
-            if (coordLength > 0) {
-                if (hitData && hitTest(hitData.x, hitData.y, state, view)) {
-                    style = params.hoverStyle;
-                } // if
-
-                Style.apply(context, style);
-
-                context.beginPath();
-                context.moveTo(
-                    coordinates[coordLength - 1].x,
-                    coordinates[coordLength - 1].y);
-
-                for (ii = coordLength; ii--; ) {
-                    context.lineTo(
-                        coordinates[ii].x,
-                        coordinates[ii].y);
-                } // for
-
-                context.stroke();
-
-                if (markerCoordinates) {
-                    context.fillStyle = params.waypointFillStyle;
-
-                    for (ii = markerCoordinates.length; ii--; ) {
-                        context.beginPath();
-                        context.arc(
-                            markerCoordinates[ii].x,
-                            markerCoordinates[ii].y,
-                            2,
-                            0,
-                            Math.PI * 2,
-                            false);
-
-                        context.stroke();
-                        context.fill();
-                    } // for
-                } // if
-            } // if
-        }
-        finally {
-            context.restore();
-        }
-    } // draw
-
-    var self = COG.extend(new ViewLayer(params), {
-        getAnimation: function(easingFn, duration, drawCallback, autoCenter) {
-            var layerId = 'pathAnimation' + pathAnimationCounter++;
-            spawnedAnimations.push(layerId);
-
-            return new AnimatedPathLayer({
-                id: layerId,
-                path: coordinates,
-                zindex: params.zindex + 1,
-                easing: easingFn ? easingFn : COG.easing('sine.inout'),
-                duration: duration ? duration : 5000,
-                drawIndicator: drawCallback,
-                autoCenter: autoCenter ? autoCenter : false
-            });
-        },
-
-        draw: draw,
-
-        updateCoordinates: function(coords, markerCoords) {
-            rawCoords = coords;
-            rawMarkers = markerCoords;
-
-            resyncPath();
-        }
-    });
-
-    self.bind('resync', resyncPath);
-
-    return self;
-};
-/**
-# T5.AnimatedPathLayer
-_extends:_ T5.ViewLayer
-
-
-The AnimatedPathLayer is way cool :)  This layer allows you to supply an array of
-screen / grid coordinates and have that animated using the functionality T5.Animation module.
-Any type of T5.PathLayer can generate an animation.
-
-## Constructor
-`new T5.AnimatedPathLayer(params);`
-
-### Initialization Parameters
-
-- `path` (T5.Vector[], default = []) - An array of screen / grid coordinates that will
-be used as anchor points in the animation.
-
-- `id` (String, default = 'pathAni%autoinc') - The id of of the animation layer.  The id will start with
-pathAni1 and then automatically increment each time a new AnimatedPathLayer is created unless the id is
-manually specified in the constructor parameters.
-
-- `easing` (easing function, default = COG.easing('sine.inout')) - the easing function to use for the animation
-
-- `drawIndicator` (callback, default = defaultDraw) - A callback function that is called every time the indicator for
-the animation needs to be drawn.  If the parameter is not specified in the constructor the default callback
-is used, which simply draws a small circle at the current position of the animation.
-
-- `duration` (int, default = 2000) - The animation duration.  See T5.Animation module information for more details.
-
-
-## Draw Indicator Callback Function
-`function(context, viewRect, xy, theta)`
-
-
-The drawIndicator parameter in the constructor allows you to specify a particular callback function that is
-used when drawing the indicator.  The function takes the following arguments:
-
-
-- `context` - the canvas context to draw to when drawing the indicator
-- `viewRect` - the current viewRect to take into account when drawing
-- `xy` - the xy position where the indicator should be drawn
-- `theta` - the current angle (in radians) given the path positioning.
-*/
-var AnimatedPathLayer = function(params) {
-    params = COG.extend({
-        path: [],
-        id: COG.objId('pathAni'),
-        easing: COG.easing('sine.inout'),
-        validStates: viewState('ACTIVE', 'PAN', 'ZOOM'),
-        drawIndicator: null,
-        duration: 2000
-    }, params);
-
-    var path = params.path,
-        edgeData = XY.edges(path),
-        tween,
-        theta,
-        indicatorXY = null,
-        drawIndicator = params.drawIndicator ? params.drawIndicator : drawDefaultIndicator,
-        pathOffset = 0;
-
-    /* internals */
-
-    function drawDefaultIndicator(context, viewRect, indicatorXY) {
-        context.fillStyle = "#FFFFFF";
-        context.strokeStyle = "#222222";
-        context.beginPath();
-        context.arc(
-            indicatorXY.x,
-            indicatorXY.y,
-            4,
-            0,
-            Math.PI * 2,
-            false);
-        context.stroke();
-        context.fill();
-    } // drawDefaultIndicator
-
-    function handleUpdates(updatedValue, complete) {
-        pathOffset = updatedValue;
-
-        if (complete) {
-            self.remove();
-        } // if
-
-        self.changed();
-    }
-
-    /* exports */
-
-    function cycle(tickCount, viewRect, state, redraw) {
-        var edgeIndex = 0;
-
-        while ((edgeIndex < edgeData.accrued.length) && (edgeData.accrued[edgeIndex] < pathOffset)) {
-            edgeIndex++;
-        } // while
-
-        indicatorXY = null;
-
-        if (edgeIndex < path.length-1) {
-            var extra = pathOffset - (edgeIndex > 0 ? edgeData.accrued[edgeIndex - 1] : 0),
-                v1 = path[edgeIndex],
-                v2 = path[edgeIndex + 1];
-
-            theta = XY.theta(v1, v2, edgeData.edges[edgeIndex]);
-            indicatorXY = XY.extendBy(v1, theta, extra);
-        } // if
-
-        return indicatorXY;
-    } // cycle
-
-    function draw(context, viewRect, state, view) {
-        if (indicatorXY && drawIndicator) {
-            drawIndicator(
-                context,
-                viewRect,
-                XY.init(indicatorXY.x, indicatorXY.y),
-                theta
-            );
-        } // if
-    } // draw
-
-
-    var self =  COG.extend(new ViewLayer(params), {
-        cycle: cycle,
-        draw: draw
-    });
-
-    COG.tweenValue(0, edgeData.total, params.easing, params.duration, handleUpdates);
-
-    return self;
-}; // T5.AnimatedPathLayer
-
-/**
 # T5.Shape
 The T5.Shape class is simply a template class that provides placeholder methods
 that need to be implemented for shapes that can be drawn in a T5.ShapeLayer.
@@ -5554,16 +4773,47 @@ that need to be implemented for shapes that can be drawn in a T5.ShapeLayer.
 var Shape = function(params) {
     params = COG.extend({
         style: null,
-        properties: {}
+        fill: false,
+        observable: true, // TODO: should this be true or false by default
+        properties: {},
+        type: 'shape',
+        rotation: 0,
+        scale: 1
     }, params);
 
-    return COG.extend(params, {
-        rect: null,
+    var fill = params.fill;
+
+    /* exports */
+
+    /* initialise shape */
+
+    var self = COG.extend(params, {
+        id: COG.objId(params.type),
+
+        bounds: null,
+        hit: false,
 
         /**
-        ### draw(context, offsetX, offsetY, width, height, state)
+        ### drag(dragData, dragX, dragY, drop)
         */
-        draw: function(context, offsetX, offsetY, width, height, state) {
+        drag: null,
+
+        /**
+        ### draw(context, x, y, width, height, state)
+        */
+        draw: function(context, x, y, width, height, state) {
+            if (fill) {
+                context.fill();
+            } // if
+
+            context.stroke();
+        },
+
+        /**
+        ### prepPath(context, x, y, width, height, state)
+        Prepping the path for a shape is the main
+        */
+        prepPath: function(context, x, y, width, height, state) {
         },
 
         /**
@@ -5572,6 +4822,12 @@ var Shape = function(params) {
         resync: function(view) {
         }
     });
+
+    if (params.observable) {
+        COG.observable(self);
+    } // if
+
+    return self;
 };
 /**
 # T5.Arc
@@ -5636,35 +4892,37 @@ is specified then the style of the T5.PolyLayer is used.
 */
 var Poly = function(points, params) {
     params = COG.extend({
-        fill: false,
         simplify: false
     }, params);
 
     var haveData = false,
-        fill = params.fill,
         simplify = params.simplify,
         stateZoom = viewState('ZOOM'),
         drawPoints = [];
 
+    params.type = params.fill ? 'polygon' : 'line';
+
     /* exported functions */
 
     /**
-    ### draw(context, offsetX, offsetY, state)
-    This method is used to draw the poly to the specified `context`.  The
-    `offsetX` and `offsetY` arguments specify the panning offset of the T5.View
-    which is taken into account when drawing the poly to the display.  The
-    `state` argument specifies the current T5.ViewState of the view.
+    ### prepPath(context, offsetX, offsetY, width, height, state, hitData)
+    Prepare the path that will draw the polygon to the canvas
     */
-    function draw(context, offsetX, offsetY, width, height, state) {
+    function prepPath(context, offsetX, offsetY, width, height, state) {
         if (haveData) {
             var first = true,
-                draw = (state & stateZoom) !== 0;
+                maxX, maxY, minX, minY;
 
             context.beginPath();
 
             for (var ii = drawPoints.length; ii--; ) {
-                var x = drawPoints[ii].x,
-                    y = drawPoints[ii].y;
+                var x = drawPoints[ii].x - offsetX,
+                    y = drawPoints[ii].y - offsetY;
+
+                minX = typeof minX != 'undefined' || x < minX ? x : minX;
+                minY = typeof minY != 'undefined' || y < minY ? y : minY;
+                maxX = typeof maxX != 'undefined' || x > maxX ? x : maxX;
+                maxY = typeof maxY != 'undefined' || y > maxY ? y : maxY;
 
                 if (first) {
                     context.moveTo(x, y);
@@ -5673,19 +4931,13 @@ var Poly = function(points, params) {
                 else {
                     context.lineTo(x, y);
                 } // if..else
-
-                draw = true; // draw || ((x >= 0 && x <= width) && (y >= 0 && y <= height));
             } // for
 
-            if (draw) {
-                if (fill) {
-                    context.fill();
-                } // if
-
-                context.stroke();
-            } // if
+            self.bounds = XYRect.init(minX, minY, maxX, maxY);
         } // if
-    } // drawPoly
+
+        return haveData;
+    } // prepPath
 
     /**
     ### resync(view)
@@ -5701,7 +4953,7 @@ var Poly = function(points, params) {
     /* define self */
 
     var self = COG.extend(new Shape(params), {
-        draw: draw,
+        prepPath: prepPath,
         resync: resync
     });
 
@@ -5754,7 +5006,13 @@ var Points = function(points, params) {
         context.beginPath();
 
         for (var ii = drawPoints.length; ii--; ) {
-            context.arc(drawPoints[ii].x, drawPoints[ii].y, radius, 0, Math.PI * 2, false);
+            context.arc(
+                drawPoints[ii].x - offsetX,
+                drawPoints[ii].y - offsetY,
+                radius,
+                0,
+                Math.PI * 2,
+                false);
         } // for
 
         if (fill) {
@@ -5782,6 +5040,237 @@ var Points = function(points, params) {
     return self;
 };
 /**
+# T5.Marker
+__extends__: T5.Shape
+
+## Constructor
+
+`new T5.Marker(params)`
+
+
+#### Initialization Parameters
+
+
+## Methods
+*/
+var Marker = function(params) {
+    params = COG.extend({
+        xy: XY.init(),
+        draggable: false,
+        size: 10,
+        type: 'marker'
+    }, params);
+
+    var size = params.size;
+    /* exported functions */
+
+    /**
+    ### drag(dragData, dragX, dragY, drop)
+    */
+    function drag(dragData, dragX, dragY, drop) {
+        self.xy.x = dragX;
+        self.xy.y = dragY;
+
+        return true;
+    } // drag
+
+    /**
+    ### prepPath(context, offsetX, offsetY, width, height, state, hitData)
+    Prepare the path that will draw the polygon to the canvas
+    */
+    function prepPath(context, x, y, width, height, state) {
+        context.beginPath();
+        context.arc(x, y, size, 0, Math.PI * 2, false);
+
+        self.bounds = XYRect.fromCenter(x, y, size, size);
+
+        return true;
+    } // prepPath
+
+    /**
+    ### resync(view)
+    Used to synchronize the points of the poly to the grid.
+    */
+    function resync(view) {
+        view.syncXY([self.xy]);
+    } // resyncToGrid
+
+    /* define self */
+
+    var self = COG.extend(new Shape(params), {
+        drag: drag,
+        prepPath: prepPath,
+        resync: resync
+    });
+
+    return self;
+};
+/**
+# T5.ImageMarker
+_extends:_ T5.Marker
+
+
+An image annotation is simply a T5.Annotation that has been extended to
+display an image rather than a simple circle.  Probably the most common type
+of annotation used.  Supports using either the `image` or `imageUrl` parameters
+to use preloaded or an imageurl for displaying the annotation.
+
+## TODO
+
+- currently hits on animated markers not working as well as they should, need to
+tweak touch handling to get this better...
+
+
+## Constructor
+`new T5.ImageMarker(params);`
+
+### Initialization Parameters
+
+- `image` (HTMLImage, default = null) - one of either this or the `imageUrl` parameter
+is required and the specified image is used to display the annotation.
+
+- `imageUrl` (String, default = null) - one of either this of the `image` parameter is
+required.  If specified, the image is obtained using T5.Images module and then drawn
+to the canvas.
+
+- `animatingImage` (HTMLImage, default = null) - an optional image that can be supplied,
+and if so, the specified image will be used when the annotation is animating rather than
+the standard `image`.  If no `animatingImage` (or `animatingImageUrl`) is specified then
+the standard image is used as a fallback when the marker is animating.
+
+- `animatingImageUrl` (String, default = null) - as per the `animatingImage` but a url
+for an image that will be loaded via T5.Images
+
+- `imageAnchor` (T5.Vector, default = null) - a T5.Vector that optionally specifies the
+anchor position for an annotation.  Consider that your annotation is "pin-like" then you
+would want to provide an anchor vector that specified the pixel position in the image
+around the center and base of the image.  If not `imageAnchor` parameter is provided, then
+the center of the image is assumed for the anchor position.
+
+- `rotation` (float, default = 0) - the value of the rotation for the image marker
+(in radians).  Be aware that applying rotation to a marker does add an extra processing
+overhead as the canvas context needs to be saved and restored as part of the operation.
+
+- `scale` (float, default = 1)
+
+- `opacity` (float, default = 1)
+
+
+## Methods
+*/
+var ImageMarker = function(params) {
+    params = COG.extend({
+        image: null,
+        imageUrl: null,
+        animatingImage: null,
+        animatingImageUrl: null,
+        imageAnchor: null
+    }, params);
+
+    var dragOffset = null,
+        drawX,
+        drawY,
+        imageOffset = params.imageAnchor ?
+            T5.XY.invert(params.imageAnchor) :
+            null;
+
+    /* exports */
+
+    function changeImage(imageUrl) {
+        self.image = Images.get(imageUrl, function(loadedImage) {
+            self.image = loadedImage;
+        });
+    } // changeImage
+
+    /**
+    ### drag(dragData, dragX, dragY, drop)
+    */
+    function drag(dragData, dragX, dragY, drop) {
+        if (! dragOffset) {
+            dragOffset = XY.init(
+                dragData.startX - self.xy.x,
+                dragData.startY - self.xy.y
+            );
+
+        }
+
+        self.xy.x = dragX - dragOffset.x;
+        self.xy.y = dragY - dragOffset.y;
+
+        if (drop) {
+            var view = self.parent ? self.parent.getParent() : null;
+
+            dragOffset = null;
+
+
+            if (view) {
+                view.syncXY([self.xy], true);
+            } // if
+
+            self.trigger('dragDrop');
+        } // if
+
+        return true;
+    } // drag
+
+    /**
+    ### draw(context, x, y, width, height, state)
+    */
+    function draw(context, offsetX, offsetY, width, height, state) {
+        context.drawImage(self.image, drawX, drawY);
+    } // draw
+
+    /**
+    ### prepPath(context, offsetX, offsetY, width, height, state, hitData)
+    Prepare the path that will draw the polygon to the canvas
+    */
+    function prepPath(context, offsetX, offsetY, width, height, state) {
+        var image = self.image,
+            draw = image && image.width > 0;
+
+        if (draw) {
+            if (! imageOffset) {
+                imageOffset = XY.init(
+                    -image.width >> 1,
+                    -image.height >> 1
+                );
+            } // if
+
+            drawX = self.xy.x + imageOffset.x - offsetX;
+            drawY = self.xy.y + imageOffset.y - offsetY;
+
+            self.bounds = XYRect.init(drawX, drawY, drawX + image.width, drawY + image.height);
+
+            context.beginPath();
+            context.rect(drawX, drawY, image.width, image.height);
+
+        } // if
+
+        return draw;
+    } // prepPath
+
+    var self = COG.extend(new Marker(params), {
+        changeImage: changeImage,
+        drag: drag,
+        draw: draw,
+        prepPath: prepPath
+    });
+
+    if (! self.image) {
+        self.image = Images.get(params.imageUrl, function(loadedImage) {
+            self.image = loadedImage;
+        });
+    } // if
+
+    if (! self.animatingImage) {
+        self.animatingImage = Images.get(params.animatingImageUrl, function(loadedImage) {
+            self.animatingImage = loadedImage;
+        });
+    } // if
+
+    return self;
+};
+/**
 # T5.ShapeLayer
 _extends:_ T5.ViewLayer
 
@@ -5794,19 +5283,19 @@ data and the like.
 */
 var ShapeLayer = function(params) {
     params = COG.extend({
-        zindex: 80
+        zindex: 10
     }, params);
 
-    var children = [];
+    var shapes = [];
 
     /* private functions */
 
     function performSync(view) {
-        for (var ii = children.length; ii--; ) {
-            children[ii].resync(view);
+        for (var ii = shapes.length; ii--; ) {
+            shapes[ii].resync(view);
         } // for
 
-        children.sort(function(shapeA, shapeB) {
+        shapes.sort(function(shapeA, shapeB) {
             var diff = shapeB.xy.y - shapeA.xy.y;
             return diff != 0 ? diff : shapeB.xy.x - shapeA.xy.y;
         });
@@ -5822,6 +5311,60 @@ var ShapeLayer = function(params) {
 
     /* exports */
 
+    function draw(context, viewRect, state, view, tickCount, hitData) {
+        var viewX = viewRect.x1,
+            viewY = viewRect.y1,
+            hitX = hitData ? hitData.x : 0,
+            hitY = hitData ? hitData.y : 0,
+            viewWidth = viewRect.width,
+            viewHeight = viewRect.height;
+
+        for (var ii = shapes.length; ii--; ) {
+            var shape = shapes[ii],
+                overrideStyle = shape.style,
+                styleType,
+                previousStyle;
+
+            if (shape.prepPath(context, viewX, viewY, viewWidth, viewHeight, state)) {
+                if (hitData && context.isPointInPath(hitX, hitY)) {
+                    hitData.elements.push(Hits.initHit(shape.type, shape));
+
+                    styleType = hitData.type + 'Style';
+
+                    overrideStyle = shape[styleType] || overrideStyle;
+                } // if
+
+                previousStyle = overrideStyle ? Style.apply(context, overrideStyle) : null;
+
+                shape.draw(context, viewX, viewY, viewWidth, viewHeight, state);
+
+                if (previousStyle) {
+                    Style.apply(context, previousStyle);
+                } // if
+            } // if
+        } // for
+    } // draw
+
+    /**
+    ### hitGuess(hitX, hitY, state, view)
+    Return true if any of the markers are hit, additionally, store the hit elements
+    so we don't have to do the work again when drawing
+    */
+    function hitGuess(hitX, hitY, state, view) {
+        var hit = false;
+
+        for (var ii = shapes.length; (! hit) && ii--; ) {
+            var shape = shapes[ii],
+                bounds = shape.bounds;
+
+            hit = hit || (bounds &&
+                hitX >= bounds.x1 && hitX <= bounds.x2 &&
+                hitY >= bounds.y1 && hitY <= bounds.y2);
+        } // for
+
+        return hit;
+    } // hitGuess
+
     /* initialise self */
 
     var self = COG.extend(new ViewLayer(params), {
@@ -5830,32 +5373,22 @@ var ShapeLayer = function(params) {
         Used to add a T5.Poly to the layer
         */
         add: function(shape) {
-            children[children.length] = shape;
-        },
-
-        each: function(callback) {
-            for (var ii = children.length; ii--; ) {
-                callback(children[ii]);
-            } // for
-        },
-
-        draw: function(context, viewRect, state, view) {
-            var viewX = viewRect.x1,
-                viewY = viewRect.y1,
-                viewWidth = viewRect.width,
-                viewHeight = viewRect.height;
-
-            for (var ii = children.length; ii--; ) {
-                var overrideStyle = children[ii].style,
-                    previousStyle = overrideStyle ? Style.apply(context, overrideStyle) : null;
-
-                children[ii].draw(context, viewX, viewY, viewWidth, viewHeight, state);
-
-                if (previousStyle) {
-                    Style.apply(context, previousStyle);
+            if (shape) {
+                var view = self.getParent();
+                if (view) {
+                    shape.resync(self.getParent());
                 } // if
-            } // for
-        }
+
+                shapes[shapes.length] = shape;
+            } // if
+        },
+
+        clear: function() {
+            shapes = [];
+        },
+
+        draw: draw,
+        hitGuess: hitGuess
     });
 
     self.bind('parentChange', handleResync);
@@ -5900,6 +5433,7 @@ var Tiling = (function() {
         XYRect: XYRect,
         Dimensions: Dimensions,
         Vector: Vector,
+        Hits: Hits,
 
         D: Dimensions,
 
@@ -5919,17 +5453,21 @@ var Tiling = (function() {
         ImageLayer: ImageLayer,
         ImageGenerator: ImageGenerator,
 
+        /*
         Marker: Marker,
         ImageMarker: ImageMarker,
         MarkerLayer: MarkerLayer,
 
         PathLayer: PathLayer,
         AnimatedPathLayer: AnimatedPathLayer,
+        */
 
         Shape: Shape,
         Arc: Arc,
         Poly: Poly,
         Points: Points,
+        Marker: Marker,
+        ImageMarker: ImageMarker,
         ShapeLayer: ShapeLayer,
 
         Tiling: Tiling
@@ -7382,7 +6920,7 @@ var featureDefinitions = {
     point: COG.extend({}, DEFAULT_FEATUREDEF, {
         processor: processPoint,
         group: 'markers',
-        layerClass: MarkerLayer
+        layerClass: ShapeLayer
     }),
 
     linestring: COG.extend({}, DEFAULT_FEATUREDEF, {

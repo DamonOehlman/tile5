@@ -11,22 +11,22 @@ data and the like.
 */
 var ShapeLayer = function(params) {
     params = COG.extend({
-        zindex: 80
+        zindex: 10
     }, params);
     
     // initialise variables
-    var children = [];
+    var shapes = [];
         
     /* private functions */
     
     function performSync(view) {
-        // iterate through the children and resync to the grid
-        for (var ii = children.length; ii--; ) {
-            children[ii].resync(view);
+        // iterate through the shapes and resync to the grid
+        for (var ii = shapes.length; ii--; ) {
+            shapes[ii].resync(view);
         } // for
         
-        // sort the children so the topmost, leftmost is drawn first followed by other shapes
-        children.sort(function(shapeA, shapeB) {
+        // sort the shapes so the topmost, leftmost is drawn first followed by other shapes
+        shapes.sort(function(shapeA, shapeB) {
             var diff = shapeB.xy.y - shapeA.xy.y;
             return diff != 0 ? diff : shapeB.xy.x - shapeA.xy.y;
         });
@@ -42,6 +42,70 @@ var ShapeLayer = function(params) {
     
     /* exports */
     
+    function draw(context, viewRect, state, view, tickCount, hitData) {
+        var viewX = viewRect.x1,
+            viewY = viewRect.y1,
+            hitX = hitData ? hitData.x : 0,
+            hitY = hitData ? hitData.y : 0,
+            viewWidth = viewRect.width,
+            viewHeight = viewRect.height;
+        
+        // iterate through the shapes and draw the layers
+        for (var ii = shapes.length; ii--; ) {
+            var shape = shapes[ii],
+                overrideStyle = shape.style, 
+                styleType,
+                previousStyle;
+            
+            // prep the path for the child
+            if (shape.prepPath(context, viewX, viewY, viewWidth, viewHeight, state)) {
+                // check for a hit in the path that has just been drawn
+                if (hitData && context.isPointInPath(hitX, hitY)) {
+                    hitData.elements.push(Hits.initHit(shape.type, shape));
+
+                    // init the style type to match the type of event
+                    styleType = hitData.type + 'Style';
+
+                    // now update the override style to use the specified style if it exists
+                    overrideStyle = shape[styleType] || overrideStyle;
+                } // if
+
+                // save the previous style
+                previousStyle = overrideStyle ? Style.apply(context, overrideStyle) : null;
+                
+                // draw the layer
+                shape.draw(context, viewX, viewY, viewWidth, viewHeight, state);
+                
+                // if we have a previous style, then restore that style
+                if (previousStyle) {
+                    Style.apply(context, previousStyle);
+                } // if
+            } // if
+        } // for
+    } // draw
+    
+    /**
+    ### hitGuess(hitX, hitY, state, view)
+    Return true if any of the markers are hit, additionally, store the hit elements
+    so we don't have to do the work again when drawing
+    */
+    function hitGuess(hitX, hitY, state, view) {
+        var hit = false;
+        
+        // iterate through the shapes and check for hits on the bounds
+        for (var ii = shapes.length; (! hit) && ii--; ) {
+            var shape = shapes[ii],
+                bounds = shape.bounds;
+            
+            // update the the shapes hit state
+            hit = hit || (bounds && 
+                hitX >= bounds.x1 && hitX <= bounds.x2 &&
+                hitY >= bounds.y1 && hitY <= bounds.y2);
+        } // for
+        
+        return hit;
+    } // hitGuess
+    
     /* initialise self */
     
     var self = COG.extend(new ViewLayer(params), {
@@ -50,35 +114,24 @@ var ShapeLayer = function(params) {
         Used to add a T5.Poly to the layer
         */
         add: function(shape) {
-            children[children.length] = shape;
-        },
-        
-        each: function(callback) {
-            for (var ii = children.length; ii--; ) {
-                callback(children[ii]);
-            } // for
-        },
-        
-        draw: function(context, viewRect, state, view) {
-            var viewX = viewRect.x1,
-                viewY = viewRect.y1,
-                viewWidth = viewRect.width,
-                viewHeight = viewRect.height;
-            
-            // iterate through the children and draw the layers
-            for (var ii = children.length; ii--; ) {
-                var overrideStyle = children[ii].style,
-                    previousStyle = overrideStyle ? Style.apply(context, overrideStyle) : null;
-                    
-                // draw the layer
-                children[ii].draw(context, viewX, viewY, viewWidth, viewHeight, state);
-                
-                // if we have a previous style, then restore that style
-                if (previousStyle) {
-                    Style.apply(context, previousStyle);
+            if (shape) {
+                // sync this shape with the parent view
+                var view = self.getParent();
+                if (view) {
+                    shape.resync(self.getParent());
                 } // if
-            } // for
-        }
+            
+                // add the the shapes array
+                shapes[shapes.length] = shape;
+            } // if
+        },
+        
+        clear: function() {
+            shapes = [];
+        },
+        
+        draw: draw,
+        hitGuess: hitGuess
     });
     
     // handle grid updates

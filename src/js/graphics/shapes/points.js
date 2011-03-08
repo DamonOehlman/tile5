@@ -46,7 +46,13 @@ var Points = function(points, params) {
         // now draw the lines
         // COG.info('drawing poly: have ' + drawVectors.length + ' vectors');
         for (var ii = drawPoints.length; ii--; ) {
-            context.arc(drawPoints[ii].x, drawPoints[ii].y, radius, 0, Math.PI * 2, false);
+            context.arc(
+                drawPoints[ii].x - offsetX, 
+                drawPoints[ii].y - offsetY, 
+                radius, 
+                0, 
+                Math.PI * 2, 
+                false);
         } // for
         
         // if the polygon is even partially visible then draw it

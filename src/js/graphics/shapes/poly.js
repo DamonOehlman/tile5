@@ -21,38 +21,42 @@ is specified then the style of the T5.PolyLayer is used.
 */
 var Poly = function(points, params) {
     params = COG.extend({
-        fill: false,
         simplify: false
     }, params);
 
     // initialise variables
     var haveData = false,
-        fill = params.fill,
         simplify = params.simplify,
         stateZoom = viewState('ZOOM'),
         drawPoints = [];
+        
+    // initialise the shape type based on the fill state (no fill = line)
+    params.type = params.fill ? 'polygon' : 'line';
     
     /* exported functions */
     
     /**
-    ### draw(context, offsetX, offsetY, state)
-    This method is used to draw the poly to the specified `context`.  The 
-    `offsetX` and `offsetY` arguments specify the panning offset of the T5.View
-    which is taken into account when drawing the poly to the display.  The 
-    `state` argument specifies the current T5.ViewState of the view.
+    ### prepPath(context, offsetX, offsetY, width, height, state, hitData)
+    Prepare the path that will draw the polygon to the canvas
     */
-    function draw(context, offsetX, offsetY, width, height, state) {
+    function prepPath(context, offsetX, offsetY, width, height, state) {
         if (haveData) {
             var first = true,
-                draw = (state & stateZoom) !== 0;
-            
+                maxX, maxY, minX, minY;
+
             context.beginPath();
             
             // now draw the lines
             // COG.info('drawing poly: have ' + drawVectors.length + ' vectors');
             for (var ii = drawPoints.length; ii--; ) {
-                var x = drawPoints[ii].x,
-                    y = drawPoints[ii].y;
+                var x = drawPoints[ii].x - offsetX,
+                    y = drawPoints[ii].y - offsetY;
+                    
+                // update the min and max values
+                minX = typeof minX != 'undefined' || x < minX ? x : minX;
+                minY = typeof minY != 'undefined' || y < minY ? y : minY;
+                maxX = typeof maxX != 'undefined' || x > maxX ? x : maxX;
+                maxY = typeof maxY != 'undefined' || y > maxY ? y : maxY;
                     
                 if (first) {
                     context.moveTo(x, y);
@@ -61,23 +65,14 @@ var Poly = function(points, params) {
                 else {
                     context.lineTo(x, y);
                 } // if..else
-                
-                // update the draw status
-                // TODO: this fails on large polygons that surround the current view
-                // fix and resinstate
-                draw = true; // draw || ((x >= 0 && x <= width) && (y >= 0 && y <= height));
             } // for
-
-            // if the polygon is even partially visible then draw it
-            if (draw) {
-                if (fill) {
-                    context.fill();
-                } // if
-
-                context.stroke();
-            } // if
+            
+            // update the bounds
+            self.bounds = XYRect.init(minX, minY, maxX, maxY);
         } // if
-    } // drawPoly
+        
+        return haveData;
+    } // prepPath
     
     /**
     ### resync(view)
@@ -95,7 +90,7 @@ var Poly = function(points, params) {
     /* define self */
     
     var self = COG.extend(new Shape(params), {
-        draw: draw,
+        prepPath: prepPath,
         resync: resync
     });
 

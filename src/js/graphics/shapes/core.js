@@ -14,16 +14,48 @@ that need to be implemented for shapes that can be drawn in a T5.ShapeLayer.
 var Shape = function(params) {
     params = COG.extend({
         style: null,
-        properties: {}
+        fill: false,
+        observable: true, // TODO: should this be true or false by default
+        properties: {},
+        type: 'shape',
+        rotation: 0,
+        scale: 1
     }, params);
     
-    return COG.extend(params, {
-        rect: null,
+    var fill = params.fill;
+    
+    /* exports */
+    
+    /* initialise shape */
+    
+    var self = COG.extend(params, {
+        id: COG.objId(params.type),
+
+        // public properties
+        bounds: null,
+        hit: false,
+
+        /**
+        ### drag(dragData, dragX, dragY, drop)
+        */
+        drag: null,
         
         /**
-        ### draw(context, offsetX, offsetY, width, height, state)
+        ### draw(context, x, y, width, height, state)
         */
-        draw: function(context, offsetX, offsetY, width, height, state) {
+        draw: function(context, x, y, width, height, state) {
+            if (fill) {
+                context.fill();
+            } // if
+            
+            context.stroke();
+        },
+
+        /**
+        ### prepPath(context, x, y, width, height, state)
+        Prepping the path for a shape is the main 
+        */
+        prepPath: function(context, x, y, width, height, state) {
         },
         
         /**
@@ -32,4 +64,11 @@ var Shape = function(params) {
         resync: function(view) {
         }
     });
+    
+    // make the shape observable
+    if (params.observable) {
+        COG.observable(self);
+    } // if
+    
+    return self;
 };

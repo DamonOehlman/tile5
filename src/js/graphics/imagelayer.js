@@ -111,17 +111,23 @@ var ImageLayer = function(genId, params) {
     } // changeGenerator
     
     function clip(context, viewRect, state, view) {
+        var offsetX = viewRect.x1,
+            offsetY = viewRect.y1;
+        
         eachImage(viewRect, state, function(image, x, y, width, height) {
-            context.rect(x, y, width, height);
+            context.rect(x - offsetX, y - offsetY, width, height);
         });
     } // clip
     
     function draw(context, viewRect, state, view) {
+        var offsetX = viewRect.x1,
+            offsetY = viewRect.y1;
+        
         eachImage(viewRect, state, function(image, x, y, width, height) {
             context.drawImage(
                 image, 
-                x, 
-                y,
+                x - offsetX, 
+                y - offsetY,
                 image.width,
                 image.height);
         });

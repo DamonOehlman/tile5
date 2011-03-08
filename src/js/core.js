@@ -28,3 +28,4 @@ function userMessage(msgType, msgKey, msgHtml) {
 //= require "core/vector"
 //= require "core/xyrect"
 //= require "core/dimensions"
+//= require "core/hits"

@@ -185,6 +185,7 @@ var View = function(params) {
         layerMaxXY = null,
         lastRefresh = 0,
         lastClear = 0,
+        lastHitData = null,
         rotation = 0,
         resizeCanvasTimeout = 0,
         scaleFactor = 1,
@@ -255,18 +256,10 @@ var View = function(params) {
         // COG.info('interact center, x = ' + interactCenter.x + ', y = ' + interactCenter.y);
     } // setZoomCenter
     
-    function getScaledOffset(srcX, srcY) {
-        var scaledX, scaledY,
-            invScaleFactor = 1 / scaleFactor;
-            
-        if (scaleFactor !== 1 && drawRect) {
-            scaledX = drawRect.x1 + srcX * invScaleFactor;
-            scaledY = drawRect.y1 + srcY * invScaleFactor;
-        }
-        else {
-            scaledX = srcX + offsetX;
-            scaledY = srcY + offsetY;
-        } // if..else
+    function getScaledOffset(srcX, srcY, offset) {
+        var invScaleFactor = 1 / scaleFactor,
+            scaledX = (offset && drawRect ? drawRect.x1 : 0) + srcX * invScaleFactor,
+            scaledY = (offset && drawRect ? drawRect.y1 : 0) + srcY * invScaleFactor;
         
         return XY.init(scaledX, scaledY);        
     } // getScaledOffset
@@ -296,7 +289,7 @@ var View = function(params) {
         dragObject = null;
 
         // initialise the hit data
-        hitData = initHitData('down', absXY, relXY);
+        initHitData('down', absXY, relXY);
 
         /*
         // get the objects under the current offset
@@ -315,7 +308,7 @@ var View = function(params) {
     
     function handlePointerHover(evt, absXY, relXY) {
         // initialise the hit data
-        hitData = initHitData('hover', absXY, relXY);
+        initHitData('hover', absXY, relXY, scaleFactor);
 
         /*
         
@@ -371,13 +364,11 @@ var View = function(params) {
     } // handlePrepCanvasCallback
     
     function handlePointerTap(evt, absXY, relXY) {
-        var scaledOffset = getScaledOffset(relXY.x, relXY.y);
-            
-            // initialise the hit data
-        hitData = initHitData('tap', absXY, relXY);
+        // initialise the hit data
+        initHitData('tap', absXY, relXY);
 
         // trigger the tap on all layers
-        triggerAll('tap', absXY, relXY, scaledOffset);
+        triggerAll('tap', absXY, relXY, getScaledOffset(relXY.x, relXY.y, true));
     } // handlePointerTap
     
     /* private functions */
@@ -607,6 +598,7 @@ var View = function(params) {
     function drawView(drawState, rect, canClip, tickCount) {
         var drawLayer,
             rectCenter = XYRect.center(rect),
+            rotation = Math.PI,
             ii = 0;
             
         // prep the draw rect
@@ -633,9 +625,6 @@ var View = function(params) {
                 mainContext.scale(scaleFactor, scaleFactor);
             } // if
 
-            // translate the display appropriately
-            mainContext.translate(-drawRect.x1, -drawRect.y1);
-            
             // reset the layer bounds
             layerMinXY = null;
             layerMaxXY = null;
@@ -717,7 +706,25 @@ var View = function(params) {
     ### checkHits
     */
     function checkHits() {
-        var elements = hitData ? hitData.elements : [];
+        var elements = hitData ? hitData.elements : [],
+            ii;
+        
+        // if we have last hits, then check for elements
+        if (lastHitData && hitData && hitData.type === 'hover') {
+            var diffElements = Hits.diffHits(lastHitData.elements, elements);
+            
+            // if we have diff elements then trigger an out event
+            if (diffElements.length > 0) {
+                self.triggerCustom(
+                    hitData.type + 'Out', {
+                        hitType: hitData.type
+                    },
+                    diffElements, 
+                    hitData.absXY,
+                    hitData.relXY,
+                    XY.init(hitData.x, hitData.y));                
+            } // if
+        } // if
         
         // check the hit data
         if (elements.length > 0) {
@@ -725,7 +732,7 @@ var View = function(params) {
                 downY = hitData.y;
             
             // iterate through objects from last to first (first get drawn last so sit underneath)
-            for (var ii = elements.length; ii--; ) {
+            for (ii = elements.length; ii--; ) {
                 if (dragStart(elements[ii], downX, downY)) {
                     break;
                 } // if
@@ -741,6 +748,9 @@ var View = function(params) {
                 hitData.relXY,
                 XY.init(hitData.x, hitData.y));
         } // if
+        
+        // save the last hit elements
+        lastHitData = elements.length > 0 ? Hits.copy(hitData) : null;
     } // checkHits
     
     function cycle(tickCount) {
@@ -830,16 +840,20 @@ var View = function(params) {
     } // cycle
     
     function initHitData(hitType, absXY, relXY) {
-        var scaledOffset = getScaledOffset(relXY.x, relXY.y),
-            hitX = scaledOffset.x | 0,
-            hitY = scaledOffset.y | 0,
-            potentialHit = false;
+        // initialise variables
+        var potentialHit = false;
+        
+        // initialise the hit data
+        hitData = Hits.init(hitType, absXY, relXY, scaleFactor);
         
         // iterate through the layers and check to see if we have hit potential
-        for (var ii = layerCount; (! potentialHit) && ii--; ) {
-            potentialHit = layers[ii].hitGuess ? 
-                layers[ii].hitGuess(hitX, hitY, state, self) :
-                false;
+        // iterate through all layers as some layers may use the hit guess operation
+        // to initialise hit data rather than doing it in the draw loop 
+        // (T5.MarkerLayer for instance)
+        for (var ii = layerCount; ii--; ) {
+            potentialHit = (layers[ii].hitGuess ? 
+                layers[ii].hitGuess(hitData.x, hitData.y, state, self) :
+                false) | potentialHit;
         } // for
 
         // if we have a potential hit then invalidate the view so a more detailed
@@ -847,18 +861,6 @@ var View = function(params) {
         if (potentialHit) {
             invalidate();
         } // if
-
-        return {
-            // store the required hit data
-            type: hitType,
-            x: scaledOffset.x,
-            y: scaledOffset.y,
-            elements: [],
-            
-            // also store the original event data
-            absXY: absXY,
-            relXY: relXY
-        };
     } // initHitData
     
     function layerContextChanged(layer) {
@@ -1285,7 +1287,9 @@ var View = function(params) {
     deviceScaling = getConfig().getScaling();
     
     // add the markers layer
-    self.markers = addLayer('markers', new MarkerLayer());
+    self.markers = addLayer('markers', new ShapeLayer({
+        zindex: 20
+    }));
     
     // make the view observable
     COG.observable(self);

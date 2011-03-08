@@ -17,7 +17,7 @@ var featureDefinitions = {
     point: COG.extend({}, DEFAULT_FEATUREDEF, {
         processor: processPoint,
         group: 'markers',
-        layerClass: MarkerLayer
+        layerClass: ShapeLayer
     }),
     
     linestring: COG.extend({}, DEFAULT_FEATUREDEF, {

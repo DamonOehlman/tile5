@@ -57,30 +57,15 @@ var ImageMarker = function(params) {
         imageUrl: null,
         animatingImage: null,
         animatingImageUrl: null,
-        imageAnchor: null,
-        rotation: 0,
-        scale: 1,
-        opacity: 1
+        imageAnchor: null
     }, params);
     
     var dragOffset = null,
+        drawX,
+        drawY,
         imageOffset = params.imageAnchor ?
             T5.XY.invert(params.imageAnchor) : 
             null;
-    
-    function getImageUrl() {
-        if (params.animatingImageUrl && self.isAnimating()) {
-            // we want a smooth transition, so make 
-            // sure the end image is loaded
-            T5.Images.load(params.imageUrl);
-            
-            // return the animating image url
-            return params.animatingImageUrl;
-        }
-        else {
-            return params.imageUrl;
-        } // if..else
-    } // getImageUrl
     
     /* exports */
     
@@ -126,16 +111,22 @@ var ImageMarker = function(params) {
     } // drag    
     
     /**
-    ### drawMarker(context, offset, xy, state, overlay, view)
-    An overriden implementation of the T5.Annotation.drawMarker which 
-    draws an image to the canvas.
+    ### draw(context, x, y, width, height, state)
     */
-    function drawMarker(context, viewRect, x, y, state, overlay, view) {
+    function draw(context, offsetX, offsetY, width, height, state) {
+        context.drawImage(self.image, drawX, drawY);
+    } // draw
+    
+    /**
+    ### prepPath(context, offsetX, offsetY, width, height, state, hitData)
+    Prepare the path that will draw the polygon to the canvas
+    */
+    function prepPath(context, offsetX, offsetY, width, height, state) {
         // get the image
-        var image = self.isAnimating() && self.animatingImage ? 
-                self.animatingImage : self.image;
-                
-        if (image && (image.width > 0)) {
+        var image = self.image,
+            draw = image && image.width > 0;
+            
+        if (draw) {
             if (! imageOffset) {
                 imageOffset = XY.init(
                     -image.width >> 1, 
@@ -143,49 +134,27 @@ var ImageMarker = function(params) {
                 );
             } // if
             
-            var currentScale = self.scale,
-                drawX = x + ~~(imageOffset.x * currentScale),
-                drawY = y + ~~(imageOffset.y * currentScale),
-                drawWidth = ~~(image.width * currentScale),
-                drawHeight = ~~(image.height * currentScale);
-                
-            // context.fillStyle = "#F00";
-            // context.fillRect(drawX, drawY, drawWidth, drawHeight);
-
-            // update the bounds
-            self.updateBounds(drawX, drawY, drawWidth, drawWidth);
+            // update the draw x and y
+            drawX = self.xy.x + imageOffset.x - offsetX;
+            drawY = self.xy.y + imageOffset.y - offsetY;
             
-            // COG.info('drawing image @ x: ' + x + ', y: ' + y);
-            if (self.rotation || (self.opacity !== 1)) {
-                context.save();
-                try {
-                    context.globalAlpha = self.opacity;
-                    context.translate(x, y);
-                    context.rotate(self.rotation);
-                
-                    // draw the image
-                    context.drawImage(
-                        image,
-                        imageOffset.x * currentScale,
-                        imageOffset.y * currentScale,
-                        drawWidth,
-                        drawHeight);
-                }
-                finally {
-                    context.restore();
-                } // try..finally
-            }
-            else {
-                // draw the image
-                context.drawImage(image, drawX, drawY, drawWidth, drawHeight);
-            } // if..else
+            // update the bounds
+            self.bounds = XYRect.init(drawX, drawY, drawX + image.width, drawY + image.height);
+            
+            // open the path for hit tests
+            context.beginPath();
+            context.rect(drawX, drawY, image.width, image.height);
+            
         } // if
-    } // drawImage
+        
+        return draw;
+    } // prepPath 
     
     var self = COG.extend(new Marker(params), {
         changeImage: changeImage,
         drag: drag,
-        drawMarker: drawMarker
+        draw: draw,
+        prepPath: prepPath
     });
     
     if (! self.image) {

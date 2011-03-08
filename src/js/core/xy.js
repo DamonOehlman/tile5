@@ -198,6 +198,14 @@ var XY = (function() {
     } // offset
     
     /**
+    ### scale(xy, scaleFactor)
+    Returns a new composite xy that has been scaled by the specified scale factor
+    */
+    function scale(xy, scaleFactor) {
+        return init(xy.x / scaleFactor | 0, xy.y / scaleFactor | 0);
+    } // scale
+    
+    /**
     ### simplify(xy*, generalization)
     This function is used to simplify a xy array by removing what would be considered
     'redundant' xy positions by elimitating at a similar position.  
@@ -268,6 +276,7 @@ var XY = (function() {
         min: minXY,
         max: maxXY,
         offset: offset,
+        scale: scale,
         simplify: simplify,
         theta: theta,
         toString: toString
