@@ -77,7 +77,7 @@ T5.Geo.Decarta = (function() {
                 }
             }, params);
 
-            var self = {
+            var _self = {
                 getXML: function() {
                     // initailise the address xml
                     var addressXml = COG.formatStr("<xls:Address countryCode=\"{0}\" language=\"{1}\">", params.countryCode, params.language);
@@ -97,7 +97,7 @@ T5.Geo.Decarta = (function() {
                 } //getXML
             };
             
-            return self;
+            return _self;
         },
         
         Place: function(params) {
@@ -109,8 +109,8 @@ T5.Geo.Decarta = (function() {
                 countryCode: ""
             }, params);
             
-            // initialise self (including params in self)
-            var self = COG.extend({
+            // initialise _self (including params in _self)
+            var _self = COG.extend({
                 calcMatchPercentage: function(input) {
                     var fnresult = 0;
                     
@@ -165,13 +165,13 @@ T5.Geo.Decarta = (function() {
                         } // if
                     } // for
                     
-                    // apply the updated parameter values to self
-                    COG.extend(self, params);
+                    // apply the updated parameter values to _self
+                    COG.extend(_self, params);
                 },
                 
                 toString: function() {
                     // if a country code is assigned, then look for a place formatter
-                    var formatter = placeFormatters[self.getCountryCode()];
+                    var formatter = placeFormatters[_self.getCountryCode()];
                     
                     // if we don't have a formatter assigned, then use the default
                     if (! formatter) {
@@ -182,7 +182,7 @@ T5.Geo.Decarta = (function() {
                 }
             }, params);
             
-            return self;
+            return _self;
         },
         
         Street: function(params) {
@@ -246,7 +246,7 @@ T5.Geo.Decarta = (function() {
             return {
                 centerPos: T5.Geo.Position.parse(jsonData.CenterPoint ? jsonData.CenterPoint.pos.content : ""),
                 radius: new T5.Geo.Radius(jsonData.Radius ? jsonData.Radius.content : 0, jsonData.Radius ? jsonData.Radius.unit : null)
-            }; // self
+            }; // _self
         } // CenterContext
     }; // types
     
@@ -348,8 +348,8 @@ T5.Geo.Decarta = (function() {
 
     // define the basic request type
     var Request = function() {
-        // initialise self
-        var self = {
+        // initialise _self
+        var _self = {
             methodName: "",
             maxResponses: 25,
             version: "1.0",
@@ -362,9 +362,9 @@ T5.Geo.Decarta = (function() {
             parseResponse: function(response) {
                 return response;
             }
-        }; // self
+        }; // _self
 
-        return self;
+        return _self;
     };
     
     var RUOKRequest = function(params) {
@@ -445,8 +445,8 @@ T5.Geo.Decarta = (function() {
         // create the parent
         var parent = new Request();
         
-        // initialise self
-        var self = COG.extend({}, parent, {
+        // initialise _self
+        var _self = COG.extend({}, parent, {
             methodName: "Geocode",
             
             getRequestBody: function() {
@@ -480,8 +480,8 @@ T5.Geo.Decarta = (function() {
             }
         });
         
-        // return self
-        return self;
+        // return _self
+        return _self;
     };
         
     var ReverseGeocodeRequest = function(params) {
@@ -490,7 +490,7 @@ T5.Geo.Decarta = (function() {
             geocodePreference: "StreetAddress"
         }, params);
         
-        var self = COG.extend(new Request(), {
+        var _self = COG.extend(new Request(), {
             methodName: "ReverseGeocode",
             
             getRequestBody: function() {
@@ -522,7 +522,7 @@ T5.Geo.Decarta = (function() {
             }
         });
         
-        return self;
+        return _self;
     }; 
         
         
@@ -572,8 +572,8 @@ T5.Geo.Decarta = (function() {
             return fnresult;
         } // parseInstructions
         
-        // initialise self
-        var self = COG.extend({}, parent, {
+        // initialise _self
+        var _self = COG.extend({}, parent, {
             methodName: "DetermineRoute",
             
             getRequestBody: function() {
@@ -640,7 +640,7 @@ T5.Geo.Decarta = (function() {
             }
         });
         
-        return self;
+        return _self;
     };
     
     /* exposed module functionality */
@@ -859,11 +859,11 @@ T5.Geo.Decarta = (function() {
         /* define the generator */
         
         // initialise the generator
-        var self = COG.extend(new T5.ImageGenerator(params), {
+        var _self = COG.extend(new T5.ImageGenerator(params), {
             run: run
         });
         
-        return self;
+        return _self;
     };
     
     // register the decarta generator

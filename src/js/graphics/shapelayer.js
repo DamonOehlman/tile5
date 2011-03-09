@@ -15,7 +15,8 @@ var ShapeLayer = function(params) {
     }, params);
     
     // initialise variables
-    var shapes = [];
+    var shapes = [],
+        pipTransformed = CANI.canvas.pipTransformed;
         
     /* private functions */
     
@@ -31,7 +32,7 @@ var ShapeLayer = function(params) {
             return diff != 0 ? diff : shapeB.xy.x - shapeA.xy.y;
         });
         
-        self.changed();
+        _self.changed();
     } // performSync
     
     /* event handlers */
@@ -45,8 +46,8 @@ var ShapeLayer = function(params) {
     function draw(context, viewRect, state, view, tickCount, hitData) {
         var viewX = viewRect.x1,
             viewY = viewRect.y1,
-            hitX = hitData ? hitData.x : 0,
-            hitY = hitData ? hitData.y : 0,
+            hitX = hitData ? (pipTransformed ? hitData.x : hitData.relXY.x) : 0,
+            hitY = hitData ? (pipTransformed ? hitData.y : hitData.relXY.y) : 0,
             viewWidth = viewRect.width,
             viewHeight = viewRect.height;
         
@@ -61,13 +62,15 @@ var ShapeLayer = function(params) {
             if (shape.prepPath(context, viewX, viewY, viewWidth, viewHeight, state)) {
                 // check for a hit in the path that has just been drawn
                 if (hitData && context.isPointInPath(hitX, hitY)) {
-                    hitData.elements.push(Hits.initHit(shape.type, shape));
+                    hitData.elements.push(Hits.initHit(shape.type, shape, {
+                        drag: shape.draggable ? shape.drag : null
+                    }));
 
                     // init the style type to match the type of event
                     styleType = hitData.type + 'Style';
 
                     // now update the override style to use the specified style if it exists
-                    overrideStyle = shape[styleType] || self[styleType] || overrideStyle;
+                    overrideStyle = shape[styleType] || _self[styleType] || overrideStyle;
                 } // if
 
                 // save the previous style
@@ -106,19 +109,23 @@ var ShapeLayer = function(params) {
         return hit;
     } // hitGuess
     
-    /* initialise self */
+    /* initialise _self */
     
-    var self = COG.extend(new ViewLayer(params), {
+    var _self = COG.extend(new ViewLayer(params), {
         /**
         ### add(poly)
         Used to add a T5.Poly to the layer
         */
         add: function(shape) {
             if (shape) {
+                shape.layer = _self;
+                
                 // sync this shape with the parent view
-                var view = self.getParent();
+                var view = _self.getParent();
                 if (view) {
-                    shape.resync(self.getParent());
+                    shape.resync(_self.getParent());
+                    
+                    view.invalidate();
                 } // if
             
                 // add the the shapes array
@@ -135,8 +142,8 @@ var ShapeLayer = function(params) {
     });
     
     // handle grid updates
-    self.bind('parentChange', handleResync);
-    self.bind('resync', handleResync);
+    _self.bind('parentChange', handleResync);
+    _self.bind('resync', handleResync);
     
-    return self;
+    return _self;
 };

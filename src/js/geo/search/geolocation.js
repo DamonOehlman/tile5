@@ -46,7 +46,7 @@ var LocationSearch = function(params) {
     } // trackingError
     
     // initialise the geosearch agent
-    var self = new T5.Geo.GeoSearchAgent(COG.extend({
+    var _self = new T5.Geo.GeoSearchAgent(COG.extend({
         execute: function(searchParams, callback) {
             if (navigator.geolocation && (! geoWatchId)) {
                 // watch for position updates
@@ -86,5 +86,5 @@ var LocationSearch = function(params) {
         }
     }, params));
     
-    return self;
+    return _self;
 };

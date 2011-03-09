@@ -159,6 +159,7 @@ var View = function(params) {
         mainContext = null,
         isIE = typeof window.attachEvent != 'undefined',
         flashPolyfill,
+        hitFlagged = false,
         minRefresh = params.minRefresh,
         offsetX = 0,
         offsetY = 0,
@@ -343,9 +344,6 @@ var View = function(params) {
 
         // reset the drag object
         dragObject = null;
-        
-        // reset the hit data
-        hitData = null;
     } // handlePointerUp
     
     function handleResize(evt) {
@@ -413,7 +411,7 @@ var View = function(params) {
                 halfHeight = viewHeight >> 1;
                 
                 // trigger the resize event for the view
-                self.trigger('resize', viewWidth, viewHeight);
+                _self.trigger('resize', viewWidth, viewHeight);
                 
                 // and then tell all the layers
                 for (ii = layerCount; ii--; ) {
@@ -441,13 +439,13 @@ var View = function(params) {
         
         // bind to the remove event
         value.bind('remove', function() {
-            self.removeLayer(id);
+            _self.removeLayer(id);
         });
         
         layerContextChanged(value);
         
         // tell the layer that I'm going to take care of it
-        value.setParent(self);
+        value.setParent(_self);
         
         // add the new layer
         layers.push(value);
@@ -634,7 +632,7 @@ var View = function(params) {
 
                 for (ii = layerCount; ii--; ) {
                     if (layers[ii].clip) {
-                        layers[ii].clip(mainContext, drawRect, drawState, self, tickCount);
+                        layers[ii].clip(mainContext, drawRect, drawState, _self, tickCount);
                     } // if
                 } // for
 
@@ -677,7 +675,7 @@ var View = function(params) {
                         mainContext, 
                         drawRect, 
                         drawState, 
-                        self,
+                        _self,
                         tickCount,
                         hitData);
 
@@ -710,19 +708,12 @@ var View = function(params) {
             ii;
         
         // if we have last hits, then check for elements
-        if (lastHitData && hitData && hitData.type === 'hover') {
+        if (lastHitData && lastHitData.type === 'hover') {
             var diffElements = Hits.diffHits(lastHitData.elements, elements);
             
             // if we have diff elements then trigger an out event
             if (diffElements.length > 0) {
-                self.triggerCustom(
-                    hitData.type + 'Out', {
-                        hitType: hitData.type
-                    },
-                    diffElements, 
-                    hitData.absXY,
-                    hitData.relXY,
-                    XY.init(hitData.x, hitData.y));                
+                Hits.triggerEvent(lastHitData, _self, 'Out', diffElements);
             } // if
         } // if
         
@@ -738,19 +729,11 @@ var View = function(params) {
                 } // if
             } // for
             
-            
-            self.triggerCustom(
-                hitData.type + 'Hit', {
-                    hitType: hitData.type
-                },
-                elements, 
-                hitData.absXY,
-                hitData.relXY,
-                XY.init(hitData.x, hitData.y));
+            Hits.triggerEvent(hitData, _self);
         } // if
         
         // save the last hit elements
-        lastHitData = elements.length > 0 ? Hits.copy(hitData) : null;
+        lastHitData = elements.length > 0 ? COG.extend({}, hitData) : null;
     } // checkHits
     
     function cycle(tickCount) {
@@ -823,7 +806,10 @@ var View = function(params) {
             tickCount);
 
         // check for hits 
-        checkHits();
+        if (hitData) {
+            checkHits();
+            hitData = null;
+        } // if
 
         // check whether a forced refresh is required
         // TODO: include some state checks here...
@@ -840,9 +826,6 @@ var View = function(params) {
     } // cycle
     
     function initHitData(hitType, absXY, relXY) {
-        // initialise variables
-        var potentialHit = false;
-        
         // initialise the hit data
         hitData = Hits.init(hitType, absXY, relXY, scaleFactor);
         
@@ -851,14 +834,14 @@ var View = function(params) {
         // to initialise hit data rather than doing it in the draw loop 
         // (T5.MarkerLayer for instance)
         for (var ii = layerCount; ii--; ) {
-            potentialHit = (layers[ii].hitGuess ? 
-                layers[ii].hitGuess(hitData.x, hitData.y, state, self) :
-                false) | potentialHit;
+            hitFlagged = hitFlagged || (layers[ii].hitGuess ? 
+                layers[ii].hitGuess(hitData.x, hitData.y, state, _self) :
+                false);
         } // for
 
         // if we have a potential hit then invalidate the view so a more detailed
         // test can be run
-        if (potentialHit) {
+        if (hitFlagged) {
             invalidate();
         } // if
     } // initHitData
@@ -997,7 +980,7 @@ var View = function(params) {
         
         if (value) {
             addLayer(id, value);
-            value.trigger('refresh', self, getViewRect());
+            value.trigger('refresh', _self, getViewRect());
         } // if
 
         // invalidate the view
@@ -1020,7 +1003,7 @@ var View = function(params) {
 
         // update the last refresh tick count
         lastRefresh = new Date().getTime();
-        triggerAll('refresh', self, getViewRect());
+        triggerAll('refresh', _self, getViewRect());
         
         // invalidate
         invalidate();
@@ -1033,7 +1016,7 @@ var View = function(params) {
     function removeLayer(id) {
         var layerIndex = getLayerIndex(id);
         if ((layerIndex >= 0) && (layerIndex < layerCount)) {
-            self.trigger('layerRemoved', layers[layerIndex]);
+            _self.trigger('layerRemoved', layers[layerIndex]);
 
             layers.splice(layerIndex, 1);
             invalidate();
@@ -1101,7 +1084,7 @@ var View = function(params) {
             scaleView();
         }  // if..else        
 
-        return self;
+        return _self;
     } // scale
     
     /**
@@ -1159,7 +1142,7 @@ var View = function(params) {
     Trigger an event on the view and all layers currently contained in the view
     */
     function triggerAll() {
-        var cancel = self.trigger.apply(null, arguments).cancel;
+        var cancel = _self.trigger.apply(null, arguments).cancel;
         for (var ii = layers.length; ii--; ) {
             cancel = layers[ii].trigger.apply(null, arguments).cancel || cancel;
         } // for
@@ -1243,7 +1226,7 @@ var View = function(params) {
     } // updateOffset
     
     function triggerAllUntilCancelled() {
-        var cancel = self.trigger.apply(null, arguments).cancel;
+        var cancel = _self.trigger.apply(null, arguments).cancel;
         for (var ii = layers.length; ii--; ) {
             cancel = layers[ii].trigger.apply(null, arguments).cancel || cancel;
         } // for
@@ -1253,8 +1236,8 @@ var View = function(params) {
     
     /* object definition */
     
-    // initialise self
-    var self = {
+    // initialise _self
+    var _self = {
         id: params.id,
         deviceScaling: deviceScaling,
         fastDraw: params.fastDraw || getConfig().requireFastDraw,
@@ -1286,25 +1269,20 @@ var View = function(params) {
 
     deviceScaling = getConfig().getScaling();
     
-    // add the markers layer
-    self.markers = addLayer('markers', new ShapeLayer({
-        zindex: 20
-    }));
-    
     // make the view observable
-    COG.observable(self);
+    COG.observable(_self);
     
     // listen for being woken up
-    self.bind('invalidate', function(evt) {
+    _self.bind('invalidate', function(evt) {
         invalidate();
     });
     
     // handle the view being resynced
-    self.bind('resync', handleResync);
+    _self.bind('resync', handleResync);
     
     // make the view configurable
     COG.configurable(
-        self, [
+        _self, [
             'container',
             'captureHover',
             'captureDrag', 
@@ -1323,20 +1301,30 @@ var View = function(params) {
             'pannable': captureInteractionEvents
         }),
         true);
-    
-    // attach the map to the canvas
-    attachToCanvas();
-    
-    // if autosized, then listen for resize events
-    if (params.autoSize) {
-        if (isIE) {
-            window.attachEvent('onresize', handleResize);
-        }
-        else {
-            window.addEventListener('resize', handleResize, false);
-        }
-    } // if
 
-    return self;
+    CANI.init(function(testResults) {
+        // add the markers layer
+        _self.markers = addLayer('markers', new ShapeLayer({
+            zindex: 20
+        }));
+
+        // store the results for reference
+        canvasCaps = testResults.canvas;
+        
+        // attach the map to the canvas
+        attachToCanvas();
+    
+        // if autosized, then listen for resize events
+        if (params.autoSize) {
+            if (isIE) {
+                window.attachEvent('onresize', handleResize);
+            }
+            else {
+                window.addEventListener('resize', handleResize, false);
+            }
+        } // if
+    });
+
+    return _self;
 }; // T5.View
 

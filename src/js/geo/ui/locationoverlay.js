@@ -38,7 +38,7 @@ var LocationOverlay = exports.LocationOverlay = function(params) {
             iconImage.height >> 1);
     };
     
-    var self = COG.extend(new T5.ViewLayer(params), {
+    var _self = COG.extend(new T5.ViewLayer(params), {
         pos: params.pos,
         accuracy: params.accuracy,
         drawAccuracyIndicator: false,
@@ -70,22 +70,22 @@ var LocationOverlay = exports.LocationOverlay = function(params) {
                     iconImage.height);
             } // if
             
-            self.changed();
+            _self.changed();
         },
         
         update: function(grid) {
             if (grid) {
-                indicatorRadius = grid.getPixelDistance(self.accuracy) >> 1;
-                centerXY = grid.getGridXYForPosition(self.pos);
+                indicatorRadius = grid.getPixelDistance(_self.accuracy) >> 1;
+                centerXY = grid.getGridXYForPosition(_self.pos);
                 
-                self.changed();
+                _self.changed();
             } // if
         }
     });
     
-    self.bind('gridUpdate', function(evt, grid) {
-        self.update(grid);
+    _self.bind('gridUpdate', function(evt, grid) {
+        _self.update(grid);
     });
     
-    return self;
+    return _self;
 };

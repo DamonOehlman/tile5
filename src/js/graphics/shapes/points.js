@@ -72,12 +72,12 @@ var Points = function(points, params) {
         drawPoints = XY.floor(points);
     } // resyncToGrid
     
-    /* define self */
+    /* define _self */
     
-    var self = COG.extend(new Shape(params), {
+    var _self = COG.extend(new Shape(params), {
         draw: draw,
         resync: resync
     });
 
-    return self;
+    return _self;
 };

@@ -68,7 +68,7 @@ var Poly = function(points, params) {
             } // for
             
             // update the bounds
-            self.bounds = XYRect.init(minX, minY, maxX, maxY);
+            _self.bounds = XYRect.init(minX, minY, maxX, maxY);
         } // if
         
         return haveData;
@@ -79,7 +79,7 @@ var Poly = function(points, params) {
     Used to synchronize the points of the poly to the grid.
     */
     function resync(view) {
-        self.xy = view.syncXY(points);
+        _self.xy = view.syncXY(points);
         
         // simplify the vectors for drawing (if required)
         drawPoints = XY.floor(simplify ? XY.simplify(points) : points);
@@ -87,9 +87,9 @@ var Poly = function(points, params) {
         // TODO: determine the bounding rect of the shape
     } // resyncToGrid
     
-    /* define self */
+    /* define _self */
     
-    var self = COG.extend(new Shape(params), {
+    var _self = COG.extend(new Shape(params), {
         prepPath: prepPath,
         resync: resync
     });
@@ -97,5 +97,5 @@ var Poly = function(points, params) {
     // initialise the first item to the first element in the array
     haveData = points && (points.length >= 2);
     
-    return self;
+    return _self;
 };

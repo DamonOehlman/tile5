@@ -82,10 +82,10 @@ var AnimatedPathLayer = function(params) {
         pathOffset = updatedValue;
 
         if (complete) {
-            self.remove();
+            _self.remove();
         } // if
         
-        self.changed();
+        _self.changed();
     }
     
     /* exports */
@@ -127,8 +127,8 @@ var AnimatedPathLayer = function(params) {
     } // draw
     
     
-    // initialise self
-    var self =  COG.extend(new ViewLayer(params), {
+    // initialise _self
+    var _self =  COG.extend(new ViewLayer(params), {
         cycle: cycle,
         draw: draw
     });
@@ -136,5 +136,5 @@ var AnimatedPathLayer = function(params) {
     // calculate the tween
     COG.tweenValue(0, edgeData.total, params.easing, params.duration, handleUpdates);
         
-    return self;
+    return _self;
 }; // T5.AnimatedPathLayer

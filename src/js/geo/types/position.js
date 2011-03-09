@@ -153,7 +153,7 @@ var Position = (function() {
     ### init(initLat, initLon)
     */
     function init(initLat, initLon) {
-        // initialise self
+        // initialise _self
         return {
             lat: parseFloat(initLat ? initLat : 0),
             lon: parseFloat(initLon ? initLon : 0)

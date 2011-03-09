@@ -18,11 +18,11 @@ var ImageGenerator = function(params) {
         COG.warn('running base generator - this should be overriden');
     } // run
     
-    var self = {
+    var _self = {
         run: run
     };
     
     // make the tile generator observable
-    COG.observable(self);
-    return self;
+    COG.observable(_self);
+    return _self;
 };

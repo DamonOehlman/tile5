@@ -57,8 +57,8 @@ T5.Dispatcher = (function() {
                 execute: null
             }, params);
             
-            // initialise self
-            var self = {
+            // initialise _self
+            var _self = {
                 id: params.id,
                 
                 execute: function() {
@@ -72,16 +72,16 @@ T5.Dispatcher = (function() {
                 },
                 
                 toString: function() {
-                    return COG.formatStr("{0} [title = {1}, icon = {2}]", self.id, params.title, params.icon);
+                    return COG.formatStr("{0} [title = {1}, icon = {2}]", _self.id, params.title, params.icon);
                 }
             };
             
             // if the action has been set to auto register, then add it to the registry
             if (params.autoRegister) {
-                module.registerAction(self);
+                module.registerAction(_self);
             } // if
             
-            return self;
+            return _self;
         },
         
         /* agents */
@@ -94,7 +94,7 @@ T5.Dispatcher = (function() {
             }, params);
             
             // define the wrapper for the agent
-            var self = {
+            var _self = {
                 getName: function() {
                     return params.name;
                 },
@@ -104,7 +104,7 @@ T5.Dispatcher = (function() {
                 },
                 
                 getId: function() {
-                    return COG.toID(self.getName());
+                    return COG.toID(_self.getName());
                 },
                 
                 run: function(args, callback) {
@@ -114,7 +114,7 @@ T5.Dispatcher = (function() {
                         var searchArgs = params.translator ? params.translator(args) : args;
                         
                         // execute the agent
-                        params.execute.call(self, searchArgs, function(data, agentParams) {
+                        params.execute.call(_self, searchArgs, function(data, agentParams) {
                             if (callback) {
                                 callback(data, agentParams, searchArgs);
                             } // if
@@ -123,7 +123,7 @@ T5.Dispatcher = (function() {
                 } // run
             };
             
-            return self;
+            return _self;
         },
         
         runAgents: function(agents, args, callback) {

@@ -106,14 +106,14 @@ T5.Geo.OSM = (function() {
                 // COG.info('tile pixels = ' + T5.XY.toString(tilePixels) + ', viewrect.x1 = ' + viewRect.x1);
                     
                 // initialise the server details
-                serverDetails = self.getServerDetails ? self.getServerDetails() : null;
+                serverDetails = _self.getServerDetails ? _self.getServerDetails() : null;
                 subDomains = serverDetails && serverDetails.subDomains ? 
                     serverDetails.subDomains : [];
                     
                 for (var xx = -1; xx <= xTiles; xx++) {
                     for (var yy = -1; yy <= yTiles; yy++) {
                         // build the tile url 
-                        tileUrl = self.buildTileUrl(
+                        tileUrl = _self.buildTileUrl(
                             tileOffset.x + xx, 
                             tileOffset.y + yy, 
                             zoomLevel, 
@@ -142,7 +142,7 @@ T5.Geo.OSM = (function() {
         /* define the generator */
 
         // initialise the generator
-        var self = COG.extend(new T5.ImageGenerator(params), {
+        var _self = COG.extend(new T5.ImageGenerator(params), {
             buildTileUrl: buildTileUrl,
             run: run
         });
@@ -152,7 +152,7 @@ T5.Geo.OSM = (function() {
         
         // bind to generator events
         
-        return self;
+        return _self;
     }; // OSMGenerator
     
     T5.Generator.register('osm.cloudmade', function(params) {

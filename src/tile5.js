@@ -14,6 +14,7 @@
 // TODO: replace with a github dependency once getjs is done
 //= require <cog/src/cog>
 //= require <cog/src/timelord>
+//= require <cani/src/cani>
 //= require <interact/src/interact>
 
 T5 = (function() {

@@ -70,8 +70,8 @@ var ImageMarker = function(params) {
     /* exports */
     
     function changeImage(imageUrl) {
-        self.image = Images.get(imageUrl, function(loadedImage) {
-            self.image = loadedImage;
+        _self.image = Images.get(imageUrl, function(loadedImage) {
+            _self.image = loadedImage;
         });
     } // changeImage
     
@@ -82,29 +82,30 @@ var ImageMarker = function(params) {
         // if the drag offset is unknown then calculate
         if (! dragOffset) {
             dragOffset = XY.init(
-                dragData.startX - self.xy.x, 
-                dragData.startY - self.xy.y
+                dragData.startX - _self.xy.x, 
+                dragData.startY - _self.xy.y
             );
 
             // TODO: increase scale? to highlight dragging
         }
 
         // update the xy and accounting for a drag offset
-        self.xy.x = dragX - dragOffset.x;
-        self.xy.y = dragY - dragOffset.y;
+        _self.xy.x = dragX - dragOffset.x;
+        _self.xy.y = dragY - dragOffset.y;
         
         if (drop) {
-            var view = self.parent ? self.parent.getParent() : null;
-            
             dragOffset = null;
             
             // TODO: reset scale
             
-            if (view) {
-                view.syncXY([self.xy], true);
+            if (_self.layer) {
+                var view = _self.layer.getParent();
+                if (view) {
+                    view.syncXY([_self.xy], true);
+                } // if
             } // if
             
-            self.trigger('dragDrop');
+            _self.trigger('dragDrop');
         } // if
         
         return true;
@@ -114,7 +115,7 @@ var ImageMarker = function(params) {
     ### draw(context, x, y, width, height, state)
     */
     function draw(context, offsetX, offsetY, width, height, state) {
-        context.drawImage(self.image, drawX, drawY);
+        context.drawImage(_self.image, drawX, drawY);
     } // draw
     
     /**
@@ -123,7 +124,7 @@ var ImageMarker = function(params) {
     */
     function prepPath(context, offsetX, offsetY, width, height, state) {
         // get the image
-        var image = self.image,
+        var image = _self.image,
             draw = image && image.width > 0;
             
         if (draw) {
@@ -135,11 +136,11 @@ var ImageMarker = function(params) {
             } // if
             
             // update the draw x and y
-            drawX = self.xy.x + imageOffset.x - offsetX;
-            drawY = self.xy.y + imageOffset.y - offsetY;
+            drawX = _self.xy.x + imageOffset.x - offsetX;
+            drawY = _self.xy.y + imageOffset.y - offsetY;
             
             // update the bounds
-            self.bounds = XYRect.init(drawX, drawY, drawX + image.width, drawY + image.height);
+            _self.bounds = XYRect.init(drawX, drawY, drawX + image.width, drawY + image.height);
             
             // open the path for hit tests
             context.beginPath();
@@ -150,24 +151,24 @@ var ImageMarker = function(params) {
         return draw;
     } // prepPath 
     
-    var self = COG.extend(new Marker(params), {
+    var _self = COG.extend(new Marker(params), {
         changeImage: changeImage,
         drag: drag,
         draw: draw,
         prepPath: prepPath
     });
     
-    if (! self.image) {
-        self.image = Images.get(params.imageUrl, function(loadedImage) {
-            self.image = loadedImage;
+    if (! _self.image) {
+        _self.image = Images.get(params.imageUrl, function(loadedImage) {
+            _self.image = loadedImage;
         });
     } // if
     
-    if (! self.animatingImage) {
-        self.animatingImage = Images.get(params.animatingImageUrl, function(loadedImage) {
-            self.animatingImage = loadedImage;
+    if (! _self.animatingImage) {
+        _self.animatingImage = Images.get(params.animatingImageUrl, function(loadedImage) {
+            _self.animatingImage = loadedImage;
         });
     } // if    
     
-    return self;
+    return _self;
 };

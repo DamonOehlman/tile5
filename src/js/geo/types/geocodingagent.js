@@ -48,7 +48,7 @@ var GeocodingAgent = function(params) {
         }
     }, params);
     
-    var self = new T5.Dispatcher.Agent(params);
+    var _self = new T5.Dispatcher.Agent(params);
     
-    return self;
+    return _self;
 };

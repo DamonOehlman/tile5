@@ -43,13 +43,13 @@
             } // if
         }
     
-        /* define self */
+        /* define _self */
     
-        var self = COG.extend(new T5.ImageGenerator(params), {
+        var _self = COG.extend(new T5.ImageGenerator(params), {
             run: run
         });
     
-        return self;        
+        return _self;        
     };
     
     // register the zoomify generator

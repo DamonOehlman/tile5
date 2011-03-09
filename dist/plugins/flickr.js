@@ -181,7 +181,7 @@ T5.Flickr = (function() {
                     }
                     
                     COG.info('triggering update');
-                    self.trigger('update');
+                    _self.trigger('update');
                 }, "jsoncallback");
             });
         } // queryFlickr
@@ -241,12 +241,12 @@ T5.Flickr = (function() {
 
         /* define the generator */
 
-        var self = COG.extend(new T5.TileGenerator(params), {
+        var _self = COG.extend(new T5.TileGenerator(params), {
             initTileCreator: initTileCreator
         });
 
         
-        return self;
+        return _self;
     };
     
     T5.Generator.register('flickr', FlickrTileGenerator);

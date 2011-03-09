@@ -106,9 +106,9 @@ var Style = (function() {
             reloadMods();
         } // update
 
-        /* define self */
+        /* define _self */
 
-        var self = {
+        var _self = {
             applyToContext: function(context) {
                 // iterate through the mods and apply to the context
                 for (var ii = mods.length; ii--; ) {
@@ -122,7 +122,7 @@ var Style = (function() {
         /* initialize */
 
         reloadMods();
-        return self;        
+        return _self;        
     } // init
     
     /**

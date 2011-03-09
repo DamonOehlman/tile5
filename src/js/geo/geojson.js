@@ -37,20 +37,12 @@ var featureDefinitions = {
 
 /* feature processor utilities */
 
-function createLine(layer, coordinates, options, builders) {
+function createShape(layer, coordinates, options, builder) {
     var vectors = readVectors(coordinates);
-    
-    layer.add(builders.line(vectors, options));
-    return vectors.length;
-} // createLine
-
-function createPoly(layer, coordinates, options, builders) {
-    // TODO: check this is ok...
-    var vectors = readVectors(coordinates);
-    layer.add(builders.poly(vectors, options));
+    layer.add(builder(vectors, options));
     
     return vectors.length;
-} // createPoly
+} // createShape
 
 function readVectors(coordinates) {
     var count = coordinates ? coordinates.length : 0,
@@ -69,7 +61,7 @@ function processLineString(layer, featureData, options, builders) {
     // TODO: check this is ok...
     var vectors = readVectors(featureData && featureData.coordinates ? featureData.coordinates : []);
     
-    return createLine(layer, vectors, options, builders);
+    return createShape(layer, vectors, options, builders.line);
 } // processLineString
 
 function processMultiLineString(layer, featureData, options, builders) {
@@ -77,7 +69,7 @@ function processMultiLineString(layer, featureData, options, builders) {
         pointsProcessed = 0;
     
     for (var ii = coordinates.length; ii--; ) {
-        pointsProcessed += createLine(layer, coordinates[ii], options, builders);
+        pointsProcessed += createShape(layer, coordinates[ii], options, builders.line);
     } // for
     
     return pointsProcessed;
@@ -99,7 +91,7 @@ function processPoint(layer, featureData, options, builders) {
 function processPolygon(layer, featureData, options, builders) {
     var coordinates = featureData && featureData.coordinates ? featureData.coordinates : [];
     if (coordinates.length > 0) {
-        return createPoly(layer, coordinates[0], options, builders);
+        return createShape(layer, coordinates[0], options, builders.poly);
     } // if
     
     return 0;
@@ -110,7 +102,7 @@ function processMultiPolygon(layer, featureData, options, builders) {
         pointsProcessed = 0;
     
     for (var ii = 0; ii < coordinates.length; ii++) {
-        pointsProcessed += createPoly(layer, coordinates[ii][0], options, builders);
+        pointsProcessed += createShape(layer, coordinates[ii][0], options, builders.poly);
     } // for
     
     return pointsProcessed;

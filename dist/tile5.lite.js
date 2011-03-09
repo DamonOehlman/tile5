@@ -264,7 +264,7 @@ var wordExists = exports.wordExists = function(stringToCheck, word) {
                     evt = {
                         cancel: false,
                         name: eventName,
-                        source: target
+                        source: this
                     },
                     eventArgs;
 
@@ -799,6 +799,93 @@ http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-l
         return new Duration();
     }; // durationToSeconds
 })();
+var CANI = {};
+(function(exports) {
+    var tests = [],
+        testIdx = 0,
+        publishedResults = false;
+
+    /* exports */
+
+    var register = exports.register = function(section, runFn) {
+        tests.push({
+            section: section,
+            run: runFn
+        });
+    };
+
+    var init = exports.init = function(callback) {
+
+        var tmpResults = {};
+
+        function runCurrentTest() {
+            if (testIdx < tests.length) {
+                var test = tests[testIdx++];
+
+                if (! tmpResults[test.section]) {
+                    tmpResults[test.section] = {};
+                } // if
+
+                test.run(tmpResults[test.section], runCurrentTest);
+            }
+            else {
+                for (var section in tmpResults) {
+                    exports[section] = tmpResults[section];
+                } // for
+
+                publishedResults = true;
+
+                if (callback) {
+                    callback(exports);
+                } // if
+            } // if..else
+        } // runCurrentTest
+
+        if (publishedResults && callback) {
+            callback(exports);
+        }
+        else {
+            testIdx = 0;
+            runCurrentTest();
+        } // if..else
+    }; // run
+
+register('canvas', function(results, callback) {
+
+    var testCanvas = document.createElement('canvas'),
+        testContext = testCanvas.getContext('2d');
+
+    /* define test functions */
+
+    function checkPointInPath() {
+        var transformed;
+
+        testContext.save();
+        try {
+            testContext.translate(50, 50);
+
+            testContext.beginPath();
+            testContext.rect(0, 0, 20, 20);
+
+            transformed = testContext.isPointInPath(10, 10);
+        }
+        finally {
+            testContext.restore();
+        } // try..finally
+
+        return transformed;
+    } // checkPointInPath
+
+    /* initialise and run the tests */
+
+    testCanvas.width = 200;
+    testCanvas.height = 200;
+
+    results.pipTransformed = checkPointInPath();
+
+    callback();
+});
+})(CANI);
 
 /**
 # INTERACT
@@ -2309,17 +2396,6 @@ Hits = (function() {
     /* exports */
 
     /**
-    ### copy(hitData)
-    */
-    function copy(hitData) {
-        var newHitData = init(null, null, hitData);
-
-        newHitData.elements = [].concat(hitData.elements);
-
-        return newHitData;
-    } // hitData
-
-    /**
     ### diffHits(oldHitData, newHitData)
     */
     function diffHits(oldHits, newHits) {
@@ -2373,13 +2449,28 @@ Hits = (function() {
         return opts;
     } // initHit
 
+    /**
+    ### triggerEvent(hitData, target, evtSuffix, elements)
+    */
+    function triggerEvent(hitData, target, evtSuffix, elements) {
+        target.triggerCustom(
+            hitData.type + (evtSuffix ? evtSuffix : 'Hit'), {
+                hitType: hitData.type
+            },
+            elements ? elements : hitData.elements,
+            hitData.absXY,
+            hitData.relXY,
+            XY.init(hitData.x, hitData.y)
+        );
+    } // triggerEvent
+
     /* define the module */
 
     return {
-        copy: copy,
         diffHits: diffHits,
         init: init,
-        initHit: initHit
+        initHit: initHit,
+        triggerEvent: triggerEvent
     };
 })();
 var deviceConfigs = null,
@@ -3041,9 +3132,9 @@ var Style = (function() {
             reloadMods();
         } // update
 
-        /* define self */
+        /* define _self */
 
-        var self = {
+        var _self = {
             applyToContext: function(context) {
                 for (var ii = mods.length; ii--; ) {
                     mods[ii](context);
@@ -3056,7 +3147,7 @@ var Style = (function() {
         /* initialize */
 
         reloadMods();
-        return self;
+        return _self;
     } // init
 
     /**
@@ -3313,6 +3404,7 @@ var View = function(params) {
         mainContext = null,
         isIE = typeof window.attachEvent != 'undefined',
         flashPolyfill,
+        hitFlagged = false,
         minRefresh = params.minRefresh,
         offsetX = 0,
         offsetY = 0,
@@ -3480,8 +3572,6 @@ var View = function(params) {
         } // if
 
         dragObject = null;
-
-        hitData = null;
     } // handlePointerUp
 
     function handleResize(evt) {
@@ -3538,7 +3628,7 @@ var View = function(params) {
                 halfWidth = viewWidth >> 1;
                 halfHeight = viewHeight >> 1;
 
-                self.trigger('resize', viewWidth, viewHeight);
+                _self.trigger('resize', viewWidth, viewHeight);
 
                 for (ii = layerCount; ii--; ) {
                     layers[ii].trigger('resize', viewWidth, viewHeight);
@@ -3560,12 +3650,12 @@ var View = function(params) {
         value.added = ticks();
 
         value.bind('remove', function() {
-            self.removeLayer(id);
+            _self.removeLayer(id);
         });
 
         layerContextChanged(value);
 
-        value.setParent(self);
+        value.setParent(_self);
 
         layers.push(value);
 
@@ -3734,7 +3824,7 @@ var View = function(params) {
 
                 for (ii = layerCount; ii--; ) {
                     if (layers[ii].clip) {
-                        layers[ii].clip(mainContext, drawRect, drawState, self, tickCount);
+                        layers[ii].clip(mainContext, drawRect, drawState, _self, tickCount);
                     } // if
                 } // for
 
@@ -3772,7 +3862,7 @@ var View = function(params) {
                         mainContext,
                         drawRect,
                         drawState,
-                        self,
+                        _self,
                         tickCount,
                         hitData);
 
@@ -3800,18 +3890,11 @@ var View = function(params) {
         var elements = hitData ? hitData.elements : [],
             ii;
 
-        if (lastHitData && hitData && hitData.type === 'hover') {
+        if (lastHitData && lastHitData.type === 'hover') {
             var diffElements = Hits.diffHits(lastHitData.elements, elements);
 
             if (diffElements.length > 0) {
-                self.triggerCustom(
-                    hitData.type + 'Out', {
-                        hitType: hitData.type
-                    },
-                    diffElements,
-                    hitData.absXY,
-                    hitData.relXY,
-                    XY.init(hitData.x, hitData.y));
+                Hits.triggerEvent(lastHitData, _self, 'Out', diffElements);
             } // if
         } // if
 
@@ -3825,18 +3908,10 @@ var View = function(params) {
                 } // if
             } // for
 
-
-            self.triggerCustom(
-                hitData.type + 'Hit', {
-                    hitType: hitData.type
-                },
-                elements,
-                hitData.absXY,
-                hitData.relXY,
-                XY.init(hitData.x, hitData.y));
+            Hits.triggerEvent(hitData, _self);
         } // if
 
-        lastHitData = elements.length > 0 ? Hits.copy(hitData) : null;
+        lastHitData = elements.length > 0 ? COG.extend({}, hitData) : null;
     } // checkHits
 
     function cycle(tickCount) {
@@ -3894,7 +3969,10 @@ var View = function(params) {
             clipping && clippable && (! redrawBG),
             tickCount);
 
-        checkHits();
+        if (hitData) {
+            checkHits();
+            hitData = null;
+        } // if
 
         if (tickCount - lastRefresh > minRefresh) {
             refresh();
@@ -3908,17 +3986,15 @@ var View = function(params) {
     } // cycle
 
     function initHitData(hitType, absXY, relXY) {
-        var potentialHit = false;
-
         hitData = Hits.init(hitType, absXY, relXY, scaleFactor);
 
         for (var ii = layerCount; ii--; ) {
-            potentialHit = (layers[ii].hitGuess ?
-                layers[ii].hitGuess(hitData.x, hitData.y, state, self) :
-                false) | potentialHit;
+            hitFlagged = hitFlagged || (layers[ii].hitGuess ?
+                layers[ii].hitGuess(hitData.x, hitData.y, state, _self) :
+                false);
         } // for
 
-        if (potentialHit) {
+        if (hitFlagged) {
             invalidate();
         } // if
     } // initHitData
@@ -4051,7 +4127,7 @@ var View = function(params) {
 
         if (value) {
             addLayer(id, value);
-            value.trigger('refresh', self, getViewRect());
+            value.trigger('refresh', _self, getViewRect());
         } // if
 
         invalidate();
@@ -4070,7 +4146,7 @@ var View = function(params) {
         } // if
 
         lastRefresh = new Date().getTime();
-        triggerAll('refresh', self, getViewRect());
+        triggerAll('refresh', _self, getViewRect());
 
         invalidate();
     } // refresh
@@ -4082,7 +4158,7 @@ var View = function(params) {
     function removeLayer(id) {
         var layerIndex = getLayerIndex(id);
         if ((layerIndex >= 0) && (layerIndex < layerCount)) {
-            self.trigger('layerRemoved', layers[layerIndex]);
+            _self.trigger('layerRemoved', layers[layerIndex]);
 
             layers.splice(layerIndex, 1);
             invalidate();
@@ -4140,7 +4216,7 @@ var View = function(params) {
             scaleView();
         }  // if..else
 
-        return self;
+        return _self;
     } // scale
 
     /**
@@ -4192,7 +4268,7 @@ var View = function(params) {
     Trigger an event on the view and all layers currently contained in the view
     */
     function triggerAll() {
-        var cancel = self.trigger.apply(null, arguments).cancel;
+        var cancel = _self.trigger.apply(null, arguments).cancel;
         for (var ii = layers.length; ii--; ) {
             cancel = layers[ii].trigger.apply(null, arguments).cancel || cancel;
         } // for
@@ -4270,7 +4346,7 @@ var View = function(params) {
     } // updateOffset
 
     function triggerAllUntilCancelled() {
-        var cancel = self.trigger.apply(null, arguments).cancel;
+        var cancel = _self.trigger.apply(null, arguments).cancel;
         for (var ii = layers.length; ii--; ) {
             cancel = layers[ii].trigger.apply(null, arguments).cancel || cancel;
         } // for
@@ -4280,7 +4356,7 @@ var View = function(params) {
 
     /* object definition */
 
-    var self = {
+    var _self = {
         id: params.id,
         deviceScaling: deviceScaling,
         fastDraw: params.fastDraw || getConfig().requireFastDraw,
@@ -4312,20 +4388,16 @@ var View = function(params) {
 
     deviceScaling = getConfig().getScaling();
 
-    self.markers = addLayer('markers', new ShapeLayer({
-        zindex: 20
-    }));
+    COG.observable(_self);
 
-    COG.observable(self);
-
-    self.bind('invalidate', function(evt) {
+    _self.bind('invalidate', function(evt) {
         invalidate();
     });
 
-    self.bind('resync', handleResync);
+    _self.bind('resync', handleResync);
 
     COG.configurable(
-        self, [
+        _self, [
             'container',
             'captureHover',
             'captureDrag',
@@ -4345,24 +4417,32 @@ var View = function(params) {
         }),
         true);
 
-    attachToCanvas();
+    CANI.init(function(testResults) {
+        _self.markers = addLayer('markers', new ShapeLayer({
+            zindex: 20
+        }));
 
-    if (params.autoSize) {
-        if (isIE) {
-            window.attachEvent('onresize', handleResize);
-        }
-        else {
-            window.addEventListener('resize', handleResize, false);
-        }
-    } // if
+        canvasCaps = testResults.canvas;
 
-    return self;
+        attachToCanvas();
+
+        if (params.autoSize) {
+            if (isIE) {
+                window.attachEvent('onresize', handleResize);
+            }
+            else {
+                window.addEventListener('resize', handleResize, false);
+            }
+        } // if
+    });
+
+    return _self;
 }; // T5.View
 
 /**
 # T5.ViewLayer
 
-In and of itself, a View does nothing.  Not without a
+In and of it_self, a View does nothing.  Not without a
 ViewLayer at least.  A view is made up of one or more of these
 layers and they are drawn in order of *zindex*.
 
@@ -4433,13 +4513,13 @@ var ViewLayer = function(params) {
         lastOffsetX = 0,
         lastOffsetY = 0;
 
-    var self = COG.extend({
+    var _self = COG.extend({
         /**
         ### addToView(view)
         Used to add the layer to a view.  This simply calls T5.View.setLayer
         */
         addToView: function(view) {
-            view.setLayer(id, self);
+            view.setLayer(id, _self);
         },
 
         /**
@@ -4464,7 +4544,7 @@ var ViewLayer = function(params) {
         ### cycle(tickCount, offset, state)
 
         Called in the View method of the same name, each layer has an opportunity
-        to update itself in the current animation cycle before it is drawn.
+        to update it_self in the current animation cycle before it is drawn.
         */
         cycle: function(tickCount, offset, state) {
         },
@@ -4505,7 +4585,7 @@ var ViewLayer = function(params) {
         animation layers that should only exist as long as an animation is active.
         */
         remove: function() {
-            self.trigger('remove', self);
+            _self.trigger('remove', _self);
         },
 
         /**
@@ -4561,30 +4641,30 @@ var ViewLayer = function(params) {
 
             parentFastDraw = parent ? (parent.fastDraw && (displayState !== activeState)) : false;
 
-            self.trigger('parentChange', parent);
+            _self.trigger('parentChange', parent);
         }
-    }, params); // self
+    }, params); // _self
 
-    COG.observable(self);
+    COG.observable(_self);
 
-    self.bind('drawComplete', function(evt, viewRect, tickCount) {
+    _self.bind('drawComplete', function(evt, viewRect, tickCount) {
         changed = false;
 
         lastOffsetX = viewRect.x1;
         lastOffsetY = viewRect.y1;
     });
 
-    self.bind('resync', function(evt, view) {
-       if (self.minXY) {
-           view.syncXY(self.minXY);
+    _self.bind('resync', function(evt, view) {
+       if (_self.minXY) {
+           view.syncXY(_self.minXY);
        } // if
 
-       if (self.maxXY) {
-           view.syncXY(self.maxXY);
+       if (_self.maxXY) {
+           view.syncXY(_self.maxXY);
        } // if
     });
 
-    return self;
+    return _self;
 }; // T5.ViewLayer
 /**
 # T5.ImageLayer
@@ -4614,7 +4694,7 @@ var ImageLayer = function(genId, params) {
 
             if (callback && XYRect.intersect(viewRect, imageRect)) {
                 var image = Images.get(imageData.url, function(loadedImage) {
-                    self.changed();
+                    _self.changed();
                 }, loadArgs);
 
                 if (image) {
@@ -4627,7 +4707,7 @@ var ImageLayer = function(genId, params) {
     /* every library should have a regenerate function - here's mine ;) */
     function regenerate(viewRect) {
         var sequenceId = ++generateCount,
-            view = self.getParent();
+            view = _self.getParent();
 
         if (generator) {
 
@@ -4669,7 +4749,7 @@ var ImageLayer = function(genId, params) {
         } // if
 
         if (tappedImages.length > 0) {
-            self.trigger('tapImage', tappedImages, absXY, relXY, offsetXY);
+            _self.trigger('tapImage', tappedImages, absXY, relXY, offsetXY);
         } // if
     } // handleTap
 
@@ -4682,7 +4762,7 @@ var ImageLayer = function(genId, params) {
         generator = Generator.init(generatorId, COG.extend({}, params, args));
 
         images = null;
-        regenerate(self.getParent().getViewRect());
+        regenerate(_self.getParent().getViewRect());
     } // changeGenerator
 
     function clip(context, viewRect, state, view) {
@@ -4717,17 +4797,17 @@ var ImageLayer = function(genId, params) {
 
     /* definition */
 
-    var self = COG.extend(new ViewLayer(params), {
+    var _self = COG.extend(new ViewLayer(params), {
         changeGenerator: changeGenerator,
         clip: clip,
         draw: draw,
         mask: mask
     });
 
-    self.bind('refresh', handleRefresh);
-    self.bind('tap', handleTap);
+    _self.bind('refresh', handleRefresh);
+    _self.bind('tap', handleTap);
 
-    return self;
+    return _self;
 };
 /**
 # T5.ImageGenerator
@@ -4749,12 +4829,12 @@ var ImageGenerator = function(params) {
         COG.warn('running base generator - this should be overriden');
     } // run
 
-    var self = {
+    var _self = {
         run: run
     };
 
-    COG.observable(self);
-    return self;
+    COG.observable(_self);
+    return _self;
 };
 
 /**
@@ -4774,6 +4854,7 @@ var Shape = function(params) {
     params = COG.extend({
         style: null,
         fill: false,
+        draggable: false,
         observable: true, // TODO: should this be true or false by default
         properties: {},
         type: 'shape',
@@ -4787,7 +4868,7 @@ var Shape = function(params) {
 
     /* initialise shape */
 
-    var self = COG.extend(params, {
+    var _self = COG.extend(params, {
         id: COG.objId(params.type),
 
         bounds: null,
@@ -4824,10 +4905,10 @@ var Shape = function(params) {
     });
 
     if (params.observable) {
-        COG.observable(self);
+        COG.observable(_self);
     } // if
 
-    return self;
+    return _self;
 };
 /**
 # T5.Arc
@@ -4839,7 +4920,7 @@ var Arc = function(origin, params) {
 
    var drawXY = XY.init();
 
-   var self = COG.extend(params, {
+   var _self = COG.extend(params, {
        /**
        ### draw(context, offsetX, offsetY, width, height, state)
        */
@@ -4848,7 +4929,7 @@ var Arc = function(origin, params) {
            context.arc(
                drawXY.x,
                drawXY.y,
-               self.size,
+               _self.size,
                0,
                Math.PI * 2,
                false);
@@ -4867,7 +4948,7 @@ var Arc = function(origin, params) {
    });
 
    COG.info('created arc = ', origin);
-   return self;
+   return _self;
 };
 /**
 # T5.Poly
@@ -4919,10 +5000,10 @@ var Poly = function(points, params) {
                 var x = drawPoints[ii].x - offsetX,
                     y = drawPoints[ii].y - offsetY;
 
-                minX = typeof minX != 'undefined' || x < minX ? x : minX;
-                minY = typeof minY != 'undefined' || y < minY ? y : minY;
-                maxX = typeof maxX != 'undefined' || x > maxX ? x : maxX;
-                maxY = typeof maxY != 'undefined' || y > maxY ? y : maxY;
+                minX = typeof minX == 'undefined' || x < minX ? x : minX;
+                minY = typeof minY == 'undefined' || y < minY ? y : minY;
+                maxX = typeof maxX == 'undefined' || x > maxX ? x : maxX;
+                maxY = typeof maxY == 'undefined' || y > maxY ? y : maxY;
 
                 if (first) {
                     context.moveTo(x, y);
@@ -4933,7 +5014,7 @@ var Poly = function(points, params) {
                 } // if..else
             } // for
 
-            self.bounds = XYRect.init(minX, minY, maxX, maxY);
+            _self.bounds = XYRect.init(minX, minY, maxX, maxY);
         } // if
 
         return haveData;
@@ -4944,22 +5025,27 @@ var Poly = function(points, params) {
     Used to synchronize the points of the poly to the grid.
     */
     function resync(view) {
-        self.xy = view.syncXY(points);
+        _self.xy = view.syncXY(points);
 
         drawPoints = XY.floor(simplify ? XY.simplify(points) : points);
 
     } // resyncToGrid
 
-    /* define self */
+    /* define _self */
 
-    var self = COG.extend(new Shape(params), {
+    var _self = COG.extend(new Shape(params), {
         prepPath: prepPath,
         resync: resync
     });
 
     haveData = points && (points.length >= 2);
 
-    return self;
+    return _self;
+};
+var Line = function(points, params) {
+    return new T5.Poly(points, COG.extend({
+        fill: false
+    }, params));
 };
 /**
 # T5.Points
@@ -5030,14 +5116,14 @@ var Points = function(points, params) {
         drawPoints = XY.floor(points);
     } // resyncToGrid
 
-    /* define self */
+    /* define _self */
 
-    var self = COG.extend(new Shape(params), {
+    var _self = COG.extend(new Shape(params), {
         draw: draw,
         resync: resync
     });
 
-    return self;
+    return _self;
 };
 /**
 # T5.Marker
@@ -5068,8 +5154,8 @@ var Marker = function(params) {
     ### drag(dragData, dragX, dragY, drop)
     */
     function drag(dragData, dragX, dragY, drop) {
-        self.xy.x = dragX;
-        self.xy.y = dragY;
+        _self.xy.x = dragX;
+        _self.xy.y = dragY;
 
         return true;
     } // drag
@@ -5082,7 +5168,7 @@ var Marker = function(params) {
         context.beginPath();
         context.arc(x, y, size, 0, Math.PI * 2, false);
 
-        self.bounds = XYRect.fromCenter(x, y, size, size);
+        _self.bounds = XYRect.fromCenter(x, y, size, size);
 
         return true;
     } // prepPath
@@ -5092,18 +5178,18 @@ var Marker = function(params) {
     Used to synchronize the points of the poly to the grid.
     */
     function resync(view) {
-        view.syncXY([self.xy]);
+        view.syncXY([_self.xy]);
     } // resyncToGrid
 
-    /* define self */
+    /* define _self */
 
-    var self = COG.extend(new Shape(params), {
+    var _self = COG.extend(new Shape(params), {
         drag: drag,
         prepPath: prepPath,
         resync: resync
     });
 
-    return self;
+    return _self;
 };
 /**
 # T5.ImageMarker
@@ -5177,8 +5263,8 @@ var ImageMarker = function(params) {
     /* exports */
 
     function changeImage(imageUrl) {
-        self.image = Images.get(imageUrl, function(loadedImage) {
-            self.image = loadedImage;
+        _self.image = Images.get(imageUrl, function(loadedImage) {
+            _self.image = loadedImage;
         });
     } // changeImage
 
@@ -5188,26 +5274,27 @@ var ImageMarker = function(params) {
     function drag(dragData, dragX, dragY, drop) {
         if (! dragOffset) {
             dragOffset = XY.init(
-                dragData.startX - self.xy.x,
-                dragData.startY - self.xy.y
+                dragData.startX - _self.xy.x,
+                dragData.startY - _self.xy.y
             );
 
         }
 
-        self.xy.x = dragX - dragOffset.x;
-        self.xy.y = dragY - dragOffset.y;
+        _self.xy.x = dragX - dragOffset.x;
+        _self.xy.y = dragY - dragOffset.y;
 
         if (drop) {
-            var view = self.parent ? self.parent.getParent() : null;
-
             dragOffset = null;
 
 
-            if (view) {
-                view.syncXY([self.xy], true);
+            if (_self.layer) {
+                var view = _self.layer.getParent();
+                if (view) {
+                    view.syncXY([_self.xy], true);
+                } // if
             } // if
 
-            self.trigger('dragDrop');
+            _self.trigger('dragDrop');
         } // if
 
         return true;
@@ -5217,7 +5304,7 @@ var ImageMarker = function(params) {
     ### draw(context, x, y, width, height, state)
     */
     function draw(context, offsetX, offsetY, width, height, state) {
-        context.drawImage(self.image, drawX, drawY);
+        context.drawImage(_self.image, drawX, drawY);
     } // draw
 
     /**
@@ -5225,7 +5312,7 @@ var ImageMarker = function(params) {
     Prepare the path that will draw the polygon to the canvas
     */
     function prepPath(context, offsetX, offsetY, width, height, state) {
-        var image = self.image,
+        var image = _self.image,
             draw = image && image.width > 0;
 
         if (draw) {
@@ -5236,10 +5323,10 @@ var ImageMarker = function(params) {
                 );
             } // if
 
-            drawX = self.xy.x + imageOffset.x - offsetX;
-            drawY = self.xy.y + imageOffset.y - offsetY;
+            drawX = _self.xy.x + imageOffset.x - offsetX;
+            drawY = _self.xy.y + imageOffset.y - offsetY;
 
-            self.bounds = XYRect.init(drawX, drawY, drawX + image.width, drawY + image.height);
+            _self.bounds = XYRect.init(drawX, drawY, drawX + image.width, drawY + image.height);
 
             context.beginPath();
             context.rect(drawX, drawY, image.width, image.height);
@@ -5249,26 +5336,26 @@ var ImageMarker = function(params) {
         return draw;
     } // prepPath
 
-    var self = COG.extend(new Marker(params), {
+    var _self = COG.extend(new Marker(params), {
         changeImage: changeImage,
         drag: drag,
         draw: draw,
         prepPath: prepPath
     });
 
-    if (! self.image) {
-        self.image = Images.get(params.imageUrl, function(loadedImage) {
-            self.image = loadedImage;
+    if (! _self.image) {
+        _self.image = Images.get(params.imageUrl, function(loadedImage) {
+            _self.image = loadedImage;
         });
     } // if
 
-    if (! self.animatingImage) {
-        self.animatingImage = Images.get(params.animatingImageUrl, function(loadedImage) {
-            self.animatingImage = loadedImage;
+    if (! _self.animatingImage) {
+        _self.animatingImage = Images.get(params.animatingImageUrl, function(loadedImage) {
+            _self.animatingImage = loadedImage;
         });
     } // if
 
-    return self;
+    return _self;
 };
 /**
 # T5.ShapeLayer
@@ -5286,7 +5373,8 @@ var ShapeLayer = function(params) {
         zindex: 10
     }, params);
 
-    var shapes = [];
+    var shapes = [],
+        pipTransformed = CANI.canvas.pipTransformed;
 
     /* private functions */
 
@@ -5300,7 +5388,7 @@ var ShapeLayer = function(params) {
             return diff != 0 ? diff : shapeB.xy.x - shapeA.xy.y;
         });
 
-        self.changed();
+        _self.changed();
     } // performSync
 
     /* event handlers */
@@ -5314,8 +5402,8 @@ var ShapeLayer = function(params) {
     function draw(context, viewRect, state, view, tickCount, hitData) {
         var viewX = viewRect.x1,
             viewY = viewRect.y1,
-            hitX = hitData ? hitData.x : 0,
-            hitY = hitData ? hitData.y : 0,
+            hitX = hitData ? (pipTransformed ? hitData.x : hitData.relXY.x) : 0,
+            hitY = hitData ? (pipTransformed ? hitData.y : hitData.relXY.y) : 0,
             viewWidth = viewRect.width,
             viewHeight = viewRect.height;
 
@@ -5327,11 +5415,13 @@ var ShapeLayer = function(params) {
 
             if (shape.prepPath(context, viewX, viewY, viewWidth, viewHeight, state)) {
                 if (hitData && context.isPointInPath(hitX, hitY)) {
-                    hitData.elements.push(Hits.initHit(shape.type, shape));
+                    hitData.elements.push(Hits.initHit(shape.type, shape, {
+                        drag: shape.draggable ? shape.drag : null
+                    }));
 
                     styleType = hitData.type + 'Style';
 
-                    overrideStyle = shape[styleType] || overrideStyle;
+                    overrideStyle = shape[styleType] || _self[styleType] || overrideStyle;
                 } // if
 
                 previousStyle = overrideStyle ? Style.apply(context, overrideStyle) : null;
@@ -5365,18 +5455,22 @@ var ShapeLayer = function(params) {
         return hit;
     } // hitGuess
 
-    /* initialise self */
+    /* initialise _self */
 
-    var self = COG.extend(new ViewLayer(params), {
+    var _self = COG.extend(new ViewLayer(params), {
         /**
         ### add(poly)
         Used to add a T5.Poly to the layer
         */
         add: function(shape) {
             if (shape) {
-                var view = self.getParent();
+                shape.layer = _self;
+
+                var view = _self.getParent();
                 if (view) {
-                    shape.resync(self.getParent());
+                    shape.resync(_self.getParent());
+
+                    view.invalidate();
                 } // if
 
                 shapes[shapes.length] = shape;
@@ -5391,10 +5485,10 @@ var ShapeLayer = function(params) {
         hitGuess: hitGuess
     });
 
-    self.bind('parentChange', handleResync);
-    self.bind('resync', handleResync);
+    _self.bind('parentChange', handleResync);
+    _self.bind('resync', handleResync);
 
-    return self;
+    return _self;
 };
 
 /**
@@ -5465,6 +5559,7 @@ var Tiling = (function() {
         Shape: Shape,
         Arc: Arc,
         Poly: Poly,
+        Line: Line,
         Points: Points,
         Marker: Marker,
         ImageMarker: ImageMarker,

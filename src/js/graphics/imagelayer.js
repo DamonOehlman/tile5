@@ -32,7 +32,7 @@ var ImageLayer = function(genId, params) {
                 // no callback is supplied on the zoom view state which prevents 
                 // loading images that would just been thrown away
                 var image = Images.get(imageData.url, function(loadedImage) {
-                    self.changed();
+                    _self.changed();
                 }, loadArgs);
 
                 // trigger the eachImage callback
@@ -46,7 +46,7 @@ var ImageLayer = function(genId, params) {
     /* every library should have a regenerate function - here's mine ;) */
     function regenerate(viewRect) {
         var sequenceId = ++generateCount,
-            view = self.getParent();
+            view = _self.getParent();
 
         if (generator) {
             // COG.info('generating: ' + XYRect.toString(viewRect) + ', sequence = ' + sequenceId);
@@ -92,7 +92,7 @@ var ImageLayer = function(genId, params) {
         
         // if we have some tapped images, then trigger the event
         if (tappedImages.length > 0) {
-            self.trigger('tapImage', tappedImages, absXY, relXY, offsetXY);
+            _self.trigger('tapImage', tappedImages, absXY, relXY, offsetXY);
         } // if
     } // handleTap
     
@@ -107,7 +107,7 @@ var ImageLayer = function(genId, params) {
 
         // clear the generated images and regenerate
         images = null;
-        regenerate(self.getParent().getViewRect());
+        regenerate(_self.getParent().getViewRect());
     } // changeGenerator
     
     function clip(context, viewRect, state, view) {
@@ -142,15 +142,15 @@ var ImageLayer = function(genId, params) {
     
     /* definition */
     
-    var self = COG.extend(new ViewLayer(params), {
+    var _self = COG.extend(new ViewLayer(params), {
         changeGenerator: changeGenerator,
         clip: clip,
         draw: draw,
         mask: mask
     });
     
-    self.bind('refresh', handleRefresh);
-    self.bind('tap', handleTap);
+    _self.bind('refresh', handleRefresh);
+    _self.bind('tap', handleTap);
     
-    return self;
+    return _self;
 };

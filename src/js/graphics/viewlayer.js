@@ -1,7 +1,7 @@
 /**
 # T5.ViewLayer
 
-In and of itself, a View does nothing.  Not without a 
+In and of it_self, a View does nothing.  Not without a 
 ViewLayer at least.  A view is made up of one or more of these 
 layers and they are drawn in order of *zindex*.
 
@@ -72,13 +72,13 @@ var ViewLayer = function(params) {
         lastOffsetX = 0,
         lastOffsetY = 0;
     
-    var self = COG.extend({
+    var _self = COG.extend({
         /**
         ### addToView(view)
         Used to add the layer to a view.  This simply calls T5.View.setLayer
         */
         addToView: function(view) {
-            view.setLayer(id, self);
+            view.setLayer(id, _self);
         },
         
         /**
@@ -103,7 +103,7 @@ var ViewLayer = function(params) {
         ### cycle(tickCount, offset, state)
         
         Called in the View method of the same name, each layer has an opportunity 
-        to update itself in the current animation cycle before it is drawn.
+        to update it_self in the current animation cycle before it is drawn.
         */
         cycle: function(tickCount, offset, state) {
         },
@@ -144,7 +144,7 @@ var ViewLayer = function(params) {
         animation layers that should only exist as long as an animation is active.
         */
         remove: function() {
-            self.trigger('remove', self);
+            _self.trigger('remove', _self);
         },
         
         /**
@@ -205,15 +205,15 @@ var ViewLayer = function(params) {
             parentFastDraw = parent ? (parent.fastDraw && (displayState !== activeState)) : false;
             
             // trigger the parent change event
-            self.trigger('parentChange', parent);
+            _self.trigger('parentChange', parent);
         }
-    }, params); // self
+    }, params); // _self
     
     // make view layers observable
-    COG.observable(self);
+    COG.observable(_self);
     
     // handle the draw complete
-    self.bind('drawComplete', function(evt, viewRect, tickCount) {
+    _self.bind('drawComplete', function(evt, viewRect, tickCount) {
         changed = false;
 
         // update the last offset
@@ -221,15 +221,15 @@ var ViewLayer = function(params) {
         lastOffsetY = viewRect.y1;
     });
     
-    self.bind('resync', function(evt, view) {
-       if (self.minXY) {
-           view.syncXY(self.minXY);
+    _self.bind('resync', function(evt, view) {
+       if (_self.minXY) {
+           view.syncXY(_self.minXY);
        } // if
        
-       if (self.maxXY) {
-           view.syncXY(self.maxXY);
+       if (_self.maxXY) {
+           view.syncXY(_self.maxXY);
        } // if
     });
 
-    return self;
+    return _self;
 }; // T5.ViewLayer

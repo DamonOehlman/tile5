@@ -28,8 +28,8 @@ var Marker = function(params) {
     ### drag(dragData, dragX, dragY, drop)
     */
     function drag(dragData, dragX, dragY, drop) {
-        self.xy.x = dragX;
-        self.xy.y = dragY;
+        _self.xy.x = dragX;
+        _self.xy.y = dragY;
         
         return true;
     } // drag
@@ -43,7 +43,7 @@ var Marker = function(params) {
         context.arc(x, y, size, 0, Math.PI * 2, false);
         
         // update the bounds
-        self.bounds = XYRect.fromCenter(x, y, size, size);
+        _self.bounds = XYRect.fromCenter(x, y, size, size);
         
         return true;
     } // prepPath
@@ -53,16 +53,16 @@ var Marker = function(params) {
     Used to synchronize the points of the poly to the grid.
     */
     function resync(view) {
-        view.syncXY([self.xy]);
+        view.syncXY([_self.xy]);
     } // resyncToGrid
     
-    /* define self */
+    /* define _self */
     
-    var self = COG.extend(new Shape(params), {
+    var _self = COG.extend(new Shape(params), {
         drag: drag,
         prepPath: prepPath,
         resync: resync
     });
 
-    return self;
+    return _self;
 };

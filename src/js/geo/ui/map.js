@@ -75,7 +75,7 @@ var Map = exports.Map = function(params) {
                         position.coords.longitude),
                 accuracy = position.coords.accuracy / 1000;
                 
-            self.trigger('locationUpdate', position, accuracy);
+            _self.trigger('locationUpdate', position, accuracy);
 
             // if this is the initial tracking update then 
             // create the overlay
@@ -90,8 +90,8 @@ var Map = exports.Map = function(params) {
 
                     // if we want to display the location annotation, t
                     // then put it onscreen
-                    locationOverlay.update(self.getTileLayer());
-                    self.setLayer('location', locationOverlay);
+                    locationOverlay.update(_self.getTileLayer());
+                    _self.setLayer('location', locationOverlay);
                 } // if
 
                 // TODO: fix the magic number
@@ -99,7 +99,7 @@ var Map = exports.Map = function(params) {
                         currentPos, 
                         Math.max(accuracy, 1));
                         
-                self.gotoBounds(targetBounds);
+                _self.gotoBounds(targetBounds);
             }
             // otherwise, animate to the new position
             else {
@@ -109,7 +109,7 @@ var Map = exports.Map = function(params) {
 
                 // tell the location annotation to update 
                 // it's xy coordinate
-                locationOverlay.update(self.getTileLayer());
+                locationOverlay.update(_self.getTileLayer());
 
                 // pan to the position
                 panToPosition(
@@ -133,7 +133,7 @@ var Map = exports.Map = function(params) {
     
     function handlePan(evt, x, y) {
         if (locateMode === LOCATE_MODE.SINGLE) {
-            self.trackCancel();
+            _self.trackCancel();
         } // if
     } // handlePan
     
@@ -146,7 +146,7 @@ var Map = exports.Map = function(params) {
                 XY.offset(offsetXY, tapExtent, -tapExtent),
                 radsPerPixel);
                 
-        self.trigger(
+        _self.trigger(
             'geotap', 
             absXY, 
             relXY, 
@@ -156,12 +156,12 @@ var Map = exports.Map = function(params) {
         
         
         /*
-        var grid = self.getTileLayer();
+        var grid = _self.getTileLayer();
         var tapBounds = null;
 
         if (grid) {
             TODO: get the tap working again...
-            var gridPos = self.viewPixToGridPix(
+            var gridPos = _self.viewPixToGridPix(
                     XY.init(relXY.x, relXY.y)),
                 tapPos = grid.pixelsToPos(gridPos),
                 minPos = grid.pixelsToPos(
@@ -179,25 +179,25 @@ var Map = exports.Map = function(params) {
             tapBounds = BoundingBox.init(minPos, maxPos);
 
             // find the pois in the bounds area
-            // tappedPOIs = self.pois.findByBounds(tapBounds);
+            // tappedPOIs = _self.pois.findByBounds(tapBounds);
             // COG.info('TAPPED POIS = ', tappedPOIs);
             
-            self.trigger('geotap', absXY, relXY, tapPos, tapBounds);
-            // self.trigger('tapPOI', tappedPOIs);
+            _self.trigger('geotap', absXY, relXY, tapPos, tapBounds);
+            // _self.trigger('tapPOI', tappedPOIs);
         } // if
         */
     } // handleTap
     
     function handleRefresh(evt) {
-        var changeDelta = XY.absSize(XY.diff(lastBoundsChangeOffset, self.getOffset()));
+        var changeDelta = XY.absSize(XY.diff(lastBoundsChangeOffset, _self.getOffset()));
         if (changeDelta > params.boundsChangeThreshold) {
-            lastBoundsChangeOffset = XY.copy(self.getOffset());
-            self.trigger("boundsChange", self.getBoundingBox());
+            lastBoundsChangeOffset = XY.copy(_self.getOffset());
+            _self.trigger("boundsChange", _self.getBoundingBox());
         } // if
     } // handleWork
     
     function handleProviderUpdate(name, value) {
-        self.cleanup();
+        _self.cleanup();
         initialized = false;
     } // handleProviderUpdate
     
@@ -209,15 +209,15 @@ var Map = exports.Map = function(params) {
         
         // calculate the grid size
         gridSize = TWO_PI / radsPerPixel | 0;
-        self.setMaxOffset(gridSize, gridSize, true, false);
+        _self.setMaxOffset(gridSize, gridSize, true, false);
         
         // remove the grid layer
         Images.cancelLoad();
         
         // reset scaling and resync the map
-        self.resetScale();
-        self.triggerAll('resync', self);
-        self.refresh();
+        _self.resetScale();
+        _self.triggerAll('resync', _self);
+        _self.refresh();
     } // handleZoomLevel
     
     /* internal functions */
@@ -235,7 +235,7 @@ var Map = exports.Map = function(params) {
     Return a T5.Geo.BoundingBox for the current map view area
     */
     function getBoundingBox() {
-        var rect = self.getViewRect();
+        var rect = _self.getViewRect();
         
         return Geo.BoundingBox.init(
             GeoXY.toPos(XY.init(rect.x1, rect.y2), radsPerPixel),
@@ -247,7 +247,7 @@ var Map = exports.Map = function(params) {
     Return a T5.GeoXY composite for the center position of the map
     */
     function getCenterPosition() {
-        var rect = self.getViewRect();
+        var rect = _self.getViewRect();
         if (rect) {
             var xy = XY.init(rect.x1 + (rect.width >> 1), rect.y1 + (rect.height >> 1));
             return GeoXY.toPos(xy, radsPerPixel);
@@ -266,7 +266,7 @@ var Map = exports.Map = function(params) {
         // specified bounds
         var zoomLevel = Geo.BoundingBox.getZoomLevel(
                             bounds, 
-                            self.getDimensions());
+                            _self.getDimensions());
         
         // goto the center position of the bounding box 
         // with the calculated zoom level
@@ -285,7 +285,7 @@ var Map = exports.Map = function(params) {
     */
     function gotoPosition(position, newZoomLevel, callback) {
         // update the zoom level
-        self.setZoomLevel(newZoomLevel);
+        _self.setZoomLevel(newZoomLevel);
         
         // pan to Position
         panToPosition(position, callback);
@@ -303,22 +303,22 @@ var Map = exports.Map = function(params) {
     function panToPosition(position, callback, easingFn, easingDuration) {
         // determine the tile offset for the 
         // requested position
-        var centerXY = GeoXY.init(position, Geo.radsPerPixel(self.getZoomLevel())),
-            dimensions = self.getDimensions(),
+        var centerXY = GeoXY.init(position, Geo.radsPerPixel(_self.getZoomLevel())),
+            dimensions = _self.getDimensions(),
             offsetX = centerXY.x - (dimensions.width >> 1),
             offsetY = centerXY.y - (dimensions.height >> 1);
             
         // COG.info('panning to center xy: ', centerXY);
-        self.updateOffset(offsetX, offsetY, easingFn, easingDuration, function() {
+        _self.updateOffset(offsetX, offsetY, easingFn, easingDuration, function() {
             // refresh the display
-            self.refresh();
+            _self.refresh();
             
             // trigger a bounds change event
-            self.trigger("boundsChange", self.getBoundingBox());
+            _self.trigger("boundsChange", _self.getBoundingBox());
             
             // if a callback is defined, then pass that on
             if (callback) {
-                callback(self); 
+                callback(_self); 
             } // if
         });
     } // panToPosition
@@ -341,8 +341,8 @@ var Map = exports.Map = function(params) {
         return Math.pow(2, roundFn(Math.log(scaleFactor)));
     };
     
-    // initialise self
-    var self = COG.extend(new View(params), {
+    // initialise _self
+    var _self = COG.extend(new View(params), {
         
         getBoundingBox: getBoundingBox,
         getCenterPosition: getCenterPosition,
@@ -361,10 +361,10 @@ var Map = exports.Map = function(params) {
         locate: function() {
             // run a track start, but only allow 
             // it to run for a maximum of 30s 
-            self.trackStart(LOCATE_MODE.SINGLE);
+            _self.trackStart(LOCATE_MODE.SINGLE);
             
             // stop checking for location after 10 seconds
-            setTimeout(self.trackCancel, 10000);
+            setTimeout(_self.trackCancel, 10000);
         },
         
         /**
@@ -397,7 +397,7 @@ var Map = exports.Map = function(params) {
                 navigator.geolocation.clearWatch(geoWatchId);
             } // if
             
-            self.removeLayer('location');
+            _self.removeLayer('location');
             locationOverlay = null;
             
             // reset the locate mode
@@ -414,7 +414,7 @@ var Map = exports.Map = function(params) {
         */
         animateRoute: function(easing, duration, callback, center) {
             // get the routing layer
-            var routeLayer = self.getLayer('route');
+            var routeLayer = _self.getLayer('route');
             if (routeLayer) {
                 // create the animation layer from the route
                 var animationLayer = routeLayer.getAnimation(
@@ -425,21 +425,21 @@ var Map = exports.Map = function(params) {
                 
                 // add the animation layer
                 if (animationLayer) {
-                    animationLayer.addToView(self);
+                    animationLayer.addToView(_self);
                 }
             } // if
         }
     });
     
     // bind some event handlers
-    self.bind('pan', handlePan);
-    self.bind('tap', handleTap);
+    _self.bind('pan', handlePan);
+    _self.bind('tap', handleTap);
     
     // listen for the view idling
-    self.bind('refresh', handleRefresh);
+    _self.bind('refresh', handleRefresh);
     
     // listen for zoom level changes
-    self.bind('zoomLevelChange', handleZoomLevelChange);
+    _self.bind('zoomLevelChange', handleZoomLevelChange);
 
-    return self;
+    return _self;
 }; // T5.Map

@@ -3,7 +3,7 @@
 
 A collection of utilities that are primarily designed to help with working 
 with Geo.BoundingBox objects.  The functions are implemented here rather 
-than with the actual object itself to ensure that the object remains lightweight.
+than with the actual object it_self to ensure that the object remains lightweight.
 
 ## Functions
 */

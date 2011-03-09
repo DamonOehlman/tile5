@@ -11,19 +11,6 @@ Hits = (function() {
     /* exports */
     
     /**
-    ### copy(hitData)
-    */
-    function copy(hitData) {
-        var newHitData = init(null, null, hitData);
-        
-        // update copy the elements
-        newHitData.elements = [].concat(hitData.elements);
-        
-        // return the new data
-        return newHitData;
-    } // hitData
-    
-    /**
     ### diffHits(oldHitData, newHitData)
     */
     function diffHits(oldHits, newHits) {
@@ -80,12 +67,27 @@ Hits = (function() {
         return opts;
     } // initHit
     
+    /**
+    ### triggerEvent(hitData, target, evtSuffix, elements)
+    */
+    function triggerEvent(hitData, target, evtSuffix, elements) {
+        target.triggerCustom(
+            hitData.type + (evtSuffix ? evtSuffix : 'Hit'), {
+                hitType: hitData.type
+            },
+            elements ? elements : hitData.elements, 
+            hitData.absXY,
+            hitData.relXY,
+            XY.init(hitData.x, hitData.y)
+        );                
+    } // triggerEvent
+    
     /* define the module */
     
     return {
-        copy: copy,
         diffHits: diffHits,
         init: init,
-        initHit: initHit
+        initHit: initHit,
+        triggerEvent: triggerEvent
     };
 })();

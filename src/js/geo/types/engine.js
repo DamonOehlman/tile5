@@ -10,14 +10,14 @@ var GeoEngine = function(params) {
         throw new Error("A GEO.Engine cannot be registered without providing an id.");
     } // if
 
-    // map the parameters directly to self
-    var self = COG.extend({
+    // map the parameters directly to _self
+    var _self = COG.extend({
         remove: function() {
-            delete engines[self.id];
+            delete engines[_self.id];
         }
     }, params);
 
     // register the engine
-    engines[self.id] = self;
-    return self;
+    engines[_self.id] = _self;
+    return _self;
 };

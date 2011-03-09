@@ -15,6 +15,7 @@ var Shape = function(params) {
     params = COG.extend({
         style: null,
         fill: false,
+        draggable: false,
         observable: true, // TODO: should this be true or false by default
         properties: {},
         type: 'shape',
@@ -28,7 +29,7 @@ var Shape = function(params) {
     
     /* initialise shape */
     
-    var self = COG.extend(params, {
+    var _self = COG.extend(params, {
         id: COG.objId(params.type),
 
         // public properties
@@ -67,8 +68,8 @@ var Shape = function(params) {
     
     // make the shape observable
     if (params.observable) {
-        COG.observable(self);
+        COG.observable(_self);
     } // if
     
-    return self;
+    return _self;
 };

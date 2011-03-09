@@ -237,7 +237,7 @@ var Routing = (function() {
                 params.boundingBox = BoundingBox.forPositions(params.geometry);
             } // if
             
-            var self = COG.extend({
+            var _self = COG.extend({
                 getInstructionPositions: function() {
                     var positions = [];
                         
@@ -251,7 +251,7 @@ var Routing = (function() {
                 }
             }, params);
             
-            return self;
+            return _self;
         }
     };
     

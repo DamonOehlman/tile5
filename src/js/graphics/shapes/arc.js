@@ -9,8 +9,8 @@ var Arc = function(origin, params) {
    // iniitialise variables
    var drawXY = XY.init();
    
-   // initialise self
-   var self = COG.extend(params, {
+   // initialise _self
+   var _self = COG.extend(params, {
        /**
        ### draw(context, offsetX, offsetY, width, height, state)
        */
@@ -19,7 +19,7 @@ var Arc = function(origin, params) {
            context.arc(
                drawXY.x, 
                drawXY.y, 
-               self.size,
+               _self.size,
                0,
                Math.PI * 2,
                false);
@@ -38,5 +38,5 @@ var Arc = function(origin, params) {
    });
    
    COG.info('created arc = ', origin);
-   return self;
+   return _self;
 };
