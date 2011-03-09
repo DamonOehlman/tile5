@@ -53,10 +53,10 @@ var Poly = function(points, params) {
                     y = drawPoints[ii].y - offsetY;
                     
                 // update the min and max values
-                minX = typeof minX != 'undefined' || x < minX ? x : minX;
-                minY = typeof minY != 'undefined' || y < minY ? y : minY;
-                maxX = typeof maxX != 'undefined' || x > maxX ? x : maxX;
-                maxY = typeof maxY != 'undefined' || y > maxY ? y : maxY;
+                minX = typeof minX == 'undefined' || x < minX ? x : minX;
+                minY = typeof minY == 'undefined' || y < minY ? y : minY;
+                maxX = typeof maxX == 'undefined' || x > maxX ? x : maxX;
+                maxY = typeof maxY == 'undefined' || y > maxY ? y : maxY;
                     
                 if (first) {
                     context.moveTo(x, y);
