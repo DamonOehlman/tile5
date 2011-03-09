@@ -67,7 +67,7 @@ var ShapeLayer = function(params) {
                     styleType = hitData.type + 'Style';
 
                     // now update the override style to use the specified style if it exists
-                    overrideStyle = shape[styleType] || overrideStyle;
+                    overrideStyle = shape[styleType] || self[styleType] || overrideStyle;
                 } // if
 
                 // save the previous style
