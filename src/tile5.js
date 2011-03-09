@@ -35,6 +35,7 @@ T5 = (function() {
     //= require "js/graphics/shapes/core"
     //= require "js/graphics/shapes/arc"
     //= require "js/graphics/shapes/poly"
+    //= require "js/graphics/shapes/line"
     //= require "js/graphics/shapes/points"
     //= require "js/graphics/shapes/marker"
     //= require "js/graphics/shapes/imagemarker"
@@ -90,6 +91,7 @@ T5 = (function() {
         Shape: Shape,
         Arc: Arc,
         Poly: Poly,
+        Line: Line,
         Points: Points,
         Marker: Marker,
         ImageMarker: ImageMarker,
