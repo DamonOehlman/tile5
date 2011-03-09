@@ -137,7 +137,7 @@ var Routing = (function() {
         if (routeData.geometry) {
             Position.vectorize(routeData.geometry, {
                 callback: function(coords) {
-                    routeOverlay.add(new T5.Poly(coords, {
+                    routeOverlay.add(new T5.Line(coords, {
                         style: 'waypoints',
                         simplify: true
                     }));
