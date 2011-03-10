@@ -257,10 +257,10 @@ var View = function(params) {
         // COG.info('interact center, x = ' + interactCenter.x + ', y = ' + interactCenter.y);
     } // setZoomCenter
     
-    function getScaledOffset(srcX, srcY, offset) {
+    function getScaledOffset(srcX, srcY) {
         var invScaleFactor = 1 / scaleFactor,
-            scaledX = (offset && drawRect ? drawRect.x1 : 0) + srcX * invScaleFactor,
-            scaledY = (offset && drawRect ? drawRect.y1 : 0) + srcY * invScaleFactor;
+            scaledX = drawRect.x1 + srcX * invScaleFactor,
+            scaledY = drawRect.y1 + srcY * invScaleFactor;
         
         return XY.init(scaledX, scaledY);        
     } // getScaledOffset
@@ -309,7 +309,7 @@ var View = function(params) {
     
     function handlePointerHover(evt, absXY, relXY) {
         // initialise the hit data
-        initHitData('hover', absXY, relXY, scaleFactor);
+        initHitData('hover', absXY, relXY);
 
         /*
         
@@ -322,28 +322,11 @@ var View = function(params) {
     } // handlePointerHover
     
     function handlePointerMove(evt, absXY, relXY) {
-        if (dragObject) {
-            var scaledOffset = getScaledOffset(relXY.x, relXY.y);
-            
-            // if the object is dragged, then invalidate the display
-            if (dragObject.drag(dragObject, scaledOffset.x, scaledOffset.y, false)) {
-                invalidate();
-            } // if
-        }
+        dragSelected(absXY, relXY, false);
     } // handlePointerMove
     
     function handlePointerUp(evt, absXY, relXY) {
-        if (dragObject) {
-            var scaledOffset = getScaledOffset(relXY.x, relXY.y);
-            
-            // attempt to drag and drop the object (fourth arg signifies a drop operation)
-            if (dragObject.drag(dragObject, scaledOffset.x, scaledOffset.y, true)) {
-                invalidate();
-            } // if
-        } // if
-
-        // reset the drag object
-        dragObject = null;
+        dragSelected(absXY, relXY, true);
     } // handlePointerUp
     
     function handleResize(evt) {
@@ -536,6 +519,26 @@ var View = function(params) {
             } // if..else
         } // if
     } // constrainOffset
+    
+    function dragSelected(absXY, relXY, drop) {
+        if (dragObject) {
+            var scaledOffset = getScaledOffset(relXY.x, relXY.y),
+                dragOk = dragObject.drag.call(
+                    dragObject.target, 
+                    dragObject, 
+                    scaledOffset.x, 
+                    scaledOffset.y, 
+                    drop);
+                
+            if (dragOk) {
+                invalidate();
+            } // if
+            
+            if (drop) {
+                dragObject = null;
+            } // if
+        }
+    } // dragSelected
     
     function dragStart(hitElement, x, y) {
         var canDrag = hitElement && hitElement.drag && 
@@ -777,10 +780,12 @@ var View = function(params) {
             sizeChanged = false;
         } // if
         
+        /*
         // check that the offset is within bounds
         if (offsetMaxX || offsetMaxY) {
             constrainOffset();
         } // if
+        */
 
         // calculate the cycle rect
         cycleRect = getViewRect();
@@ -827,7 +832,7 @@ var View = function(params) {
     
     function initHitData(hitType, absXY, relXY) {
         // initialise the hit data
-        hitData = Hits.init(hitType, absXY, relXY, scaleFactor);
+        hitData = Hits.init(hitType, absXY, relXY, getScaledOffset(relXY.x, relXY.y, true));
         
         // iterate through the layers and check to see if we have hit potential
         // iterate through all layers as some layers may use the hit guess operation

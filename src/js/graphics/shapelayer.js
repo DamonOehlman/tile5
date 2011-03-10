@@ -46,8 +46,8 @@ var ShapeLayer = function(params) {
     function draw(context, viewRect, state, view, tickCount, hitData) {
         var viewX = viewRect.x1,
             viewY = viewRect.y1,
-            hitX = hitData ? (pipTransformed ? hitData.x : hitData.relXY.x) : 0,
-            hitY = hitData ? (pipTransformed ? hitData.y : hitData.relXY.y) : 0,
+            hitX = hitData ? (pipTransformed ? hitData.x - viewX : hitData.relXY.x) : 0,
+            hitY = hitData ? (pipTransformed ? hitData.y - viewY : hitData.relXY.y) : 0,
             viewWidth = viewRect.width,
             viewHeight = viewRect.height;
         
@@ -56,10 +56,34 @@ var ShapeLayer = function(params) {
             var shape = shapes[ii],
                 overrideStyle = shape.style, 
                 styleType,
-                previousStyle;
+                previousStyle,
+                prepped,
+                transform = shape.bounds && (shape.rotation !== 0 || shape.scale !== 1);
+                
+            if (transform) {
+                context.save();
+                context.translate(shape.xy.x - viewX, shape.xy.y - viewY);
+                
+                if (shape.rotation !== 0) {
+                    context.rotate(shape.rotation);
+                } // if
+                
+                if (shape.scale !== 1) {
+                    context.scale(shape.scale, shape.scale);
+                } // if
+            } // if
+                
+            // prep the path
+            prepped = shape.prepPath(
+                context, 
+                transform ? shape.xy.x : viewX, 
+                transform ? shape.xy.y : viewY, 
+                viewWidth, 
+                viewHeight, 
+                state);
             
             // prep the path for the child
-            if (shape.prepPath(context, viewX, viewY, viewWidth, viewHeight, state)) {
+            if (prepped) {
                 // check for a hit in the path that has just been drawn
                 if (hitData && context.isPointInPath(hitX, hitY)) {
                     hitData.elements.push(Hits.initHit(shape.type, shape, {
@@ -83,6 +107,11 @@ var ShapeLayer = function(params) {
                 if (previousStyle) {
                     Style.apply(context, previousStyle);
                 } // if
+            } // if
+            
+            // if a transform was applied, then restore the canvas
+            if (transform) {
+                context.restore();
             } // if
         } // for
     } // draw

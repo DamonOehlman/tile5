@@ -27,7 +27,7 @@ var XYRect = (function() {
     Return a xy composite for the center of the rect
     */
     function center(rect) {
-        return XY.init(rect.x1 + rect.width/2, rect.y1 + rect.height/2);
+        return XY.init(rect.x1 + (rect.width >> 1), rect.y1 + (rect.height >> 1));
     } // center
     
     /**

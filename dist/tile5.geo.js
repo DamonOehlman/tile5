@@ -1693,15 +1693,6 @@ var TouchHandler = function(targetElement, observable, opts) {
             touchesCurrent = getTouchData(evt);
 
             if (! touchesCurrent) {
-                if (touchMode === TOUCH_MODE_TAP) {
-                    observable.triggerCustom(
-                        'tap',
-                        genEventProps('touch', evt),
-                        changedTouches,
-                        offsetTouches
-                    );
-                } // if
-
                 observable.triggerCustom(
                     'pointerUp',
                     genEventProps('touch', evt),
@@ -1763,7 +1754,8 @@ register('pointer', {
     };
 })();
 
-T5 = (function() {
+var T5 = {};
+(function(exports) {
 window.animFrame = (function() {
     return  window.requestAnimationFrame       ||
             window.webkitRequestAnimationFrame ||
@@ -2206,7 +2198,7 @@ var XYRect = (function() {
     Return a xy composite for the center of the rect
     */
     function center(rect) {
-        return XY.init(rect.x1 + rect.width/2, rect.y1 + rect.height/2);
+        return XY.init(rect.x1 + (rect.width >> 1), rect.y1 + (rect.height >> 1));
     } // center
 
     /**
@@ -2419,16 +2411,11 @@ Hits = (function() {
     /**
     ### init
     */
-    function init(hitType, absXY, relXY, scaleFactor) {
-        var scaledOffset = scaleFactor !== 1 ? XY.scale(relXY, scaleFactor) : relXY,
-            hitX = scaledOffset.x | 0,
-            hitY = scaledOffset.y | 0,
-            potentialHit = false;
-
+    function init(hitType, absXY, relXY, scaledXY) {
         return {
             type: hitType,
-            x: scaledOffset.x,
-            y: scaledOffset.y,
+            x: scaledXY.x | 0,
+            y: scaledXY.y | 0,
             elements: [],
 
             absXY: absXY,
@@ -3496,10 +3483,10 @@ var View = function(params) {
 
     } // setZoomCenter
 
-    function getScaledOffset(srcX, srcY, offset) {
+    function getScaledOffset(srcX, srcY) {
         var invScaleFactor = 1 / scaleFactor,
-            scaledX = (offset && drawRect ? drawRect.x1 : 0) + srcX * invScaleFactor,
-            scaledY = (offset && drawRect ? drawRect.y1 : 0) + srcY * invScaleFactor;
+            scaledX = drawRect.x1 + srcX * invScaleFactor,
+            scaledY = drawRect.y1 + srcY * invScaleFactor;
 
         return XY.init(scaledX, scaledY);
     } // getScaledOffset
@@ -3541,7 +3528,7 @@ var View = function(params) {
     } // handlePointerDown
 
     function handlePointerHover(evt, absXY, relXY) {
-        initHitData('hover', absXY, relXY, scaleFactor);
+        initHitData('hover', absXY, relXY);
 
         /*
 
@@ -3553,25 +3540,11 @@ var View = function(params) {
     } // handlePointerHover
 
     function handlePointerMove(evt, absXY, relXY) {
-        if (dragObject) {
-            var scaledOffset = getScaledOffset(relXY.x, relXY.y);
-
-            if (dragObject.drag(dragObject, scaledOffset.x, scaledOffset.y, false)) {
-                invalidate();
-            } // if
-        }
+        dragSelected(absXY, relXY, false);
     } // handlePointerMove
 
     function handlePointerUp(evt, absXY, relXY) {
-        if (dragObject) {
-            var scaledOffset = getScaledOffset(relXY.x, relXY.y);
-
-            if (dragObject.drag(dragObject, scaledOffset.x, scaledOffset.y, true)) {
-                invalidate();
-            } // if
-        } // if
-
-        dragObject = null;
+        dragSelected(absXY, relXY, true);
     } // handlePointerUp
 
     function handleResize(evt) {
@@ -3736,6 +3709,26 @@ var View = function(params) {
             } // if..else
         } // if
     } // constrainOffset
+
+    function dragSelected(absXY, relXY, drop) {
+        if (dragObject) {
+            var scaledOffset = getScaledOffset(relXY.x, relXY.y),
+                dragOk = dragObject.drag.call(
+                    dragObject.target,
+                    dragObject,
+                    scaledOffset.x,
+                    scaledOffset.y,
+                    drop);
+
+            if (dragOk) {
+                invalidate();
+            } // if
+
+            if (drop) {
+                dragObject = null;
+            } // if
+        }
+    } // dragSelected
 
     function dragStart(hitElement, x, y) {
         var canDrag = hitElement && hitElement.drag &&
@@ -3948,9 +3941,11 @@ var View = function(params) {
             sizeChanged = false;
         } // if
 
+        /*
         if (offsetMaxX || offsetMaxY) {
             constrainOffset();
         } // if
+        */
 
         cycleRect = getViewRect();
 
@@ -3986,7 +3981,7 @@ var View = function(params) {
     } // cycle
 
     function initHitData(hitType, absXY, relXY) {
-        hitData = Hits.init(hitType, absXY, relXY, scaleFactor);
+        hitData = Hits.init(hitType, absXY, relXY, getScaledOffset(relXY.x, relXY.y, true));
 
         for (var ii = layerCount; ii--; ) {
             hitFlagged = hitFlagged || (layers[ii].hitGuess ?
@@ -4838,21 +4833,22 @@ var ImageGenerator = function(params) {
 };
 
 /**
-# T5.Shape
+# T5.Drawable
 The T5.Shape class is simply a template class that provides placeholder methods
 that need to be implemented for shapes that can be drawn in a T5.ShapeLayer.
 
 ## Constructor
-`new T5.Shape(params);`
+`new T5.Drawable(params);`
 
 
 #### Initialization Parameters
 
 -
 */
-var Shape = function(params) {
+var Drawable = function(params) {
     params = COG.extend({
         style: null,
+        xy: null,
         fill: false,
         draggable: false,
         observable: true, // TODO: should this be true or false by default
@@ -4862,94 +4858,81 @@ var Shape = function(params) {
         scale: 1
     }, params);
 
-    var fill = params.fill;
+    COG.extend(this, params);
 
-    /* exports */
+    this.id = COG.objId(this.type);
+    this.bounds = null;
 
-    /* initialise shape */
-
-    var _self = COG.extend(params, {
-        id: COG.objId(params.type),
-
-        bounds: null,
-        hit: false,
-
-        /**
-        ### drag(dragData, dragX, dragY, drop)
-        */
-        drag: null,
-
-        /**
-        ### draw(context, x, y, width, height, state)
-        */
-        draw: function(context, x, y, width, height, state) {
-            if (fill) {
-                context.fill();
-            } // if
-
-            context.stroke();
-        },
-
-        /**
-        ### prepPath(context, x, y, width, height, state)
-        Prepping the path for a shape is the main
-        */
-        prepPath: function(context, x, y, width, height, state) {
-        },
-
-        /**
-        ### resync(view)
-        */
-        resync: function(view) {
-        }
-    });
-
-    if (params.observable) {
-        COG.observable(_self);
+    if (this.observable) {
+        COG.observable(this);
     } // if
-
-    return _self;
 };
-/**
-# T5.Arc
-*/
-var Arc = function(origin, params) {
-   params = COG.extend({
-       size: 4
-   }, params);
 
-   var drawXY = XY.init();
+Drawable.prototype = {
+    constructor: Drawable,
 
-   var _self = COG.extend(params, {
-       /**
-       ### draw(context, offsetX, offsetY, width, height, state)
-       */
-       draw: function(context, offsetX, offsetY, width, height, state) {
-           context.beginPath();
-           context.arc(
-               drawXY.x,
-               drawXY.y,
-               _self.size,
-               0,
-               Math.PI * 2,
-               false);
+    /**
+    ### drag(dragData, dragX, dragY, drop)
+    */
+    drag: null,
 
-           context.fill();
-           context.stroke();
-       },
+    /**
+    ### draw(context, x, y, width, height, state)
+    */
+    draw: function(context, x, y, width, height, state) {
+        if (this.fill) {
+            context.fill();
+        } // if
 
-       /**
-       ### resync(view)
-       */
-       resync: function(view) {
-           var centerXY = view.syncXY([origin]).origin;
-           drawXY = XY.floor([origin])[0];
-       }
-   });
+        context.stroke();
+    },
 
-   COG.info('created arc = ', origin);
-   return _self;
+    /**
+    ### prepPath(context, x, y, width, height, state)
+    Prepping the path for a shape is the main
+    */
+    prepPath: function(context, x, y, width, height, state) {
+    },
+
+    /**
+    ### resync(view)
+    */
+    resync: function(view) {
+        if (this.xy) {
+            view.syncXY([this.xy]);
+        } // if
+    },
+
+    /**
+    ### updateBounds(bounds: XYRect, updateXY: boolean)
+    */
+    updateBounds: function(bounds, updateXY) {
+        this.bounds = bounds;
+
+        if (updateXY) {
+            this.xy = XYRect.center(this.bounds);
+        } // if
+    }
 };
+function checkOffsetAndBounds(drawable, image) {
+    var x, y;
+
+    if (image && image.width > 0) {
+        if (! drawable.imageOffset) {
+            drawable.imageOffset = XY.init(
+                -image.width >> 1,
+                -image.height >> 1
+            );
+        } // if
+
+        if (! drawable.bounds) {
+            x = drawable.xy.x + drawable.imageOffset.x;
+            y = drawable.xy.y + drawable.imageOffset.y;
+
+            drawable.bounds = XYRect.init(x, y, x + image.width, y + image.height);
+        } // if
+    } // if
+} // checkOffsetAndBounds
 /**
 # T5.Poly
 __extends__: T5.Shape
@@ -4991,19 +4974,13 @@ var Poly = function(points, params) {
     */
     function prepPath(context, offsetX, offsetY, width, height, state) {
         if (haveData) {
-            var first = true,
-                maxX, maxY, minX, minY;
+            var first = true;
 
             context.beginPath();
 
             for (var ii = drawPoints.length; ii--; ) {
                 var x = drawPoints[ii].x - offsetX,
                     y = drawPoints[ii].y - offsetY;
-
-                minX = typeof minX == 'undefined' || x < minX ? x : minX;
-                minY = typeof minY == 'undefined' || y < minY ? y : minY;
-                maxX = typeof maxX == 'undefined' || x > maxX ? x : maxX;
-                maxY = typeof maxY == 'undefined' || y > maxY ? y : maxY;
 
                 if (first) {
                     context.moveTo(x, y);
@@ -5013,8 +4990,6 @@ var Poly = function(points, params) {
                     context.lineTo(x, y);
                 } // if..else
             } // for
-
-            _self.bounds = XYRect.init(minX, minY, maxX, maxY);
         } // if
 
         return haveData;
@@ -5025,175 +5000,47 @@ var Poly = function(points, params) {
     Used to synchronize the points of the poly to the grid.
     */
     function resync(view) {
-        _self.xy = view.syncXY(points);
+        var x, y, maxX, maxY, minX, minY;
+
+        view.syncXY(points);
 
         drawPoints = XY.floor(simplify ? XY.simplify(points) : points);
 
-    } // resyncToGrid
+        for (var ii = drawPoints.length; ii--; ) {
+            x = drawPoints[ii].x;
+            y = drawPoints[ii].y;
 
-    /* define _self */
+            minX = typeof minX == 'undefined' || x < minX ? x : minX;
+            minY = typeof minY == 'undefined' || y < minY ? y : minY;
+            maxX = typeof maxX == 'undefined' || x > maxX ? x : maxX;
+            maxY = typeof maxY == 'undefined' || y > maxY ? y : maxY;
+        } // for
 
-    var _self = COG.extend(new Shape(params), {
+        this.updateBounds(XYRect.init(minX, minY, maxX, maxY), true);
+    } // resync
+
+    Drawable.call(this, params);
+
+    COG.extend(this, {
         prepPath: prepPath,
         resync: resync
     });
 
     haveData = points && (points.length >= 2);
-
-    return _self;
 };
+
+Poly.prototype = new Drawable();
+Poly.prototype.constructor = Poly;
 var Line = function(points, params) {
-    return new T5.Poly(points, COG.extend({
-        fill: false
-    }, params));
+    params.fill = false;
+
+    Poly.call(this, points, params);
 };
+
+Line.prototype = new Poly();
 /**
-# T5.Points
-__extends__: T5.Shape
-
-## Constructor
-
-`new T5.Points(points, params)`
-
-The constructor requires an array of vectors that represent the poly and
-also accepts optional initialization parameters (see below).
-
-
-#### Initialization Parameters
-
-- `fill` (default = true) - whether or not the poly should be filled.
-- `style` (default = null) - the style override for this poly.  If none
-is specified then the style of the T5.PolyLayer is used.
-
-
-## Methods
-*/
-var Points = function(points, params) {
-    params = COG.extend({
-        fill: true,
-        radius: 10
-    }, params);
-
-    var haveData = false,
-        fill = params.fill,
-        drawPoints = [],
-        radius = params.radius;
-
-    /* exported functions */
-
-    /**
-    ### draw(context, offsetX, offsetY, state)
-    This method is used to draw the poly to the specified `context`.  The
-    `offsetX` and `offsetY` arguments specify the panning offset of the T5.View
-    which is taken into account when drawing the poly to the display.  The
-    `state` argument specifies the current T5.ViewState of the view.
-    */
-    function draw(context, offsetX, offsetY, width, height, state) {
-        context.beginPath();
-
-        for (var ii = drawPoints.length; ii--; ) {
-            context.arc(
-                drawPoints[ii].x - offsetX,
-                drawPoints[ii].y - offsetY,
-                radius,
-                0,
-                Math.PI * 2,
-                false);
-        } // for
-
-        if (fill) {
-            context.fill();
-        } // if
-
-        context.stroke();
-    } // drawPoly
-
-    /**
-    ### resync(view)
-    Used to synchronize the points of the poly to the grid.
-    */
-    function resync(view) {
-        drawPoints = XY.floor(points);
-    } // resyncToGrid
-
-    /* define _self */
-
-    var _self = COG.extend(new Shape(params), {
-        draw: draw,
-        resync: resync
-    });
-
-    return _self;
-};
-/**
-# T5.Marker
-__extends__: T5.Shape
-
-## Constructor
-
-`new T5.Marker(params)`
-
-
-#### Initialization Parameters
-
-
-## Methods
-*/
-var Marker = function(params) {
-    params = COG.extend({
-        xy: XY.init(),
-        draggable: false,
-        size: 10,
-        type: 'marker'
-    }, params);
-
-    var size = params.size;
-    /* exported functions */
-
-    /**
-    ### drag(dragData, dragX, dragY, drop)
-    */
-    function drag(dragData, dragX, dragY, drop) {
-        _self.xy.x = dragX;
-        _self.xy.y = dragY;
-
-        return true;
-    } // drag
-
-    /**
-    ### prepPath(context, offsetX, offsetY, width, height, state, hitData)
-    Prepare the path that will draw the polygon to the canvas
-    */
-    function prepPath(context, x, y, width, height, state) {
-        context.beginPath();
-        context.arc(x, y, size, 0, Math.PI * 2, false);
-
-        _self.bounds = XYRect.fromCenter(x, y, size, size);
-
-        return true;
-    } // prepPath
-
-    /**
-    ### resync(view)
-    Used to synchronize the points of the poly to the grid.
-    */
-    function resync(view) {
-        view.syncXY([_self.xy]);
-    } // resyncToGrid
-
-    /* define _self */
-
-    var _self = COG.extend(new Shape(params), {
-        drag: drag,
-        prepPath: prepPath,
-        resync: resync
-    });
-
-    return _self;
-};
-/**
-# T5.ImageMarker
-_extends:_ T5.Marker
+# T5.ImageDrawable
+_extends:_ T5.Drawable
 
 
 An image annotation is simply a T5.Annotation that has been extended to
@@ -5208,7 +5055,7 @@ tweak touch handling to get this better...
 
 
 ## Constructor
-`new T5.ImageMarker(params);`
+`new T5.Image(params);`
 
 ### Initialization Parameters
 
@@ -5218,14 +5065,6 @@ is required and the specified image is used to display the annotation.
 - `imageUrl` (String, default = null) - one of either this of the `image` parameter is
 required.  If specified, the image is obtained using T5.Images module and then drawn
 to the canvas.
-
-- `animatingImage` (HTMLImage, default = null) - an optional image that can be supplied,
-and if so, the specified image will be used when the annotation is animating rather than
-the standard `image`.  If no `animatingImage` (or `animatingImageUrl`) is specified then
-the standard image is used as a fallback when the marker is animating.
-
-- `animatingImageUrl` (String, default = null) - as per the `animatingImage` but a url
-for an image that will be loaded via T5.Images
 
 - `imageAnchor` (T5.Vector, default = null) - a T5.Vector that optionally specifies the
 anchor position for an annotation.  Consider that your annotation is "pin-like" then you
@@ -5244,28 +5083,29 @@ overhead as the canvas context needs to be saved and restored as part of the ope
 
 ## Methods
 */
-var ImageMarker = function(params) {
+var ImageDrawable = function(params) {
     params = COG.extend({
         image: null,
         imageUrl: null,
-        animatingImage: null,
-        animatingImageUrl: null,
-        imageAnchor: null
+        imageOffset: null
     }, params);
 
     var dragOffset = null,
+        drawableUpdateBounds = Drawable.prototype.updateBounds,
         drawX,
         drawY,
-        imageOffset = params.imageAnchor ?
-            T5.XY.invert(params.imageAnchor) :
-            null;
+        image = params.image;
 
     /* exports */
 
     function changeImage(imageUrl) {
-        _self.image = Images.get(imageUrl, function(loadedImage) {
-            _self.image = loadedImage;
-        });
+        this.imageUrl = imageUrl;
+
+        if (this.imageUrl) {
+            image = Images.get(this.imageUrl, function(loadedImage) {
+                image = loadedImage;
+            });
+        } // if
     } // changeImage
 
     /**
@@ -5274,27 +5114,27 @@ var ImageMarker = function(params) {
     function drag(dragData, dragX, dragY, drop) {
         if (! dragOffset) {
             dragOffset = XY.init(
-                dragData.startX - _self.xy.x,
-                dragData.startY - _self.xy.y
+                dragData.startX - this.xy.x,
+                dragData.startY - this.xy.y
             );
 
         }
 
-        _self.xy.x = dragX - dragOffset.x;
-        _self.xy.y = dragY - dragOffset.y;
+        this.xy.x = dragX - dragOffset.x;
+        this.xy.y = dragY - dragOffset.y;
 
         if (drop) {
             dragOffset = null;
 
 
-            if (_self.layer) {
-                var view = _self.layer.getParent();
+            if (this.layer) {
+                var view = this.layer.getParent();
                 if (view) {
-                    view.syncXY([_self.xy], true);
+                    view.syncXY([this.xy], true);
                 } // if
             } // if
 
-            _self.trigger('dragDrop');
+            this.trigger('dragDrop');
         } // if
 
         return true;
@@ -5304,7 +5144,7 @@ var ImageMarker = function(params) {
     ### draw(context, x, y, width, height, state)
     */
     function draw(context, offsetX, offsetY, width, height, state) {
-        context.drawImage(_self.image, drawX, drawY);
+        context.drawImage(image, drawX, drawY);
     } // draw
 
     /**
@@ -5312,51 +5152,66 @@ var ImageMarker = function(params) {
     Prepare the path that will draw the polygon to the canvas
     */
     function prepPath(context, offsetX, offsetY, width, height, state) {
-        var image = _self.image,
-            draw = image && image.width > 0;
+        var draw = image && image.width > 0;
 
         if (draw) {
-            if (! imageOffset) {
-                imageOffset = XY.init(
-                    -image.width >> 1,
-                    -image.height >> 1
-                );
-            } // if
+            checkOffsetAndBounds(this, image);
 
-            drawX = _self.xy.x + imageOffset.x - offsetX;
-            drawY = _self.xy.y + imageOffset.y - offsetY;
-
-            _self.bounds = XYRect.init(drawX, drawY, drawX + image.width, drawY + image.height);
+            drawX = this.xy.x + this.imageOffset.x - offsetX;
+            drawY = this.xy.y + this.imageOffset.y - offsetY;
 
             context.beginPath();
             context.rect(drawX, drawY, image.width, image.height);
-
-        } // if
+        }
+        else if (! image) {
+            Images.get(this.imageUrl, function(loadedImage) {
+                _self.image = loadedImage;
+            });
+        } // if..else
 
         return draw;
     } // prepPath
 
-    var _self = COG.extend(new Marker(params), {
+    /**
+    ### updateBounds(bounds: XYRect, updateXY: boolean)
+    */
+    function updateBounds(bounds, updateXY) {
+        drawableUpdateBounds.call(this, bounds, updateXY);
+
+        checkOffsetAndBounds(this, image);
+    } // setOrigin
+
+    Drawable.call(this, params);
+
+    var _self = COG.extend(this, {
         changeImage: changeImage,
         drag: drag,
         draw: draw,
-        prepPath: prepPath
+        prepPath: prepPath,
+        updateBounds: updateBounds
     });
 
-    if (! _self.image) {
-        _self.image = Images.get(params.imageUrl, function(loadedImage) {
-            _self.image = loadedImage;
-        });
+    if (! image) {
+        changeImage(this.imageUrl);
     } // if
-
-    if (! _self.animatingImage) {
-        _self.animatingImage = Images.get(params.animatingImageUrl, function(loadedImage) {
-            _self.animatingImage = loadedImage;
-        });
-    } // if
-
-    return _self;
 };
+
+ImageDrawable.prototype = new Drawable();
+ImageDrawable.prototype.constructor = ImageDrawable;
+var ImageMarker = function(params) {
+    params = COG.extend({
+        imageAnchor: null
+    }, params);
+
+    if (params.imageAnchor) {
+        params.imageOffset = XY.invert(params.imageAnchor);
+    } // if
+
+    ImageDrawable.call(this, params);
+};
+
+ImageMarker.prototype = new ImageDrawable();
+ImageMarker.prototype.constructor = ImageMarker;
 /**
 # T5.ShapeLayer
 _extends:_ T5.ViewLayer
@@ -5402,8 +5257,8 @@ var ShapeLayer = function(params) {
     function draw(context, viewRect, state, view, tickCount, hitData) {
         var viewX = viewRect.x1,
             viewY = viewRect.y1,
-            hitX = hitData ? (pipTransformed ? hitData.x : hitData.relXY.x) : 0,
-            hitY = hitData ? (pipTransformed ? hitData.y : hitData.relXY.y) : 0,
+            hitX = hitData ? (pipTransformed ? hitData.x - viewX : hitData.relXY.x) : 0,
+            hitY = hitData ? (pipTransformed ? hitData.y - viewY : hitData.relXY.y) : 0,
             viewWidth = viewRect.width,
             viewHeight = viewRect.height;
 
@@ -5411,9 +5266,32 @@ var ShapeLayer = function(params) {
             var shape = shapes[ii],
                 overrideStyle = shape.style,
                 styleType,
-                previousStyle;
+                previousStyle,
+                prepped,
+                transform = shape.bounds && (shape.rotation !== 0 || shape.scale !== 1);
 
-            if (shape.prepPath(context, viewX, viewY, viewWidth, viewHeight, state)) {
+            if (transform) {
+                context.save();
+                context.translate(shape.xy.x - viewX, shape.xy.y - viewY);
+
+                if (shape.rotation !== 0) {
+                    context.rotate(shape.rotation);
+                } // if
+
+                if (shape.scale !== 1) {
+                    context.scale(shape.scale, shape.scale);
+                } // if
+            } // if
+
+            prepped = shape.prepPath(
+                context,
+                transform ? shape.xy.x : viewX,
+                transform ? shape.xy.y : viewY,
+                viewWidth,
+                viewHeight,
+                state);
+
+            if (prepped) {
                 if (hitData && context.isPointInPath(hitX, hitY)) {
                     hitData.elements.push(Hits.initHit(shape.type, shape, {
                         drag: shape.draggable ? shape.drag : null
@@ -5431,6 +5309,10 @@ var ShapeLayer = function(params) {
                 if (previousStyle) {
                     Style.apply(context, previousStyle);
                 } // if
+            } // if
+
+            if (transform) {
+                context.restore();
             } // if
         } // for
     } // draw
@@ -5517,7 +5399,7 @@ var Tiling = (function() {
     };
 })();
 
-    var exports = {
+    COG.extend(exports, {
         ex: COG.extend,
         ticks: ticks,
         getConfig: getConfig,
@@ -5528,8 +5410,6 @@ var Tiling = (function() {
         Dimensions: Dimensions,
         Vector: Vector,
         Hits: Hits,
-
-        D: Dimensions,
 
         Images: Images,
 
@@ -5547,26 +5427,15 @@ var Tiling = (function() {
         ImageLayer: ImageLayer,
         ImageGenerator: ImageGenerator,
 
-        /*
-        Marker: Marker,
-        ImageMarker: ImageMarker,
-        MarkerLayer: MarkerLayer,
-
-        PathLayer: PathLayer,
-        AnimatedPathLayer: AnimatedPathLayer,
-        */
-
-        Shape: Shape,
-        Arc: Arc,
+        Drawable: Drawable,
         Poly: Poly,
         Line: Line,
-        Points: Points,
-        Marker: Marker,
+        ImageDrawable: ImageDrawable,
         ImageMarker: ImageMarker,
         ShapeLayer: ShapeLayer,
 
         Tiling: Tiling
-    };
+    });
 
     COG.observable(exports);
 
@@ -7839,6 +7708,4 @@ var LocationOverlay = exports.LocationOverlay = function(params) {
         Routing: Routing
     };
 })();
-
-    return exports;
-})();
+})(T5);

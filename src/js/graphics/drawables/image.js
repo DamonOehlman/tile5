@@ -1,6 +1,6 @@
 /**
-# T5.ImageMarker
-_extends:_ T5.Marker
+# T5.ImageDrawable
+_extends:_ T5.Drawable
 
 
 An image annotation is simply a T5.Annotation that has been extended to 
@@ -15,7 +15,7 @@ tweak touch handling to get this better...
 
 
 ## Constructor
-`new T5.ImageMarker(params);`
+`new T5.Image(params);`
 
 ### Initialization Parameters
 
@@ -25,14 +25,6 @@ is required and the specified image is used to display the annotation.
 - `imageUrl` (String, default = null) - one of either this of the `image` parameter is
 required.  If specified, the image is obtained using T5.Images module and then drawn
 to the canvas.
-
-- `animatingImage` (HTMLImage, default = null) - an optional image that can be supplied, 
-and if so, the specified image will be used when the annotation is animating rather than
-the standard `image`.  If no `animatingImage` (or `animatingImageUrl`) is specified then
-the standard image is used as a fallback when the marker is animating.
-
-- `animatingImageUrl` (String, default = null) - as per the `animatingImage` but a url 
-for an image that will be loaded via T5.Images
 
 - `imageAnchor` (T5.Vector, default = null) - a T5.Vector that optionally specifies the 
 anchor position for an annotation.  Consider that your annotation is "pin-like" then you
@@ -51,28 +43,31 @@ overhead as the canvas context needs to be saved and restored as part of the ope
 
 ## Methods
 */
-var ImageMarker = function(params) {
+var ImageDrawable = function(params) {
     params = COG.extend({
         image: null,
         imageUrl: null,
-        animatingImage: null,
-        animatingImageUrl: null,
-        imageAnchor: null
+        imageOffset: null
     }, params);
     
     var dragOffset = null,
+        drawableUpdateBounds = Drawable.prototype.updateBounds,
         drawX,
         drawY,
-        imageOffset = params.imageAnchor ?
-            T5.XY.invert(params.imageAnchor) : 
-            null;
-    
+        image = params.image;
+            
     /* exports */
     
     function changeImage(imageUrl) {
-        _self.image = Images.get(imageUrl, function(loadedImage) {
-            _self.image = loadedImage;
-        });
+        // update the image url
+        this.imageUrl = imageUrl;
+        
+        // load the new image
+        if (this.imageUrl) {
+            image = Images.get(this.imageUrl, function(loadedImage) {
+                image = loadedImage;
+            });
+        } // if
     } // changeImage
     
     /**
@@ -82,30 +77,30 @@ var ImageMarker = function(params) {
         // if the drag offset is unknown then calculate
         if (! dragOffset) {
             dragOffset = XY.init(
-                dragData.startX - _self.xy.x, 
-                dragData.startY - _self.xy.y
+                dragData.startX - this.xy.x, 
+                dragData.startY - this.xy.y
             );
 
             // TODO: increase scale? to highlight dragging
         }
 
         // update the xy and accounting for a drag offset
-        _self.xy.x = dragX - dragOffset.x;
-        _self.xy.y = dragY - dragOffset.y;
+        this.xy.x = dragX - dragOffset.x;
+        this.xy.y = dragY - dragOffset.y;
         
         if (drop) {
             dragOffset = null;
             
             // TODO: reset scale
             
-            if (_self.layer) {
-                var view = _self.layer.getParent();
+            if (this.layer) {
+                var view = this.layer.getParent();
                 if (view) {
-                    view.syncXY([_self.xy], true);
+                    view.syncXY([this.xy], true);
                 } // if
             } // if
             
-            _self.trigger('dragDrop');
+            this.trigger('dragDrop');
         } // if
         
         return true;
@@ -115,7 +110,7 @@ var ImageMarker = function(params) {
     ### draw(context, x, y, width, height, state)
     */
     function draw(context, offsetX, offsetY, width, height, state) {
-        context.drawImage(_self.image, drawX, drawY);
+        context.drawImage(image, drawX, drawY);
     } // draw
     
     /**
@@ -124,51 +119,54 @@ var ImageMarker = function(params) {
     */
     function prepPath(context, offsetX, offsetY, width, height, state) {
         // get the image
-        var image = _self.image,
-            draw = image && image.width > 0;
+        var draw = image && image.width > 0;
             
         if (draw) {
-            if (! imageOffset) {
-                imageOffset = XY.init(
-                    -image.width >> 1, 
-                    -image.height >> 1
-                );
-            } // if
+            checkOffsetAndBounds(this, image);
             
             // update the draw x and y
-            drawX = _self.xy.x + imageOffset.x - offsetX;
-            drawY = _self.xy.y + imageOffset.y - offsetY;
-            
-            // update the bounds
-            _self.bounds = XYRect.init(drawX, drawY, drawX + image.width, drawY + image.height);
+            drawX = this.xy.x + this.imageOffset.x - offsetX;
+            drawY = this.xy.y + this.imageOffset.y - offsetY;
             
             // open the path for hit tests
             context.beginPath();
             context.rect(drawX, drawY, image.width, image.height);
-            
-        } // if
+        }
+        else if (! image) {
+            Images.get(this.imageUrl, function(loadedImage) {
+                _self.image = loadedImage;
+            });
+        } // if..else
         
         return draw;
     } // prepPath 
     
-    var _self = COG.extend(new Marker(params), {
+    /**
+    ### updateBounds(bounds: XYRect, updateXY: boolean)
+    */
+    function updateBounds(bounds, updateXY) {
+        drawableUpdateBounds.call(this, bounds, updateXY);
+
+        // check the offset and bounds
+        checkOffsetAndBounds(this, image);
+    } // setOrigin
+    
+    // call the inherited constructor
+    Drawable.call(this, params);
+    
+    var _self = COG.extend(this, {
         changeImage: changeImage,
         drag: drag,
         draw: draw,
-        prepPath: prepPath
+        prepPath: prepPath,
+        updateBounds: updateBounds
     });
-    
-    if (! _self.image) {
-        _self.image = Images.get(params.imageUrl, function(loadedImage) {
-            _self.image = loadedImage;
-        });
+
+    // load the appropriate image
+    if (! image) { 
+        changeImage(this.imageUrl);
     } // if
-    
-    if (! _self.animatingImage) {
-        _self.animatingImage = Images.get(params.animatingImageUrl, function(loadedImage) {
-            _self.animatingImage = loadedImage;
-        });
-    } // if    
-    
-    return _self;
 };
+
+ImageDrawable.prototype = new Drawable();
+ImageDrawable.prototype.constructor = ImageDrawable;

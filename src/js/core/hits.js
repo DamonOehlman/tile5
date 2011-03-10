@@ -35,17 +35,12 @@ Hits = (function() {
     /**
     ### init
     */
-    function init(hitType, absXY, relXY, scaleFactor) {
-        var scaledOffset = scaleFactor !== 1 ? XY.scale(relXY, scaleFactor) : relXY,
-            hitX = scaledOffset.x | 0,
-            hitY = scaledOffset.y | 0,
-            potentialHit = false;
-        
+    function init(hitType, absXY, relXY, scaledXY) {
         return {
             // store the required hit data
             type: hitType,
-            x: scaledOffset.x,
-            y: scaledOffset.y,
+            x: scaledXY.x | 0,
+            y: scaledXY.y | 0,
             elements: [],
             
             // also store the original event data

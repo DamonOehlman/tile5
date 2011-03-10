@@ -41,8 +41,7 @@ var Poly = function(points, params) {
     */
     function prepPath(context, offsetX, offsetY, width, height, state) {
         if (haveData) {
-            var first = true,
-                maxX, maxY, minX, minY;
+            var first = true;
 
             context.beginPath();
             
@@ -52,12 +51,6 @@ var Poly = function(points, params) {
                 var x = drawPoints[ii].x - offsetX,
                     y = drawPoints[ii].y - offsetY;
                     
-                // update the min and max values
-                minX = typeof minX == 'undefined' || x < minX ? x : minX;
-                minY = typeof minY == 'undefined' || y < minY ? y : minY;
-                maxX = typeof maxX == 'undefined' || x > maxX ? x : maxX;
-                maxY = typeof maxY == 'undefined' || y > maxY ? y : maxY;
-                    
                 if (first) {
                     context.moveTo(x, y);
                     first = false;
@@ -66,9 +59,6 @@ var Poly = function(points, params) {
                     context.lineTo(x, y);
                 } // if..else
             } // for
-            
-            // update the bounds
-            _self.bounds = XYRect.init(minX, minY, maxX, maxY);
         } // if
         
         return haveData;
@@ -79,23 +69,41 @@ var Poly = function(points, params) {
     Used to synchronize the points of the poly to the grid.
     */
     function resync(view) {
-        _self.xy = view.syncXY(points);
+        var x, y, maxX, maxY, minX, minY;
+        
+        view.syncXY(points);
         
         // simplify the vectors for drawing (if required)
         drawPoints = XY.floor(simplify ? XY.simplify(points) : points);
+
+        // determine the bounds of the shape
+        for (var ii = drawPoints.length; ii--; ) {
+            x = drawPoints[ii].x;
+            y = drawPoints[ii].y;
+                
+            // update the min and max values
+            minX = typeof minX == 'undefined' || x < minX ? x : minX;
+            minY = typeof minY == 'undefined' || y < minY ? y : minY;
+            maxX = typeof maxX == 'undefined' || x > maxX ? x : maxX;
+            maxY = typeof maxY == 'undefined' || y > maxY ? y : maxY;
+        } // for
         
-        // TODO: determine the bounding rect of the shape
-    } // resyncToGrid
+        // update the width
+        this.updateBounds(XYRect.init(minX, minY, maxX, maxY), true);
+    } // resync
     
-    /* define _self */
+    // call the inherited constructor
+    Drawable.call(this, params);
     
-    var _self = COG.extend(new Shape(params), {
+    // extend this
+    COG.extend(this, {
         prepPath: prepPath,
         resync: resync
     });
-
+    
     // initialise the first item to the first element in the array
     haveData = points && (points.length >= 2);
-    
-    return _self;
 };
+
+Poly.prototype = new Drawable();
+Poly.prototype.constructor = Poly;

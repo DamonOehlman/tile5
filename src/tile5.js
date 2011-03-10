@@ -17,7 +17,8 @@
 //= require <cani/src/cani>
 //= require <interact/src/interact>
 
-T5 = (function() {
+var T5 = {};
+(function(exports) {
     //= require "js/animframe"
     
     //= require "js/math"
@@ -33,18 +34,17 @@ T5 = (function() {
     //= require "js/graphics/imagelayer"
     //= require "js/graphics/imagegenerator"
     
-    //= require "js/graphics/shapes/core"
-    //= require "js/graphics/shapes/arc"
-    //= require "js/graphics/shapes/poly"
-    //= require "js/graphics/shapes/line"
-    //= require "js/graphics/shapes/points"
-    //= require "js/graphics/shapes/marker"
-    //= require "js/graphics/shapes/imagemarker"
+    //= require "js/graphics/drawable"
+    //= require "js/graphics/drawables/helpers"
+    //= require "js/graphics/drawables/poly"
+    //= require "js/graphics/drawables/line"
+    //= require "js/graphics/drawables/image"
+    //= require "js/graphics/drawables/imagemarker"
     //= require "js/graphics/shapelayer"
     
     //= require "js/tiling/core"
     
-    var exports = {
+    COG.extend(exports, {
         ex: COG.extend,
         ticks: ticks,
         getConfig: getConfig,
@@ -55,9 +55,6 @@ T5 = (function() {
         Dimensions: Dimensions,
         Vector: Vector,
         Hits: Hits,
-        
-        // TODO: [0.9.7] REMOVE
-        D: Dimensions,
         
         Images: Images,
         
@@ -77,35 +74,20 @@ T5 = (function() {
         ImageLayer: ImageLayer,
         ImageGenerator: ImageGenerator,
         
-        /*
-        // markers
-        Marker: Marker,
-        ImageMarker: ImageMarker,
-        MarkerLayer: MarkerLayer,
-        
-        // paths
-        PathLayer: PathLayer,
-        AnimatedPathLayer: AnimatedPathLayer,
-        */
-        
         // shapes
-        Shape: Shape,
-        Arc: Arc,
+        Drawable: Drawable,
         Poly: Poly,
         Line: Line,
-        Points: Points,
-        Marker: Marker,
+        ImageDrawable: ImageDrawable,
         ImageMarker: ImageMarker,
         ShapeLayer: ShapeLayer,
         
         // tiling
         Tiling: Tiling
-    };
+    });
     
     // make T5 observable
     COG.observable(exports);
     
     //= require "tile5.variant"
-    
-    return exports;
-})();
+})(T5);
