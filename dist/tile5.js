@@ -3363,9 +3363,9 @@ var View = function(params) {
         fastDraw: false,
         inertia: true,
         minRefresh: 1000,
-        pannable: true,
+        pannable: false,
         clipping: true,
-        scalable: true,
+        scalable: false,
         panAnimationEasing: COG.easing('sine.out'),
         panAnimationDuration: 750,
         pinchZoomAnimateTrigger: 400,
@@ -4854,8 +4854,7 @@ var Drawable = function(params) {
         observable: true, // TODO: should this be true or false by default
         properties: {},
         type: 'shape',
-        rotation: 0,
-        scale: 1
+        transformable: false
     }, params);
 
     COG.extend(this, params);
@@ -4865,6 +4864,10 @@ var Drawable = function(params) {
 
     if (this.observable) {
         COG.observable(this);
+    } // if
+
+    if (this.transformable) {
+        transformable(this);
     } // if
 };
 
@@ -4933,6 +4936,45 @@ function checkOffsetAndBounds(drawable, image) {
         } // if
     } // if
 } // checkOffsetAndBounds
+
+function transformable(target) {
+
+    /* internals */
+    var rotation = 0,
+        scale = 1,
+        transX = 0,
+        transY = 0;
+
+    /* exports */
+
+    COG.extend(target, {
+        rotate: function(value) {
+            rotation = value;
+        },
+
+        scale: function(value) {
+            scale = value;
+        },
+
+        translate: function(x, y) {
+            transX = x;
+            transY = y;
+        },
+
+        transform: function(context, offsetX, offsetY) {
+            context.save();
+            context.translate(target.xy.x - offsetX + transX, target.xy.y - offsetY + transY);
+
+            if (rotation !== 0) {
+                context.rotate(rotation);
+            } // if
+
+            if (scale !== 1) {
+                context.scale(scale, scale);
+            } // if
+        }
+    });
+}
 /**
 # T5.Poly
 __extends__: T5.Shape
@@ -5103,7 +5145,13 @@ var ImageDrawable = function(params) {
 
         if (this.imageUrl) {
             image = Images.get(this.imageUrl, function(loadedImage) {
+                var view = _self.layer ? _self.layer.getParent() : null;
+
                 image = loadedImage;
+
+                if (view) {
+                    view.invalidate();
+                } // if
             });
         } // if
     } // changeImage
@@ -5160,14 +5208,11 @@ var ImageDrawable = function(params) {
             drawX = this.xy.x + this.imageOffset.x - offsetX;
             drawY = this.xy.y + this.imageOffset.y - offsetY;
 
+            COG.info('draw x = ' + drawX + ', image offset x = ' + this.imageOffset.x + ', view offset x = ' + offsetX);
+
             context.beginPath();
             context.rect(drawX, drawY, image.width, image.height);
-        }
-        else if (! image) {
-            Images.get(this.imageUrl, function(loadedImage) {
-                _self.image = loadedImage;
-            });
-        } // if..else
+        } // if
 
         return draw;
     } // prepPath
@@ -5267,26 +5312,21 @@ var ShapeLayer = function(params) {
                 overrideStyle = shape.style,
                 styleType,
                 previousStyle,
-                prepped,
-                transform = shape.bounds && (shape.rotation !== 0 || shape.scale !== 1);
+                prepped;
 
-            if (transform) {
-                context.save();
-                context.translate(shape.xy.x - viewX, shape.xy.y - viewY);
+            if (shape.transform) {
+                shape.transform(context, viewX, viewY);
 
-                if (shape.rotation !== 0) {
-                    context.rotate(shape.rotation);
-                } // if
-
-                if (shape.scale !== 1) {
-                    context.scale(shape.scale, shape.scale);
+                if (pipTransformed) {
+                    hitX -= shape.xy.x;
+                    hitY -= shape.xy.y;
                 } // if
             } // if
 
             prepped = shape.prepPath(
                 context,
-                transform ? shape.xy.x : viewX,
-                transform ? shape.xy.y : viewY,
+                shape.transform ? shape.xy.x : viewX,
+                shape.transform ? shape.xy.y : viewY,
                 viewWidth,
                 viewHeight,
                 state);
@@ -5311,7 +5351,7 @@ var ShapeLayer = function(params) {
                 } // if
             } // if
 
-            if (transform) {
+            if (shape.transform) {
                 context.restore();
             } // if
         } // for
@@ -5433,6 +5473,8 @@ var Tiling = (function() {
         ImageDrawable: ImageDrawable,
         ImageMarker: ImageMarker,
         ShapeLayer: ShapeLayer,
+
+        transformable: transformable,
 
         Tiling: Tiling
     });
@@ -7189,7 +7231,9 @@ var Map = exports.Map = function(params) {
         zoomLevel: 0,
         boundsChangeThreshold: 30,
         minZoom: 1,
-        maxZoom: 18
+        maxZoom: 18,
+        pannable: true,
+        scalable: true
     }, params);
 
     var LOCATE_MODE = {

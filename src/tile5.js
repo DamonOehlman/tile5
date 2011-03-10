@@ -82,6 +82,9 @@ var T5 = {};
         ImageMarker: ImageMarker,
         ShapeLayer: ShapeLayer,
         
+        // mixins
+        transformable: transformable,
+        
         // tiling
         Tiling: Tiling
     });

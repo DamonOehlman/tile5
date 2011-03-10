@@ -40,7 +40,9 @@ var Map = exports.Map = function(params) {
         zoomLevel: 0,
         boundsChangeThreshold: 30,
         minZoom: 1,
-        maxZoom: 18
+        maxZoom: 18,
+        pannable: true,
+        scalable: true
     }, params);
 
     // define the locate modes

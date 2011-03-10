@@ -57,27 +57,23 @@ var ShapeLayer = function(params) {
                 overrideStyle = shape.style, 
                 styleType,
                 previousStyle,
-                prepped,
-                transform = shape.bounds && (shape.rotation !== 0 || shape.scale !== 1);
+                prepped;
                 
-            if (transform) {
-                context.save();
-                context.translate(shape.xy.x - viewX, shape.xy.y - viewY);
+            if (shape.transform) {
+                shape.transform(context, viewX, viewY);
                 
-                if (shape.rotation !== 0) {
-                    context.rotate(shape.rotation);
-                } // if
-                
-                if (shape.scale !== 1) {
-                    context.scale(shape.scale, shape.scale);
+                // if point in path is transformed, then adjust the hit x and y accordingly
+                if (pipTransformed) {
+                    hitX -= shape.xy.x;
+                    hitY -= shape.xy.y;
                 } // if
             } // if
                 
             // prep the path
             prepped = shape.prepPath(
                 context, 
-                transform ? shape.xy.x : viewX, 
-                transform ? shape.xy.y : viewY, 
+                shape.transform ? shape.xy.x : viewX, 
+                shape.transform ? shape.xy.y : viewY, 
                 viewWidth, 
                 viewHeight, 
                 state);
@@ -110,7 +106,7 @@ var ShapeLayer = function(params) {
             } // if
             
             // if a transform was applied, then restore the canvas
-            if (transform) {
+            if (shape.transform) {
                 context.restore();
             } // if
         } // for

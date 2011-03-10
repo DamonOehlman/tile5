@@ -65,7 +65,15 @@ var ImageDrawable = function(params) {
         // load the new image
         if (this.imageUrl) {
             image = Images.get(this.imageUrl, function(loadedImage) {
+                var view = _self.layer ? _self.layer.getParent() : null;
+
+                // update the image
                 image = loadedImage;
+
+                // invalidate the view
+                if (view) {
+                    view.invalidate();
+                } // if
             });
         } // if
     } // changeImage
@@ -128,15 +136,12 @@ var ImageDrawable = function(params) {
             drawX = this.xy.x + this.imageOffset.x - offsetX;
             drawY = this.xy.y + this.imageOffset.y - offsetY;
             
+            COG.info('draw x = ' + drawX + ', image offset x = ' + this.imageOffset.x + ', view offset x = ' + offsetX);
+            
             // open the path for hit tests
             context.beginPath();
             context.rect(drawX, drawY, image.width, image.height);
-        }
-        else if (! image) {
-            Images.get(this.imageUrl, function(loadedImage) {
-                _self.image = loadedImage;
-            });
-        } // if..else
+        } // if
         
         return draw;
     } // prepPath 

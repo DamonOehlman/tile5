@@ -20,8 +20,7 @@ var Drawable = function(params) {
         observable: true, // TODO: should this be true or false by default
         properties: {},
         type: 'shape',
-        rotation: 0,
-        scale: 1
+        transformable: false
     }, params);
     
     // copy the parameters to this
@@ -34,6 +33,11 @@ var Drawable = function(params) {
     // make the shape observable
     if (this.observable) {
         COG.observable(this);
+    } // if
+    
+    // if this has been flagged as transformable then apply the mixins
+    if (this.transformable) {
+        transformable(this);
     } // if
 };
 
