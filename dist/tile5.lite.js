@@ -3917,65 +3917,67 @@ var View = function(params) {
             return;
         }
 
-        panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
+        if (true || tickCount - lastCycleTicks > cycleDelay) {
+            panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
 
-        state = stateActive |
-                    (scaleFactor !== 1 ? stateZoom : 0) |
-                    (panning ? statePan : 0) |
-                    (tweeningOffset ? stateAnimating : 0);
+            state = stateActive |
+                        (scaleFactor !== 1 ? stateZoom : 0) |
+                        (panning ? statePan : 0) |
+                        (tweeningOffset ? stateAnimating : 0);
 
-        redrawBG = (state & (stateZoom | statePan)) !== 0;
-        interacting = redrawBG && (state & stateAnimating) === 0;
+            redrawBG = (state & (stateZoom | statePan)) !== 0;
+            interacting = redrawBG && (state & stateAnimating) === 0;
 
-        if (sizeChanged && canvas) {
-            if (flashPolyfill) {
-                FlashCanvas.initElement(canvas);
+            if (sizeChanged && canvas) {
+                if (flashPolyfill) {
+                    FlashCanvas.initElement(canvas);
+                } // if
+
+                canvas.width = viewWidth;
+                canvas.height = viewHeight;
+
+                canvas.style.width = viewWidth + 'px';
+                canvas.style.height = viewHeight + 'px';
+
+                sizeChanged = false;
             } // if
 
-            canvas.width = viewWidth;
-            canvas.height = viewHeight;
+            /*
+            if (offsetMaxX || offsetMaxY) {
+                constrainOffset();
+            } // if
+            */
 
-            canvas.style.width = viewWidth + 'px';
-            canvas.style.height = viewHeight + 'px';
+            cycleRect = getViewRect();
 
-            sizeChanged = false;
+
+            for (var ii = layerCount; ii--; ) {
+                state = state | (layers[ii].animated ? stateAnimating : 0);
+
+                layers[ii].cycle(tickCount, cycleRect, state);
+
+                clippable = layers[ii].clip || clippable;
+            } // for
+
+            drawView(
+                state,
+                cycleRect,
+                clipping && clippable && (! redrawBG),
+                tickCount);
+
+            if (hitData) {
+                checkHits();
+                hitData = null;
+            } // if
+
+            if (tickCount - lastRefresh > minRefresh) {
+                refresh();
+            } // if
+
+            lastCycleTicks = tickCount;
+            lastOffsetX = offsetX;
+            lastOffsetY = offsetY;
         } // if
-
-        /*
-        if (offsetMaxX || offsetMaxY) {
-            constrainOffset();
-        } // if
-        */
-
-        cycleRect = getViewRect();
-
-
-        for (var ii = layerCount; ii--; ) {
-            state = state | (layers[ii].animated ? stateAnimating : 0);
-
-            layers[ii].cycle(tickCount, cycleRect, state);
-
-            clippable = layers[ii].clip || clippable;
-        } // for
-
-        drawView(
-            state,
-            cycleRect,
-            clipping && clippable && (! redrawBG),
-            tickCount);
-
-        if (hitData) {
-            checkHits();
-            hitData = null;
-        } // if
-
-        if (tickCount - lastRefresh > minRefresh) {
-            refresh();
-        } // if
-
-        lastCycleTicks = tickCount;
-        lastOffsetX = offsetX;
-        lastOffsetY = offsetY;
 
         animFrame(cycle);
     } // cycle
@@ -4890,6 +4892,13 @@ Drawable.prototype = {
         context.stroke();
     },
 
+    invalidate: function() {
+        var view = this.layer ? this.layer.getParent() : null;
+        if (view) {
+            view.invalidate();
+        } // if
+    },
+
     /**
     ### prepPath(context, x, y, width, height, state)
     Prepping the path for a shape is the main
@@ -4940,14 +4949,77 @@ function checkOffsetAndBounds(drawable, image) {
 function transformable(target) {
 
     /* internals */
-    var rotation = 0,
+    var DEFAULT_DURATION = 1000,
+        rotation = 0,
         scale = 1,
         transX = 0,
         transY = 0;
 
     /* exports */
 
+    function animate(fn, argsStart, argsEnd, easing, duration, callback) {
+        var startTicks = new Date().getTime(),
+            targetFn = target[fn],
+            argsComplete = 0,
+            animateValid = argsStart.length && argsEnd.length &&
+                argsStart.length == argsEnd.length,
+            argsCount = animateValid ? argsStart.length : 0,
+            argsChange = new Array(argsCount),
+            argsCurrent = new Array(argsCount),
+            easingFn = COG.easing(easing ? easing : 'sine.out'),
+            ii,
+
+            runTween = function(tickCount) {
+                var elapsed = tickCount - startTicks,
+                    complete = startTicks + duration <= tickCount;
+
+                for (var ii = argsCount; ii--; ) {
+                    argsCurrent[ii] = easingFn(
+                        elapsed,
+                        argsStart[ii],
+                        argsChange[ii],
+                        duration);
+                } // for
+
+                targetFn.apply(target, argsCurrent);
+                target.invalidate.call(target);
+
+                if (! complete) {
+                    animFrame(runTween);
+                }
+                else if (callback) {
+                    targetFn.apply(target, argsEnd);
+                    callback();
+                } // if..else
+            };
+
+        if (targetFn && argsCount > 0) {
+            duration = duration ? duration : DEFAULT_DURATION;
+
+            for (ii = argsCount; ii--; ) {
+                argsChange[ii] = argsEnd[ii] - argsStart[ii];
+            } // for
+
+            animFrame(runTween);
+        } // if
+    } // animate
+
+    function transform(context, offsetX, offsetY) {
+        context.save();
+        context.translate(target.xy.x - offsetX + transX, target.xy.y - offsetY + transY);
+
+        if (rotation !== 0) {
+            context.rotate(rotation);
+        } // if
+
+        if (scale !== 1) {
+            context.scale(scale, scale);
+        } // if
+    } // transform
+
     COG.extend(target, {
+        animate: animate,
+
         rotate: function(value) {
             rotation = value;
         },
@@ -4961,18 +5033,7 @@ function transformable(target) {
             transY = y;
         },
 
-        transform: function(context, offsetX, offsetY) {
-            context.save();
-            context.translate(target.xy.x - offsetX + transX, target.xy.y - offsetY + transY);
-
-            if (rotation !== 0) {
-                context.rotate(rotation);
-            } // if
-
-            if (scale !== 1) {
-                context.scale(scale, scale);
-            } // if
-        }
+        transform: transform
     });
 }
 /**
@@ -5207,8 +5268,6 @@ var ImageDrawable = function(params) {
 
             drawX = this.xy.x + this.imageOffset.x - offsetX;
             drawY = this.xy.y + this.imageOffset.y - offsetY;
-
-            COG.info('draw x = ' + drawX + ', image offset x = ' + this.imageOffset.x + ', view offset x = ' + offsetX);
 
             context.beginPath();
             context.rect(drawX, drawY, image.width, image.height);

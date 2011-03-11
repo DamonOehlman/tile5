@@ -749,83 +749,86 @@ var View = function(params) {
             cycling = false;
             return;
         }
-            
-        // determine if we are panning
-        panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
-                
-        // update the state
-        state = stateActive | 
-                    (scaleFactor !== 1 ? stateZoom : 0) | 
-                    (panning ? statePan : 0) | 
-                    (tweeningOffset ? stateAnimating : 0);
+        
+        // if we a due for a redraw then do on
+        if (true || tickCount - lastCycleTicks > cycleDelay) {
+            // determine if we are panning
+            panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
 
-        // update the redraw background flags
-        redrawBG = (state & (stateZoom | statePan)) !== 0;
-        interacting = redrawBG && (state & stateAnimating) === 0;
+            // update the state
+            state = stateActive | 
+                        (scaleFactor !== 1 ? stateZoom : 0) | 
+                        (panning ? statePan : 0) | 
+                        (tweeningOffset ? stateAnimating : 0);
 
-        // handle any size changes if we have them
-        if (sizeChanged && canvas) {
-            if (flashPolyfill) {
-                FlashCanvas.initElement(canvas);
+            // update the redraw background flags
+            redrawBG = (state & (stateZoom | statePan)) !== 0;
+            interacting = redrawBG && (state & stateAnimating) === 0;
+
+            // handle any size changes if we have them
+            if (sizeChanged && canvas) {
+                if (flashPolyfill) {
+                    FlashCanvas.initElement(canvas);
+                } // if
+
+                // update the canvas width
+                canvas.width = viewWidth;
+                canvas.height = viewHeight;
+
+                canvas.style.width = viewWidth + 'px';
+                canvas.style.height = viewHeight + 'px';
+
+                // flag the size is not changed now as we have handled the update
+                sizeChanged = false;
             } // if
 
-            // update the canvas width
-            canvas.width = viewWidth;
-            canvas.height = viewHeight;
+            /*
+            // check that the offset is within bounds
+            if (offsetMaxX || offsetMaxY) {
+                constrainOffset();
+            } // if
+            */
 
-            canvas.style.width = viewWidth + 'px';
-            canvas.style.height = viewHeight + 'px';
+            // calculate the cycle rect
+            cycleRect = getViewRect();
+
+            // TODO: if we have a hover offset, check that no elements have moved under the cursor (maybe)
+
+            for (var ii = layerCount; ii--; ) {
+                // if a layer is animating the flag as such
+                state = state | (layers[ii].animated ? stateAnimating : 0);
+
+                // cycle the layer
+                layers[ii].cycle(tickCount, cycleRect, state);
+
+                // then determine if we have a clippable layer
+                clippable = layers[ii].clip || clippable;
+            } // for
             
-            // flag the size is not changed now as we have handled the update
-            sizeChanged = false;
+            // draw the view
+            drawView(
+                state, 
+                cycleRect, 
+                clipping && clippable && (! redrawBG), 
+                tickCount);
+
+            // check for hits 
+            if (hitData) {
+                checkHits();
+                hitData = null;
+            } // if
+
+            // check whether a forced refresh is required
+            // TODO: include some state checks here...
+            if (tickCount - lastRefresh > minRefresh) {
+                refresh();
+            } // if
+
+            // update the last cycle ticks
+            lastCycleTicks = tickCount;
+            lastOffsetX = offsetX;
+            lastOffsetY = offsetY;
         } // if
-        
-        /*
-        // check that the offset is within bounds
-        if (offsetMaxX || offsetMaxY) {
-            constrainOffset();
-        } // if
-        */
-
-        // calculate the cycle rect
-        cycleRect = getViewRect();
-
-        // TODO: if we have a hover offset, check that no elements have moved under the cursor (maybe)
-
-        for (var ii = layerCount; ii--; ) {
-            // if a layer is animating the flag as such
-            state = state | (layers[ii].animated ? stateAnimating : 0);
-
-            // cycle the layer
-            layers[ii].cycle(tickCount, cycleRect, state);
-
-            // then determine if we have a clippable layer
-            clippable = layers[ii].clip || clippable;
-        } // for
-
-        // draw the view
-        drawView(
-            state, 
-            cycleRect, 
-            clipping && clippable && (! redrawBG), 
-            tickCount);
-
-        // check for hits 
-        if (hitData) {
-            checkHits();
-            hitData = null;
-        } // if
-
-        // check whether a forced refresh is required
-        // TODO: include some state checks here...
-        if (tickCount - lastRefresh > minRefresh) {
-            refresh();
-        } // if
-        
-        // update the last cycle ticks
-        lastCycleTicks = tickCount;
-        lastOffsetX = offsetX;
-        lastOffsetY = offsetY;
 
         animFrame(cycle);
     } // cycle

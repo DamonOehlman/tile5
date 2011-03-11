@@ -59,6 +59,13 @@ Drawable.prototype = {
         
         context.stroke();
     },
+    
+    invalidate: function() {
+        var view = this.layer ? this.layer.getParent() : null;
+        if (view) {
+            view.invalidate();
+        } // if
+    },
 
     /**
     ### prepPath(context, x, y, width, height, state)

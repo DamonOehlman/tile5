@@ -136,8 +136,6 @@ var ImageDrawable = function(params) {
             drawX = this.xy.x + this.imageOffset.x - offsetX;
             drawY = this.xy.y + this.imageOffset.y - offsetY;
             
-            COG.info('draw x = ' + drawX + ', image offset x = ' + this.imageOffset.x + ', view offset x = ' + offsetX);
-            
             // open the path for hit tests
             context.beginPath();
             context.rect(drawX, drawY, image.width, image.height);
