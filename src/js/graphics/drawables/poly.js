@@ -36,6 +36,13 @@ var Poly = function(points, params) {
     /* exported functions */
     
     /**
+    ### animatePath(easing, duration, drawFn, callback)
+    */
+    function animatePath(easing, duration, drawFn, callback) {
+        
+    } // animatePath
+    
+    /**
     ### prepPath(context, offsetX, offsetY, width, height, state, hitData)
     Prepare the path that will draw the polygon to the canvas
     */
@@ -97,6 +104,7 @@ var Poly = function(points, params) {
     
     // extend this
     COG.extend(this, {
+        animatePath: animatePath,
         prepPath: prepPath,
         resync: resync
     });
@@ -105,5 +113,6 @@ var Poly = function(points, params) {
     haveData = points && (points.length >= 2);
 };
 
-Poly.prototype = new Drawable();
-Poly.prototype.constructor = Poly;
+Poly.prototype = COG.extend(Drawable.prototype, {
+    constructor: Poly
+});

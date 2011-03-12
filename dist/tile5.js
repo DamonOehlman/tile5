@@ -473,6 +473,7 @@ http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-l
 (function() {
     var BACK_S = 1.70158,
         HALF_PI = Math.PI / 2,
+        ANI_WAIT = 1000 / 60 | 0,
 
         abs = Math.abs,
         pow = Math.pow,
@@ -626,24 +627,27 @@ http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-l
     COG.tweenValue = function(startValue, endValue, fn, duration, callback) {
 
         var startTicks = new Date().getTime(),
+            lastTicks = 0,
             change = endValue - startValue,
             tween = {};
 
         function runTween(tickCount) {
-            var elapsed = tickCount - startTicks,
-                updatedValue = fn(elapsed, startValue, change, duration),
-                complete = startTicks + duration <= tickCount,
-                cont = !complete,
-                retVal;
+            if (lastTicks + ANI_WAIT < tickCount) {
+                var elapsed = tickCount - startTicks,
+                    updatedValue = fn(elapsed, startValue, change, duration),
+                    complete = startTicks + duration <= tickCount,
+                    cont = !complete,
+                    retVal;
 
-            if (callback) {
-                retVal = callback(updatedValue, complete, elapsed);
+                if (callback) {
+                    retVal = callback(updatedValue, complete, elapsed);
 
-                cont = typeof retVal != 'undefined' ? retVal && cont : cont;
-            } // if
+                    cont = typeof retVal != 'undefined' ? retVal && cont : cont;
+                } // if
 
-            if (cont) {
-                animFrame(runTween);
+                if (cont) {
+                    animFrame(runTween);
+                } // if
             } // if
         } // runTween
 
@@ -799,6 +803,41 @@ http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-l
         return new Duration();
     }; // durationToSeconds
 })();
+
+COG.ObjectStore = function() {
+
+    /* internals */
+
+    var index = {},
+        groups = {},
+        objPrefix = 'obj_' + new Date().getTime(),
+        objCounter = 0,
+        hasOwn = Object.prototype.hasOwnProperty;
+
+    /* exports */
+
+    function add(object, group) {
+        var objects;
+
+        group = group ? group : 'default';
+
+        if (object && object.constructor) {
+            if (! hasOwn.call(object, 'id')) {
+                object.id = objPrefix + (++objCounter);
+            } // if
+        } // if
+
+        objects = groups[group] ? groups[group] : (groups[group] = []);
+
+        index[object.id] = objects.length;
+
+        objects[object.length] = object;
+    } // add
+
+    return {
+        add: add
+    };
+};
 var CANI = {};
 (function(exports) {
     var tests = [],
@@ -4851,6 +4890,7 @@ var Drawable = function(params) {
     params = COG.extend({
         style: null,
         xy: null,
+        size: null,
         fill: false,
         draggable: false,
         observable: true, // TODO: should this be true or false by default
@@ -4871,6 +4911,8 @@ var Drawable = function(params) {
     if (this.transformable) {
         transformable(this);
     } // if
+
+    this.transformed = false;
 };
 
 Drawable.prototype = {
@@ -4912,7 +4954,24 @@ Drawable.prototype = {
     resync: function(view) {
         if (this.xy) {
             view.syncXY([this.xy]);
+
+            if (this.size) {
+                this.updateBounds(XYRect.fromCenter(
+                    this.xy.x, this.xy.y, this.size, this.size));
+            } // if
         } // if
+    },
+
+    /**
+    ### setTransformable(boolean)
+    Update the transformable state
+    */
+    setTransformable: function(flag) {
+        if (flag && (! this.transformable)) {
+            transformable(this);
+        } // if
+
+        this.transformable = flag;
     },
 
     /**
@@ -4950,15 +5009,23 @@ function transformable(target) {
 
     /* internals */
     var DEFAULT_DURATION = 1000,
+        ANI_WAIT = 1000 / 60 | 0,
         rotation = 0,
         scale = 1,
         transX = 0,
         transY = 0;
 
+    function checkTransformed() {
+        target.transformed = (scale !== 1) ||
+            (rotation % TWO_PI !== 0) ||
+            (transX !== 0) || (transY !== 0);
+    } // isTransformed
+
     /* exports */
 
     function animate(fn, argsStart, argsEnd, easing, duration, callback) {
         var startTicks = new Date().getTime(),
+            lastTicks = 0,
             targetFn = target[fn],
             argsComplete = 0,
             animateValid = argsStart.length && argsEnd.length &&
@@ -4970,30 +5037,36 @@ function transformable(target) {
             ii,
 
             runTween = function(tickCount) {
-                var elapsed = tickCount - startTicks,
-                    complete = startTicks + duration <= tickCount;
+                if (tickCount - lastTicks > ANI_WAIT) {
+                    var elapsed = tickCount - startTicks,
+                        complete = startTicks + duration <= tickCount;
 
-                for (var ii = argsCount; ii--; ) {
-                    argsCurrent[ii] = easingFn(
-                        elapsed,
-                        argsStart[ii],
-                        argsChange[ii],
-                        duration);
-                } // for
+                    for (var ii = argsCount; ii--; ) {
+                        argsCurrent[ii] = easingFn(
+                            elapsed,
+                            argsStart[ii],
+                            argsChange[ii],
+                            duration);
+                    } // for
 
-                targetFn.apply(target, argsCurrent);
-                target.invalidate.call(target);
+                    targetFn.apply(target, argsCurrent);
+                    target.invalidate.call(target);
 
-                if (! complete) {
-                    animFrame(runTween);
-                }
-                else if (callback) {
-                    targetFn.apply(target, argsEnd);
-                    callback();
-                } // if..else
+                    if (! complete) {
+                        animFrame(runTween);
+                    }
+                    else {
+                        targetFn.apply(target, argsEnd);
+                        target.invalidate.call(target);
+
+                        if (callback) {
+                            callback();
+                        } // if
+                    } // if..else
+                } // if
             };
 
-        if (targetFn && argsCount > 0) {
+        if (targetFn && targetFn.apply && argsCount > 0) {
             duration = duration ? duration : DEFAULT_DURATION;
 
             for (ii = argsCount; ii--; ) {
@@ -5022,15 +5095,18 @@ function transformable(target) {
 
         rotate: function(value) {
             rotation = value;
+            checkTransformed();
         },
 
         scale: function(value) {
             scale = value;
+            checkTransformed();
         },
 
         translate: function(x, y) {
             transX = x;
             transY = y;
+            checkTransformed();
         },
 
         transform: transform
@@ -5070,6 +5146,13 @@ var Poly = function(points, params) {
     params.type = params.fill ? 'polygon' : 'line';
 
     /* exported functions */
+
+    /**
+    ### animatePath(easing, duration, drawFn, callback)
+    */
+    function animatePath(easing, duration, drawFn, callback) {
+
+    } // animatePath
 
     /**
     ### prepPath(context, offsetX, offsetY, width, height, state, hitData)
@@ -5125,6 +5208,7 @@ var Poly = function(points, params) {
     Drawable.call(this, params);
 
     COG.extend(this, {
+        animatePath: animatePath,
         prepPath: prepPath,
         resync: resync
     });
@@ -5132,8 +5216,9 @@ var Poly = function(points, params) {
     haveData = points && (points.length >= 2);
 };
 
-Poly.prototype = new Drawable();
-Poly.prototype.constructor = Poly;
+Poly.prototype = COG.extend(Drawable.prototype, {
+    constructor: Poly
+});
 var Line = function(points, params) {
     params.fill = false;
 
@@ -5371,9 +5456,10 @@ var ShapeLayer = function(params) {
                 overrideStyle = shape.style,
                 styleType,
                 previousStyle,
-                prepped;
+                prepped,
+                transformed = shape.transformed;
 
-            if (shape.transform) {
+            if (transformed) {
                 shape.transform(context, viewX, viewY);
 
                 if (pipTransformed) {
@@ -5384,8 +5470,8 @@ var ShapeLayer = function(params) {
 
             prepped = shape.prepPath(
                 context,
-                shape.transform ? shape.xy.x : viewX,
-                shape.transform ? shape.xy.y : viewY,
+                transformed ? shape.xy.x : viewX,
+                transformed ? shape.xy.y : viewY,
                 viewWidth,
                 viewHeight,
                 state);
@@ -5410,11 +5496,20 @@ var ShapeLayer = function(params) {
                 } // if
             } // if
 
-            if (shape.transform) {
+            if (transformed) {
                 context.restore();
             } // if
         } // for
     } // draw
+
+    /**
+    ### find(selector: String)
+    The find method will eventually support retrieving all the shapes from the shape
+    layer that match the selector expression.  For now though, it just returns all shapes
+    */
+    function find(selector) {
+        return [].concat(shapes);
+    } // find
 
     /**
     ### hitGuess(hitX, hitY, state, view)
@@ -5463,6 +5558,7 @@ var ShapeLayer = function(params) {
         },
 
         draw: draw,
+        find: find,
         hitGuess: hitGuess
     });
 
@@ -7086,20 +7182,20 @@ var GeoJSONParser = function(data, callback, options, builders) {
     }, options);
 
     builders = COG.extend({
-        marker: function(xy, options) {
+        marker: function(xy, builderOpts) {
             return new Marker({
                 xy: xy
             });
         },
 
-        line: function(vectors, options) {
-            return new Poly(vectors, options);
+        line: function(vectors, builderOpts) {
+            return new Poly(vectors, COG.extend({}, options, builderOpts));
         },
 
-        poly: function(vectors, options) {
+        poly: function(vectors, builderOpts) {
             return new Poly(vectors, COG.extend({
                 fill: true
-            }, options));
+            }, options, builderOpts));
         }
     }, builders);
 
@@ -7183,6 +7279,7 @@ var GeoJSONParser = function(data, callback, options, builders) {
 
     function processData(tickCount) {
         var cycleCount = 0,
+            childOpts = COG.extend({}, options),
             ii = featureIndex;
 
         if (childParser) {
@@ -7194,7 +7291,7 @@ var GeoJSONParser = function(data, callback, options, builders) {
                 processedCount = null;
 
             if (featureInfo.isCollection) {
-                childCount += 1;
+                childOpts.layerPrefix = layerPrefix + (childCount++) + '-';
 
                 childParser = parse(
                     featureInfo.data.features,
@@ -7204,9 +7301,7 @@ var GeoJSONParser = function(data, callback, options, builders) {
                         for (var layerId in childLayers) {
                             layers[layerId] = childLayers[layerId];
                         } // for
-                    }, {
-                        layerPrefix: layerPrefix + childCount + '-'
-                    });
+                    }, childOpts);
 
                 processedCount += 1;
             }

@@ -57,9 +57,10 @@ var ShapeLayer = function(params) {
                 overrideStyle = shape.style, 
                 styleType,
                 previousStyle,
-                prepped;
+                prepped,
+                transformed = shape.transformed;
                 
-            if (shape.transform) {
+            if (transformed) {
                 shape.transform(context, viewX, viewY);
                 
                 // if point in path is transformed, then adjust the hit x and y accordingly
@@ -72,8 +73,8 @@ var ShapeLayer = function(params) {
             // prep the path
             prepped = shape.prepPath(
                 context, 
-                shape.transform ? shape.xy.x : viewX, 
-                shape.transform ? shape.xy.y : viewY, 
+                transformed ? shape.xy.x : viewX, 
+                transformed ? shape.xy.y : viewY, 
                 viewWidth, 
                 viewHeight, 
                 state);
@@ -106,11 +107,20 @@ var ShapeLayer = function(params) {
             } // if
             
             // if a transform was applied, then restore the canvas
-            if (shape.transform) {
+            if (transformed) {
                 context.restore();
             } // if
         } // for
     } // draw
+    
+    /**
+    ### find(selector: String)
+    The find method will eventually support retrieving all the shapes from the shape
+    layer that match the selector expression.  For now though, it just returns all shapes
+    */
+    function find(selector) {
+        return [].concat(shapes);
+    } // find
     
     /**
     ### hitGuess(hitX, hitY, state, view)
@@ -163,6 +173,7 @@ var ShapeLayer = function(params) {
         },
         
         draw: draw,
+        find: find,
         hitGuess: hitGuess
     });
     

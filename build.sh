@@ -1,4 +1,4 @@
-SPROCKET_OPTS="-I build -I /development/projects/github/sidelab/"
+SPROCKET_OPTS="-I build -I /development/projects/github/ -I /development/projects/github/sidelab/"
 MINIFY=$1
 
 : ${MINIFY:=false}

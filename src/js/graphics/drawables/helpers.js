@@ -22,15 +22,23 @@ function transformable(target) {
     
     /* internals */
     var DEFAULT_DURATION = 1000,
+        ANI_WAIT = 1000 / 60 | 0,
         rotation = 0,
         scale = 1,
         transX = 0,
         transY = 0;
         
+    function checkTransformed() {
+        target.transformed = (scale !== 1) || 
+            (rotation % TWO_PI !== 0) || 
+            (transX !== 0) || (transY !== 0);
+    } // isTransformed
+        
     /* exports */
     
     function animate(fn, argsStart, argsEnd, easing, duration, callback) {
         var startTicks = new Date().getTime(),
+            lastTicks = 0,
             targetFn = target[fn],
             argsComplete = 0,
             animateValid = argsStart.length && argsEnd.length && 
@@ -42,33 +50,39 @@ function transformable(target) {
             ii,
             
             runTween = function(tickCount) {
-                // calculate the updated value
-                var elapsed = tickCount - startTicks,
-                    complete = startTicks + duration <= tickCount;
-                
-                // iterate through the arguments and get the current values
-                for (var ii = argsCount; ii--; ) {
-                    argsCurrent[ii] = easingFn(
-                        elapsed, 
-                        argsStart[ii], 
-                        argsChange[ii], 
-                        duration);
-                } // for
-                
-                // call the target function with the specified arguments
-                targetFn.apply(target, argsCurrent);
-                target.invalidate.call(target);
+                if (tickCount - lastTicks > ANI_WAIT) {
+                    // calculate the updated value
+                    var elapsed = tickCount - startTicks,
+                        complete = startTicks + duration <= tickCount;
 
-                if (! complete) {
-                    animFrame(runTween);
-                }
-                else if (callback) {
-                    targetFn.apply(target, argsEnd);
-                    callback();
-                } // if..else
+                    // iterate through the arguments and get the current values
+                    for (var ii = argsCount; ii--; ) {
+                        argsCurrent[ii] = easingFn(
+                            elapsed, 
+                            argsStart[ii], 
+                            argsChange[ii], 
+                            duration);
+                    } // for
+
+                    // call the target function with the specified arguments
+                    targetFn.apply(target, argsCurrent);
+                    target.invalidate.call(target);
+
+                    if (! complete) {
+                        animFrame(runTween);
+                    }
+                    else {
+                        targetFn.apply(target, argsEnd);
+                        target.invalidate.call(target);
+
+                        if (callback) {
+                            callback();
+                        } // if
+                    } // if..else
+                } // if
             };
             
-        if (targetFn && argsCount > 0) {
+        if (targetFn && targetFn.apply && argsCount > 0) {
             // update the duration with the default value if not specified
             duration = duration ? duration : DEFAULT_DURATION;
             
@@ -99,15 +113,18 @@ function transformable(target) {
         
         rotate: function(value) {
             rotation = value;
+            checkTransformed();
         },
         
         scale: function(value) {
             scale = value;
+            checkTransformed();
         },
         
         translate: function(x, y) {
             transX = x;
             transY = y;
+            checkTransformed();
         },
         
         transform: transform

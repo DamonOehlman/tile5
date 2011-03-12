@@ -121,20 +121,20 @@ var GeoJSONParser = function(data, callback, options, builders) {
     
     // initialise the builders
     builders = COG.extend({
-        marker: function(xy, options) {
+        marker: function(xy, builderOpts) {
             return new Marker({
                 xy: xy
             });
         },
         
-        line: function(vectors, options) {
-            return new Poly(vectors, options);
+        line: function(vectors, builderOpts) {
+            return new Poly(vectors, COG.extend({}, options, builderOpts));
         },
         
-        poly: function(vectors, options) {
+        poly: function(vectors, builderOpts) {
             return new Poly(vectors, COG.extend({
                 fill: true
-            }, options));
+            }, options, builderOpts));
         }
     }, builders);
     
@@ -221,6 +221,7 @@ var GeoJSONParser = function(data, callback, options, builders) {
 
     function processData(tickCount) {
         var cycleCount = 0,
+            childOpts = COG.extend({}, options),
             ii = featureIndex;
             
         // if we have a child worker active, then don't do anything in this worker
@@ -237,7 +238,7 @@ var GeoJSONParser = function(data, callback, options, builders) {
                 
             // if we have a collection, then create the child worker to process the features
             if (featureInfo.isCollection) {
-                childCount += 1;
+                childOpts.layerPrefix = layerPrefix + (childCount++) + '-';
                 
                 // create the worker
                 childParser = parse(
@@ -249,9 +250,7 @@ var GeoJSONParser = function(data, callback, options, builders) {
                         for (var layerId in childLayers) {
                             layers[layerId] = childLayers[layerId];
                         } // for
-                    }, {
-                        layerPrefix: layerPrefix + childCount + '-'
-                    });
+                    }, childOpts);
                     
                 processedCount += 1;
             }

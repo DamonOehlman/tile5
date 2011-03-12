@@ -15,6 +15,7 @@ var Drawable = function(params) {
     params = COG.extend({
         style: null,
         xy: null,
+        size: null,
         fill: false,
         draggable: false,
         observable: true, // TODO: should this be true or false by default
@@ -39,6 +40,9 @@ var Drawable = function(params) {
     if (this.transformable) {
         transformable(this);
     } // if
+    
+    // update transform states
+    this.transformed = false;
 };
 
 Drawable.prototype = {
@@ -80,7 +84,26 @@ Drawable.prototype = {
     resync: function(view) {
         if (this.xy) {
             view.syncXY([this.xy]);
+            
+            // if we have a size, then update the bounds
+            if (this.size) {
+                this.updateBounds(XYRect.fromCenter(
+                    this.xy.x, this.xy.y, this.size, this.size));
+            } // if
         } // if
+    },
+    
+    /**
+    ### setTransformable(boolean)
+    Update the transformable state
+    */
+    setTransformable: function(flag) {
+        if (flag && (! this.transformable)) {
+            transformable(this);
+        } // if
+        
+        // update the transformable flag
+        this.transformable = flag;
     },
     
     /**
