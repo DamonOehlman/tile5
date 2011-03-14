@@ -894,12 +894,13 @@ var CANI = {};
 register('canvas', function(results, callback) {
 
     var testCanvas = document.createElement('canvas'),
-        testContext = testCanvas.getContext('2d');
+        isFlashCanvas = typeof FlashCanvas != 'undefined';
 
     /* define test functions */
 
     function checkPointInPath() {
-        var transformed;
+        var transformed,
+            testContext = testCanvas.getContext('2d');
 
         testContext.save();
         try {
@@ -922,7 +923,7 @@ register('canvas', function(results, callback) {
     testCanvas.width = 200;
     testCanvas.height = 200;
 
-    results.pipTransformed = checkPointInPath();
+    results.pipTransformed = isFlashCanvas ? false : checkPointInPath();
 
     callback();
 });
@@ -1266,8 +1267,8 @@ function getOffset(obj) {
     } // if
 
     return {
-        x: calcLeft,
-        y: calcTop
+        left: calcLeft,
+        top: calcTop
     };
 } // getOffset
 
@@ -1289,8 +1290,8 @@ function matchTarget(evt, targetElement) {
 
 function pointerOffset(absPoint, offset) {
     return {
-        x: absPoint.x - (offset ? offset.x : 0),
-        y: absPoint.y - (offset ? offset.y : 0)
+        x: absPoint.x - (offset ? offset.left : 0),
+        y: absPoint.y - (offset ? offset.top : 0)
     };
 } // triggerPositionEvent
 
@@ -1314,7 +1315,6 @@ var MouseHandler = function(targetElement, observable, opts) {
         isFlashCanvas = typeof FlashCanvas != 'undefined',
         buttonDown = false,
         start,
-        offset,
         currentX,
         currentY,
         lastX,
@@ -1322,11 +1322,28 @@ var MouseHandler = function(targetElement, observable, opts) {
 
     /* internal functions */
 
+    function getPagePos(evt) {
+        if (evt.pageX && evt.pageY) {
+            return point(evt.pageX, evt.pageY);
+        }
+        else {
+            var doc = document.documentElement,
+    			body = document.body;
+
+            return point(
+                evt.clientX +
+                    (doc && doc.scrollLeft || body && body.scrollLeft || 0) -
+                    (doc && doc.clientLeft || body && body.clientLeft || 0),
+                evt.clientY +
+                    (doc && doc.scrollTop  || body && body.scrollTop  || 0) -
+                    (doc && doc.clientTop  || body && body.clientTop  || 0)
+            );
+        } // if
+    } // getPagePos
+
     function handleClick(evt) {
         if (matchTarget(evt, targetElement)) {
-            var clickXY = point(
-                evt.pageX ? evt.pageX : evt.screenX,
-                evt.pageY ? evt.pageY : evt.screenY);
+            var clickXY = getPagePos(evt);
 
             observable.triggerCustom(
                 'tap',
@@ -1341,11 +1358,7 @@ var MouseHandler = function(targetElement, observable, opts) {
         COG.info('captured double click');
 
         if (matchTarget(evt, targetElement)) {
-            var clickXY = point(
-                evt.pageX ? evt.pageX : evt.screenX,
-                evt.pageY ? evt.pageY : evt.screenY);
-
-            COG.info('captured double click + target matched');
+            var clickXY = getPagePos(evt);
 
             observable.triggerCustom(
                 'doubleTap',
@@ -1361,27 +1374,30 @@ var MouseHandler = function(targetElement, observable, opts) {
             buttonDown = isLeftButton(evt);
 
             if (buttonDown) {
+                var pagePos = getPagePos(evt);
+
                 targetElement.style.cursor = 'move';
                 preventDefault(evt);
 
-                lastX = evt.pageX ? evt.pageX : evt.screenX;
-                lastY = evt.pageY ? evt.pageY : evt.screenY;
+                lastX = pagePos.x;
+                lastY = pagePos.y;
                 start = point(lastX, lastY);
-                offset = getOffset(targetElement);
 
                 observable.triggerCustom(
                     'pointerDown',
                     genEventProps('mouse', evt),
                     start,
-                    pointerOffset(start, offset)
+                    pointerOffset(start, getOffset(targetElement))
                 );
             }
         } // if
     } // mouseDown
 
     function handleMouseMove(evt) {
-        currentX = evt.pageX ? evt.pageX : evt.screenX;
-        currentY = evt.pageY ? evt.pageY : evt.screenY;
+        var pagePos = getPagePos(evt);
+
+        currentX = pagePos.x;
+        currentY = pagePos.y;
 
         if (matchTarget(evt, targetElement)) {
             triggerCurrent(evt, buttonDown ? 'pointerMove' : 'pointerHover');
@@ -1446,15 +1462,11 @@ var MouseHandler = function(targetElement, observable, opts) {
             deltaY = evtY - lastY,
             current = point(evtX, evtY);
 
-        if (! offset) {
-            offset = getOffset(targetElement);
-        } // if
-
         observable.triggerCustom(
             eventName,
             genEventProps('mouse', evt),
             current,
-            pointerOffset(current, offset),
+            pointerOffset(current, getOffset(targetElement)),
             point(deltaX, deltaY)
         );
 
@@ -1620,7 +1632,7 @@ var TouchHandler = function(targetElement, observable, opts) {
             offset = getOffset(targetElement);
 
             var changedTouches = getTouchData(evt, 'changedTouches'),
-                relTouches = copyTouches(changedTouches, offset.x, offset.y);
+                relTouches = copyTouches(changedTouches, offset.left, offset.top);
 
             if (! touchesStart) {
                 touchMode = TOUCH_MODE_TAP;
@@ -1705,7 +1717,7 @@ var TouchHandler = function(targetElement, observable, opts) {
                         'pointerMove',
                         genEventProps('touch', evt),
                         touchesCurrent,
-                        copyTouches(touchesCurrent, offset.x, offset.y),
+                        copyTouches(touchesCurrent, offset.left, offset.top),
                         point(
                             touchesCurrent.x - touchesLast.x,
                             touchesCurrent.y - touchesLast.y)
@@ -1717,7 +1729,7 @@ var TouchHandler = function(targetElement, observable, opts) {
                         'pointerMoveMulti',
                         genEventProps('touch', evt),
                         touchesCurrent,
-                        copyTouches(touchesCurrent, offset.x, offset.y)
+                        copyTouches(touchesCurrent, offset.left, offset.top)
                     );
                 } // if
             } // if
@@ -1729,7 +1741,7 @@ var TouchHandler = function(targetElement, observable, opts) {
     function handleTouchEnd(evt) {
         if (matchTarget(evt, targetElement)) {
             var changedTouches = getTouchData(evt, 'changedTouches'),
-                offsetTouches = copyTouches(changedTouches, offset.x, offset.y);
+                offsetTouches = copyTouches(changedTouches, offset.left, offset.top);
 
             touchesCurrent = getTouchData(evt);
 

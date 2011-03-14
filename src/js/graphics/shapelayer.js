@@ -50,7 +50,7 @@ var ShapeLayer = function(params) {
             hitY = hitData ? (pipTransformed ? hitData.y - viewY : hitData.relXY.y) : 0,
             viewWidth = viewRect.width,
             viewHeight = viewRect.height;
-        
+            
         // iterate through the shapes and draw the layers
         for (var ii = shapes.length; ii--; ) {
             var shape = shapes[ii],
