@@ -632,6 +632,8 @@ http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-l
             tween = {};
 
         function runTween(tickCount) {
+            tickCount = tickCount ? tickCount : new Date().getTime();
+
             if (lastTicks + ANI_WAIT < tickCount) {
                 var elapsed = tickCount - startTicks,
                     updatedValue = fn(elapsed, startValue, change, duration),
@@ -3956,6 +3958,8 @@ var View = function(params) {
             return;
         }
 
+        tickCount = tickCount ? tickCount : new Date().getTime();
+
         if (true || tickCount - lastCycleTicks > cycleDelay) {
             panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
 
@@ -4892,6 +4896,7 @@ var Drawable = function(params) {
         xy: null,
         size: null,
         fill: false,
+        stroke: true,
         draggable: false,
         observable: true, // TODO: should this be true or false by default
         properties: {},
@@ -4931,7 +4936,9 @@ Drawable.prototype = {
             context.fill();
         } // if
 
-        context.stroke();
+        if (this.stroke) {
+            context.stroke();
+        } // if
     },
 
     invalidate: function() {
@@ -5037,6 +5044,8 @@ function transformable(target) {
             ii,
 
             runTween = function(tickCount) {
+                tickCount = tickCount ? tickCount : new Date().getTime();
+
                 if (tickCount - lastTicks > ANI_WAIT) {
                     var elapsed = tickCount - startTicks,
                         complete = startTicks + duration <= tickCount;
@@ -5538,7 +5547,7 @@ var ShapeLayer = function(params) {
         ### add(poly)
         Used to add a T5.Poly to the layer
         */
-        add: function(shape) {
+        add: function(shape, prepend) {
             if (shape) {
                 shape.layer = _self;
 
@@ -5549,7 +5558,12 @@ var ShapeLayer = function(params) {
                     view.invalidate();
                 } // if
 
-                shapes[shapes.length] = shape;
+                if (prepend) {
+                    shapes.unshift(shape);
+                }
+                else {
+                    shapes[shapes.length] = shape;
+                } // if..else
             } // if
         },
 

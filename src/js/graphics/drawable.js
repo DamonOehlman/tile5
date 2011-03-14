@@ -17,6 +17,7 @@ var Drawable = function(params) {
         xy: null,
         size: null,
         fill: false,
+        stroke: true,
         draggable: false,
         observable: true, // TODO: should this be true or false by default
         properties: {},
@@ -61,7 +62,9 @@ Drawable.prototype = {
             context.fill();
         } // if
         
-        context.stroke();
+        if (this.stroke) {
+            context.stroke();
+        } // if
     },
     
     invalidate: function() {

@@ -281,7 +281,7 @@ var Position = (function() {
             var chunkCounter = 0,
                 chunkSize = options.chunkSize,
                 ii = posIndex;
-            
+                
             // process from the last position index
             for (; ii--;) {
                 vectors[ii] = T5.GeoXY.init(positions[ii]);

@@ -50,6 +50,11 @@ function transformable(target) {
             ii,
             
             runTween = function(tickCount) {
+                // initialise the tick count if it isn't already defined
+                // not all browsers pass through the ticks with the requestAnimationFrame :/
+                tickCount = tickCount ? tickCount : new Date().getTime();
+                
+                // if we are due for a refresh then go
                 if (tickCount - lastTicks > ANI_WAIT) {
                     // calculate the updated value
                     var elapsed = tickCount - startTicks,

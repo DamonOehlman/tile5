@@ -750,6 +750,10 @@ var View = function(params) {
             return;
         }
         
+        // initialise the tick count if it isn't already defined
+        // not all browsers pass through the ticks with the requestAnimationFrame :/
+        tickCount = tickCount ? tickCount : new Date().getTime();
+        
         // if we a due for a redraw then do on
         if (true || tickCount - lastCycleTicks > cycleDelay) {
             // determine if we are panning

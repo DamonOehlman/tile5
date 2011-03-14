@@ -224,6 +224,10 @@ var GeoJSONParser = function(data, callback, options, builders) {
             childOpts = COG.extend({}, options),
             ii = featureIndex;
             
+        // initialise the tick count if it isn't already defined
+        // not all browsers pass through the ticks with the requestAnimationFrame :/
+        tickCount = tickCount ? tickCount : new Date().getTime();
+            
         // if we have a child worker active, then don't do anything in this worker
         if (childParser) {
             return;

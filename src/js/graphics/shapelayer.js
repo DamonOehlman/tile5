@@ -151,7 +151,7 @@ var ShapeLayer = function(params) {
         ### add(poly)
         Used to add a T5.Poly to the layer
         */
-        add: function(shape) {
+        add: function(shape, prepend) {
             if (shape) {
                 shape.layer = _self;
                 
@@ -164,7 +164,12 @@ var ShapeLayer = function(params) {
                 } // if
             
                 // add the the shapes array
-                shapes[shapes.length] = shape;
+                if (prepend) {
+                    shapes.unshift(shape);
+                }
+                else {
+                    shapes[shapes.length] = shape;
+                } // if..else
             } // if
         },
         
