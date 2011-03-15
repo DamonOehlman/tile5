@@ -16,7 +16,8 @@ var ShapeLayer = function(params) {
     
     // initialise variables
     var shapes = [],
-        pipTransformed = CANI.canvas.pipTransformed;
+        pipTransformed = CANI.canvas.pipTransformed,
+        isFlashCanvas = typeof FlashCanvas != 'undefined';
         
     /* private functions */
     
@@ -34,6 +35,14 @@ var ShapeLayer = function(params) {
         
         _self.changed();
     } // performSync
+    
+    function quickHitCheck(shape, hitX, hitY) {
+        var bounds = shape.bounds;
+        
+        return (bounds && 
+            hitX >= bounds.x1 && hitX <= bounds.x2 &&
+            hitY >= bounds.y1 && hitY <= bounds.y2);
+    } // quickHitCheck
     
     /* event handlers */
     
@@ -54,11 +63,12 @@ var ShapeLayer = function(params) {
         // iterate through the shapes and draw the layers
         for (var ii = shapes.length; ii--; ) {
             var shape = shapes[ii],
-                overrideStyle = shape.style, 
+                overrideStyle = shape.style || _self.style, 
                 styleType,
                 previousStyle,
                 prepped,
-                transformed = shape.transformed;
+                isHit = false,
+                transformed = shape.transformed && (! isFlashCanvas);
                 
             if (transformed) {
                 shape.transform(context, viewX, viewY);
@@ -136,9 +146,7 @@ var ShapeLayer = function(params) {
                 bounds = shape.bounds;
             
             // update the the shapes hit state
-            hit = hit || (bounds && 
-                hitX >= bounds.x1 && hitX <= bounds.x2 &&
-                hitY >= bounds.y1 && hitY <= bounds.y2);
+            hit = hit || quickHitCheck(shape, hitX, hitY);
         } // for
         
         return hit;

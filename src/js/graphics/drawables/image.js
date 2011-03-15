@@ -64,15 +64,16 @@ var ImageDrawable = function(params) {
         
         // load the new image
         if (this.imageUrl) {
-            image = Images.get(this.imageUrl, function(loadedImage) {
-                var view = _self.layer ? _self.layer.getParent() : null;
+            getImage(this.imageUrl, function(retrievedImage, loaded) {
+                image = retrievedImage;
+                
+                if (loaded) {
+                    var view = _self.layer ? _self.layer.getParent() : null;
 
-                // update the image
-                image = loadedImage;
-
-                // invalidate the view
-                if (view) {
-                    view.invalidate();
+                    // invalidate the view
+                    if (view) {
+                        view.invalidate();
+                    } // if
                 } // if
             });
         } // if

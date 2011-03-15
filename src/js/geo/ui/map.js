@@ -214,7 +214,7 @@ var Map = exports.Map = function(params) {
         _self.setMaxOffset(gridSize, gridSize, true, false);
         
         // remove the grid layer
-        Images.cancelLoad();
+        // Images.cancelLoad();
         
         // reset scaling and resync the map
         _self.resetScale();

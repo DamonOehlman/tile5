@@ -259,8 +259,8 @@ var View = function(params) {
     
     function getScaledOffset(srcX, srcY) {
         var invScaleFactor = 1 / scaleFactor,
-            scaledX = drawRect.x1 + srcX * invScaleFactor,
-            scaledY = drawRect.y1 + srcY * invScaleFactor;
+            scaledX = drawRect ? (drawRect.x1 + srcX * invScaleFactor) : srcX,
+            scaledY = drawRect ? (drawRect.y1 + srcY * invScaleFactor) : srcY;
         
         return XY.init(scaledX, scaledY);        
     } // getScaledOffset
@@ -755,7 +755,7 @@ var View = function(params) {
         tickCount = tickCount ? tickCount : new Date().getTime();
         
         // if we a due for a redraw then do on
-        if (true || tickCount - lastCycleTicks > cycleDelay) {
+        if (tickCount - lastCycleTicks > cycleDelay) {
             // determine if we are panning
             panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
 
@@ -771,16 +771,21 @@ var View = function(params) {
 
             // handle any size changes if we have them
             if (sizeChanged && canvas) {
-                if (flashPolyfill) {
-                    FlashCanvas.initElement(canvas);
-                } // if
-
                 // update the canvas width
                 canvas.width = viewWidth;
                 canvas.height = viewHeight;
 
                 canvas.style.width = viewWidth + 'px';
                 canvas.style.height = viewHeight + 'px';
+
+                if (flashPolyfill) {
+                    FlashCanvas.initElement(canvas);
+                } // if
+                
+                // if we are working with explorer canvas, then initialise the canvas
+                if (typeof G_vmlCanvasManager != 'undefined') {
+                    G_vmlCanvasManager.initElement(canvas);
+                } // if
 
                 // flag the size is not changed now as we have handled the update
                 sizeChanged = false;

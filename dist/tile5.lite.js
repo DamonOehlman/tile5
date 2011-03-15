@@ -894,7 +894,8 @@ var CANI = {};
 register('canvas', function(results, callback) {
 
     var testCanvas = document.createElement('canvas'),
-        isFlashCanvas = typeof FlashCanvas != 'undefined';
+        isFlashCanvas = typeof FlashCanvas != 'undefined',
+        isExplorerCanvas = typeof G_vmlCanvasManager != 'undefnined';
 
     /* define test functions */
 
@@ -923,7 +924,7 @@ register('canvas', function(results, callback) {
     testCanvas.width = 200;
     testCanvas.height = 200;
 
-    results.pipTransformed = isFlashCanvas ? false : checkPointInPath();
+    results.pipTransformed = isFlashCanvas || isExplorerCanvas ? false : checkPointInPath();
 
     callback();
 });
@@ -2712,322 +2713,131 @@ function getConfig() {
 
     return detectedConfig;
 } // getConfig
+var INTERVAL_LOADCHECK = 100,
+    INTERVAL_CACHECHECK = 10000,
+    LOAD_TIMEOUT = 30000,
+    imageCache = {},
+    imageCount = 0,
+    lastCacheCheck = new Date().getTime(),
+    loadingData = {},
+    loadingUrls = [],
+    isFlashCanvas = typeof FlashCanvas != 'undefined',
+    workerTimeout = 0;
+
+/* internals */
+
+function imageLoadWorker() {
+    var tickCount = new Date().getTime(),
+        ii = 0;
+
+    clearTimeout(workerTimeout);
+    workerTimeout = 0;
+
+
+    while (ii < loadingUrls.length) {
+        var url = loadingUrls[ii],
+            imageData = loadingData[url],
+            imageToCheck = loadingData[url].image,
+            imageLoaded = isLoaded(imageToCheck),
+            requestAge = tickCount - imageData.start,
+            removeItem = imageLoaded || requestAge >= LOAD_TIMEOUT;
+
+        if (imageLoaded) {
+            triggerLoaded(url, imageData);
+        } // if
+
+        if (removeItem) {
+            loadingUrls.splice(ii, 1);
+            delete loadingData[url];
+        }
+        else {
+            ii++;
+        } // if..else
+    } // while
+
+    if (loadingUrls.length > 0) {
+        workerTimeout = setTimeout(imageLoadWorker, INTERVAL_LOADCHECK);
+    } // if
+} // imageLoadWorker
+
+function isLoaded(image) {
+    return image && (isFlashCanvas || (image.complete && image.width > 0));
+} // isLoaded
+
+function loadImage(url, callback) {
+    var data = loadingData[url];
+
+    if (data) {
+        data.callbacks.push(callback);
+    }
+    else {
+        var imageToLoad = new Image();
+
+        imageToLoad.id = '_ldimg' + (++imageCount);
+
+        loadingData[url] = {
+            start: new Date().getTime(),
+            image: imageToLoad,
+            callbacks: [callback]
+        };
+
+        imageToLoad.src = url;
+
+        loadingUrls[loadingUrls.length] = url;
+    } // if..else
+
+    if (! workerTimeout) {
+        workerTimeout = setTimeout(imageLoadWorker, INTERVAL_LOADCHECK);
+    } // if
+} // loadImage
+
+function triggerLoaded(url, imageData) {
+    var loadedImage = imageData.image,
+        callbacks = imageData.callbacks;
+
+    imageCache[url] = loadedImage;
+
+    for (var ii = 0; ii < callbacks.length; ii++) {
+        callbacks[ii](loadedImage, true);
+    } // for
+} // triggerLoaded
+
 /**
-# T5.Images
-_module_
-
-
-The T5.Images module provides image loading support for the rest of the
-Tile5 library.
-
-
-## Module Functions
+# T5.getImage(url, callback)
+This function is used to load an image and fire a callback when the image
+is loaded.  The callback fires when the image is _really_ loaded (not
+when the onload event handler fires).
 */
-var Images = (function() {
-    var TIMEOUT_CHECK_INTERVAL = 10000;
-
-    var images = {},
-        canvasCounter = 0,
-        loadWatchers = {},
-        imageCounter = 0,
-        queuedImages = [],
-        loadingImages = [],
-        cachedImages = [],
-        imageCacheFullness = 0,
-        lastTimeoutCheck = 0,
-        clearingCache = false;
-
-    /* internal functions */
-
-    function loadNextImage() {
-        var maxImageLoads = getConfig().maxImageLoads;
-
-        if ((! maxImageLoads) || (loadingImages.length < maxImageLoads)) {
-            var imageData = queuedImages.shift(),
-                tickCount = T5.ticks();
-
-            if (imageData) {
-                loadingImages[loadingImages.length] = imageData;
-
-                imageData.image.onload = handleImageLoad;
-                imageData.image.src = imageData.url;
-                imageData.requested = tickCount;
-            } // if..else
-
-            if (tickCount - lastTimeoutCheck > TIMEOUT_CHECK_INTERVAL) {
-                checkTimeoutsAndCache(tickCount);
-            } // if
-        } // if
-
-    } // loadNextImage
-
-    function cleanupImageCache() {
-        clearingCache = true;
-        try {
-            var halfLen = cachedImages.length >> 1;
-            if (halfLen > 0) {
-                cachedImages.sort(function(itemA, itemB) {
-                    return itemA.created - itemB.created;
-                });
-
-                for (var ii = halfLen; ii--; ) {
-                    delete images[cachedImages[ii].url];
-                } // for
-
-                cachedImages.splice(0, halfLen);
-            } // if
-        }
-        finally {
-            clearingCache = false;
-        } // try..finally
-
-        module.trigger('cacheCleared');
-    } // cleanupImageCache
-
-    function checkTimeoutsAndCache(currentTickCount) {
-        var timedOutLoad = false, ii = 0,
-            config = getConfig();
-
-        while (ii < loadingImages.length) {
-            var loadingTime = currentTickCount - loadingImages[ii].requested;
-            if (loadingTime > (module.loadTimeout * 1000)) {
-                loadingImages.splice(ii, 1);
-                timedOutLoad = true;
-            }
-            else {
-                ii++;
-            } // if..else
-        } // while
-
-        if (timedOutLoad) {
-            loadNextImage();
-        } // if
-
-        if (config && config.imageCacheMaxSize) {
-            imageCacheFullness = (cachedImages.length * module.avgImageSize) / config.imageCacheMaxSize;
-            if (imageCacheFullness >= 1) {
-                cleanupImageCache();
-            } // if
-        } // if
-
-        lastTimeoutCheck = currentTickCount;
-    } // checkTimeoutsAndCache
-
-    function postProcess(imageData) {
-        if (! imageData.image) { return; }
-
-        globalImageData = imageData;
-
-        var width = imageData.realSize ? imageData.realSize.width : imageData.image.width,
-            height = imageData.realSize ? imageData.realSize.height : imageData.image.height,
-            canvas = newCanvas(width, height),
-            context = canvas.getContext('2d'),
-            offset = imageData.offset ? imageData.offset : T5.XY.init();
-
-        if (imageData.background) {
-            context.drawImage(imageData.background, 0, 0);
-        } // if
-
-        if (imageData.drawBackground) {
-            imageData.drawBackground(context);
-        } // if
-
-        if (imageData.customDraw) {
-            imageData.customDraw(context, imageData);
-        }
-        else {
-            context.drawImage(imageData.image, offset.x, offset.y);
-        } // if..else
-
-        if (imageData.postProcess) {
-            imageData.postProcess(context, imageData);
-        }
-        imageData.image = canvas;
-    } // applyBackground
-
-    /* event handlers */
-
-    function handleImageLoad() {
-        var imageData = loadWatchers[this.id],
-            ii;
-
-        if (imageData && isLoaded(imageData.image)) {
-            imageData.loaded = true;
-            imageData.hitCount = 1;
-
-            for (ii = loadingImages.length; ii--; ) {
-                if (loadingImages[ii].image.src == this.src) {
-                    loadingImages.splice(ii, 1);
-                    break;
-                } // if
-            } // for
-
-            if (imageData.background || imageData.postProcess || imageData.drawBackground || imageData.customDraw) {
-                postProcess(imageData);
-            } // if
-
-            for (ii = imageData.callbacks.length; ii--; ) {
-                if (imageData.callbacks[ii]) {
-                    imageData.callbacks[ii](this, false);
-                } // if
-            } // for
-
-            imageData.callbacks = [];
-
-            cachedImages[cachedImages.length] = {
-                url: this.src,
-                created: imageData.requested
-            };
-
-            delete loadWatchers[this.id];
-
-            loadNextImage();
-        } // if
-    } // handleImageLoad
-
-    function isLoaded(image) {
-        return image.complete && image.width > 0;
-    } // isLoaded
-
-    /* exports */
-
-    /**
-    ### cancelLoad()
-    */
-    function cancelLoad() {
-        var ii;
-
-        for (ii = loadingImages.length; ii--; ) {
-            delete images[loadingImages[ii].url];
-        } // for
-
-        loadingImages = [];
-
-        for (ii = queuedImages.length; ii--; ) {
-            delete images[queuedImages[ii].url];
-        } // for
-
-        queuedImages = [];
-    } // cancelLoad
-
-    /**
-    ### get(url)
-    This function is used to retrieve the image specified by the url.  If the image
-    has already been loaded, then the image is automatically returned from the
-    function but if not, then a null value is returned.
-
-    If an optional `callback` argument is provided, then this indicates to the function
-    that if the image is not already loaded, it should be loaded and this the is passed
-    through to the load method function.
-
-    #### Example Code
-    ~ var image = T5.Images.get('testimage.jpg', function(image) {
-    ~
-    ~ });
-    */
-    function get(url, callback, loadArgs) {
-        var imageData = null,
-            image = null;
-
-        if (! clearingCache) {
-            imageData = images[url];
-        } // if
-
-        image = imageData ? imageData.image : null;
-
-        if (image && (image.getContext || isLoaded(image))) {
-            return image;
-        }
-        else if (callback) {
-            load(url, callback, loadArgs);
-        } // if..else
-
-        return null;
-    } // get
-
-    /**
-    ### load(url, callback, loadArgs)
-    */
-    function load(url, callback, loadArgs) {
-        var imageData = images[url];
-
-        if (! imageData) {
-            imageData = COG.extend({
-                url: url,
-                image: new Image(),
-                loaded: false,
-                created: T5.ticks(),
-                requested: null,
-                hitCount: 0,
-                callbacks: [callback]
-            }, loadArgs);
-
-
-            imageData.image.id = "resourceLoaderImage" + (imageCounter++);
-
-            images[url] = imageData;
-            loadWatchers[imageData.image.id] = imageData;
-
-            queuedImages[queuedImages.length] = imageData;
-
-            loadNextImage();
-        }
-        else {
-            imageData.hitCount++;
-            if (isLoaded(imageData.image) && callback) {
-                callback(imageData.image, true);
-            }
-            else {
-                imageData.callbacks.push(callback);
-            } // if..else
-        }
-
-        return imageData;
-    } // load
-
-    /**
-    ### newCanvas(width, height)
-    */
-    function newCanvas(width, height) {
-        var tmpCanvas = document.createElement('canvas');
-        COG.info('creating new canvas');
-
-        tmpCanvas.width = width ? width : 0;
-        tmpCanvas.height = height ? height : 0;
-
-        if (typeof FlashCanvas != 'undefined') {
-            document.body.appendChild(tmpCanvas);
-            FlashCanvas.initElement(tmpCanvas);
-        } // if
-
-        return tmpCanvas;
-    } // newCanvas
-
-    var module = {
-        avgImageSize: 25,
-        loadTimeout: 10,
-
-        cancelLoad: cancelLoad,
-        get: get,
-        load: load,
-        newCanvas: newCanvas,
-
-        reset: function() {
-            images = {};
-        },
-
-        stats: function() {
-            return {
-                imageLoadingCount: loadingImages.length,
-                queuedImageCount: queuedImages.length,
-                imageCacheFullness: imageCacheFullness
-            };
-        }
-    }; //
-
-    COG.observable(module);
-    return module;
-})();
+var getImage = T5.getImage = function(url, callback) {
+    var image = url && callback ? imageCache[url] : null;
+
+    if (image && isLoaded(image)) {
+        callback(image);
+    }
+    else {
+        loadImage(url, callback);
+    } // if..else
+};
+/**
+# T5.newCanvas(width, height)
+*/
+var newCanvas = T5.newCanvas = function(width, height) {
+    var tmpCanvas = document.createElement('canvas');
+
+    tmpCanvas.width = width ? width : 0;
+    tmpCanvas.height = height ? height : 0;
+
+    if (typeof FlashCanvas != 'undefined') {
+        document.body.appendChild(tmpCanvas);
+        FlashCanvas.initElement(tmpCanvas);
+    } // if
+
+    if (typeof G_vmlCanvasManager != 'undefined') {
+        G_vmlCanvasManager.initElement(tmpCanvas);
+    } // if
+
+    return tmpCanvas;
+};
 /**
 # T5.Generator
 The generator module is used to manage the registration and creation
@@ -3538,8 +3348,8 @@ var View = function(params) {
 
     function getScaledOffset(srcX, srcY) {
         var invScaleFactor = 1 / scaleFactor,
-            scaledX = drawRect.x1 + srcX * invScaleFactor,
-            scaledY = drawRect.y1 + srcY * invScaleFactor;
+            scaledX = drawRect ? (drawRect.x1 + srcX * invScaleFactor) : srcX,
+            scaledY = drawRect ? (drawRect.y1 + srcY * invScaleFactor) : srcY;
 
         return XY.init(scaledX, scaledY);
     } // getScaledOffset
@@ -3972,7 +3782,7 @@ var View = function(params) {
 
         tickCount = tickCount ? tickCount : new Date().getTime();
 
-        if (true || tickCount - lastCycleTicks > cycleDelay) {
+        if (tickCount - lastCycleTicks > cycleDelay) {
             panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
 
             state = stateActive |
@@ -3984,15 +3794,19 @@ var View = function(params) {
             interacting = redrawBG && (state & stateAnimating) === 0;
 
             if (sizeChanged && canvas) {
-                if (flashPolyfill) {
-                    FlashCanvas.initElement(canvas);
-                } // if
-
                 canvas.width = viewWidth;
                 canvas.height = viewHeight;
 
                 canvas.style.width = viewWidth + 'px';
                 canvas.style.height = viewHeight + 'px';
+
+                if (flashPolyfill) {
+                    FlashCanvas.initElement(canvas);
+                } // if
+
+                if (typeof G_vmlCanvasManager != 'undefined') {
+                    G_vmlCanvasManager.initElement(canvas);
+                } // if
 
                 sizeChanged = false;
             } // if
@@ -4729,9 +4543,24 @@ var ImageLayer = function(genId, params) {
     var generator = genId ? Generator.init(genId, params) : null,
         generateCount = 0,
         images = [],
-        loadArgs = params.imageLoadArgs;
+        lastViewRect = null,
+        loadArgs = params.imageLoadArgs,
+        regenTimeout = 0,
+        regenViewRect = null;
 
     /* private internal functions */
+
+    function drawImage(context, imageData, x, y) {
+        if (imageData.image) {
+            context.drawImage(imageData.image, x, y);
+        }
+        else {
+            getImage(imageData.url, function(image) {
+                imageData.image = image;
+                _self.changed();
+            });
+        } // if..else
+    } // drawImage
 
     function eachImage(viewRect, viewState, callback) {
         for (var ii = images.length; ii--; ) {
@@ -4745,28 +4574,47 @@ var ImageLayer = function(genId, params) {
                     imageData.y + imageData.height);
 
             if (callback && XYRect.intersect(viewRect, imageRect)) {
-                var image = Images.get(imageData.url, function(loadedImage) {
-                    _self.changed();
-                }, loadArgs);
-
-                if (image) {
+                getImage(imageData.url, function(image, loaded) {
                     callback(image, xx, yy, imageData.width, imageData.height);
-                } // if
+
+                    if (loaded) {
+                        _self.changed();
+                    } // if
+                }, loadArgs);
             } // if
         } // for
     } // eachImage
 
     /* every library should have a regenerate function - here's mine ;) */
     function regenerate(viewRect) {
-        var sequenceId = ++generateCount,
-            view = _self.getParent();
+        var xyDiff = lastViewRect ?
+                Math.abs(lastViewRect.x1 - viewRect.x1) + Math.abs(lastViewRect.y1 - viewRect.y1) :
+                0;
 
-        if (generator) {
+        if (generator && ((! lastViewRect) || (xyDiff > 256))) {
+            var sequenceId = ++generateCount,
+                view = _self.getParent();
+
 
             generator.run(view, viewRect, function(newImages) {
+                lastViewRect = XYRect.copy(viewRect);
+
                 if (sequenceId == generateCount) {
-                    images = [].concat(newImages);
-                    view.invalidate();
+                    for (var ii = newImages.length; ii--; ) {
+                        var imageData = newImages[ii];
+
+                        images[images.length] = {
+                            image: null,
+                            sequence: sequenceId,
+                            url: imageData.url,
+                            rect: XYRect.init(
+                                imageData.x,
+                                imageData.y,
+                                imageData.x + imageData.width,
+                                imageData.y + imageData.height
+                            )
+                        };
+                    } // for
                 } // if
             });
         } // if
@@ -4812,8 +4660,6 @@ var ImageLayer = function(genId, params) {
     */
     function changeGenerator(generatorId, args) {
         generator = Generator.init(generatorId, COG.extend({}, params, args));
-
-        images = null;
         regenerate(_self.getParent().getViewRect());
     } // changeGenerator
 
@@ -4821,23 +4667,41 @@ var ImageLayer = function(genId, params) {
         var offsetX = viewRect.x1,
             offsetY = viewRect.y1;
 
-        eachImage(viewRect, state, function(image, x, y, width, height) {
-            context.rect(x - offsetX, y - offsetY, width, height);
-        });
+        for (var ii = images.length; ii--; ) {
+            var drawImage = images[ii],
+                rect = drawImage.rect;
+
+            if (XYRect.intersect(viewRect, rect)) {
+                context.rect(
+                    rect.x1 - offsetX,
+                    rect.y1 - offsetY,
+                    rect.width,
+                    rect.height
+                );
+            } // if
+        } // for
     } // clip
 
     function draw(context, viewRect, state, view) {
         var offsetX = viewRect.x1,
-            offsetY = viewRect.y1;
+            offsetY = viewRect.y1,
+            ii = 0;
 
-        eachImage(viewRect, state, function(image, x, y, width, height) {
-            context.drawImage(
-                image,
-                x - offsetX,
-                y - offsetY,
-                image.width,
-                image.height);
-        });
+        while (ii < images.length) {
+            var currentImage = images[ii],
+                rect = currentImage.rect;
+
+            if (XYRect.intersect(viewRect, rect)) {
+                drawImage(context, currentImage, rect.x1 - offsetX, rect.y1 - offsetY);
+            } // if
+
+            if (currentImage.sequence !== generateCount) {
+                images.splice(ii, 1);
+            }
+            else {
+                ii++;
+            } // if..else
+        } // while
     } // draw
 
     function mask(context, viewRect, state, view) {
@@ -5133,6 +4997,27 @@ function transformable(target) {
         transform: transform
     });
 }
+var Marker = function(params) {
+    Drawable.call(this, params);
+};
+
+Marker.prototype = COG.extend(Drawable.prototype, {
+    constructor: Marker,
+
+    prepPath: function(context, offsetX, offsetY, width, height, state) {
+        context.beginPath();
+        context.arc(
+            this.xy.x - offsetX,
+            this.xy.y - offsetY,
+            this.size >> 1,
+            0,
+            Math.PI * 2,
+            false
+        );
+
+        return true;
+    } // prepPath
+});
 /**
 # T5.Poly
 __extends__: T5.Shape
@@ -5311,13 +5196,15 @@ var ImageDrawable = function(params) {
         this.imageUrl = imageUrl;
 
         if (this.imageUrl) {
-            image = Images.get(this.imageUrl, function(loadedImage) {
-                var view = _self.layer ? _self.layer.getParent() : null;
+            getImage(this.imageUrl, function(retrievedImage, loaded) {
+                image = retrievedImage;
 
-                image = loadedImage;
+                if (loaded) {
+                    var view = _self.layer ? _self.layer.getParent() : null;
 
-                if (view) {
-                    view.invalidate();
+                    if (view) {
+                        view.invalidate();
+                    } // if
                 } // if
             });
         } // if
@@ -5439,7 +5326,8 @@ var ShapeLayer = function(params) {
     }, params);
 
     var shapes = [],
-        pipTransformed = CANI.canvas.pipTransformed;
+        pipTransformed = CANI.canvas.pipTransformed,
+        isFlashCanvas = typeof FlashCanvas != 'undefined';
 
     /* private functions */
 
@@ -5455,6 +5343,14 @@ var ShapeLayer = function(params) {
 
         _self.changed();
     } // performSync
+
+    function quickHitCheck(shape, hitX, hitY) {
+        var bounds = shape.bounds;
+
+        return (bounds &&
+            hitX >= bounds.x1 && hitX <= bounds.x2 &&
+            hitY >= bounds.y1 && hitY <= bounds.y2);
+    } // quickHitCheck
 
     /* event handlers */
 
@@ -5474,11 +5370,12 @@ var ShapeLayer = function(params) {
 
         for (var ii = shapes.length; ii--; ) {
             var shape = shapes[ii],
-                overrideStyle = shape.style,
+                overrideStyle = shape.style || _self.style,
                 styleType,
                 previousStyle,
                 prepped,
-                transformed = shape.transformed;
+                isHit = false,
+                transformed = shape.transformed && (! isFlashCanvas);
 
             if (transformed) {
                 shape.transform(context, viewX, viewY);
@@ -5544,9 +5441,7 @@ var ShapeLayer = function(params) {
             var shape = shapes[ii],
                 bounds = shape.bounds;
 
-            hit = hit || (bounds &&
-                hitX >= bounds.x1 && hitX <= bounds.x2 &&
-                hitY >= bounds.y1 && hitY <= bounds.y2);
+            hit = hit || quickHitCheck(shape, hitX, hitY);
         } // for
 
         return hit;
@@ -5632,8 +5527,6 @@ var Tiling = (function() {
         Vector: Vector,
         Hits: Hits,
 
-        Images: Images,
-
         Generator: Generator,
 
         tween: COG.tween,
@@ -5649,6 +5542,7 @@ var Tiling = (function() {
         ImageGenerator: ImageGenerator,
 
         Drawable: Drawable,
+        Marker: Marker,
         Poly: Poly,
         Line: Line,
         ImageDrawable: ImageDrawable,

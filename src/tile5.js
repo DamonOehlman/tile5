@@ -25,7 +25,8 @@ var T5 = {};
     //= require "js/math"
     //= require "js/core"
     //= require "js/device"
-    //= require "js/images"
+    //= require "js/imageloader"
+    //= require "js/canvasmaker"
     //= require "js/generator"
     
     //= require "js/graphics/style"
@@ -37,6 +38,7 @@ var T5 = {};
     
     //= require "js/graphics/drawable"
     //= require "js/graphics/drawables/helpers"
+    //= require "js/graphics/drawables/marker"
     //= require "js/graphics/drawables/poly"
     //= require "js/graphics/drawables/line"
     //= require "js/graphics/drawables/image"
@@ -57,8 +59,6 @@ var T5 = {};
         Vector: Vector,
         Hits: Hits,
         
-        Images: Images,
-        
         Generator: Generator,
         
         // animation functions and modules
@@ -77,6 +77,7 @@ var T5 = {};
         
         // shapes
         Drawable: Drawable,
+        Marker: Marker,
         Poly: Poly,
         Line: Line,
         ImageDrawable: ImageDrawable,
