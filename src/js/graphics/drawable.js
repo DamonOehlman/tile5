@@ -31,6 +31,7 @@ var Drawable = function(params) {
     // initialise the id
     this.id = COG.objId(this.type);
     this.bounds = null;
+    this.view = null;
     
     // make the shape observable
     if (this.observable) {

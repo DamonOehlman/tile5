@@ -832,7 +832,7 @@ var View = function(params) {
             if (tickCount - lastRefresh > minRefresh) {
                 refresh();
             } // if
-
+            
             // update the last cycle ticks
             lastCycleTicks = tickCount;
             lastOffsetX = offsetX;

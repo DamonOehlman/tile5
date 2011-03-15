@@ -1973,8 +1973,8 @@ var XY = (function() {
     ### extendBy(xy, theta, delta)
     */
     function extendBy(xy, theta, delta) {
-        var xDelta = cos(theta) * delta,
-            yDelta = sin(theta) * delta;
+        var xDelta = cos(theta) * delta | 0,
+            yDelta = sin(theta) * delta | 0;
 
         return init(xy.x - xDelta, xy.y - yDelta);
     } // extendBy
@@ -4784,6 +4784,7 @@ var Drawable = function(params) {
 
     this.id = COG.objId(this.type);
     this.bounds = null;
+    this.view = null;
 
     if (this.observable) {
         COG.observable(this);
@@ -4868,6 +4869,10 @@ Drawable.prototype = {
         } // if
     }
 };
+var ANI_WAIT = 1000 / 60 | 0,
+    animateCallbacks = [],
+    lastAniTicks = 0;
+
 function checkOffsetAndBounds(drawable, image) {
     var x, y;
 
@@ -4888,11 +4893,38 @@ function checkOffsetAndBounds(drawable, image) {
     } // if
 } // checkOffsetAndBounds
 
+function registerAnimationCallback(fn) {
+    var scheduleCallbacks = animateCallbacks.length == 0;
+
+    animateCallbacks[animateCallbacks.length] = fn;
+
+    if (scheduleCallbacks) {
+        animFrame(runAnimationCallbacks);
+    } // if
+} // registerAnimationCallback
+
+function runAnimationCallbacks(tickCount) {
+    tickCount = tickCount ? tickCount : new Date().getTime();
+
+    if (tickCount - lastAniTicks > ANI_WAIT) {
+        var callbacks = animateCallbacks.splice(0);
+
+        for (var ii = callbacks.length; ii--; ) {
+            callbacks[ii](tickCount);
+        } // for
+
+        lastAniTicks = tickCount;
+    } // if
+
+    if (animateCallbacks.length) {
+        animFrame(runAnimationCallbacks);
+    } // if
+} // runAnimationCallback
+
 function transformable(target) {
 
     /* internals */
     var DEFAULT_DURATION = 1000,
-        ANI_WAIT = 1000 / 60 | 0,
         rotation = 0,
         scale = 1,
         transX = 0,
@@ -4906,49 +4938,66 @@ function transformable(target) {
 
     /* exports */
 
-    function animate(fn, argsStart, argsEnd, easing, duration, callback) {
+    function animate(fn, argsStart, argsEnd, opts) {
+        opts = COG.extend({
+            easing: 'sine.out',
+            duration: 1000,
+            progress: null,
+            complete: null,
+            autoInvalidate: true
+        }, opts);
+
         var startTicks = new Date().getTime(),
             lastTicks = 0,
             targetFn = target[fn],
             argsComplete = 0,
+            autoInvalidate = opts.autoInvalidate,
             animateValid = argsStart.length && argsEnd.length &&
                 argsStart.length == argsEnd.length,
             argsCount = animateValid ? argsStart.length : 0,
             argsChange = new Array(argsCount),
             argsCurrent = new Array(argsCount),
-            easingFn = COG.easing(easing ? easing : 'sine.out'),
+            easingFn = COG.easing(opts.easing),
+            duration = opts.duration,
+            callback = opts.progress,
             ii,
 
             runTween = function(tickCount) {
-                tickCount = tickCount ? tickCount : new Date().getTime();
+                var elapsed = tickCount - startTicks,
+                    complete = startTicks + duration <= tickCount;
 
-                if (tickCount - lastTicks > ANI_WAIT) {
-                    var elapsed = tickCount - startTicks,
-                        complete = startTicks + duration <= tickCount;
+                for (var ii = argsCount; ii--; ) {
+                    argsCurrent[ii] = easingFn(
+                        elapsed,
+                        argsStart[ii],
+                        argsChange[ii],
+                        duration);
+                } // for
 
-                    for (var ii = argsCount; ii--; ) {
-                        argsCurrent[ii] = easingFn(
-                            elapsed,
-                            argsStart[ii],
-                            argsChange[ii],
-                            duration);
-                    } // for
+                targetFn.apply(target, argsCurrent);
 
-                    targetFn.apply(target, argsCurrent);
+                if (autoInvalidate) {
                     target.invalidate.call(target);
-
-                    if (! complete) {
-                        animFrame(runTween);
-                    }
-                    else {
-                        targetFn.apply(target, argsEnd);
-                        target.invalidate.call(target);
-
-                        if (callback) {
-                            callback();
-                        } // if
-                    } // if..else
                 } // if
+
+                if (callback) {
+                    var cbArgs = [].concat(complete ? argsEnd : argsCurrent);
+
+                    cbArgs.unshift(complete);
+
+                    callback.apply(target, cbArgs);
+                } // if
+
+                if (! complete) {
+                    registerAnimationCallback(runTween);
+                }
+                else {
+                    targetFn.apply(target, argsEnd);
+
+                    if (opts.complete) {
+                        opts.complete.apply(target, argsEnd);
+                    } // if
+                } // if..else
             };
 
         if (targetFn && targetFn.apply && argsCount > 0) {
@@ -4958,7 +5007,7 @@ function transformable(target) {
                 argsChange[ii] = argsEnd[ii] - argsStart[ii];
             } // for
 
-            animFrame(runTween);
+            registerAnimationCallback(runTween);
         } // if
     } // animate
 

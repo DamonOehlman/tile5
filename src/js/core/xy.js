@@ -105,8 +105,8 @@ var XY = (function() {
     ### extendBy(xy, theta, delta)
     */
     function extendBy(xy, theta, delta) {
-        var xDelta = cos(theta) * delta,
-            yDelta = sin(theta) * delta;
+        var xDelta = cos(theta) * delta | 0,
+            yDelta = sin(theta) * delta | 0;
         
         return init(xy.x - xDelta, xy.y - yDelta);
     } // extendBy
