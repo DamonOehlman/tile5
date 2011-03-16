@@ -223,7 +223,9 @@ var wordExists = exports.wordExists = function(stringToCheck, word) {
     var callbackCounter = 0;
 
     function getHandlers(target) {
-        return target.obsHandlers;
+        return target.hasOwnProperty('obsHandlers') ?
+                target.obsHandlers :
+                null;
     } // getHandlers
 
     function getHandlersForName(target, eventName) {

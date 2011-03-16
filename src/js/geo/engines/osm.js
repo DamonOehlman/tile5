@@ -110,8 +110,8 @@ T5.Geo.OSM = (function() {
                 subDomains = serverDetails && serverDetails.subDomains ? 
                     serverDetails.subDomains : [];
                     
-                for (var xx = 0; xx <= xTiles; xx++) {
-                    for (var yy = 0; yy <= yTiles; yy++) {
+                for (var xx = -1; xx <= xTiles; xx++) {
+                    for (var yy = -1; yy <= yTiles; yy++) {
                         // build the tile url 
                         tileUrl = _self.buildTileUrl(
                             tileOffset.x + xx, 
