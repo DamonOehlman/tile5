@@ -249,7 +249,7 @@ var wordExists = exports.wordExists = function(stringToCheck, word) {
             target.obsHandlers = {};
         } // if
 
-        var attached = target.bind || target.trigger || target.unbind;
+        var attached = target.hasOwnProperty('bind');
         if (! attached) {
             target.bind = function(eventName, callback) {
                 var callbackId = "callback" + (callbackCounter++);
