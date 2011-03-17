@@ -19,7 +19,7 @@ is specified then the style of the T5.PolyLayer is used.
 
 ## Methods
 */
-var Poly = function(points, params) {
+function Poly(points, params) {
     params = COG.extend({
         simplify: false
     }, params);

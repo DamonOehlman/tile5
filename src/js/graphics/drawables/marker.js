@@ -1,4 +1,7 @@
-var Marker = function(params) {
+/**
+### T5.Marker(params)
+*/
+function Marker(params) {
     Drawable.call(this, params);
 };
 

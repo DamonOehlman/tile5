@@ -1,4 +1,7 @@
-var ImageMarker = function(params) {
+/**
+### T5.ImageMarker(params)
+*/
+function ImageMarker(params) {
     params = COG.extend({
         imageAnchor: null
     }, params);

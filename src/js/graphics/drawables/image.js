@@ -43,7 +43,7 @@ overhead as the canvas context needs to be saved and restored as part of the ope
 
 ## Methods
 */
-var ImageDrawable = function(params) {
+function ImageDrawable(params) {
     params = COG.extend({
         image: null,
         imageUrl: null,

@@ -33,14 +33,15 @@ var Drawable = function(params) {
     this.bounds = null;
     this.view = null;
     
+    // initialise transform variables
+    this.rotation = 0;
+    this.scale = 1;
+    this.translateX = 0;
+    this.translateY = 0;
+    
     // make the shape observable
     if (this.observable) {
         COG.observable(this);
-    } // if
-    
-    // if this has been flagged as transformable then apply the mixins
-    if (this.transformable) {
-        transformable(this);
     } // if
     
     // update transform states
@@ -68,6 +69,9 @@ Drawable.prototype = {
         } // if
     },
     
+    /**
+    ### invalidate()
+    */
     invalidate: function() {
         var view = this.layer ? this.layer.getParent() : null;
         if (view) {
@@ -98,6 +102,24 @@ Drawable.prototype = {
     },
     
     /**
+    ### rotate(value)
+    */
+    rotate: function(value) {
+        this.rotation = value;
+        
+        checkTransformed(this);
+    },
+    
+    /**
+    ### scale(value)
+    */
+    scale: function(value) {
+        this.scale = value;
+        
+        checkTransformed(this);
+    },
+    
+    /**
     ### setTransformable(boolean)
     Update the transformable state
     */
@@ -109,6 +131,17 @@ Drawable.prototype = {
         // update the transformable flag
         this.transformable = flag;
     },
+
+    /**
+    ### translate(x, y)
+    */
+    translate: function(x, y) {
+        this.translateX = x;
+        this.translateY = y;
+        
+        checkTransformed(this);
+    },
+    
     
     /**
     ### updateBounds(bounds: XYRect, updateXY: boolean)
