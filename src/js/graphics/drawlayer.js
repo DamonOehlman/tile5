@@ -48,29 +48,45 @@ var DrawLayer = function(params) {
             
         // iterate through the drawabless and draw the layers
         for (var ii = drawables.length; ii--; ) {
-            var drawable = drawable[ii],
+            var drawable = drawables[ii],
+                dx = drawable.xy.x,
+                dy = drawable.xy.y,
                 overrideStyle = drawable.style || _self.style, 
                 styleType,
                 previousStyle,
                 prepped,
                 isHit = false,
-                transformed = drawable.transformed && (! isFlashCanvas);
-                
+                transformed = drawable.scaling !== 1 || 
+                    drawable.rotatation ||
+                    drawable.translateX || drawable.translateY;
+              
             if (transformed) {
-                drawable.transform(context, viewX, viewY);
+                context.save();
+                context.translate(
+                    dx - viewX + drawable.translateX, 
+                    dy - viewY + drawable.translateY
+                );
+
+                if (drawable.rotation !== 0) {
+                    context.rotate(drawable.rotation);
+                } // if
+
+                if (drawable.scaling !== 1) {
+                    context.scale(drawable.scaling, drawable.scaling);
+                } // if                
                 
                 // if point in path is transformed, then adjust the hit x and y accordingly
                 if (pipTransformed) {
-                    hitX -= drawable.xy.x;
-                    hitY -= drawable.xy.y;
+                    hitX -= dx;
+                    hitY -= dy;
                 } // if
             } // if
                 
             // prep the path
             prepped = drawable.prepPath(
                 context, 
-                transformed ? drawable.xy.x : viewX, 
-                transformed ? drawable.xy.y : viewY, 
+                transformed ? dx : viewX, 
+                transformed ? dy : viewY, 
                 viewWidth, 
                 viewHeight, 
                 state);
@@ -79,9 +95,11 @@ var DrawLayer = function(params) {
             if (prepped) {
                 // check for a hit in the path that has just been drawn
                 if (hitData && context.isPointInPath(hitX, hitY)) {
-                    hitData.elements.push(Hits.initHit(drawable.type, drawable, {
-                        drag: drawable.draggable ? drawable.drag : null
-                    }));
+                    hitData.elements.push(Hits.initHit(
+                        drawable.type, 
+                        drawable, 
+                        drawable.draggable ? drawable.drag : null)
+                    );
 
                     // init the style type to match the type of event
                     styleType = hitData.type + 'Style';

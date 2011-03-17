@@ -21,8 +21,7 @@ var Drawable = function(params) {
         draggable: false,
         observable: true, // TODO: should this be true or false by default
         properties: {},
-        type: 'shape',
-        transformable: false
+        type: 'shape'
     }, params);
     
     // copy the parameters to this
@@ -35,7 +34,7 @@ var Drawable = function(params) {
     
     // initialise transform variables
     this.rotation = 0;
-    this.scale = 1;
+    this.scaling = 1;
     this.translateX = 0;
     this.translateY = 0;
     
@@ -43,13 +42,102 @@ var Drawable = function(params) {
     if (this.observable) {
         COG.observable(this);
     } // if
-    
-    // update transform states
-    this.transformed = false;
 };
+
+function animateDrawable(target, fn, argsStart, argsEnd, opts) {
+    opts = COG.extend({
+        easing: 'sine.out',
+        duration: 1000,
+        progress: null,
+        complete: null,
+        autoInvalidate: true
+    }, opts);
+    
+    var startTicks = new Date().getTime(),
+        lastTicks = 0,
+        targetFn = target[fn],
+        argsComplete = 0,
+        autoInvalidate = opts.autoInvalidate,
+        animateValid = argsStart.length && argsEnd.length && 
+            argsStart.length == argsEnd.length,
+        argsCount = animateValid ? argsStart.length : 0,
+        argsChange = new Array(argsCount),
+        argsCurrent = new Array(argsCount),
+        easingFn = COG.easing(opts.easing),
+        duration = opts.duration,
+        callback = opts.progress,
+        ii,
+        
+        runTween = function(tickCount) {
+            // calculate the updated value
+            var elapsed = tickCount - startTicks,
+                complete = startTicks + duration <= tickCount;
+
+            // iterate through the arguments and get the current values
+            for (var ii = argsCount; ii--; ) {
+                argsCurrent[ii] = easingFn(
+                    elapsed, 
+                    argsStart[ii], 
+                    argsChange[ii], 
+                    duration);
+            } // for
+
+            // call the target function with the specified arguments
+            targetFn.apply(target, argsCurrent);
+
+            // if we need to auto invalidate the control then do so now
+            if (autoInvalidate) {
+                target.invalidate.call(target);
+            } // if
+            
+            // if we have a progress callback, trigger that
+            if (callback) {
+                // initilaise the args
+                var cbArgs = [].concat(complete ? argsEnd : argsCurrent);
+                
+                // unshift the complete value onto the args
+                cbArgs.unshift(complete);
+                
+                // fire the callback
+                callback.apply(target, cbArgs);
+            } // if
+            
+            if (! complete) {
+                registerAnimationCallback(runTween);
+            }
+            else {
+                targetFn.apply(target, argsEnd);
+                
+                // if we have a completion callback fire it
+                if (opts.complete) {
+                    opts.complete.apply(target, argsEnd);
+                } // if
+            } // if..else
+        };
+        
+    if (targetFn && targetFn.apply && argsCount > 0) {
+        // update the duration with the default value if not specified
+        duration = duration ? duration : DEFAULT_DURATION;
+        
+        // calculate changed values
+        for (ii = argsCount; ii--; ) {
+            argsChange[ii] = argsEnd[ii] - argsStart[ii];
+        } // for
+
+        registerAnimationCallback(runTween);            
+    } // if
+} // animate
 
 Drawable.prototype = {
     constructor: Drawable,
+    
+    /**
+    ### animate(fn, argsStart, argsEnd, opts)
+    */
+    animate: function(fn, argsStart, argsEnd, opts) {
+        animateDrawable(this, fn, argsStart, argsEnd, opts);
+    },
+    
     
     /**
     ### drag(dragData, dragX, dragY, drop)
@@ -78,7 +166,7 @@ Drawable.prototype = {
             view.invalidate();
         } // if
     },
-
+    
     /**
     ### prepPath(context, x, y, width, height, state)
     Prepping the path for a shape is the main 
@@ -106,40 +194,21 @@ Drawable.prototype = {
     */
     rotate: function(value) {
         this.rotation = value;
-        
-        checkTransformed(this);
     },
     
     /**
     ### scale(value)
     */
     scale: function(value) {
-        this.scale = value;
-        
-        checkTransformed(this);
+        this.scaling = value;
     },
     
-    /**
-    ### setTransformable(boolean)
-    Update the transformable state
-    */
-    setTransformable: function(flag) {
-        if (flag && (! this.transformable)) {
-            transformable(this);
-        } // if
-        
-        // update the transformable flag
-        this.transformable = flag;
-    },
-
     /**
     ### translate(x, y)
     */
     translate: function(x, y) {
         this.translateX = x;
         this.translateY = y;
-        
-        checkTransformed(this);
     },
     
     

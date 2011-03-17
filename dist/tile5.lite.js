@@ -2482,14 +2482,12 @@ Hits = (function() {
     /**
     ### initHit(type, target, opts)
     */
-    function initHit(type, target, opts) {
-        opts = COG.extend({
+    function initHit(type, target, drag) {
+        return {
             type: type,
             target: target,
-            drag: false
-        }, opts);
-
-        return opts;
+            drag: drag
+        };
     } // initHit
 
     /**
@@ -4778,8 +4776,7 @@ var Drawable = function(params) {
         draggable: false,
         observable: true, // TODO: should this be true or false by default
         properties: {},
-        type: 'shape',
-        transformable: false
+        type: 'shape'
     }, params);
 
     COG.extend(this, params);
@@ -4788,19 +4785,99 @@ var Drawable = function(params) {
     this.bounds = null;
     this.view = null;
 
+    this.rotation = 0;
+    this.scaling = 1;
+    this.translateX = 0;
+    this.translateY = 0;
+
     if (this.observable) {
         COG.observable(this);
     } // if
-
-    if (this.transformable) {
-        transformable(this);
-    } // if
-
-    this.transformed = false;
 };
+
+function animateDrawable(target, fn, argsStart, argsEnd, opts) {
+    opts = COG.extend({
+        easing: 'sine.out',
+        duration: 1000,
+        progress: null,
+        complete: null,
+        autoInvalidate: true
+    }, opts);
+
+    var startTicks = new Date().getTime(),
+        lastTicks = 0,
+        targetFn = target[fn],
+        argsComplete = 0,
+        autoInvalidate = opts.autoInvalidate,
+        animateValid = argsStart.length && argsEnd.length &&
+            argsStart.length == argsEnd.length,
+        argsCount = animateValid ? argsStart.length : 0,
+        argsChange = new Array(argsCount),
+        argsCurrent = new Array(argsCount),
+        easingFn = COG.easing(opts.easing),
+        duration = opts.duration,
+        callback = opts.progress,
+        ii,
+
+        runTween = function(tickCount) {
+            var elapsed = tickCount - startTicks,
+                complete = startTicks + duration <= tickCount;
+
+            for (var ii = argsCount; ii--; ) {
+                argsCurrent[ii] = easingFn(
+                    elapsed,
+                    argsStart[ii],
+                    argsChange[ii],
+                    duration);
+            } // for
+
+            targetFn.apply(target, argsCurrent);
+
+            if (autoInvalidate) {
+                target.invalidate.call(target);
+            } // if
+
+            if (callback) {
+                var cbArgs = [].concat(complete ? argsEnd : argsCurrent);
+
+                cbArgs.unshift(complete);
+
+                callback.apply(target, cbArgs);
+            } // if
+
+            if (! complete) {
+                registerAnimationCallback(runTween);
+            }
+            else {
+                targetFn.apply(target, argsEnd);
+
+                if (opts.complete) {
+                    opts.complete.apply(target, argsEnd);
+                } // if
+            } // if..else
+        };
+
+    if (targetFn && targetFn.apply && argsCount > 0) {
+        duration = duration ? duration : DEFAULT_DURATION;
+
+        for (ii = argsCount; ii--; ) {
+            argsChange[ii] = argsEnd[ii] - argsStart[ii];
+        } // for
+
+        registerAnimationCallback(runTween);
+    } // if
+} // animate
 
 Drawable.prototype = {
     constructor: Drawable,
+
+    /**
+    ### animate(fn, argsStart, argsEnd, opts)
+    */
+    animate: function(fn, argsStart, argsEnd, opts) {
+        animateDrawable(this, fn, argsStart, argsEnd, opts);
+    },
+
 
     /**
     ### drag(dragData, dragX, dragY, drop)
@@ -4820,6 +4897,9 @@ Drawable.prototype = {
         } // if
     },
 
+    /**
+    ### invalidate()
+    */
     invalidate: function() {
         var view = this.layer ? this.layer.getParent() : null;
         if (view) {
@@ -4849,16 +4929,27 @@ Drawable.prototype = {
     },
 
     /**
-    ### setTransformable(boolean)
-    Update the transformable state
+    ### rotate(value)
     */
-    setTransformable: function(flag) {
-        if (flag && (! this.transformable)) {
-            transformable(this);
-        } // if
-
-        this.transformable = flag;
+    rotate: function(value) {
+        this.rotation = value;
     },
+
+    /**
+    ### scale(value)
+    */
+    scale: function(value) {
+        this.scaling = value;
+    },
+
+    /**
+    ### translate(x, y)
+    */
+    translate: function(x, y) {
+        this.translateX = x;
+        this.translateY = y;
+    },
+
 
     /**
     ### updateBounds(bounds: XYRect, updateXY: boolean)
@@ -4922,133 +5013,10 @@ function runAnimationCallbacks(tickCount) {
         animFrame(runAnimationCallbacks);
     } // if
 } // runAnimationCallback
-
-function transformable(target) {
-
-    /* internals */
-    var DEFAULT_DURATION = 1000,
-        rotation = 0,
-        scale = 1,
-        transX = 0,
-        transY = 0;
-
-    function checkTransformed() {
-        target.transformed = (scale !== 1) ||
-            (rotation % TWO_PI !== 0) ||
-            (transX !== 0) || (transY !== 0);
-    } // isTransformed
-
-    /* exports */
-
-    function animate(fn, argsStart, argsEnd, opts) {
-        opts = COG.extend({
-            easing: 'sine.out',
-            duration: 1000,
-            progress: null,
-            complete: null,
-            autoInvalidate: true
-        }, opts);
-
-        var startTicks = new Date().getTime(),
-            lastTicks = 0,
-            targetFn = target[fn],
-            argsComplete = 0,
-            autoInvalidate = opts.autoInvalidate,
-            animateValid = argsStart.length && argsEnd.length &&
-                argsStart.length == argsEnd.length,
-            argsCount = animateValid ? argsStart.length : 0,
-            argsChange = new Array(argsCount),
-            argsCurrent = new Array(argsCount),
-            easingFn = COG.easing(opts.easing),
-            duration = opts.duration,
-            callback = opts.progress,
-            ii,
-
-            runTween = function(tickCount) {
-                var elapsed = tickCount - startTicks,
-                    complete = startTicks + duration <= tickCount;
-
-                for (var ii = argsCount; ii--; ) {
-                    argsCurrent[ii] = easingFn(
-                        elapsed,
-                        argsStart[ii],
-                        argsChange[ii],
-                        duration);
-                } // for
-
-                targetFn.apply(target, argsCurrent);
-
-                if (autoInvalidate) {
-                    target.invalidate.call(target);
-                } // if
-
-                if (callback) {
-                    var cbArgs = [].concat(complete ? argsEnd : argsCurrent);
-
-                    cbArgs.unshift(complete);
-
-                    callback.apply(target, cbArgs);
-                } // if
-
-                if (! complete) {
-                    registerAnimationCallback(runTween);
-                }
-                else {
-                    targetFn.apply(target, argsEnd);
-
-                    if (opts.complete) {
-                        opts.complete.apply(target, argsEnd);
-                    } // if
-                } // if..else
-            };
-
-        if (targetFn && targetFn.apply && argsCount > 0) {
-            duration = duration ? duration : DEFAULT_DURATION;
-
-            for (ii = argsCount; ii--; ) {
-                argsChange[ii] = argsEnd[ii] - argsStart[ii];
-            } // for
-
-            registerAnimationCallback(runTween);
-        } // if
-    } // animate
-
-    function transform(context, offsetX, offsetY) {
-        context.save();
-        context.translate(target.xy.x - offsetX + transX, target.xy.y - offsetY + transY);
-
-        if (rotation !== 0) {
-            context.rotate(rotation);
-        } // if
-
-        if (scale !== 1) {
-            context.scale(scale, scale);
-        } // if
-    } // transform
-
-    COG.extend(target, {
-        animate: animate,
-
-        rotate: function(value) {
-            rotation = value;
-            checkTransformed();
-        },
-
-        scale: function(value) {
-            scale = value;
-            checkTransformed();
-        },
-
-        translate: function(x, y) {
-            transX = x;
-            transY = y;
-            checkTransformed();
-        },
-
-        transform: transform
-    });
-}
-var Marker = function(params) {
+/**
+### T5.Marker(params)
+*/
+function Marker(params) {
     Drawable.call(this, params);
 };
 
@@ -5090,7 +5058,7 @@ is specified then the style of the T5.PolyLayer is used.
 
 ## Methods
 */
-var Poly = function(points, params) {
+function Poly(points, params) {
     params = COG.extend({
         simplify: false
     }, params);
@@ -5176,7 +5144,10 @@ var Poly = function(points, params) {
 Poly.prototype = COG.extend({}, Drawable.prototype, {
     constructor: Poly
 });
-var Line = function(points, params) {
+/**
+### T5.Line(points, params)
+*/
+function Line(points, params) {
     params.fill = false;
 
     Poly.call(this, points, params);
@@ -5228,7 +5199,7 @@ overhead as the canvas context needs to be saved and restored as part of the ope
 
 ## Methods
 */
-var ImageDrawable = function(params) {
+function ImageDrawable(params) {
     params = COG.extend({
         image: null,
         imageUrl: null,
@@ -5347,7 +5318,10 @@ var ImageDrawable = function(params) {
 ImageDrawable.prototype = COG.extend({}, Drawable.prototype, {
     constructor: ImageDrawable
 });
-var ImageMarker = function(params) {
+/**
+### T5.ImageMarker(params)
+*/
+function ImageMarker(params) {
     params = COG.extend({
         imageAnchor: null
     }, params);
@@ -5412,35 +5386,53 @@ var DrawLayer = function(params) {
 
         for (var ii = drawables.length; ii--; ) {
             var drawable = drawables[ii],
+                dx = drawable.xy.x,
+                dy = drawable.xy.y,
                 overrideStyle = drawable.style || _self.style,
                 styleType,
                 previousStyle,
                 prepped,
                 isHit = false,
-                transformed = drawable.transformed && (! isFlashCanvas);
+                transformed = drawable.scaling !== 1 ||
+                    drawable.rotatation ||
+                    drawable.translateX || drawable.translateY;
 
             if (transformed) {
-                drawable.transform(context, viewX, viewY);
+                context.save();
+                context.translate(
+                    dx - viewX + drawable.translateX,
+                    dy - viewY + drawable.translateY
+                );
+
+                if (drawable.rotation !== 0) {
+                    context.rotate(drawable.rotation);
+                } // if
+
+                if (drawable.scaling !== 1) {
+                    context.scale(drawable.scaling, drawable.scaling);
+                } // if
 
                 if (pipTransformed) {
-                    hitX -= drawable.xy.x;
-                    hitY -= drawable.xy.y;
+                    hitX -= dx;
+                    hitY -= dy;
                 } // if
             } // if
 
             prepped = drawable.prepPath(
                 context,
-                transformed ? drawable.xy.x : viewX,
-                transformed ? drawable.xy.y : viewY,
+                transformed ? dx : viewX,
+                transformed ? dy : viewY,
                 viewWidth,
                 viewHeight,
                 state);
 
             if (prepped) {
                 if (hitData && context.isPointInPath(hitX, hitY)) {
-                    hitData.elements.push(Hits.initHit(drawable.type, drawable, {
-                        drag: drawable.draggable ? drawable.drag : null
-                    }));
+                    hitData.elements.push(Hits.initHit(
+                        drawable.type,
+                        drawable,
+                        drawable.draggable ? drawable.drag : null)
+                    );
 
                     styleType = hitData.type + 'Style';
 
@@ -5654,8 +5646,6 @@ var Tiling = (function() {
 
         DrawLayer: DrawLayer,
         ShapeLayer: ShapeLayer,
-
-        transformable: transformable,
 
         Tiling: Tiling
     });

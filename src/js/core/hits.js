@@ -52,14 +52,12 @@ Hits = (function() {
     /**
     ### initHit(type, target, opts)
     */
-    function initHit(type, target, opts) {
-        opts = COG.extend({
+    function initHit(type, target, drag) {
+        return {
             type: type,
             target: target,
-            drag: false
-        }, opts);
-        
-        return opts;
+            drag: drag
+        };
     } // initHit
     
     /**

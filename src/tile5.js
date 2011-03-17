@@ -88,9 +88,6 @@ var T5 = {};
         DrawLayer: DrawLayer,
         ShapeLayer: ShapeLayer,
         
-        // mixins
-        transformable: transformable,
-        
         // tiling
         Tiling: Tiling
     });
