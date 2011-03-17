@@ -5173,7 +5173,7 @@ var Poly = function(points, params) {
     haveData = points && (points.length >= 2);
 };
 
-Poly.prototype = COG.extend(Drawable.prototype, {
+Poly.prototype = COG.extend({}, Drawable.prototype, {
     constructor: Poly
 });
 var Line = function(points, params) {
@@ -5182,7 +5182,7 @@ var Line = function(points, params) {
     Poly.call(this, points, params);
 };
 
-Line.prototype = new Poly();
+Line.prototype = COG.extend({}, Poly.prototype);
 /**
 # T5.ImageDrawable
 _extends:_ T5.Drawable
@@ -5344,8 +5344,9 @@ var ImageDrawable = function(params) {
     } // if
 };
 
-ImageDrawable.prototype = new Drawable();
-ImageDrawable.prototype.constructor = ImageDrawable;
+ImageDrawable.prototype = COG.extend({}, Drawable.prototype, {
+    constructor: ImageDrawable
+});
 var ImageMarker = function(params) {
     params = COG.extend({
         imageAnchor: null
@@ -5358,11 +5359,149 @@ var ImageMarker = function(params) {
     ImageDrawable.call(this, params);
 };
 
-ImageMarker.prototype = new ImageDrawable();
-ImageMarker.prototype.constructor = ImageMarker;
+ImageMarker.prototype = COG.extend({}, ImageDrawable.prototype, {
+    constructor: ImageMarker
+});
+
+/**
+# T5.DrawLayer
+_extends:_ T5.ViewLayer
+
+
+The DrawLayer is a generic layer that handles drawing, hit testing and syncing a list
+of drawables.  A T5.DrawLayer itself is never meant to be implemented as it has no
+internal `T5.Drawable` storage, but rather relies on descendants to implement storage and
+provide the drawables by the `loadDrawables` method.
+
+## Methods
+*/
+var DrawLayer = function(params) {
+    params = COG.extend({
+        zindex: 10
+    }, params);
+
+    var drawables = [],
+        pipTransformed = CANI.canvas.pipTransformed,
+        isFlashCanvas = typeof FlashCanvas != 'undefined';
+
+    /* private functions */
+
+    function quickHitCheck(drawable, hitX, hitY) {
+        var bounds = drawable.bounds;
+
+        return (bounds &&
+            hitX >= bounds.x1 && hitX <= bounds.x2 &&
+            hitY >= bounds.y1 && hitY <= bounds.y2);
+    } // quickHitCheck
+
+    /* event handlers */
+
+    function handleRefresh(evt, view, viewRect) {
+        drawables = _self.getDrawables(view, viewRect);
+    } // handleViewIdle
+
+    /* exports */
+
+    function draw(context, viewRect, state, view, tickCount, hitData) {
+        var viewX = viewRect.x1,
+            viewY = viewRect.y1,
+            hitX = hitData ? (pipTransformed ? hitData.x - viewX : hitData.relXY.x) : 0,
+            hitY = hitData ? (pipTransformed ? hitData.y - viewY : hitData.relXY.y) : 0,
+            viewWidth = viewRect.width,
+            viewHeight = viewRect.height;
+
+        for (var ii = drawables.length; ii--; ) {
+            var drawable = drawables[ii],
+                overrideStyle = drawable.style || _self.style,
+                styleType,
+                previousStyle,
+                prepped,
+                isHit = false,
+                transformed = drawable.transformed && (! isFlashCanvas);
+
+            if (transformed) {
+                drawable.transform(context, viewX, viewY);
+
+                if (pipTransformed) {
+                    hitX -= drawable.xy.x;
+                    hitY -= drawable.xy.y;
+                } // if
+            } // if
+
+            prepped = drawable.prepPath(
+                context,
+                transformed ? drawable.xy.x : viewX,
+                transformed ? drawable.xy.y : viewY,
+                viewWidth,
+                viewHeight,
+                state);
+
+            if (prepped) {
+                if (hitData && context.isPointInPath(hitX, hitY)) {
+                    hitData.elements.push(Hits.initHit(drawable.type, drawable, {
+                        drag: drawable.draggable ? drawable.drag : null
+                    }));
+
+                    styleType = hitData.type + 'Style';
+
+                    overrideStyle = drawable[styleType] || _self[styleType] || overrideStyle;
+                } // if
+
+                previousStyle = overrideStyle ? Style.apply(context, overrideStyle) : null;
+
+                drawable.draw(context, viewX, viewY, viewWidth, viewHeight, state);
+
+                if (previousStyle) {
+                    Style.apply(context, previousStyle);
+                } // if
+            } // if
+
+            if (transformed) {
+                context.restore();
+            } // if
+        } // for
+    } // draw
+
+    /**
+    ### getDrawables(view, viewRect)
+    */
+    function getDrawables(view, viewRect) {
+        return [];
+    } // getDrawables
+
+    /**
+    ### hitGuess(hitX, hitY, state, view)
+    Return true if any of the markers are hit, additionally, store the hit elements
+    so we don't have to do the work again when drawing
+    */
+    function hitGuess(hitX, hitY, state, view) {
+        var hit = false;
+
+        for (var ii = drawables.length; (! hit) && ii--; ) {
+            var drawable = drawables[ii],
+                bounds = drawable.bounds;
+
+            hit = hit || quickHitCheck(drawable, hitX, hitY);
+        } // for
+
+        return hit;
+    } // hitGuess
+
+    /* initialise _self */
+
+    var _self = COG.extend(new ViewLayer(params), {
+        draw: draw,
+        getDrawables: getDrawables,
+        hitGuess: hitGuess
+    });
+
+    _self.bind('refresh', handleRefresh);
+
+    return _self;
+};
 /**
 # T5.ShapeLayer
-_extends:_ T5.ViewLayer
+_extends:_ T5.DrawLayer
 
 
 The ShapeLayer is designed to facilitate the storage and display of multiple
@@ -5376,9 +5515,7 @@ var ShapeLayer = function(params) {
         zindex: 10
     }, params);
 
-    var shapes = [],
-        pipTransformed = CANI.canvas.pipTransformed,
-        isFlashCanvas = typeof FlashCanvas != 'undefined';
+    var shapes = [];
 
     /* private functions */
 
@@ -5395,14 +5532,6 @@ var ShapeLayer = function(params) {
         _self.changed();
     } // performSync
 
-    function quickHitCheck(shape, hitX, hitY) {
-        var bounds = shape.bounds;
-
-        return (bounds &&
-            hitX >= bounds.x1 && hitX <= bounds.x2 &&
-            hitY >= bounds.y1 && hitY <= bounds.y2);
-    } // quickHitCheck
-
     /* event handlers */
 
     function handleResync(evt, parent) {
@@ -5410,66 +5539,6 @@ var ShapeLayer = function(params) {
     } // handleParentChange
 
     /* exports */
-
-    function draw(context, viewRect, state, view, tickCount, hitData) {
-        var viewX = viewRect.x1,
-            viewY = viewRect.y1,
-            hitX = hitData ? (pipTransformed ? hitData.x - viewX : hitData.relXY.x) : 0,
-            hitY = hitData ? (pipTransformed ? hitData.y - viewY : hitData.relXY.y) : 0,
-            viewWidth = viewRect.width,
-            viewHeight = viewRect.height;
-
-        for (var ii = shapes.length; ii--; ) {
-            var shape = shapes[ii],
-                overrideStyle = shape.style || _self.style,
-                styleType,
-                previousStyle,
-                prepped,
-                isHit = false,
-                transformed = shape.transformed && (! isFlashCanvas);
-
-            if (transformed) {
-                shape.transform(context, viewX, viewY);
-
-                if (pipTransformed) {
-                    hitX -= shape.xy.x;
-                    hitY -= shape.xy.y;
-                } // if
-            } // if
-
-            prepped = shape.prepPath(
-                context,
-                transformed ? shape.xy.x : viewX,
-                transformed ? shape.xy.y : viewY,
-                viewWidth,
-                viewHeight,
-                state);
-
-            if (prepped) {
-                if (hitData && context.isPointInPath(hitX, hitY)) {
-                    hitData.elements.push(Hits.initHit(shape.type, shape, {
-                        drag: shape.draggable ? shape.drag : null
-                    }));
-
-                    styleType = hitData.type + 'Style';
-
-                    overrideStyle = shape[styleType] || _self[styleType] || overrideStyle;
-                } // if
-
-                previousStyle = overrideStyle ? Style.apply(context, overrideStyle) : null;
-
-                shape.draw(context, viewX, viewY, viewWidth, viewHeight, state);
-
-                if (previousStyle) {
-                    Style.apply(context, previousStyle);
-                } // if
-            } // if
-
-            if (transformed) {
-                context.restore();
-            } // if
-        } // for
-    } // draw
 
     /**
     ### find(selector: String)
@@ -5480,27 +5549,9 @@ var ShapeLayer = function(params) {
         return [].concat(shapes);
     } // find
 
-    /**
-    ### hitGuess(hitX, hitY, state, view)
-    Return true if any of the markers are hit, additionally, store the hit elements
-    so we don't have to do the work again when drawing
-    */
-    function hitGuess(hitX, hitY, state, view) {
-        var hit = false;
-
-        for (var ii = shapes.length; (! hit) && ii--; ) {
-            var shape = shapes[ii],
-                bounds = shape.bounds;
-
-            hit = hit || quickHitCheck(shape, hitX, hitY);
-        } // for
-
-        return hit;
-    } // hitGuess
-
     /* initialise _self */
 
-    var _self = COG.extend(new ViewLayer(params), {
+    var _self = COG.extend(new DrawLayer(params), {
         /**
         ### add(poly)
         Used to add a T5.Poly to the layer
@@ -5529,9 +5580,11 @@ var ShapeLayer = function(params) {
             shapes = [];
         },
 
-        draw: draw,
         find: find,
-        hitGuess: hitGuess
+
+        getDrawables: function(view, viewRect) {
+            return shapes;
+        }
     });
 
     _self.bind('parentChange', handleResync);
@@ -5598,6 +5651,8 @@ var Tiling = (function() {
         Line: Line,
         ImageDrawable: ImageDrawable,
         ImageMarker: ImageMarker,
+
+        DrawLayer: DrawLayer,
         ShapeLayer: ShapeLayer,
 
         transformable: transformable,

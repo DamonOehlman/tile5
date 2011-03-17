@@ -10,5 +10,6 @@ var ImageMarker = function(params) {
     ImageDrawable.call(this, params);
 };
 
-ImageMarker.prototype = new ImageDrawable();
-ImageMarker.prototype.constructor = ImageMarker;
+ImageMarker.prototype = COG.extend({}, ImageDrawable.prototype, {
+    constructor: ImageMarker
+});

@@ -43,6 +43,8 @@ var T5 = {};
     //= require "js/graphics/drawables/line"
     //= require "js/graphics/drawables/image"
     //= require "js/graphics/drawables/imagemarker"
+
+    //= require "js/graphics/drawlayer"
     //= require "js/graphics/shapelayer"
     
     //= require "js/tiling/core"
@@ -82,6 +84,8 @@ var T5 = {};
         Line: Line,
         ImageDrawable: ImageDrawable,
         ImageMarker: ImageMarker,
+        
+        DrawLayer: DrawLayer,
         ShapeLayer: ShapeLayer,
         
         // mixins

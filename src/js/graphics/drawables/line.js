@@ -4,4 +4,4 @@ var Line = function(points, params) {
     Poly.call(this, points, params);
 };
 
-Line.prototype = new Poly();
+Line.prototype = COG.extend({}, Poly.prototype);

@@ -34,6 +34,8 @@ T5.Flickr = (function() {
             modeMethod = MODE_METHODS[mode],
             noMoreResults = false,
             foundModifiers = [],
+            tileWidth = 256,
+            tileHeight = 256,
             searchOptions = COG.extend({}, DEFAULT_SEARCH_OPTIONS),
             userSearchOptions = {};
             
@@ -209,6 +211,48 @@ T5.Flickr = (function() {
         } // processSearchResults                        
 
         /* exports */
+        
+        /**
+        ### run(viewRect, view, callback)
+        */
+        function run(view, viewRect, callback) {
+            // determine the start x and y
+            var startX = viewRect.x1 % tileWidth - tileWidth,
+                startY = viewRect.y1 % tileHeight - tileHeight,
+                endX = viewRect.x2 + tileWidth,
+                endY = viewRect.y2 + tileHeight,
+                images = [],
+                tileKey,
+                photoData;
+                
+            // iterate through the view rect and create tiles
+            for (var xx = startX; xx < endX; xx += tileWidth) {
+                for (var yy = startY; yy < endY; yy += tileHeight) {
+                    // initialise the tile key
+                    tileKey = xx + '_' + yy;
+                    photoData = getPhotoData(tileKey);
+                    
+                    // check the queue
+                    checkQueue();
+                    
+                    // if we have goto data, then create a new tile
+                    images[images.length] = T5.Tiling.init(
+                        xx,
+                        yy,
+                        tileWidth,
+                        tileHeight,
+                        COG.extend({
+                            url: getPhotoUrl(tileKey, 'm')
+                        }, photoData)
+                    );
+                } // for
+            } // for
+            
+            // if we have a callback, then pass back the images
+            if (callback) {
+                callback(images);
+            } // if
+        } // run        
 
         function initTileCreator(tileWidth, tileHeight, args, callback) {
             var baseX = 0,
@@ -241,8 +285,8 @@ T5.Flickr = (function() {
 
         /* define the generator */
 
-        var _self = COG.extend(new T5.TileGenerator(params), {
-            initTileCreator: initTileCreator
+        var _self = COG.extend(new T5.ImageGenerator(params), {
+            run: run
         });
 
         

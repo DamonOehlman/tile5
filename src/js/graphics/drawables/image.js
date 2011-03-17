@@ -172,5 +172,6 @@ var ImageDrawable = function(params) {
     } // if
 };
 
-ImageDrawable.prototype = new Drawable();
-ImageDrawable.prototype.constructor = ImageDrawable;
+ImageDrawable.prototype = COG.extend({}, Drawable.prototype, {
+    constructor: ImageDrawable
+});

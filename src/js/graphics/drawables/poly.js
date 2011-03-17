@@ -113,6 +113,6 @@ var Poly = function(points, params) {
     haveData = points && (points.length >= 2);
 };
 
-Poly.prototype = COG.extend(Drawable.prototype, {
+Poly.prototype = COG.extend({}, Drawable.prototype, {
     constructor: Poly
 });
