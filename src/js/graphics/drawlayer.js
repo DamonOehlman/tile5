@@ -48,7 +48,7 @@ var DrawLayer = function(params) {
             
         // iterate through the drawabless and draw the layers
         for (var ii = drawables.length; ii--; ) {
-            var drawable = drawables[ii],
+            var drawable = drawable[ii],
                 overrideStyle = drawable.style || _self.style, 
                 styleType,
                 previousStyle,
