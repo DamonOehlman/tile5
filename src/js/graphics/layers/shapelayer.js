@@ -31,7 +31,7 @@ var ShapeLayer = function(params) {
             return diff != 0 ? diff : shapeB.xy.x - shapeA.xy.y;
         });
         
-        _self.changed();
+        view.redraw = true;
     } // performSync
     
     /* event handlers */
@@ -63,11 +63,10 @@ var ShapeLayer = function(params) {
                 shape.layer = _self;
                 
                 // sync this shape with the parent view
-                var view = _self.getParent();
+                var view = _self.view;
                 if (view) {
-                    shape.resync(_self.getParent());
-                    
-                    view.invalidate();
+                    shape.resync(view);
+                    view.redraw = true;
                 } // if
             
                 // add the the shapes array

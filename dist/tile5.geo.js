@@ -2250,6 +2250,17 @@ var XYRect = (function() {
     /* exports */
 
     /**
+    ### buffer(rect, bufferX, bufferY)
+    */
+    function buffer(rect, bufferX, bufferY) {
+        return XY.init(
+            rect.x1 - bufferX,
+            rect.y1 - bufferY ? bufferY : bufferX,
+            rect.x1 + bufferX,
+            rect.y1 + bufferY ? bufferY : bufferX);
+    } // buffer
+
+    /**
     ### center(rect)
     Return a xy composite for the center of the rect
     */
@@ -2866,21 +2877,228 @@ var Generator = (function() {
         generatorRegistry[id] = creatorFn;
     } // register
 
-    /* generator template definition */
-
-    var Template = function(params) {
-
-    }; // Template
-
     /* module definition */
 
     return {
         init: init,
-        register: register,
-
-        Template: Template
+        register: register
     };
 })();
+
+function ImageRenderer() {
+
+    /* internals */
+
+    /* exports */
+
+    return {
+        attach: function(view, canvas, context) {
+        },
+
+        clip: null,
+
+        /**
+        ### draw(context, viewRect, state, view)
+        */
+        draw: function(context, viewRect, state, view) {
+        },
+
+        updateImages: function(newImages) {
+        }
+   };
+}
+function CanvasImageRenderer() {
+
+    /* internals */
+
+    var images = [];
+
+    function drawImage(context, imageData, x, y, view) {
+        if (imageData.image) {
+            context.drawImage(imageData.image, x, y);
+        }
+        else if (! imageData.loading) {
+            imageData.loading = true;
+
+            getImage(imageData.url, function(image, loaded) {
+                imageData.image = image;
+                imageData.loading = false;
+
+                context.drawImage(image, imageData.screenX, imageData.screenY);
+            });
+        } // if..else
+    } // drawImage
+
+    /* exports */
+
+    function clip(context, viewRect, state, view) {
+        var offsetX = viewRect.x1,
+            offsetY = viewRect.y1,
+            imageData;
+
+        for (var ii = images.length; ii--; ) {
+            imageData = images[ii];
+            if (imageData.image) {
+                context.rect(
+                    imageData.x - offsetX,
+                    imageData.y - offsetY,
+                    imageData.width,
+                    imageData.height
+                );
+            }
+        } // for
+    } // clip
+
+    /**
+    ### draw(context, viewRect, state, view)
+    */
+    function draw(context, viewRect, state, view) {
+        var image,
+            inViewport,
+            offsetX = viewRect.x1,
+            offsetY = viewRect.y1,
+            minX = offsetX - 256,
+            minY = offsetY - 256,
+            maxX = viewRect.x2,
+            maxY = viewRect.y2,
+            relX, relY;
+
+        for (var ii = images.length; ii--; ) {
+            image = images[ii];
+
+            inViewport = image.x >= minX && image.x <= maxX &&
+                image.y >= minY && image.y <= maxY;
+
+            relX = image.screenX = image.x - offsetX;
+            relY = image.screenY = image.y - offsetY;
+
+            if (inViewport) {
+                drawImage(context, image, relX, relY, view);
+            } // if
+        } // for
+    } // draw
+
+    function updateImages(newImages) {
+        images = [].concat(newImages);
+    }
+
+    return COG.extend(new ImageRenderer(), {
+        clip: clip,
+        draw: draw,
+        updateImages: updateImages
+    });
+};
+function DOMImageRenderer() {
+
+    /* internals */
+
+    var PROP_WK_TRANSFORM = '-webkit-transform',
+        container = null,
+        supportTransforms,
+        images = [];
+
+    function getOffset(obj) {
+        var calcLeft = 0,
+            calcTop = 0;
+
+        if (obj.offsetParent) {
+            do {
+                calcLeft += obj.offsetLeft;
+                calcTop += obj.offsetTop;
+
+                obj = obj.offsetParent;
+            } while (obj);
+        } // if
+
+        return {
+            left: calcLeft,
+            top: calcTop
+        };
+    } // getOffset
+
+    /* exports */
+
+    function attach(view, canvas, context) {
+        var offset = getOffset(canvas);
+
+        supportTransforms = typeof canvas.style[PROP_WK_TRANSFORM] != 'undefined';
+
+        COG.info('attaching the dom renderer to the document');
+
+        if (container) {
+        } // if
+
+        container = document.createElement('div');
+        container.id = COG.objId('domImages');
+        container.style.cssText = COG.formatStr(
+            'position: absolute; overflow: hidden; width: {0}px; height: {1}px; background: #ddd; z-index: -1;',
+            canvas.parentNode.offsetWidth,
+            canvas.parentNode.offsetHeight);
+
+        canvas.parentNode.insertBefore(container, canvas);
+    } // attach
+
+    /**
+    ### draw(context, viewRect, state, view)
+    */
+    function draw(context, viewRect, state, view) {
+        var image,
+            element,
+            inViewport,
+            offsetX = viewRect.x1,
+            offsetY = viewRect.y1,
+            minX = offsetX - 256,
+            minY = offsetY - 256,
+            maxX = viewRect.x2,
+            maxY = viewRect.y2,
+            relX, relY;
+
+        for (var ii = images.length; ii--; ) {
+            image = images[ii];
+            element = image.element;
+
+            inViewport = image.x >= minX && image.x <= maxX &&
+                image.y >= minY && image.y <= maxY;
+
+            relX = image.x - offsetX;
+            relY = image.y - offsetY;
+
+            if (! element) {
+                element = image.element = new Image();
+                element.src = image.url;
+
+                container.appendChild(element);
+                element.style.cssText = '-webkit-user-select: none; -webkit-box-shadow: none; -moz-box-shadow: none; box-shadow: none; border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px; margin-top: 0px; margin-right: 0px; margin-bottom: 0px; margin-left: 0px; position: absolute;';
+            } // if
+
+            if (supportTransforms) {
+                element.style[PROP_WK_TRANSFORM] = 'translate3d(' + relX +'px, ' + relY + 'px, 0px)';
+            }
+            else {
+                element.style.left = relX + 'px';
+                element.style.top = relY + 'px';
+            } // if..else
+
+            element.style.display = inViewport ? 'block' : 'none';
+        } // for
+    } // draw
+
+    function updateImages(newImages) {
+        for (var ii = images.length; ii--; ) {
+            if (container && images[ii].element) {
+                container.removeChild(images[ii].element);
+            } // if
+        } // for
+
+        images = [].concat(newImages);
+    } // updateImages
+
+    return COG.extend(new ImageRenderer(), {
+        attach: attach,
+        draw: draw,
+        updateImages: updateImages
+    });
+};
 
 /**
 # T5.Style
@@ -2901,15 +3119,14 @@ var Style = (function() {
     ### apply(context, styleId)
     */
     function apply(context, styleId) {
-        var style = styles[styleId] ? styles[styleId] : styles.basic,
-            previousStyle;
+        var previousStyle = context && context.canvas ?
+                previousStyles[context.canvas.id] :
+                null;
 
-        if (context && context.canvas) {
-            previousStyle = previousStyles[context.canvas.id];
-            previousStyles[context.canvas.id] = styleId;
-        } // if
 
-        style.applyToContext(context);
+        previousStyles[context.canvas.id] = styleId;
+
+        (styles[styleId] ? styles[styleId] : styles.basic).applyToContext(context);
 
         return previousStyle;
     } // apply
@@ -3251,6 +3468,7 @@ var View = function(params) {
         layerCount = 0,
         canvas = document.getElementById(params.container),
         dragObject = null,
+        frameIndex = 0,
         mainContext = null,
         isIE = typeof window.attachEvent != 'undefined',
         flashPolyfill,
@@ -3266,7 +3484,6 @@ var View = function(params) {
         offsetWrapY = false,
         clipping = params.clipping,
         cycleRect = null,
-        cycling = false,
         drawRect,
         guides = params.guides,
         deviceScaling = 1,
@@ -3330,7 +3547,7 @@ var View = function(params) {
             setZoomLevel(zoomLevel + scaleFactorExp, zoomX, zoomY);
         }
 
-        invalidate();
+        _self.redraw = true;
     } // scaleView
 
     function setZoomCenter(xy) {
@@ -3376,30 +3593,10 @@ var View = function(params) {
         dragObject = null;
 
         initHitData('down', absXY, relXY);
-
-        /*
-        elements = hitTest(absXY, relXY, downX, downY);
-
-        for (var ii = elements.length; ii--; ) {
-            if (dragStart(elements[ii], downX, downY)) {
-                break;
-            } // if
-        } // for
-
-        COG.info('pointer down on ' + elements.length + ' elements');
-        */
     } // handlePointerDown
 
     function handlePointerHover(evt, absXY, relXY) {
         initHitData('hover', absXY, relXY);
-
-        /*
-
-        var scaledOffset = getScaledOffset(relXY.x, relXY.y);
-
-        hitData = initHitData('hover', scaledOffset.x, )
-        hitTest(absXY, relXY, hoverOffset.x, hoverOffset.y, 'hover');
-        */
     } // handlePointerHover
 
     function handlePointerMove(evt, absXY, relXY) {
@@ -3471,27 +3668,18 @@ var View = function(params) {
                 } // for
             } // if
 
-            for (ii = layerCount; ii--; ) {
-                layerContextChanged(layers[ii]);
-            } // for
-
-            invalidate();
+            _self.redraw = true;
 
             captureInteractionEvents();
         } // if
     } // attachToCanvas
 
     function addLayer(id, value) {
-        value.setId(id);
+        value.id = id;
         value.added = ticks();
 
-        value.bind('remove', function() {
-            _self.removeLayer(id);
-        });
-
-        layerContextChanged(value);
-
-        value.setParent(_self);
+        value.view = _self;
+        value.trigger('parentChange', _self, canvas, mainContext);
 
         layers.push(value);
 
@@ -3584,7 +3772,7 @@ var View = function(params) {
                     drop);
 
             if (dragOk) {
-                invalidate();
+                _self.redraw = true;
             } // if
 
             if (drop) {
@@ -3609,7 +3797,7 @@ var View = function(params) {
 
     function getLayerIndex(id) {
         for (var ii = layerCount; ii--; ) {
-            if (layers[ii].getId() == id) {
+            if (layers[ii].id === id) {
                 return ii;
             } // if
         } // for
@@ -3652,12 +3840,7 @@ var View = function(params) {
             rotation = Math.PI,
             ii = 0;
 
-        if (scaleFactor !== 1) {
-            drawRect = calcZoomRect(rect);
-        }
-        else {
-            drawRect = XYRect.copy(rect);
-        } // if..else
+        drawRect = XYRect.copy(rect);
 
         if (! canClip) {
             mainContext.clearRect(0, 0, viewWidth, viewHeight);
@@ -3668,9 +3851,11 @@ var View = function(params) {
         mainContext.save();
 
         try {
+            /*
             if (scaleFactor !== 1) {
                 mainContext.scale(scaleFactor, scaleFactor);
             } // if
+            */
 
             layerMinXY = null;
             layerMaxXY = null;
@@ -3773,16 +3958,24 @@ var View = function(params) {
     function cycle(tickCount) {
         var redrawBG,
             panning,
+            newFrame = false;
             clippable = false;
-
-        if (! (viewChanges | flashPolyfill)) {
-            cycling = false;
-            return;
-        }
 
         tickCount = tickCount ? tickCount : new Date().getTime();
 
-        if (tickCount - lastCycleTicks > cycleDelay) {
+        newFrame = tickCount - lastCycleTicks > cycleDelay;
+
+        if (newFrame) {
+            _self.trigger('enterFrame', tickCount, frameIndex++);
+
+            if (tickCount - lastRefresh > minRefresh) {
+                refresh();
+            } // if
+
+            lastCycleTicks = tickCount;
+        }
+
+        if (newFrame && _self.redraw) {
             panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
 
             state = stateActive |
@@ -3839,13 +4032,9 @@ var View = function(params) {
                 hitData = null;
             } // if
 
-            if (tickCount - lastRefresh > minRefresh) {
-                refresh();
-            } // if
-
-            lastCycleTicks = tickCount;
             lastOffsetX = offsetX;
             lastOffsetY = offsetY;
+            _self.redraw = false;
         } // if
 
         animFrame(cycle);
@@ -3861,13 +4050,9 @@ var View = function(params) {
         } // for
 
         if (hitFlagged) {
-            invalidate();
+            _self.redraw = true;
         } // if
     } // initHitData
-
-    function layerContextChanged(layer) {
-        layer.trigger("contextChanged", mainContext);
-    } // layerContextChanged
 
     /* exports */
 
@@ -3893,15 +4078,6 @@ var View = function(params) {
         } // for
     } // eachLayer
 
-    function invalidate() {
-        viewChanges += 1;
-
-        if (! cycling) {
-            cycling = true;
-            animFrame(cycle);
-        } // if
-    } // invalidate
-
     /**
     ### getDimensions(): T5.Dimensions
     Return the Dimensions of the View
@@ -3916,7 +4092,7 @@ var View = function(params) {
     */
     function getLayer(id) {
         for (var ii = 0; ii < layerCount; ii++) {
-            if (layers[ii].getId() == id) {
+            if (layers[ii].id === id) {
                 return layers[ii];
             } // if
         } // for
@@ -3939,6 +4115,10 @@ var View = function(params) {
     */
     function getZoomLevel() {
         return zoomLevel;
+    }
+
+    function invalidate() {
+        _self.redraw = true;
     }
 
     /**
@@ -3985,7 +4165,7 @@ var View = function(params) {
     */
     function setLayer(id, value) {
         for (var ii = 0; ii < layerCount; ii++) {
-            if (layers[ii].getId() === id) {
+            if (layers[ii].id === id) {
                 layers.splice(ii, 1);
                 break;
             } // if
@@ -3996,7 +4176,7 @@ var View = function(params) {
             value.trigger('refresh', _self, getViewRect());
         } // if
 
-        invalidate();
+        _self.redraw = true;
 
         return value;
     } // setLayer
@@ -4014,7 +4194,7 @@ var View = function(params) {
         lastRefresh = new Date().getTime();
         triggerAll('refresh', _self, getViewRect());
 
-        invalidate();
+        _self.redraw = true;
     } // refresh
 
     /**
@@ -4027,7 +4207,7 @@ var View = function(params) {
             _self.trigger('layerRemoved', layers[layerIndex]);
 
             layers.splice(layerIndex, 1);
-            invalidate();
+            _self.redraw = true;
         } // if
 
         layerCount = layers.length;
@@ -4203,7 +4383,7 @@ var View = function(params) {
             offsetX = x | 0;
             offsetY = y | 0;
 
-            invalidate();
+            _self.redraw = true;
 
             if (callback) {
                 callback();
@@ -4256,10 +4436,6 @@ var View = function(params) {
 
     COG.observable(_self);
 
-    _self.bind('invalidate', function(evt) {
-        invalidate();
-    });
-
     _self.bind('resync', handleResync);
 
     COG.configurable(
@@ -4302,456 +4478,11 @@ var View = function(params) {
         } // if
     });
 
+    animFrame(cycle);
+
     return _self;
 }; // T5.View
 
-/**
-# T5.ViewLayer
-
-In and of it_self, a View does nothing.  Not without a
-ViewLayer at least.  A view is made up of one or more of these
-layers and they are drawn in order of *zindex*.
-
-## Constructor
-`T5.ViewLayer(params)`
-
-### Initialization Parameters
-
-- `id` - the id that has been assigned to the layer, this value
-can be used when later accessing the layer from a View.
-
-- `zindex` (default: 0) - a zindex in Tile5 means the same thing it does in CSS
-
-- `supportsFastDraw` (default: false) - The supportsFastDraw parameter specifies
-whether a layer will be drawn on in particular graphic states on devices that
-require fastDraw mode to perform at an optimal level.  For instance, if a layer does
-not support fastDraw and the View is panning or scaling, the layer will not be drawn
-so it's important when defining new layer classes to set this parameter to true if you
-want the layer visible during these operations.  Be aware though that layers that require
-some time to render will impact performance on slower devices.
-
-- `validStates` - the a bitmask of DisplayState that the layer will be drawn for
-
-
-## Events
-
-### changed
-This event is fired in response to the `changed` method being called.  This method is
-called primarily when you have made modifications to the layer in code and need to
-flag to the containing T5.View that an redraw is required.  Any objects that need to
-perform updates in response to this layer changing (including overriden implementations)
-can do this by binding to the change method
-
-~ layer.bind('change', function(evt, layer) {
-~   // do your updates here...
-~ });
-
-### parentChange
-This event is fired with the parent of the layer has been changed
-
-<pre>
-layer.bind('parentChange', function(evt, parent) {
-);
-</pre>
-
-## Methods
-
-*/
-var ViewLayer = function(params) {
-    params = COG.extend({
-        id: "",
-        zindex: 0,
-        supportFastDraw: false,
-        animated: false,
-        validStates: viewState('ACTIVE', 'ANIMATING', 'PAN', 'ZOOM'),
-        style: null,
-        minXY: null,
-        maxXY: null
-    }, params);
-
-    var parent = null,
-        parentFastDraw = false,
-        changed = false,
-        supportFastDraw = params.supportFastDraw,
-        id = params.id,
-        activeState = viewState("ACTIVE"),
-        validStates = params.validStates,
-        lastOffsetX = 0,
-        lastOffsetY = 0;
-
-    var _self = COG.extend({
-        /**
-        ### addToView(view)
-        Used to add the layer to a view.  This simply calls T5.View.setLayer
-        */
-        addToView: function(view) {
-            view.setLayer(id, _self);
-        },
-
-        /**
-        ### shouldDraw(displayState)
-
-        Called by a View that contains the layer to determine
-        whether or not the layer should be drawn for the current display state.
-        The default implementation of this method first checks the fastDraw status,
-        and then continues to do a bitmask operation against the validStates property
-        to see if the current display state is acceptable.
-        */
-        shouldDraw: function(displayState, viewRect) {
-            return ((displayState & validStates) !== 0);
-        },
-
-        /**
-        ### clip(context, offset, dimensions, state)
-        */
-        clip: null,
-
-        /**
-        ### cycle(tickCount, offset, state)
-
-        Called in the View method of the same name, each layer has an opportunity
-        to update it_self in the current animation cycle before it is drawn.
-        */
-        cycle: function(tickCount, offset, state) {
-        },
-
-        /**
-        ### draw(context, offset, dimensions, state, view)
-
-        The business end of layer drawing.  This method is called when a layer needs to be
-        drawn and the following parameters are passed to the method:
-
-            - context - the canvas context that we are drawing to
-            - viewRect - the current view rect
-            - state - the current DisplayState of the view
-            - view - a reference to the View
-            - tickCount - the current tick count
-            - hitData - an object that contains information regarding the current hit data
-        */
-        draw: function(context, viewRect, state, view, tickCount, hitData) {
-        },
-
-        /**
-        ### hitGuess(hitX, hitY, state, view)
-        The hitGuess function is used to determine if a layer would return elements for
-        a more granular hitTest.  Essentially, hitGuess calls are used when events such
-        as hover and tap events occur on a view and then if a positive result is detected
-        the canvas is invalidated and checked in detail during the view layer `draw` operation.
-        By doing this we can just do simple geometry operations in the hitGuess function
-        and then make use of canvas functions such as `isPointInPath` to do most of the heavy
-        lifting for us
-        */
-        hitGuess: null,
-
-        /**
-        ### remove()
-
-        The remove method enables a view to flag that it is ready or should be removed
-        from any views that it is contained in.  This was introduced specifically for
-        animation layers that should only exist as long as an animation is active.
-        */
-        remove: function() {
-            _self.trigger('remove', _self);
-        },
-
-        /**
-        ### changed()
-
-        The changed method is used to flag the layer has been modified and will require
-        a redraw
-
-        */
-        changed: function() {
-            changed = true;
-
-            if (parent) {
-                parent.invalidate();
-            } // if
-        },
-
-        /**
-        ### hitTest(offsetX, offsetY, state, view)
-        */
-        hitTest: null,
-
-        /**
-        ### getId()
-
-        */
-        getId: function() {
-            return id;
-        },
-
-        /**
-        ### setId(string)
-
-        */
-        setId: function(value) {
-            id = value;
-        },
-
-        /**
-        ### getParent()
-
-        */
-        getParent: function() {
-            return parent;
-        },
-
-        /**
-        ### setParent(view: View)
-
-        */
-        setParent: function(view) {
-            parent = view;
-
-            parentFastDraw = parent ? (parent.fastDraw && (displayState !== activeState)) : false;
-
-            _self.trigger('parentChange', parent);
-        }
-    }, params); // _self
-
-    COG.observable(_self);
-
-    _self.bind('drawComplete', function(evt, viewRect, tickCount) {
-        changed = false;
-
-        lastOffsetX = viewRect.x1;
-        lastOffsetY = viewRect.y1;
-    });
-
-    _self.bind('resync', function(evt, view) {
-       if (_self.minXY) {
-           view.syncXY(_self.minXY);
-       } // if
-
-       if (_self.maxXY) {
-           view.syncXY(_self.maxXY);
-       } // if
-    });
-
-    return _self;
-}; // T5.ViewLayer
-/**
-# T5.ImageLayer
-*/
-var ImageLayer = function(genId, params) {
-    params = COG.extend({
-        imageLoadArgs: {}
-    }, params);
-
-    var generator = genId ? Generator.init(genId, params) : null,
-        generateCount = 0,
-        images = [],
-        lastViewRect = null,
-        loadArgs = params.imageLoadArgs,
-        regenTimeout = 0,
-        regenViewRect = null;
-
-    /* private internal functions */
-
-    function drawImage(context, imageData, x, y) {
-        if (imageData.image) {
-            context.drawImage(imageData.image, x, y);
-        }
-        else {
-            getImage(imageData.url, function(image) {
-                imageData.image = image;
-                _self.changed();
-            });
-        } // if..else
-    } // drawImage
-
-    function eachImage(viewRect, viewState, callback) {
-        for (var ii = images.length; ii--; ) {
-            var imageData = images[ii],
-                xx = imageData.x,
-                yy = imageData.y,
-                imageRect = XYRect.init(
-                    imageData.x,
-                    imageData.y,
-                    imageData.x + imageData.width,
-                    imageData.y + imageData.height);
-
-            if (callback && XYRect.intersect(viewRect, imageRect)) {
-                getImage(imageData.url, function(image, loaded) {
-                    callback(image, xx, yy, imageData.width, imageData.height);
-
-                    if (loaded) {
-                        _self.changed();
-                    } // if
-                }, loadArgs);
-            } // if
-        } // for
-    } // eachImage
-
-    /* every library should have a regenerate function - here's mine ;) */
-    function regenerate(viewRect) {
-        var xyDiff = lastViewRect ?
-                Math.abs(lastViewRect.x1 - viewRect.x1) + Math.abs(lastViewRect.y1 - viewRect.y1) :
-                0;
-
-        if (generator && ((! lastViewRect) || (xyDiff > 256))) {
-            var sequenceId = ++generateCount,
-                view = _self.getParent();
-
-
-            generator.run(view, viewRect, function(newImages) {
-                lastViewRect = XYRect.copy(viewRect);
-
-                if (sequenceId == generateCount) {
-                    for (var ii = newImages.length; ii--; ) {
-                        var imageData = newImages[ii];
-
-                        images[images.length] = {
-                            image: null,
-                            sequence: sequenceId,
-                            url: imageData.url,
-                            rect: XYRect.init(
-                                imageData.x,
-                                imageData.y,
-                                imageData.x + imageData.width,
-                                imageData.y + imageData.height
-                            )
-                        };
-                    } // for
-                } // if
-            });
-        } // if
-    } // regenerate
-
-    /* event handlers */
-
-    function handleRefresh(evt, view, viewRect) {
-        regenerate(viewRect);
-    } // handleViewIdle
-
-    function handleTap(evt, absXY, relXY, offsetXY) {
-        var tappedImages = [],
-            offsetX = offsetXY.x,
-            offsetY = offsetXY.y,
-            genImage,
-            tapped;
-
-        if (images) {
-            for (var ii = images.length; ii--; ) {
-                genImage = images[ii];
-
-                tapped = offsetX >= genImage.x &&
-                    offsetX <= genImage.x + genImage.width &&
-                    offsetY >= genImage.y &&
-                    offsetY <= genImage.y + genImage.height;
-
-                if (tapped) {
-                    tappedImages[tappedImages.length] = genImage;
-                } // if
-            } // for
-        } // if
-
-        if (tappedImages.length > 0) {
-            _self.trigger('tapImage', tappedImages, absXY, relXY, offsetXY);
-        } // if
-    } // handleTap
-
-    /* exports */
-
-    /**
-    ### changeGenerator(generatorId, args)
-    */
-    function changeGenerator(generatorId, args) {
-        generator = Generator.init(generatorId, COG.extend({}, params, args));
-        regenerate(_self.getParent().getViewRect());
-    } // changeGenerator
-
-    function clip(context, viewRect, state, view) {
-        var offsetX = viewRect.x1,
-            offsetY = viewRect.y1;
-
-        for (var ii = images.length; ii--; ) {
-            var drawImage = images[ii],
-                rect = drawImage.rect;
-
-            if (XYRect.intersect(viewRect, rect)) {
-                context.rect(
-                    rect.x1 - offsetX,
-                    rect.y1 - offsetY,
-                    rect.width,
-                    rect.height
-                );
-            } // if
-        } // for
-    } // clip
-
-    function draw(context, viewRect, state, view) {
-        var offsetX = viewRect.x1,
-            offsetY = viewRect.y1,
-            ii = 0;
-
-        while (ii < images.length) {
-            var currentImage = images[ii],
-                rect = currentImage.rect;
-
-            if (XYRect.intersect(viewRect, rect)) {
-                drawImage(context, currentImage, rect.x1 - offsetX, rect.y1 - offsetY);
-            } // if
-
-            if (currentImage.sequence !== generateCount) {
-                images.splice(ii, 1);
-            }
-            else {
-                ii++;
-            } // if..else
-        } // while
-    } // draw
-
-    function mask(context, viewRect, state, view) {
-        eachImage(viewRect, state, function(image, x, y, width, height) {
-            COG.info('clearing rect @ x = ' + x + ', y = ' + y + ', width = ' + width + ', height = ' + height);
-            context.clearRect(x, y, width, height);
-        });
-    } // mask
-
-    /* definition */
-
-    var _self = COG.extend(new ViewLayer(params), {
-        changeGenerator: changeGenerator,
-        clip: clip,
-        draw: draw,
-        mask: mask
-    });
-
-    _self.bind('refresh', handleRefresh);
-    _self.bind('tap', handleTap);
-
-    return _self;
-};
-/**
-# T5.ImageGenerator
-
-## Events
-
-### update
-*/
-var ImageGenerator = function(params) {
-    params = COG.extend({
-        relative: false,
-        padding: 2
-    }, params);
-
-    /**
-    ### run(viewRect, view, callback)
-    */
-    function run(view, viewRect, callback) {
-        COG.warn('running base generator - this should be overriden');
-    } // run
-
-    var _self = {
-        run: run
-    };
-
-    COG.observable(_self);
-    return _self;
-};
 
 /**
 # T5.Drawable
@@ -4785,6 +4516,7 @@ var Drawable = function(params) {
     this.bounds = null;
     this.view = null;
 
+    this.animations = 0;
     this.rotation = 0;
     this.scaling = 1;
     this.translateX = 0;
@@ -4794,79 +4526,6 @@ var Drawable = function(params) {
         COG.observable(this);
     } // if
 };
-
-function animateDrawable(target, fn, argsStart, argsEnd, opts) {
-    opts = COG.extend({
-        easing: 'sine.out',
-        duration: 1000,
-        progress: null,
-        complete: null,
-        autoInvalidate: true
-    }, opts);
-
-    var startTicks = new Date().getTime(),
-        lastTicks = 0,
-        targetFn = target[fn],
-        argsComplete = 0,
-        autoInvalidate = opts.autoInvalidate,
-        animateValid = argsStart.length && argsEnd.length &&
-            argsStart.length == argsEnd.length,
-        argsCount = animateValid ? argsStart.length : 0,
-        argsChange = new Array(argsCount),
-        argsCurrent = new Array(argsCount),
-        easingFn = COG.easing(opts.easing),
-        duration = opts.duration,
-        callback = opts.progress,
-        ii,
-
-        runTween = function(tickCount) {
-            var elapsed = tickCount - startTicks,
-                complete = startTicks + duration <= tickCount;
-
-            for (var ii = argsCount; ii--; ) {
-                argsCurrent[ii] = easingFn(
-                    elapsed,
-                    argsStart[ii],
-                    argsChange[ii],
-                    duration);
-            } // for
-
-            targetFn.apply(target, argsCurrent);
-
-            if (autoInvalidate) {
-                target.invalidate.call(target);
-            } // if
-
-            if (callback) {
-                var cbArgs = [].concat(complete ? argsEnd : argsCurrent);
-
-                cbArgs.unshift(complete);
-
-                callback.apply(target, cbArgs);
-            } // if
-
-            if (! complete) {
-                registerAnimationCallback(runTween);
-            }
-            else {
-                targetFn.apply(target, argsEnd);
-
-                if (opts.complete) {
-                    opts.complete.apply(target, argsEnd);
-                } // if
-            } // if..else
-        };
-
-    if (targetFn && targetFn.apply && argsCount > 0) {
-        duration = duration ? duration : DEFAULT_DURATION;
-
-        for (ii = argsCount; ii--; ) {
-            argsChange[ii] = argsEnd[ii] - argsStart[ii];
-        } // for
-
-        registerAnimationCallback(runTween);
-    } // if
-} // animate
 
 Drawable.prototype = {
     constructor: Drawable,
@@ -4894,16 +4553,6 @@ Drawable.prototype = {
 
         if (this.stroke) {
             context.stroke();
-        } // if
-    },
-
-    /**
-    ### invalidate()
-    */
-    invalidate: function() {
-        var view = this.layer ? this.layer.getParent() : null;
-        if (view) {
-            view.invalidate();
         } // if
     },
 
@@ -4966,6 +4615,110 @@ var ANI_WAIT = 1000 / 60 | 0,
     animateCallbacks = [],
     lastAniTicks = 0;
 
+function runAnimationCallbacks(tickCount) {
+    tickCount = tickCount ? tickCount : new Date().getTime();
+
+    if (tickCount - lastAniTicks > ANI_WAIT) {
+        var callbacks = animateCallbacks.splice(0);
+
+        for (var ii = callbacks.length; ii--; ) {
+            callbacks[ii](tickCount);
+        } // for
+
+        lastAniTicks = tickCount;
+    } // if
+
+    if (animateCallbacks.length) {
+        animFrame(runAnimationCallbacks);
+    } // if
+} // runAnimationCallback
+
+function registerAnimationCallback(fn) {
+    var scheduleCallbacks = animateCallbacks.length == 0;
+
+    animateCallbacks[animateCallbacks.length] = fn;
+
+    if (scheduleCallbacks) {
+        animFrame(runAnimationCallbacks);
+    } // if
+} // registerAnimationCallback
+
+function animateDrawable(target, fn, argsStart, argsEnd, opts) {
+    opts = COG.extend({
+        easing: 'sine.out',
+        duration: 1000,
+        progress: null,
+        complete: null,
+        autoInvalidate: true
+    }, opts);
+
+    var startTicks = new Date().getTime(),
+        lastTicks = 0,
+        targetFn = target[fn],
+        argsComplete = 0,
+        autoInvalidate = opts.autoInvalidate,
+        animateValid = argsStart.length && argsEnd.length &&
+            argsStart.length == argsEnd.length,
+        argsCount = animateValid ? argsStart.length : 0,
+        argsChange = new Array(argsCount),
+        argsCurrent = new Array(argsCount),
+        easingFn = COG.easing(opts.easing),
+        duration = opts.duration,
+        callback = opts.progress,
+        ii,
+
+        runTween = function(tickCount) {
+            var elapsed = tickCount - startTicks,
+                complete = startTicks + duration <= tickCount,
+                view = target.layer ? target.layer.view : null;
+
+            for (var ii = argsCount; ii--; ) {
+                argsCurrent[ii] = easingFn(
+                    elapsed,
+                    argsStart[ii],
+                    argsChange[ii],
+                    duration);
+            } // for
+
+            targetFn.apply(target, argsCurrent);
+
+            if (autoInvalidate && view) {
+                view.redraw = true;
+            } // if
+
+            if (callback) {
+                var cbArgs = [].concat(complete ? argsEnd : argsCurrent);
+
+                cbArgs.unshift(complete);
+
+                callback.apply(target, cbArgs);
+            } // if
+
+            if (! complete) {
+                registerAnimationCallback(runTween);
+            }
+            else {
+                target.animations--;
+                targetFn.apply(target, argsEnd);
+
+                if (opts.complete) {
+                    opts.complete.apply(target, argsEnd);
+                } // if
+            } // if..else
+        };
+
+    if (targetFn && targetFn.apply && argsCount > 0) {
+        duration = duration ? duration : DEFAULT_DURATION;
+
+        for (ii = argsCount; ii--; ) {
+            argsChange[ii] = argsEnd[ii] - argsStart[ii];
+        } // for
+
+        target.animations++;
+
+        registerAnimationCallback(runTween);
+    } // if
+} // animate
 function checkOffsetAndBounds(drawable, image) {
     var x, y;
 
@@ -4985,34 +4738,6 @@ function checkOffsetAndBounds(drawable, image) {
         } // if
     } // if
 } // checkOffsetAndBounds
-
-function registerAnimationCallback(fn) {
-    var scheduleCallbacks = animateCallbacks.length == 0;
-
-    animateCallbacks[animateCallbacks.length] = fn;
-
-    if (scheduleCallbacks) {
-        animFrame(runAnimationCallbacks);
-    } // if
-} // registerAnimationCallback
-
-function runAnimationCallbacks(tickCount) {
-    tickCount = tickCount ? tickCount : new Date().getTime();
-
-    if (tickCount - lastAniTicks > ANI_WAIT) {
-        var callbacks = animateCallbacks.splice(0);
-
-        for (var ii = callbacks.length; ii--; ) {
-            callbacks[ii](tickCount);
-        } // for
-
-        lastAniTicks = tickCount;
-    } // if
-
-    if (animateCallbacks.length) {
-        animFrame(runAnimationCallbacks);
-    } // if
-} // runAnimationCallback
 /**
 ### T5.Marker(params)
 */
@@ -5087,6 +4812,9 @@ function Poly(points, params) {
         if (haveData) {
             var first = true;
 
+            renderer.line(drawPoints, offsetX, offsetY);
+
+            /*
             context.beginPath();
 
             for (var ii = drawPoints.length; ii--; ) {
@@ -5101,6 +4829,7 @@ function Poly(points, params) {
                     context.lineTo(x, y);
                 } // if..else
             } // for
+            */
         } // if
 
         return haveData;
@@ -5222,10 +4951,10 @@ function ImageDrawable(params) {
                 image = retrievedImage;
 
                 if (loaded) {
-                    var view = _self.layer ? _self.layer.getParent() : null;
+                    var view = _self.layer ? _self.layer.view : null;
 
                     if (view) {
-                        view.invalidate();
+                        view.redraw = true;
                     } // if
                 } // if
             });
@@ -5252,7 +4981,7 @@ function ImageDrawable(params) {
 
 
             if (this.layer) {
-                var view = this.layer.getParent();
+                var view = this.layer.view;
                 if (view) {
                     view.syncXY([this.xy], true);
                 } // if
@@ -5337,6 +5066,232 @@ ImageMarker.prototype = COG.extend({}, ImageDrawable.prototype, {
     constructor: ImageMarker
 });
 
+/**
+# T5.ImageGenerator
+
+## Events
+
+### update
+*/
+var ImageGenerator = function(params) {
+    params = COG.extend({
+        relative: false,
+        padding: 2
+    }, params);
+
+    /**
+    ### run(viewRect, view, callback)
+    */
+    function run(view, viewRect, callback) {
+        COG.warn('running base generator - this should be overriden');
+    } // run
+
+    var _self = {
+        run: run
+    };
+
+    COG.observable(_self);
+    return _self;
+};
+/**
+# T5.ViewLayer
+
+In and of it_self, a View does nothing.  Not without a
+ViewLayer at least.  A view is made up of one or more of these
+layers and they are drawn in order of *zindex*.
+
+## Constructor
+`T5.ViewLayer(params)`
+
+### Initialization Parameters
+
+- `id` - the id that has been assigned to the layer, this value
+can be used when later accessing the layer from a View.
+
+- `zindex` (default: 0) - a zindex in Tile5 means the same thing it does in CSS
+
+- `supportsFastDraw` (default: false) - The supportsFastDraw parameter specifies
+whether a layer will be drawn on in particular graphic states on devices that
+require fastDraw mode to perform at an optimal level.  For instance, if a layer does
+not support fastDraw and the View is panning or scaling, the layer will not be drawn
+so it's important when defining new layer classes to set this parameter to true if you
+want the layer visible during these operations.  Be aware though that layers that require
+some time to render will impact performance on slower devices.
+
+- `validStates` - the a bitmask of DisplayState that the layer will be drawn for
+
+
+## Events
+
+### changed
+This event is fired in response to the `changed` method being called.  This method is
+called primarily when you have made modifications to the layer in code and need to
+flag to the containing T5.View that an redraw is required.  Any objects that need to
+perform updates in response to this layer changing (including overriden implementations)
+can do this by binding to the change method
+
+~ layer.bind('change', function(evt, layer) {
+~   // do your updates here...
+~ });
+
+### parentChange
+This event is fired with the parent of the layer has been changed
+
+<pre>
+layer.bind('parentChange', function(evt, parent) {
+);
+</pre>
+
+## Methods
+
+*/
+function ViewLayer(params) {
+    params = COG.extend({
+        id: COG.objId('layer'),
+        zindex: 0,
+        animated: false,
+        validStates: viewState('ACTIVE', 'ANIMATING', 'PAN', 'ZOOM'),
+        style: null,
+        minXY: null,
+        maxXY: null
+    }, params);
+
+    this.view = null;
+
+    COG.observable(COG.extend(this, params));
+}; // ViewLayer constructor
+
+ViewLayer.prototype = {
+    constructor: ViewLayer,
+
+    /**
+    ### shouldDraw(displayState)
+
+    Called by a View that contains the layer to determine
+    whether or not the layer should be drawn for the current display state.
+    The default implementation of this method first checks the fastDraw status,
+    and then continues to do a bitmask operation against the validStates property
+    to see if the current display state is acceptable.
+    */
+    shouldDraw: function(displayState, viewRect) {
+        return (displayState & this.validStates) !== 0;
+    },
+
+    /**
+    ### clip(context, offset, dimensions, state)
+    */
+    clip: null,
+
+    /**
+    ### cycle(tickCount, offset, state)
+
+    Called in the View method of the same name, each layer has an opportunity
+    to update it_self in the current animation cycle before it is drawn.
+    */
+    cycle: function(tickCount, offset, state) {
+    },
+
+    /**
+    ### draw(context, offset, dimensions, state, view)
+
+    The business end of layer drawing.  This method is called when a layer needs to be
+    drawn and the following parameters are passed to the method:
+
+        - context - the canvas context that we are drawing to
+        - viewRect - the current view rect
+        - state - the current DisplayState of the view
+        - view - a reference to the View
+        - tickCount - the current tick count
+        - hitData - an object that contains information regarding the current hit data
+    */
+    draw: function(context, viewRect, state, view, tickCount, hitData) {
+    },
+
+    /**
+    ### hitGuess(hitX, hitY, state, view)
+    The hitGuess function is used to determine if a layer would return elements for
+    a more granular hitTest.  Essentially, hitGuess calls are used when events such
+    as hover and tap events occur on a view and then if a positive result is detected
+    the canvas is invalidated and checked in detail during the view layer `draw` operation.
+    By doing this we can just do simple geometry operations in the hitGuess function
+    and then make use of canvas functions such as `isPointInPath` to do most of the heavy
+    lifting for us
+    */
+    hitGuess: null
+}; // ViewLayer.prototype
+/**
+# T5.ImageLayer
+*/
+var ImageLayer = function(genId, params) {
+    params = COG.extend({
+        renderer: 'canvas', // 'dom',
+        imageLoadArgs: {}
+    }, params);
+
+    var genFn = genId ? Generator.init(genId, params).run : null,
+        imageRenderers = {
+            canvas: CanvasImageRenderer,
+            dom: DOMImageRenderer
+        },
+        lastViewRect = null,
+        loadArgs = params.imageLoadArgs,
+        renderer = getImageRenderer(params.renderer),
+        regenTimeout = 0,
+        regenViewRect = null;
+
+    /* private internal functions */
+
+    function getImageRenderer(type) {
+        return new imageRenderers[type]();
+    } // getImageRenderer
+
+    function regenerate(viewRect) {
+        var xyDiff = lastViewRect ?
+                Math.abs(lastViewRect.x1 - viewRect.x1) + Math.abs(lastViewRect.y1 - viewRect.y1) :
+                0;
+
+        if (genFn && ((! lastViewRect) || (xyDiff > 256))) {
+            var view = _self.view,
+                imageData,
+                images,
+                url,
+                ii;
+
+
+            genFn(view, viewRect, function(newImages) {
+                lastViewRect = XYRect.copy(viewRect);
+
+                renderer.updateImages(newImages);
+            });
+        } // if
+    } // regenerate
+
+    /* event handlers */
+
+    function handleParentChange(evt, view, canvas, context) {
+        if (renderer) {
+            renderer.attach(view, canvas, context);
+        } // if
+    } // handleParentChange
+
+    function handleRefresh(evt, view, viewRect) {
+        regenerate(viewRect);
+    } // handleViewIdle
+
+    /* exports */
+
+    /* definition */
+
+    var _self = COG.extend(new ViewLayer(params), {
+        clip: renderer.clip,
+        draw: renderer.draw
+    });
+
+    _self.bind('parentChange', handleParentChange);
+    _self.bind('refresh', handleRefresh);
+
+    return _self;
+};
 /**
 # T5.DrawLayer
 _extends:_ T5.ViewLayer
@@ -5521,7 +5476,7 @@ var ShapeLayer = function(params) {
             return diff != 0 ? diff : shapeB.xy.x - shapeA.xy.y;
         });
 
-        _self.changed();
+        view.redraw = true;
     } // performSync
 
     /* event handlers */
@@ -5552,11 +5507,10 @@ var ShapeLayer = function(params) {
             if (shape) {
                 shape.layer = _self;
 
-                var view = _self.getParent();
+                var view = _self.view;
                 if (view) {
-                    shape.resync(_self.getParent());
-
-                    view.invalidate();
+                    shape.resync(view);
+                    view.redraw = true;
                 } // if
 
                 if (prepend) {
@@ -5584,32 +5538,6 @@ var ShapeLayer = function(params) {
 
     return _self;
 };
-
-/**
-# T5.Tiling
-*/
-var Tiling = (function() {
-
-    /* internal functions */
-
-    /* exports */
-
-    function init(x, y, width, height, data) {
-        return COG.extend({
-            x: x,
-            y: y,
-            width: width,
-            height: height
-        }, data);
-    } // init
-
-    /* module definition */
-
-    return {
-        tileSize: 256,
-        init: init
-    };
-})();
 
     COG.extend(exports, {
         ex: COG.extend,
@@ -5645,9 +5573,7 @@ var Tiling = (function() {
         ImageMarker: ImageMarker,
 
         DrawLayer: DrawLayer,
-        ShapeLayer: ShapeLayer,
-
-        Tiling: Tiling
+        ShapeLayer: ShapeLayer
     });
 
     COG.observable(exports);
@@ -7865,16 +7791,12 @@ var LocationOverlay = exports.LocationOverlay = function(params) {
                     iconImage.width,
                     iconImage.height);
             } // if
-
-            _self.changed();
         },
 
         update: function(grid) {
             if (grid) {
                 indicatorRadius = grid.getPixelDistance(_self.accuracy) >> 1;
                 centerXY = grid.getGridXYForPosition(_self.pos);
-
-                _self.changed();
             } // if
         }
     });

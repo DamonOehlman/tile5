@@ -23,6 +23,17 @@ var XYRect = (function() {
     /* exports */
     
     /**
+    ### buffer(rect, bufferX, bufferY)
+    */
+    function buffer(rect, bufferX, bufferY) {
+        return XY.init(
+            rect.x1 - bufferX,
+            rect.y1 - bufferY ? bufferY : bufferX,
+            rect.x1 + bufferX,
+            rect.y1 + bufferY ? bufferY : bufferX);
+    } // buffer
+    
+    /**
     ### center(rect)
     Return a xy composite for the center of the rect
     */

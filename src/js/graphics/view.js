@@ -156,6 +156,7 @@ var View = function(params) {
         layerCount = 0,
         canvas = document.getElementById(params.container),
         dragObject = null,
+        frameIndex = 0,
         mainContext = null,
         isIE = typeof window.attachEvent != 'undefined',
         flashPolyfill,
@@ -171,7 +172,6 @@ var View = function(params) {
         offsetWrapY = false,
         clipping = params.clipping,
         cycleRect = null,
-        cycling = false,
         drawRect,
         guides = params.guides,
         deviceScaling = 1,
@@ -237,7 +237,7 @@ var View = function(params) {
         }
 
         // invalidate the view
-        invalidate();
+        _self.redraw = true;
     } // scaleView
     
     function setZoomCenter(xy) {
@@ -291,34 +291,11 @@ var View = function(params) {
 
         // initialise the hit data
         initHitData('down', absXY, relXY);
-
-        /*
-        // get the objects under the current offset
-        elements = hitTest(absXY, relXY, downX, downY);
-        
-        // iterate through objects from last to first (first get drawn last so sit underneath)
-        for (var ii = elements.length; ii--; ) {
-            if (dragStart(elements[ii], downX, downY)) {
-                break;
-            } // if
-        } // for
-        
-        COG.info('pointer down on ' + elements.length + ' elements');
-        */
     } // handlePointerDown
     
     function handlePointerHover(evt, absXY, relXY) {
         // initialise the hit data
         initHitData('hover', absXY, relXY);
-
-        /*
-        
-        var scaledOffset = getScaledOffset(relXY.x, relXY.y);
-        
-        hitData = initHitData('hover', scaledOffset.x, )
-        // COG.info('relxy = ' + T5.XY.toString(relXY) + ', hover offset = ' + T5.XY.toString(hoverOffset));
-        hitTest(absXY, relXY, hoverOffset.x, hoverOffset.y, 'hover');
-        */
     } // handlePointerHover
     
     function handlePointerMove(evt, absXY, relXY) {
@@ -402,13 +379,8 @@ var View = function(params) {
                 } // for
             } // if
             
-            // iterate through the layers, and change the context
-            for (ii = layerCount; ii--; ) {
-                layerContextChanged(layers[ii]);
-            } // for
-
             // invalidate the canvas
-            invalidate();
+            _self.redraw = true;
             
             // attach interaction handlers
             captureInteractionEvents();
@@ -417,18 +389,12 @@ var View = function(params) {
     
     function addLayer(id, value) {
         // make sure the layer has the correct id
-        value.setId(id);
+        value.id = id;
         value.added = ticks();
         
-        // bind to the remove event
-        value.bind('remove', function() {
-            _self.removeLayer(id);
-        });
-        
-        layerContextChanged(value);
-        
         // tell the layer that I'm going to take care of it
-        value.setParent(_self);
+        value.view = _self;
+        value.trigger('parentChange', _self, canvas, mainContext);
         
         // add the new layer
         layers.push(value);
@@ -531,7 +497,7 @@ var View = function(params) {
                     drop);
                 
             if (dragOk) {
-                invalidate();
+                _self.redraw = true;
             } // if
             
             if (drop) {
@@ -557,7 +523,7 @@ var View = function(params) {
     
     function getLayerIndex(id) {
         for (var ii = layerCount; ii--; ) {
-            if (layers[ii].getId() == id) {
+            if (layers[ii].id === id) {
                 return ii;
             } // if
         } // for
@@ -603,12 +569,7 @@ var View = function(params) {
             ii = 0;
             
         // prep the draw rect
-        if (scaleFactor !== 1) {
-            drawRect = calcZoomRect(rect);
-        } 
-        else {
-            drawRect = XYRect.copy(rect);
-        } // if..else
+        drawRect = XYRect.copy(rect);
         
         if (! canClip) {
             mainContext.clearRect(0, 0, viewWidth, viewHeight);
@@ -622,9 +583,11 @@ var View = function(params) {
         // COG.info('offsetX = ' + offsetX + ', offsetY = ', offsetY + ', drawing rect = ', rect);
         
         try {
+            /*
             if (scaleFactor !== 1) {
                 mainContext.scale(scaleFactor, scaleFactor);
             } // if
+            */
 
             // reset the layer bounds
             layerMinXY = null;
@@ -742,20 +705,33 @@ var View = function(params) {
     function cycle(tickCount) {
         // check to see if we are panning
         var redrawBG,
-            panning, 
+            panning,
+            newFrame = false;
             clippable = false;
             
-        if (! (viewChanges | flashPolyfill)) {
-            cycling = false;
-            return;
-        }
-        
         // initialise the tick count if it isn't already defined
         // not all browsers pass through the ticks with the requestAnimationFrame :/
         tickCount = tickCount ? tickCount : new Date().getTime();
         
+        // set the new frame flag
+        newFrame = tickCount - lastCycleTicks > cycleDelay;
+        
+        // if we have a new frame, then fire the enterFrame event
+        if (newFrame) {
+            _self.trigger('enterFrame', tickCount, frameIndex++);
+            
+            // check whether a forced refresh is required
+            // TODO: include some state checks here...
+            if (tickCount - lastRefresh > minRefresh) {
+                refresh();
+            } // if
+            
+            // update the last cycle ticks
+            lastCycleTicks = tickCount;
+        }
+        
         // if we a due for a redraw then do on
-        if (tickCount - lastCycleTicks > cycleDelay) {
+        if (newFrame && _self.redraw) {
             // determine if we are panning
             panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
 
@@ -827,16 +803,10 @@ var View = function(params) {
                 hitData = null;
             } // if
 
-            // check whether a forced refresh is required
-            // TODO: include some state checks here...
-            if (tickCount - lastRefresh > minRefresh) {
-                refresh();
-            } // if
-            
             // update the last cycle ticks
-            lastCycleTicks = tickCount;
             lastOffsetX = offsetX;
             lastOffsetY = offsetY;
+            _self.redraw = false;
         } // if
 
         animFrame(cycle);
@@ -859,13 +829,9 @@ var View = function(params) {
         // if we have a potential hit then invalidate the view so a more detailed
         // test can be run
         if (hitFlagged) {
-            invalidate();
+            _self.redraw = true;
         } // if
     } // initHitData
-    
-    function layerContextChanged(layer) {
-        layer.trigger("contextChanged", mainContext);
-    } // layerContextChanged
     
     /* exports */
     
@@ -892,15 +858,6 @@ var View = function(params) {
         } // for
     } // eachLayer
     
-    function invalidate() {
-        viewChanges += 1;
-        
-        if (! cycling) {
-            cycling = true;
-            animFrame(cycle);
-        } // if
-    } // invalidate
-    
     /**
     ### getDimensions(): T5.Dimensions
     Return the Dimensions of the View
@@ -916,7 +873,7 @@ var View = function(params) {
     function getLayer(id) {
         // look for the matching layer, and return when found
         for (var ii = 0; ii < layerCount; ii++) {
-            if (layers[ii].getId() == id) {
+            if (layers[ii].id === id) {
                 return layers[ii];
             } // if
         } // for
@@ -940,6 +897,10 @@ var View = function(params) {
     */
     function getZoomLevel() {
         return zoomLevel;
+    }
+    
+    function invalidate() {
+        _self.redraw = true;
     }
     
     /**
@@ -989,7 +950,7 @@ var View = function(params) {
     function setLayer(id, value) {
         // if the layer already exists, then remove it
         for (var ii = 0; ii < layerCount; ii++) {
-            if (layers[ii].getId() === id) {
+            if (layers[ii].id === id) {
                 layers.splice(ii, 1);
                 break;
             } // if
@@ -1001,7 +962,7 @@ var View = function(params) {
         } // if
 
         // invalidate the view
-        invalidate();
+        _self.redraw = true;
         
         // return the layer so we can chain if we want
         return value;
@@ -1023,7 +984,7 @@ var View = function(params) {
         triggerAll('refresh', _self, getViewRect());
         
         // invalidate
-        invalidate();
+        _self.redraw = true;
     } // refresh
     
     /**
@@ -1036,7 +997,7 @@ var View = function(params) {
             _self.trigger('layerRemoved', layers[layerIndex]);
 
             layers.splice(layerIndex, 1);
-            invalidate();
+            _self.redraw = true;
         } // if
         
         // update the layer count
@@ -1233,7 +1194,7 @@ var View = function(params) {
             offsetY = y | 0;
             
             // invalidate the display
-            invalidate();
+            _self.redraw = true;
             
             // trigger the callback
             if (callback) {
@@ -1289,11 +1250,6 @@ var View = function(params) {
     // make the view observable
     COG.observable(_self);
     
-    // listen for being woken up
-    _self.bind('invalidate', function(evt) {
-        invalidate();
-    });
-    
     // handle the view being resynced
     _self.bind('resync', handleResync);
     
@@ -1341,6 +1297,9 @@ var View = function(params) {
             }
         } // if
     });
+    
+    // start the animation frame
+    animFrame(cycle);
 
     return _self;
 }; // T5.View

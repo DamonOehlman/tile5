@@ -18,17 +18,17 @@ var Style = (function() {
     ### apply(context, styleId)
     */
     function apply(context, styleId) {
-        var style = styles[styleId] ? styles[styleId] : styles.basic,
-            previousStyle;
-            
-        // if we have a context and context canvas, then update the previous style info
-        if (context && context.canvas) {
-            previousStyle = previousStyles[context.canvas.id];
-            previousStyles[context.canvas.id] = styleId;
-        } // if
+        var previousStyle = context && context.canvas ? 
+                previousStyles[context.canvas.id] : 
+                null;
+
+        // TODO: check for a style change
+
+        // if we have a style change then make the change
+        previousStyles[context.canvas.id] = styleId;
 
         // apply the style
-        style.applyToContext(context);
+        (styles[styleId] ? styles[styleId] : styles.basic).applyToContext(context);
 
         // return the previously selected style
         return previousStyle;

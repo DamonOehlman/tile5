@@ -810,13 +810,13 @@ T5.Geo.Decarta = (function() {
                            '&N=' + (yTile + yy - 1) +
                            '&E=' + (xTile + xx);
                            
-                        images[images.length] = T5.Tiling.init(
-                            (numTilesHalf + xTile + xx) * tileSize,
-                            (numTilesHalf + yTile*-1 - yy) * tileSize, 
-                            tileSize,
-                            tileSize, {
-                                url: tileUrl
-                            });
+                        images[images.length] = {
+                            x: (numTilesHalf + xTile + xx) * tileSize,
+                            y: (numTilesHalf + yTile*-1 - yy) * tileSize,
+                            width: tileSize,
+                            height: tileSize,
+                            url: tileUrl
+                        };
                     } // for
                 } // for
                     

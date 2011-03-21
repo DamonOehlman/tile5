@@ -69,16 +69,12 @@ var LocationOverlay = exports.LocationOverlay = function(params) {
                     iconImage.width, 
                     iconImage.height);
             } // if
-            
-            _self.changed();
         },
         
         update: function(grid) {
             if (grid) {
                 indicatorRadius = grid.getPixelDistance(_self.accuracy) >> 1;
                 centerXY = grid.getGridXYForPosition(_self.pos);
-                
-                _self.changed();
             } // if
         }
     });

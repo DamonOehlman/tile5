@@ -35,10 +35,8 @@ T5.Geo.OSM = (function() {
 
         http://developers.cloudmade.com/projects/tiles/examples/convert-coordinates-to-tile-numbers
         */
-        function calculateTileOffset(position, numTiles) {
-            var lon = position.lon % 360,
-                lat = position.lat,
-                tileX, tileY;
+        function calculateTileOffset(lat, lon, numTiles) {
+            var tileX, tileY;
                 
             tileX = Math.floor((lon+180) / 360 * numTiles);
             tileY = Math.floor((1-Math.log(Math.tan(lat*DEGREES_TO_RADIANS) + 1/Math.cos(lat*DEGREES_TO_RADIANS))/Math.PI)/2 * numTiles) % numTiles;
@@ -92,7 +90,7 @@ T5.Geo.OSM = (function() {
                     tileSize = params.tileSize,
                     radsPerPixel = (Math.PI * 2) / (tileSize << zoomLevel),
                     position = T5.GeoXY.toPos(T5.XY.init(viewRect.x1 - tileSize, viewRect.y1 - tileSize), radsPerPixel),
-                    tileOffset = calculateTileOffset(position, numTiles),
+                    tileOffset = calculateTileOffset(position.lat, position.lon, numTiles),
                     tilePixels = getTileXY(tileOffset.x, tileOffset.y, numTiles, radsPerPixel),
                     xTiles = (viewRect.width  / tileSize | 0) + 2,
                     yTiles = (viewRect.height / tileSize | 0) + 2,
@@ -121,13 +119,13 @@ T5.Geo.OSM = (function() {
                             flipY);
                             
                         if (tileUrl) {
-                            images[images.length] = T5.Tiling.init(
-                                tilePixels.x + xx * tileSize,
-                                tilePixels.y + yy * tileSize, 
-                                tileSize,
-                                tileSize, {
-                                    url: tileUrl
-                                });
+                            images[images.length] = {
+                                x: tilePixels.x + xx * tileSize,
+                                y: tilePixels.y + yy * tileSize, 
+                                width: tileSize,
+                                height: tileSize,
+                                url: tileUrl
+                            };
                         } // if
                     } // for
                 } // for
@@ -170,7 +168,7 @@ T5.Geo.OSM = (function() {
                         'http://{3}.tile.cloudmade.com/{0}/{1}/{2}/',
                         params.apikey,
                         params.styleid,
-                        T5.Tiling.tileSize, 
+                        256, 
                         '{0}'),
                     subDomains: ['a', 'b', 'c']
                 };

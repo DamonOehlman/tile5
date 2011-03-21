@@ -30,18 +30,10 @@ var Generator = (function() {
         generatorRegistry[id] = creatorFn;
     } // register
     
-    /* generator template definition */
-    
-    var Template = function(params) {
-        
-    }; // Template
-    
     /* module definition */
     
     return {
         init: init,
-        register: register,
-        
-        Template: Template
+        register: register
     };
 })();

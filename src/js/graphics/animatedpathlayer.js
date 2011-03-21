@@ -80,12 +80,6 @@ var AnimatedPathLayer = function(params) {
     
     function handleUpdates(updatedValue, complete) {
         pathOffset = updatedValue;
-
-        if (complete) {
-            _self.remove();
-        } // if
-        
-        _self.changed();
     }
     
     /* exports */

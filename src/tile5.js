@@ -29,14 +29,16 @@ var T5 = {};
     //= require "js/canvasmaker"
     //= require "js/generator"
     
+    //= require "js/graphics/renderers/core"
+    //= require "js/graphics/renderers/canvas"
+    //= require "js/graphics/renderers/dom"
+    
     //= require "js/graphics/style"
     //= require "js/graphics/viewstate"
     //= require "js/graphics/view"
-    //= require "js/graphics/viewlayer"
-    //= require "js/graphics/imagelayer"
-    //= require "js/graphics/imagegenerator"
     
-    //= require "js/graphics/drawable"
+    //= require "js/graphics/drawables/core"
+    //= require "js/graphics/drawables/animation"
     //= require "js/graphics/drawables/helpers"
     //= require "js/graphics/drawables/marker"
     //= require "js/graphics/drawables/poly"
@@ -44,10 +46,11 @@ var T5 = {};
     //= require "js/graphics/drawables/image"
     //= require "js/graphics/drawables/imagemarker"
 
-    //= require "js/graphics/drawlayer"
-    //= require "js/graphics/shapelayer"
-    
-    //= require "js/tiling/core"
+    //= require "js/graphics/imagegenerator"
+    //= require "js/graphics/layers/viewlayer"
+    //= require "js/graphics/layers/imagelayer"
+    //= require "js/graphics/layers/drawlayer"
+    //= require "js/graphics/layers/shapelayer"
     
     COG.extend(exports, {
         ex: COG.extend,
@@ -86,10 +89,7 @@ var T5 = {};
         ImageMarker: ImageMarker,
         
         DrawLayer: DrawLayer,
-        ShapeLayer: ShapeLayer,
-        
-        // tiling
-        Tiling: Tiling
+        ShapeLayer: ShapeLayer
     });
     
     // make T5 observable

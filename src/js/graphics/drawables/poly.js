@@ -49,7 +49,11 @@ function Poly(points, params) {
     function prepPath(context, offsetX, offsetY, width, height, state) {
         if (haveData) {
             var first = true;
+            
+            // draw the line
+            renderer.line(drawPoints, offsetX, offsetY);
 
+            /*
             context.beginPath();
             
             // now draw the lines
@@ -66,6 +70,7 @@ function Poly(points, params) {
                     context.lineTo(x, y);
                 } // if..else
             } // for
+            */
         } // if
         
         return haveData;

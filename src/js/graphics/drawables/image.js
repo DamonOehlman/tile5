@@ -68,11 +68,11 @@ function ImageDrawable(params) {
                 image = retrievedImage;
                 
                 if (loaded) {
-                    var view = _self.layer ? _self.layer.getParent() : null;
+                    var view = _self.layer ? _self.layer.view : null;
 
                     // invalidate the view
                     if (view) {
-                        view.invalidate();
+                        view.redraw = true;
                     } // if
                 } // if
             });
@@ -103,7 +103,7 @@ function ImageDrawable(params) {
             // TODO: reset scale
             
             if (this.layer) {
-                var view = this.layer.getParent();
+                var view = this.layer.view;
                 if (view) {
                     view.syncXY([this.xy], true);
                 } // if
