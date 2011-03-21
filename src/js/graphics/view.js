@@ -75,15 +75,6 @@ view.bind('tapHit', function(evt, elements, absXY, relXY, offsetXY) {
 ### hoverHit
 As per the tapHit event, but triggered through a mouse-over event.
 
-### resize
-This event is fired when the view has been resized (either manually or
-automatically).
-<pre>
-view.bind('resize', function(evt, width, height) {
-
-});
-</pre>
-
 ### refresh
 This event is fired once the view has gone into an idle state or every second
 (configurable).
@@ -143,6 +134,7 @@ var View = function(params) {
         // zoom parameters
         minZoom: 1,
         maxZoom: 1,
+        renderer: 'canvas/dom',
         zoomEasing: COG.easing('quad.out'),
         zoomDuration: 300,
         zoomLevel: 1
@@ -152,9 +144,10 @@ var View = function(params) {
     var TURBO_CLEAR_INTERVAL = 500;
     
     // get the container context
-    var layers = [],
+    var caps = {},
+        layers = [],
         layerCount = 0,
-        canvas = document.getElementById(params.container),
+        container = document.getElementById(params.container),
         dragObject = null,
         frameIndex = 0,
         mainContext = null,
@@ -171,8 +164,6 @@ var View = function(params) {
         offsetWrapX = false,
         offsetWrapY = false,
         clipping = params.clipping,
-        cycleRect = null,
-        drawRect,
         guides = params.guides,
         deviceScaling = 1,
         wakeTriggers = 0,
@@ -193,12 +184,9 @@ var View = function(params) {
         scaleTween = null,
         lastScaleFactor = 0,
         lastCycleTicks = 0,
-        sizeChanged = false,
         eventMonitor = null,
         turbo = params.turbo,
         tweeningOffset = false,
-        viewHeight,
-        viewWidth,
         cycleDelay = 1000 / params.fps | 0,
         viewChanges = 0,
         zoomX, zoomY,
@@ -259,17 +247,15 @@ var View = function(params) {
     
     function getScaledOffset(srcX, srcY) {
         var invScaleFactor = 1 / scaleFactor,
-            scaledX = drawRect ? (drawRect.x1 + srcX * invScaleFactor) : srcX,
-            scaledY = drawRect ? (drawRect.y1 + srcY * invScaleFactor) : srcY;
+            scaledX = srcX, // drawRect ? (drawRect.x1 + srcX * invScaleFactor) : srcX,
+            scaledY = srcY; // drawRect ? (drawRect.y1 + srcY * invScaleFactor) : srcY;
         
         return XY.init(scaledX, scaledY);        
     } // getScaledOffset
     
     function handleContainerUpdate(name, value) {
-        canvas = document.getElementById(value);
-        
-        // attach to the new canvas
-        attachToCanvas();
+        container = document.getElementById(value);
+        createRenderer();
     } // handleContainerUpdate
     
     function handleDoubleTap(evt, absXY, relXY) {
@@ -308,7 +294,9 @@ var View = function(params) {
     
     function handleResize(evt) {
         clearTimeout(resizeCanvasTimeout);
-        resizeCanvasTimeout = setTimeout(attachToCanvas, 250);
+        resizeCanvasTimeout = setTimeout(function() {
+            renderer.checkSize();
+        }, 250);
     } // handleResize
     
     function handleResync(evt, view) {
@@ -331,61 +319,12 @@ var View = function(params) {
     
     /* private functions */
     
-    function attachToCanvas(newWidth, newHeight) {
-        var ii;
+    function createRenderer() {
+        renderer = attachRenderer(params.renderer, _self, container);
         
-        // set the flash polyfill flag
-        flashPolyfill = typeof FlashCanvas !== 'undefined';
-        COG.info('is flash = ' + flashPolyfill);
-        
-        if (canvas) {
-            // if we are autosizing the set the size
-            if (params.autoSize && canvas.parentNode) {
-                newWidth = canvas.parentNode.offsetWidth;
-                newHeight = canvas.parentNode.offsetHeight;
-            } // if
-
-            try {
-                // ensure that the canvas has an id, as the styles reference it
-                if (! canvas.id) {
-                    canvas.id = params.id + '_canvas';
-                } // if
-
-                // get the canvas context
-                mainContext = canvas.getContext('2d');
-            } 
-            catch (e) {
-                COG.exception(e);
-                throw new Error("Could not initialise canvas on specified view element");
-            }
-            
-            // initialise the views width and height
-            if ((newWidth && newHeight) && (viewHeight !== newHeight || viewWidth !== newWidth)) {
-                // flag the size as changed
-                sizeChanged = true;
-                
-                // initialise the width and height locals
-                viewWidth = newWidth;
-                viewHeight = newHeight;
-                halfWidth = viewWidth >> 1;
-                halfHeight = viewHeight >> 1;
-                
-                // trigger the resize event for the view
-                _self.trigger('resize', viewWidth, viewHeight);
-                
-                // and then tell all the layers
-                for (ii = layerCount; ii--; ) {
-                    layers[ii].trigger('resize', viewWidth, viewHeight);
-                } // for
-            } // if
-            
-            // invalidate the canvas
-            _self.redraw = true;
-            
-            // attach interaction handlers
-            captureInteractionEvents();
-        } // if        
-    } // attachToCanvas
+        // attach interaction handlers
+        captureInteractionEvents();
+    } // createRenderer
     
     function addLayer(id, value) {
         // make sure the layer has the correct id
@@ -394,7 +333,7 @@ var View = function(params) {
         
         // tell the layer that I'm going to take care of it
         value.view = _self;
-        value.trigger('parentChange', _self, canvas, mainContext);
+        value.trigger('parentChange', _self, container, mainContext);
         
         // add the new layer
         layers.push(value);
@@ -419,31 +358,33 @@ var View = function(params) {
             eventMonitor.unbind();
         } // if
 
-        // recreate the event monitor
-        eventMonitor = INTERACT.watch(canvas);
-        
-        // if this is pannable, then attach event handlers
-        if (params.pannable) {
-            eventMonitor.pannable().bind('pan', handlePan);
-        } // if
+        if (renderer) {
+            // recreate the event monitor
+            eventMonitor = INTERACT.watch(renderer.interactTarget);
 
-        // if this view is scalable, attach zooming event handlers
-        if (params.scalable) {
-            eventMonitor.bind('zoom', handleZoom);
-            eventMonitor.bind('doubleTap', handleDoubleTap);
-        } // if
-        
-        // handle pointer down tests
-        eventMonitor.bind('pointerDown', handlePointerDown);
-        eventMonitor.bind('pointerMove', handlePointerMove);
-        eventMonitor.bind('pointerUp', handlePointerUp);
-        
-        if (params.captureHover) {
-            eventMonitor.bind('pointerHover', handlePointerHover);
-        } // if
+            // if this is pannable, then attach event handlers
+            if (params.pannable) {
+                eventMonitor.pannable().bind('pan', handlePan);
+            } // if
 
-        // handle tap events
-        eventMonitor.bind('tap', handlePointerTap);
+            // if this view is scalable, attach zooming event handlers
+            if (params.scalable) {
+                eventMonitor.bind('zoom', handleZoom);
+                eventMonitor.bind('doubleTap', handleDoubleTap);
+            } // if
+            
+            // handle pointer down tests
+            eventMonitor.bind('pointerDown', handlePointerDown);
+            eventMonitor.bind('pointerMove', handlePointerMove);
+            eventMonitor.bind('pointerUp', handlePointerUp);
+
+            if (params.captureHover) {
+                eventMonitor.bind('pointerHover', handlePointerHover);
+            } // if
+
+            // handle tap events
+            eventMonitor.bind('tap', handlePointerTap);
+        } // if
     } // captureInteractionEvents
     
     /*
@@ -451,9 +392,15 @@ var View = function(params) {
     offset using wrapping if allowed.  The function is much more 'if / then / elsey' 
     than I would like, and might be optimized at some stage, but it does what it needs to
     */
-    function constrainOffset(allowWrap) {
+    function constrainOffset(viewport, allowWrap) {
+        if (! viewport) {
+            return;
+        } // if
+        
         var testX = offsetWrapX ? offsetX + halfWidth : offsetX,
-            testY = offsetWrapY ? offsetY + halfHeight : offsetY;
+            testY = offsetWrapY ? offsetY + halfHeight : offsetY,
+            viewWidth = viewport.width,
+            viewHeight = viewport.height;
         
         // check the x
         if (offsetMaxX && offsetMaxX > viewWidth) {
@@ -562,102 +509,28 @@ var View = function(params) {
         } // if
     } // calcZoomRect
     
-    function drawView(drawState, rect, canClip, tickCount) {
+    function drawView() {
         var drawLayer,
             rectCenter = XYRect.center(rect),
             rotation = Math.PI,
             ii = 0;
             
-        // prep the draw rect
-        drawRect = XYRect.copy(rect);
+        /* first pass clip */
         
-        if (! canClip) {
-            mainContext.clearRect(0, 0, viewWidth, viewHeight);
-        } // if
-
-        // include the scale factor information in the draw rect
-        drawRect.scaleFactor = scaleFactor;
-
-        // save the context states
-        mainContext.save();
-        // COG.info('offsetX = ' + offsetX + ', offsetY = ', offsetY + ', drawing rect = ', rect);
-        
-        try {
-            /*
-            if (scaleFactor !== 1) {
-                mainContext.scale(scaleFactor, scaleFactor);
-            } // if
-            */
-
-            // reset the layer bounds
-            layerMinXY = null;
-            layerMaxXY = null;
-            
-            if (canClip) {
-                mainContext.beginPath();
-
-                for (ii = layerCount; ii--; ) {
-                    if (layers[ii].clip) {
-                        layers[ii].clip(mainContext, drawRect, drawState, _self, tickCount);
-                    } // if
-                } // for
-
-                mainContext.closePath();
-                mainContext.clip();
-            } // if
-            
-            /* second pass - draw */
-            
-            // initialise the composite operation
-            mainContext.globalCompositeOperation = 'source-over';
+        if (canClip) {
+            mainContext.beginPath();
 
             for (ii = layerCount; ii--; ) {
-                drawLayer = layers[ii];
-                
-                // determine whether we need to draw
-                if (drawLayer.shouldDraw(state, cycleRect)) {
-                    // if the layer has style, then apply it and save the current style
-                    var layerStyle = drawLayer.style,
-                        previousStyle = layerStyle ? Style.apply(mainContext, layerStyle) : null;
-
-                    /*
-                    TODO: fix the constraining (more appropriate within the constrain offset I would think now)
-                    // if the layer has bounds, then update the layer bounds
-                    if (drawLayer.minXY) {
-                        layerMinXY = layerMinXY ? 
-                            XY.min(layerMinXY, drawLayer.minXY) : 
-                            XY.copy(drawLayer.minXY);
-                    } // if
-
-                    if (drawLayer.maxXY) {
-                        layerMaxXY = layerMaxXY ? 
-                            XY.max(layerMaxXY, drawLayer.maxXY) :
-                            XY.copy(drawLayer.maxXY);
-                    } // if
-                    */
-
-                    // draw the layer
-                    drawLayer.draw(
-                        mainContext, 
-                        drawRect, 
-                        drawState, 
-                        _self,
-                        tickCount,
-                        hitData);
-
-                    // if we applied a style, then restore the previous style if supplied
-                    if (previousStyle) {
-                        Style.apply(mainContext, previousStyle);
-                    } // if
-                    
+                if (layers[ii].clip) {
+                    layers[ii].clip(mainContext, drawRect, drawState, _self, tickCount);
                 } // if
             } // for
+
+            mainContext.closePath();
+            mainContext.clip();
+        } // if
             
-            //= debug:require "debug/offsetbounds"
-        }
-        finally {
-            mainContext.restore();
-        } // try..finally
+        /* second pass - draw */
         
         // reset the view changes
         viewChanges = 0;
@@ -707,7 +580,6 @@ var View = function(params) {
         var redrawBG,
             panning,
             newFrame = false;
-            clippable = false;
             
         // initialise the tick count if it isn't already defined
         // not all browsers pass through the ticks with the requestAnimationFrame :/
@@ -745,28 +617,6 @@ var View = function(params) {
             redrawBG = (state & (stateZoom | statePan)) !== 0;
             interacting = redrawBG && (state & stateAnimating) === 0;
 
-            // handle any size changes if we have them
-            if (sizeChanged && canvas) {
-                // update the canvas width
-                canvas.width = viewWidth;
-                canvas.height = viewHeight;
-
-                canvas.style.width = viewWidth + 'px';
-                canvas.style.height = viewHeight + 'px';
-
-                if (flashPolyfill) {
-                    FlashCanvas.initElement(canvas);
-                } // if
-                
-                // if we are working with explorer canvas, then initialise the canvas
-                if (typeof G_vmlCanvasManager != 'undefined') {
-                    G_vmlCanvasManager.initElement(canvas);
-                } // if
-
-                // flag the size is not changed now as we have handled the update
-                sizeChanged = false;
-            } // if
-
             /*
             // check that the offset is within bounds
             if (offsetMaxX || offsetMaxY) {
@@ -774,28 +624,55 @@ var View = function(params) {
             } // if
             */
 
-            // calculate the cycle rect
-            cycleRect = getViewRect();
-
             // TODO: if we have a hover offset, check that no elements have moved under the cursor (maybe)
 
-            for (var ii = layerCount; ii--; ) {
-                // if a layer is animating the flag as such
-                state = state | (layers[ii].animated ? stateAnimating : 0);
+            // prepare the renderer
+            if (renderer.prepare(layers, state, tickCount, hitData)) {
+                var viewport = renderer.getViewport();
+                
+                for (var ii = layerCount; ii--; ) {
+                    // if a layer is animating the flag as such
+                    state = state | (layers[ii].animated ? stateAnimating : 0);
 
-                // cycle the layer
-                layers[ii].cycle(tickCount, cycleRect, state);
+                    // cycle the layer
+                    layers[ii].cycle(tickCount, viewport, state);
+                } // for
 
-                // then determine if we have a clippable layer
-                clippable = layers[ii].clip || clippable;
-            } // for
+                for (ii = layers.length; ii--; ) {
+                    var drawLayer = layers[ii];
+
+                    // determine whether we need to draw
+                    if (drawLayer.shouldDraw(state, viewport)) {
+                        // if the layer has style, then apply it and save the current style
+                        var previousStyle = drawLayer.style ? 
+                                renderer.applyStyle(drawLayer.style) : 
+                                null;
+
+                        // draw the layer
+                        drawLayer.draw(
+                            renderer, 
+                            viewport, 
+                            state, 
+                            _self,
+                            tickCount,
+                            hitData);
+
+                        // if we applied a style, then restore the previous style if supplied
+                        if (previousStyle) {
+                            renderer.applyStyle(previousStyle);
+                        } // if
+                    } // if
+                } // for                
+            } // if
             
+            /*
             // draw the view
             drawView(
                 state, 
                 cycleRect, 
                 clipping && clippable && (! redrawBG), 
                 tickCount);
+            */
 
             // check for hits 
             if (hitData) {
@@ -859,14 +736,6 @@ var View = function(params) {
     } // eachLayer
     
     /**
-    ### getDimensions(): T5.Dimensions
-    Return the Dimensions of the View
-    */
-    function getDimensions() {
-        return Dimensions.init(viewWidth, viewHeight);
-    } // getDimensions
-    
-    /**
     ### getLayer(id: String): T5.ViewLayer
     Get the ViewLayer with the specified id, return null if not found
     */
@@ -889,6 +758,14 @@ var View = function(params) {
         // return the last calculated cycle offset
         return XY.init(offsetX, offsetY);
     } // getOffset
+    
+    /**
+    ### getScaleFactor(): float
+    Return the current scaling factor
+    */
+    function getScaleFactor() {
+        return scaleFactor;
+    } // getScaleFactor
     
     /**
     ### getZoomLevel(): int
@@ -919,16 +796,12 @@ var View = function(params) {
     } // setMaxOffset
     
     /**
-    ### getViewRect(): T5.XYRect
+    ### getViewport(): T5.XYRect
     Return a T5.XYRect for the last drawn view rect
     */
-    function getViewRect() {
-        return XYRect.init(
-            offsetX, 
-            offsetY, 
-            offsetX + viewWidth,
-            offsetY + viewHeight);
-    } // getViewRect
+    function getViewport() {
+        return renderer ? renderer.getViewport() : null;
+    } // getViewport
     
     /**
     ### pan(x: int, y: int, tweenFn: EasingFn, tweenDuration: int, callback: fn)
@@ -958,7 +831,7 @@ var View = function(params) {
         
         if (value) {
             addLayer(id, value);
-            value.trigger('refresh', _self, getViewRect());
+            value.trigger('refresh', _self, getViewport());
         } // if
 
         // invalidate the view
@@ -974,17 +847,21 @@ var View = function(params) {
     events and will do some of their recalculations when this is called.
     */
     function refresh() {
-        // check that the offset is within bounds
-        if (offsetMaxX || offsetMaxY) {
-            constrainOffset(true);
-        } // if
-
-        // update the last refresh tick count
-        lastRefresh = new Date().getTime();
-        triggerAll('refresh', _self, getViewRect());
+        var viewport = renderer ? renderer.getViewport() : null;
         
-        // invalidate
-        _self.redraw = true;
+        if (viewport) {
+            // check that the offset is within bounds
+            if (offsetMaxX || offsetMaxY) {
+                constrainOffset(viewport);
+            } // if
+
+            // update the last refresh tick count
+            lastRefresh = new Date().getTime();
+            triggerAll('refresh', _self, viewport);
+
+            // invalidate
+            _self.redraw = true;
+        } // if
     } // refresh
     
     /**
@@ -1007,23 +884,6 @@ var View = function(params) {
     function resetScale() {
         scaleFactor = 1;
     } // resetScale
-    
-    /**
-    ### resize(width: Int, height: Int)
-    Perform a manual resize of the canvas associated with the view.  If the 
-    view was originally marked as `autosize` this will override that instruction.
-    */
-    function resize(width, height) {
-        // if the canvas is assigned, then update the height and width and reattach
-        if (canvas) {
-            // flag the canvas as not autosize
-            params.autoSize = false;
-            
-            if (viewWidth !== width || viewHeight !== height) {
-                attachToCanvas(width, height);
-            } // if
-        } // if
-    } // resize
     
     /**
     ### scale(targetScaling: float, targetXY: T5.XY, tweenFn: EasingFn, callback: fn)
@@ -1222,14 +1082,12 @@ var View = function(params) {
         
         detach: detach,
         eachLayer: eachLayer,
-        getDimensions: getDimensions,
         getLayer: getLayer,
         getZoomLevel: getZoomLevel,
         setLayer: setLayer,
         invalidate: invalidate,
         refresh: refresh,
         resetScale: resetScale,
-        resize: resize,
         scale: scale,
         setZoomLevel: setZoomLevel,
         syncXY: syncXY,
@@ -1239,8 +1097,9 @@ var View = function(params) {
         /* offset methods */
         
         getOffset: getOffset,
+        getScaleFactor: getScaleFactor,
         setMaxOffset: setMaxOffset,
-        getViewRect: getViewRect,
+        getViewport: getViewport,
         updateOffset: updateOffset,
         pan: pan
     };
@@ -1280,22 +1139,26 @@ var View = function(params) {
         _self.markers = addLayer('markers', new ShapeLayer({
             zindex: 20
         }));
+        
+        // create the renderer
+        caps = testResults;
+        createRenderer();
 
+        /*
         // store the results for reference
         canvasCaps = testResults.canvas;
         
         // attach the map to the canvas
         attachToCanvas();
+        */
     
         // if autosized, then listen for resize events
-        if (params.autoSize) {
-            if (isIE) {
-                window.attachEvent('onresize', handleResize);
-            }
-            else {
-                window.addEventListener('resize', handleResize, false);
-            }
-        } // if
+        if (isIE) {
+            window.attachEvent('onresize', handleResize);
+        }
+        else {
+            window.addEventListener('resize', handleResize, false);
+        }
     });
     
     // start the animation frame

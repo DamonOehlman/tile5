@@ -38,13 +38,11 @@ var DrawLayer = function(params) {
     
     /* exports */
     
-    function draw(context, viewRect, state, view, tickCount, hitData) {
+    function draw(renderer, viewRect, state, view, tickCount, hitData) {
         var viewX = viewRect.x1,
             viewY = viewRect.y1,
             hitX = hitData ? (pipTransformed ? hitData.x - viewX : hitData.relXY.x) : 0,
-            hitY = hitData ? (pipTransformed ? hitData.y - viewY : hitData.relXY.y) : 0,
-            viewWidth = viewRect.width,
-            viewHeight = viewRect.height;
+            hitY = hitData ? (pipTransformed ? hitData.y - viewY : hitData.relXY.y) : 0;
             
         // iterate through the drawabless and draw the layers
         for (var ii = drawables.length; ii--; ) {
@@ -56,10 +54,11 @@ var DrawLayer = function(params) {
                 previousStyle,
                 prepped,
                 isHit = false,
-                transformed = drawable.scaling !== 1 || 
+                transformed = false; /*drawable.scaling !== 1 || 
                     drawable.rotatation ||
-                    drawable.translateX || drawable.translateY;
+                    drawable.translateX || drawable.translateY; */
               
+            /*
             if (transformed) {
                 context.save();
                 context.translate(
@@ -81,20 +80,19 @@ var DrawLayer = function(params) {
                     hitY -= dy;
                 } // if
             } // if
+            */
                 
             // prep the path
-            prepped = drawable.prepPath(
-                context, 
+            drawData = drawable.prep(
+                renderer,
                 transformed ? dx : viewX, 
                 transformed ? dy : viewY, 
-                viewWidth, 
-                viewHeight, 
                 state);
             
             // prep the path for the child
-            if (prepped) {
+            if (drawData) {
                 // check for a hit in the path that has just been drawn
-                if (hitData && context.isPointInPath(hitX, hitY)) {
+                if (hitData && renderer.hitTest(drawData, hitX, hitY)) {
                     hitData.elements.push(Hits.initHit(
                         drawable.type, 
                         drawable, 
@@ -109,21 +107,23 @@ var DrawLayer = function(params) {
                 } // if
 
                 // save the previous style
-                previousStyle = overrideStyle ? Style.apply(context, overrideStyle) : null;
+                previousStyle = overrideStyle ? renderer.applyStyle(overrideStyle) : null;
                 
                 // draw the layer
-                drawable.draw(context, viewX, viewY, viewWidth, viewHeight, state);
+                drawData.draw(viewX, viewY, state);
                 
                 // if we have a previous style, then restore that style
                 if (previousStyle) {
-                    Style.apply(context, previousStyle);
+                    renderer.applyStyle(previousStyle);
                 } // if
             } // if
             
+            /*
             // if a transform was applied, then restore the canvas
             if (transformed) {
                 context.restore();
             } // if
+            */
         } // for
     } // draw
     

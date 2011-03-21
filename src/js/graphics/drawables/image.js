@@ -116,17 +116,10 @@ function ImageDrawable(params) {
     } // drag    
     
     /**
-    ### draw(context, x, y, width, height, state)
-    */
-    function draw(context, offsetX, offsetY, width, height, state) {
-        context.drawImage(image, drawX, drawY);
-    } // draw
-    
-    /**
-    ### prepPath(context, offsetX, offsetY, width, height, state, hitData)
+    ### prep(context, offsetX, offsetY, width, height, state, hitData)
     Prepare the path that will draw the polygon to the canvas
     */
-    function prepPath(context, offsetX, offsetY, width, height, state) {
+    function prep(renderer, offsetX, offsetY, width, height, state) {
         // get the image
         var draw = image && image.width > 0;
             
@@ -134,16 +127,17 @@ function ImageDrawable(params) {
             checkOffsetAndBounds(this, image);
             
             // update the draw x and y
-            drawX = this.xy.x + this.imageOffset.x - offsetX;
-            drawY = this.xy.y + this.imageOffset.y - offsetY;
+            drawX = this.xy.x + this.imageOffset.x;
+            drawY = this.xy.y + this.imageOffset.y;
             
-            // open the path for hit tests
-            context.beginPath();
-            context.rect(drawX, drawY, image.width, image.height);
+            return renderer.image(
+                image, 
+                drawX,
+                drawY,
+                image.width,
+                image.height);
         } // if
-        
-        return draw;
-    } // prepPath 
+    } // prep 
     
     /**
     ### updateBounds(bounds: XYRect, updateXY: boolean)
@@ -161,8 +155,7 @@ function ImageDrawable(params) {
     var _self = COG.extend(this, {
         changeImage: changeImage,
         drag: drag,
-        draw: draw,
-        prepPath: prepPath,
+        prep: prep,
         updateBounds: updateBounds
     });
 

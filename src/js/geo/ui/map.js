@@ -237,11 +237,13 @@ var Map = exports.Map = function(params) {
     Return a T5.Geo.BoundingBox for the current map view area
     */
     function getBoundingBox() {
-        var rect = _self.getViewRect();
+        var viewport = _self.getViewport();
         
-        return Geo.BoundingBox.init(
-            GeoXY.toPos(XY.init(rect.x1, rect.y2), radsPerPixel),
-            GeoXY.toPos(XY.init(rect.x2, rect.y1), radsPerPixel));
+        return viewport ? 
+            Geo.BoundingBox.init(
+                GeoXY.toPos(XY.init(viewport.x1, viewport.y2), radsPerPixel),
+                GeoXY.toPos(XY.init(viewport.x2, viewport.y1), radsPerPixel)) : 
+            null;
     } // getBoundingBox
 
     /**
@@ -249,9 +251,9 @@ var Map = exports.Map = function(params) {
     Return a T5.GeoXY composite for the center position of the map
     */
     function getCenterPosition() {
-        var rect = _self.getViewRect();
-        if (rect) {
-            var xy = XY.init(rect.x1 + (rect.width >> 1), rect.y1 + (rect.height >> 1));
+        var viewport = _self.getViewport();
+        if (viewport) {
+            var xy = XY.init(viewport.x1 + (viewport.width >> 1), viewport.y1 + (viewport.height >> 1));
             return GeoXY.toPos(xy, radsPerPixel);
         } // if
         
@@ -268,7 +270,7 @@ var Map = exports.Map = function(params) {
         // specified bounds
         var zoomLevel = Geo.BoundingBox.getZoomLevel(
                             bounds, 
-                            _self.getDimensions());
+                            _self.getViewport());
         
         // goto the center position of the bounding box 
         // with the calculated zoom level
@@ -306,9 +308,8 @@ var Map = exports.Map = function(params) {
         // determine the tile offset for the 
         // requested position
         var centerXY = GeoXY.init(position, Geo.radsPerPixel(_self.getZoomLevel())),
-            dimensions = _self.getDimensions(),
-            offsetX = centerXY.x - (dimensions.width >> 1),
-            offsetY = centerXY.y - (dimensions.height >> 1);
+            offsetX = centerXY.x - (self.width >> 1),
+            offsetY = centerXY.y - (self.height >> 1);
             
         // COG.info('panning to center xy: ', centerXY);
         _self.updateOffset(offsetX, offsetY, easingFn, easingDuration, function() {

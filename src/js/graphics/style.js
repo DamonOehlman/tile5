@@ -1,170 +1,130 @@
-/**
-# T5.Style
-The T5.Style module is used to define and apply styles.
+/* internals */
 
-## Functions 
+var styleRegistry = {};
+
+/**
+### createStyle(params)
 */
-var Style = (function() {
-    
-    // define variables
-    var previousStyles = {},
-        styles = {};
-    
+function createStyle(params) {
+    params = COG.extend({
+        // line styles
+        lineWidth: undefined,
+        lineCap: undefined,
+        lineJoin: undefined,
+        miterLimit: undefined,
+        lineStyle: undefined,
+
+        // fill styles
+        fillStyle: undefined,
+
+        // context globals
+        globalAlpha: undefined,
+        globalCompositeOperation: undefined
+    }, params);
+
+    // initialise variables
+    var mods = [];
+
     /* internal functions */
+
+    function fillMods(keyName) {
+        var paramVal = params[keyName];
+
+        if (typeof paramVal !== 'undefined') {
+            mods.push(function(context) {
+                context[keyName] = paramVal;
+            });
+        } // if
+    } // fillMods
+    
+    function reloadMods() {
+        mods = [];
+        
+        for (var keyName in params) {
+            fillMods(keyName);
+        } // for
+    } // reloadMods
     
     /* exports */
     
-    /** 
-    ### apply(context, styleId)
-    */
-    function apply(context, styleId) {
-        var previousStyle = context && context.canvas ? 
-                previousStyles[context.canvas.id] : 
-                null;
-
-        // TODO: check for a style change
-
-        // if we have a style change then make the change
-        previousStyles[context.canvas.id] = styleId;
-
-        // apply the style
-        (styles[styleId] ? styles[styleId] : styles.basic).applyToContext(context);
-
-        // return the previously selected style
-        return previousStyle;
-    } // apply
-    
-    /** 
-    ### define(styleId, data)
-    */
-    function define(styleId, data) {
-        styles[styleId] = init(data);
-        
-        return styleId;
-    } // define
-    
-    /**
-    ### defineMany(data)
-    */
-    function defineMany(data) {
-        for (var styleId in data) {
-            define(styleId, data[styleId]);
-        } // for
-    } // defineMany
-    
-    function get(styleId) {
-        return styles[styleId];
-    } // get
-    
-    /**
-    ### init(params)
-    */
-    function init(params) {
-        params = COG.extend({
-            // line styles
-            lineWidth: undefined,
-            lineCap: undefined,
-            lineJoin: undefined,
-            miterLimit: undefined,
-            lineStyle: undefined,
-
-            // fill styles
-            fillStyle: undefined,
-
-            // context globals
-            globalAlpha: undefined,
-            globalCompositeOperation: undefined
-        }, params);
-
-        // initialise variables
-        var mods = [];
-
-        /* internal functions */
-
-        function fillMods(keyName) {
-            var paramVal = params[keyName];
-
-            if (typeof paramVal !== 'undefined') {
-                mods.push(function(context) {
-                    context[keyName] = paramVal;
-                });
-            } // if
-        } // fillMods
-        
-        function reloadMods() {
-            mods = [];
-            
-            for (var keyName in params) {
-                fillMods(keyName);
-            } // for
-        } // reloadMods
-        
-        /* exports */
-        
-        function update(keyName, keyVal) {
-            params[keyName] = keyVal;
-            reloadMods();
-        } // update
-
-        /* define _self */
-
-        var _self = {
-            applyToContext: function(context) {
-                // iterate through the mods and apply to the context
-                for (var ii = mods.length; ii--; ) {
-                    mods[ii](context);
-                } // for
-            },
-            
-            update: update
-        };
-
-        /* initialize */
-
+    function update(keyName, keyVal) {
+        params[keyName] = keyVal;
         reloadMods();
-        return _self;        
-    } // init
-    
-    /**
-    ### load(path, callback)
-    */
-    function load(path, callback) {
-        COG.jsonp(path, function(data) {
-            defineMany(data);
-        });
-    } // load
-    
-    /* module definition */
-    
-    var module = {
-        apply: apply,
-        define: define,
-        defineMany: defineMany,
-        get: get,
-        init: init,
-        load: load
-    };
-    
-    // define the core styles
-    defineMany({
-        basic: {
-            lineWidth: 1,
-            strokeStyle: '#000',
-            fillStyle: '#fff'
+    } // update
+
+    /* define _self */
+
+    var _self = {
+        applyToContext: function(context) {
+            // iterate through the mods and apply to the context
+            for (var ii = mods.length; ii--; ) {
+                mods[ii](context);
+            } // for
         },
         
-        waypoints: {
-            lineWidth: 4,
-            strokeStyle: 'rgba(0, 51, 119, 0.9)',
-            fillStyle: '#FFF'
-        },
+        update: update
+    };
 
-        waypointsHover: {
-            lineWidth: 4,
-            strokeStyle: '#f00',
-            fillStyle: '#FFF'
-        }        
-    });
+    /* initialize */
+
+    reloadMods();
+    return _self;        
+} // createStyle
     
-    return module;
-})();
+/* exports */
+
+/**
+# T5.defineStyle(id, data)
+*/
+var defineStyle = exports.defineStyle = function(id, data) {
+    styleRegistry[id] = createStyle(data);
+    
+    return id;
+};
+
+/**
+# T5.defineStyles(data)
+*/
+var defineStyles = exports.defineStyles = function(data) {
+    for (var styleId in data) {
+        defineStyle(styleId, data[styleId]);
+    } // for
+};
+
+/**
+# T5.getStyle(id)
+*/
+var getStyle = exports.getStyle = function(id) {
+    return styleRegistry[id];
+}; // getStyle
+
+/**
+# T5.loadStyles(path, callback)
+*/
+var loadStyles = exports.loadStyles = function(path) {
+    COG.jsonp(path, function(data) {
+        defineStyles(data);
+    });
+}; // loadStyles
+
+    
+// define the core styles
+defineStyles({
+    basic: {
+        lineWidth: 1,
+        strokeStyle: '#000',
+        fillStyle: '#fff'
+    },
+    
+    waypoints: {
+        lineWidth: 4,
+        strokeStyle: 'rgba(0, 51, 119, 0.9)',
+        fillStyle: '#FFF'
+    },
+
+    waypointsHover: {
+        lineWidth: 4,
+        strokeStyle: '#f00',
+        fillStyle: '#FFF'
+    }        
+});

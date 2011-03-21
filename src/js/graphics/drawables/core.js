@@ -62,23 +62,10 @@ Drawable.prototype = {
     drag: null,
     
     /**
-    ### draw(context, x, y, width, height, state)
-    */
-    draw: function(context, x, y, width, height, state) {
-        if (this.fill) {
-            context.fill();
-        } // if
-        
-        if (this.stroke) {
-            context.stroke();
-        } // if
-    },
-    
-    /**
-    ### prepPath(context, x, y, width, height, state)
+    ### prep(renderer, offsetX, offsetY, state)
     Prepping the path for a shape is the main 
     */
-    prepPath: function(context, x, y, width, height, state) {
+    prep: function(renderer, offsetX, offsetY, state) {
     },
     
     /**

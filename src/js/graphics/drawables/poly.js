@@ -28,10 +28,11 @@ function Poly(points, params) {
     var haveData = false,
         simplify = params.simplify,
         stateZoom = viewState('ZOOM'),
+        fill = params.fill,
         drawPoints = [];
         
     // initialise the shape type based on the fill state (no fill = line)
-    params.type = params.fill ? 'polygon' : 'line';
+    params.type = fill ? 'polygon' : 'line';
     
     /* exported functions */
     
@@ -43,38 +44,12 @@ function Poly(points, params) {
     } // animatePath
     
     /**
-    ### prepPath(context, offsetX, offsetY, width, height, state, hitData)
+    ### prep(context, offsetX, offsetY, width, height, state, hitData)
     Prepare the path that will draw the polygon to the canvas
     */
-    function prepPath(context, offsetX, offsetY, width, height, state) {
-        if (haveData) {
-            var first = true;
-            
-            // draw the line
-            renderer.line(drawPoints, offsetX, offsetY);
-
-            /*
-            context.beginPath();
-            
-            // now draw the lines
-            // COG.info('drawing poly: have ' + drawVectors.length + ' vectors');
-            for (var ii = drawPoints.length; ii--; ) {
-                var x = drawPoints[ii].x - offsetX,
-                    y = drawPoints[ii].y - offsetY;
-                    
-                if (first) {
-                    context.moveTo(x, y);
-                    first = false;
-                }
-                else {
-                    context.lineTo(x, y);
-                } // if..else
-            } // for
-            */
-        } // if
-        
-        return haveData;
-    } // prepPath
+    function prep(renderer, offsetX, offsetY, state) {
+        return haveData ? renderer.path(drawPoints) : null;
+    } // prep
     
     /**
     ### resync(view)
@@ -110,7 +85,7 @@ function Poly(points, params) {
     // extend this
     COG.extend(this, {
         animatePath: animatePath,
-        prepPath: prepPath,
+        prep: prep,
         resync: resync
     });
     

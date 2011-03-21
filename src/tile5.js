@@ -29,7 +29,7 @@ var T5 = {};
     //= require "js/canvasmaker"
     //= require "js/generator"
     
-    //= require "js/graphics/renderers/core"
+    //= require "js/graphics/renderers/base"
     //= require "js/graphics/renderers/canvas"
     //= require "js/graphics/renderers/dom"
     
@@ -73,7 +73,6 @@ var T5 = {};
         Tween: COG.Tween,
         
         // core graphics modules
-        Style: Style,
         viewState: viewState,
         View: View,
         ViewLayer: ViewLayer,
