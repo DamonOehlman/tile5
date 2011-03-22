@@ -2368,6 +2368,7 @@ var XYRect = (function() {
     /* module definition */
 
     return {
+        buffer: buffer,
         center: center,
         copy: copy,
         diagonalSize: diagonalSize,
@@ -2901,6 +2902,17 @@ var Renderer = function(view, container, params) {
         applyStyle: function(style) {
         },
 
+        /**
+        ### applyTransform(drawable: T5.Drawable, offsetX: int, offsetY: int)
+        */
+        applyTransform: function(drawable, offsetX, offsetY) {
+            return {
+                restore: null,
+                x: offsetX,
+                y: offsetY
+            };
+        },
+
         checkSize: function() {
         },
 
@@ -2964,6 +2976,9 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         canvas,
         context,
         viewport,
+        drawOffsetX = 0,
+        drawOffsetY = 0,
+        transform = null,
         previousStyles = {},
 
         drawFn = function(fill) {
@@ -3016,11 +3031,45 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         } // if
     } // applyStyle
 
+    function applyTransform(drawable) {
+        var translated = drawable.translateX || drawable.translateY,
+            transformed = translated || drawable.scaling !== 1 || drawable.rotatation;
+
+        if (transformed) {
+            context.save();
+
+            transform = {
+                undo: function() {
+                    context.restore();
+                    transform = null;
+                },
+
+                x: drawable.xy.x,
+                y: drawable.xy.y
+            };
+
+            context.translate(
+                drawable.xy.x - drawOffsetX + drawable.translateX,
+                drawable.xy.y - drawOffsetY + drawable.translateY
+            );
+
+            if (drawable.rotation !== 0) {
+                context.rotate(drawable.rotation);
+            } // if
+
+            if (drawable.scaling !== 1) {
+                context.scale(drawable.scaling, drawable.scaling);
+            } // if
+        } // if
+
+        return transform;
+    } // applyTransform
+
     function arc(x, y, radius, startAngle, endAngle) {
         context.beginPath();
         context.arc(
-            x - viewport.x1,
-            y - viewport.y1,
+            x - (transform ? transform.x : drawOffsetX),
+            y - (transform ? transform.y : drawOffsetY),
             radius,
             startAngle,
             endAngle,
@@ -3038,8 +3087,8 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     function drawTiles(tiles) {
         var tile,
             inViewport,
-            offsetX = viewport.x1,
-            offsetY = viewport.y1,
+            offsetX = transform ? transform.x : drawOffsetX,
+            offsetY = transform ? transform.y : drawOffsetY,
             minX = offsetX - 256,
             minY = offsetY - 256,
             maxX = offsetX + vpWidth,
@@ -3062,8 +3111,8 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     } // drawTiles
 
     function image(image, x, y, width, height) {
-        var realX = x - viewport.x1,
-            realY = y - viewport.y1;
+        var realX = x - (transform ? transform.x : drawOffsetX),
+            realY = y - (transform ? transform.y : drawOffsetY);
 
         context.beginPath();
         context.rect(realX, realY, width, height);
@@ -3079,8 +3128,9 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         var ii,
             canClip = false,
             viewOffset = view.getOffset(),
-            viewX = viewOffset.x - (vpWidth >> 1),
-            viewY = viewOffset.y - (vpHeight >> 1);
+            scaleFactor = view.getScaleFactor(),
+            viewX = viewOffset.x,
+            viewY = viewOffset.y;
 
         if (context) {
             context.restore();
@@ -3093,12 +3143,19 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
             canClip = canClip || layers[ii].clip;
         } // for
 
-        viewport = XYRect.init(
-            viewX,
-            viewY,
-            viewX + vpWidth,
-            viewY + vpHeight);
-        viewport.scaleFactor = view.getScaleFactor();
+        viewport = XYRect.init(viewX, viewY, viewX + vpWidth, viewY + vpHeight);
+        viewport.scaleFactor = scaleFactor;
+
+        if (scaleFactor !== 1) {
+            viewport = XYRect.buffer(
+                viewport,
+                vpWidth / scaleFactor >> 1,
+                vpHeight / scaleFactor >> 1
+            );
+        } // if
+
+        drawOffsetX = viewport.x1 - (viewport.width >> 1);
+        drawOffsetY = viewport.y1 - (viewport.height >> 1);
 
         if (context) {
             if (! canClip) {
@@ -3106,6 +3163,8 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
             } // if
 
             context.save();
+
+            context.scale(scaleFactor, scaleFactor);
         } // if
 
         context.globalCompositeOperation = 'source-over';
@@ -3115,8 +3174,8 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
 
     function path(points) {
         var first = true,
-            offsetX = viewport.x1,
-            offsetY = viewport.y1;
+            offsetX = transform ? transform.x : drawOffsetX,
+            offsetY = transform ? transform.y : drawOffsetY;
 
         context.beginPath();
 
@@ -3149,6 +3208,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         interactTarget: canvas,
 
         applyStyle: applyStyle,
+        applyTransform: applyTransform,
         arc: arc,
         drawTiles: drawTiles,
         image: image,
@@ -3561,7 +3621,7 @@ var View = function(params) {
 
         minZoom: 1,
         maxZoom: 1,
-        renderer: 'canvas/dom',
+        renderer: 'canvas',
         zoomEasing: COG.easing('quad.out'),
         zoomDuration: 300,
         zoomLevel: 1
@@ -3652,22 +3712,13 @@ var View = function(params) {
     } // scaleView
 
     function setZoomCenter(xy) {
-        if (! xy) {
-            xy = XY.init(halfWidth, halfHeight);
-        } // if
-
-        interactOffset = XY.init(offsetX, offsetY);
-        interactCenter = XY.offset(xy, offsetX, offsetY);
-
-        zoomX = interactCenter.x;
-        zoomY = interactCenter.y;
-
     } // setZoomCenter
 
     function getScaledOffset(srcX, srcY) {
-        var invScaleFactor = 1 / scaleFactor,
-            scaledX = srcX, // drawRect ? (drawRect.x1 + srcX * invScaleFactor) : srcX,
-            scaledY = srcY; // drawRect ? (drawRect.y1 + srcY * invScaleFactor) : srcY;
+        var viewport = _self.getViewport(),
+            invScaleFactor = 1 / scaleFactor,
+            scaledX = viewport ? (viewport.x1 + srcX * invScaleFactor) : srcX,
+            scaledY = viewport ? (viewport.y1 + srcY * invScaleFactor) : srcY;
 
         return XY.init(scaledX, scaledY);
     } // getScaledOffset
@@ -4020,7 +4071,6 @@ var View = function(params) {
 
                         drawLayer.draw(
                             renderer,
-                            viewport,
                             state,
                             _self,
                             tickCount,
@@ -4153,7 +4203,23 @@ var View = function(params) {
     Return a T5.XYRect for the last drawn view rect
     */
     function getViewport() {
-        return renderer ? renderer.getViewport() : null;
+        var viewport, dimensions;
+
+        if (renderer) {
+            viewport = renderer.getViewport();
+
+            if (! viewport) {
+                dimensions = renderer.getDimensions();
+                viewport = XYRect.init(
+                    offsetX,
+                    offsetY,
+                    offsetX + dimensions.width,
+                    offsetY + dimensions.height
+                );
+            }
+        } // if
+
+        return viewport;
     } // getViewport
 
     /**
@@ -4293,6 +4359,7 @@ var View = function(params) {
             scaleFactor = 1;
 
             refresh();
+            _self.redraw = true;
         } // if
     } // setZoomLevel
 
@@ -4643,6 +4710,7 @@ function animateDrawable(target, fn, argsStart, argsEnd, opts) {
     var startTicks = new Date().getTime(),
         lastTicks = 0,
         targetFn = target[fn],
+        floorValue = fn == 'translate',
         argsComplete = 0,
         autoInvalidate = opts.autoInvalidate,
         animateValid = argsStart.length && argsEnd.length &&
@@ -4658,14 +4726,17 @@ function animateDrawable(target, fn, argsStart, argsEnd, opts) {
         runTween = function(tickCount) {
             var elapsed = tickCount - startTicks,
                 complete = startTicks + duration <= tickCount,
-                view = target.layer ? target.layer.view : null;
+                view = target.layer ? target.layer.view : null,
+                easedValue;
 
             for (var ii = argsCount; ii--; ) {
-                argsCurrent[ii] = easingFn(
+                easedValue = easingFn(
                     elapsed,
                     argsStart[ii],
                     argsChange[ii],
                     duration);
+
+                argsCurrent[ii] = floorValue ? easedValue | 0 : easedValue;
             } // for
 
             targetFn.apply(target, argsCurrent);
@@ -5147,14 +5218,13 @@ ViewLayer.prototype = {
     The business end of layer drawing.  This method is called when a layer needs to be
     drawn and the following parameters are passed to the method:
 
-        - context - the canvas context that we are drawing to
-        - viewRect - the current view rect
+        - renderer - the renderer that will be drawing the viewlayer
         - state - the current DisplayState of the view
         - view - a reference to the View
         - tickCount - the current tick count
         - hitData - an object that contains information regarding the current hit data
     */
-    draw: function(context, viewRect, state, view, tickCount, hitData) {
+    draw: function(renderer, state, view, tickCount, hitData) {
     },
 
     /**
@@ -5209,9 +5279,9 @@ var ImageLayer = function(genId, params) {
     /* exports */
 
     /**
-    ### draw(context, viewport, state, view)
+    ### draw(renderer)
     */
-    function draw(renderer, viewport, state, view) {
+    function draw(renderer) {
         renderer.drawTiles(tiles);
     } // draw
 
@@ -5264,9 +5334,10 @@ var DrawLayer = function(params) {
 
     /* exports */
 
-    function draw(renderer, viewRect, state, view, tickCount, hitData) {
-        var viewX = viewRect.x1,
-            viewY = viewRect.y1,
+    function draw(renderer, state, view, tickCount, hitData) {
+        var viewport = renderer.getViewport(),
+            viewX = viewport.x1,
+            viewY = viewport.y1,
             hitX = hitData ? (pipTransformed ? hitData.x - viewX : hitData.relXY.x) : 0,
             hitY = hitData ? (pipTransformed ? hitData.y - viewY : hitData.relXY.y) : 0;
 
@@ -5279,37 +5350,11 @@ var DrawLayer = function(params) {
                 previousStyle,
                 prepped,
                 isHit = false,
-                transformed = false; /*drawable.scaling !== 1 ||
-                    drawable.rotatation ||
-                    drawable.translateX || drawable.translateY; */
+                transform = renderer.applyTransform(drawable, viewX, viewY);
 
-            /*
-            if (transformed) {
-                context.save();
-                context.translate(
-                    dx - viewX + drawable.translateX,
-                    dy - viewY + drawable.translateY
-                );
-
-                if (drawable.rotation !== 0) {
-                    context.rotate(drawable.rotation);
-                } // if
-
-                if (drawable.scaling !== 1) {
-                    context.scale(drawable.scaling, drawable.scaling);
-                } // if
-
-                if (pipTransformed) {
-                    hitX -= dx;
-                    hitY -= dy;
-                } // if
-            } // if
-            */
-
-            drawData = drawable.prep(
-                renderer,
-                transformed ? dx : viewX,
-                transformed ? dy : viewY,
+            drawData = drawable.prep(renderer,
+                transform ? transform.x : viewX,
+                transform ? transform.y : viewY,
                 state);
 
             if (drawData) {
@@ -5334,11 +5379,9 @@ var DrawLayer = function(params) {
                 } // if
             } // if
 
-            /*
-            if (transformed) {
-                context.restore();
+            if (transform && transform.undo) {
+                transform.undo();
             } // if
-            */
         } // for
     } // draw
 

@@ -38,9 +38,10 @@ var DrawLayer = function(params) {
     
     /* exports */
     
-    function draw(renderer, viewRect, state, view, tickCount, hitData) {
-        var viewX = viewRect.x1,
-            viewY = viewRect.y1,
+    function draw(renderer, state, view, tickCount, hitData) {
+        var viewport = renderer.getViewport(),
+            viewX = viewport.x1,
+            viewY = viewport.y1,
             hitX = hitData ? (pipTransformed ? hitData.x - viewX : hitData.relXY.x) : 0,
             hitY = hitData ? (pipTransformed ? hitData.y - viewY : hitData.relXY.y) : 0;
             
@@ -54,39 +55,12 @@ var DrawLayer = function(params) {
                 previousStyle,
                 prepped,
                 isHit = false,
-                transformed = false; /*drawable.scaling !== 1 || 
-                    drawable.rotatation ||
-                    drawable.translateX || drawable.translateY; */
-              
-            /*
-            if (transformed) {
-                context.save();
-                context.translate(
-                    dx - viewX + drawable.translateX, 
-                    dy - viewY + drawable.translateY
-                );
-
-                if (drawable.rotation !== 0) {
-                    context.rotate(drawable.rotation);
-                } // if
-
-                if (drawable.scaling !== 1) {
-                    context.scale(drawable.scaling, drawable.scaling);
-                } // if                
-                
-                // if point in path is transformed, then adjust the hit x and y accordingly
-                if (pipTransformed) {
-                    hitX -= dx;
-                    hitY -= dy;
-                } // if
-            } // if
-            */
+                transform = renderer.applyTransform(drawable, viewX, viewY);
                 
             // prep the path
-            drawData = drawable.prep(
-                renderer,
-                transformed ? dx : viewX, 
-                transformed ? dy : viewY, 
+            drawData = drawable.prep(renderer, 
+                transform ? transform.x : viewX, 
+                transform ? transform.y : viewY, 
                 state);
             
             // prep the path for the child
@@ -118,12 +92,10 @@ var DrawLayer = function(params) {
                 } // if
             } // if
             
-            /*
             // if a transform was applied, then restore the canvas
-            if (transformed) {
-                context.restore();
+            if (transform && transform.undo) {
+                transform.undo();
             } // if
-            */
         } // for
     } // draw
     

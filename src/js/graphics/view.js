@@ -134,7 +134,7 @@ var View = function(params) {
         // zoom parameters
         minZoom: 1,
         maxZoom: 1,
-        renderer: 'canvas/dom',
+        renderer: 'canvas',
         zoomEasing: COG.easing('quad.out'),
         zoomDuration: 300,
         zoomLevel: 1
@@ -229,26 +229,13 @@ var View = function(params) {
     } // scaleView
     
     function setZoomCenter(xy) {
-        // if the xy is not defined, then use canvas center
-        if (! xy) {
-            xy = XY.init(halfWidth, halfHeight);
-        } // if
-        
-        interactOffset = XY.init(offsetX, offsetY);
-        interactCenter = XY.offset(xy, offsetX, offsetY);
-        
-        // initialise the zoom x and y to the interact center initially
-        zoomX = interactCenter.x;
-        zoomY = interactCenter.y;
-        
-        // COG.info('interact offset, x = ' + interactOffset.x + ', y = ' + interactOffset.y);
-        // COG.info('interact center, x = ' + interactCenter.x + ', y = ' + interactCenter.y);
     } // setZoomCenter
     
     function getScaledOffset(srcX, srcY) {
-        var invScaleFactor = 1 / scaleFactor,
-            scaledX = srcX, // drawRect ? (drawRect.x1 + srcX * invScaleFactor) : srcX,
-            scaledY = srcY; // drawRect ? (drawRect.y1 + srcY * invScaleFactor) : srcY;
+        var viewport = _self.getViewport(),
+            invScaleFactor = 1 / scaleFactor,
+            scaledX = viewport ? (viewport.x1 + srcX * invScaleFactor) : srcX,
+            scaledY = viewport ? (viewport.y1 + srcY * invScaleFactor) : srcY;
         
         return XY.init(scaledX, scaledY);        
     } // getScaledOffset
@@ -651,7 +638,6 @@ var View = function(params) {
                         // draw the layer
                         drawLayer.draw(
                             renderer, 
-                            viewport, 
                             state, 
                             _self,
                             tickCount,
@@ -800,7 +786,23 @@ var View = function(params) {
     Return a T5.XYRect for the last drawn view rect
     */
     function getViewport() {
-        return renderer ? renderer.getViewport() : null;
+        var viewport, dimensions;
+        
+        if (renderer) {
+            viewport = renderer.getViewport();
+            
+            if (! viewport) {
+                dimensions = renderer.getDimensions();
+                viewport = XYRect.init(
+                    offsetX, 
+                    offsetY, 
+                    offsetX + dimensions.width,
+                    offsetY + dimensions.height
+                );
+            }
+        } // if
+        
+        return viewport;
     } // getViewport
     
     /**
@@ -960,6 +962,7 @@ var View = function(params) {
             
             // refresh the display
             refresh();
+            _self.redraw = true;
         } // if
     } // setZoomLevel
     

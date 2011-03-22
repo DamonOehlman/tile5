@@ -39,9 +39,9 @@ var ImageLayer = function(genId, params) {
     /* exports */
     
     /**
-    ### draw(context, viewport, state, view)
+    ### draw(renderer)
     */
-    function draw(renderer, viewport, state, view) {
+    function draw(renderer) {
         renderer.drawTiles(tiles);
     } // draw    
     

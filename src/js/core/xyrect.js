@@ -142,6 +142,7 @@ var XYRect = (function() {
     /* module definition */
     
     return {
+        buffer: buffer,
         center: center,
         copy: copy,
         diagonalSize: diagonalSize,

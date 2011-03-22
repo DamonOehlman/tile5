@@ -14,6 +14,17 @@ var Renderer = function(view, container, params) {
         applyStyle: function(style) {
         },
         
+        /**
+        ### applyTransform(drawable: T5.Drawable, offsetX: int, offsetY: int)
+        */
+        applyTransform: function(drawable, offsetX, offsetY) {
+            return {
+                restore: null,
+                x: offsetX,
+                y: offsetY
+            };
+        },
+        
         checkSize: function() {
         },
 

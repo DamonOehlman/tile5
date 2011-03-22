@@ -49,6 +49,7 @@ function animateDrawable(target, fn, argsStart, argsEnd, opts) {
     var startTicks = new Date().getTime(),
         lastTicks = 0,
         targetFn = target[fn],
+        floorValue = fn == 'translate',
         argsComplete = 0,
         autoInvalidate = opts.autoInvalidate,
         animateValid = argsStart.length && argsEnd.length && 
@@ -65,15 +66,20 @@ function animateDrawable(target, fn, argsStart, argsEnd, opts) {
             // calculate the updated value
             var elapsed = tickCount - startTicks,
                 complete = startTicks + duration <= tickCount,
-                view = target.layer ? target.layer.view : null;
+                view = target.layer ? target.layer.view : null,
+                easedValue;
 
             // iterate through the arguments and get the current values
             for (var ii = argsCount; ii--; ) {
-                argsCurrent[ii] = easingFn(
+                // calculate the eased value
+                easedValue = easingFn(
                     elapsed, 
                     argsStart[ii], 
                     argsChange[ii], 
                     duration);
+                
+                // apply the eased value (flooring if appropriate)
+                argsCurrent[ii] = floorValue ? easedValue | 0 : easedValue;
             } // for
 
             // call the target function with the specified arguments

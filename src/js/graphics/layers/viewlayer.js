@@ -104,14 +104,13 @@ ViewLayer.prototype = {
     The business end of layer drawing.  This method is called when a layer needs to be 
     drawn and the following parameters are passed to the method:
 
-        - context - the canvas context that we are drawing to
-        - viewRect - the current view rect
+        - renderer - the renderer that will be drawing the viewlayer
         - state - the current DisplayState of the view
         - view - a reference to the View
         - tickCount - the current tick count
         - hitData - an object that contains information regarding the current hit data
     */
-    draw: function(context, viewRect, state, view, tickCount, hitData) {
+    draw: function(renderer, state, view, tickCount, hitData) {
     },
     
     /**

@@ -10,6 +10,9 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         canvas,
         context,
         viewport,
+        drawOffsetX = 0,
+        drawOffsetY = 0,
+        transform = null,
         previousStyles = {},
         
         drawFn = function(fill) {
@@ -69,11 +72,46 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         } // if
     } // applyStyle
     
+    function applyTransform(drawable) {
+        var translated = drawable.translateX || drawable.translateY,
+            transformed = translated || drawable.scaling !== 1 || drawable.rotatation;
+            
+        if (transformed) {
+            context.save();
+            
+            // initialise the transform
+            transform = {
+                undo: function() {
+                    context.restore();
+                    transform = null;
+                },
+                
+                x: drawable.xy.x,
+                y: drawable.xy.y
+            };
+            
+            context.translate(
+                drawable.xy.x - drawOffsetX + drawable.translateX, 
+                drawable.xy.y - drawOffsetY + drawable.translateY
+            );
+
+            if (drawable.rotation !== 0) {
+                context.rotate(drawable.rotation);
+            } // if
+
+            if (drawable.scaling !== 1) {
+                context.scale(drawable.scaling, drawable.scaling);
+            } // if
+        } // if
+        
+        return transform;
+    } // applyTransform
+    
     function arc(x, y, radius, startAngle, endAngle) {
         context.beginPath();
         context.arc(
-            x - viewport.x1,
-            y - viewport.y1,
+            x - (transform ? transform.x : drawOffsetX),
+            y - (transform ? transform.y : drawOffsetY),
             radius,
             startAngle,
             endAngle,
@@ -91,8 +129,8 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     function drawTiles(tiles) {
         var tile,
             inViewport,
-            offsetX = viewport.x1,
-            offsetY = viewport.y1,
+            offsetX = transform ? transform.x : drawOffsetX,
+            offsetY = transform ? transform.y : drawOffsetY,
             minX = offsetX - 256,
             minY = offsetY - 256,
             maxX = offsetX + vpWidth,
@@ -118,8 +156,8 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     } // drawTiles
     
     function image(image, x, y, width, height) {
-        var realX = x - viewport.x1,
-            realY = y - viewport.y1;
+        var realX = x - (transform ? transform.x : drawOffsetX),
+            realY = y - (transform ? transform.y : drawOffsetY);
         
         // open the path for hit tests
         context.beginPath();
@@ -136,8 +174,9 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         var ii,
             canClip = false,
             viewOffset = view.getOffset(),
-            viewX = viewOffset.x - (vpWidth >> 1),
-            viewY = viewOffset.y - (vpHeight >> 1);
+            scaleFactor = view.getScaleFactor(),
+            viewX = viewOffset.x,
+            viewY = viewOffset.y;
             
         // if we already have a context, then restore
         if (context) {
@@ -152,14 +191,23 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         for (ii = layers.length; ii--; ) {
             canClip = canClip || layers[ii].clip;
         } // for
+
+        // initialise the viewport
+        viewport = XYRect.init(viewX, viewY, viewX + vpWidth, viewY + vpHeight);
+        viewport.scaleFactor = scaleFactor;
         
-        // update the viewport
-        viewport = XYRect.init(
-            viewX, 
-            viewY, 
-            viewX + vpWidth, 
-            viewY + vpHeight);
-        viewport.scaleFactor = view.getScaleFactor();
+        // if we are scaling, then scale the viewport
+        if (scaleFactor !== 1) {
+            viewport = XYRect.buffer(
+                viewport, 
+                vpWidth / scaleFactor >> 1,
+                vpHeight / scaleFactor >> 1
+            );
+        } // if
+        
+        // update the offset x and y
+        drawOffsetX = viewport.x1 - (viewport.width >> 1);
+        drawOffsetY = viewport.y1 - (viewport.height >> 1);
         
         if (context) {
             // if we can't clip then clear the context
@@ -169,6 +217,9 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
 
             // save the context
             context.save();
+            
+            // scale the context
+            context.scale(scaleFactor, scaleFactor);
         } // if
         
         // initialise the composite operation
@@ -179,8 +230,8 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     
     function path(points) {
         var first = true,
-            offsetX = viewport.x1,
-            offsetY = viewport.y1;
+            offsetX = transform ? transform.x : drawOffsetX,
+            offsetY = transform ? transform.y : drawOffsetY;
 
         context.beginPath();
         
@@ -216,6 +267,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         interactTarget: canvas,
         
         applyStyle: applyStyle,
+        applyTransform: applyTransform,
         arc: arc,
         drawTiles: drawTiles,
         image: image,
