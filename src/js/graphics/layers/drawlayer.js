@@ -84,7 +84,9 @@ var DrawLayer = function(params) {
                 previousStyle = overrideStyle ? renderer.applyStyle(overrideStyle) : null;
                 
                 // draw the layer
-                drawData.draw(viewX, viewY, state);
+                if (drawData.draw) {
+                    drawData.draw.call(drawable, viewX, viewY, state);
+                } // if
                 
                 // if we have a previous style, then restore that style
                 if (previousStyle) {

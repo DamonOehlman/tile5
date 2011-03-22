@@ -23,14 +23,15 @@ registerRenderer('dom', function(view, container, params, baseRenderer) {
     function drawTiles(tiles) {
         var tile,
             image,
+            offset = _this.getOffset(),
             viewport = _this.getViewport(),
             inViewport,
-            offsetX = viewport.x1,
-            offsetY = viewport.y1,
+            offsetX = offset.x,
+            offsetY = offset.y,
             minX = offsetX - 256,
             minY = offsetY - 256,
-            maxX = viewport.x2,
-            maxY = viewport.y2,
+            maxX = offsetX + viewport.width,
+            maxY = offsetY + viewport.height,
             relX, relY;
             
         for (var ii = tiles.length; ii--; ) {

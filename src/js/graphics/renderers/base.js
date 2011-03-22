@@ -27,6 +27,29 @@ var Renderer = function(view, container, params) {
         
         checkSize: function() {
         },
+        
+        /**
+        ### getDimensions()
+        */
+        getDimensions: function() {
+            return {
+                width: 0,
+                height: 0
+            };
+        },
+
+        /**
+        ### getOffset()
+        */
+        getOffset: function() {
+            return XY.init(0, 0);
+        },
+
+        /**
+        ### getViewport()
+        */
+        getViewport: function() {
+        },
 
         /**
         ### hitTest(drawData, hitX, hitY): boolean
@@ -34,19 +57,17 @@ var Renderer = function(view, container, params) {
         hitTest: function(drawData, hitX, hitY) {
             return false;
         },
-
-        /**
-        ### restore(): void
-        Used to restore the rendering context back to the previous state
-        */
-        restore: function() {
-        },
         
         /**
-        ### save(): void
-        Used to save the current renderer state to a stack
+        ### prepare(layers, state, tickCount, hitData)
         */
-        save: function() {
+        prepare: function(layers, state, tickCount, hitData) {
+        },
+
+        /**
+        ### render
+        */
+        render: function() {
         }
     };
 };

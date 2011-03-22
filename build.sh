@@ -1,4 +1,4 @@
-SPROCKET_OPTS="-I build -I /development/projects/github/ -I /development/projects/github/sidelab/"
+SPROCKET_OPTS="-I build -I /development/projects/github/ -I /development/projects/github/sidelab/ -I /development/projects/googlecode/"
 MINIFY=$1
 
 : ${MINIFY:=false}
@@ -25,10 +25,25 @@ do
     rm src/tile5.variant.js
 done;
 
+for plugin in renderer.webgl
+do
+    echo "Building Tile5 Plugin: $plugin"
+    
+    # sprocketize the source
+    sprocketize $SPROCKET_OPTS src/js/plugins/$plugin.js > dist/plugins/$plugin.js
+    
+    # minify
+    if $MINIFY; then
+        java -jar build/google-compiler-20100629.jar \
+             --compilation_level SIMPLE_OPTIMIZATIONS \
+             --js_output_file dist/plugins/$plugin.min.js \
+             --js dist/plugins/$plugin.js
+    fi;
+done;
+
 # copy the engines across
 # TODO: minify the engines
 cp src/js/geo/engines/*.js dist/geo/
-cp src/js/plugins/*.js dist/plugins/
 
 # copy the styles across
 cp src/style/* dist/style/

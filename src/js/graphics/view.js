@@ -648,7 +648,11 @@ var View = function(params) {
                             renderer.applyStyle(previousStyle);
                         } // if
                     } // if
-                } // for                
+                } // for
+                
+                // get the renderer to render the view
+                // NB: some renderers will do absolutely nothing here...
+                renderer.render();
             } // if
             
             /*
@@ -744,6 +748,13 @@ var View = function(params) {
         // return the last calculated cycle offset
         return XY.init(offsetX, offsetY);
     } // getOffset
+    
+    /**
+    ### getRenderer(): T5.Renderer
+    */
+    function getRenderer() {
+        return renderer;
+    } // getRenderer
     
     /**
     ### getScaleFactor(): float
@@ -1100,6 +1111,7 @@ var View = function(params) {
         /* offset methods */
         
         getOffset: getOffset,
+        getRenderer: getRenderer,
         getScaleFactor: getScaleFactor,
         setMaxOffset: setMaxOffset,
         getViewport: getViewport,

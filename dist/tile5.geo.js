@@ -2917,6 +2917,29 @@ var Renderer = function(view, container, params) {
         },
 
         /**
+        ### getDimensions()
+        */
+        getDimensions: function() {
+            return {
+                width: 0,
+                height: 0
+            };
+        },
+
+        /**
+        ### getOffset()
+        */
+        getOffset: function() {
+            return XY.init(0, 0);
+        },
+
+        /**
+        ### getViewport()
+        */
+        getViewport: function() {
+        },
+
+        /**
         ### hitTest(drawData, hitX, hitY): boolean
         */
         hitTest: function(drawData, hitX, hitY) {
@@ -2924,17 +2947,15 @@ var Renderer = function(view, container, params) {
         },
 
         /**
-        ### restore(): void
-        Used to restore the rendering context back to the previous state
+        ### prepare(layers, state, tickCount, hitData)
         */
-        restore: function() {
+        prepare: function(layers, state, tickCount, hitData) {
         },
 
         /**
-        ### save(): void
-        Used to save the current renderer state to a stack
+        ### render
         */
-        save: function() {
+        render: function() {
         }
     };
 };
@@ -2981,8 +3002,17 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         transform = null,
         previousStyles = {},
 
-        drawFn = function(fill) {
+        drawableDraw = function(viewX, viewY, state) {
+            if (this.fill) {
+                 context.fill();
+            } // if
 
+            if (this.stroke) {
+                context.stroke();
+            } // if
+        },
+        defaultDrawData = {
+            draw: drawableDraw
         };
 
     function drawTile(tile, x, y) {
@@ -3076,12 +3106,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
             false
         );
 
-        return {
-            draw: function(viewX, viewY, state) {
-                context.fill();
-                context.stroke();
-            }
-        };
+        return defaultDrawData;
     } // arc
 
     function drawTiles(tiles) {
@@ -3192,12 +3217,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
             } // if..else
         } // for
 
-        return {
-            draw: function(viewX, viewY, state) {
-                context.fill();
-                context.stroke();
-            }
-        };
+        return defaultDrawData;
     } // path
 
     /* initialization */
@@ -3224,6 +3244,10 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
                 width: vpWidth,
                 height: vpHeight
             };
+        },
+
+        getOffset: function() {
+            return XY.init(drawOffsetX, drawOffsetY);
         },
 
         getViewport: function() {
@@ -3257,14 +3281,15 @@ registerRenderer('dom', function(view, container, params, baseRenderer) {
     function drawTiles(tiles) {
         var tile,
             image,
+            offset = _this.getOffset(),
             viewport = _this.getViewport(),
             inViewport,
-            offsetX = viewport.x1,
-            offsetY = viewport.y1,
+            offsetX = offset.x,
+            offsetY = offset.y,
             minX = offsetX - 256,
             minY = offsetY - 256,
-            maxX = viewport.x2,
-            maxY = viewport.y2,
+            maxX = offsetX + viewport.width,
+            maxY = offsetY + viewport.height,
             relX, relY;
 
         for (var ii = tiles.length; ii--; ) {
@@ -4081,6 +4106,8 @@ var View = function(params) {
                         } // if
                     } // if
                 } // for
+
+                renderer.render();
             } // if
 
             /*
@@ -4163,6 +4190,13 @@ var View = function(params) {
     function getOffset() {
         return XY.init(offsetX, offsetY);
     } // getOffset
+
+    /**
+    ### getRenderer(): T5.Renderer
+    */
+    function getRenderer() {
+        return renderer;
+    } // getRenderer
 
     /**
     ### getScaleFactor(): float
@@ -4490,6 +4524,7 @@ var View = function(params) {
         /* offset methods */
 
         getOffset: getOffset,
+        getRenderer: getRenderer,
         getScaleFactor: getScaleFactor,
         setMaxOffset: setMaxOffset,
         getViewport: getViewport,
@@ -5372,7 +5407,9 @@ var DrawLayer = function(params) {
 
                 previousStyle = overrideStyle ? renderer.applyStyle(overrideStyle) : null;
 
-                drawData.draw(viewX, viewY, state);
+                if (drawData.draw) {
+                    drawData.draw.call(drawable, viewX, viewY, state);
+                } // if
 
                 if (previousStyle) {
                     renderer.applyStyle(previousStyle);

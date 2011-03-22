@@ -15,8 +15,17 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         transform = null,
         previousStyles = {},
         
-        drawFn = function(fill) {
+        drawableDraw = function(viewX, viewY, state) {
+            if (this.fill) {
+                 context.fill();
+            } // if
             
+            if (this.stroke) {
+                context.stroke();
+            } // if
+        },
+        defaultDrawData = {
+            draw: drawableDraw
         };
         
     function drawTile(tile, x, y) {
@@ -118,12 +127,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
             false
         );
         
-        return {
-            draw: function(viewX, viewY, state) {
-                context.fill();
-                context.stroke();
-            }
-        };
+        return defaultDrawData;
     } // arc
     
     function drawTiles(tiles) {
@@ -250,12 +254,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
             } // if..else
         } // for
         
-        return {
-            draw: function(viewX, viewY, state) {
-                context.fill();
-                context.stroke();
-            }
-        };
+        return defaultDrawData;
     } // path
     
     /* initialization */
@@ -283,6 +282,10 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
                 width: vpWidth,
                 height: vpHeight
             };
+        },
+        
+        getOffset: function() {
+            return XY.init(drawOffsetX, drawOffsetY);
         },
         
         getViewport: function() {
