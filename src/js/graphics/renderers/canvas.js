@@ -45,19 +45,35 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         } // if..else        
     } // drawTile
         
+    // TODO (0.9.7): remove the canvas detection and assume that we have been passed a div
     function createCanvas() {
         if (container) {
-            // initialise the viewport height and width
-            vpWidth = view.width = container.offsetWidth;
-            vpHeight = view.height = container.offsetHeight;
-
-            // create the canvas
-            canvas = newCanvas(vpWidth, vpHeight);
-            canvas.style.cssText = 'position: absolute; z-index: 1;';
-            context = null;
+            var isCanvas = container.tagName == 'CANVAS',
+                sizeTarget = isCanvas ? container.parentNode : container;
             
-            // add the canvas to the container
-            container.appendChild(canvas);
+            // initialise the viewport height and width
+            vpWidth = view.width = sizeTarget.offsetWidth;
+            vpHeight = view.height = sizeTarget.offsetHeight;
+            
+            if (! isCanvas) {
+                // create the canvas
+                canvas = newCanvas(vpWidth, vpHeight);
+                canvas.style.cssText = 'position: absolute; z-index: 1;';
+
+                // add the canvas to the container
+                container.appendChild(canvas);
+            } 
+            else {
+                canvas = container;
+                canvas.width = vpWidth;
+                canvas.height = vpHeight;
+                
+                if (typeof FlashCanvas != 'undefined') {
+                    FlashCanvas.initElement(canvas);
+                } // if
+            } // if..else
+            
+            context = null;
         } // if
     } // createCanvas
     
@@ -199,19 +215,23 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         // initialise the viewport
         viewport = XYRect.init(viewX, viewY, viewX + vpWidth, viewY + vpHeight);
         viewport.scaleFactor = scaleFactor;
-        
+
         // if we are scaling, then scale the viewport
         if (scaleFactor !== 1) {
-            viewport = XYRect.buffer(
-                viewport, 
-                vpWidth / scaleFactor >> 1,
-                vpHeight / scaleFactor >> 1
+            var centerX = viewport.x1 + (vpWidth >> 1),
+                centerY = viewport.y1 + (vpHeight >> 1);
+                
+            viewport = XYRect.fromCenter(
+                centerX, 
+                centerY, 
+                vpWidth / scaleFactor | 0,
+                vpHeight / scaleFactor | 0
             );
         } // if
         
         // update the offset x and y
-        drawOffsetX = viewport.x1 - (viewport.width >> 1);
-        drawOffsetY = viewport.y1 - (viewport.height >> 1);
+        drawOffsetX = viewport.x1;
+        drawOffsetY = viewport.y1;
         
         if (context) {
             // if we can't clip then clear the context

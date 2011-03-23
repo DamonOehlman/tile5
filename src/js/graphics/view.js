@@ -167,14 +167,10 @@ var View = function(params) {
         guides = params.guides,
         deviceScaling = 1,
         wakeTriggers = 0,
-        halfWidth = 0,
-        halfHeight = 0,
         hitData = null,
         interactOffset = null,
         interactCenter = null,
         interacting = false,
-        layerMinXY = null,
-        layerMaxXY = null,
         lastRefresh = 0,
         lastClear = 0,
         lastHitData = null,
@@ -254,7 +250,12 @@ var View = function(params) {
             
         if (params.scalable) {
             // animate the scaling
-            scale(2, relXY, params.zoomEasing, null, params.zoomDuration);            
+            scale(
+                2, 
+                getScaledOffset(relXY.x, relXY.y), 
+                params.zoomEasing, 
+                null, 
+                params.zoomDuration);            
         } // if
     } // handleDoubleTap
     
@@ -287,9 +288,6 @@ var View = function(params) {
     } // handleResize
     
     function handleResync(evt, view) {
-        // clear the layer min xy and max xy as we have changed zoom levels (or something similar)
-        layerMinXY = null;
-        layerMaxXY = null;
     } // handleResync
     
     function handleRotationUpdate(name, value) {
@@ -384,8 +382,8 @@ var View = function(params) {
             return;
         } // if
         
-        var testX = offsetWrapX ? offsetX + halfWidth : offsetX,
-            testY = offsetWrapY ? offsetY + halfHeight : offsetY,
+        var testX = offsetWrapX ? offsetX + (viewport.width >> 1) : offsetX,
+            testY = offsetWrapY ? offsetY + (viewport.height >> 1) : offsetY,
             viewWidth = viewport.width,
             viewHeight = viewport.height;
         
@@ -949,6 +947,8 @@ var View = function(params) {
         value = max(params.minZoom, min(params.maxZoom, value));
         if (value !== zoomLevel) {
             var scaling = pow(2, value - zoomLevel),
+                halfWidth = _self.width >> 1,
+                halfHeight = _self.height >> 1,
                 scaledHalfWidth = halfWidth / scaling | 0,
                 scaledHalfHeight = halfHeight / scaling | 0;
             
@@ -970,6 +970,9 @@ var View = function(params) {
             
             // reset the scale factor
             scaleFactor = 1;
+            
+            // reset the renderer
+            renderer.reset();
             
             // refresh the display
             refresh();
@@ -1013,9 +1016,7 @@ var View = function(params) {
     function updateOffset(x, y, tweenFn, tweenDuration, callback) {
         
         // initialise variables
-        var tweensComplete = 0,
-            minXYOffset = layerMinXY ? XY.offset(layerMinXY, -halfWidth, -halfHeight) : null,
-            maxXYOffset = layerMaxXY ? XY.offset(layerMaxXY, -halfWidth, -halfHeight) : null;
+        var tweensComplete = 0;
         
         function endTween() {
             tweensComplete += 1;
@@ -1028,17 +1029,6 @@ var View = function(params) {
                 } // if
             } // if
         } // endOffsetUpdate
-        
-        // check that the x and y values are within acceptable bounds
-        if (minXYOffset) {
-            x = x < minXYOffset.x ? minXYOffset.x : x;
-            y = y < minXYOffset.y ? minXYOffset.y : y;
-        } // if
-        
-        if (maxXYOffset) {
-            x = x > maxXYOffset.x ? maxXYOffset.x : x;
-            y = y > maxXYOffset.y ? maxXYOffset.y : y;
-        } // if
         
         if (tweenFn) {
             // if the interface is already being move about, then don't set up additional

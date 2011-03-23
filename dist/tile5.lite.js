@@ -2956,6 +2956,12 @@ var Renderer = function(view, container, params) {
         ### render
         */
         render: function() {
+        },
+
+        /**
+        ### reset()
+        */
+        reset: function() {
         }
     };
 };
@@ -3033,14 +3039,29 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
 
     function createCanvas() {
         if (container) {
-            vpWidth = view.width = container.offsetWidth;
-            vpHeight = view.height = container.offsetHeight;
+            var isCanvas = container.tagName == 'CANVAS',
+                sizeTarget = isCanvas ? container.parentNode : container;
 
-            canvas = newCanvas(vpWidth, vpHeight);
-            canvas.style.cssText = 'position: absolute; z-index: 1;';
+            vpWidth = view.width = sizeTarget.offsetWidth;
+            vpHeight = view.height = sizeTarget.offsetHeight;
+
+            if (! isCanvas) {
+                canvas = newCanvas(vpWidth, vpHeight);
+                canvas.style.cssText = 'position: absolute; z-index: 1;';
+
+                container.appendChild(canvas);
+            }
+            else {
+                canvas = container;
+                canvas.width = vpWidth;
+                canvas.height = vpHeight;
+
+                if (typeof FlashCanvas != 'undefined') {
+                    FlashCanvas.initElement(canvas);
+                } // if
+            } // if..else
+
             context = null;
-
-            container.appendChild(canvas);
         } // if
     } // createCanvas
 
@@ -3172,15 +3193,19 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         viewport.scaleFactor = scaleFactor;
 
         if (scaleFactor !== 1) {
-            viewport = XYRect.buffer(
-                viewport,
-                vpWidth / scaleFactor >> 1,
-                vpHeight / scaleFactor >> 1
+            var centerX = viewport.x1 + (vpWidth >> 1),
+                centerY = viewport.y1 + (vpHeight >> 1);
+
+            viewport = XYRect.fromCenter(
+                centerX,
+                centerY,
+                vpWidth / scaleFactor | 0,
+                vpHeight / scaleFactor | 0
             );
         } // if
 
-        drawOffsetX = viewport.x1 - (viewport.width >> 1);
-        drawOffsetY = viewport.y1 - (viewport.height >> 1);
+        drawOffsetX = viewport.x1;
+        drawOffsetY = viewport.y1;
 
         if (context) {
             if (! canClip) {
@@ -3322,12 +3347,17 @@ registerRenderer('dom', function(view, container, params, baseRenderer) {
         } // for
     } // drawTiles
 
+    function reset() {
+        imageDiv.innerHTML = '';
+    } // reset
+
     /* initialization */
 
     createImageContainer();
 
     var _this = COG.extend(baseRenderer, {
-        drawTiles: drawTiles
+        drawTiles: drawTiles,
+        reset: reset
     });
 
     return _this;
@@ -3677,14 +3707,10 @@ var View = function(params) {
         guides = params.guides,
         deviceScaling = 1,
         wakeTriggers = 0,
-        halfWidth = 0,
-        halfHeight = 0,
         hitData = null,
         interactOffset = null,
         interactCenter = null,
         interacting = false,
-        layerMinXY = null,
-        layerMaxXY = null,
         lastRefresh = 0,
         lastClear = 0,
         lastHitData = null,
@@ -3761,7 +3787,12 @@ var View = function(params) {
             getScaledOffset(relXY.x, relXY.y));
 
         if (params.scalable) {
-            scale(2, relXY, params.zoomEasing, null, params.zoomDuration);
+            scale(
+                2,
+                getScaledOffset(relXY.x, relXY.y),
+                params.zoomEasing,
+                null,
+                params.zoomDuration);
         } // if
     } // handleDoubleTap
 
@@ -3791,8 +3822,6 @@ var View = function(params) {
     } // handleResize
 
     function handleResync(evt, view) {
-        layerMinXY = null;
-        layerMaxXY = null;
     } // handleResync
 
     function handleRotationUpdate(name, value) {
@@ -3874,8 +3903,8 @@ var View = function(params) {
             return;
         } // if
 
-        var testX = offsetWrapX ? offsetX + halfWidth : offsetX,
-            testY = offsetWrapY ? offsetY + halfHeight : offsetY,
+        var testX = offsetWrapX ? offsetX + (viewport.width >> 1) : offsetX,
+            testY = offsetWrapY ? offsetY + (viewport.height >> 1) : offsetY,
             viewWidth = viewport.width,
             viewHeight = viewport.height;
 
@@ -4375,6 +4404,8 @@ var View = function(params) {
         value = max(params.minZoom, min(params.maxZoom, value));
         if (value !== zoomLevel) {
             var scaling = pow(2, value - zoomLevel),
+                halfWidth = _self.width >> 1,
+                halfHeight = _self.height >> 1,
                 scaledHalfWidth = halfWidth / scaling | 0,
                 scaledHalfHeight = halfHeight / scaling | 0;
 
@@ -4391,6 +4422,8 @@ var View = function(params) {
             triggerAll('zoomLevelChange', value);
 
             scaleFactor = 1;
+
+            renderer.reset();
 
             refresh();
             _self.redraw = true;
@@ -4432,9 +4465,7 @@ var View = function(params) {
     */
     function updateOffset(x, y, tweenFn, tweenDuration, callback) {
 
-        var tweensComplete = 0,
-            minXYOffset = layerMinXY ? XY.offset(layerMinXY, -halfWidth, -halfHeight) : null,
-            maxXYOffset = layerMaxXY ? XY.offset(layerMaxXY, -halfWidth, -halfHeight) : null;
+        var tweensComplete = 0;
 
         function endTween() {
             tweensComplete += 1;
@@ -4447,16 +4478,6 @@ var View = function(params) {
                 } // if
             } // if
         } // endOffsetUpdate
-
-        if (minXYOffset) {
-            x = x < minXYOffset.x ? minXYOffset.x : x;
-            y = y < minXYOffset.y ? minXYOffset.y : y;
-        } // if
-
-        if (maxXYOffset) {
-            x = x > maxXYOffset.x ? maxXYOffset.x : x;
-            y = y > maxXYOffset.y ? maxXYOffset.y : y;
-        } // if
 
         if (tweenFn) {
             if ((state & statePan) !== 0) {

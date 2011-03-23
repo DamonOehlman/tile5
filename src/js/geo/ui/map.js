@@ -13,7 +13,7 @@ the map.
 <pre lang='javascript'>
 // create the map
 map = new T5.Map({
-    container: 'mapCanvas'
+    container: 'mapContainer'
 });
 </pre>
 
@@ -308,8 +308,8 @@ var Map = exports.Map = function(params) {
         // determine the tile offset for the 
         // requested position
         var centerXY = GeoXY.init(position, Geo.radsPerPixel(_self.getZoomLevel())),
-            offsetX = centerXY.x - (self.width >> 1),
-            offsetY = centerXY.y - (self.height >> 1);
+            offsetX = centerXY.x - (_self.width >> 1),
+            offsetY = centerXY.y - (_self.height >> 1);
             
         // COG.info('panning to center xy: ', centerXY);
         _self.updateOffset(offsetX, offsetY, easingFn, easingDuration, function() {

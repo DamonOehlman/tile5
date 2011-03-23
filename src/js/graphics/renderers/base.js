@@ -68,6 +68,12 @@ var Renderer = function(view, container, params) {
         ### render
         */
         render: function() {
+        },
+
+        /**
+        ### reset()
+        */
+        reset: function() {
         }
     };
 };

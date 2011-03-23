@@ -66,6 +66,11 @@ registerRenderer('dom', function(view, container, params, baseRenderer) {
             image.style.display = 'block'; // inViewport ? 'block' : 'none';
         } // for
     } // drawTiles
+    
+    function reset() {
+        // remove the images from the dom
+        imageDiv.innerHTML = '';
+    } // reset
 
     /* initialization */
     
@@ -73,7 +78,8 @@ registerRenderer('dom', function(view, container, params, baseRenderer) {
     createImageContainer();
     
     var _this = COG.extend(baseRenderer, {
-        drawTiles: drawTiles
+        drawTiles: drawTiles,
+        reset: reset
     });
     
     return _this;

@@ -29,7 +29,7 @@
     
     $(document).ready(function() {
         map = new T5.Map({
-            container: 'mapCanvas'
+            container: 'mapContainer'
         });
         
         map.setLayer('tiles', new T5.ImageLayer('osm.cloudmade', {

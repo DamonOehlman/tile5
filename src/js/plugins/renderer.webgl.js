@@ -262,8 +262,8 @@ T5.registerRenderer('webgl', function(view, container, params, baseRenderer) {
         mat4.identity(mvMatrix);
         // mat4.rotate(mvMatrix, -Math.PI / 4, [1, 0, 0]);
         mat4.translate(mvMatrix, [
-            drawOffsetX + (vpWidth >> 1), 
-            drawOffsetY - (vpHeight >> 1), 
+            -drawOffsetX, 
+            drawOffsetY, 
             -500 / scaleFactor]
         ); 
         

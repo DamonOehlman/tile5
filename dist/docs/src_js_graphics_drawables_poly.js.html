@@ -1,0 +1,34 @@
+---
+layout: apidoc
+title: Tile5 API Documentation
+---
+
+<h1><a name="T5.Poly">T5.Poly</a></h1>
+
+<p><strong>extends</strong>: <a href="src_js_core.js.html#T5">T5</a>.Shape</p>
+
+<h2>Constructor</h2>
+
+<p><code>new <a href="src_js_graphics_drawables_poly.js.html#T5.Poly">T5.Poly</a>(points, params)</code>
+The constructor requires an array of vectors that represent the poly and 
+also accepts optional initialization parameters (see below).</p>
+
+<h4>Initialization Parameters</h4>
+
+<ul>
+<li><code>fill</code> (default = true) - whether or not the poly should be filled.</li>
+<li><code>style</code> (default = null) - the style override for this poly.  If none
+is specified then the style of the <a href="src_js_core.js.html#T5">T5</a>.PolyLayer is used.</li>
+</ul>
+
+<h2>Methods</h2>
+
+<h3>animatePath(easing, duration, drawFn, callback)</h3>
+
+<h3>prep(context, offsetX, offsetY, width, height, state, hitData)</h3>
+
+<p>Prepare the path that will draw the polygon to the canvas</p>
+
+<h3>resync(view)</h3>
+
+<p>Used to synchronize the points of the poly to the grid.</p>

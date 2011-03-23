@@ -7,14 +7,13 @@
 </head>
 <body> 
 <div id="mapContainer"> 
-<canvas id="mapCanvas"></canvas>
 </div>
 <script src="../dist/tile5.js"></script> 
 <script src="../dist/geo/osm.js"></script>
 <script>
 // initialise the map
 var map = T5.Map({
-        container: 'mapCanvas'
+        container: 'mapContainer'
     }),
     
     tiles = map.setLayer('tiles', new T5.ImageLayer('osm.cloudmade', {

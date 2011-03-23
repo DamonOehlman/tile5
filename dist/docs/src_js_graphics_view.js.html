@@ -41,7 +41,7 @@ performance.  In reality though on slower devices, the framerate will scale back
 automatically, but it can be prudent to set a lower framerate to leave some cpu for 
 other processes :)</li>
 <li><code>turbo</code> - (bool, default = false) - whether or not all possible performance optimizations
-should be implemented.  In this mode certain features such as transparent images in <a href="src_js_graphics_imagelayer.js.html#T5.ImageLayer">T5.ImageLayer</a>
+should be implemented.  In this mode certain features such as transparent images in <a href="src_js_graphics_layers_imagelayer.js.html#T5.ImageLayer">T5.ImageLayer</a>
 will not have these effects applied.  Additionally, clipping is disabled and clearing the background
 rectangle never happens.  This is serious stuff folks.</li>
 <li><code>zoomEasing</code> - (easing, default = <code>quad.out</code>) - The easing effect that should be used when 
@@ -72,16 +72,6 @@ view.bind('tapHit', function(evt, elements, absXY, relXY, offsetXY) {
 <h3>hoverHit</h3>
 
 <p>As per the tapHit event, but triggered through a mouse-over event.</p>
-
-<h3>resize</h3>
-
-<p>This event is fired when the view has been resized (either manually or
-automatically).</p>
-
-<pre>
-view.bind('resize', function(evt, width, height) {
-});
-</pre>
 
 <h3>refresh</h3>
 
@@ -124,22 +114,29 @@ view.bind('zoomLevelChange', function(evt, zoomLevel) {
 
 <h2>Methods</h2>
 
+<h3>detach</h3>
+
+<p>If you plan on reusing a single canvas element to display different views then you 
+will definitely want to call the detach method between usages.</p>
+
 <h3>eachLayer(callback)</h3>
 
 <p>Iterate through each of the ViewLayers and pass each to the callback function 
 supplied.</p>
 
-<h3>getDimensions(): <a href="src_js_core_dimensions.js.html#T5.Dimensions">T5.Dimensions</a></h3>
-
-<p>Return the Dimensions of the View</p>
-
-<h3>getLayer(id: String): <a href="src_js_graphics_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a></h3>
+<h3>getLayer(id: String): <a href="src_js_graphics_layers_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a></h3>
 
 <p>Get the ViewLayer with the specified id, return null if not found</p>
 
 <h3>getOffset(): <a href="src_js_core_xy.js.html#T5.XY">T5.XY</a></h3>
 
 <p>Return a <a href="src_js_core_xy.js.html#T5.XY">T5.XY</a> containing the current view offset</p>
+
+<h3>getRenderer(): <a href="src_js_graphics_renderers_base.js.html#T5.Renderer">T5.Renderer</a></h3>
+
+<h3>getScaleFactor(): float</h3>
+
+<p>Return the current scaling factor</p>
 
 <h3>getZoomLevel(): int</h3>
 
@@ -151,7 +148,7 @@ zooming, this will always return a value of 1</p>
 <p>Set the bounds of the display to the specified area, if wrapX or wrapY parameters
 are set, then the bounds will be wrapped automatically.</p>
 
-<h3>getViewRect(): <a href="src_js_core_xyrect.js.html#T5.XYRect">T5.XYRect</a></h3>
+<h3>getViewport(): <a href="src_js_core_xyrect.js.html#T5.XYRect">T5.XYRect</a></h3>
 
 <p>Return a <a href="src_js_core_xyrect.js.html#T5.XYRect">T5.XYRect</a> for the last drawn view rect</p>
 
@@ -163,7 +160,7 @@ Tweening effects can be applied by specifying values for the optional <code>twee
 <code>tweenDuration</code> arguments, and if a notification is required once the pan has completed
 then a callback can be supplied as the final argument.</p>
 
-<h3>setLayer(id: String, value: <a href="src_js_graphics_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a>)</h3>
+<h3>setLayer(id: String, value: <a href="src_js_graphics_layers_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a>)</h3>
 
 <p>Either add or update the specified view layer</p>
 
@@ -174,12 +171,7 @@ events and will do some of their recalculations when this is called.</p>
 
 <h3>removeLayer(id: String)</h3>
 
-<p>Remove the <a href="src_js_graphics_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a> specified by the id</p>
-
-<h3>resize(width: Int, height: Int)</h3>
-
-<p>Perform a manual resize of the canvas associated with the view.  If the 
-view was originally marked as <code>autosize</code> this will override that instruction.</p>
+<p>Remove the <a href="src_js_graphics_layers_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a> specified by the id</p>
 
 <h3>scale(targetScaling: float, targetXY: <a href="src_js_core_xy.js.html#T5.XY">T5.XY</a>, tweenFn: EasingFn, callback: fn)</h3>
 

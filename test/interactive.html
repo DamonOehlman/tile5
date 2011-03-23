@@ -6,24 +6,19 @@
 <link rel="stylesheet" href="lib/qunit.css" />
 <script src="lib/jquery-1.4.4.min.js"></script>
 <script src="../dist/tile5.js"></script>
-<script src="../dist/engines/osm.js"></script>
+<script src="../dist/geo/osm.js"></script>
 <script src="test.interactive.js"></script>
 <style type="text/css">
-#mapContainer {
-	height: 400px;
-}
-
-#mapConsole {
-	height: 200px;
-	overflow-y: scroll;
+html, body, #mapContainer {
+	height: 100%;
+	width: 100%;
+	overflow: hidden;
+	margin: 0;
 }
 </style>
 </head>
 <body>
 <div id="mapContainer">
-	<canvas id="mapCanvas">
 </div>
-<ul id="mapConsole">
-</ul>
 </body>
 </html>
