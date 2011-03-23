@@ -30,7 +30,7 @@ function createStyle(params) {
     function fillMods(keyName) {
         var paramVal = params[keyName];
 
-        if (typeof paramVal !== 'undefined') {
+        if (! isType(paramVal, typeUndefined)) {
             mods.push(function(context) {
                 context[keyName] = paramVal;
             });

@@ -22,9 +22,8 @@ var T5 = {};
 (function(exports) {
     //= require "js/animframe"
     
-    //= require "js/math"
+    //= require "js/shorts"
     //= require "js/core"
-    //= require "js/device"
     //= require "js/imageloader"
     //= require "js/canvasmaker"
     //= require "js/generator"
@@ -54,8 +53,8 @@ var T5 = {};
     
     COG.extend(exports, {
         ex: COG.extend,
+        is: isType,
         ticks: ticks,
-        getConfig: getConfig,
         userMessage: userMessage,
         
         XY: XY,

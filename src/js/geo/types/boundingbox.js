@@ -21,11 +21,8 @@ var BoundingBox = (function() {
     */
     function calcSize(min, max, normalize) {
         var size = T5.XY.init(0, max.lat - min.lat);
-        if (typeof normalize === 'undefined') {
-            normalize = true;
-        } // if
-
-        if (normalize && (min.lon > max.lon)) {
+        
+        if ((normalize || isType(normalize, typeUndefined)) && (min.lon > max.lon)) {
             size.x = 360 - min.lon + max.lon;
         }
         else {

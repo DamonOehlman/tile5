@@ -15,14 +15,6 @@ can be used when later accessing the layer from a View.
 
 - `zindex` (default: 0) - a zindex in Tile5 means the same thing it does in CSS
 
-- `supportsFastDraw` (default: false) - The supportsFastDraw parameter specifies 
-whether a layer will be drawn on in particular graphic states on devices that 
-require fastDraw mode to perform at an optimal level.  For instance, if a layer does 
-not support fastDraw and the View is panning or scaling, the layer will not be drawn 
-so it's important when defining new layer classes to set this parameter to true if you 
-want the layer visible during these operations.  Be aware though that layers that require 
-some time to render will impact performance on slower devices.
-
 - `validStates` - the a bitmask of DisplayState that the layer will be drawn for
 
 
@@ -76,9 +68,8 @@ ViewLayer.prototype = {
     
     Called by a View that contains the layer to determine 
     whether or not the layer should be drawn for the current display state.  
-    The default implementation of this method first checks the fastDraw status, 
-    and then continues to do a bitmask operation against the validStates property 
-    to see if the current display state is acceptable.
+    The default implementation does a bitmask operation against the validStates 
+    property to see if the current display state is acceptable.
     */
     shouldDraw: function(displayState, viewRect) {
         return (displayState & this.validStates) !== 0;

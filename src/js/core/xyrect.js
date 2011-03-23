@@ -81,8 +81,8 @@ var XYRect = (function() {
         // default the xy and y1 to 0 if not specified
         x1 = x1 ? x1 : 0;
         y1 = y1 ? y1 : 0;
-        x2 = typeof x2 !== 'undefined' ? x2 : x1;
-        y2 = typeof y2 !== 'undefined '? y2 : y2;
+        x2 = isType(x2, typeNumber) ? x2 : x1;
+        y2 = isType(y2, typeNumber) ? y2 : y2;
         
         return {
             x1: x1,

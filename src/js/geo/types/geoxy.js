@@ -42,12 +42,12 @@ var GeoXY = exports.GeoXY = (function() {
                 sync(xy[ii], rpp);
 
                 // update the min x and min y
-                minX = (typeof minX === 'undefined') || xy.x < minX ? xy.x : minX;
-                minY = (typeof minY === 'undefined') || xy.y < minY ? xy.y : minY;
+                minX = isType(minX, typeUndefined) || xy.x < minX ? xy.x : minX;
+                minY = isType(minY, typeUndefined) || xy.y < minY ? xy.y : minY;
 
                 // update the max x and max y
-                maxX = (typeof maxX === 'undefined') || xy.x > maxX ? xy.x : maxX;
-                maxY = (typeof maxY === 'undefined') || xy.y > maxY ? xy.y : maxY;
+                maxX = isType(maxX, typeUndefined) || xy.x > maxX ? xy.x : maxX;
+                maxY = isType(maxY, typeUndefined) || xy.y > maxY ? xy.y : maxY;
             } // for
 
             return XYRect.init(minX, minY, maxY, maxY);
@@ -96,7 +96,7 @@ var GeoXY = exports.GeoXY = (function() {
         xy.mercXY = Position.toMercatorPixels(pos);
         
         // allow for using the xy of the rads per pixel if not supplied
-        rpp = typeof rpp !== 'undefined' ? rpp : xy.rpp;
+        rpp = isType(rpp, typeNumber) ? rpp : xy.rpp;
 
         if (rpp) {
             sync(xy, rpp);

@@ -116,7 +116,6 @@ var View = function(params) {
         container: "",
         captureHover: true,
         captureDrag: false,
-        fastDraw: false,
         inertia: true,
         minRefresh: 1000,
         pannable: false,
@@ -151,8 +150,7 @@ var View = function(params) {
         dragObject = null,
         frameIndex = 0,
         mainContext = null,
-        isIE = typeof window.attachEvent != 'undefined',
-        flashPolyfill,
+        isIE = isType(window.attachEvent, typeFunction),
         hitFlagged = false,
         minRefresh = params.minRefresh,
         offsetX = 0,
@@ -165,7 +163,6 @@ var View = function(params) {
         offsetWrapY = false,
         clipping = params.clipping,
         guides = params.guides,
-        deviceScaling = 1,
         wakeTriggers = 0,
         hitData = null,
         interactOffset = null,
@@ -786,8 +783,8 @@ var View = function(params) {
         offsetMaxY = maxY;
         
         // update the wrapping flags
-        offsetWrapX = typeof wrapX != 'undefined' ? wrapX : false;
-        offsetWrapY = typeof wrapY != 'undefined' ? wrapY : false;
+        offsetWrapX = wrapX;
+        offsetWrapY = wrapY;
     } // setMaxOffset
     
     /**
@@ -1081,8 +1078,6 @@ var View = function(params) {
     // initialise _self
     var _self = {
         id: params.id,
-        deviceScaling: deviceScaling,
-        fastDraw: params.fastDraw || getConfig().requireFastDraw,
         
         detach: detach,
         eachLayer: eachLayer,
@@ -1109,8 +1104,6 @@ var View = function(params) {
         pan: pan
     };
 
-    deviceScaling = getConfig().getScaling();
-    
     // make the view observable
     COG.observable(_self);
     

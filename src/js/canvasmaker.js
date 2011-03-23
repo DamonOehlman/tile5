@@ -9,13 +9,13 @@ var newCanvas = T5.newCanvas = function(width, height) {
     tmpCanvas.height = height ? height : 0;
 
     // flash canvas initialization
-    if (typeof FlashCanvas != 'undefined') {
+    if (isFlashCanvas) {
         document.body.appendChild(tmpCanvas);
         FlashCanvas.initElement(tmpCanvas);
     } // if
     
     // if we are working with explorer canvas, then initialise the canvas
-    if (typeof G_vmlCanvasManager != 'undefined') {
+    if (isExplorerCanvas) {
         G_vmlCanvasManager.initElement(tmpCanvas);
     } // if    
 

@@ -195,7 +195,7 @@ var Position = (function() {
         if (! pos) {
             return init();
         }
-        else if (typeof(pos.lat) !== 'undefined') {
+        else if (isType(pos.lat, typeNumber)) {
             return copy(pos);
         }
         // now attempt the various different types of splits

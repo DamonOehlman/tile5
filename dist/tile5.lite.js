@@ -1843,7 +1843,23 @@ var abs = Math.abs,
     acos = Math.acos,
     tan = Math.tan,
     atan = Math.atan,
-    atan2 = Math.atan2;
+    atan2 = Math.atan2,
+
+    proto = 'prototype',
+    has = 'hasOwnProperty',
+    isnan = {'NaN': 1, 'Infinity': 1, '-Infinity': 1},
+    lowerCase = String[proto].toLowerCase,
+    objectToString = Object[proto].toString,
+
+    typeUndefined = 'undefined',
+    typeFunction = 'function',
+    typeString = 'string',
+    typeObject = 'object',
+    typeNumber = 'number',
+    typeArray = 'array',
+
+    isExplorerCanvas = typeof G_vmlCanvasManager != typeUndefined,
+    isFlashCanvas = typeof FlashCanvas != typeUndefined;
 /**
 # T5
 The T5 core module contains classes and functionality that support basic drawing
@@ -1869,6 +1885,21 @@ function userMessage(msgType, msgKey, msgHtml) {
     exports.trigger('userMessage', msgType, msgKey, msgHtml);
 } // userMessage
 
+/*
+Dmitry Baranovskiy's wonderful is function, sourced from RaphaelJS:
+https://github.com/DmitryBaranovskiy/raphael
+*/
+function isType(o, type) {
+    type = lowerCase.call(type);
+    if (type == "finite") {
+        return !isnan[has](+o);
+    }
+    return  (type == "null" && o === null) ||
+            (type == typeof o) ||
+            (type == "object" && o === Object(o)) ||
+            (type == "array" && Array.isArray && Array.isArray(o)) ||
+            objectToString.call(o).slice(8, -1).toLowerCase() == type;
+}; // is
 
 /**
 # T5.XY
@@ -2006,11 +2037,11 @@ var XY = (function() {
         for (var ii = points.length; ii--; ) {
             var xy = points[ii];
 
-            minX = (typeof minX === 'undefined') || xy.x < minX ? xy.x : minX;
-            minY = (typeof minY === 'undefined') || xy.y < minY ? xy.y : minY;
+            minX = isType(minX, typeUndefined) || xy.x < minX ? xy.x : minX;
+            minY = isType(minY, typeUndefined) || xy.y < minY ? xy.y : minY;
 
-            maxX = (typeof maxX === 'undefined') || xy.x > maxX ? xy.x : maxX;
-            maxY = (typeof maxY === 'undefined') || xy.y > maxY ? xy.y : maxY;
+            maxX = isType(maxX, typeUndefined) || xy.x > maxX ? xy.x : maxX;
+            maxY = isType(maxY, typeUndefined) || xy.y > maxY ? xy.y : maxY;
         } // for
 
         return XYRect.init(minX, minY, maxX, maxY);
@@ -2307,8 +2338,8 @@ var XYRect = (function() {
     function init(x1, y1, x2, y2) {
         x1 = x1 ? x1 : 0;
         y1 = y1 ? y1 : 0;
-        x2 = typeof x2 !== 'undefined' ? x2 : x1;
-        y2 = typeof y2 !== 'undefined '? y2 : y2;
+        x2 = isType(x2, typeNumber) ? x2 : x1;
+        y2 = isType(y2, typeNumber) ? y2 : y2;
 
         return {
             x1: x1,
@@ -2526,205 +2557,6 @@ Hits = (function() {
         triggerEvent: triggerEvent
     };
 })();
-var deviceConfigs = null,
-    deviceCheckOrder = [],
-    detectedConfig = null,
-    urlBridgeTimeout = 0,
-    queuedBridgeUrls = [],
-    bridgeIgnoreMessages = ['view.wake', 'tile.loaded'];
-
-function processUrlBridgeNotifications() {
-    while (queuedBridgeUrls.length > 0) {
-        var notificationUrl = queuedBridgeUrls.shift();
-        document.location = notificationUrl;
-    } // while
-
-    urlBridgeTimeout = 0;
-} // processUrlBridgeNotifications
-
-function shouldBridgeMessage(message) {
-    var shouldBridge = true;
-    for (var ii = bridgeIgnoreMessages.length; ii--; ) {
-        shouldBridge = shouldBridge && (message != bridgeIgnoreMessages[ii]);
-    } // for
-
-    return shouldBridge;
-} // shouldBridgeMessage
-
-function messageToUrl(message, args) {
-    var params = [];
-
-    for (var key in args) {
-        if (key) {
-            params.push(key + "=" + escape(args[key]));
-        }
-    } // for
-
-    return "tile5://" + message + "/" + (params.length > 0 ? "?" + params.join("&") : "");
-} // messageToUrl
-
-function bridgeNotifyLog(message, args) {
-    if (shouldBridgeMessage(message)) {
-        COG.info("would push url: " + messageToUrl(message, args));
-    } // if
-} // bridgeCommandEmpty
-
-function bridgeNotifyUrl(message, args) {
-    if (shouldBridgeMessage(message)) {
-        queuedBridgeUrls.push(messageToUrl(message, args));
-
-        if (! urlBridgeTimeout) {
-            urlBridgeTimeout = setTimeout(processUrlBridgeNotifications, 100);
-        } // if
-    } // if
-} // bridgeNotifyUrlScheme
-
-/* event binding functions */
-
-function genBindDoc(useBody) {
-    return function(evtName, callback, customTarget) {
-        var target = customTarget ? customTarget : (useBody ? document.body : document);
-
-        target.addEventListener(evtName, callback, false);
-    };
-} // bindDoc
-
-function genUnbindDoc(useBody) {
-    return function(evtName, callback, customTarget) {
-        var target = customTarget ? customTarget : (useBody ? document.body : document);
-
-        target.removeEventListener(evtName, callback, false);
-    };
-} // unbindDoc
-
-function bindIE(evtName, callback, customTarget) {
-    (customTarget ? customTarget : document).attachEvent('on' + evtName, callback);
-} // bindIE
-
-function unbindIE(evtName, callback, customTarget) {
-    (customTarget ? customTarget : document).detachEvent('on' + evtName, callback);
-} // unbindIE
-
-/* load the device config */
-
-function loadDeviceConfigs() {
-    deviceConfigs = {
-        base: {
-            name: "Unknown",
-
-            /* default event binding implementation */
-            bindEvent: genBindDoc(),
-            unbindEvent: genUnbindDoc(),
-
-            supportsTouch: 'ontouchstart' in window,
-            imageCacheMaxSize: null,
-            getScaling: function() {
-                return 1;
-            },
-            maxImageLoads: null,
-            requireFastDraw: false,
-            bridgeNotify: bridgeNotifyLog,
-            targetFps: null
-        },
-
-        ie: {
-            name: "MSIE",
-            regex: /msie/i,
-
-            bindEvent: bindIE,
-            unbindEvent: unbindIE,
-
-            requireFastDraw: false,
-            targetFps: 25
-        },
-
-        ipod: {
-            name: "iPod Touch",
-            regex: /ipod/i,
-            imageCacheMaxSize: 6 * 1024,
-            maxImageLoads: 4,
-            requireFastDraw: false,
-            bridgeNotify: bridgeNotifyUrl,
-            targetFps: 25
-        },
-
-        iphone: {
-            name: "iPhone",
-            regex: /iphone/i,
-            imageCacheMaxSize: 6 * 1024,
-            maxImageLoads: 4,
-            bridgeNotify: bridgeNotifyUrl
-        },
-
-        ipad: {
-            name: "iPad",
-            regex: /ipad/i,
-            imageCacheMaxSize: 6 * 1024,
-            bridgeNotify: bridgeNotifyUrl
-        },
-
-        android: {
-            name: "Android OS <= 2.1",
-            regex: /android/i,
-
-            /* document event binding (use body) */
-            bindEvent: genBindDoc(true),
-            unbindEvent: genUnbindDoc(true),
-
-            supportsTouch: true,
-            getScaling: function() {
-                return 1 / window.devicePixelRatio;
-            },
-            bridgeNotify: bridgeNotifyUrl
-        },
-
-        froyo: {
-            name: "Android OS >= 2.2",
-            regex: /froyo/i,
-            eventTarget: document.body,
-            supportsTouch: true,
-            bridgeNotify: bridgeNotifyUrl
-        }
-    };
-
-    deviceCheckOrder = [
-        deviceConfigs.froyo,
-        deviceConfigs.android,
-        deviceConfigs.ipod,
-        deviceConfigs.iphone,
-        deviceConfigs.ipad,
-        deviceConfigs.ie
-    ];
-} // loadDeviceConfigs
-
-function getConfig() {
-    if (! deviceConfigs) {
-        loadDeviceConfigs();
-    } // if
-
-    if (! detectedConfig) {
-        COG.info("ATTEMPTING TO DETECT PLATFORM: UserAgent = " + navigator.userAgent);
-
-        for (var ii = 0; ii < deviceCheckOrder.length; ii++) {
-            var testPlatform = deviceCheckOrder[ii];
-
-            if (testPlatform.regex && testPlatform.regex.test(navigator.userAgent)) {
-                detectedConfig = COG.extend({}, deviceConfigs.base, testPlatform);
-                COG.info("PLATFORM DETECTED AS: " + detectedConfig.name);
-                break;
-            } // if
-        } // for
-
-        if (! detectedConfig) {
-            COG.warn("UNABLE TO DETECT PLATFORM, REVERTING TO BASE CONFIGURATION");
-            detectedConfig = deviceConfigs.base;
-        }
-
-        COG.info("CURRENT DEVICE PIXEL RATIO = " + window.devicePixelRatio);
-    } // if
-
-    return detectedConfig;
-} // getConfig
 var INTERVAL_LOADCHECK = 100,
     INTERVAL_CACHECHECK = 10000,
     LOAD_TIMEOUT = 30000,
@@ -2733,7 +2565,6 @@ var INTERVAL_LOADCHECK = 100,
     lastCacheCheck = new Date().getTime(),
     loadingData = {},
     loadingUrls = [],
-    isFlashCanvas = typeof FlashCanvas != 'undefined',
     workerTimeout = 0;
 
 /* internals */
@@ -2839,12 +2670,12 @@ var newCanvas = T5.newCanvas = function(width, height) {
     tmpCanvas.width = width ? width : 0;
     tmpCanvas.height = height ? height : 0;
 
-    if (typeof FlashCanvas != 'undefined') {
+    if (isFlashCanvas) {
         document.body.appendChild(tmpCanvas);
         FlashCanvas.initElement(tmpCanvas);
     } // if
 
-    if (typeof G_vmlCanvasManager != 'undefined') {
+    if (isExplorerCanvas) {
         G_vmlCanvasManager.initElement(tmpCanvas);
     } // if
 
@@ -2997,8 +2828,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
 
     /* internals */
 
-    var flashPolyfill = typeof FlashCanvas != 'undefined',
-        vpWidth,
+    var vpWidth,
         vpHeight,
         canvas,
         context,
@@ -3056,7 +2886,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
                 canvas.width = vpWidth;
                 canvas.height = vpHeight;
 
-                if (typeof FlashCanvas != 'undefined') {
+                if (isFlashCanvas) {
                     FlashCanvas.initElement(canvas);
                 } // if
             } // if..else
@@ -3391,7 +3221,7 @@ function createStyle(params) {
     function fillMods(keyName) {
         var paramVal = params[keyName];
 
-        if (typeof paramVal !== 'undefined') {
+        if (! isType(paramVal, typeUndefined)) {
             mods.push(function(context) {
                 context[keyName] = paramVal;
             });
@@ -3659,7 +3489,6 @@ var View = function(params) {
         container: "",
         captureHover: true,
         captureDrag: false,
-        fastDraw: false,
         inertia: true,
         minRefresh: 1000,
         pannable: false,
@@ -3691,8 +3520,7 @@ var View = function(params) {
         dragObject = null,
         frameIndex = 0,
         mainContext = null,
-        isIE = typeof window.attachEvent != 'undefined',
-        flashPolyfill,
+        isIE = isType(window.attachEvent, typeFunction),
         hitFlagged = false,
         minRefresh = params.minRefresh,
         offsetX = 0,
@@ -3705,7 +3533,6 @@ var View = function(params) {
         offsetWrapY = false,
         clipping = params.clipping,
         guides = params.guides,
-        deviceScaling = 1,
         wakeTriggers = 0,
         hitData = null,
         interactOffset = null,
@@ -4257,8 +4084,8 @@ var View = function(params) {
         offsetMaxX = maxX;
         offsetMaxY = maxY;
 
-        offsetWrapX = typeof wrapX != 'undefined' ? wrapX : false;
-        offsetWrapY = typeof wrapY != 'undefined' ? wrapY : false;
+        offsetWrapX = wrapX;
+        offsetWrapY = wrapY;
     } // setMaxOffset
 
     /**
@@ -4525,8 +4352,6 @@ var View = function(params) {
 
     var _self = {
         id: params.id,
-        deviceScaling: deviceScaling,
-        fastDraw: params.fastDraw || getConfig().requireFastDraw,
 
         detach: detach,
         eachLayer: eachLayer,
@@ -4552,8 +4377,6 @@ var View = function(params) {
         updateOffset: updateOffset,
         pan: pan
     };
-
-    deviceScaling = getConfig().getScaling();
 
     COG.observable(_self);
 
@@ -4933,10 +4756,10 @@ function Poly(points, params) {
             x = drawPoints[ii].x;
             y = drawPoints[ii].y;
 
-            minX = typeof minX == 'undefined' || x < minX ? x : minX;
-            minY = typeof minY == 'undefined' || y < minY ? y : minY;
-            maxX = typeof maxX == 'undefined' || x > maxX ? x : maxX;
-            maxY = typeof maxY == 'undefined' || y > maxY ? y : maxY;
+            minX = isType(minX, typeUndefined) || x < minX ? x : minX;
+            minY = isType(minY, typeUndefined) || y < minY ? y : minY;
+            maxX = isType(maxX, typeUndefined) || x > maxX ? x : maxX;
+            maxY = isType(maxY, typeUndefined) || y > maxY ? y : maxY;
         } // for
 
         this.updateBounds(XYRect.init(minX, minY, maxX, maxY), true);
@@ -5187,14 +5010,6 @@ can be used when later accessing the layer from a View.
 
 - `zindex` (default: 0) - a zindex in Tile5 means the same thing it does in CSS
 
-- `supportsFastDraw` (default: false) - The supportsFastDraw parameter specifies
-whether a layer will be drawn on in particular graphic states on devices that
-require fastDraw mode to perform at an optimal level.  For instance, if a layer does
-not support fastDraw and the View is panning or scaling, the layer will not be drawn
-so it's important when defining new layer classes to set this parameter to true if you
-want the layer visible during these operations.  Be aware though that layers that require
-some time to render will impact performance on slower devices.
-
 - `validStates` - the a bitmask of DisplayState that the layer will be drawn for
 
 
@@ -5246,9 +5061,8 @@ ViewLayer.prototype = {
 
     Called by a View that contains the layer to determine
     whether or not the layer should be drawn for the current display state.
-    The default implementation of this method first checks the fastDraw status,
-    and then continues to do a bitmask operation against the validStates property
-    to see if the current display state is acceptable.
+    The default implementation does a bitmask operation against the validStates
+    property to see if the current display state is acceptable.
     */
     shouldDraw: function(displayState, viewRect) {
         return (displayState & this.validStates) !== 0;
@@ -5369,8 +5183,7 @@ var DrawLayer = function(params) {
     }, params);
 
     var drawables = [],
-        pipTransformed = CANI.canvas.pipTransformed,
-        isFlashCanvas = typeof FlashCanvas != 'undefined';
+        pipTransformed = CANI.canvas.pipTransformed;
 
     /* private functions */
 
@@ -5575,8 +5388,8 @@ var ShapeLayer = function(params) {
 
     COG.extend(exports, {
         ex: COG.extend,
+        is: isType,
         ticks: ticks,
-        getConfig: getConfig,
         userMessage: userMessage,
 
         XY: XY,

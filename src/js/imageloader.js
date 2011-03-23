@@ -7,7 +7,6 @@ var INTERVAL_LOADCHECK = 100,
     lastCacheCheck = new Date().getTime(),
     loadingData = {},
     loadingUrls = [],
-    isFlashCanvas = typeof FlashCanvas != 'undefined',
     workerTimeout = 0;
 
 /* internals */

@@ -4,8 +4,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     
     /* internals */
     
-    var flashPolyfill = typeof FlashCanvas != 'undefined',
-        vpWidth,
+    var vpWidth,
         vpHeight,
         canvas,
         context,
@@ -68,7 +67,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
                 canvas.width = vpWidth;
                 canvas.height = vpHeight;
                 
-                if (typeof FlashCanvas != 'undefined') {
+                if (isFlashCanvas) {
                     FlashCanvas.initElement(canvas);
                 } // if
             } // if..else

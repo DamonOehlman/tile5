@@ -154,7 +154,7 @@ var GeoJSONParser = function(data, callback, options, builders) {
     } // if
     
     // check that the data is in an array, if not, then make one
-    if (typeof data.length === 'undefined') {
+    if (! isType(data, typeArray)) {
         data = [data];
     } // if
         

@@ -137,12 +137,12 @@ var XY = (function() {
             var xy = points[ii];
             
             // update the min x and min y
-            minX = (typeof minX === 'undefined') || xy.x < minX ? xy.x : minX;
-            minY = (typeof minY === 'undefined') || xy.y < minY ? xy.y : minY;
+            minX = isType(minX, typeUndefined) || xy.x < minX ? xy.x : minX;
+            minY = isType(minY, typeUndefined) || xy.y < minY ? xy.y : minY;
             
             // update the max x and max y
-            maxX = (typeof maxX === 'undefined') || xy.x > maxX ? xy.x : maxX;
-            maxY = (typeof maxY === 'undefined') || xy.y > maxY ? xy.y : maxY;
+            maxX = isType(maxX, typeUndefined) || xy.x > maxX ? xy.x : maxX;
+            maxY = isType(maxY, typeUndefined) || xy.y > maxY ? xy.y : maxY;
         } // for
         
         return XYRect.init(minX, minY, maxX, maxY);

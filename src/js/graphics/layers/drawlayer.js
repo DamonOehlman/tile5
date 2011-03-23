@@ -17,8 +17,7 @@ var DrawLayer = function(params) {
     
     // initialise variables
     var drawables = [],
-        pipTransformed = CANI.canvas.pipTransformed,
-        isFlashCanvas = typeof FlashCanvas != 'undefined';
+        pipTransformed = CANI.canvas.pipTransformed;
         
     /* private functions */
     

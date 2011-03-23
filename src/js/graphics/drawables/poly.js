@@ -69,10 +69,10 @@ function Poly(points, params) {
             y = drawPoints[ii].y;
                 
             // update the min and max values
-            minX = typeof minX == 'undefined' || x < minX ? x : minX;
-            minY = typeof minY == 'undefined' || y < minY ? y : minY;
-            maxX = typeof maxX == 'undefined' || x > maxX ? x : maxX;
-            maxY = typeof maxY == 'undefined' || y > maxY ? y : maxY;
+            minX = isType(minX, typeUndefined) || x < minX ? x : minX;
+            minY = isType(minY, typeUndefined) || y < minY ? y : minY;
+            maxX = isType(maxX, typeUndefined) || x > maxX ? x : maxX;
+            maxY = isType(maxY, typeUndefined) || y > maxY ? y : maxY;
         } // for
         
         // update the width
