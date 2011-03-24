@@ -25,7 +25,7 @@ do
     rm src/tile5.variant.js
 done;
 
-for plugin in renderer.webgl
+for plugin in renderer.webgl renderer.three
 do
     echo "Building Tile5 Plugin: $plugin"
     

@@ -858,6 +858,8 @@ T5.Geo.Decarta = (function() {
         
         /* define the generator */
         
+        T5.userMessage('ack', 'decarta', '&copy; deCarta, Inc. Map and Imagery Data &copy; NAVTEQ or Tele Atlas or DigitalGlobe');
+        
         // initialise the generator
         var _self = COG.extend(new T5.ImageGenerator(params), {
             run: run

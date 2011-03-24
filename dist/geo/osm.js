@@ -159,7 +159,7 @@ T5.Geo.OSM = (function() {
             styleid: 1
         }, params);
         
-        T5.userMessage('ack', 'osm.mapquest', 'This product uses the <a href="http://cloudmade.com/" target="_blank">CloudMade</a> APIs, but is not endorsed or certified by CloudMade.');
+        T5.userMessage('ack', 'osm.cloudmade', 'This product uses the <a href="http://cloudmade.com/" target="_blank">CloudMade</a> APIs, but is not endorsed or certified by CloudMade.');
         
         return COG.extend(new OSMGenerator(params), {
             getServerDetails: function() {
@@ -183,7 +183,7 @@ T5.Geo.OSM = (function() {
             flipY: true
         }, params);
         
-        T5.userMessage('ack', 'osm.mapquest', 'Tiles Courtesy of <a href="http://mapbox.com/" target="_blank">MapBox</a>');
+        T5.userMessage('ack', 'osm.mapbox', 'Tiles Courtesy of <a href="http://mapbox.com/" target="_blank">MapBox</a>');
         
         return COG.extend(new OSMGenerator(params), {
             getServerDetails: function() {

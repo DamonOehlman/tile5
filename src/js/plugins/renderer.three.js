@@ -106,9 +106,6 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
     function applyTransform(drawable) {
     } // applyTransform
     
-    function arc(x, y, radius, startAngle, endAngle) {
-    } // arc
-    
     function drawTiles(tiles) {
         var tile,
             inViewport,
@@ -128,15 +125,16 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             tile = tiles[ii];
             mesh = tile.mesh;
             
+            // check whether the image is in the viewport or not
+            inViewport = tile.x >= minX && tile.x <= maxX && 
+                tile.y >= minY && tile.y <= maxY;
+            
             // show or hide the image depending on whether it is in the viewport
-            if ((! mesh) && (! tile.loading)) {
+            if (inViewport && (! mesh) && (! tile.loading)) {
                 loadTileMesh(tile);
             } // if
         } // for    
     } // drawTiles
-    
-    function image(image, x, y, width, height) {
-    } // image    
     
     function prepare(layers, state, tickCount, hitData) {
         var viewOffset = view.getOffset(),
@@ -151,8 +149,8 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         viewport.scaleFactor = scaleFactor;
         
         // move the tile bg
-        camera.position.x = tileBg.position.x = drawOffsetX + (vpWidth >> 1);
-        tileBg.position.y = -drawOffsetY + (vpHeight >> 1);
+        camera.position.x = tileBg.position.x = drawOffsetX + vpWidth;
+        tileBg.position.y = -drawOffsetY;
         camera.position.y = tileBg.position.y - 500;
         
         return true;
@@ -161,9 +159,6 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
     function render() {
         renderer.render(scene, camera);
     } // render
-    
-    function path(points) {
-    } // path
     
     /* initialization */
     
@@ -175,12 +170,9 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         
         applyStyle: applyStyle,
         applyTransform: applyTransform,
-        arc: arc,
         drawTiles: drawTiles,
-        image: image,
         prepare: prepare,
         render: render,
-        path: path,
         
         getCamera: function() {
             return camera;

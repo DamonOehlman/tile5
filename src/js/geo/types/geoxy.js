@@ -85,7 +85,7 @@ var GeoXY = exports.GeoXY = (function() {
     } // syncPos
     
     function toPos(xy, rpp) {
-        rpp = rpp ? rpp : _self.rpp;
+        rpp = rpp || xy.rpp;
 
         return Position.fromMercatorPixels(xy.x * rpp - Math.PI, Math.PI - xy.y * rpp);
     } // toPos
