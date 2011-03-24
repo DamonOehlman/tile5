@@ -12,9 +12,10 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         drawOffsetX = 0,
         drawOffsetY = 0,
         transform = null,
+        pipTransformed = CANI.canvas.pipTransformed,
         previousStyles = {},
         
-        drawableDraw = function(viewX, viewY, state) {
+        defaultDrawFn = function(drawData) {
             if (this.fill) {
                  context.fill();
             } // if
@@ -22,26 +23,15 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
             if (this.stroke) {
                 context.stroke();
             } // if
-        },
-        defaultDrawData = {
-            draw: drawableDraw
         };
         
     function drawTile(tile, x, y) {
-        if (tile.image) {
-            context.drawImage(tile.image, x, y);
-        }
-        else if (! tile.loading) {
-            tile.loading = true;
-            
-            getImage(tile.url, function(image, loaded) {
-                tile.image = image;
-                tile.loading = false;
-
-                // draw the image in the new location
-                context.drawImage(image, tile.screenX, tile.screenY);
-            });
-        } // if..else        
+        getImage(tile.url, function(image, loaded) {
+            view.redraw = loaded;
+            if (! loaded) {
+                context.drawImage(image, x, y);
+            } // if
+        });
     } // drawTile
         
     // TODO (0.9.7): remove the canvas detection and assume that we have been passed a div
@@ -75,6 +65,30 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
             context = null;
         } // if
     } // createCanvas
+    
+    function initDrawData(hitData, state, drawFn) {
+        var isHit = false;
+        
+        // check for a hit
+        if (hitData) {
+            var hitX = pipTransformed ? hitData.x - drawOffsetX : hitData.relXY.x,
+                hitY = pipTransformed ? hitData.y - drawOffsetY : hitData.relXY.y;
+                
+            isHit = context.isPointInPath(hitX, hitY);
+        } // if
+        
+        return {
+            // initialise core draw data properties
+            draw: drawFn || defaultDrawFn,
+            state: state,
+            hit: isHit,
+            vpX: drawOffsetX,
+            vpY: drawOffsetY,
+            
+            // and the extras given we have a canvas implementation
+            context: context
+        };
+    } // initDrawData
     
     /* exports */
     
@@ -131,30 +145,13 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         return transform;
     } // applyTransform
     
-    function arc(x, y, radius, startAngle, endAngle) {
-        context.beginPath();
-        context.arc(
-            x - (transform ? transform.x : drawOffsetX),
-            y - (transform ? transform.y : drawOffsetY),
-            radius,
-            startAngle,
-            endAngle,
-            false
-        );
-        
-        return defaultDrawData;
-    } // arc
-    
     function drawTiles(tiles) {
         var tile,
             inViewport,
-            offsetX = transform ? transform.x : drawOffsetX,
-            offsetY = transform ? transform.y : drawOffsetY,
-            minX = offsetX - 256,
-            minY = offsetY - 256,
-            maxX = offsetX + vpWidth,
-            maxY = offsetY + vpHeight,
-            relX, relY;
+            minX = drawOffsetX - 256,
+            minY = drawOffsetY - 256,
+            maxX = viewport.x2,
+            maxY = viewport.y2;
             
         for (var ii = tiles.length; ii--; ) {
             tile = tiles[ii];
@@ -163,31 +160,19 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
             inViewport = tile.x >= minX && tile.x <= maxX && 
                 tile.y >= minY && tile.y <= maxY;
                 
-            // calculate the image relative position
-            relX = tile.screenX = tile.x - offsetX;
-            relY = tile.screenY = tile.y - offsetY;
-
             // show or hide the image depending on whether it is in the viewport
             if (inViewport) {
-                drawTile(tile, relX, relY);
+                drawTile(tile, tile.x - drawOffsetX, tile.y - drawOffsetY);
             } // if
         } // for
     } // drawTiles
     
-    function image(image, x, y, width, height) {
-        var realX = x - (transform ? transform.x : drawOffsetX),
-            realY = y - (transform ? transform.y : drawOffsetY);
-        
-        // open the path for hit tests
-        context.beginPath();
-        context.rect(realX, realY, width, height);
-        
-        return {
-            draw: function(viewX, viewY, state) {
-                context.drawImage(image, realX, realY, width, height);
-            }
-        };
-    } // image    
+    /**
+    ### hitTest(drawData, hitX, hitY): boolean
+    */
+    function hitTest(drawData, hitX, hitY) {
+        return context.isPointInPath(hitX, hitY);
+    } // hitTest
     
     function prepare(layers, state, tickCount, hitData) {
         var ii,
@@ -210,7 +195,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         for (ii = layers.length; ii--; ) {
             canClip = canClip || layers[ii].clip;
         } // for
-
+        
         // initialise the viewport
         viewport = XYRect.init(viewX, viewY, viewX + vpWidth, viewY + vpHeight);
         viewport.scaleFactor = scaleFactor;
@@ -251,8 +236,59 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         return context;
     } // prepare
     
-    function path(points) {
+    /**
+    ### prepArc(drawable, hitData, state, opts)
+    */
+    function prepArc(drawable, hitData, state, opts) {
+        context.beginPath();
+        context.arc(
+            drawable.xy.x - (transform ? transform.x : drawOffsetX),
+            drawable.xy.y - (transform ? transform.y : drawOffsetY),
+            drawable.size >> 1,
+            drawable.startAngle,
+            drawable.endAngle,
+            false
+        );
+        
+        return initDrawData(hitData, state);
+    } // prepArc
+    
+    /**
+    ### prepImage(drawable, hitData, state, opts)
+    */
+    function prepImage(drawable, hitData, state, opts) {
+        var realX = (opts.x || drawable.xy.x) - (transform ? transform.x : drawOffsetX),
+            realY = (opts.y || drawable.xy.y) - (transform ? transform.y : drawOffsetY),
+            image = opts.image || drawable.image;
+        
+        if (image) {
+            // open the path for hit tests
+            context.beginPath();
+            context.rect(
+                realX, 
+                realY, 
+                opts.width || image.width, 
+                opts.height || image.height
+            );
+
+            return initDrawData(hitData, state, function(drawData) {
+                context.drawImage(
+                    image, 
+                    realX, 
+                    realY,
+                    opts.width || image.width,
+                    opts.height || image.height
+                );
+            });
+        }
+    } // prepImage
+    
+    /**
+    ### prepPoly(drawable, hitData, state, opts)
+    */
+    function prepPoly(drawable, hitData, state, opts) {
         var first = true,
+            points = opts.points || drawable.points,
             offsetX = transform ? transform.x : drawOffsetX,
             offsetY = transform ? transform.y : drawOffsetY;
 
@@ -273,8 +309,8 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
             } // if..else
         } // for
         
-        return defaultDrawData;
-    } // path
+        return initDrawData(hitData, state);
+    } // prepPoly    
     
     /* initialization */
     
@@ -286,11 +322,14 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         
         applyStyle: applyStyle,
         applyTransform: applyTransform,
-        arc: arc,
         drawTiles: drawTiles,
-        image: image,
+        
+        hitTest: hitTest,
         prepare: prepare,
-        path: path,
+
+        prepArc: prepArc,
+        prepImage: prepImage,
+        prepPoly: prepPoly,
         
         getContext: function() { 
             return context;

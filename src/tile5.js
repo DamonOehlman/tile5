@@ -44,6 +44,7 @@ var T5 = {};
     //= require "js/graphics/drawables/line"
     //= require "js/graphics/drawables/image"
     //= require "js/graphics/drawables/imagemarker"
+    //= require "js/graphics/drawables/arc"
 
     //= require "js/graphics/imagegenerator"
     //= require "js/graphics/layers/viewlayer"
@@ -66,10 +67,8 @@ var T5 = {};
         Generator: Generator,
         
         // animation functions and modules
-        tween: COG.tween,
         tweenValue: COG.tweenValue,
         easing: COG.easing,
-        Tween: COG.Tween,
         
         // core graphics modules
         viewState: viewState,
@@ -83,6 +82,7 @@ var T5 = {};
         Marker: Marker,
         Poly: Poly,
         Line: Line,
+        Arc: Arc,
         ImageDrawable: ImageDrawable,
         ImageMarker: ImageMarker,
         

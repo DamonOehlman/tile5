@@ -1,39 +1,41 @@
 // initialise constants and variables
-var INTERVAL_LOADCHECK = 100,
+var INTERVAL_LOADCHECK = 10,
     INTERVAL_CACHECHECK = 10000,
     LOAD_TIMEOUT = 30000,
     imageCache = {},
     imageCount = 0,
     lastCacheCheck = new Date().getTime(),
     loadingData = {},
-    loadingUrls = [],
-    workerTimeout = 0;
+    loadingUrls = [];
 
 /* internals */
 
-function imageLoadWorker() {
-    var tickCount = new Date().getTime(),
-        ii = 0;
-
-    // clear the worker timeout as this may have been triggered in 
-    // response to an image load event
-    clearTimeout(workerTimeout);
-    workerTimeout = 0;
-    
-    // COG.info('checking for loaded images, we have ' + loadingUrls.length + ' queued');
+function checkImageLoads(tickCount) {
+    tickCount = tickCount || new Date().getTime();
     
     // iterate through the images that are loading
+    var ii = 0;
     while (ii < loadingUrls.length) {
         var url = loadingUrls[ii],
             imageData = loadingData[url],
             imageToCheck = loadingData[url].image,
             imageLoaded = isLoaded(imageToCheck),
             requestAge = tickCount - imageData.start,
-            removeItem = imageLoaded || requestAge >= LOAD_TIMEOUT;
+            removeItem = imageLoaded || requestAge >= LOAD_TIMEOUT,
+            callbacks;
             
         // if the image is loaded, then 
         if (imageLoaded) {
-            triggerLoaded(url, imageData);
+            callbacks = imageData.callbacks;
+
+            // add the image to the cached images
+            imageCache[url] = imageData.image;
+            // COG.info('IMAGE LOADED: ' + url + ', in ' + requestAge + ' ms');
+
+            // fire the callbacks
+            for (var cbIdx = 0; cbIdx < callbacks.length; cbIdx++) {
+                callbacks[cbIdx](imageData.image, true);
+            } // for
         } // if
 
         // if we need to remove the item, then do so
@@ -48,9 +50,8 @@ function imageLoadWorker() {
         } // if..else
     } // while
     
-    // if we still have loading urls, then queue it up again
     if (loadingUrls.length > 0) {
-        workerTimeout = setTimeout(imageLoadWorker, INTERVAL_LOADCHECK);
+        animFrame(checkImageLoads);
     } // if
 } // imageLoadWorker
 
@@ -69,8 +70,7 @@ function loadImage(url, callback) {
     // otherwise, create and load the image
     else {
         var imageToLoad = new Image();
-        
-        // initialise the image parameters
+            
         imageToLoad.id = '_ldimg' + (++imageCount);
         
         // add the image to the loading data
@@ -87,23 +87,9 @@ function loadImage(url, callback) {
         loadingUrls[loadingUrls.length] = url;
     } // if..else
     
-    if (! workerTimeout) {
-        workerTimeout = setTimeout(imageLoadWorker, INTERVAL_LOADCHECK);
-    } // if
+    
+    animFrame(checkImageLoads);
 } // loadImage
-
-function triggerLoaded(url, imageData) {
-    var loadedImage = imageData.image,
-        callbacks = imageData.callbacks;
-        
-    // add the image to the cached images
-    imageCache[url] = loadedImage;
-        
-    // fire the callbacks
-    for (var ii = 0; ii < callbacks.length; ii++) {
-        callbacks[ii](loadedImage, true);
-    } // for
-} // triggerLoaded
 
 /**
 # T5.getImage(url, callback)

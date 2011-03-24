@@ -62,18 +62,6 @@ function ViewLayer(params) {
 
 ViewLayer.prototype = {
     constructor: ViewLayer,
-    
-    /**
-    ### shouldDraw(displayState)
-    
-    Called by a View that contains the layer to determine 
-    whether or not the layer should be drawn for the current display state.  
-    The default implementation does a bitmask operation against the validStates 
-    property to see if the current display state is acceptable.
-    */
-    shouldDraw: function(displayState, viewRect) {
-        return (displayState & this.validStates) !== 0;
-    },
 
     /**
     ### clip(context, offset, dimensions, state)

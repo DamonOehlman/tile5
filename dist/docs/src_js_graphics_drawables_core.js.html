@@ -18,9 +18,18 @@ that need to be implemented for shapes that can be drawn in a <a href="src_js_gr
 
 <h3>drag(dragData, dragX, dragY, drop)</h3>
 
-<h3>prep(renderer, offsetX, offsetY, state)</h3>
+<h3>draw(renderer, drawData)</h3>
 
-<p>Prepping the path for a shape is the main </p>
+<p>The draw method is provided for custom drawables. Internal drawables will delegate
+their drawing to the function that is returned from the various prep* methods of the
+renderer, however, when building some applications this really isn't suitable and
+more is required.  Thus if required a custom draw method can be implemented to implement
+the required functionality.</p>
+
+<h3>getProps(renderer, state)</h3>
+
+<p>Get the drawable item properties that will be passed to the renderer during
+the prepare and draw phase</p>
 
 <h3>resync(view)</h3>
 

@@ -60,35 +60,33 @@ var XY = (function() {
     ### edges(points, count)
     */
     function edges(points, count) {
-        if (! count) {
-            count = points.length;
-        } // if
-        
+        count = count || points.length;
         if (count <= 1) {
-            throw new Error("Cannot determine edge " +
-                "distances for a vector array of only one vector");
+            return null;
         } // if
         
-        var fnresult = {
-            edges: new Array(count - 1),
-            accrued: new Array(count - 1),
-            total: 0
-        };
+        var edgeData = new Array(count - 1),
+            accrued = new Array(count - 1),
+            total = 0,
+            diff;
         
         // iterate through the vectors and calculate the edges
-        // OPTMIZE: look for speed up opportunities
         for (var ii = 0; ii < count - 1; ii++) {
-            var diff = difference(points[ii], points[ii + 1]);
+            // calculate the difference
+            diff = difference(points[ii], points[ii + 1]);
             
-            fnresult.edges[ii] = 
-                sqrt((diff.x * diff.x) + (diff.y * diff.y));
-            fnresult.accrued[ii] = 
-                fnresult.total + fnresult.edges[ii];
-                
-            fnresult.total += fnresult.edges[ii];
+            // calculate the edge data
+            edgeData[ii] = sqrt(diff.x * diff.x + diff.y * diff.y);
+            
+            // update the accrued total and also increment the total at the same time
+            accrued[ii] = total += edgeData[ii];
         } // for
         
-        return fnresult;
+        return {
+            edges: edgeData,
+            accrued: accrued,
+            tota: total
+        };
     } // edges
     
     /**
@@ -157,8 +155,8 @@ var XY = (function() {
     */
     function init(initX, initY) {
         return {
-            x: initX ? initX : 0,
-            y: initY ? initY : 0
+            x: initX || 0,
+            y: initY || 0
         };
     } // init
     
@@ -194,7 +192,7 @@ var XY = (function() {
     Return a new composite xy which is offset by the specified amount.
     */
     function offset(xy, offsetX, offsetY) {
-        return init(xy.x + offsetX, xy.y + (offsetY ? offsetY : offsetX));
+        return init(xy.x + offsetX, xy.y + (offsetY || offsetX));
     } // offset
     
     /**

@@ -8,7 +8,7 @@ SIMULATOR = (function() {
     function initMap() {
         map = new T5.Map({
             // Point to which canvas element to draw in
-            container: 'mapContainer'
+            container: 'mapCanvas'
         });
 
         map.setLayer('tiles', new T5.ImageLayer('osm.cloudmade', {

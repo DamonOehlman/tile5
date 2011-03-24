@@ -612,6 +612,7 @@ var View = function(params) {
             if (renderer.prepare(layers, state, tickCount, hitData)) {
                 var viewport = renderer.getViewport();
                 
+                /*
                 for (var ii = layerCount; ii--; ) {
                     // if a layer is animating the flag as such
                     state = state | (layers[ii].animated ? stateAnimating : 0);
@@ -619,12 +620,13 @@ var View = function(params) {
                     // cycle the layer
                     layers[ii].cycle(tickCount, viewport, state);
                 } // for
+                */
 
-                for (ii = layers.length; ii--; ) {
+                for (ii = layerCount; ii--; ) {
                     var drawLayer = layers[ii];
 
                     // determine whether we need to draw
-                    if (drawLayer.shouldDraw(state, viewport)) {
+                    if ((state & drawLayer.validStates) !== 0) {
                         // if the layer has style, then apply it and save the current style
                         var previousStyle = drawLayer.style ? 
                                 renderer.applyStyle(drawLayer.style) : 
@@ -839,11 +841,10 @@ var View = function(params) {
         
         if (value) {
             addLayer(id, value);
-            value.trigger('refresh', _self, getViewport());
         } // if
 
-        // invalidate the view
-        _self.redraw = true;
+        // refresh the view
+        refresh();
         
         // return the layer so we can chain if we want
         return value;
@@ -1063,15 +1064,6 @@ var View = function(params) {
             } // if
         } // if..else
     } // updateOffset
-    
-    function triggerAllUntilCancelled() {
-        var cancel = _self.trigger.apply(null, arguments).cancel;
-        for (var ii = layers.length; ii--; ) {
-            cancel = layers[ii].trigger.apply(null, arguments).cancel || cancel;
-        } // for
-        
-        return (! cancel);
-    } // triggerAllUntilCancelled
     
     /* object definition */
     

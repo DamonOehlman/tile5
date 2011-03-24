@@ -21,14 +21,14 @@ var Drawable = function(params) {
         draggable: false,
         observable: true, // TODO: should this be true or false by default
         properties: {},
-        type: 'shape'
+        typeName: 'Shape'
     }, params);
     
     // copy the parameters to this
     COG.extend(this, params);
     
     // initialise the id
-    this.id = COG.objId(this.type);
+    this.id = COG.objId(this.typeName);
     this.bounds = null;
     this.view = null;
     
@@ -62,11 +62,21 @@ Drawable.prototype = {
     drag: null,
     
     /**
-    ### prep(renderer, offsetX, offsetY, state)
-    Prepping the path for a shape is the main 
+    ### draw(renderer, drawData)
+    The draw method is provided for custom drawables. Internal drawables will delegate
+    their drawing to the function that is returned from the various prep* methods of the
+    renderer, however, when building some applications this really isn't suitable and
+    more is required.  Thus if required a custom draw method can be implemented to implement
+    the required functionality.
     */
-    prep: function(renderer, offsetX, offsetY, state) {
-    },
+    draw: null,
+
+    /**
+    ### getProps(renderer, state)
+    Get the drawable item properties that will be passed to the renderer during
+    the prepare and draw phase
+    */
+    getProps: null,
     
     /**
     ### resync(view)

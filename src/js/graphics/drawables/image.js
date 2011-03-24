@@ -47,13 +47,16 @@ function ImageDrawable(params) {
     params = COG.extend({
         image: null,
         imageUrl: null,
-        imageOffset: null
+        imageOffset: null,
+        typeName: 'Image'
     }, params);
     
     var dragOffset = null,
         drawableUpdateBounds = Drawable.prototype.updateBounds,
         drawX,
         drawY,
+        imgOffsetX = 0,
+        imgOffsetY = 0,
         image = params.image;
             
     /* exports */
@@ -113,31 +116,25 @@ function ImageDrawable(params) {
         } // if
         
         return true;
-    } // drag    
+    } // drag
     
     /**
-    ### prep(context, offsetX, offsetY, width, height, state, hitData)
-    Prepare the path that will draw the polygon to the canvas
+    ### getProps(renderer, state)
+    Get the drawable item properties that will be passed to the renderer during
+    the prepare and draw phase
     */
-    function prep(renderer, offsetX, offsetY, width, height, state) {
-        // get the image
-        var draw = image && image.width > 0;
-            
-        if (draw) {
+    function getProps(renderer, state) {
+        // check the offset and bounds
+        if (! this.bounds) {
             checkOffsetAndBounds(this, image);
-            
-            // update the draw x and y
-            drawX = this.xy.x + this.imageOffset.x;
-            drawY = this.xy.y + this.imageOffset.y;
-            
-            return renderer.image(
-                image, 
-                drawX,
-                drawY,
-                image.width,
-                image.height);
         } // if
-    } // prep 
+
+        return {
+            image: image,
+            x: this.xy.x + imgOffsetX,
+            y: this.xy.y + imgOffsetY
+        };
+    } // getProps 
     
     /**
     ### updateBounds(bounds: XYRect, updateXY: boolean)
@@ -155,13 +152,19 @@ function ImageDrawable(params) {
     var _self = COG.extend(this, {
         changeImage: changeImage,
         drag: drag,
-        prep: prep,
+        getProps: getProps,
         updateBounds: updateBounds
     });
 
     // load the appropriate image
     if (! image) { 
         changeImage(this.imageUrl);
+    } // if
+    
+    // if we have an image offset, then update the offsetX and Y
+    if (this.imageOffset) {
+        imgOffsetX = this.imageOffset.x;
+        imgOffsetY = this.imageOffset.y;
     } // if
 };
 

@@ -21,47 +21,26 @@ is specified then the style of the T5.PolyLayer is used.
 */
 function Poly(points, params) {
     params = COG.extend({
-        simplify: false
+        simplify: false,
+        typeName: 'Poly'
     }, params);
 
     // initialise variables
-    var haveData = false,
-        simplify = params.simplify,
-        stateZoom = viewState('ZOOM'),
-        fill = params.fill,
-        drawPoints = [];
+    var simplify = params.simplify;
         
-    // initialise the shape type based on the fill state (no fill = line)
-    params.type = fill ? 'polygon' : 'line';
-    
     /* exported functions */
-    
-    /**
-    ### animatePath(easing, duration, drawFn, callback)
-    */
-    function animatePath(easing, duration, drawFn, callback) {
-        
-    } // animatePath
-    
-    /**
-    ### prep(context, offsetX, offsetY, width, height, state, hitData)
-    Prepare the path that will draw the polygon to the canvas
-    */
-    function prep(renderer, offsetX, offsetY, state) {
-        return haveData ? renderer.path(drawPoints) : null;
-    } // prep
     
     /**
     ### resync(view)
     Used to synchronize the points of the poly to the grid.
     */
     function resync(view) {
-        var x, y, maxX, maxY, minX, minY;
+        var x, y, maxX, maxY, minX, minY, drawPoints;
         
         view.syncXY(points);
         
         // simplify the vectors for drawing (if required)
-        drawPoints = XY.floor(simplify ? XY.simplify(points) : points);
+        drawPoints = this.points = XY.floor(simplify ? XY.simplify(points) : points);
 
         // determine the bounds of the shape
         for (var ii = drawPoints.length; ii--; ) {
@@ -84,13 +63,11 @@ function Poly(points, params) {
     
     // extend this
     COG.extend(this, {
-        animatePath: animatePath,
-        prep: prep,
         resync: resync
     });
     
     // initialise the first item to the first element in the array
-    haveData = points && (points.length >= 2);
+    this.haveData = points && (points.length >= 2);
 };
 
 Poly.prototype = COG.extend({}, Drawable.prototype, {

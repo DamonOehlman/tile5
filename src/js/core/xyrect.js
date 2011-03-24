@@ -28,9 +28,10 @@ var XYRect = (function() {
     function buffer(rect, bufferX, bufferY) {
         return XY.init(
             rect.x1 - bufferX,
-            rect.y1 - bufferY ? bufferY : bufferX,
+            rect.y1 - (bufferY || bufferX),
             rect.x1 + bufferX,
-            rect.y1 + bufferY ? bufferY : bufferX);
+            rect.y1 + (bufferY || bufferX)
+        );
     } // buffer
     
     /**
@@ -79,10 +80,10 @@ var XYRect = (function() {
     */
     function init(x1, y1, x2, y2) {
         // default the xy and y1 to 0 if not specified
-        x1 = x1 ? x1 : 0;
-        y1 = y1 ? y1 : 0;
-        x2 = isType(x2, typeNumber) ? x2 : x1;
-        y2 = isType(y2, typeNumber) ? y2 : y2;
+        x1 = x1 || 0;
+        y1 = y1 || 0;
+        x2 = x2 || x1;
+        y2 = y2 || y1;
         
         return {
             x1: x1,

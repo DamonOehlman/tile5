@@ -16,8 +16,7 @@ var DrawLayer = function(params) {
     }, params);
     
     // initialise variables
-    var drawables = [],
-        pipTransformed = CANI.canvas.pipTransformed;
+    var drawables = [];
         
     /* private functions */
     
@@ -38,34 +37,31 @@ var DrawLayer = function(params) {
     /* exports */
     
     function draw(renderer, state, view, tickCount, hitData) {
-        var viewport = renderer.getViewport(),
-            viewX = viewport.x1,
-            viewY = viewport.y1,
-            hitX = hitData ? (pipTransformed ? hitData.x - viewX : hitData.relXY.x) : 0,
-            hitY = hitData ? (pipTransformed ? hitData.y - viewY : hitData.relXY.y) : 0;
+        var emptyProps = {
+            };
             
         // iterate through the drawabless and draw the layers
         for (var ii = drawables.length; ii--; ) {
             var drawable = drawables[ii],
-                dx = drawable.xy.x,
-                dy = drawable.xy.y,
                 overrideStyle = drawable.style || _self.style, 
                 styleType,
                 previousStyle,
-                prepped,
-                isHit = false,
-                transform = renderer.applyTransform(drawable, viewX, viewY);
+                transform = renderer.applyTransform(drawable),
+                drawProps = drawable.getProps ? drawable.getProps(renderer, state) : emptyProps,
                 
-            // prep the path
-            drawData = drawable.prep(renderer, 
-                transform ? transform.x : viewX, 
-                transform ? transform.y : viewY, 
-                state);
-            
+                prepFn = renderer['prep' + drawable.typeName],
+                drawFn,
+                
+                drawData = prepFn ? prepFn.call(renderer, 
+                    drawable,
+                    hitData,
+                    state,
+                    drawProps) : null;
+                    
             // prep the path for the child
             if (drawData) {
-                // check for a hit in the path that has just been drawn
-                if (hitData && renderer.hitTest(drawData, hitX, hitY)) {
+                // if the element has been hit then update
+                if (drawData.hit) {
                     hitData.elements.push(Hits.initHit(
                         drawable.type, 
                         drawable, 
@@ -82,9 +78,12 @@ var DrawLayer = function(params) {
                 // save the previous style
                 previousStyle = overrideStyle ? renderer.applyStyle(overrideStyle) : null;
                 
-                // draw the layer
-                if (drawData.draw) {
-                    drawData.draw.call(drawable, viewX, viewY, state);
+                // get the draw function (using the drawable override if defined)
+                drawFn = drawable.draw || drawData.draw;
+                
+                // if we have a draw function then run it
+                if (drawFn) {
+                    drawFn.call(drawable, drawData);
                 } // if
                 
                 // if we have a previous style, then restore that style
