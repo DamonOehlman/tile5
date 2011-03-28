@@ -20,18 +20,17 @@ registerRenderer('dom', function(view, container, params, baseRenderer) {
     
     /* exports */
     
-    function drawTiles(tiles) {
+    function drawTiles(viewport, tiles) {
         var tile,
             image,
-            offset = _this.getOffset(),
-            viewport = _this.getViewport(),
+            scaleFactor = viewport.scaleFactor,
             inViewport,
-            offsetX = offset.x,
-            offsetY = offset.y,
+            offsetX = viewport.x,
+            offsetY = viewport.y,
             minX = offsetX - 256,
             minY = offsetY - 256,
-            maxX = offsetX + viewport.width,
-            maxY = offsetY + viewport.height,
+            maxX = offsetX + viewport.w,
+            maxY = offsetY + viewport.h,
             relX, relY;
             
         for (var ii = tiles.length; ii--; ) {
@@ -63,7 +62,7 @@ registerRenderer('dom', function(view, container, params, baseRenderer) {
             } // if..else
 
             // show or hide the image depending on whether it is in the viewport or not
-            image.style.display = 'block'; // inViewport ? 'block' : 'none';
+            image.style.display = inViewport ? 'block' : 'none';
         } // for
     } // drawTiles
     

@@ -156,7 +156,7 @@ var BoundingBox = (function() {
     } // getGeoHash
     
     /** 
-    ### getZoomLevel(bounds, displaySize)
+    ### getZoomLevel(bounds, viewport)
 
     This function is used to return the zoom level (seems consistent across 
     mapping providers at this stage) that is required to properly display 
@@ -164,7 +164,7 @@ var BoundingBox = (function() {
     a Dimensions object) of the map display. Adapted from 
     [this code](http://groups.google.com/group/google-maps-js-api-v3/browse_thread/thread/43958790eafe037f/66e889029c555bee)
     */
-    function getZoomLevel(bounds, displaySize) {
+    function getZoomLevel(bounds, viewport) {
         // get the constant index for the center of the bounds
         var boundsCenter = getCenter(bounds),
             maxZoom = 1000,
@@ -174,8 +174,8 @@ var BoundingBox = (function() {
             // interestingly, the original article had the variability included, when in actual reality it isn't, 
             // however a constant value is required. must find out exactly what it is.  At present, though this
             // works fine.
-            bestZoomH = ceil(log(LAT_VARIABILITIES[3] * displaySize.height / delta.y) / log(2)),
-            bestZoomW = ceil(log(variability * displaySize.width / delta.x) / log(2));
+            bestZoomH = ceil(log(LAT_VARIABILITIES[3] * viewport.h / delta.y) / log(2)),
+            bestZoomW = ceil(log(variability * viewport.w / delta.x) / log(2));
 
         // COG.info("constant index for bbox: " + bounds + " (center = " + boundsCenter + ") is " + variabilityIndex);
         // COG.info("distances  = " + delta);

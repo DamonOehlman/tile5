@@ -79,8 +79,8 @@ T5.registerRenderer('webgl', function(view, container, params, baseRenderer) {
             // initialise the tile verticies
             x1 = tile.x;
             y1 = -tile.y;
-            x2 = x1 + tile.width;
-            y2 = y1 + tile.height;
+            x2 = x1 + tile.w;
+            y2 = y1 + tile.h;
             vertices = [
                  x2, y2, 0,
                  x1, y2, 0,

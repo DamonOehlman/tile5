@@ -27,10 +27,10 @@ var XYRect = (function() {
     */
     function buffer(rect, bufferX, bufferY) {
         return XY.init(
-            rect.x1 - bufferX,
-            rect.y1 - (bufferY || bufferX),
-            rect.x1 + bufferX,
-            rect.y1 + (bufferY || bufferX)
+            rect.x - bufferX,
+            rect.y - (bufferY || bufferX),
+            rect.x + bufferX,
+            rect.y + (bufferY || bufferX)
         );
     } // buffer
     
@@ -39,7 +39,7 @@ var XYRect = (function() {
     Return a xy composite for the center of the rect
     */
     function center(rect) {
-        return XY.init(rect.x1 + (rect.width >> 1), rect.y1 + (rect.height >> 1));
+        return XY.init(rect.x + (rect.w >> 1), rect.y + (rect.h >> 1));
     } // center
     
     /**
@@ -47,7 +47,7 @@ var XYRect = (function() {
     Return a duplicate of the XYRect
     */
     function copy(rect) {
-        return init(rect.x1, rect.y1, rect.x2, rect.y2);
+        return init(rect.x, rect.y, rect.x2, rect.y2);
     } // copy
     
     /**
@@ -55,7 +55,7 @@ var XYRect = (function() {
     Return the distance from corner to corner of the rect
     */
     function diagonalSize(rect) {
-        return sqrt(rect.width * rect.width + rect.height * rect.height);
+        return sqrt(rect.w * rect.w + rect.h * rect.h);
     } // diagonalSize
     
     /**
@@ -75,24 +75,24 @@ var XYRect = (function() {
     } // fromCenter
     
     /**
-    ### init(x1, y1, x2, y2)
+    ### init(x, y, x2, y2)
     Create a new XYRect composite object
     */
-    function init(x1, y1, x2, y2) {
+    function init(x, y, x2, y2) {
         // default the xy and y1 to 0 if not specified
-        x1 = x1 || 0;
-        y1 = y1 || 0;
-        x2 = x2 || x1;
-        y2 = y2 || y1;
+        x = x || 0;
+        y = y || 0;
+        x2 = x2 || x;
+        y2 = y2 || y;
         
         return {
-            x1: x1,
-            y1: y1,
+            x: x,
+            y: y,
             x2: x2,
             y2: y2,
         
-            width: x2 - x1,
-            height: y2 - y1
+            w: x2 - x,
+            h: y2 - y
         };
     } // init
     
@@ -101,13 +101,13 @@ var XYRect = (function() {
     Returns the intersecting rect between the two specified XYRect composites
     */
     function intersect(rect1, rect2) {
-        var x1 = max(rect1.x1, rect2.x1),
-            y1 = max(rect1.y1, rect2.y1),
+        var x1 = max(rect1.x, rect2.x),
+            y1 = max(rect1.y, rect2.y),
             x2 = min(rect1.x2, rect2.x2),
             y2 = min(rect1.y2, rect2.y2),
             r = init(x1, y1, x2, y2);
             
-        return ((r.width > 0) && (r.height > 0)) ? r : null;
+        return ((r.w > 0) && (r.h > 0)) ? r : null;
     } // intersect
     
     /**
@@ -115,7 +115,7 @@ var XYRect = (function() {
     Return the string representation of the rect
     */
     function toString(rect) {
-        return rect ? ('[' + rect.x1 + ', ' + rect.y1 + ', ' + rect.x2 + ', ' + rect.y2 + ']') : '';
+        return rect ? ('[' + rect.x + ', ' + rect.y + ', ' + rect.x2 + ', ' + rect.y2 + ']') : '';
     } // toString
     
     /**
@@ -123,20 +123,20 @@ var XYRect = (function() {
     Return the minimum rect required to contain both of the supplied rects
     */
     function union(rect1, rect2) {
-        if (rect1.width === 0 || rect1.height === 0) {
+        if (rect1.w === 0 || rect1.h === 0) {
             return copy(rect2);
         }
-        else if (rect2.width === 0 || rect2.height === 0) {
+        else if (rect2.w === 0 || rect2.h === 0) {
             return copy(rect1);
         }
         else {
-            var x1 = min(rect1.x1, rect2.x1),
-                y1 = min(rect1.y1, rect2.y1),
+            var x1 = min(rect1.x, rect2.x),
+                y1 = min(rect1.y, rect2.y),
                 x2 = max(rect1.x2, rect2.x2),
                 y2 = max(rect1.y2, rect2.y2),
                 r = init(x1, y1, x2, y2);
 
-            return ((r.width > 0) && (r.height > 0)) ? r : null;
+            return ((r.w > 0) && (r.h > 0)) ? r : null;
         } // if..else
     } // union
     

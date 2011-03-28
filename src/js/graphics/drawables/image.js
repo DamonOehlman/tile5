@@ -75,7 +75,7 @@ function ImageDrawable(params) {
 
                     // invalidate the view
                     if (view) {
-                        view.redraw = true;
+                        view.invalidate();
                     } // if
                 } // if
             });
@@ -109,6 +109,7 @@ function ImageDrawable(params) {
                 var view = this.layer.view;
                 if (view) {
                     view.syncXY([this.xy], true);
+                    view.invalidate();
                 } // if
             } // if
             

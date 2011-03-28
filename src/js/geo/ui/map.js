@@ -38,7 +38,6 @@ var Map = exports.Map = function(params) {
         tapExtent: 10, // TODO: remove and use the inherited value
         crosshair: false,
         zoomLevel: 0,
-        boundsChangeThreshold: 30,
         minZoom: 1,
         maxZoom: 18,
         pannable: true,
@@ -63,7 +62,7 @@ var Map = exports.Map = function(params) {
         locationOverlay = null,
         geoWatchId = 0,
         initialTrackingUpdate = true,
-        radsPerPixel = 0,
+        rpp = 0,
         tapExtent = params.tapExtent;
         
     /* internal functions */
@@ -72,7 +71,7 @@ var Map = exports.Map = function(params) {
     
     function trackingUpdate(position) {
         try {
-            var currentPos = Geo.Position.init(
+            var currentPos = Position.init(
                         position.coords.latitude, 
                         position.coords.longitude),
                 accuracy = position.coords.accuracy / 1000;
@@ -85,7 +84,7 @@ var Map = exports.Map = function(params) {
                 // if the geolocation annotation has not 
                 // been created then do that now
                 if (! locationOverlay) {
-                    locationOverlay = new Geo.UI.LocationOverlay({
+                    locationOverlay = new UI.LocationOverlay({
                         pos: currentPos,
                         accuracy: accuracy
                     });
@@ -97,7 +96,7 @@ var Map = exports.Map = function(params) {
                 } // if
 
                 // TODO: fix the magic number
-                var targetBounds = Geo.BoundingBox.createBoundsFromCenter(
+                var targetBounds = BoundingBox.createBoundsFromCenter(
                         currentPos, 
                         Math.max(accuracy, 1));
                         
@@ -140,13 +139,13 @@ var Map = exports.Map = function(params) {
     } // handlePan
     
     function handleTap(evt, absXY, relXY, offsetXY) {
-        var tapPos = GeoXY.toPos(offsetXY, radsPerPixel),
+        var tapPos = GeoXY.toPos(offsetXY, rpp),
             minPos = GeoXY.toPos(
                 XY.offset(offsetXY, -tapExtent, tapExtent),
-                radsPerPixel),
+                rpp),
             maxPos = GeoXY.toPos(
                 XY.offset(offsetXY, tapExtent, -tapExtent),
-                radsPerPixel);
+                rpp);
                 
         _self.trigger(
             'geotap', 
@@ -191,11 +190,7 @@ var Map = exports.Map = function(params) {
     } // handleTap
     
     function handleRefresh(evt) {
-        var changeDelta = XY.absSize(XY.diff(lastBoundsChangeOffset, _self.getOffset()));
-        if (changeDelta > params.boundsChangeThreshold) {
-            lastBoundsChangeOffset = XY.copy(_self.getOffset());
-            _self.trigger("boundsChange", _self.getBoundingBox());
-        } // if
+        _self.trigger("boundsChange", _self.getBoundingBox());
     } // handleWork
     
     function handleProviderUpdate(name, value) {
@@ -207,10 +202,10 @@ var Map = exports.Map = function(params) {
         var gridSize;
         
         // update the rads per pixel to reflect the zoom level change
-        radsPerPixel = Geo.radsPerPixel(zoomLevel);
+        rpp = radsPerPixel(zoomLevel);
         
         // calculate the grid size
-        gridSize = TWO_PI / radsPerPixel | 0;
+        gridSize = TWO_PI / rpp | 0;
         _self.setMaxOffset(gridSize, gridSize, true, false);
         
         // remove the grid layer
@@ -219,14 +214,12 @@ var Map = exports.Map = function(params) {
         // reset scaling and resync the map
         _self.resetScale();
         _self.triggerAll('resync', _self);
-        _self.refresh();
     } // handleZoomLevel
     
     /* internal functions */
     
     function getLayerScaling(oldZoom, newZoom) {
-        return Geo.radsPerPixel(oldZoom) / 
-                    Geo.radsPerPixel(newZoom);
+        return radsPerPixel(oldZoom) / radsPerPixel(newZoom);
     } // getLayerScaling
     
     /* public methods */
@@ -240,9 +233,9 @@ var Map = exports.Map = function(params) {
         var viewport = _self.getViewport();
         
         return viewport ? 
-            Geo.BoundingBox.init(
-                GeoXY.toPos(XY.init(viewport.x1, viewport.y2), radsPerPixel),
-                GeoXY.toPos(XY.init(viewport.x2, viewport.y1), radsPerPixel)) : 
+            BoundingBox.init(
+                GeoXY.toPos(XY.init(viewport.x, viewport.y2), rpp),
+                GeoXY.toPos(XY.init(viewport.x2, viewport.y), rpp)) : 
             null;
     } // getBoundingBox
 
@@ -253,8 +246,8 @@ var Map = exports.Map = function(params) {
     function getCenterPosition() {
         var viewport = _self.getViewport();
         if (viewport) {
-            var xy = XY.init(viewport.x1 + (viewport.width >> 1), viewport.y1 + (viewport.height >> 1));
-            return GeoXY.toPos(xy, radsPerPixel);
+            var xy = XY.init(viewport.x + (viewport.w >> 1), viewport.y + (viewport.h >> 1));
+            return GeoXY.toPos(xy, rpp);
         } // if
         
         return null;
@@ -268,14 +261,14 @@ var Map = exports.Map = function(params) {
     function gotoBounds(bounds, callback) {
         // calculate the zoom level required for the 
         // specified bounds
-        var zoomLevel = Geo.BoundingBox.getZoomLevel(
+        var zoomLevel = BoundingBox.getZoomLevel(
                             bounds, 
                             _self.getViewport());
         
         // goto the center position of the bounding box 
         // with the calculated zoom level
         gotoPosition(
-            Geo.BoundingBox.getCenter(bounds), 
+            BoundingBox.getCenter(bounds), 
             zoomLevel, 
             callback);
     } // gotoBounds
@@ -307,17 +300,19 @@ var Map = exports.Map = function(params) {
     function panToPosition(position, callback, easingFn, easingDuration) {
         // determine the tile offset for the 
         // requested position
-        var centerXY = GeoXY.init(position, Geo.radsPerPixel(_self.getZoomLevel())),
+        var centerXY = GeoXY.init(position, radsPerPixel(_self.getZoomLevel())),
             offsetX = centerXY.x - (_self.width >> 1),
             offsetY = centerXY.y - (_self.height >> 1);
             
         // COG.info('panning to center xy: ', centerXY);
         _self.updateOffset(offsetX, offsetY, easingFn, easingDuration, function() {
+            /*
             // refresh the display
             _self.refresh();
             
             // trigger a bounds change event
             _self.trigger("boundsChange", _self.getBoundingBox());
+            */
             
             // if a callback is defined, then pass that on
             if (callback) {
@@ -333,7 +328,7 @@ var Map = exports.Map = function(params) {
     grid so they can perform their calculations
     */
     function syncXY(points, reverse) {
-        return (reverse ? GeoXY.syncPos : GeoXY.sync)(points, radsPerPixel);
+        return (reverse ? GeoXY.syncPos : GeoXY.sync)(points, rpp);
     } // syncXY
     
     /* public object definition */

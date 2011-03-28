@@ -97,7 +97,7 @@ This function is used to load an image and fire a callback when the image
 is loaded.  The callback fires when the image is _really_ loaded (not 
 when the onload event handler fires).
 */
-var getImage = T5.getImage = function(url, callback) {
+function getImage(url, callback) {
     var image = url && callback ? imageCache[url] : null;
         
     // if we have the image and it is loaded, then fire the callback

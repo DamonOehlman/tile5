@@ -181,9 +181,6 @@ T5.Flickr = (function() {
                     if (callback) {
                         callback(data);
                     }
-                    
-                    COG.info('triggering update');
-                    _self.trigger('update');
                 }, "jsoncallback");
             });
         } // queryFlickr
@@ -217,8 +214,8 @@ T5.Flickr = (function() {
         */
         function run(view, viewRect, callback) {
             // determine the start x and y
-            var startX = viewRect.x1 % tileWidth - tileWidth,
-                startY = viewRect.y1 % tileHeight - tileHeight,
+            var startX = viewRect.x % tileWidth - tileWidth,
+                startY = viewRect.y % tileHeight - tileHeight,
                 endX = viewRect.x2 + tileWidth,
                 endY = viewRect.y2 + tileHeight,
                 images = [],
@@ -285,9 +282,9 @@ T5.Flickr = (function() {
 
         /* define the generator */
 
-        var _self = COG.extend(new T5.ImageGenerator(params), {
+        var _self = {
             run: run
-        });
+        };
 
         
         return _self;

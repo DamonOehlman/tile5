@@ -45,9 +45,9 @@
     
         /* define _self */
     
-        var _self = COG.extend(new T5.ImageGenerator(params), {
+        var _self = {
             run: run
-        });
+        };
     
         return _self;        
     };

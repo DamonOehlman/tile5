@@ -12,6 +12,7 @@
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true */
 
 // TODO: replace with a github dependency once getjs is done
+//= require <RTree/src/rtree>
 //= require <cog/src/cog>
 //= require <cog/src/timelord>
 //= require <cog/src/objectstore>
@@ -24,9 +25,11 @@ var T5 = {};
     
     //= require "js/shorts"
     //= require "js/core"
-    //= require "js/imageloader"
     //= require "js/canvasmaker"
     //= require "js/generator"
+    
+    //= require "js/images/loader"
+    //= require "js/images/tile"
     
     //= require "js/graphics/renderers/base"
     //= require "js/graphics/renderers/canvas"
@@ -46,9 +49,8 @@ var T5 = {};
     //= require "js/graphics/drawables/imagemarker"
     //= require "js/graphics/drawables/arc"
 
-    //= require "js/graphics/imagegenerator"
     //= require "js/graphics/layers/viewlayer"
-    //= require "js/graphics/layers/imagelayer"
+    //= require "js/graphics/layers/tilelayer"
     //= require "js/graphics/layers/drawlayer"
     //= require "js/graphics/layers/shapelayer"
     
@@ -70,12 +72,16 @@ var T5 = {};
         tweenValue: COG.tweenValue,
         easing: COG.easing,
         
+        // images
+        Tile: Tile,
+        TileLayer: TileLayer,
+        getImage: getImage,
+        
         // core graphics modules
         viewState: viewState,
         View: View,
         ViewLayer: ViewLayer,
-        ImageLayer: ImageLayer,
-        ImageGenerator: ImageGenerator,
+        ImageLayer: TileLayer,
         
         // shapes
         Drawable: Drawable,
@@ -93,5 +99,69 @@ var T5 = {};
     // make T5 observable
     COG.observable(exports);
     
-    //= require "tile5.variant"
+    //= require "js/geo/constants"
+    //= require "js/geo/functions"
+    
+    //= require "js/geo/types/position"
+    //= require "js/geo/types/boundingbox"
+    //= require "js/geo/types/radius"
+    //= require "js/geo/types/address"
+    //= require "js/geo/types/geoxy"
+    
+    //= require "js/geo/types/engine"
+    
+    //= require "js/geo/search/search"
+    //= require "js/geo/search/searchresult"
+    //= require "js/geo/search/geolocation"
+    
+    //= require "js/geo/routing"
+    
+    //= require "js/geo/geojson"
+
+    //= require "js/geo/ui/map"
+    //= require "js/geo/ui/geopoly"
+    //= require "js/geo/ui/locationoverlay"    
+    
+    // define the geo functionality
+    exports.Geo = {
+        distanceToString: distanceToString,
+        dist2rad: dist2rad,
+        getEngine: getEngine,
+
+        /*
+        lat2pix: lat2pix,
+        lon2pix: lon2pix,
+        pix2lat: pix2lat,
+        pix2lon: pix2lon,
+        */
+
+        radsPerPixel: radsPerPixel,
+
+        Position: Position,
+        BoundingBox: BoundingBox,
+        Radius: Radius,
+        
+        Address: Address,
+        A: addrTools,
+        
+        // TODO: probably need to include local support for addressing, but really don't want to bulk out T5 :/
+
+        GeocodeFieldWeights: {
+            streetDetails: 50,
+            location: 50
+        },
+
+        AddressCompareFns: {
+        },
+                
+        Engine: GeoEngine,
+        
+        Search: Search,
+        GeoSearchResult: GeoSearchResult,
+        LocationSearch: LocationSearch,
+        
+        Routing: Routing,
+        
+        GeoJSON: GeoJSON
+    };
 })(T5);

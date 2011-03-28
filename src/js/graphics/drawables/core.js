@@ -48,6 +48,12 @@ var Drawable = function(params) {
 Drawable.prototype = {
     constructor: Drawable,
     
+    addToTree: function(tree) {
+        if (tree && this.bounds) {
+            tree.insert(this.bounds, this);
+        } // if
+    },
+    
     /**
     ### animate(fn, argsStart, argsEnd, opts)
     */

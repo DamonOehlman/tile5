@@ -8,7 +8,6 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         vpHeight,
         canvas,
         context,
-        viewport,
         drawOffsetX = 0,
         drawOffsetY = 0,
         transform = null,
@@ -24,15 +23,6 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
                 context.stroke();
             } // if
         };
-        
-    function drawTile(tile, x, y) {
-        getImage(tile.url, function(image, loaded) {
-            view.redraw = loaded;
-            if (! loaded) {
-                context.drawImage(image, x, y);
-            } // if
-        });
-    } // drawTile
         
     // TODO (0.9.7): remove the canvas detection and assume that we have been passed a div
     function createCanvas() {
@@ -66,7 +56,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         } // if
     } // createCanvas
     
-    function initDrawData(hitData, state, drawFn) {
+    function initDrawData(viewport, hitData, state, drawFn) {
         var isHit = false;
         
         // check for a hit
@@ -80,6 +70,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         return {
             // initialise core draw data properties
             draw: drawFn || defaultDrawFn,
+            viewport: viewport,
             state: state,
             hit: isHit,
             vpX: drawOffsetX,
@@ -111,8 +102,8 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     } // applyStyle
     
     function applyTransform(drawable) {
-        var translated = drawable.translateX || drawable.translateY,
-            transformed = translated || drawable.scaling !== 1 || drawable.rotatation;
+        var translated = drawable.translateX !== 0 || drawable.translateY !== 0,
+            transformed = translated || drawable.scaling !== 1 || drawable.rotation !== 0;
             
         if (transformed) {
             context.save();
@@ -145,7 +136,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         return transform;
     } // applyTransform
     
-    function drawTiles(tiles) {
+    function drawTiles(viewport, tiles) {
         var tile,
             inViewport,
             minX = drawOffsetX - 256,
@@ -162,7 +153,15 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
                 
             // show or hide the image depending on whether it is in the viewport
             if (inViewport) {
-                drawTile(tile, tile.x - drawOffsetX, tile.y - drawOffsetY);
+                if (! tile.loaded) {
+                    tile.load(view.invalidate);
+                }
+                else {
+                    context.drawImage(
+                        tile.image, 
+                        tile.x - drawOffsetX, 
+                        tile.y - drawOffsetY);
+                } // if..else
             } // if
         } // for
     } // drawTiles
@@ -174,7 +173,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         return context.isPointInPath(hitX, hitY);
     } // hitTest
     
-    function prepare(layers, state, tickCount, hitData) {
+    function prepare(layers, viewport, state, tickCount, hitData) {
         var ii,
             canClip = false,
             viewOffset = view.getOffset(),
@@ -196,26 +195,9 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
             canClip = canClip || layers[ii].clip;
         } // for
         
-        // initialise the viewport
-        viewport = XYRect.init(viewX, viewY, viewX + vpWidth, viewY + vpHeight);
-        viewport.scaleFactor = scaleFactor;
-
-        // if we are scaling, then scale the viewport
-        if (scaleFactor !== 1) {
-            var centerX = viewport.x1 + (vpWidth >> 1),
-                centerY = viewport.y1 + (vpHeight >> 1);
-                
-            viewport = XYRect.fromCenter(
-                centerX, 
-                centerY, 
-                vpWidth / scaleFactor | 0,
-                vpHeight / scaleFactor | 0
-            );
-        } // if
-        
         // update the offset x and y
-        drawOffsetX = viewport.x1;
-        drawOffsetY = viewport.y1;
+        drawOffsetX = viewport.x;
+        drawOffsetY = viewport.y;
         
         if (context) {
             // if we can't clip then clear the context
@@ -237,9 +219,9 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     } // prepare
     
     /**
-    ### prepArc(drawable, hitData, state, opts)
+    ### prepArc(drawable, viewport, hitData, state, opts)
     */
-    function prepArc(drawable, hitData, state, opts) {
+    function prepArc(drawable, viewport, hitData, state, opts) {
         context.beginPath();
         context.arc(
             drawable.xy.x - (transform ? transform.x : drawOffsetX),
@@ -250,13 +232,13 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
             false
         );
         
-        return initDrawData(hitData, state);
+        return initDrawData(viewport, hitData, state);
     } // prepArc
     
     /**
-    ### prepImage(drawable, hitData, state, opts)
+    ### prepImage(drawable, viewport, hitData, state, opts)
     */
-    function prepImage(drawable, hitData, state, opts) {
+    function prepImage(drawable, viewport, hitData, state, opts) {
         var realX = (opts.x || drawable.xy.x) - (transform ? transform.x : drawOffsetX),
             realY = (opts.y || drawable.xy.y) - (transform ? transform.y : drawOffsetY),
             image = opts.image || drawable.image;
@@ -271,7 +253,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
                 opts.height || image.height
             );
 
-            return initDrawData(hitData, state, function(drawData) {
+            return initDrawData(viewport, hitData, state, function(drawData) {
                 context.drawImage(
                     image, 
                     realX, 
@@ -284,9 +266,9 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     } // prepImage
     
     /**
-    ### prepPoly(drawable, hitData, state, opts)
+    ### prepPoly(drawable, viewport, hitData, state, opts)
     */
-    function prepPoly(drawable, hitData, state, opts) {
+    function prepPoly(drawable, viewport, hitData, state, opts) {
         var first = true,
             points = opts.points || drawable.points,
             offsetX = transform ? transform.x : drawOffsetX,
@@ -309,7 +291,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
             } // if..else
         } // for
         
-        return initDrawData(hitData, state);
+        return initDrawData(viewport, hitData, state);
     } // prepPoly    
     
     /* initialization */
@@ -344,10 +326,6 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         
         getOffset: function() {
             return XY.init(drawOffsetX, drawOffsetY);
-        },
-        
-        getViewport: function() {
-            return viewport;
         }
     });
     

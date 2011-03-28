@@ -37,7 +37,7 @@ function registerAnimationCallback(fn) {
     } // if
 } // registerAnimationCallback
 
-function animateDrawable(target, fn, argsStart, argsEnd, opts) {
+function animateDrawable(target, fnName, argsStart, argsEnd, opts) {
     opts = COG.extend({
         easing: 'sine.out',
         duration: 1000,
@@ -48,8 +48,8 @@ function animateDrawable(target, fn, argsStart, argsEnd, opts) {
     
     var startTicks = new Date().getTime(),
         lastTicks = 0,
-        targetFn = target[fn],
-        floorValue = fn == 'translate',
+        targetFn = target[fnName],
+        floorValue = fnName == 'translate',
         argsComplete = 0,
         autoInvalidate = opts.autoInvalidate,
         animateValid = argsStart.length && argsEnd.length && 
@@ -87,7 +87,7 @@ function animateDrawable(target, fn, argsStart, argsEnd, opts) {
 
             // if we need to auto invalidate the control then do so now
             if (autoInvalidate && view) {
-                view.redraw = true;
+                view.invalidate();
             } // if
             
             // if we have a progress callback, trigger that

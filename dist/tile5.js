@@ -11,6 +11,652 @@
 
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true */
 
+
+/**
+ * RTree - A simple r-tree structure for great results.
+ * @constructor
+ */
+var RTree = function(width){
+	var _Min_Width = 3;  // Minimum width of any node before a merge
+	var _Max_Width = 6;  // Maximum width of any node before a split
+	if(!isNaN(width)){ _Min_Width = Math.floor(width/2.0); _Max_Width = width;}
+	var _T = {x:0, y:0, w:0, h:0, id:"root", nodes:[] };
+
+	var isArray = function(o) {
+		return Object.prototype.toString.call(o) === '[object Array]';
+	};
+
+	/* @function
+	 * @description Function to generate unique strings for element IDs
+	 * @param {String} n			The prefix to use for the IDs generated.
+	 * @return {String}				A guarenteed unique ID.
+	 */
+    var _name_to_id = (function() {
+        var idCache = {};
+
+        return function(idPrefix) {
+            var idVal = 0;
+            if(idPrefix in idCache) {
+                idVal = idCache[idPrefix]++;
+            } else {
+                idCache[idPrefix] = 0;
+            }
+            return idPrefix + "_" + idVal;
+        }
+    })();
+
+	RTree.Rectangle.squarified_ratio = function(l, w, fill) {
+	  var lperi = (l + w) / 2.0; // Average size of a side of the new rectangle
+	  var larea = l * w; // Area of new rectangle
+	  var lgeo = larea / (lperi*lperi);
+	  return(larea * fill / lgeo);
+	};
+
+	/* find the best specific node(s) for object to be deleted from
+	 * [ leaf node parent ] = _remove_subtree(rectangle, object, root)
+	 * @private
+	 */
+	var _remove_subtree = function(rect, obj, root) {
+		var hit_stack = []; // Contains the elements that overlap
+		var count_stack = []; // Contains the elements that overlap
+		var ret_array = [];
+		var current_depth = 1;
+
+		if(!rect || !RTree.Rectangle.overlap_rectangle(rect, root))
+		 return ret_array;
+
+		var ret_obj = {x:rect.x, y:rect.y, w:rect.w, h:rect.h, target:obj};
+
+		count_stack.push(root.nodes.length);
+		hit_stack.push(root);
+
+		do {
+			var tree = hit_stack.pop();
+			var i = count_stack.pop()-1;
+
+		  if("target" in ret_obj) { // We are searching for a target
+				while(i >= 0)	{
+					var ltree = tree.nodes[i];
+					if(RTree.Rectangle.overlap_rectangle(ret_obj, ltree)) {
+						if( (ret_obj.target && "leaf" in ltree && ltree.leaf === ret_obj.target)
+							||(!ret_obj.target && ("leaf" in ltree || RTree.Rectangle.contains_rectangle(ltree, ret_obj)))) { // A Match !!
+				  		if("nodes" in ltree) {// If we are deleting a node not a leaf...
+				  			ret_array = _search_subtree(ltree, true, [], ltree);
+				  			tree.nodes.splice(i, 1);
+				  		} else {
+								ret_array = tree.nodes.splice(i, 1);
+							}
+							RTree.Rectangle.make_MBR(tree.nodes, tree);
+							delete ret_obj.target;
+							if(tree.nodes.length < _Min_Width) { // Underflow
+								ret_obj.nodes = _search_subtree(tree, true, [], tree);
+							}
+							break;
+			  		}/*	else if("load" in ltree) { // A load
+				  	}*/	else if("nodes" in ltree) { // Not a Leaf
+				  		current_depth += 1;
+				  		count_stack.push(i);
+				  		hit_stack.push(tree);
+				  		tree = ltree;
+				  		i = ltree.nodes.length;
+				  	}
+				  }
+					i -= 1;
+				}
+			} else if("nodes" in ret_obj) { // We are unsplitting
+				tree.nodes.splice(i+1, 1); // Remove unsplit node
+				if(tree.nodes.length > 0)
+					RTree.Rectangle.make_MBR(tree.nodes, tree);
+				for(var t = 0;t<ret_obj.nodes.length;t++)
+					_insert_subtree(ret_obj.nodes[t], tree);
+				ret_obj.nodes.length = 0;
+				if(hit_stack.length == 0 && tree.nodes.length <= 1) { // Underflow..on root!
+					ret_obj.nodes = _search_subtree(tree, true, ret_obj.nodes, tree);
+					tree.nodes.length = 0;
+					hit_stack.push(tree);
+					count_stack.push(1);
+				} else if(hit_stack.length > 0 && tree.nodes.length < _Min_Width) { // Underflow..AGAIN!
+					ret_obj.nodes = _search_subtree(tree, true, ret_obj.nodes, tree);
+					tree.nodes.length = 0;
+				}else {
+					delete ret_obj.nodes; // Just start resizing
+				}
+			} else { // we are just resizing
+				RTree.Rectangle.make_MBR(tree.nodes, tree);
+			}
+			current_depth -= 1;
+		}while(hit_stack.length > 0);
+
+		return(ret_array);
+	};
+
+	/* choose the best damn node for rectangle to be inserted into
+	 * [ leaf node parent ] = _choose_leaf_subtree(rectangle, root to start search at)
+	 * @private
+	 */
+	var _choose_leaf_subtree = function(rect, root) {
+		var best_choice_index = -1;
+		var best_choice_stack = [];
+		var best_choice_area;
+
+		var load_callback = function(local_tree, local_node){
+			return(function(data) {
+				local_tree._attach_data(local_node, data);
+			});
+		};
+
+		best_choice_stack.push(root);
+		var nodes = root.nodes;
+
+		do {
+			if(best_choice_index != -1)	{
+				best_choice_stack.push(nodes[best_choice_index]);
+				nodes = nodes[best_choice_index].nodes;
+				best_choice_index = -1;
+			}
+
+			for(var i = nodes.length-1; i >= 0; i--) {
+				var ltree = nodes[i];
+				if("leaf" in ltree) {
+					best_choice_index = -1;
+					break;
+			  } /*else if(ltree.load) {
+  				throw( "Can't insert into partially loaded tree ... yet!");
+  			}*/
+			  var old_lratio = RTree.Rectangle.squarified_ratio(ltree.w, ltree.h, ltree.nodes.length+1);
+
+			  var nw = Math.max(ltree.x+ltree.w, rect.x+rect.w) - Math.min(ltree.x, rect.x);
+			  var nh = Math.max(ltree.y+ltree.h, rect.y+rect.h) - Math.min(ltree.y, rect.y);
+
+			  var lratio = RTree.Rectangle.squarified_ratio(nw, nh, ltree.nodes.length+2);
+
+			  if(best_choice_index < 0 || Math.abs(lratio - old_lratio) < best_choice_area) {
+			  	best_choice_area = Math.abs(lratio - old_lratio); best_choice_index = i;
+			  }
+			}
+		}while(best_choice_index != -1);
+
+		return(best_choice_stack);
+	};
+
+	/* split a set of nodes into two roughly equally-filled nodes
+	 * [ an array of two new arrays of nodes ] = linear_split(array of nodes)
+	 * @private
+	 */
+	var _linear_split = function(nodes) {
+		var n = _pick_linear(nodes);
+		while(nodes.length > 0)	{
+			_pick_next(nodes, n[0], n[1]);
+		}
+		return(n);
+	};
+
+	/* insert the best source rectangle into the best fitting parent node: a or b
+	 * [] = pick_next(array of source nodes, target node array a, target node array b)
+	 * @private
+	 */
+	var _pick_next = function(nodes, a, b) {
+		var area_a = RTree.Rectangle.squarified_ratio(a.w, a.h, a.nodes.length+1);
+		var area_b = RTree.Rectangle.squarified_ratio(b.w, b.h, b.nodes.length+1);
+		var high_area_delta;
+		var high_area_node;
+		var lowest_growth_group;
+
+		for(var i = nodes.length-1; i>=0;i--) {
+			var l = nodes[i];
+			var new_area_a = {};
+			new_area_a.x = Math.min(a.x, l.x); new_area_a.y = Math.min(a.y, l.y);
+			new_area_a.w = Math.max(a.x+a.w, l.x+l.w) - new_area_a.x;	new_area_a.h = Math.max(a.y+a.h, l.y+l.h) - new_area_a.y;
+			var change_new_area_a = Math.abs(RTree.Rectangle.squarified_ratio(new_area_a.w, new_area_a.h, a.nodes.length+2) - area_a);
+
+			var new_area_b = {};
+			new_area_b.x = Math.min(b.x, l.x); new_area_b.y = Math.min(b.y, l.y);
+			new_area_b.w = Math.max(b.x+b.w, l.x+l.w) - new_area_b.x;	new_area_b.h = Math.max(b.y+b.h, l.y+l.h) - new_area_b.y;
+			var change_new_area_b = Math.abs(RTree.Rectangle.squarified_ratio(new_area_b.w, new_area_b.h, b.nodes.length+2) - area_b);
+
+			if( !high_area_node || !high_area_delta || Math.abs( change_new_area_b - change_new_area_a ) < high_area_delta ) {
+				high_area_node = i;
+				high_area_delta = Math.abs(change_new_area_b-change_new_area_a);
+				lowest_growth_group = change_new_area_b < change_new_area_a ? b : a;
+			}
+		}
+		var temp_node = nodes.splice(high_area_node, 1)[0];
+		if(a.nodes.length + nodes.length + 1 <= _Min_Width)	{
+			a.nodes.push(temp_node);
+			RTree.Rectangle.expand_rectangle(a, temp_node);
+		}	else if(b.nodes.length + nodes.length + 1 <= _Min_Width) {
+			b.nodes.push(temp_node);
+			RTree.Rectangle.expand_rectangle(b, temp_node);
+		}
+		else {
+			lowest_growth_group.nodes.push(temp_node);
+			RTree.Rectangle.expand_rectangle(lowest_growth_group, temp_node);
+		}
+	};
+
+	/* pick the "best" two starter nodes to use as seeds using the "linear" criteria
+	 * [ an array of two new arrays of nodes ] = pick_linear(array of source nodes)
+	 * @private
+	 */
+	var _pick_linear = function(nodes) {
+		var lowest_high_x = nodes.length-1;
+		var highest_low_x = 0;
+		var lowest_high_y = nodes.length-1;
+		var highest_low_y = 0;
+        var t1, t2;
+
+		for(var i = nodes.length-2; i>=0;i--)	{
+			var l = nodes[i];
+			if(l.x > nodes[highest_low_x].x ) highest_low_x = i;
+			else if(l.x+l.w < nodes[lowest_high_x].x+nodes[lowest_high_x].w) lowest_high_x = i;
+			if(l.y > nodes[highest_low_y].y ) highest_low_y = i;
+			else if(l.y+l.h < nodes[lowest_high_y].y+nodes[lowest_high_y].h) lowest_high_y = i;
+		}
+		var dx = Math.abs((nodes[lowest_high_x].x+nodes[lowest_high_x].w) - nodes[highest_low_x].x);
+		var dy = Math.abs((nodes[lowest_high_y].y+nodes[lowest_high_y].h) - nodes[highest_low_y].y);
+		if( dx > dy )	{
+			if(lowest_high_x > highest_low_x)	{
+				t1 = nodes.splice(lowest_high_x, 1)[0];
+				t2 = nodes.splice(highest_low_x, 1)[0];
+			}	else {
+				t2 = nodes.splice(highest_low_x, 1)[0];
+				t1 = nodes.splice(lowest_high_x, 1)[0];
+			}
+		}	else {
+			if(lowest_high_y > highest_low_y)	{
+				t1 = nodes.splice(lowest_high_y, 1)[0];
+				t2 = nodes.splice(highest_low_y, 1)[0];
+			}	else {
+				t2 = nodes.splice(highest_low_y, 1)[0];
+				t1 = nodes.splice(lowest_high_y, 1)[0];
+			}
+		}
+		return([{x:t1.x, y:t1.y, w:t1.w, h:t1.h, nodes:[t1]},
+			      {x:t2.x, y:t2.y, w:t2.w, h:t2.h, nodes:[t2]} ]);
+	};
+
+	var _attach_data = function(node, more_tree){
+		node.nodes = more_tree.nodes;
+		node.x = more_tree.x; node.y = more_tree.y;
+		node.w = more_tree.w; node.h = more_tree.h;
+		return(node);
+	};
+
+	/* non-recursive internal search function
+	 * [ nodes | objects ] = _search_subtree(rectangle, [return node data], [array to fill], root to begin search at)
+	 * @private
+	 */
+	var _search_subtree = function(rect, return_node, return_array, root) {
+		var hit_stack = []; // Contains the elements that overlap
+
+		if(!RTree.Rectangle.overlap_rectangle(rect, root))
+		 return(return_array);
+
+		var load_callback = function(local_tree, local_node){
+			return(function(data) {
+				local_tree._attach_data(local_node, data);
+			});
+		};
+
+		hit_stack.push(root.nodes);
+
+		do {
+			var nodes = hit_stack.pop();
+
+			for(var i = nodes.length-1; i >= 0; i--) {
+				var ltree = nodes[i];
+			  if(RTree.Rectangle.overlap_rectangle(rect, ltree)) {
+			  	if("nodes" in ltree) { // Not a Leaf
+			  		hit_stack.push(ltree.nodes);
+			  	} else if("leaf" in ltree) { // A Leaf !!
+			  		if(!return_node)
+		  				return_array.push(ltree.leaf);
+		  			else
+		  				return_array.push(ltree);
+		  		}/*	else if("load" in ltree) { // We need to fetch a URL for some more tree data
+	  				jQuery.getJSON(ltree.load, load_callback(this, ltree));
+	  				delete ltree.load;
+	  			}*/
+				}
+			}
+		}while(hit_stack.length > 0);
+
+		return(return_array);
+	};
+
+	/* non-recursive internal insert function
+	 * [] = _insert_subtree(rectangle, object to insert, root to begin insertion at)
+	 * @private
+	 */
+	var _insert_subtree = function(node, root) {
+		var bc; // Best Current node
+		if(root.nodes.length == 0) {
+			root.x = node.x; root.y = node.y;
+			root.w = node.w; root.h = node.h;
+			root.nodes.push(node);
+			return;
+		}
+
+		var tree_stack = _choose_leaf_subtree(node, root);
+		var ret_obj = node;//{x:rect.x,y:rect.y,w:rect.w,h:rect.h, leaf:obj};
+
+		do {
+			if(bc && "nodes" in bc && bc.nodes.length == 0) {
+				var pbc = bc; // Past bc
+				bc = tree_stack.pop();
+				for(var t=0;t<bc.nodes.length;t++)
+					if(bc.nodes[t] === pbc || bc.nodes[t].nodes.length == 0) {
+						bc.nodes.splice(t, 1);
+						break;
+				}
+			} else {
+				bc = tree_stack.pop();
+			}
+
+			if("leaf" in ret_obj || "nodes" in ret_obj || isArray(ret_obj)) {
+				if(isArray(ret_obj)) {
+					for(var ai = 0; ai < ret_obj.length; ai++) {
+						RTree.Rectangle.expand_rectangle(bc, ret_obj[ai]);
+					}
+					bc.nodes = bc.nodes.concat(ret_obj);
+				} else {
+					RTree.Rectangle.expand_rectangle(bc, ret_obj);
+					bc.nodes.push(ret_obj); // Do Insert
+				}
+
+				if(bc.nodes.length <= _Max_Width)	{ // Start Resizeing Up the Tree
+					ret_obj = {x:bc.x,y:bc.y,w:bc.w,h:bc.h};
+				}	else { // Otherwise Split this Node
+					var a = _linear_split(bc.nodes);
+					ret_obj = a;//[1];
+
+					if(tree_stack.length < 1)	{ // If are splitting the root..
+						bc.nodes.push(a[0]);
+						tree_stack.push(bc);     // Reconsider the root element
+						ret_obj = a[1];
+					} /*else {
+						delete bc;
+					}*/
+				}
+			}	else { // Otherwise Do Resize
+				RTree.Rectangle.expand_rectangle(bc, ret_obj);
+				ret_obj = {x:bc.x,y:bc.y,w:bc.w,h:bc.h};
+			}
+		} while(tree_stack.length > 0);
+	};
+
+	/* quick 'n' dirty function for plugins or manually drawing the tree
+	 * [ tree ] = RTree.get_tree(): returns the raw tree data. useful for adding
+	 * @public
+	 * !! DEPRECATED !!
+	 */
+	this.get_tree = function() {
+		return _T;
+	};
+
+	/* quick 'n' dirty function for plugins or manually loading the tree
+	 * [ tree ] = RTree.set_tree(sub-tree, where to attach): returns the raw tree data. useful for adding
+	 * @public
+	 * !! DEPRECATED !!
+	 */
+	this.set_tree = function(new_tree, where) {
+		if(!where)
+			where = _T;
+		return(_attach_data(where, new_tree));
+	};
+
+	/* non-recursive search function
+	 * [ nodes | objects ] = RTree.search(rectangle, [return node data], [array to fill])
+	 * @public
+	 */
+	this.search = function(rect, return_node, return_array) {
+		if(arguments.length < 1)
+			throw "Wrong number of arguments. RT.Search requires at least a bounding rectangle."
+
+		switch(arguments.length) {
+			case 1:
+				arguments[1] = false;// Add an "return node" flag - may be removed in future
+			case 2:
+				arguments[2] = []; // Add an empty array to contain results
+			case 3:
+				arguments[3] = _T; // Add root node to end of argument list
+			default:
+				arguments.length = 4;
+		}
+		return(_search_subtree.apply(this, arguments));
+	};
+
+	/* partially-recursive toJSON function
+	 * [ string ] = RTree.toJSON([rectangle], [tree])
+	 * @public
+	 */
+	this.toJSON = function(rect, tree) {
+		var hit_stack = []; // Contains the elements that overlap
+		var count_stack = []; // Contains the elements that overlap
+		var return_stack = {}; // Contains the elements that overlap
+		var max_depth = 3;  // This triggers recursion and tree-splitting
+		var current_depth = 1;
+		var return_string = "";
+
+		if(rect && !RTree.Rectangle.overlap_rectangle(rect, _T))
+		 return "";
+
+		if(!tree)	{
+			count_stack.push(_T.nodes.length);
+			hit_stack.push(_T.nodes);
+			return_string += "var main_tree = {x:"+_T.x.toFixed()+",y:"+_T.y.toFixed()+",w:"+_T.w.toFixed()+",h:"+_T.h.toFixed()+",nodes:[";
+		}	else {
+			max_depth += 4;
+			count_stack.push(tree.nodes.length);
+			hit_stack.push(tree.nodes);
+			return_string += "var main_tree = {x:"+tree.x.toFixed()+",y:"+tree.y.toFixed()+",w:"+tree.w.toFixed()+",h:"+tree.h.toFixed()+",nodes:[";
+		}
+
+		do {
+			var nodes = hit_stack.pop();
+			var i = count_stack.pop()-1;
+
+			if(i >= 0 && i < nodes.length-1)
+				return_string += ",";
+
+			while(i >= 0)	{
+				var ltree = nodes[i];
+			  if(!rect || RTree.Rectangle.overlap_rectangle(rect, ltree)) {
+			  	if(ltree.nodes) { // Not a Leaf
+			  		if(current_depth >= max_depth) {
+			  			var len = return_stack.length;
+			  			var nam = _name_to_id("saved_subtree");
+			  			return_string += "{x:"+ltree.x.toFixed()+",y:"+ltree.y.toFixed()+",w:"+ltree.w.toFixed()+",h:"+ltree.h.toFixed()+",load:'"+nam+".js'}";
+			  			return_stack[nam] = this.toJSON(rect, ltree);
+							if(i > 0)
+								return_string += ","
+			  		}	else {
+				  		return_string += "{x:"+ltree.x.toFixed()+",y:"+ltree.y.toFixed()+",w:"+ltree.w.toFixed()+",h:"+ltree.h.toFixed()+",nodes:[";
+				  		current_depth += 1;
+				  		count_stack.push(i);
+				  		hit_stack.push(nodes);
+				  		nodes = ltree.nodes;
+				  		i = ltree.nodes.length;
+				  	}
+			  	}	else if(ltree.leaf) { // A Leaf !!
+			  		var data = ltree.leaf.toJSON ? ltree.leaf.toJSON() : JSON.stringify(ltree.leaf);
+		  			return_string += "{x:"+ltree.x.toFixed()+",y:"+ltree.y.toFixed()+",w:"+ltree.w.toFixed()+",h:"+ltree.h.toFixed()+",leaf:" + data + "}";
+						if(i > 0)
+							return_string += ","
+		  		}	else if(ltree.load) { // A load
+		  			return_string += "{x:"+ltree.x.toFixed()+",y:"+ltree.y.toFixed()+",w:"+ltree.w.toFixed()+",h:"+ltree.h.toFixed()+",load:'" + ltree.load + "'}";
+						if(i > 0)
+							return_string += ","
+			  	}
+				}
+				i -= 1;
+			}
+			if(i < 0)	{
+					return_string += "]}"; current_depth -= 1;
+			}
+		}while(hit_stack.length > 0);
+
+		return_string+=";";
+
+		for(var my_key in return_stack) {
+			return_string += "\nvar " + my_key + " = function(){" + return_stack[my_key] + " return(main_tree);};";
+		}
+		return(return_string);
+	};
+
+	/* non-recursive function that deletes a specific
+	 * [ number ] = RTree.remove(rectangle, obj)
+	 */
+	this.remove = function(rect, obj) {
+		if(arguments.length < 1)
+			throw "Wrong number of arguments. RT.remove requires at least a bounding rectangle."
+
+		switch(arguments.length) {
+			case 1:
+				arguments[1] = false; // obj == false for conditionals
+			case 2:
+				arguments[2] = _T; // Add root node to end of argument list
+			default:
+				arguments.length = 3;
+		}
+		if(arguments[1] === false) { // Do area-wide delete
+			var numberdeleted = 0;
+			var ret_array = [];
+			do {
+				numberdeleted=ret_array.length;
+				ret_array = ret_array.concat(_remove_subtree.apply(this, arguments));
+			}while( numberdeleted !=  ret_array.length);
+			return ret_array;
+		}
+		else { // Delete a specific item
+			return(_remove_subtree.apply(this, arguments));
+		}
+	};
+
+	/* non-recursive insert function
+	 * [] = RTree.insert(rectangle, object to insert)
+	 */
+	this.insert = function(rect, obj) {
+		if(arguments.length < 2)
+			throw "Wrong number of arguments. RT.Insert requires at least a bounding rectangle and an object."
+
+		return(_insert_subtree({x:rect.x,y:rect.y,w:rect.w,h:rect.h,leaf:obj}, _T));
+	};
+
+	/* non-recursive delete function
+	 * [deleted object] = RTree.remove(rectangle, [object to delete])
+	 */
+
+};
+
+/* Rectangle - Generic rectangle object - Not yet used */
+
+RTree.Rectangle = function(ix, iy, iw, ih) { // new Rectangle(bounds) or new Rectangle(x, y, w, h)
+    var x, x2, y, y2, w, h;
+
+    if(ix.x) {
+		x = ix.x; y = ix.y;
+			if(ix.w !== 0 && !ix.w && ix.x2){
+				w = ix.x2-ix.x;	h = ix.y2-ix.y;
+			}	else {
+				w = ix.w;	h = ix.h;
+			}
+		x2 = x + w; y2 = y + h; // For extra fastitude
+	} else {
+		x = ix; y = iy;	w = iw;	h = ih;
+		x2 = x + w; y2 = y + h; // For extra fastitude
+	}
+
+	this.x1 = this.x = function(){return x;};
+	this.y1 = this.y = function(){return y;};
+	this.x2 = function(){return x2;};
+	this.y2 = function(){return y2;};
+	this.w = function(){return w;};
+	this.h = function(){return h;};
+
+	this.toJSON = function() {
+		return('{"x":'+x.toString()+', "y":'+y.toString()+', "w":'+w.toString()+', "h":'+h.toString()+'}');
+	};
+
+	this.overlap = function(a) {
+		return(this.x() < a.x2() && this.x2() > a.x() && this.y() < a.y2() && this.y2() > a.y());
+	};
+
+	this.expand = function(a) {
+		var nx = Math.min(this.x(), a.x());
+		var ny = Math.min(this.y(), a.y());
+		w = Math.max(this.x2(), a.x2()) - nx;
+		h = Math.max(this.y2(), a.y2()) - ny;
+		x = nx; y = ny;
+		return(this);
+	};
+
+	this.setRect = function(ix, iy, iw, ih) {
+        var x, x2, y, y2, w, h;
+		if(ix.x) {
+			x = ix.x; y = ix.y;
+			if(ix.w !== 0 && !ix.w && ix.x2) {
+				w = ix.x2-ix.x;	h = ix.y2-ix.y;
+			}	else {
+				w = ix.w;	h = ix.h;
+			}
+			x2 = x + w; y2 = y + h; // For extra fastitude
+		} else {
+			x = ix; y = iy;	w = iw;	h = ih;
+			x2 = x + w; y2 = y + h; // For extra fastitude
+		}
+	};
+};
+
+
+/* returns true if rectangle 1 overlaps rectangle 2
+ * [ boolean ] = overlap_rectangle(rectangle a, rectangle b)
+ * @static function
+ */
+RTree.Rectangle.overlap_rectangle = function(a, b) {
+	return(a.x < (b.x+b.w) && (a.x+a.w) > b.x && a.y < (b.y+b.h) && (a.y+a.h) > b.y);
+};
+
+/* returns true if rectangle a is contained in rectangle b
+ * [ boolean ] = contains_rectangle(rectangle a, rectangle b)
+ * @static function
+ */
+RTree.Rectangle.contains_rectangle = function(a, b) {
+	return((a.x+a.w) <= (b.x+b.w) && a.x >= b.x && (a.y+a.h) <= (b.y+b.h) && a.y >= b.y);
+};
+
+/* expands rectangle A to include rectangle B, rectangle B is untouched
+ * [ rectangle a ] = expand_rectangle(rectangle a, rectangle b)
+ * @static function
+ */
+RTree.Rectangle.expand_rectangle = function(a, b)	{
+	var nx = Math.min(a.x, b.x);
+	var ny = Math.min(a.y, b.y);
+	a.w = Math.max(a.x+a.w, b.x+b.w) - nx;
+	a.h = Math.max(a.y+a.h, b.y+b.h) - ny;
+	a.x = nx; a.y = ny;
+	return(a);
+};
+
+/* generates a minimally bounding rectangle for all rectangles in
+ * array "nodes". If rect is set, it is modified into the MBR. Otherwise,
+ * a new rectangle is generated and returned.
+ * [ rectangle a ] = make_MBR(rectangle array nodes, rectangle rect)
+ * @static function
+ */
+RTree.Rectangle.make_MBR = function(nodes, rect) {
+	if(nodes.length < 1)
+		return({x:0, y:0, w:0, h:0});
+	if(!rect)
+		rect = {x:nodes[0].x, y:nodes[0].y, w:nodes[0].w, h:nodes[0].h};
+	else
+		rect.x = nodes[0].x; rect.y = nodes[0].y; rect.w = nodes[0].w; rect.h = nodes[0].h;
+
+	for(var i = nodes.length-1; i>0; i--)
+		RTree.Rectangle.expand_rectangle(rect, nodes[i]);
+
+	return(rect);
+};
 /*!
  * Sidelab COG Javascript Library v0.2.0
  * http://www.sidelab.com/
@@ -2281,10 +2927,10 @@ var XYRect = (function() {
     */
     function buffer(rect, bufferX, bufferY) {
         return XY.init(
-            rect.x1 - bufferX,
-            rect.y1 - (bufferY || bufferX),
-            rect.x1 + bufferX,
-            rect.y1 + (bufferY || bufferX)
+            rect.x - bufferX,
+            rect.y - (bufferY || bufferX),
+            rect.x + bufferX,
+            rect.y + (bufferY || bufferX)
         );
     } // buffer
 
@@ -2293,7 +2939,7 @@ var XYRect = (function() {
     Return a xy composite for the center of the rect
     */
     function center(rect) {
-        return XY.init(rect.x1 + (rect.width >> 1), rect.y1 + (rect.height >> 1));
+        return XY.init(rect.x + (rect.w >> 1), rect.y + (rect.h >> 1));
     } // center
 
     /**
@@ -2301,7 +2947,7 @@ var XYRect = (function() {
     Return a duplicate of the XYRect
     */
     function copy(rect) {
-        return init(rect.x1, rect.y1, rect.x2, rect.y2);
+        return init(rect.x, rect.y, rect.x2, rect.y2);
     } // copy
 
     /**
@@ -2309,7 +2955,7 @@ var XYRect = (function() {
     Return the distance from corner to corner of the rect
     */
     function diagonalSize(rect) {
-        return sqrt(rect.width * rect.width + rect.height * rect.height);
+        return sqrt(rect.w * rect.w + rect.h * rect.h);
     } // diagonalSize
 
     /**
@@ -2329,23 +2975,23 @@ var XYRect = (function() {
     } // fromCenter
 
     /**
-    ### init(x1, y1, x2, y2)
+    ### init(x, y, x2, y2)
     Create a new XYRect composite object
     */
-    function init(x1, y1, x2, y2) {
-        x1 = x1 || 0;
-        y1 = y1 || 0;
-        x2 = x2 || x1;
-        y2 = y2 || y1;
+    function init(x, y, x2, y2) {
+        x = x || 0;
+        y = y || 0;
+        x2 = x2 || x;
+        y2 = y2 || y;
 
         return {
-            x1: x1,
-            y1: y1,
+            x: x,
+            y: y,
             x2: x2,
             y2: y2,
 
-            width: x2 - x1,
-            height: y2 - y1
+            w: x2 - x,
+            h: y2 - y
         };
     } // init
 
@@ -2354,13 +3000,13 @@ var XYRect = (function() {
     Returns the intersecting rect between the two specified XYRect composites
     */
     function intersect(rect1, rect2) {
-        var x1 = max(rect1.x1, rect2.x1),
-            y1 = max(rect1.y1, rect2.y1),
+        var x1 = max(rect1.x, rect2.x),
+            y1 = max(rect1.y, rect2.y),
             x2 = min(rect1.x2, rect2.x2),
             y2 = min(rect1.y2, rect2.y2),
             r = init(x1, y1, x2, y2);
 
-        return ((r.width > 0) && (r.height > 0)) ? r : null;
+        return ((r.w > 0) && (r.h > 0)) ? r : null;
     } // intersect
 
     /**
@@ -2368,7 +3014,7 @@ var XYRect = (function() {
     Return the string representation of the rect
     */
     function toString(rect) {
-        return rect ? ('[' + rect.x1 + ', ' + rect.y1 + ', ' + rect.x2 + ', ' + rect.y2 + ']') : '';
+        return rect ? ('[' + rect.x + ', ' + rect.y + ', ' + rect.x2 + ', ' + rect.y2 + ']') : '';
     } // toString
 
     /**
@@ -2376,20 +3022,20 @@ var XYRect = (function() {
     Return the minimum rect required to contain both of the supplied rects
     */
     function union(rect1, rect2) {
-        if (rect1.width === 0 || rect1.height === 0) {
+        if (rect1.w === 0 || rect1.h === 0) {
             return copy(rect2);
         }
-        else if (rect2.width === 0 || rect2.height === 0) {
+        else if (rect2.w === 0 || rect2.h === 0) {
             return copy(rect1);
         }
         else {
-            var x1 = min(rect1.x1, rect2.x1),
-                y1 = min(rect1.y1, rect2.y1),
+            var x1 = min(rect1.x, rect2.x),
+                y1 = min(rect1.y, rect2.y),
                 x2 = max(rect1.x2, rect2.x2),
                 y2 = max(rect1.y2, rect2.y2),
                 r = init(x1, y1, x2, y2);
 
-            return ((r.width > 0) && (r.height > 0)) ? r : null;
+            return ((r.w > 0) && (r.h > 0)) ? r : null;
         } // if..else
     } // union
 
@@ -2554,6 +3200,62 @@ Hits = (function() {
         triggerEvent: triggerEvent
     };
 })();
+/**
+# T5.newCanvas(width, height)
+*/
+var newCanvas = T5.newCanvas = function(width, height) {
+    var tmpCanvas = document.createElement('canvas');
+
+    tmpCanvas.width = width ? width : 0;
+    tmpCanvas.height = height ? height : 0;
+
+    if (isFlashCanvas) {
+        document.body.appendChild(tmpCanvas);
+        FlashCanvas.initElement(tmpCanvas);
+    } // if
+
+    if (isExplorerCanvas) {
+        G_vmlCanvasManager.initElement(tmpCanvas);
+    } // if
+
+    return tmpCanvas;
+};
+/**
+# T5.Generator
+The generator module is used to manage the registration and creation
+of generators.  Image generators, etc
+*/
+var Generator = (function() {
+
+    var generatorRegistry = {};
+
+    /* private internal functions */
+
+    /* exports */
+
+    function init(id, params) {
+        var generatorType = generatorRegistry[id],
+            generator;
+
+        if (! generatorType) {
+            throw new Error('Unable to locate requested generator: ' + id);
+        } // if
+
+        return new generatorType(params);
+    } // init
+
+    function register(id, creatorFn) {
+        generatorRegistry[id] = creatorFn;
+    } // register
+
+    /* module definition */
+
+    return {
+        init: init,
+        register: register
+    };
+})();
+
 var INTERVAL_LOADCHECK = 10,
     INTERVAL_CACHECHECK = 10000,
     LOAD_TIMEOUT = 30000,
@@ -2638,7 +3340,7 @@ This function is used to load an image and fire a callback when the image
 is loaded.  The callback fires when the image is _really_ loaded (not
 when the onload event handler fires).
 */
-var getImage = T5.getImage = function(url, callback) {
+function getImage(url, callback) {
     var image = url && callback ? imageCache[url] : null;
 
     if (image && isLoaded(image)) {
@@ -2648,61 +3350,39 @@ var getImage = T5.getImage = function(url, callback) {
         loadImage(url, callback);
     } // if..else
 };
-/**
-# T5.newCanvas(width, height)
-*/
-var newCanvas = T5.newCanvas = function(width, height) {
-    var tmpCanvas = document.createElement('canvas');
+function Tile(x, y, url, width, height) {
+    this.x = x;
+    this.y = y;
+    this.w = width || 256;
+    this.h = width || 256;
 
-    tmpCanvas.width = width ? width : 0;
-    tmpCanvas.height = height ? height : 0;
+    this.x2 = this.x + this.w;
+    this.y2 = this.y + this.h;
 
-    if (isFlashCanvas) {
-        document.body.appendChild(tmpCanvas);
-        FlashCanvas.initElement(tmpCanvas);
-    } // if
+    this.url = url;
 
-    if (isExplorerCanvas) {
-        G_vmlCanvasManager.initElement(tmpCanvas);
-    } // if
+    this.id = this.x + '_' + this.y;
 
-    return tmpCanvas;
+    this.loaded = false;
+    this.image = null;
 };
-/**
-# T5.Generator
-The generator module is used to manage the registration and creation
-of generators.  Image generators, etc
-*/
-var Generator = (function() {
 
-    var generatorRegistry = {};
+Tile.prototype = {
+    constructor: Tile,
 
-    /* private internal functions */
+    load: function(callback) {
+        var tile = this;
 
-    /* exports */
+        getImage(this.url, function(image, loaded) {
+            tile.loaded = true;
+            tile.image = image;
 
-    function init(id, params) {
-        var generatorType = generatorRegistry[id],
-            generator;
-
-        if (! generatorType) {
-            throw new Error('Unable to locate requested generator: ' + id);
-        } // if
-
-        return new generatorType(params);
-    } // init
-
-    function register(id, creatorFn) {
-        generatorRegistry[id] = creatorFn;
-    } // register
-
-    /* module definition */
-
-    return {
-        init: init,
-        register: register
-    };
-})();
+            if (callback) {
+                callback();
+            } // if
+        });
+    }
+};
 
 /**
 # T5.Renderer
@@ -2819,7 +3499,6 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         vpHeight,
         canvas,
         context,
-        viewport,
         drawOffsetX = 0,
         drawOffsetY = 0,
         transform = null,
@@ -2835,15 +3514,6 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
                 context.stroke();
             } // if
         };
-
-    function drawTile(tile, x, y) {
-        getImage(tile.url, function(image, loaded) {
-            view.redraw = loaded;
-            if (! loaded) {
-                context.drawImage(image, x, y);
-            } // if
-        });
-    } // drawTile
 
     function createCanvas() {
         if (container) {
@@ -2873,7 +3543,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         } // if
     } // createCanvas
 
-    function initDrawData(hitData, state, drawFn) {
+    function initDrawData(viewport, hitData, state, drawFn) {
         var isHit = false;
 
         if (hitData) {
@@ -2885,6 +3555,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
 
         return {
             draw: drawFn || defaultDrawFn,
+            viewport: viewport,
             state: state,
             hit: isHit,
             vpX: drawOffsetX,
@@ -2912,8 +3583,8 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     } // applyStyle
 
     function applyTransform(drawable) {
-        var translated = drawable.translateX || drawable.translateY,
-            transformed = translated || drawable.scaling !== 1 || drawable.rotatation;
+        var translated = drawable.translateX !== 0 || drawable.translateY !== 0,
+            transformed = translated || drawable.scaling !== 1 || drawable.rotation !== 0;
 
         if (transformed) {
             context.save();
@@ -2945,7 +3616,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         return transform;
     } // applyTransform
 
-    function drawTiles(tiles) {
+    function drawTiles(viewport, tiles) {
         var tile,
             inViewport,
             minX = drawOffsetX - 256,
@@ -2960,7 +3631,15 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
                 tile.y >= minY && tile.y <= maxY;
 
             if (inViewport) {
-                drawTile(tile, tile.x - drawOffsetX, tile.y - drawOffsetY);
+                if (! tile.loaded) {
+                    tile.load(view.invalidate);
+                }
+                else {
+                    context.drawImage(
+                        tile.image,
+                        tile.x - drawOffsetX,
+                        tile.y - drawOffsetY);
+                } // if..else
             } // if
         } // for
     } // drawTiles
@@ -2972,7 +3651,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         return context.isPointInPath(hitX, hitY);
     } // hitTest
 
-    function prepare(layers, state, tickCount, hitData) {
+    function prepare(layers, viewport, state, tickCount, hitData) {
         var ii,
             canClip = false,
             viewOffset = view.getOffset(),
@@ -2991,23 +3670,8 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
             canClip = canClip || layers[ii].clip;
         } // for
 
-        viewport = XYRect.init(viewX, viewY, viewX + vpWidth, viewY + vpHeight);
-        viewport.scaleFactor = scaleFactor;
-
-        if (scaleFactor !== 1) {
-            var centerX = viewport.x1 + (vpWidth >> 1),
-                centerY = viewport.y1 + (vpHeight >> 1);
-
-            viewport = XYRect.fromCenter(
-                centerX,
-                centerY,
-                vpWidth / scaleFactor | 0,
-                vpHeight / scaleFactor | 0
-            );
-        } // if
-
-        drawOffsetX = viewport.x1;
-        drawOffsetY = viewport.y1;
+        drawOffsetX = viewport.x;
+        drawOffsetY = viewport.y;
 
         if (context) {
             if (! canClip) {
@@ -3025,9 +3689,9 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     } // prepare
 
     /**
-    ### prepArc(drawable, hitData, state, opts)
+    ### prepArc(drawable, viewport, hitData, state, opts)
     */
-    function prepArc(drawable, hitData, state, opts) {
+    function prepArc(drawable, viewport, hitData, state, opts) {
         context.beginPath();
         context.arc(
             drawable.xy.x - (transform ? transform.x : drawOffsetX),
@@ -3038,13 +3702,13 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
             false
         );
 
-        return initDrawData(hitData, state);
+        return initDrawData(viewport, hitData, state);
     } // prepArc
 
     /**
-    ### prepImage(drawable, hitData, state, opts)
+    ### prepImage(drawable, viewport, hitData, state, opts)
     */
-    function prepImage(drawable, hitData, state, opts) {
+    function prepImage(drawable, viewport, hitData, state, opts) {
         var realX = (opts.x || drawable.xy.x) - (transform ? transform.x : drawOffsetX),
             realY = (opts.y || drawable.xy.y) - (transform ? transform.y : drawOffsetY),
             image = opts.image || drawable.image;
@@ -3058,7 +3722,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
                 opts.height || image.height
             );
 
-            return initDrawData(hitData, state, function(drawData) {
+            return initDrawData(viewport, hitData, state, function(drawData) {
                 context.drawImage(
                     image,
                     realX,
@@ -3071,9 +3735,9 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     } // prepImage
 
     /**
-    ### prepPoly(drawable, hitData, state, opts)
+    ### prepPoly(drawable, viewport, hitData, state, opts)
     */
-    function prepPoly(drawable, hitData, state, opts) {
+    function prepPoly(drawable, viewport, hitData, state, opts) {
         var first = true,
             points = opts.points || drawable.points,
             offsetX = transform ? transform.x : drawOffsetX,
@@ -3094,7 +3758,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
             } // if..else
         } // for
 
-        return initDrawData(hitData, state);
+        return initDrawData(viewport, hitData, state);
     } // prepPoly
 
     /* initialization */
@@ -3128,10 +3792,6 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
 
         getOffset: function() {
             return XY.init(drawOffsetX, drawOffsetY);
-        },
-
-        getViewport: function() {
-            return viewport;
         }
     });
 
@@ -3158,18 +3818,17 @@ registerRenderer('dom', function(view, container, params, baseRenderer) {
 
     /* exports */
 
-    function drawTiles(tiles) {
+    function drawTiles(viewport, tiles) {
         var tile,
             image,
-            offset = _this.getOffset(),
-            viewport = _this.getViewport(),
+            scaleFactor = viewport.scaleFactor,
             inViewport,
-            offsetX = offset.x,
-            offsetY = offset.y,
+            offsetX = viewport.x,
+            offsetY = viewport.y,
             minX = offsetX - 256,
             minY = offsetY - 256,
-            maxX = offsetX + viewport.width,
-            maxY = offsetY + viewport.height,
+            maxX = offsetX + viewport.w,
+            maxY = offsetY + viewport.h,
             relX, relY;
 
         for (var ii = tiles.length; ii--; ) {
@@ -3198,7 +3857,7 @@ registerRenderer('dom', function(view, container, params, baseRenderer) {
                 image.style.top = relY + 'px';
             } // if..else
 
-            image.style.display = 'block'; // inViewport ? 'block' : 'none';
+            image.style.display = inViewport ? 'block' : 'none';
         } // for
     } // drawTiles
 
@@ -3515,7 +4174,7 @@ var View = function(params) {
         captureHover: true,
         captureDrag: false,
         inertia: true,
-        minRefresh: 1000,
+        refreshDistance: 256,
         pannable: false,
         clipping: true,
         scalable: false,
@@ -3536,9 +4195,9 @@ var View = function(params) {
         zoomLevel: 1
     }, params);
 
-    var TURBO_CLEAR_INTERVAL = 500;
+    var TURBO_CLEAR_INTERVAL = 500,
 
-    var caps = {},
+        caps = {},
         layers = [],
         layerCount = 0,
         container = document.getElementById(params.container),
@@ -3547,9 +4206,11 @@ var View = function(params) {
         mainContext = null,
         isIE = isType(window.attachEvent, typeFunction),
         hitFlagged = false,
-        minRefresh = params.minRefresh,
+        refreshDist = params.refreshDistance,
         offsetX = 0,
         offsetY = 0,
+        refreshX = 0,
+        refreshY = 0,
         lastOffsetX = 0,
         lastOffsetY = 0,
         offsetMaxX = null,
@@ -3570,7 +4231,7 @@ var View = function(params) {
         resizeCanvasTimeout = 0,
         scaleFactor = 1,
         scaleTween = null,
-        lastScaleFactor = 0,
+        lastScaleFactor = 1,
         lastCycleTicks = 0,
         eventMonitor = null,
         turbo = params.turbo,
@@ -3611,7 +4272,7 @@ var View = function(params) {
             setZoomLevel(zoomLevel + scaleFactorExp, zoomX, zoomY);
         }
 
-        _self.redraw = true;
+        redraw = true;
     } // scaleView
 
     function setZoomCenter(xy) {
@@ -3620,8 +4281,8 @@ var View = function(params) {
     function getScaledOffset(srcX, srcY) {
         var viewport = _self.getViewport(),
             invScaleFactor = 1 / scaleFactor,
-            scaledX = viewport ? (viewport.x1 + srcX * invScaleFactor) : srcX,
-            scaledY = viewport ? (viewport.y1 + srcY * invScaleFactor) : srcY;
+            scaledX = viewport ? (viewport.x + srcX * invScaleFactor) : srcX,
+            scaledY = viewport ? (viewport.y + srcY * invScaleFactor) : srcY;
 
         return XY.init(scaledX, scaledY);
     } // getScaledOffset
@@ -3755,10 +4416,10 @@ var View = function(params) {
             return;
         } // if
 
-        var testX = offsetWrapX ? offsetX + (viewport.width >> 1) : offsetX,
-            testY = offsetWrapY ? offsetY + (viewport.height >> 1) : offsetY,
-            viewWidth = viewport.width,
-            viewHeight = viewport.height;
+        var testX = offsetWrapX ? offsetX + (viewport.w >> 1) : offsetX,
+            testY = offsetWrapY ? offsetY + (viewport.h >> 1) : offsetY,
+            viewWidth = viewport.w,
+            viewHeight = viewport.h;
 
         if (offsetMaxX && offsetMaxX > viewWidth) {
             if (testX + viewWidth > offsetMaxX) {
@@ -3800,7 +4461,7 @@ var View = function(params) {
                     drop);
 
             if (dragOk) {
-                _self.redraw = true;
+                redraw = true;
             } // if
 
             if (drop) {
@@ -3834,61 +4495,6 @@ var View = function(params) {
     } // getLayerIndex
 
     /* draw code */
-
-    function calcZoomRect(drawRect) {
-        var invScaleFactor = 1 / scaleFactor,
-            invScaleFactorNorm = (invScaleFactor - 0.5) * 2;
-
-        zoomX = interactCenter.x + (offsetX - interactOffset.x);
-        zoomY = interactCenter.y + (offsetY - interactOffset.y);
-
-        /*
-        COG.info(
-            'scale factor = ' + scaleFactor +
-            ', inv scale factor = ' + invScaleFactor +
-            ', inv scale factor norm = ' + invScaleFactorNorm);
-
-        COG.info('zoom x = ' + zoomX + ', y = ' + zoomY);
-        COG.info('offset x = ' + offsetX + ', y = ' + offsetY);
-        COG.info('interact offset x = ' + interactOffset.x + ', y = ' + interactOffset.y);
-        */
-
-        if (drawRect) {
-            return XYRect.fromCenter(
-                zoomX >> 0,
-                zoomY >> 0,
-                (drawRect.width * invScaleFactor) >> 0,
-                (drawRect.height * invScaleFactor) >> 0);
-        } // if
-    } // calcZoomRect
-
-    function drawView() {
-        var drawLayer,
-            rectCenter = XYRect.center(rect),
-            rotation = Math.PI,
-            ii = 0;
-
-        /* first pass clip */
-
-        if (canClip) {
-            mainContext.beginPath();
-
-            for (ii = layerCount; ii--; ) {
-                if (layers[ii].clip) {
-                    layers[ii].clip(mainContext, drawRect, drawState, _self, tickCount);
-                } // if
-            } // for
-
-            mainContext.closePath();
-            mainContext.clip();
-        } // if
-
-        /* second pass - draw */
-
-        viewChanges = 0;
-
-        triggerAll('drawComplete', rect, tickCount);
-    } // drawView
 
     /*
     ### checkHits
@@ -3924,25 +4530,35 @@ var View = function(params) {
     function cycle(tickCount) {
         var redrawBG,
             panning,
-            newFrame = false;
+            scaleChanged,
+            newFrame = false,
+            viewport;
 
-        tickCount = tickCount ? tickCount : new Date().getTime();
+        tickCount = tickCount || new Date().getTime();
 
         newFrame = tickCount - lastCycleTicks > cycleDelay;
 
         if (newFrame) {
-            _self.trigger('enterFrame', tickCount, frameIndex++);
+            var refreshXDist = abs(offsetX - refreshX),
+                refreshYDist = abs(offsetY - refreshY);
 
-            if (tickCount - lastRefresh > minRefresh) {
+            panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
+            scaleChanged = scaleFactor !== lastScaleFactor;
+
+            if (panning || scaleChanged) {
+                viewChanges++;
+            } // if
+
+            if (refreshXDist >= refreshDist || refreshYDist >= refreshDist) {
                 refresh();
             } // if
+
+            _self.trigger('enterFrame', tickCount, frameIndex++);
 
             lastCycleTicks = tickCount;
         }
 
-        if (newFrame && _self.redraw) {
-            panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
-
+        if (newFrame && viewChanges) {
             state = stateActive |
                         (scaleFactor !== 1 ? stateZoom : 0) |
                         (panning ? statePan : 0) |
@@ -3951,6 +4567,8 @@ var View = function(params) {
             redrawBG = (state & (stateZoom | statePan)) !== 0;
             interacting = redrawBG && (state & stateAnimating) === 0;
 
+            viewport = getViewport();
+
             /*
             if (offsetMaxX || offsetMaxY) {
                 constrainOffset();
@@ -3958,8 +4576,8 @@ var View = function(params) {
             */
 
 
-            if (renderer.prepare(layers, state, tickCount, hitData)) {
-                var viewport = renderer.getViewport();
+            if (renderer.prepare(layers, viewport, state, tickCount, hitData)) {
+                viewChanges = 0;
 
                 /*
                 for (var ii = layerCount; ii--; ) {
@@ -3979,6 +4597,7 @@ var View = function(params) {
 
                         drawLayer.draw(
                             renderer,
+                            viewport,
                             state,
                             _self,
                             tickCount,
@@ -3991,6 +4610,10 @@ var View = function(params) {
                 } // for
 
                 renderer.render();
+
+                lastOffsetX = offsetX;
+                lastOffsetY = offsetY;
+                lastScaleFactor = scaleFactor;
             } // if
 
             /*
@@ -4005,10 +4628,6 @@ var View = function(params) {
                 checkHits();
                 hitData = null;
             } // if
-
-            lastOffsetX = offsetX;
-            lastOffsetY = offsetY;
-            _self.redraw = false;
         } // if
 
         animFrame(cycle);
@@ -4024,7 +4643,7 @@ var View = function(params) {
         } // for
 
         if (hitFlagged) {
-            _self.redraw = true;
+            viewChanges++;
         } // if
     } // initHitData
 
@@ -4099,7 +4718,7 @@ var View = function(params) {
     }
 
     function invalidate() {
-        _self.redraw = true;
+        viewChanges++;
     }
 
     /**
@@ -4120,20 +4739,24 @@ var View = function(params) {
     Return a T5.XYRect for the last drawn view rect
     */
     function getViewport() {
-        var viewport, dimensions;
+        var viewport = XYRect.init(
+            offsetX,
+            offsetY,
+            offsetX + _self.width,
+            offsetY + _self.height);
 
-        if (renderer) {
-            viewport = renderer.getViewport();
+        viewport.scaleFactor = scaleFactor;
 
-            if (! viewport) {
-                dimensions = renderer.getDimensions();
-                viewport = XYRect.init(
-                    offsetX,
-                    offsetY,
-                    offsetX + dimensions.width,
-                    offsetY + dimensions.height
-                );
-            }
+        if (scaleFactor !== 1) {
+            var centerX = offsetX + (_self.width >> 1),
+                centerY = offsetY + (_self.height >> 1);
+
+            viewport = XYRect.fromCenter(
+                centerX,
+                centerY,
+                _self.width / scaleFactor | 0,
+                _self.height / scaleFactor | 0
+            );
         } // if
 
         return viewport;
@@ -4179,17 +4802,18 @@ var View = function(params) {
     events and will do some of their recalculations when this is called.
     */
     function refresh() {
-        var viewport = renderer ? renderer.getViewport() : null;
-
+        var viewport = getViewport();
         if (viewport) {
             if (offsetMaxX || offsetMaxY) {
                 constrainOffset(viewport);
             } // if
 
-            lastRefresh = new Date().getTime();
+            refreshX = offsetX;
+            refreshY = offsetY;
+
             triggerAll('refresh', _self, viewport);
 
-            _self.redraw = true;
+            viewChanges++;
         } // if
     } // refresh
 
@@ -4198,12 +4822,14 @@ var View = function(params) {
     Remove the T5.ViewLayer specified by the id
     */
     function removeLayer(id) {
+
+
         var layerIndex = getLayerIndex(id);
         if ((layerIndex >= 0) && (layerIndex < layerCount)) {
             _self.trigger('layerRemoved', layers[layerIndex]);
 
             layers.splice(layerIndex, 1);
-            _self.redraw = true;
+            viewChanges++;
         } // if
 
         layerCount = layers.length;
@@ -4271,6 +4897,8 @@ var View = function(params) {
 
             lastOffsetX = offsetX;
             lastOffsetY = offsetY;
+            refreshX = 0;
+            refreshY = 0;
 
             triggerAll('zoomLevelChange', value);
 
@@ -4279,7 +4907,6 @@ var View = function(params) {
             renderer.reset();
 
             refresh();
-            _self.redraw = true;
         } // if
     } // setZoomLevel
 
@@ -4357,8 +4984,6 @@ var View = function(params) {
             offsetX = x | 0;
             offsetY = y | 0;
 
-            _self.redraw = true;
-
             if (callback) {
                 callback();
             } // if
@@ -4428,12 +5053,6 @@ var View = function(params) {
         caps = testResults;
         createRenderer();
 
-        /*
-        canvasCaps = testResults.canvas;
-
-        attachToCanvas();
-        */
-
         if (isIE) {
             window.attachEvent('onresize', handleResize);
         }
@@ -4493,6 +5112,12 @@ var Drawable = function(params) {
 
 Drawable.prototype = {
     constructor: Drawable,
+
+    addToTree: function(tree) {
+        if (tree && this.bounds) {
+            tree.insert(this.bounds, this);
+        } // if
+    },
 
     /**
     ### animate(fn, argsStart, argsEnd, opts)
@@ -4604,7 +5229,7 @@ function registerAnimationCallback(fn) {
     } // if
 } // registerAnimationCallback
 
-function animateDrawable(target, fn, argsStart, argsEnd, opts) {
+function animateDrawable(target, fnName, argsStart, argsEnd, opts) {
     opts = COG.extend({
         easing: 'sine.out',
         duration: 1000,
@@ -4615,8 +5240,8 @@ function animateDrawable(target, fn, argsStart, argsEnd, opts) {
 
     var startTicks = new Date().getTime(),
         lastTicks = 0,
-        targetFn = target[fn],
-        floorValue = fn == 'translate',
+        targetFn = target[fnName],
+        floorValue = fnName == 'translate',
         argsComplete = 0,
         autoInvalidate = opts.autoInvalidate,
         animateValid = argsStart.length && argsEnd.length &&
@@ -4648,7 +5273,7 @@ function animateDrawable(target, fn, argsStart, argsEnd, opts) {
             targetFn.apply(target, argsCurrent);
 
             if (autoInvalidate && view) {
-                view.redraw = true;
+                view.invalidate();
             } // if
 
             if (callback) {
@@ -4868,7 +5493,7 @@ function ImageDrawable(params) {
                     var view = _self.layer ? _self.layer.view : null;
 
                     if (view) {
-                        view.redraw = true;
+                        view.invalidate();
                     } // if
                 } // if
             });
@@ -4898,6 +5523,7 @@ function ImageDrawable(params) {
                 var view = this.layer.view;
                 if (view) {
                     view.syncXY([this.xy], true);
+                    view.invalidate();
                 } // if
             } // if
 
@@ -4991,33 +5617,6 @@ Arc.prototype = COG.extend(Drawable.prototype, {
 });
 
 /**
-# T5.ImageGenerator
-
-## Events
-
-### update
-*/
-var ImageGenerator = function(params) {
-    params = COG.extend({
-        relative: false,
-        padding: 2
-    }, params);
-
-    /**
-    ### run(viewRect, view, callback)
-    */
-    function run(view, viewRect, callback) {
-        COG.warn('running base generator - this should be overriden');
-    } // run
-
-    var _self = {
-        run: run
-    };
-
-    COG.observable(_self);
-    return _self;
-};
-/**
 # T5.ViewLayer
 
 In and of it_self, a View does nothing.  Not without a
@@ -5101,12 +5700,13 @@ ViewLayer.prototype = {
     drawn and the following parameters are passed to the method:
 
         - renderer - the renderer that will be drawing the viewlayer
+        - viewport - the current viewport
         - state - the current DisplayState of the view
         - view - a reference to the View
         - tickCount - the current tick count
         - hitData - an object that contains information regarding the current hit data
     */
-    draw: function(renderer, state, view, tickCount, hitData) {
+    draw: function(renderer, viewport, state, view, tickCount, hitData) {
     },
 
     /**
@@ -5124,57 +5724,42 @@ ViewLayer.prototype = {
 /**
 # T5.ImageLayer
 */
-var ImageLayer = function(genId, params) {
+var TileLayer = function(genId, params) {
     params = COG.extend({
         imageLoadArgs: {}
     }, params);
 
     var genFn = genId ? Generator.init(genId, params).run : null,
         generating = false,
-        lastGenX = 0,
-        lastGenY = 0,
-        loadArgs = params.imageLoadArgs,
-        regenTimeout = 0,
-        regenViewRect = null,
-        tiles = [];
-
-    /* private internal functions */
-
-    function regenerate(view, viewRect) {
-        var xyDiff = max(abs(viewRect.x1 - lastGenX), abs(viewRect.y1 - lastGenY)),
-            regen = xyDiff >= 128 && genFn && (! generating);
-
-        if (regen) {
-            generating = true;
-
-            var tickCount = new Date().getTime();
-
-            genFn(view, viewRect, function(newTiles) {
-                lastGenX = viewRect.x1;
-                lastGenY = viewRect.y1;
-
-                tiles = [].concat(newTiles);
-
-                generating = false;
-                view.redraw = true;
-                COG.info('GEN COMPLETED IN ' + (new Date().getTime() - tickCount) + ' ms');
-            });
-        } // if
-    } // regenerate
+        rt = null,
+        loadArgs = params.imageLoadArgs;
 
     /* event handlers */
 
     function handleRefresh(evt, view, viewRect) {
-        regenerate(view, viewRect);
+        var tickCount = new Date().getTime();
+
+        if (rt) {
+            genFn(view, viewRect, rt, function() {
+                view.invalidate();
+                COG.info('GEN COMPLETED IN ' + (new Date().getTime() - tickCount) + ' ms');
+            });
+        } // if
     } // handleViewIdle
+
+    function handleResync(evt, view) {
+        rt = new RTree();
+    } // handleParentChange
 
     /* exports */
 
     /**
     ### draw(renderer)
     */
-    function draw(renderer) {
-        renderer.drawTiles(tiles);
+    function draw(renderer, viewport) {
+        var tiles = rt ? rt.search(viewport) : [];
+
+        renderer.drawTiles(viewport, tiles);
     } // draw
 
     /* definition */
@@ -5184,6 +5769,8 @@ var ImageLayer = function(genId, params) {
     });
 
     _self.bind('refresh', handleRefresh);
+    _self.bind('parentChange', handleResync);
+    _self.bind('resync', handleResync);
 
     return _self;
 };
@@ -5204,31 +5791,49 @@ var DrawLayer = function(params) {
         zindex: 10
     }, params);
 
-    var drawables = [];
+    var drawables = [],
+        rt = null,
+        sortTimeout = 0;
 
     /* private functions */
 
-    function quickHitCheck(drawable, hitX, hitY) {
-        var bounds = drawable.bounds;
+    function triggerSort(view) {
+        clearTimeout(sortTimeout);
+        sortTimeout = setTimeout(function() {
+            drawables.sort(function(shapeA, shapeB) {
+                if (shapeB.xy && shapeA.xy) {
+                    var diff = shapeB.xy.y - shapeA.xy.y;
+                    return diff != 0 ? diff : shapeB.xy.x - shapeA.xy.x;
+                } // if
+            });
 
-        return (bounds &&
-            hitX >= bounds.x1 && hitX <= bounds.x2 &&
-            hitY >= bounds.y1 && hitY <= bounds.y2);
-    } // quickHitCheck
+            if (view) {
+                view.invalidate();
+            } // if
+        }, 50);
+    } // triggerSort
 
     /* event handlers */
 
-    function handleRefresh(evt, view, viewRect) {
-        drawables = _self.getDrawables(view, viewRect);
-    } // handleViewIdle
+    function handleResync(evt, view) {
+        rt = new RTree();
+
+        for (var ii = drawables.length; ii--; ) {
+            drawables[ii].resync(view);
+            drawables[ii].addToTree(rt);
+        } // for
+
+        triggerSort(view);
+    } // handleParentChange
 
     /* exports */
 
-    function draw(renderer, state, view, tickCount, hitData) {
+    function draw(renderer, viewport, state, view, tickCount, hitData) {
         var emptyProps = {
-            };
+            },
+            drawItems = rt && viewport ? rt.search(viewport): [];
 
-        for (var ii = drawables.length; ii--; ) {
+        for (var ii = drawItems.length; ii--; ) {
             var drawable = drawables[ii],
                 overrideStyle = drawable.style || _self.style,
                 styleType,
@@ -5241,6 +5846,7 @@ var DrawLayer = function(params) {
 
                 drawData = prepFn ? prepFn.call(renderer,
                     drawable,
+                    viewport,
                     hitData,
                     state,
                     drawProps) : null;
@@ -5278,11 +5884,13 @@ var DrawLayer = function(params) {
     } // draw
 
     /**
-    ### getDrawables(view, viewRect)
+    ### find(selector: String)
+    The find method will eventually support retrieving all the shapes from the shape
+    layer that match the selector expression.  For now though, it just returns all shapes
     */
-    function getDrawables(view, viewRect) {
-        return [];
-    } // getDrawables
+    function find(selector) {
+        return [].concat(drawables);
+    } // find
 
     /**
     ### hitGuess(hitX, hitY, state, view)
@@ -5290,27 +5898,53 @@ var DrawLayer = function(params) {
     so we don't have to do the work again when drawing
     */
     function hitGuess(hitX, hitY, state, view) {
-        var hit = false;
-
-        for (var ii = drawables.length; (! hit) && ii--; ) {
-            var drawable = drawables[ii],
-                bounds = drawable.bounds;
-
-            hit = hit || quickHitCheck(drawable, hitX, hitY);
-        } // for
-
-        return hit;
+        return rt && rt.search({
+            x: hitX - 10,
+            y: hitY - 10,
+            w: 20,
+            h: 20
+        }).length > 0;
     } // hitGuess
 
     /* initialise _self */
 
     var _self = COG.extend(new ViewLayer(params), {
+        /**
+        ### add(poly)
+        Used to add a T5.Poly to the layer
+        */
+        add: function(drawable, prepend) {
+            if (drawable) {
+                drawable.layer = _self;
+
+                if (prepend) {
+                    drawables.unshift(drawable);
+                }
+                else {
+                    drawables[drawables.length] = drawable;
+                } // if..else
+
+                var view = _self.view;
+                if (view) {
+                    drawable.resync(view);
+                    drawable.addToTree(rt);
+
+                    triggerSort(view);
+                } // if
+            } // if
+        },
+
+        clear: function() {
+            drawables = [];
+        },
+
         draw: draw,
-        getDrawables: getDrawables,
+        find: find,
         hitGuess: hitGuess
     });
 
-    _self.bind('refresh', handleRefresh);
+    _self.bind('parentChange', handleResync);
+    _self.bind('resync', handleResync);
 
     return _self;
 };
@@ -5326,85 +5960,7 @@ data and the like.
 ## Methods
 */
 var ShapeLayer = function(params) {
-    params = COG.extend({
-        zindex: 10
-    }, params);
-
-    var shapes = [];
-
-    /* private functions */
-
-    function performSync(view) {
-        for (var ii = shapes.length; ii--; ) {
-            shapes[ii].resync(view);
-        } // for
-
-        shapes.sort(function(shapeA, shapeB) {
-            var diff = shapeB.xy.y - shapeA.xy.y;
-            return diff != 0 ? diff : shapeB.xy.x - shapeA.xy.y;
-        });
-
-        view.redraw = true;
-    } // performSync
-
-    /* event handlers */
-
-    function handleResync(evt, parent) {
-        performSync(parent);
-    } // handleParentChange
-
-    /* exports */
-
-    /**
-    ### find(selector: String)
-    The find method will eventually support retrieving all the shapes from the shape
-    layer that match the selector expression.  For now though, it just returns all shapes
-    */
-    function find(selector) {
-        return [].concat(shapes);
-    } // find
-
-    /* initialise _self */
-
-    var _self = COG.extend(new DrawLayer(params), {
-        /**
-        ### add(poly)
-        Used to add a T5.Poly to the layer
-        */
-        add: function(shape, prepend) {
-            if (shape) {
-                shape.layer = _self;
-
-                var view = _self.view;
-                if (view) {
-                    shape.resync(view);
-                    view.redraw = true;
-                } // if
-
-                if (prepend) {
-                    shapes.unshift(shape);
-                }
-                else {
-                    shapes[shapes.length] = shape;
-                } // if..else
-            } // if
-        },
-
-        clear: function() {
-            shapes = [];
-        },
-
-        find: find,
-
-        getDrawables: function(view, viewRect) {
-            return shapes;
-        }
-    });
-
-    _self.bind('parentChange', handleResync);
-    _self.bind('resync', handleResync);
-
-    return _self;
+    return new DrawLayer(params);
 };
 
     COG.extend(exports, {
@@ -5424,11 +5980,14 @@ var ShapeLayer = function(params) {
         tweenValue: COG.tweenValue,
         easing: COG.easing,
 
+        Tile: Tile,
+        TileLayer: TileLayer,
+        getImage: getImage,
+
         viewState: viewState,
         View: View,
         ViewLayer: ViewLayer,
-        ImageLayer: ImageLayer,
-        ImageGenerator: ImageGenerator,
+        ImageLayer: TileLayer,
 
         Drawable: Drawable,
         Marker: Marker,
@@ -5444,14 +6003,6 @@ var ShapeLayer = function(params) {
 
     COG.observable(exports);
 
-/**
-# T5.Geo
-The Geo module contains classes and functionality to support geospatial
-operations and calculations that are required when drawing maps, routes, etc.
-
-## Functions
-*/
-var Geo = exports.Geo = (function() {
 var LAT_VARIABILITIES = [
     1.406245461070741,
     1.321415085624082,
@@ -6141,7 +6692,7 @@ var BoundingBox = (function() {
     } // getGeoHash
 
     /**
-    ### getZoomLevel(bounds, displaySize)
+    ### getZoomLevel(bounds, viewport)
 
     This function is used to return the zoom level (seems consistent across
     mapping providers at this stage) that is required to properly display
@@ -6149,14 +6700,14 @@ var BoundingBox = (function() {
     a Dimensions object) of the map display. Adapted from
     [this code](http://groups.google.com/group/google-maps-js-api-v3/browse_thread/thread/43958790eafe037f/66e889029c555bee)
     */
-    function getZoomLevel(bounds, displaySize) {
+    function getZoomLevel(bounds, viewport) {
         var boundsCenter = getCenter(bounds),
             maxZoom = 1000,
             variabilityIndex = min(round(abs(boundsCenter.lat) * 0.05), LAT_VARIABILITIES.length),
             variability = LAT_VARIABILITIES[variabilityIndex],
             delta = calcSize(bounds.min, bounds.max),
-            bestZoomH = ceil(log(LAT_VARIABILITIES[3] * displaySize.height / delta.y) / log(2)),
-            bestZoomW = ceil(log(variability * displaySize.width / delta.x) / log(2));
+            bestZoomH = ceil(log(LAT_VARIABILITIES[3] * viewport.h / delta.y) / log(2)),
+            bestZoomW = ceil(log(variability * viewport.w / delta.x) / log(2));
 
 
         return min(isNaN(bestZoomH) ? maxZoom : bestZoomH, isNaN(bestZoomW) ? maxZoom : bestZoomW);
@@ -6918,10 +7469,10 @@ function readVectors(coordinates) {
         positions = new Array(count);
 
     for (var ii = count; ii--; ) {
-        positions[ii] = Geo.Position.init(coordinates[ii][1], coordinates[ii][0]);
+        positions[ii] = Position.init(coordinates[ii][1], coordinates[ii][0]);
     } // for
 
-    return Geo.Position.vectorize(positions, VECTORIZE_OPTIONS);
+    return Position.vectorize(positions, VECTORIZE_OPTIONS);
 } // getLineStringVectors
 
 /* feature processor functions */
@@ -6980,7 +7531,6 @@ function processMultiPolygon(layer, featureData, options, builders) {
 
 var GeoJSONParser = function(data, callback, options, builders) {
     options = COG.extend({
-        vectorsPerCycle: Geo.VECTORIZE_PER_CYCLE,
         rowPreParse: null,
         simplify: false,
         layerPrefix: 'geojson-'
@@ -7004,7 +7554,7 @@ var GeoJSONParser = function(data, callback, options, builders) {
         }
     }, builders);
 
-    var vectorsPerCycle = options.vectorsPerCycle,
+    var VECTORS_PER_CYCLE = 500,
         rowPreParse = options.rowPreParse,
         layerPrefix = options.layerPrefix,
         featureIndex = 0,
@@ -7072,7 +7622,6 @@ var GeoJSONParser = function(data, callback, options, builders) {
             layers[layerId] = layer;
         } // if
 
-        globalLayers = layers;
         return layer;
     } // getLayer
 
@@ -7100,7 +7649,7 @@ var GeoJSONParser = function(data, callback, options, builders) {
             if (featureInfo.isCollection) {
                 childOpts.layerPrefix = layerPrefix + (childCount++) + '-';
 
-                childParser = parse(
+                childParser = new GeoJSONParser(
                     featureInfo.data.features,
                     function(childLayers) {
                         childParser = null;
@@ -7108,6 +7657,10 @@ var GeoJSONParser = function(data, callback, options, builders) {
                         for (var layerId in childLayers) {
                             layers[layerId] = childLayers[layerId];
                         } // for
+
+                        if (featureIndex >= totalFeatures) {
+                            parseComplete();
+                        } // if
                     }, childOpts);
 
                 processedCount += 1;
@@ -7118,7 +7671,7 @@ var GeoJSONParser = function(data, callback, options, builders) {
 
             cycleCount += processedCount ? processedCount : 1;
 
-            if (cycleCount >= vectorsPerCycle) {
+            if (cycleCount >= VECTORS_PER_CYCLE) {
                 break;
             } // if
         } // for
@@ -7139,17 +7692,11 @@ var GeoJSONParser = function(data, callback, options, builders) {
     animFrame(processData);
 };
 
-/* exports */
-
-function parse(data, callback, options) {
-    return new GeoJSONParser(data, callback, options);
-} // parse
-
-var GeoJSON = exports.GeoJSON = (function() {
-    return {
-        parse: parse
-    };
-})();
+var GeoJSON = exports.GeoJSON = {
+    parse: function(data, callback, options) {
+        return new GeoJSONParser(data, callback, options);
+    }
+};
 
 /**
 # T5.Map
@@ -7190,7 +7737,6 @@ var Map = exports.Map = function(params) {
         tapExtent: 10, // TODO: remove and use the inherited value
         crosshair: false,
         zoomLevel: 0,
-        boundsChangeThreshold: 30,
         minZoom: 1,
         maxZoom: 18,
         pannable: true,
@@ -7213,7 +7759,7 @@ var Map = exports.Map = function(params) {
         locationOverlay = null,
         geoWatchId = 0,
         initialTrackingUpdate = true,
-        radsPerPixel = 0,
+        rpp = 0,
         tapExtent = params.tapExtent;
 
     /* internal functions */
@@ -7222,7 +7768,7 @@ var Map = exports.Map = function(params) {
 
     function trackingUpdate(position) {
         try {
-            var currentPos = Geo.Position.init(
+            var currentPos = Position.init(
                         position.coords.latitude,
                         position.coords.longitude),
                 accuracy = position.coords.accuracy / 1000;
@@ -7231,7 +7777,7 @@ var Map = exports.Map = function(params) {
 
             if (initialTrackingUpdate) {
                 if (! locationOverlay) {
-                    locationOverlay = new Geo.UI.LocationOverlay({
+                    locationOverlay = new UI.LocationOverlay({
                         pos: currentPos,
                         accuracy: accuracy
                     });
@@ -7240,7 +7786,7 @@ var Map = exports.Map = function(params) {
                     _self.setLayer('location', locationOverlay);
                 } // if
 
-                var targetBounds = Geo.BoundingBox.createBoundsFromCenter(
+                var targetBounds = BoundingBox.createBoundsFromCenter(
                         currentPos,
                         Math.max(accuracy, 1));
 
@@ -7278,13 +7824,13 @@ var Map = exports.Map = function(params) {
     } // handlePan
 
     function handleTap(evt, absXY, relXY, offsetXY) {
-        var tapPos = GeoXY.toPos(offsetXY, radsPerPixel),
+        var tapPos = GeoXY.toPos(offsetXY, rpp),
             minPos = GeoXY.toPos(
                 XY.offset(offsetXY, -tapExtent, tapExtent),
-                radsPerPixel),
+                rpp),
             maxPos = GeoXY.toPos(
                 XY.offset(offsetXY, tapExtent, -tapExtent),
-                radsPerPixel);
+                rpp);
 
         _self.trigger(
             'geotap',
@@ -7324,11 +7870,7 @@ var Map = exports.Map = function(params) {
     } // handleTap
 
     function handleRefresh(evt) {
-        var changeDelta = XY.absSize(XY.diff(lastBoundsChangeOffset, _self.getOffset()));
-        if (changeDelta > params.boundsChangeThreshold) {
-            lastBoundsChangeOffset = XY.copy(_self.getOffset());
-            _self.trigger("boundsChange", _self.getBoundingBox());
-        } // if
+        _self.trigger("boundsChange", _self.getBoundingBox());
     } // handleWork
 
     function handleProviderUpdate(name, value) {
@@ -7339,22 +7881,20 @@ var Map = exports.Map = function(params) {
     function handleZoomLevelChange(evt, zoomLevel) {
         var gridSize;
 
-        radsPerPixel = Geo.radsPerPixel(zoomLevel);
+        rpp = radsPerPixel(zoomLevel);
 
-        gridSize = TWO_PI / radsPerPixel | 0;
+        gridSize = TWO_PI / rpp | 0;
         _self.setMaxOffset(gridSize, gridSize, true, false);
 
 
         _self.resetScale();
         _self.triggerAll('resync', _self);
-        _self.refresh();
     } // handleZoomLevel
 
     /* internal functions */
 
     function getLayerScaling(oldZoom, newZoom) {
-        return Geo.radsPerPixel(oldZoom) /
-                    Geo.radsPerPixel(newZoom);
+        return radsPerPixel(oldZoom) / radsPerPixel(newZoom);
     } // getLayerScaling
 
     /* public methods */
@@ -7368,9 +7908,9 @@ var Map = exports.Map = function(params) {
         var viewport = _self.getViewport();
 
         return viewport ?
-            Geo.BoundingBox.init(
-                GeoXY.toPos(XY.init(viewport.x1, viewport.y2), radsPerPixel),
-                GeoXY.toPos(XY.init(viewport.x2, viewport.y1), radsPerPixel)) :
+            BoundingBox.init(
+                GeoXY.toPos(XY.init(viewport.x, viewport.y2), rpp),
+                GeoXY.toPos(XY.init(viewport.x2, viewport.y), rpp)) :
             null;
     } // getBoundingBox
 
@@ -7381,8 +7921,8 @@ var Map = exports.Map = function(params) {
     function getCenterPosition() {
         var viewport = _self.getViewport();
         if (viewport) {
-            var xy = XY.init(viewport.x1 + (viewport.width >> 1), viewport.y1 + (viewport.height >> 1));
-            return GeoXY.toPos(xy, radsPerPixel);
+            var xy = XY.init(viewport.x + (viewport.w >> 1), viewport.y + (viewport.h >> 1));
+            return GeoXY.toPos(xy, rpp);
         } // if
 
         return null;
@@ -7394,12 +7934,12 @@ var Map = exports.Map = function(params) {
     then goes to the center position and zoom level best suited.
     */
     function gotoBounds(bounds, callback) {
-        var zoomLevel = Geo.BoundingBox.getZoomLevel(
+        var zoomLevel = BoundingBox.getZoomLevel(
                             bounds,
                             _self.getViewport());
 
         gotoPosition(
-            Geo.BoundingBox.getCenter(bounds),
+            BoundingBox.getCenter(bounds),
             zoomLevel,
             callback);
     } // gotoBounds
@@ -7427,14 +7967,16 @@ var Map = exports.Map = function(params) {
     rather than just shift immediately.  An easingDuration can also be supplied.
     */
     function panToPosition(position, callback, easingFn, easingDuration) {
-        var centerXY = GeoXY.init(position, Geo.radsPerPixel(_self.getZoomLevel())),
+        var centerXY = GeoXY.init(position, radsPerPixel(_self.getZoomLevel())),
             offsetX = centerXY.x - (_self.width >> 1),
             offsetY = centerXY.y - (_self.height >> 1);
 
         _self.updateOffset(offsetX, offsetY, easingFn, easingDuration, function() {
+            /*
             _self.refresh();
 
             _self.trigger("boundsChange", _self.getBoundingBox());
+            */
 
             if (callback) {
                 callback(_self);
@@ -7449,7 +7991,7 @@ var Map = exports.Map = function(params) {
     grid so they can perform their calculations
     */
     function syncXY(points, reverse) {
-        return (reverse ? GeoXY.syncPos : GeoXY.sync)(points, radsPerPixel);
+        return (reverse ? GeoXY.syncPos : GeoXY.sync)(points, rpp);
     } // syncXY
 
     /* public object definition */
@@ -7672,15 +8214,17 @@ var LocationOverlay = exports.LocationOverlay = function(params) {
     return _self;
 };
 
-    return {
+    exports.Geo = {
         distanceToString: distanceToString,
         dist2rad: dist2rad,
         getEngine: getEngine,
 
+        /*
         lat2pix: lat2pix,
         lon2pix: lon2pix,
         pix2lat: pix2lat,
         pix2lon: pix2lon,
+        */
 
         radsPerPixel: radsPerPixel,
 
@@ -7706,7 +8250,8 @@ var LocationOverlay = exports.LocationOverlay = function(params) {
         GeoSearchResult: GeoSearchResult,
         LocationSearch: LocationSearch,
 
-        Routing: Routing
+        Routing: Routing,
+
+        GeoJSON: GeoJSON
     };
-})();
 })(T5);

@@ -16,32 +16,53 @@ var DrawLayer = function(params) {
     }, params);
     
     // initialise variables
-    var drawables = [];
+    var drawables = [],
+        rt = null,
+        sortTimeout = 0;
         
     /* private functions */
     
-    function quickHitCheck(drawable, hitX, hitY) {
-        var bounds = drawable.bounds;
-        
-        return (bounds && 
-            hitX >= bounds.x1 && hitX <= bounds.x2 &&
-            hitY >= bounds.y1 && hitY <= bounds.y2);
-    } // quickHitCheck
+    function triggerSort(view) {
+        clearTimeout(sortTimeout);
+        sortTimeout = setTimeout(function() {
+            // sort the shapes so the topmost, leftmost is drawn first followed by other shapes
+            drawables.sort(function(shapeA, shapeB) {
+                if (shapeB.xy && shapeA.xy) {
+                    var diff = shapeB.xy.y - shapeA.xy.y;
+                    return diff != 0 ? diff : shapeB.xy.x - shapeA.xy.x;
+                } // if
+            });
+
+            if (view) {
+                view.invalidate();
+            } // if
+        }, 50);
+    } // triggerSort
     
     /* event handlers */
     
-    function handleRefresh(evt, view, viewRect) {
-        drawables = _self.getDrawables(view, viewRect);
-    } // handleViewIdle
+    function handleResync(evt, view) {
+        // create a new rtree
+        rt = new RTree();
+        
+        // iterate through the shapes and resync to the grid
+        for (var ii = drawables.length; ii--; ) {
+            drawables[ii].resync(view);
+            drawables[ii].addToTree(rt);
+        } // for
+        
+        triggerSort(view);
+    } // handleParentChange
     
     /* exports */
     
-    function draw(renderer, state, view, tickCount, hitData) {
+    function draw(renderer, viewport, state, view, tickCount, hitData) {
         var emptyProps = {
-            };
+            },
+            drawItems = rt && viewport ? rt.search(viewport): [];
             
         // iterate through the drawabless and draw the layers
-        for (var ii = drawables.length; ii--; ) {
+        for (var ii = drawItems.length; ii--; ) {
             var drawable = drawables[ii],
                 overrideStyle = drawable.style || _self.style, 
                 styleType,
@@ -54,6 +75,7 @@ var DrawLayer = function(params) {
                 
                 drawData = prepFn ? prepFn.call(renderer, 
                     drawable,
+                    viewport,
                     hitData,
                     state,
                     drawProps) : null;
@@ -100,11 +122,13 @@ var DrawLayer = function(params) {
     } // draw
     
     /**
-    ### getDrawables(view, viewRect)
+    ### find(selector: String)
+    The find method will eventually support retrieving all the shapes from the shape
+    layer that match the selector expression.  For now though, it just returns all shapes
     */
-    function getDrawables(view, viewRect) {
-        return [];
-    } // getDrawables
+    function find(selector) {
+        return [].concat(drawables);
+    } // find    
     
     /**
     ### hitGuess(hitX, hitY, state, view)
@@ -112,30 +136,56 @@ var DrawLayer = function(params) {
     so we don't have to do the work again when drawing
     */
     function hitGuess(hitX, hitY, state, view) {
-        var hit = false;
-        
-        // iterate through the drawables and check for hits on the bounds
-        for (var ii = drawables.length; (! hit) && ii--; ) {
-            var drawable = drawables[ii],
-                bounds = drawable.bounds;
-            
-            // update the the drawables hit state
-            hit = hit || quickHitCheck(drawable, hitX, hitY);
-        } // for
-        
-        return hit;
+        return rt && rt.search({
+            x: hitX - 10, 
+            y: hitY - 10, 
+            w: 20,
+            h: 20
+        }).length > 0;
     } // hitGuess
     
     /* initialise _self */
     
     var _self = COG.extend(new ViewLayer(params), {
+        /**
+        ### add(poly)
+        Used to add a T5.Poly to the layer
+        */
+        add: function(drawable, prepend) {
+            if (drawable) {
+                drawable.layer = _self;
+                
+                // add the the shapes array
+                if (prepend) {
+                    drawables.unshift(drawable);
+                }
+                else {
+                    drawables[drawables.length] = drawable;
+                } // if..else
+                
+                // sync this shape with the parent view
+                var view = _self.view;
+                if (view) {
+                    drawable.resync(view);
+                    drawable.addToTree(rt);
+                    
+                    triggerSort(view);
+                } // if
+            } // if
+        },
+        
+        clear: function() {
+            drawables = [];
+        },
+        
         draw: draw,
-        getDrawables: getDrawables,
+        find: find,
         hitGuess: hitGuess
     });
     
     // bind to refresh events as we will use those to populate the items to be drawn
-    _self.bind('refresh', handleRefresh);
+    _self.bind('parentChange', handleResync);
+    _self.bind('resync', handleResync);
     
     return _self;
 };

@@ -84,12 +84,13 @@ ViewLayer.prototype = {
     drawn and the following parameters are passed to the method:
 
         - renderer - the renderer that will be drawing the viewlayer
+        - viewport - the current viewport
         - state - the current DisplayState of the view
         - view - a reference to the View
         - tickCount - the current tick count
         - hitData - an object that contains information regarding the current hit data
     */
-    draw: function(renderer, state, view, tickCount, hitData) {
+    draw: function(renderer, viewport, state, view, tickCount, hitData) {
     },
     
     /**

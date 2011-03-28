@@ -787,10 +787,10 @@ T5.Geo.Decarta = (function() {
                 var numTiles = 2 << (zoomLevel - 1),
                     numTilesHalf = numTiles >> 1,
                     tileSize = params.tileSize,
-                    xTiles = (viewRect.width / tileSize | 0) + 2,
-                    yTiles = (viewRect.height / tileSize | 0) + 2,
-                    xTile = (viewRect.x1 / tileSize | 0) - numTilesHalf,
-                    yTile = numTiles - (viewRect.y1 / tileSize | 0) - numTilesHalf - yTiles,
+                    xTiles = (viewRect.w / tileSize | 0) + 2,
+                    yTiles = (viewRect.h / tileSize | 0) + 2,
+                    xTile = (viewRect.x / tileSize | 0) - numTilesHalf,
+                    yTile = numTiles - (viewRect.y / tileSize | 0) - numTilesHalf - yTiles,
                     images = [];
                     
                 for (var xx = 0; xx <= xTiles; xx++) {
@@ -810,13 +810,13 @@ T5.Geo.Decarta = (function() {
                            '&N=' + (yTile + yy - 1) +
                            '&E=' + (xTile + xx);
                            
-                        images[images.length] = {
-                            x: (numTilesHalf + xTile + xx) * tileSize,
-                            y: (numTilesHalf + yTile*-1 - yy) * tileSize,
-                            width: tileSize,
-                            height: tileSize,
-                            url: tileUrl
-                        };
+                        images[images.length] = new T5.Tile(
+                            (numTilesHalf + xTile + xx) * tileSize,
+                            (numTilesHalf + yTile*-1 - yy) * tileSize,
+                            tileUrl,
+                            tileSize,
+                            tileSize
+                        );
                     } // for
                 } // for
                     
@@ -860,12 +860,9 @@ T5.Geo.Decarta = (function() {
         
         T5.userMessage('ack', 'decarta', '&copy; deCarta, Inc. Map and Imagery Data &copy; NAVTEQ or Tele Atlas or DigitalGlobe');
         
-        // initialise the generator
-        var _self = COG.extend(new T5.ImageGenerator(params), {
+        return {
             run: run
-        });
-        
-        return _self;
+        };
     };
     
     // register the decarta generator

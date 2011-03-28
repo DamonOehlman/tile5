@@ -15,7 +15,6 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         vpHeight,
         canvas,
         context,
-        viewport,
         drawOffsetX = 0,
         drawOffsetY = 0,
         transform = null,
@@ -30,8 +29,8 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         
         if (container) {
             // initialise the viewport height and width
-            vpWidth = view.width = container.offsetWidth;
-            vpHeight = view.height = container.offsetHeight;
+            vpWidth = view.w = container.offsetWidth;
+            vpHeight = view.h = container.offsetHeight;
             
             // calculate the number of x segments
             xSeg = (vpWidth / TILE_SIZE | 0) + 2;
@@ -136,17 +135,13 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         } // for    
     } // drawTiles
     
-    function prepare(layers, state, tickCount, hitData) {
-        var viewOffset = view.getOffset(),
-            scaleFactor = view.getScaleFactor();
-            
+    function prepare(layers, viewport, state, tickCount, hitData) {
         // update the offset x and y
-        drawOffsetX = viewOffset.x;
-        drawOffsetY = viewOffset.y;
+        drawOffsetX = viewport.x;
+        drawOffsetY = viewport.y;
             
         // initialise the viewport
-        viewport = T5.XYRect.init(drawOffsetX, drawOffsetY, drawOffsetX + vpWidth, drawOffsetY - vpHeight);
-        viewport.scaleFactor = scaleFactor;
+        // viewport = T5.XYRect.init(drawOffsetX, drawOffsetY, drawOffsetX + vpWidth, drawOffsetY - vpHeight);
         
         // move the tile bg
         camera.position.x = tileBg.position.x = drawOffsetX + vpWidth;
@@ -187,10 +182,6 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
                 width: vpWidth,
                 height: vpHeight
             };
-        },
-        
-        getViewport: function() {
-            return viewport;
         }
     });
     

@@ -82,26 +82,37 @@ T5.Geo.OSM = (function() {
             } // if
         } // buildTileUrl
         
-        function run(view, viewRect, callback) {
+        function run(view, viewport, tree, callback) {
             var zoomLevel = view.getZoomLevel ? view.getZoomLevel() : 0;
             
             if (zoomLevel) {
                 var numTiles = 2 << (zoomLevel - 1),
                     tileSize = params.tileSize,
                     radsPerPixel = (Math.PI * 2) / (tileSize << zoomLevel),
-                    position = T5.GeoXY.toPos(T5.XY.init(viewRect.x1 - tileSize, viewRect.y1 - tileSize), radsPerPixel),
+                    minX = viewport.x - tileSize,
+                    minY = viewport.y - tileSize,
+                    xTiles = (viewport.w  / tileSize | 0) + 2,
+                    yTiles = (viewport.h / tileSize | 0) + 2,
+                    position = T5.GeoXY.toPos(T5.XY.init(minX, minY), radsPerPixel),
                     tileOffset = calculateTileOffset(position.lat, position.lon, numTiles),
                     tilePixels = getTileXY(tileOffset.x, tileOffset.y, numTiles, radsPerPixel),
-                    xTiles = (viewRect.width  / tileSize | 0) + 2,
-                    yTiles = (viewRect.height / tileSize | 0) + 2,
-                    images = [],
-                    flipY = params.flipY;
+                    flipY = params.flipY,
+                    // get the current tiles in the tree
+                    tiles = tree.search({
+                        x: minX,
+                        y: minY,
+                        w: xTiles * tileSize,
+                        h: yTiles * tileSize
+                    }),
+                    idIndex = new Array(tiles.length),
+                    ii;
                     
-                if (tilePixels.x < 0) {
-                    xTiles += (tilePixels.x / tileSize | 0) + 1;
-                } // if
+                // iterate through the tiles and create the tile id index
+                for (ii = tiles.length; ii--; ) {
+                    idIndex[ii] = tiles[ii].id;
+                } // for
                 
-                // COG.info('tile pixels = ' + T5.XY.toString(tilePixels) + ', viewrect.x1 = ' + viewRect.x1);
+                // COG.info('tile pixels = ' + T5.XY.toString(tilePixels) + ', viewrect.x1 = ' + viewport.x);
                     
                 // initialise the server details
                 serverDetails = _self.getServerDetails ? _self.getServerDetails() : null;
@@ -110,29 +121,34 @@ T5.Geo.OSM = (function() {
                     
                 for (var xx = -1; xx <= xTiles; xx++) {
                     for (var yy = -1; yy <= yTiles; yy++) {
-                        // build the tile url 
-                        tileUrl = _self.buildTileUrl(
-                            tileOffset.x + xx, 
-                            tileOffset.y + yy, 
-                            zoomLevel, 
-                            numTiles, 
-                            flipY);
+                        var tileX = tilePixels.x + xx * tileSize,
+                            tileY = tilePixels.y + yy * tileSize;
                             
-                        if (tileUrl) {
-                            images[images.length] = {
-                                x: tilePixels.x + xx * tileSize,
-                                y: tilePixels.y + yy * tileSize, 
-                                width: tileSize,
-                                height: tileSize,
-                                url: tileUrl
-                            };
+                        // if the tile is not in the index, then create
+                        if (idIndex.indexOf(tileX + '_' + tileY) < 0) {
+                            // build the tile url 
+                            tileUrl = _self.buildTileUrl(
+                                tileOffset.x + xx, 
+                                tileOffset.y + yy, 
+                                zoomLevel, 
+                                numTiles, 
+                                flipY);
+                                
+                            COG.info('created tile @ x: ' + tileX + ', y: ' + tileY);
+                            tree.insert({ x: tileX, y: tileY, w: tileSize, h: tileSize }, new T5.Tile(
+                                tileX,
+                                tileY, 
+                                tileUrl,
+                                tileSize,
+                                tileSize
+                            ));
                         } // if
                     } // for
                 } // for
-                    
+                
                 // if the callback is assigned, then pass back the creator
                 if (callback) {
-                    callback(images);
+                    callback();
                 } // if                
             } // if
         } // callback
@@ -140,10 +156,10 @@ T5.Geo.OSM = (function() {
         /* define the generator */
 
         // initialise the generator
-        var _self = COG.extend(new T5.ImageGenerator(params), {
+        var _self = {
             buildTileUrl: buildTileUrl,
             run: run
-        });
+        };
         
         // trigger an attribution requirement
         T5.userMessage('ack', 'osm', 'Map data (c) <a href="http://openstreetmap.org/" target="_blank">OpenStreetMap</a> (and) contributors, CC-BY-SA');

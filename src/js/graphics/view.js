@@ -117,7 +117,7 @@ var View = function(params) {
         captureHover: true,
         captureDrag: false,
         inertia: true,
-        minRefresh: 1000,
+        refreshDistance: 256,
         pannable: false,
         clipping: true,
         scalable: false,
@@ -140,10 +140,10 @@ var View = function(params) {
     }, params);
     
     // initialise constants
-    var TURBO_CLEAR_INTERVAL = 500;
+    var TURBO_CLEAR_INTERVAL = 500,
     
-    // get the container context
-    var caps = {},
+        // get the container context
+        caps = {},
         layers = [],
         layerCount = 0,
         container = document.getElementById(params.container),
@@ -152,9 +152,11 @@ var View = function(params) {
         mainContext = null,
         isIE = isType(window.attachEvent, typeFunction),
         hitFlagged = false,
-        minRefresh = params.minRefresh,
+        refreshDist = params.refreshDistance,
         offsetX = 0,
         offsetY = 0,
+        refreshX = 0,
+        refreshY = 0,
         lastOffsetX = 0,
         lastOffsetY = 0,
         offsetMaxX = null,
@@ -175,7 +177,7 @@ var View = function(params) {
         resizeCanvasTimeout = 0,
         scaleFactor = 1,
         scaleTween = null,
-        lastScaleFactor = 0,
+        lastScaleFactor = 1,
         lastCycleTicks = 0,
         eventMonitor = null,
         turbo = params.turbo,
@@ -218,7 +220,7 @@ var View = function(params) {
         }
 
         // invalidate the view
-        _self.redraw = true;
+        redraw = true;
     } // scaleView
     
     function setZoomCenter(xy) {
@@ -227,8 +229,8 @@ var View = function(params) {
     function getScaledOffset(srcX, srcY) {
         var viewport = _self.getViewport(),
             invScaleFactor = 1 / scaleFactor,
-            scaledX = viewport ? (viewport.x1 + srcX * invScaleFactor) : srcX,
-            scaledY = viewport ? (viewport.y1 + srcY * invScaleFactor) : srcY;
+            scaledX = viewport ? (viewport.x + srcX * invScaleFactor) : srcX,
+            scaledY = viewport ? (viewport.y + srcY * invScaleFactor) : srcY;
         
         return XY.init(scaledX, scaledY);        
     } // getScaledOffset
@@ -379,10 +381,10 @@ var View = function(params) {
             return;
         } // if
         
-        var testX = offsetWrapX ? offsetX + (viewport.width >> 1) : offsetX,
-            testY = offsetWrapY ? offsetY + (viewport.height >> 1) : offsetY,
-            viewWidth = viewport.width,
-            viewHeight = viewport.height;
+        var testX = offsetWrapX ? offsetX + (viewport.w >> 1) : offsetX,
+            testY = offsetWrapY ? offsetY + (viewport.h >> 1) : offsetY,
+            viewWidth = viewport.w,
+            viewHeight = viewport.h;
         
         // check the x
         if (offsetMaxX && offsetMaxX > viewWidth) {
@@ -426,7 +428,7 @@ var View = function(params) {
                     drop);
                 
             if (dragOk) {
-                _self.redraw = true;
+                redraw = true;
             } // if
             
             if (drop) {
@@ -461,65 +463,6 @@ var View = function(params) {
     } // getLayerIndex
     
     /* draw code */
-    
-    // TODO: investigate whether to go back to floating point math for improved display or not
-    function calcZoomRect(drawRect) {
-        var invScaleFactor = 1 / scaleFactor,
-            invScaleFactorNorm = (invScaleFactor - 0.5) * 2;
-            
-        // update the zoomX and y calculations
-        zoomX = interactCenter.x + (offsetX - interactOffset.x);
-        zoomY = interactCenter.y + (offsetY - interactOffset.y);
-        
-        /*
-        COG.info(
-            'scale factor = ' + scaleFactor + 
-            ', inv scale factor = ' + invScaleFactor + 
-            ', inv scale factor norm = ' + invScaleFactorNorm);
-            
-        COG.info('zoom x = ' + zoomX + ', y = ' + zoomY);
-        COG.info('offset x = ' + offsetX + ', y = ' + offsetY);
-        COG.info('interact offset x = ' + interactOffset.x + ', y = ' + interactOffset.y);
-        */
-
-        if (drawRect) {
-            return XYRect.fromCenter(
-                zoomX >> 0, 
-                zoomY >> 0, 
-                (drawRect.width * invScaleFactor) >> 0, 
-                (drawRect.height * invScaleFactor) >> 0);
-        } // if
-    } // calcZoomRect
-    
-    function drawView() {
-        var drawLayer,
-            rectCenter = XYRect.center(rect),
-            rotation = Math.PI,
-            ii = 0;
-            
-        /* first pass clip */
-        
-        if (canClip) {
-            mainContext.beginPath();
-
-            for (ii = layerCount; ii--; ) {
-                if (layers[ii].clip) {
-                    layers[ii].clip(mainContext, drawRect, drawState, _self, tickCount);
-                } // if
-            } // for
-
-            mainContext.closePath();
-            mainContext.clip();
-        } // if
-            
-        /* second pass - draw */
-        
-        // reset the view changes
-        viewChanges = 0;
-
-        // trigger the draw complete for the view
-        triggerAll('drawComplete', rect, tickCount);
-    } // drawView
     
     /*
     ### checkHits
@@ -561,34 +504,44 @@ var View = function(params) {
         // check to see if we are panning
         var redrawBG,
             panning,
-            newFrame = false;
+            scaleChanged,
+            newFrame = false,
+            viewport;
             
         // initialise the tick count if it isn't already defined
         // not all browsers pass through the ticks with the requestAnimationFrame :/
-        tickCount = tickCount ? tickCount : new Date().getTime();
+        tickCount = tickCount || new Date().getTime();
         
         // set the new frame flag
         newFrame = tickCount - lastCycleTicks > cycleDelay;
         
         // if we have a new frame, then fire the enterFrame event
         if (newFrame) {
-            _self.trigger('enterFrame', tickCount, frameIndex++);
+            var refreshXDist = abs(offsetX - refreshX),
+                refreshYDist = abs(offsetY - refreshY);
+                
+            // update the panning flag
+            panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
+            scaleChanged = scaleFactor !== lastScaleFactor;
             
-            // check whether a forced refresh is required
-            // TODO: include some state checks here...
-            if (tickCount - lastRefresh > minRefresh) {
+            if (panning || scaleChanged) {
+                viewChanges++;
+            } // if
+                
+            // determine whether a refresh is required
+            if (refreshXDist >= refreshDist || refreshYDist >= refreshDist) {
                 refresh();
             } // if
+
+            // trigger the enter frame event
+            _self.trigger('enterFrame', tickCount, frameIndex++);
             
             // update the last cycle ticks
             lastCycleTicks = tickCount;
         }
         
         // if we a due for a redraw then do on
-        if (newFrame && _self.redraw) {
-            // determine if we are panning
-            panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
-
+        if (newFrame && viewChanges) {
             // update the state
             state = stateActive | 
                         (scaleFactor !== 1 ? stateZoom : 0) | 
@@ -598,6 +551,9 @@ var View = function(params) {
             // update the redraw background flags
             redrawBG = (state & (stateZoom | statePan)) !== 0;
             interacting = redrawBG && (state & stateAnimating) === 0;
+            
+            // initialise the viewport
+            viewport = getViewport();
 
             /*
             // check that the offset is within bounds
@@ -607,10 +563,11 @@ var View = function(params) {
             */
 
             // TODO: if we have a hover offset, check that no elements have moved under the cursor (maybe)
-
+            
             // prepare the renderer
-            if (renderer.prepare(layers, state, tickCount, hitData)) {
-                var viewport = renderer.getViewport();
+            if (renderer.prepare(layers, viewport, state, tickCount, hitData)) {
+                // reset the view changes count
+                viewChanges = 0;
                 
                 /*
                 for (var ii = layerCount; ii--; ) {
@@ -634,7 +591,8 @@ var View = function(params) {
 
                         // draw the layer
                         drawLayer.draw(
-                            renderer, 
+                            renderer,
+                            viewport,
                             state, 
                             _self,
                             tickCount,
@@ -650,6 +608,11 @@ var View = function(params) {
                 // get the renderer to render the view
                 // NB: some renderers will do absolutely nothing here...
                 renderer.render();
+                
+                // update the last cycle ticks
+                lastOffsetX = offsetX;
+                lastOffsetY = offsetY;
+                lastScaleFactor = scaleFactor;
             } // if
             
             /*
@@ -666,11 +629,6 @@ var View = function(params) {
                 checkHits();
                 hitData = null;
             } // if
-
-            // update the last cycle ticks
-            lastOffsetX = offsetX;
-            lastOffsetY = offsetY;
-            _self.redraw = false;
         } // if
 
         animFrame(cycle);
@@ -693,7 +651,7 @@ var View = function(params) {
         // if we have a potential hit then invalidate the view so a more detailed
         // test can be run
         if (hitFlagged) {
-            _self.redraw = true;
+            viewChanges++;
         } // if
     } // initHitData
     
@@ -771,7 +729,7 @@ var View = function(params) {
     }
     
     function invalidate() {
-        _self.redraw = true;
+        viewChanges++;
     }
     
     /**
@@ -794,20 +752,26 @@ var View = function(params) {
     Return a T5.XYRect for the last drawn view rect
     */
     function getViewport() {
-        var viewport, dimensions;
-        
-        if (renderer) {
-            viewport = renderer.getViewport();
+        var viewport = XYRect.init(
+            offsetX, 
+            offsetY, 
+            offsetX + _self.width, 
+            offsetY + _self.height);
             
-            if (! viewport) {
-                dimensions = renderer.getDimensions();
-                viewport = XYRect.init(
-                    offsetX, 
-                    offsetY, 
-                    offsetX + dimensions.width,
-                    offsetY + dimensions.height
-                );
-            }
+        // add the scale factor
+        viewport.scaleFactor = scaleFactor;
+
+        // if we are scaling, then scale the viewport
+        if (scaleFactor !== 1) {
+            var centerX = offsetX + (_self.width >> 1),
+                centerY = offsetY + (_self.height >> 1);
+
+            viewport = XYRect.fromCenter(
+                centerX, 
+                centerY, 
+                _self.width / scaleFactor | 0,
+                _self.height / scaleFactor | 0
+            );
         } // if
         
         return viewport;
@@ -856,20 +820,22 @@ var View = function(params) {
     events and will do some of their recalculations when this is called.
     */
     function refresh() {
-        var viewport = renderer ? renderer.getViewport() : null;
-        
+        var viewport = getViewport();
         if (viewport) {
             // check that the offset is within bounds
             if (offsetMaxX || offsetMaxY) {
                 constrainOffset(viewport);
             } // if
 
-            // update the last refresh tick count
-            lastRefresh = new Date().getTime();
+            // update the last refresh x and y
+            refreshX = offsetX;
+            refreshY = offsetY;
+            
+            // trigger the refresh event
             triggerAll('refresh', _self, viewport);
 
             // invalidate
-            _self.redraw = true;
+            viewChanges++;
         } // if
     } // refresh
     
@@ -878,12 +844,15 @@ var View = function(params) {
     Remove the T5.ViewLayer specified by the id
     */
     function removeLayer(id) {
+        // TODO: add some cleaning up code here...
+        
+        
         var layerIndex = getLayerIndex(id);
         if ((layerIndex >= 0) && (layerIndex < layerCount)) {
             _self.trigger('layerRemoved', layers[layerIndex]);
 
             layers.splice(layerIndex, 1);
-            _self.redraw = true;
+            viewChanges++;
         } // if
         
         // update the layer count
@@ -962,6 +931,8 @@ var View = function(params) {
             // reset the last offset
             lastOffsetX = offsetX;
             lastOffsetY = offsetY;
+            refreshX = 0;
+            refreshY = 0;
 
             // trigger the change
             triggerAll('zoomLevelChange', value);
@@ -974,7 +945,6 @@ var View = function(params) {
             
             // refresh the display
             refresh();
-            _self.redraw = true;
         } // if
     } // setZoomLevel
     
@@ -1055,9 +1025,6 @@ var View = function(params) {
             offsetX = x | 0;
             offsetY = y | 0;
             
-            // invalidate the display
-            _self.redraw = true;
-            
             // trigger the callback
             if (callback) {
                 callback();
@@ -1134,14 +1101,6 @@ var View = function(params) {
         caps = testResults;
         createRenderer();
 
-        /*
-        // store the results for reference
-        canvasCaps = testResults.canvas;
-        
-        // attach the map to the canvas
-        attachToCanvas();
-        */
-    
         // if autosized, then listen for resize events
         if (isIE) {
             window.attachEvent('onresize', handleResize);
