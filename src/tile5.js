@@ -12,7 +12,6 @@
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true */
 
 // TODO: replace with a github dependency once getjs is done
-//= require <RTree/src/rtree>
 //= require <cog/src/cog>
 //= require <cog/src/timelord>
 //= require <cog/src/objectstore>
@@ -27,6 +26,8 @@ var T5 = {};
     //= require "js/core"
     //= require "js/canvasmaker"
     //= require "js/generator"
+    
+    //= require "js/core/spatialstore"
     
     //= require "js/images/loader"
     //= require "js/images/tile"

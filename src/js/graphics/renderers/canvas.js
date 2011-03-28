@@ -326,17 +326,18 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         
         getOffset: function() {
             return XY.init(drawOffsetX, drawOffsetY);
-        },
+        }
         
+        /*
         render: function(viewport) {
             context.strokeStyle = '#F00';
-            context.rect(
-                viewport.x - drawOffsetX, 
-                viewport.y - drawOffsetY, 
-                viewport.w, 
-                viewport.h);
+            context.moveTo(0, viewport.h >> 1);
+            context.lineTo(viewport.w, viewport.h >> 1);
+            context.moveTo(viewport.w >> 1, 0);
+            context.lineTo(viewport.w >> 1, viewport.h);
             context.stroke();
         }
+        */
     });
     
     return _this;

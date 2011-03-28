@@ -9,7 +9,7 @@ var TileLayer = function(genId, params) {
     // initialise variables
     var genFn = genId ? Generator.init(genId, params).run : null,
         generating = false,
-        rt = null,
+        storage = null,
         zoomTrees = [],
         tiles = [],
         oldTiles = [],
@@ -21,14 +21,12 @@ var TileLayer = function(genId, params) {
     function handleRefresh(evt, view, viewport) {
         var tickCount = new Date().getTime();
         
-        if (rt) {
+        if (storage) {
             // if we have a last view rect, then get the tiles for that rect
-            oldTiles = lastViewport ? rt.search(lastViewport) : [];
+            oldTiles = lastViewport ? storage.search(lastViewport) : [];
             
             // fire the generator
-            genFn(view, viewport, rt, function() {
-                tiles = rt.search(viewport);
-                
+            genFn(view, viewport, storage, function() {
                 view.invalidate();
                 COG.info('GEN COMPLETED IN ' + (new Date().getTime() - tickCount) + ' ms');
             });
@@ -41,8 +39,8 @@ var TileLayer = function(genId, params) {
     function handleResync(evt, view) {
         // if we have a current tree then get the tiles from the current tree and 
         // flag them for removal
-        if (rt && lastViewport) {
-            oldTiles = rt.search(lastViewport);
+        if (storage && lastViewport) {
+            oldTiles = storage.search(lastViewport);
             lastViewport = null;
         } // if
         
@@ -50,10 +48,10 @@ var TileLayer = function(genId, params) {
         var zoomLevel = view && view.getZoomLevel ? view.getZoomLevel() : 0;
         
         if (! zoomTrees[zoomLevel]) {
-            zoomTrees[zoomLevel] = new RTree();
+            zoomTrees[zoomLevel] = new SpatialStore();
         } // if
         
-        rt = zoomTrees[zoomLevel];
+        storage = zoomTrees[zoomLevel];
     } // handleParentChange    
     
     /* exports */
@@ -62,11 +60,7 @@ var TileLayer = function(genId, params) {
     ### draw(renderer)
     */
     function draw(renderer, viewport) {
-        /*
-        COG.info('looking for tiles in viewport: x: ' + viewport.x + ', y: ' + viewport.y + ', width: ' + viewport.w + ', height: ' + viewport.h + ', found = ' + tiles.length);
-        */
-        // COG.info('drawing ' + tiles.length + ' tiles');
-        renderer.drawTiles(viewport, tiles);
+        renderer.drawTiles(viewport, storage.search(viewport));
     } // draw    
     
     /* definition */

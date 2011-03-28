@@ -82,7 +82,7 @@ T5.Geo.OSM = (function() {
             } // if
         } // buildTileUrl
         
-        function run(view, viewport, tree, callback) {
+        function run(view, viewport, store, callback) {
             var zoomLevel = view.getZoomLevel ? view.getZoomLevel() : 0;
             
             if (zoomLevel) {
@@ -98,7 +98,7 @@ T5.Geo.OSM = (function() {
                     tilePixels = getTileXY(tileOffset.x, tileOffset.y, numTiles, radsPerPixel),
                     flipY = params.flipY,
                     // get the current tiles in the tree
-                    tiles = tree.search({
+                    tiles = store.search({
                         x: tilePixels.x,
                         y: tilePixels.y,
                         w: xTiles * tileSize,
@@ -146,7 +146,7 @@ T5.Geo.OSM = (function() {
                                 tileId);
 
                             // insert the tile - we can use the tile to specify bounds also :)
-                            tree.insert(tile, tile);
+                            store.insert(tile, tile);
                         } // if
                     } // for
                 } // for

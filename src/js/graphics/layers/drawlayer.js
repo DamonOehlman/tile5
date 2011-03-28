@@ -17,7 +17,7 @@ var DrawLayer = function(params) {
     
     // initialise variables
     var drawables = [],
-        rt = null,
+        storage = null,
         sortTimeout = 0;
         
     /* private functions */
@@ -43,15 +43,15 @@ var DrawLayer = function(params) {
     
     function handleItemMove(evt, drawable, newBounds, oldBounds) {
         // remove the item from the tree at the specified position
-        rt.remove(oldBounds, drawable);
+        storage.remove(oldBounds, drawable);
         
         // add the item back to the tree at the new position
-        rt.insert(newBounds, drawable);
+        storage.insert(newBounds, drawable);
     } // handleItemMove
     
     function handleResync(evt, view) {
         // create a new rtree
-        rt = new RTree();
+        storage = new SpatialStore(); 
         
         // iterate through the shapes and resync to the grid
         for (var ii = drawables.length; ii--; ) {
@@ -61,11 +61,11 @@ var DrawLayer = function(params) {
             
             // add the item to the tree
             if (drawable.bounds) {
-                rt.insert(drawable.bounds, rt);
+                storage.insert(drawable.bounds, drawable);
             } // if
         } // for
         
-        triggerSort(view);
+        // triggerSort(view);
     } // handleParentChange
     
     /* exports */
@@ -73,11 +73,11 @@ var DrawLayer = function(params) {
     function draw(renderer, viewport, state, view, tickCount, hitData) {
         var emptyProps = {
             },
-            drawItems = rt && viewport ? rt.search(viewport): [];
+            drawItems = storage && viewport ? storage.search(viewport): [];
             
         // iterate through the drawabless and draw the layers
         for (var ii = drawItems.length; ii--; ) {
-            var drawable = drawables[ii],
+            var drawable = drawItems[ii],
                 overrideStyle = drawable.style || _self.style, 
                 styleType,
                 previousStyle,
@@ -150,7 +150,7 @@ var DrawLayer = function(params) {
     so we don't have to do the work again when drawing
     */
     function hitGuess(hitX, hitY, state, view) {
-        return rt && rt.search({
+        return storage && storage.search({
             x: hitX - 10, 
             y: hitY - 10, 
             w: 20,
@@ -181,19 +181,23 @@ var DrawLayer = function(params) {
                 var view = _self.view;
                 if (view) {
                     drawable.resync(view);
-                    if (rt && drawable.bounds) {
-                        rt.insert(drawable.bounds, rt);
+                    if (storage && drawable.bounds) {
+                        storage.insert(drawable.bounds, drawable);
                     } // if
                     
                     triggerSort(view);
                 } // if
                 
                 // attach a move event handler
-                drawable.bind('move', handleItemMove);
+                // drawable.bind('move', handleItemMove);
             } // if
         },
         
         clear: function() {
+            // reset the storage
+            storage = new SpatialStore();
+            
+            // reset the drawables
             drawables = [];
         },
         
