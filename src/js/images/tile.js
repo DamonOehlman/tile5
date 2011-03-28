@@ -1,4 +1,4 @@
-function Tile(x, y, url, width, height) {
+function Tile(x, y, url, width, height, id) {
     this.x = x;
     this.y = y;
     this.w = width || 256;
@@ -12,7 +12,7 @@ function Tile(x, y, url, width, height) {
     this.url = url;
     
     // initialise the tile id
-    this.id = this.x + '_' + this.y;
+    this.id = id || (x + '_' + y);
     
     // derived properties
     this.loaded = false;

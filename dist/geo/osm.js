@@ -89,18 +89,18 @@ T5.Geo.OSM = (function() {
                 var numTiles = 2 << (zoomLevel - 1),
                     tileSize = params.tileSize,
                     radsPerPixel = (Math.PI * 2) / (tileSize << zoomLevel),
-                    minX = viewport.x - tileSize,
-                    minY = viewport.y - tileSize,
-                    xTiles = (viewport.w  / tileSize | 0) + 2,
-                    yTiles = (viewport.h / tileSize | 0) + 2,
+                    minX = viewport.x,
+                    minY = viewport.y,
+                    xTiles = (viewport.w  / tileSize | 0) + 1,
+                    yTiles = (viewport.h / tileSize | 0) + 1,
                     position = T5.GeoXY.toPos(T5.XY.init(minX, minY), radsPerPixel),
                     tileOffset = calculateTileOffset(position.lat, position.lon, numTiles),
                     tilePixels = getTileXY(tileOffset.x, tileOffset.y, numTiles, radsPerPixel),
                     flipY = params.flipY,
                     // get the current tiles in the tree
                     tiles = tree.search({
-                        x: minX,
-                        y: minY,
+                        x: tilePixels.x,
+                        y: tilePixels.y,
                         w: xTiles * tileSize,
                         h: yTiles * tileSize
                     }),
@@ -119,13 +119,15 @@ T5.Geo.OSM = (function() {
                 subDomains = serverDetails && serverDetails.subDomains ? 
                     serverDetails.subDomains : [];
                     
-                for (var xx = -1; xx <= xTiles; xx++) {
-                    for (var yy = -1; yy <= yTiles; yy++) {
-                        var tileX = tilePixels.x + xx * tileSize,
-                            tileY = tilePixels.y + yy * tileSize;
+                for (var xx = 0; xx <= xTiles; xx++) {
+                    for (var yy = 0; yy <= yTiles; yy++) {
+                        var tileX = tileOffset.x + xx,
+                            tileY = tileOffset.y + yy,
+                            tileId = tileX + '_' + tileY,
+                            tile;
                             
                         // if the tile is not in the index, then create
-                        if (idIndex.indexOf(tileX + '_' + tileY) < 0) {
+                        if (idIndex.indexOf(tileId) < 0) {
                             // build the tile url 
                             tileUrl = _self.buildTileUrl(
                                 tileOffset.x + xx, 
@@ -134,14 +136,17 @@ T5.Geo.OSM = (function() {
                                 numTiles, 
                                 flipY);
                                 
-                            COG.info('created tile @ x: ' + tileX + ', y: ' + tileY);
-                            tree.insert({ x: tileX, y: tileY, w: tileSize, h: tileSize }, new T5.Tile(
-                                tileX,
-                                tileY, 
-                                tileUrl,
+                            // create the tile
+                            tile = new T5.Tile(
+                                tilePixels.x + xx * tileSize,
+                                tilePixels.y + yy * tileSize,
+                                tileUrl, 
+                                tileSize, 
                                 tileSize,
-                                tileSize
-                            ));
+                                tileId);
+
+                            // insert the tile - we can use the tile to specify bounds also :)
+                            tree.insert(tile, tile);
                         } // if
                     } // for
                 } // for

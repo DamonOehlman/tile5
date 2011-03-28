@@ -607,7 +607,7 @@ var View = function(params) {
                 
                 // get the renderer to render the view
                 // NB: some renderers will do absolutely nothing here...
-                renderer.render();
+                renderer.render(viewport);
                 
                 // update the last cycle ticks
                 lastOffsetX = offsetX;
@@ -752,15 +752,8 @@ var View = function(params) {
     Return a T5.XYRect for the last drawn view rect
     */
     function getViewport() {
-        var viewport = XYRect.init(
-            offsetX, 
-            offsetY, 
-            offsetX + _self.width, 
-            offsetY + _self.height);
+        var viewport;
             
-        // add the scale factor
-        viewport.scaleFactor = scaleFactor;
-
         // if we are scaling, then scale the viewport
         if (scaleFactor !== 1) {
             var centerX = offsetX + (_self.width >> 1),
@@ -772,7 +765,17 @@ var View = function(params) {
                 _self.width / scaleFactor | 0,
                 _self.height / scaleFactor | 0
             );
-        } // if
+        }
+        else {
+            viewport = XYRect.init(
+                offsetX, 
+                offsetY, 
+                offsetX + _self.width, 
+                offsetY + _self.height);
+        } // if..else
+        
+        // add the scale factor information
+        viewport.scaleFactor = scaleFactor;
         
         return viewport;
     } // getViewport

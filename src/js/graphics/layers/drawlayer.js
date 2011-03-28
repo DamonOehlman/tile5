@@ -41,14 +41,28 @@ var DrawLayer = function(params) {
     
     /* event handlers */
     
+    function handleItemMove(evt, drawable, newBounds, oldBounds) {
+        // remove the item from the tree at the specified position
+        rt.remove(oldBounds, drawable);
+        
+        // add the item back to the tree at the new position
+        rt.insert(newBounds, drawable);
+    } // handleItemMove
+    
     function handleResync(evt, view) {
         // create a new rtree
         rt = new RTree();
         
         // iterate through the shapes and resync to the grid
         for (var ii = drawables.length; ii--; ) {
-            drawables[ii].resync(view);
-            drawables[ii].addToTree(rt);
+            var drawable = drawables[ii];
+            
+            drawable.resync(view);
+            
+            // add the item to the tree
+            if (drawable.bounds) {
+                rt.insert(drawable.bounds, rt);
+            } // if
         } // for
         
         triggerSort(view);
@@ -167,10 +181,15 @@ var DrawLayer = function(params) {
                 var view = _self.view;
                 if (view) {
                     drawable.resync(view);
-                    drawable.addToTree(rt);
+                    if (rt && drawable.bounds) {
+                        rt.insert(drawable.bounds, rt);
+                    } // if
                     
                     triggerSort(view);
                 } // if
+                
+                // attach a move event handler
+                drawable.bind('move', handleItemMove);
             } // if
         },
         

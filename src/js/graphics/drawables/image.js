@@ -47,17 +47,40 @@ function ImageDrawable(params) {
     params = COG.extend({
         image: null,
         imageUrl: null,
-        imageOffset: null,
+        centerOffset: null,
         typeName: 'Image'
     }, params);
     
     var dragOffset = null,
-        drawableUpdateBounds = Drawable.prototype.updateBounds,
+        drawableResync = Drawable.prototype.resync,
         drawX,
         drawY,
         imgOffsetX = 0,
         imgOffsetY = 0,
         image = params.image;
+        
+    /* internal functions */
+    
+    function checkOffsetAndBounds() {
+        var x, y;
+
+        if (image && image.width > 0) {
+            if (! this.centerOffset) {
+                this.centerOffset = XY.init(
+                    -image.width >> 1, 
+                    -image.height >> 1
+                );
+            } // if
+
+            x = this.xy.x + this.centerOffset.x;
+            y = this.xy.y + this.centerOffset.y;
+            
+            this.updateBounds(
+                XYRect.init(x, y, x + image.width, y + image.height), 
+                false
+            );
+        } // if
+    } // checkOffsetAndBounds    
             
     /* exports */
     
@@ -67,6 +90,8 @@ function ImageDrawable(params) {
         
         // load the new image
         if (this.imageUrl) {
+            var marker = this;
+            
             getImage(this.imageUrl, function(retrievedImage, loaded) {
                 image = retrievedImage;
                 
@@ -78,6 +103,8 @@ function ImageDrawable(params) {
                         view.invalidate();
                     } // if
                 } // if
+                
+                checkOffsetAndBounds.apply(marker);
             });
         } // if
     } // changeImage
@@ -135,17 +162,15 @@ function ImageDrawable(params) {
             x: this.xy.x + imgOffsetX,
             y: this.xy.y + imgOffsetY
         };
-    } // getProps 
+    } // getProps
     
-    /**
-    ### updateBounds(bounds: XYRect, updateXY: boolean)
-    */
-    function updateBounds(bounds, updateXY) {
-        drawableUpdateBounds.call(this, bounds, updateXY);
-
-        // check the offset and bounds
-        checkOffsetAndBounds(this, image);
-    } // setOrigin
+    function resync(view) {
+        // call the inherited resync
+        drawableResync.call(this, view);
+        
+        // now check the offset and bounds
+        checkOffsetAndBounds.call(this);
+    } // resync
     
     // call the inherited constructor
     Drawable.call(this, params);
@@ -154,18 +179,18 @@ function ImageDrawable(params) {
         changeImage: changeImage,
         drag: drag,
         getProps: getProps,
-        updateBounds: updateBounds
+        resync: resync
     });
 
     // load the appropriate image
     if (! image) { 
-        changeImage(this.imageUrl);
+        changeImage.call(this, this.imageUrl);
     } // if
     
     // if we have an image offset, then update the offsetX and Y
-    if (this.imageOffset) {
-        imgOffsetX = this.imageOffset.x;
-        imgOffsetY = this.imageOffset.y;
+    if (this.centerOffset) {
+        imgOffsetX = this.centerOffset.x;
+        imgOffsetY = this.centerOffset.y;
     } // if
 };
 

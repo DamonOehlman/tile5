@@ -41,7 +41,6 @@ var T5 = {};
     
     //= require "js/graphics/drawables/core"
     //= require "js/graphics/drawables/animation"
-    //= require "js/graphics/drawables/helpers"
     //= require "js/graphics/drawables/marker"
     //= require "js/graphics/drawables/poly"
     //= require "js/graphics/drawables/line"

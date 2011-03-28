@@ -3350,7 +3350,7 @@ function getImage(url, callback) {
         loadImage(url, callback);
     } // if..else
 };
-function Tile(x, y, url, width, height) {
+function Tile(x, y, url, width, height, id) {
     this.x = x;
     this.y = y;
     this.w = width || 256;
@@ -3361,7 +3361,7 @@ function Tile(x, y, url, width, height) {
 
     this.url = url;
 
-    this.id = this.x + '_' + this.y;
+    this.id = id || (x + '_' + y);
 
     this.loaded = false;
     this.image = null;
@@ -3792,6 +3792,16 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
 
         getOffset: function() {
             return XY.init(drawOffsetX, drawOffsetY);
+        },
+
+        render: function(viewport) {
+            context.strokeStyle = '#F00';
+            context.rect(
+                viewport.x - drawOffsetX,
+                viewport.y - drawOffsetY,
+                viewport.w,
+                viewport.h);
+            context.stroke();
         }
     });
 
@@ -4609,7 +4619,7 @@ var View = function(params) {
                     } // if
                 } // for
 
-                renderer.render();
+                renderer.render(viewport);
 
                 lastOffsetX = offsetX;
                 lastOffsetY = offsetY;
@@ -4739,13 +4749,7 @@ var View = function(params) {
     Return a T5.XYRect for the last drawn view rect
     */
     function getViewport() {
-        var viewport = XYRect.init(
-            offsetX,
-            offsetY,
-            offsetX + _self.width,
-            offsetY + _self.height);
-
-        viewport.scaleFactor = scaleFactor;
+        var viewport;
 
         if (scaleFactor !== 1) {
             var centerX = offsetX + (_self.width >> 1),
@@ -4757,7 +4761,16 @@ var View = function(params) {
                 _self.width / scaleFactor | 0,
                 _self.height / scaleFactor | 0
             );
-        } // if
+        }
+        else {
+            viewport = XYRect.init(
+                offsetX,
+                offsetY,
+                offsetX + _self.width,
+                offsetY + _self.height);
+        } // if..else
+
+        viewport.scaleFactor = scaleFactor;
 
         return viewport;
     } // getViewport
@@ -5113,12 +5126,6 @@ var Drawable = function(params) {
 Drawable.prototype = {
     constructor: Drawable,
 
-    addToTree: function(tree) {
-        if (tree && this.bounds) {
-            tree.insert(this.bounds, this);
-        } // if
-    },
-
     /**
     ### animate(fn, argsStart, argsEnd, opts)
     */
@@ -5309,25 +5316,6 @@ function animateDrawable(target, fnName, argsStart, argsEnd, opts) {
         registerAnimationCallback(runTween);
     } // if
 } // animate
-function checkOffsetAndBounds(drawable, image) {
-    var x, y;
-
-    if (image && image.width > 0) {
-        if (! drawable.imageOffset) {
-            drawable.imageOffset = XY.init(
-                -image.width >> 1,
-                -image.height >> 1
-            );
-        } // if
-
-        if (! drawable.bounds) {
-            x = drawable.xy.x + drawable.imageOffset.x;
-            y = drawable.xy.y + drawable.imageOffset.y;
-
-            drawable.bounds = XYRect.init(x, y, x + image.width, y + image.height);
-        } // if
-    } // if
-} // checkOffsetAndBounds
 /**
 ### T5.Marker(params)
 */
@@ -5468,17 +5456,40 @@ function ImageDrawable(params) {
     params = COG.extend({
         image: null,
         imageUrl: null,
-        imageOffset: null,
+        centerOffset: null,
         typeName: 'Image'
     }, params);
 
     var dragOffset = null,
-        drawableUpdateBounds = Drawable.prototype.updateBounds,
+        drawableResync = Drawable.prototype.resync,
         drawX,
         drawY,
         imgOffsetX = 0,
         imgOffsetY = 0,
         image = params.image;
+
+    /* internal functions */
+
+    function checkOffsetAndBounds() {
+        var x, y;
+
+        if (image && image.width > 0) {
+            if (! this.centerOffset) {
+                this.centerOffset = XY.init(
+                    -image.width >> 1,
+                    -image.height >> 1
+                );
+            } // if
+
+            x = this.xy.x + this.centerOffset.x;
+            y = this.xy.y + this.centerOffset.y;
+
+            this.updateBounds(
+                XYRect.init(x, y, x + image.width, y + image.height),
+                false
+            );
+        } // if
+    } // checkOffsetAndBounds
 
     /* exports */
 
@@ -5486,6 +5497,8 @@ function ImageDrawable(params) {
         this.imageUrl = imageUrl;
 
         if (this.imageUrl) {
+            var marker = this;
+
             getImage(this.imageUrl, function(retrievedImage, loaded) {
                 image = retrievedImage;
 
@@ -5496,6 +5509,8 @@ function ImageDrawable(params) {
                         view.invalidate();
                     } // if
                 } // if
+
+                checkOffsetAndBounds.apply(marker);
             });
         } // if
     } // changeImage
@@ -5550,14 +5565,11 @@ function ImageDrawable(params) {
         };
     } // getProps
 
-    /**
-    ### updateBounds(bounds: XYRect, updateXY: boolean)
-    */
-    function updateBounds(bounds, updateXY) {
-        drawableUpdateBounds.call(this, bounds, updateXY);
+    function resync(view) {
+        drawableResync.call(this, view);
 
-        checkOffsetAndBounds(this, image);
-    } // setOrigin
+        checkOffsetAndBounds.call(this);
+    } // resync
 
     Drawable.call(this, params);
 
@@ -5565,16 +5577,16 @@ function ImageDrawable(params) {
         changeImage: changeImage,
         drag: drag,
         getProps: getProps,
-        updateBounds: updateBounds
+        resync: resync
     });
 
     if (! image) {
-        changeImage(this.imageUrl);
+        changeImage.call(this, this.imageUrl);
     } // if
 
-    if (this.imageOffset) {
-        imgOffsetX = this.imageOffset.x;
-        imgOffsetY = this.imageOffset.y;
+    if (this.centerOffset) {
+        imgOffsetX = this.centerOffset.x;
+        imgOffsetY = this.centerOffset.y;
     } // if
 };
 
@@ -5590,7 +5602,7 @@ function ImageMarker(params) {
     }, params);
 
     if (params.imageAnchor) {
-        params.imageOffset = XY.invert(params.imageAnchor);
+        params.centerOffset = XY.invert(params.imageAnchor);
     } // if
 
     ImageDrawable.call(this, params);
@@ -5732,23 +5744,44 @@ var TileLayer = function(genId, params) {
     var genFn = genId ? Generator.init(genId, params).run : null,
         generating = false,
         rt = null,
+        zoomTrees = [],
+        tiles = [],
+        oldTiles = [],
+        lastViewport = null,
         loadArgs = params.imageLoadArgs;
 
     /* event handlers */
 
-    function handleRefresh(evt, view, viewRect) {
+    function handleRefresh(evt, view, viewport) {
         var tickCount = new Date().getTime();
 
         if (rt) {
-            genFn(view, viewRect, rt, function() {
+            oldTiles = lastViewport ? rt.search(lastViewport) : [];
+
+            genFn(view, viewport, rt, function() {
+                tiles = rt.search(viewport);
+
                 view.invalidate();
                 COG.info('GEN COMPLETED IN ' + (new Date().getTime() - tickCount) + ' ms');
             });
+
+            lastViewport = XYRect.copy(viewport);
         } // if
     } // handleViewIdle
 
     function handleResync(evt, view) {
-        rt = new RTree();
+        if (rt && lastViewport) {
+            oldTiles = rt.search(lastViewport);
+            lastViewport = null;
+        } // if
+
+        var zoomLevel = view && view.getZoomLevel ? view.getZoomLevel() : 0;
+
+        if (! zoomTrees[zoomLevel]) {
+            zoomTrees[zoomLevel] = new RTree();
+        } // if
+
+        rt = zoomTrees[zoomLevel];
     } // handleParentChange
 
     /* exports */
@@ -5757,8 +5790,9 @@ var TileLayer = function(genId, params) {
     ### draw(renderer)
     */
     function draw(renderer, viewport) {
-        var tiles = rt ? rt.search(viewport) : [];
-
+        /*
+        COG.info('looking for tiles in viewport: x: ' + viewport.x + ', y: ' + viewport.y + ', width: ' + viewport.w + ', height: ' + viewport.h + ', found = ' + tiles.length);
+        */
         renderer.drawTiles(viewport, tiles);
     } // draw
 
@@ -5815,12 +5849,23 @@ var DrawLayer = function(params) {
 
     /* event handlers */
 
+    function handleItemMove(evt, drawable, newBounds, oldBounds) {
+        rt.remove(oldBounds, drawable);
+
+        rt.insert(newBounds, drawable);
+    } // handleItemMove
+
     function handleResync(evt, view) {
         rt = new RTree();
 
         for (var ii = drawables.length; ii--; ) {
-            drawables[ii].resync(view);
-            drawables[ii].addToTree(rt);
+            var drawable = drawables[ii];
+
+            drawable.resync(view);
+
+            if (drawable.bounds) {
+                rt.insert(drawable.bounds, rt);
+            } // if
         } // for
 
         triggerSort(view);
@@ -5927,10 +5972,14 @@ var DrawLayer = function(params) {
                 var view = _self.view;
                 if (view) {
                     drawable.resync(view);
-                    drawable.addToTree(rt);
+                    if (rt && drawable.bounds) {
+                        rt.insert(drawable.bounds, rt);
+                    } // if
 
                     triggerSort(view);
                 } // if
+
+                drawable.bind('move', handleItemMove);
             } // if
         },
 
