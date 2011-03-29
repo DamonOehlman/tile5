@@ -62,6 +62,7 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
             minX, minY, maxX, maxY,
             tileWidth, tileHeight,
             gridWidth, gridHeight,
+            diffWidth, diffHeight,
             scaleOffsetX = 0, 
             scaleOffsetY = 0,
             relX, relY, ii, 
@@ -82,8 +83,8 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
             // calculate the min and max x & y
             minX = minX ? Math.min(tile.x, minX) : tile.x;
             minY = minY ? Math.min(tile.y, minY) : tile.y;
-            maxX = maxX ? Math.min(tile.x, maxX) : tile.x;
-            maxY = maxY ? Math.min(tile.y, maxY) : tile.y;
+            maxX = maxX ? Math.max(tile.x, maxX) : tile.x;
+            maxY = maxY ? Math.max(tile.y, maxY) : tile.y;
         } // for
         
         removeOldTiles(tileIds);
@@ -91,14 +92,16 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
         // determine the width of the tile grid
         gridWidth = ((maxX - minX) / tileWidth + 1) * tileWidth;
         gridHeight = ((maxY - minY) / tileHeight + 1) * tileHeight;
+        diffWidth = gridWidth * scaleFactor - viewport.w;
+        diffHeight = gridHeight * scaleFactor - viewport.h;
         
         // calculate the scale x and y offset
-        scaleOffsetX = gridWidth * scaleFactor - gridWidth;
-        scaleOffsetY = gridHeight * scaleFactor - gridHeight;
+        scaleOffsetX = diffWidth * scaleFactor - diffWidth;
+        scaleOffsetY = diffHeight * scaleFactor - diffHeight;
         
         // calculate the offset
-        offsetX = minX - viewport.x - scaleOffsetX;
-        offsetY = minY - viewport.y - scaleOffsetY;
+        offsetX = minX - viewport.x;
+        offsetY = minY - viewport.y;
             
         // draw the tiles
         for (ii = tiles.length; ii--; ) {

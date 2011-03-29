@@ -3065,10 +3065,8 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     function prepare(layers, viewport, state, tickCount, hitData) {
         var ii,
             canClip = false,
-            viewOffset = view.getOffset(),
-            scaleFactor = view.getScaleFactor(),
-            viewX = viewOffset.x,
-            viewY = viewOffset.y;
+            targetVP = viewport.scaled || viewport,
+            scaleFactor = viewport.scaleFactor;
 
         if (context) {
             context.restore();
@@ -3081,8 +3079,8 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
             canClip = canClip || layers[ii].clip;
         } // for
 
-        drawOffsetX = viewport.x;
-        drawOffsetY = viewport.y;
+        drawOffsetX = targetVP.x;
+        drawOffsetY = targetVP.y;
 
         if (context) {
             if (! canClip) {
@@ -4085,24 +4083,21 @@ var View = function(params) {
     Return a T5.XYRect for the last drawn view rect
     */
     function getViewport() {
-        var viewport;
+        var viewport = new Rect(offsetX, offsetY, _self.width, _self.height);
+
+        viewport.scaleFactor = scaleFactor;
 
         if (scaleFactor !== 1) {
             var centerX = offsetX + (_self.width >> 1),
                 centerY = offsetY + (_self.height >> 1);
 
-            viewport = XYRect.fromCenter(
+            viewport.scaled = XYRect.fromCenter(
                 centerX,
                 centerY,
                 _self.width / scaleFactor | 0,
                 _self.height / scaleFactor | 0
             );
-        }
-        else {
-            viewport = new Rect(offsetX, offsetY, _self.width, _self.height);
-        } // if..else
-
-        viewport.scaleFactor = scaleFactor;
+        } // if
 
         return viewport;
     } // getViewport

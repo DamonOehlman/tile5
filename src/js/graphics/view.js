@@ -756,26 +756,23 @@ var View = function(params) {
     Return a T5.XYRect for the last drawn view rect
     */
     function getViewport() {
-        var viewport;
+        var viewport = new Rect(offsetX, offsetY, _self.width, _self.height);
+
+        // add the scale factor information
+        viewport.scaleFactor = scaleFactor;
             
-        // if we are scaling, then scale the viewport
+        // if we are scaling, then attach the scaled viewport information also
         if (scaleFactor !== 1) {
             var centerX = offsetX + (_self.width >> 1),
                 centerY = offsetY + (_self.height >> 1);
 
-            viewport = XYRect.fromCenter(
+            viewport.scaled = XYRect.fromCenter(
                 centerX, 
                 centerY, 
                 _self.width / scaleFactor | 0,
                 _self.height / scaleFactor | 0
             );
-        }
-        else {
-            viewport = new Rect(offsetX, offsetY, _self.width, _self.height);
-        } // if..else
-        
-        // add the scale factor information
-        viewport.scaleFactor = scaleFactor;
+        } // if
         
         return viewport;
     } // getViewport

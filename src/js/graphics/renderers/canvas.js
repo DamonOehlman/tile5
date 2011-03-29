@@ -176,10 +176,8 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     function prepare(layers, viewport, state, tickCount, hitData) {
         var ii,
             canClip = false,
-            viewOffset = view.getOffset(),
-            scaleFactor = view.getScaleFactor(),
-            viewX = viewOffset.x,
-            viewY = viewOffset.y;
+            targetVP = viewport.scaled || viewport,
+            scaleFactor = viewport.scaleFactor;
             
         // if we already have a context, then restore
         if (context) {
@@ -196,8 +194,8 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         } // for
         
         // update the offset x and y
-        drawOffsetX = viewport.x;
-        drawOffsetY = viewport.y;
+        drawOffsetX = targetVP.x;
+        drawOffsetY = targetVP.y;
         
         if (context) {
             // if we can't clip then clear the context

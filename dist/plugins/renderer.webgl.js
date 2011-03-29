@@ -1881,6 +1881,8 @@ T5.registerRenderer('webgl', function(view, container, params, baseRenderer) {
 
             buffer.itemSize = 3;
             buffer.numItems = 4;
+
+            view.invalidate();
         });
     } // createTileBuffer
 
@@ -2026,7 +2028,7 @@ T5.registerRenderer('webgl', function(view, container, params, baseRenderer) {
         mat4.rotate(mvMatrix, -Math.PI / 4, [1, 0, 0]);
         mat4.translate(mvMatrix, [
             -drawOffsetX - vpWidth / 2,
-            drawOffsetY + vpHeight / 2,
+            drawOffsetY + 200 / viewport.scaleFactor,
             -200 / viewport.scaleFactor]
         );
 
@@ -2074,7 +2076,6 @@ T5.registerRenderer('webgl', function(view, container, params, baseRenderer) {
 
     var _this = COG.extend(baseRenderer, {
         interactTarget: canvas,
-        preventPartialScale: true,
 
         applyStyle: applyStyle,
         applyTransform: applyTransform,
