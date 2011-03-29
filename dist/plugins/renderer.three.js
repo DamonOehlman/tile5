@@ -8,6 +8,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         camera,
         scene,
         renderer,
+        lastTiles = [],
         tileBg,
         tilePlane,
         materials,
@@ -83,7 +84,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
 
             texture.needsUpdate = true;
 
-            mesh.position.x = tile.x + (vpWidth >> 1);
+            mesh.position.x = tile.x;
             mesh.position.y = -tile.y;
             scene.addObject(mesh);
         });
@@ -97,32 +98,36 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
     function applyTransform(drawable) {
     } // applyTransform
 
-    function drawTiles(tiles) {
+    function drawTiles(viewport, tiles) {
         var tile,
-            inViewport,
             offsetX = transform ? transform.x : drawOffsetX,
             offsetY = transform ? transform.y : drawOffsetY,
-            minX = offsetX - 256,
-            minY = offsetY - 256,
-            maxX = offsetX + vpWidth,
-            maxY = offsetY + vpHeight,
-            halfWidth = vpWidth >> 1,
-            halfHeight = vpHeight >> 1,
-            relX, relY,
-            texture,
-            mesh;
+            mesh,
+            ii,
+            tileIds = [];
 
-        for (var ii = tiles.length; ii--; ) {
+        COG.info('drawing tiles, viewport: x = ' + viewport.x + ', y = ' + viewport.y);
+
+        for (ii = tiles.length; ii--; ) {
             tile = tiles[ii];
+            tileIds[tileIds.length] = tile.id;
             mesh = tile.mesh;
 
-            inViewport = tile.x >= minX && tile.x <= maxX &&
-                tile.y >= minY && tile.y <= maxY;
-
-            if (inViewport && (! mesh) && (! tile.loading)) {
+            if ((! mesh) && (! tile.loading)) {
                 loadTileMesh(tile);
             } // if
         } // for
+
+        for (ii = lastTiles.length; ii--; ) {
+            tile = lastTiles[ii];
+
+            if (tile.mesh && (tileIds.indexOf(tile.id) < 0)) {
+                scene.removeObject(tile.mesh);
+                tile.mesh = null;
+            } // if
+        } // for
+
+        lastTiles = [].concat(tiles);
     } // drawTiles
 
     function prepare(layers, viewport, state, tickCount, hitData) {
@@ -130,7 +135,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         drawOffsetY = viewport.y;
 
 
-        camera.position.x = tileBg.position.x = drawOffsetX + vpWidth;
+        camera.position.x = tileBg.position.x = drawOffsetX;
         tileBg.position.y = -drawOffsetY;
         camera.position.y = tileBg.position.y - 500;
 

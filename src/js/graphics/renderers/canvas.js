@@ -325,7 +325,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         },
         
         getOffset: function() {
-            return XY.init(drawOffsetX, drawOffsetY);
+            return new XY(drawOffsetX, drawOffsetY);
         }
         
         /*

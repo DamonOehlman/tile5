@@ -52,7 +52,7 @@ var Map = exports.Map = function(params) {
     };
     
     // initialise variables
-    var lastBoundsChangeOffset = XY.init(),
+    var lastBoundsChangeOffset = new XY(),
         locationWatchId = 0,
         locateMode = LOCATE_MODE.NONE,
         initialized = false,
@@ -141,10 +141,10 @@ var Map = exports.Map = function(params) {
     function handleTap(evt, absXY, relXY, offsetXY) {
         var tapPos = GeoXY.toPos(offsetXY, rpp),
             minPos = GeoXY.toPos(
-                XY.offset(offsetXY, -tapExtent, tapExtent),
+                XYFns.offset(offsetXY, -tapExtent, tapExtent),
                 rpp),
             maxPos = GeoXY.toPos(
-                XY.offset(offsetXY, tapExtent, -tapExtent),
+                XYFns.offset(offsetXY, tapExtent, -tapExtent),
                 rpp);
                 
         _self.trigger(
@@ -154,39 +154,6 @@ var Map = exports.Map = function(params) {
             tapPos,
             BoundingBox.init(minPos, maxPos)
         );
-        
-        
-        /*
-        var grid = _self.getTileLayer();
-        var tapBounds = null;
-
-        if (grid) {
-            TODO: get the tap working again...
-            var gridPos = _self.viewPixToGridPix(
-                    XY.init(relXY.x, relXY.y)),
-                tapPos = grid.pixelsToPos(gridPos),
-                minPos = grid.pixelsToPos(
-                    XY.offset(
-                        gridPos, 
-                        -params.tapExtent, 
-                        params.tapExtent)),
-                maxPos = grid.pixelsToPos(
-                    XY.offset(
-                        gridPos,
-                         params.tapExtent, 
-                         -params.tapExtent));
-
-            // turn that into a bounds object
-            tapBounds = BoundingBox.init(minPos, maxPos);
-
-            // find the pois in the bounds area
-            // tappedPOIs = _self.pois.findByBounds(tapBounds);
-            // COG.info('TAPPED POIS = ', tappedPOIs);
-            
-            _self.trigger('geotap', absXY, relXY, tapPos, tapBounds);
-            // _self.trigger('tapPOI', tappedPOIs);
-        } // if
-        */
     } // handleTap
     
     function handleRefresh(evt) {
@@ -234,8 +201,8 @@ var Map = exports.Map = function(params) {
         
         return viewport ? 
             BoundingBox.init(
-                GeoXY.toPos(XY.init(viewport.x, viewport.y2), rpp),
-                GeoXY.toPos(XY.init(viewport.x2, viewport.y), rpp)) : 
+                GeoXY.toPos(new XY(viewport.x, viewport.y2), rpp),
+                GeoXY.toPos(new XY(viewport.x2, viewport.y), rpp)) : 
             null;
     } // getBoundingBox
 
@@ -246,7 +213,7 @@ var Map = exports.Map = function(params) {
     function getCenterPosition() {
         var viewport = _self.getViewport();
         if (viewport) {
-            var xy = XY.init(viewport.x + (viewport.w >> 1), viewport.y + (viewport.h >> 1));
+            var xy = new XY(viewport.x + (viewport.w >> 1), viewport.y + (viewport.h >> 1));
             return GeoXY.toPos(xy, rpp);
         } // if
         

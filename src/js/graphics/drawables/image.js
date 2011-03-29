@@ -62,23 +62,20 @@ function ImageDrawable(params) {
     /* internal functions */
     
     function checkOffsetAndBounds() {
-        var x, y;
-
         if (image && image.width > 0) {
             if (! this.centerOffset) {
-                this.centerOffset = XY.init(
+                this.centerOffset = new XY(
                     -image.width >> 1, 
                     -image.height >> 1
                 );
             } // if
 
-            x = this.xy.x + this.centerOffset.x;
-            y = this.xy.y + this.centerOffset.y;
-            
-            this.updateBounds(
-                XYRect.init(x, y, x + image.width, y + image.height), 
-                false
-            );
+            this.updateBounds(new Rect(
+                this.xy.x + this.centerOffset.x,
+                this.xy.y + this.centerOffset.y,
+                image.width, 
+                image.height), 
+            false);
         } // if
     } // checkOffsetAndBounds    
             
@@ -115,7 +112,7 @@ function ImageDrawable(params) {
     function drag(dragData, dragX, dragY, drop) {
         // if the drag offset is unknown then calculate
         if (! dragOffset) {
-            dragOffset = XY.init(
+            dragOffset = new XY(
                 dragData.startX - this.xy.x, 
                 dragData.startY - this.xy.y
             );

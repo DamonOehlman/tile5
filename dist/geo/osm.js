@@ -127,7 +127,7 @@ T5.Geo.OSM = (function() {
                             tile;
                             
                         // if the tile is not in the index, then create
-                        if (idIndex.indexOf(tileId) < 0) {
+                        if (T5.indexOf.call(idIndex, tileId) < 0) {
                             // build the tile url 
                             tileUrl = _self.buildTileUrl(
                                 tileOffset.x + xx, 

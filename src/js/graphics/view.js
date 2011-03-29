@@ -150,7 +150,7 @@ var View = function(params) {
         dragObject = null,
         frameIndex = 0,
         mainContext = null,
-        isIE = isType(window.attachEvent, typeFunction),
+        isIE = !isType(window.attachEvent, typeUndefined),
         hitFlagged = false,
         refreshDist = params.refreshDistance,
         offsetX = 0,
@@ -181,6 +181,7 @@ var View = function(params) {
         lastCycleTicks = 0,
         eventMonitor = null,
         turbo = params.turbo,
+        partialScaling = true,
         tweeningOffset = false,
         cycleDelay = 1000 / params.fps | 0,
         viewChanges = 0,
@@ -232,7 +233,7 @@ var View = function(params) {
             scaledX = viewport ? (viewport.x + srcX * invScaleFactor) : srcX,
             scaledY = viewport ? (viewport.y + srcY * invScaleFactor) : srcY;
         
-        return XY.init(scaledX, scaledY);        
+        return new XY(scaledX, scaledY);
     } // getScaledOffset
     
     function handleContainerUpdate(name, value) {
@@ -305,6 +306,9 @@ var View = function(params) {
     
     function createRenderer() {
         renderer = attachRenderer(params.renderer, _self, container);
+        
+        // determine whether partial scaling is supporter
+        partialScaling = ! renderer.preventPartialScale;
         
         // attach interaction handlers
         captureInteractionEvents();
@@ -701,7 +705,7 @@ var View = function(params) {
     */
     function getOffset() {
         // return the last calculated cycle offset
-        return XY.init(offsetX, offsetY);
+        return new XY(offsetX, offsetY);
     } // getOffset
     
     /**
@@ -767,11 +771,7 @@ var View = function(params) {
             );
         }
         else {
-            viewport = XYRect.init(
-                offsetX, 
-                offsetY, 
-                offsetX + _self.width, 
-                offsetY + _self.height);
+            viewport = new Rect(offsetX, offsetY, _self.width, _self.height);
         } // if..else
         
         // add the scale factor information
@@ -871,6 +871,18 @@ var View = function(params) {
     Scale the view to the specified `targetScaling` (1 = normal, 2 = double-size and 0.5 = half-size).
     */
     function scale(targetScaling, targetXY, tweenFn, callback, duration) {
+        var scaleFactorExp;
+        
+        // if partial scrolling is disabled handle it
+        if (! partialScaling) {
+            tweenFn = false;
+
+            scaleFactorExp = round(log(targetScaling) / Math.LN2);
+
+            // round the scale factor to the nearest power of 2
+            targetScaling = pow(2, scaleFactorExp);
+        } // if
+        
         // if tweening then update the targetXY
         if (tweenFn) {
             COG.tweenValue(scaleFactor, targetScaling, tweenFn, duration, function(val, completed) {
@@ -878,7 +890,7 @@ var View = function(params) {
                 scaleFactor = val;
                 
                 if (completed) {
-                    var scaleFactorExp = round(log(scaleFactor) / Math.LN2);
+                    scaleFactorExp = round(log(scaleFactor) / Math.LN2);
 
                     // round the scale factor to the nearest power of 2
                     scaleFactor = pow(2, scaleFactorExp);

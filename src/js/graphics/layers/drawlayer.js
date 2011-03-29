@@ -17,7 +17,7 @@ var DrawLayer = function(params) {
     
     // initialise variables
     var drawables = [],
-        storage = null,
+        storage = new SpatialStore(),
         sortTimeout = 0;
         
     /* private functions */
@@ -43,26 +43,20 @@ var DrawLayer = function(params) {
     
     function handleItemMove(evt, drawable, newBounds, oldBounds) {
         // remove the item from the tree at the specified position
-        storage.remove(oldBounds, drawable);
+        if (oldBounds) {
+            storage.remove(oldBounds, drawable);
+        } // if
         
         // add the item back to the tree at the new position
         storage.insert(newBounds, drawable);
     } // handleItemMove
     
     function handleResync(evt, view) {
-        // create a new rtree
-        storage = new SpatialStore(); 
-        
         // iterate through the shapes and resync to the grid
         for (var ii = drawables.length; ii--; ) {
             var drawable = drawables[ii];
             
             drawable.resync(view);
-            
-            // add the item to the tree
-            if (drawable.bounds) {
-                storage.insert(drawable.bounds, drawable);
-            } // if
         } // for
         
         // triggerSort(view);
@@ -189,7 +183,7 @@ var DrawLayer = function(params) {
                 } // if
                 
                 // attach a move event handler
-                // drawable.bind('move', handleItemMove);
+                drawable.bind('move', handleItemMove);
             } // if
         },
         

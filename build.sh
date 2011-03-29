@@ -1,4 +1,4 @@
-SPROCKET_OPTS="-I build -I /development/projects/github/ -I /development/projects/github/sidelab/ -I /development/projects/googlecode/"
+SPROCKET_OPTS="-I build -I lib -I /development/projects/github/sidelab/"
 MINIFY=$1
 
 : ${MINIFY:=false}
@@ -16,7 +16,7 @@ if $MINIFY; then
          --js dist/tile5.js
 fi;
 
-for plugin in renderer.webgl renderer.three
+for plugin in renderer.dom renderer.webgl renderer.three
 do
     echo "Building Tile5 Plugin: $plugin"
     

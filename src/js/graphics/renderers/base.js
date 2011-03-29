@@ -42,7 +42,7 @@ var Renderer = function(view, container, params) {
         ### getOffset()
         */
         getOffset: function() {
-            return XY.init(0, 0);
+            return new XY();
         },
 
         /**

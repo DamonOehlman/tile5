@@ -71,7 +71,7 @@ Hits = (function() {
             elements ? elements : hitData.elements, 
             hitData.absXY,
             hitData.relXY,
-            XY.init(hitData.x, hitData.y)
+            new XY(hitData.x, hitData.y)
         );                
     } // triggerEvent
     

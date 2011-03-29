@@ -22,11 +22,17 @@ var T5 = {};
 (function(exports) {
     //= require "js/animframe"
     
+    //= require "js/functions"
     //= require "js/shorts"
-    //= require "js/core"
     //= require "js/canvasmaker"
     //= require "js/generator"
     
+    //= require "js/core/xy"
+    //= require "js/core/rect"
+    //= require "js/core/xyfns"
+    //= require "js/core/vector"
+    //= require "js/core/xyrect"
+    //= require "js/core/hits"
     //= require "js/core/spatialstore"
     
     //= require "js/images/loader"
@@ -34,7 +40,6 @@ var T5 = {};
     
     //= require "js/graphics/renderers/base"
     //= require "js/graphics/renderers/canvas"
-    //= require "js/graphics/renderers/dom"
     
     //= require "js/graphics/style"
     //= require "js/graphics/viewstate"
@@ -59,10 +64,11 @@ var T5 = {};
         is: isType,
         ticks: ticks,
         userMessage: userMessage,
+        indexOf: indexOf,
         
-        XY: XY,
+        Rect: Rect,
+        XY: XYFns,
         XYRect: XYRect,
-        Dimensions: Dimensions,
         Vector: Vector,
         Hits: Hits,
         
@@ -115,7 +121,6 @@ var T5 = {};
     //= require "js/geo/search/geolocation"
     
     //= require "js/geo/routing"
-    
     //= require "js/geo/geojson"
 
     //= require "js/geo/ui/map"

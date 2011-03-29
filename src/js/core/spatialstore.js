@@ -1,5 +1,5 @@
 var SpatialStore = function(cellsize) {
-    cellsize = cellsize || 64;
+    cellsize = cellsize || 128;
     
     /* internals */
     
@@ -66,7 +66,7 @@ var SpatialStore = function(cellsize) {
         for (var xx = minX; xx <= maxX; xx++) {
             for (var yy = minY; yy <= maxY; yy++) {
                 var bucket = getBucket(xx, yy),
-                    itemIndex = bucket.indexOf(id);
+                    itemIndex = indexOf.call(bucket, id);
                 
                 // if the item was in the bucket, then splice it out
                 if (itemIndex >= 0) {

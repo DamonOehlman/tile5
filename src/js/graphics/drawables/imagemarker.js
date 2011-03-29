@@ -7,7 +7,7 @@ function ImageMarker(params) {
     }, params);
     
     if (params.imageAnchor) {
-        params.centerOffset = XY.invert(params.imageAnchor);
+        params.centerOffset = XYFns.invert(params.imageAnchor);
     } // if
     
     ImageDrawable.call(this, params);

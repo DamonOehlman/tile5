@@ -20,7 +20,7 @@ var BoundingBox = (function() {
     calculation in cases where the bounding box crosses the 360 degree boundary.
     */
     function calcSize(min, max, normalize) {
-        var size = T5.XY.init(0, max.lat - min.lat);
+        var size = new XY(0, max.lat - min.lat);
         
         if ((normalize || isType(normalize, typeUndefined)) && (min.lon > max.lon)) {
             size.x = 360 - min.lon + max.lon;

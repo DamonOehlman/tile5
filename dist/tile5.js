@@ -1825,41 +1825,6 @@ window.animFrame = (function() {
             };
 })();
 
-var TWO_PI = Math.PI * 2,
-    HALF_PI = Math.PI / 2;
-
-var abs = Math.abs,
-    ceil = Math.ceil,
-    floor = Math.floor,
-    min = Math.min,
-    max = Math.max,
-    pow = Math.pow,
-    sqrt = Math.sqrt,
-    log = Math.log,
-    round = Math.round,
-    sin = Math.sin,
-    asin = Math.asin,
-    cos = Math.cos,
-    acos = Math.acos,
-    tan = Math.tan,
-    atan = Math.atan,
-    atan2 = Math.atan2,
-
-    proto = 'prototype',
-    has = 'hasOwnProperty',
-    isnan = {'NaN': 1, 'Infinity': 1, '-Infinity': 1},
-    lowerCase = String[proto].toLowerCase,
-    objectToString = Object[proto].toString,
-
-    typeUndefined = 'undefined',
-    typeFunction = 'function',
-    typeString = 'string',
-    typeObject = 'object',
-    typeNumber = 'number',
-    typeArray = 'array',
-
-    isExplorerCanvas = typeof G_vmlCanvasManager != typeUndefined,
-    isFlashCanvas = typeof FlashCanvas != typeUndefined;
 /**
 # T5
 The T5 core module contains classes and functionality that support basic drawing
@@ -1901,6 +1866,127 @@ function isType(o, type) {
             objectToString.call(o).slice(8, -1).toLowerCase() == type;
 }; // is
 
+var indexOf = Array.prototype.indexOf || function(target) {
+    for (var ii = 0; ii < this.length; ii++) {
+        if (this[ii] === target) {
+            return ii;
+        } // if
+    } // for
+
+    return -1;
+};
+var TWO_PI = Math.PI * 2,
+    HALF_PI = Math.PI / 2;
+
+var abs = Math.abs,
+    ceil = Math.ceil,
+    floor = Math.floor,
+    min = Math.min,
+    max = Math.max,
+    pow = Math.pow,
+    sqrt = Math.sqrt,
+    log = Math.log,
+    round = Math.round,
+    sin = Math.sin,
+    asin = Math.asin,
+    cos = Math.cos,
+    acos = Math.acos,
+    tan = Math.tan,
+    atan = Math.atan,
+    atan2 = Math.atan2,
+
+    proto = 'prototype',
+    has = 'hasOwnProperty',
+    isnan = {'NaN': 1, 'Infinity': 1, '-Infinity': 1},
+    lowerCase = String[proto].toLowerCase,
+    objectToString = Object[proto].toString,
+
+    typeUndefined = 'undefined',
+    typeFunction = 'function',
+    typeString = 'string',
+    typeObject = 'object',
+    typeNumber = 'number',
+    typeArray = 'array',
+
+    isExplorerCanvas = typeof G_vmlCanvasManager != typeUndefined,
+    isFlashCanvas = typeof FlashCanvas != typeUndefined;
+/**
+# T5.newCanvas(width, height)
+*/
+var newCanvas = T5.newCanvas = function(width, height) {
+    var tmpCanvas = document.createElement('canvas');
+
+    tmpCanvas.width = width ? width : 0;
+    tmpCanvas.height = height ? height : 0;
+
+    if (isFlashCanvas) {
+        document.body.appendChild(tmpCanvas);
+        FlashCanvas.initElement(tmpCanvas);
+    } // if
+
+    if (isExplorerCanvas) {
+        G_vmlCanvasManager.initElement(tmpCanvas);
+    } // if
+
+    return tmpCanvas;
+};
+/**
+# T5.Generator
+The generator module is used to manage the registration and creation
+of generators.  Image generators, etc
+*/
+var Generator = (function() {
+
+    var generatorRegistry = {};
+
+    /* private internal functions */
+
+    /* exports */
+
+    function init(id, params) {
+        var generatorType = generatorRegistry[id],
+            generator;
+
+        if (! generatorType) {
+            throw new Error('Unable to locate requested generator: ' + id);
+        } // if
+
+        return new generatorType(params);
+    } // init
+
+    function register(id, creatorFn) {
+        generatorRegistry[id] = creatorFn;
+    } // register
+
+    /* module definition */
+
+    return {
+        init: init,
+        register: register
+    };
+})();
+
+function XY(x, y) {
+    this.x = x || 0;
+    this.y = y || 0;
+} // XY constructor
+
+XY.prototype = {
+    constructor: XY
+};
+function Rect(x, y, width, height) {
+    this.x = x || 0;
+    this.y = y || 0;
+    this.w = width || 0;
+    this.h = height || 0;
+
+    this.x2 = this.x + this.w;
+    this.y2 = this.y + this.h;
+} // Rect
+
+Rect.prototype = {
+    constructor: Rect
+};
 /**
 # T5.XY
 This module contains simple functions for creating and manipulating an object literal that
@@ -1908,7 +1994,7 @@ contains an `x` and `y` value.  Previously this functionaliy lived in the T5.V m
 been moved to communicate it's more generic implementation.  The T5.V module still exists, however,
 and also exposes the functions of this module for the sake of backward compatibility.
 */
-var XY = (function() {
+var XYFns = (function() {
     /* internal functions */
 
     /* exports */
@@ -2040,7 +2126,7 @@ var XY = (function() {
             maxY = isType(maxY, typeUndefined) || xy.y > maxY ? xy.y : maxY;
         } // for
 
-        return XYRect.init(minX, minY, maxX, maxY);
+        return new Rect(minX, minY, maxX - minX, maxY - minY);
     } // getRect
 
     /**
@@ -2051,10 +2137,7 @@ var XY = (function() {
     be used.
     */
     function init(initX, initY) {
-        return {
-            x: initX || 0,
-            y: initY || 0
-        };
+        return new XY(initX, initY);
     } // init
 
     /**
@@ -2110,7 +2193,7 @@ var XY = (function() {
             return null;
         } // if
 
-        generalization = generalization ? generalization : XY.VECTOR_SIMPLIFICATION;
+        generalization = generalization ? generalization : XYFns.VECTOR_SIMPLIFICATION;
 
         var tidied = [],
             last = null;
@@ -2198,7 +2281,7 @@ var Vector = (function() {
             return vectors;
         } // if
 
-        epsilon = epsilon ? epsilon : XY.VECTOR_SIMPLIFICATION;
+        epsilon = epsilon ? epsilon : XYFns.VECTOR_SIMPLIFICATION;
 
         var distanceMax = 0,
             index = 0,
@@ -2243,7 +2326,7 @@ var Vector = (function() {
             absX = unitLength !== 0 ? (v2.x - v1.x) / unitLength : 0,
             absY = unitLength !== 0 ? (v2.y - v1.y) / unitLength : 0;
 
-        return XY.init(absX, absY);
+        return new XY(absX, absY);
     } // unitize
 
     /* define module */
@@ -2280,7 +2363,7 @@ var XYRect = (function() {
     ### buffer(rect, bufferX, bufferY)
     */
     function buffer(rect, bufferX, bufferY) {
-        return XY.init(
+        return XYRect.init(
             rect.x - bufferX,
             rect.y - (bufferY || bufferX),
             rect.x + bufferX,
@@ -2293,7 +2376,7 @@ var XYRect = (function() {
     Return a xy composite for the center of the rect
     */
     function center(rect) {
-        return XY.init(rect.x + (rect.w >> 1), rect.y + (rect.h >> 1));
+        return new XY(rect.x + (rect.w >> 1), rect.y + (rect.h >> 1));
     } // center
 
     /**
@@ -2329,24 +2412,11 @@ var XYRect = (function() {
     } // fromCenter
 
     /**
-    ### init(x, y, x2, y2)
+    ### init(x1, y1, x2, y2)
     Create a new XYRect composite object
     */
-    function init(x, y, x2, y2) {
-        x = x || 0;
-        y = y || 0;
-        x2 = x2 || x;
-        y2 = y2 || y;
-
-        return {
-            x: x,
-            y: y,
-            x2: x2,
-            y2: y2,
-
-            w: x2 - x,
-            h: y2 - y
-        };
+    function init(x1, y1, x2, y2) {
+        return new Rect(x1, y1, (x2 || x1) - x1, (y2 || y1) - y1);
     } // init
 
     /**
@@ -2407,70 +2477,6 @@ var XYRect = (function() {
         union: union
     };
 })();
-/**
-# T5.Dimensions
-A module of utility functions for working with dimensions composites
-
-## Dimension Attributes
-
-Dimensions created using the init function will have the following attributes:
-- `width`
-- `height`
-
-
-## Functions
-*/
-var Dimensions = (function() {
-
-    /* exports */
-
-    /**
-    ### getAspectRatio(dimensions)
-    Return the aspect ratio for the `dimensions` (width / height)
-    */
-    function getAspectRatio(dimensions) {
-        return dimensions.height !== 0 ?
-            dimensions.width / dimensions.height : 1;
-    } // getAspectRatio
-
-    /**
-    ### getCenter(dimensions)
-    Get the a XY composite for the center of the `dimensions` (width / 2, height  / 2)
-    */
-    function getCenter(dimensions) {
-        return XY.init(dimensions.width >> 1, dimensions.height >> 1);
-    } // getCenter
-
-    /**
-    ### getSize(dimensions)
-    Get the size for the diagonal for the `dimensions`
-    */
-    function getSize(dimensions) {
-        return sqrt(pow(dimensions.width, 2) + pow(dimensions.height, 2));
-    } // getSize
-
-    /**
-    ### init(width, height)
-    Create a new dimensions composite (width, height)
-    */
-    function init(width, height) {
-        width = width ? width : 0;
-
-        return {
-            width: width,
-            height: height ? height : width
-        };
-    } // init
-
-    /* module definition */
-
-    return {
-        getAspectRatio: getAspectRatio,
-        getCenter: getCenter,
-        getSize: getSize,
-        init: init
-    };
-})(); // dimensionTools
 /**
 # T5.Hits
 
@@ -2541,7 +2547,7 @@ Hits = (function() {
             elements ? elements : hitData.elements,
             hitData.absXY,
             hitData.relXY,
-            XY.init(hitData.x, hitData.y)
+            new XY(hitData.x, hitData.y)
         );
     } // triggerEvent
 
@@ -2554,64 +2560,8 @@ Hits = (function() {
         triggerEvent: triggerEvent
     };
 })();
-/**
-# T5.newCanvas(width, height)
-*/
-var newCanvas = T5.newCanvas = function(width, height) {
-    var tmpCanvas = document.createElement('canvas');
-
-    tmpCanvas.width = width ? width : 0;
-    tmpCanvas.height = height ? height : 0;
-
-    if (isFlashCanvas) {
-        document.body.appendChild(tmpCanvas);
-        FlashCanvas.initElement(tmpCanvas);
-    } // if
-
-    if (isExplorerCanvas) {
-        G_vmlCanvasManager.initElement(tmpCanvas);
-    } // if
-
-    return tmpCanvas;
-};
-/**
-# T5.Generator
-The generator module is used to manage the registration and creation
-of generators.  Image generators, etc
-*/
-var Generator = (function() {
-
-    var generatorRegistry = {};
-
-    /* private internal functions */
-
-    /* exports */
-
-    function init(id, params) {
-        var generatorType = generatorRegistry[id],
-            generator;
-
-        if (! generatorType) {
-            throw new Error('Unable to locate requested generator: ' + id);
-        } // if
-
-        return new generatorType(params);
-    } // init
-
-    function register(id, creatorFn) {
-        generatorRegistry[id] = creatorFn;
-    } // register
-
-    /* module definition */
-
-    return {
-        init: init,
-        register: register
-    };
-})();
-
 var SpatialStore = function(cellsize) {
-    cellsize = cellsize || 64;
+    cellsize = cellsize || 128;
 
     /* internals */
 
@@ -2669,7 +2619,7 @@ var SpatialStore = function(cellsize) {
         for (var xx = minX; xx <= maxX; xx++) {
             for (var yy = minY; yy <= maxY; yy++) {
                 var bucket = getBucket(xx, yy),
-                    itemIndex = bucket.indexOf(id);
+                    itemIndex = indexOf.call(bucket, id);
 
                 if (itemIndex >= 0) {
                     bucket.splice(itemIndex, 1);
@@ -2889,7 +2839,7 @@ var Renderer = function(view, container, params) {
         ### getOffset()
         */
         getOffset: function() {
-            return XY.init(0, 0);
+            return new XY();
         },
 
         /**
@@ -3252,7 +3202,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         },
 
         getOffset: function() {
-            return XY.init(drawOffsetX, drawOffsetY);
+            return new XY(drawOffsetX, drawOffsetY);
         }
 
         /*
@@ -3265,85 +3215,6 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
             context.stroke();
         }
         */
-    });
-
-    return _this;
-});
-registerRenderer('dom', function(view, container, params, baseRenderer) {
-
-    /* internals */
-
-    var PROP_WK_TRANSFORM = '-webkit-transform',
-        supportTransforms = typeof container.style[PROP_WK_TRANSFORM] != 'undefined',
-        imageDiv = null;
-
-    function createImageContainer() {
-        imageDiv = document.createElement('div');
-        imageDiv.id = COG.objId('domImages');
-        imageDiv.style.cssText = COG.formatStr(
-            'position: absolute; overflow: hidden; width: {0}px; height: {1}px;',
-            container.offsetWidth,
-            container.offsetHeight);
-
-        container.insertBefore(imageDiv, baseRenderer.interactTarget);
-    } // createImageContainer
-
-    /* exports */
-
-    function drawTiles(viewport, tiles) {
-        var tile,
-            image,
-            scaleFactor = viewport.scaleFactor,
-            inViewport,
-            offsetX = viewport.x,
-            offsetY = viewport.y,
-            minX = offsetX - 256,
-            minY = offsetY - 256,
-            maxX = offsetX + viewport.w,
-            maxY = offsetY + viewport.h,
-            relX, relY;
-
-        for (var ii = tiles.length; ii--; ) {
-            tile = tiles[ii];
-            image = tile.image;
-
-            inViewport = tile.x >= minX && tile.x <= maxX &&
-                tile.y >= minY && tile.y <= maxY;
-
-            relX = tile.x - offsetX;
-            relY = tile.y - offsetY;
-
-            if (! image) {
-                image = tile.image = new Image();
-                image.src = tile.url;
-
-                imageDiv.appendChild(image);
-                image.style.cssText = '-webkit-user-select: none; -webkit-box-shadow: none; -moz-box-shadow: none; box-shadow: none; border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px; margin-top: 0px; margin-right: 0px; margin-bottom: 0px; margin-left: 0px; position: absolute;';
-            } // if
-
-            if (supportTransforms) {
-                image.style[PROP_WK_TRANSFORM] = 'translate3d(' + relX +'px, ' + relY + 'px, 0px)';
-            }
-            else {
-                image.style.left = relX + 'px';
-                image.style.top = relY + 'px';
-            } // if..else
-
-            image.style.display = inViewport ? 'block' : 'none';
-        } // for
-    } // drawTiles
-
-    function reset() {
-        imageDiv.innerHTML = '';
-    } // reset
-
-    /* initialization */
-
-    createImageContainer();
-
-    var _this = COG.extend(baseRenderer, {
-        drawTiles: drawTiles,
-        reset: reset
     });
 
     return _this;
@@ -3676,7 +3547,7 @@ var View = function(params) {
         dragObject = null,
         frameIndex = 0,
         mainContext = null,
-        isIE = isType(window.attachEvent, typeFunction),
+        isIE = !isType(window.attachEvent, typeUndefined),
         hitFlagged = false,
         refreshDist = params.refreshDistance,
         offsetX = 0,
@@ -3707,6 +3578,7 @@ var View = function(params) {
         lastCycleTicks = 0,
         eventMonitor = null,
         turbo = params.turbo,
+        partialScaling = true,
         tweeningOffset = false,
         cycleDelay = 1000 / params.fps | 0,
         viewChanges = 0,
@@ -3756,7 +3628,7 @@ var View = function(params) {
             scaledX = viewport ? (viewport.x + srcX * invScaleFactor) : srcX,
             scaledY = viewport ? (viewport.y + srcY * invScaleFactor) : srcY;
 
-        return XY.init(scaledX, scaledY);
+        return new XY(scaledX, scaledY);
     } // getScaledOffset
 
     function handleContainerUpdate(name, value) {
@@ -3823,6 +3695,8 @@ var View = function(params) {
 
     function createRenderer() {
         renderer = attachRenderer(params.renderer, _self, container);
+
+        partialScaling = ! renderer.preventPartialScale;
 
         captureInteractionEvents();
     } // createRenderer
@@ -4162,7 +4036,7 @@ var View = function(params) {
     Return a T5.XY containing the current view offset
     */
     function getOffset() {
-        return XY.init(offsetX, offsetY);
+        return new XY(offsetX, offsetY);
     } // getOffset
 
     /**
@@ -4225,11 +4099,7 @@ var View = function(params) {
             );
         }
         else {
-            viewport = XYRect.init(
-                offsetX,
-                offsetY,
-                offsetX + _self.width,
-                offsetY + _self.height);
+            viewport = new Rect(offsetX, offsetY, _self.width, _self.height);
         } // if..else
 
         viewport.scaleFactor = scaleFactor;
@@ -4319,12 +4189,22 @@ var View = function(params) {
     Scale the view to the specified `targetScaling` (1 = normal, 2 = double-size and 0.5 = half-size).
     */
     function scale(targetScaling, targetXY, tweenFn, callback, duration) {
+        var scaleFactorExp;
+
+        if (! partialScaling) {
+            tweenFn = false;
+
+            scaleFactorExp = round(log(targetScaling) / Math.LN2);
+
+            targetScaling = pow(2, scaleFactorExp);
+        } // if
+
         if (tweenFn) {
             COG.tweenValue(scaleFactor, targetScaling, tweenFn, duration, function(val, completed) {
                 scaleFactor = val;
 
                 if (completed) {
-                    var scaleFactorExp = round(log(scaleFactor) / Math.LN2);
+                    scaleFactorExp = round(log(scaleFactor) / Math.LN2);
 
                     scaleFactor = pow(2, scaleFactorExp);
 
@@ -4659,6 +4539,16 @@ Drawable.prototype = {
     ### updateBounds(bounds: XYRect, updateXY: boolean)
     */
     updateBounds: function(bounds, updateXY) {
+        var moved = bounds && (
+                (! this.bounds) ||
+                bounds.x != this.bounds.x ||
+                bounds.y != this.bounds.y
+            );
+
+        if (moved) {
+            this.trigger('move', this, bounds, this.bounds);
+        } // if
+
         this.bounds = bounds;
 
         if (updateXY) {
@@ -4832,7 +4722,7 @@ function Poly(points, params) {
 
         view.syncXY(points);
 
-        drawPoints = this.points = XY.floor(simplify ? XY.simplify(points) : points);
+        drawPoints = this.points = XYFns.floor(simplify ? XYFns.simplify(points) : points);
 
         for (var ii = drawPoints.length; ii--; ) {
             x = drawPoints[ii].x;
@@ -4844,7 +4734,7 @@ function Poly(points, params) {
             maxY = isType(maxY, typeUndefined) || y > maxY ? y : maxY;
         } // for
 
-        this.updateBounds(XYRect.init(minX, minY, maxX, maxY), true);
+        this.updateBounds(new Rect(minX, minY, maxX - minX, maxY - minY), true);
     } // resync
 
     Drawable.call(this, params);
@@ -4933,23 +4823,20 @@ function ImageDrawable(params) {
     /* internal functions */
 
     function checkOffsetAndBounds() {
-        var x, y;
-
         if (image && image.width > 0) {
             if (! this.centerOffset) {
-                this.centerOffset = XY.init(
+                this.centerOffset = new XY(
                     -image.width >> 1,
                     -image.height >> 1
                 );
             } // if
 
-            x = this.xy.x + this.centerOffset.x;
-            y = this.xy.y + this.centerOffset.y;
-
-            this.updateBounds(
-                XYRect.init(x, y, x + image.width, y + image.height),
-                false
-            );
+            this.updateBounds(new Rect(
+                this.xy.x + this.centerOffset.x,
+                this.xy.y + this.centerOffset.y,
+                image.width,
+                image.height),
+            false);
         } // if
     } // checkOffsetAndBounds
 
@@ -4982,7 +4869,7 @@ function ImageDrawable(params) {
     */
     function drag(dragData, dragX, dragY, drop) {
         if (! dragOffset) {
-            dragOffset = XY.init(
+            dragOffset = new XY(
                 dragData.startX - this.xy.x,
                 dragData.startY - this.xy.y
             );
@@ -5064,7 +4951,7 @@ function ImageMarker(params) {
     }, params);
 
     if (params.imageAnchor) {
-        params.centerOffset = XY.invert(params.imageAnchor);
+        params.centerOffset = XYFns.invert(params.imageAnchor);
     } // if
 
     ImageDrawable.call(this, params);
@@ -5283,7 +5170,7 @@ var DrawLayer = function(params) {
     }, params);
 
     var drawables = [],
-        storage = null,
+        storage = new SpatialStore(),
         sortTimeout = 0;
 
     /* private functions */
@@ -5307,22 +5194,18 @@ var DrawLayer = function(params) {
     /* event handlers */
 
     function handleItemMove(evt, drawable, newBounds, oldBounds) {
-        storage.remove(oldBounds, drawable);
+        if (oldBounds) {
+            storage.remove(oldBounds, drawable);
+        } // if
 
         storage.insert(newBounds, drawable);
     } // handleItemMove
 
     function handleResync(evt, view) {
-        storage = new SpatialStore();
-
         for (var ii = drawables.length; ii--; ) {
             var drawable = drawables[ii];
 
             drawable.resync(view);
-
-            if (drawable.bounds) {
-                storage.insert(drawable.bounds, drawable);
-            } // if
         } // for
 
     } // handleParentChange
@@ -5435,6 +5318,7 @@ var DrawLayer = function(params) {
                     triggerSort(view);
                 } // if
 
+                drawable.bind('move', handleItemMove);
             } // if
         },
 
@@ -5474,10 +5358,11 @@ var ShapeLayer = function(params) {
         is: isType,
         ticks: ticks,
         userMessage: userMessage,
+        indexOf: indexOf,
 
-        XY: XY,
+        Rect: Rect,
+        XY: XYFns,
         XYRect: XYRect,
-        Dimensions: Dimensions,
         Vector: Vector,
         Hits: Hits,
 
@@ -6071,7 +5956,7 @@ var BoundingBox = (function() {
     calculation in cases where the bounding box crosses the 360 degree boundary.
     */
     function calcSize(min, max, normalize) {
-        var size = T5.XY.init(0, max.lat - min.lat);
+        var size = new XY(0, max.lat - min.lat);
 
         if ((normalize || isType(normalize, typeUndefined)) && (min.lon > max.lon)) {
             size.x = 360 - min.lon + max.lon;
@@ -6384,7 +6269,7 @@ var GeoXY = exports.GeoXY = (function() {
     ### init(pos, rpp)
     */
     function init(pos, rpp) {
-        var xy = XY.init();
+        var xy = new XY();
 
         updatePos(xy, pos, rpp);
 
@@ -6408,7 +6293,7 @@ var GeoXY = exports.GeoXY = (function() {
                 maxY = isType(maxY, typeUndefined) || xy.y > maxY ? xy.y : maxY;
             } // for
 
-            return XYRect.init(minX, minY, maxY, maxY);
+            return new Rect(minX, minY, maxX - minX, maxY - minY);
         }
         else if (xy.mercXY) {
             var mercXY = xy.mercXY;
@@ -6432,7 +6317,7 @@ var GeoXY = exports.GeoXY = (function() {
             } // for
         }
         else {
-            xy.mercXY = XY.init(xy.x * rpp - Math.PI, Math.PI - xy.y * rpp);
+            xy.mercXY = new XY(xy.x * rpp - Math.PI, Math.PI - xy.y * rpp);
             xy.pos = Position.fromMercatorPixels(xy.mercXY.x, xy.mercXY.y);
         } // if..else
 
@@ -6925,7 +6810,6 @@ var TurnTypeRules = (function() {
 
     return module;
 })();
-
 var FEATURE_TYPE_COLLECTION = 'featurecollection',
     FEATURE_TYPE_FEATURE = 'feature',
     VECTORIZE_OPTIONS = {
@@ -7255,7 +7139,7 @@ var Map = exports.Map = function(params) {
         WATCH: 2
     };
 
-    var lastBoundsChangeOffset = XY.init(),
+    var lastBoundsChangeOffset = new XY(),
         locationWatchId = 0,
         locateMode = LOCATE_MODE.NONE,
         initialized = false,
@@ -7332,10 +7216,10 @@ var Map = exports.Map = function(params) {
     function handleTap(evt, absXY, relXY, offsetXY) {
         var tapPos = GeoXY.toPos(offsetXY, rpp),
             minPos = GeoXY.toPos(
-                XY.offset(offsetXY, -tapExtent, tapExtent),
+                XYFns.offset(offsetXY, -tapExtent, tapExtent),
                 rpp),
             maxPos = GeoXY.toPos(
-                XY.offset(offsetXY, tapExtent, -tapExtent),
+                XYFns.offset(offsetXY, tapExtent, -tapExtent),
                 rpp);
 
         _self.trigger(
@@ -7345,34 +7229,6 @@ var Map = exports.Map = function(params) {
             tapPos,
             BoundingBox.init(minPos, maxPos)
         );
-
-
-        /*
-        var grid = _self.getTileLayer();
-        var tapBounds = null;
-
-        if (grid) {
-            TODO: get the tap working again...
-            var gridPos = _self.viewPixToGridPix(
-                    XY.init(relXY.x, relXY.y)),
-                tapPos = grid.pixelsToPos(gridPos),
-                minPos = grid.pixelsToPos(
-                    XY.offset(
-                        gridPos,
-                        -params.tapExtent,
-                        params.tapExtent)),
-                maxPos = grid.pixelsToPos(
-                    XY.offset(
-                        gridPos,
-                         params.tapExtent,
-                         -params.tapExtent));
-
-            tapBounds = BoundingBox.init(minPos, maxPos);
-
-
-            _self.trigger('geotap', absXY, relXY, tapPos, tapBounds);
-        } // if
-        */
     } // handleTap
 
     function handleRefresh(evt) {
@@ -7415,8 +7271,8 @@ var Map = exports.Map = function(params) {
 
         return viewport ?
             BoundingBox.init(
-                GeoXY.toPos(XY.init(viewport.x, viewport.y2), rpp),
-                GeoXY.toPos(XY.init(viewport.x2, viewport.y), rpp)) :
+                GeoXY.toPos(new XY(viewport.x, viewport.y2), rpp),
+                GeoXY.toPos(new XY(viewport.x2, viewport.y), rpp)) :
             null;
     } // getBoundingBox
 
@@ -7427,7 +7283,7 @@ var Map = exports.Map = function(params) {
     function getCenterPosition() {
         var viewport = _self.getViewport();
         if (viewport) {
-            var xy = XY.init(viewport.x + (viewport.w >> 1), viewport.y + (viewport.h >> 1));
+            var xy = new XY(viewport.x + (viewport.w >> 1), viewport.y + (viewport.h >> 1));
             return GeoXY.toPos(xy, rpp);
         } // if
 

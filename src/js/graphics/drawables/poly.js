@@ -40,7 +40,7 @@ function Poly(points, params) {
         view.syncXY(points);
         
         // simplify the vectors for drawing (if required)
-        drawPoints = this.points = XY.floor(simplify ? XY.simplify(points) : points);
+        drawPoints = this.points = XYFns.floor(simplify ? XYFns.simplify(points) : points);
 
         // determine the bounds of the shape
         for (var ii = drawPoints.length; ii--; ) {
@@ -55,7 +55,7 @@ function Poly(points, params) {
         } // for
         
         // update the width
-        this.updateBounds(XYRect.init(minX, minY, maxX, maxY), true);
+        this.updateBounds(new Rect(minX, minY, maxX - minX, maxY - minY), true);
     } // resync
     
     // call the inherited constructor

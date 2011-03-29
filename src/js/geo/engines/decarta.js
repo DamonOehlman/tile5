@@ -780,49 +780,69 @@ T5.Geo.Decarta = (function() {
         
         /* internals */
         
-        function createTiles(view, viewRect, callback) {
+        function createTiles(view, viewRect, store, callback) {
             var zoomLevel = view.getZoomLevel ? view.getZoomLevel() : 0;
             
             if (zoomLevel) {
                 var numTiles = 2 << (zoomLevel - 1),
                     numTilesHalf = numTiles >> 1,
                     tileSize = params.tileSize,
-                    xTiles = (viewRect.w / tileSize | 0) + 2,
-                    yTiles = (viewRect.h / tileSize | 0) + 2,
+                    xTiles = (viewRect.w / tileSize | 0) + 1,
+                    yTiles = (viewRect.h / tileSize | 0) + 1,
                     xTile = (viewRect.x / tileSize | 0) - numTilesHalf,
                     yTile = numTiles - (viewRect.y / tileSize | 0) - numTilesHalf - yTiles,
-                    images = [];
+                    tiles = store.search({
+                        x: (numTilesHalf + xTile) * tileSize,
+                        y: (numTilesHalf + yTile*-1) * tileSize,
+                        w: xTiles * tileSize,
+                        h: yTiles * tileSize
+                    }),
+                    idIndex = new Array(tiles.length),
+                    ii;
+
+                // iterate through the tiles and create the tile id index
+                for (ii = tiles.length; ii--; ) {
+                    idIndex[ii] = tiles[ii].id;
+                } // for
                     
                 for (var xx = 0; xx <= xTiles; xx++) {
                     for (var yy = 0; yy <= yTiles; yy++) {
-                        // build the tile url 
-                        tileUrl = hosts[xx % hosts.length] + '/openls/image-cache/TILE?'+
-                           'LLMIN=0.0,0.0' +
-                           '&LLMAX=' + _ll_LUT[zoomLevel] +
-                           '&CACHEABLE=true' + 
-                           '&DS=navteq-world' +
-                           '&WIDTH=' + (256 /* * dpr*/) +
-                           '&HEIGHT=' + (256 /* * dpr*/) +
-                           '&CLIENTNAME=' + currentConfig.clientName +
-                           '&SESSIONID=' + currentConfig.sessionID +
-                           '&FORMAT=PNG' +
-                           '&CONFIG=' + currentConfig.configuration +
-                           '&N=' + (yTile + yy - 1) +
-                           '&E=' + (xTile + xx);
-                           
-                        images[images.length] = new T5.Tile(
-                            (numTilesHalf + xTile + xx) * tileSize,
-                            (numTilesHalf + yTile*-1 - yy) * tileSize,
-                            tileUrl,
-                            tileSize,
-                            tileSize
-                        );
+                        var tileX = xTile + xx,
+                            tileY = yTile + yy - 1,
+                            tileId = tileX + '_' + tileY;
+                            
+                        // if the tile is not in the index, then create
+                        if (T5.indexOf.call(idIndex, tileId) < 0) {
+                            var tileUrl = hosts[xx % hosts.length] + '/openls/image-cache/TILE?'+
+                                   'LLMIN=0.0,0.0' +
+                                   '&LLMAX=' + _ll_LUT[zoomLevel] +
+                                   '&CACHEABLE=true' + 
+                                   '&DS=navteq-world' +
+                                   '&WIDTH=' + (256 /* * dpr*/) +
+                                   '&HEIGHT=' + (256 /* * dpr*/) +
+                                   '&CLIENTNAME=' + currentConfig.clientName +
+                                   '&SESSIONID=' + currentConfig.sessionID +
+                                   '&FORMAT=PNG' +
+                                   '&CONFIG=' + currentConfig.configuration +
+                                   '&N=' + tileY +
+                                   '&E=' + tileX,
+                                tile = new T5.Tile(
+                                    (numTilesHalf + xTile + xx) * tileSize,
+                                    (numTilesHalf + yTile*-1 - yy) * tileSize,
+                                    tileUrl,
+                                    tileSize, 
+                                    tileSize,
+                                    tileId);
+                                    
+                            // add the new tile to the store
+                            store.insert(tile, tile);
+                        } // if
                     } // for
                 } // for
                     
                 // if the callback is assigned, then pass back the creator
                 if (callback) {
-                    callback(images);
+                    callback();
                 } // if                
             } // if
         } // createTiles
@@ -830,9 +850,9 @@ T5.Geo.Decarta = (function() {
         
         /* exports */
         
-        function run(view, viewRect, callback) {
+        function run(view, viewRect, store, callback) {
             if (hosts) {
-                createTiles(view, viewRect, callback);
+                createTiles(view, viewRect, store, callback);
             }
             else {
                 // make an RUOK request to retrieve configuration information
@@ -851,7 +871,7 @@ T5.Geo.Decarta = (function() {
                     } // if..else
 
                     // create the tiles
-                    createTiles(view, viewRect, callback);
+                    createTiles(view, viewRect, store, callback);
                 });
             }
         } // run

@@ -120,6 +120,16 @@ Drawable.prototype = {
     ### updateBounds(bounds: XYRect, updateXY: boolean)
     */
     updateBounds: function(bounds, updateXY) {
+        var moved = bounds && (
+                (! this.bounds) ||
+                bounds.x != this.bounds.x ||
+                bounds.y != this.bounds.y
+            );
+        
+        if (moved) {
+            this.trigger('move', this, bounds, this.bounds);
+        } // if
+        
         // update the bounds
         this.bounds = bounds;
         

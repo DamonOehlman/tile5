@@ -22,7 +22,7 @@ var Vector = (function() {
         } // if
         
         // initialise epsilon to the default if not provided
-        epsilon = epsilon ? epsilon : XY.VECTOR_SIMPLIFICATION;
+        epsilon = epsilon ? epsilon : XYFns.VECTOR_SIMPLIFICATION;
         
         // initialise variables
         var distanceMax = 0,
@@ -73,7 +73,7 @@ var Vector = (function() {
             absY = unitLength !== 0 ? (v2.y - v1.y) / unitLength : 0;
 
         // COG.info('unitizing vectors, length = ' + unitLength);
-        return XY.init(absX, absY);
+        return new XY(absX, absY);
     } // unitize
     
     /* define module */

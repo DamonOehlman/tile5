@@ -1,4 +1,4 @@
-//= require <glMatrix/glMatrix>
+//= require <glMatrix>
 
 T5.registerRenderer('webgl', function(view, container, params, baseRenderer) {
     params = COG.extend({

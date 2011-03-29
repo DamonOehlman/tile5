@@ -26,7 +26,7 @@ var XYRect = (function() {
     ### buffer(rect, bufferX, bufferY)
     */
     function buffer(rect, bufferX, bufferY) {
-        return XY.init(
+        return XYRect.init(
             rect.x - bufferX,
             rect.y - (bufferY || bufferX),
             rect.x + bufferX,
@@ -39,7 +39,7 @@ var XYRect = (function() {
     Return a xy composite for the center of the rect
     */
     function center(rect) {
-        return XY.init(rect.x + (rect.w >> 1), rect.y + (rect.h >> 1));
+        return new XY(rect.x + (rect.w >> 1), rect.y + (rect.h >> 1));
     } // center
     
     /**
@@ -75,25 +75,11 @@ var XYRect = (function() {
     } // fromCenter
     
     /**
-    ### init(x, y, x2, y2)
+    ### init(x1, y1, x2, y2)
     Create a new XYRect composite object
     */
-    function init(x, y, x2, y2) {
-        // default the xy and y1 to 0 if not specified
-        x = x || 0;
-        y = y || 0;
-        x2 = x2 || x;
-        y2 = y2 || y;
-        
-        return {
-            x: x,
-            y: y,
-            x2: x2,
-            y2: y2,
-        
-            w: x2 - x,
-            h: y2 - y
-        };
+    function init(x1, y1, x2, y2) {
+        return new Rect(x1, y1, (x2 || x1) - x1, (y2 || y1) - y1);
     } // init
     
     /**

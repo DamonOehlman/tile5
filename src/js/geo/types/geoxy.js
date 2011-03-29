@@ -22,7 +22,7 @@ var GeoXY = exports.GeoXY = (function() {
     ### init(pos, rpp)
     */
     function init(pos, rpp) {
-        var xy = XY.init();
+        var xy = new XY();
 
         // update the position
         updatePos(xy, pos, rpp);
@@ -50,7 +50,7 @@ var GeoXY = exports.GeoXY = (function() {
                 maxY = isType(maxY, typeUndefined) || xy.y > maxY ? xy.y : maxY;
             } // for
 
-            return XYRect.init(minX, minY, maxY, maxY);
+            return new Rect(minX, minY, maxX - minX, maxY - minY);
         }
         else if (xy.mercXY) {
             var mercXY = xy.mercXY;
@@ -77,7 +77,7 @@ var GeoXY = exports.GeoXY = (function() {
             } // for
         }
         else {
-            xy.mercXY = XY.init(xy.x * rpp - Math.PI, Math.PI - xy.y * rpp);
+            xy.mercXY = new XY(xy.x * rpp - Math.PI, Math.PI - xy.y * rpp);
             xy.pos = Position.fromMercatorPixels(xy.mercXY.x, xy.mercXY.y);
         } // if..else
 

@@ -39,8 +39,12 @@ function isType(o, type) {
             objectToString.call(o).slice(8, -1).toLowerCase() == type;
 }; // is
 
-//= require "core/xy"
-//= require "core/vector"
-//= require "core/xyrect"
-//= require "core/dimensions"
-//= require "core/hits"
+var indexOf = Array.prototype.indexOf || function(target) {
+    for (var ii = 0; ii < this.length; ii++) {
+        if (this[ii] === target) {
+            return ii;
+        } // if
+    } // for
+    
+    return -1;
+};
