@@ -202,7 +202,7 @@ T5.registerRenderer('webgl', function(view, container, params, baseRenderer) {
     function arc(x, y, radius, startAngle, endAngle) {
     } // arc
     
-    function drawTiles(tiles) {
+    function drawTiles(viewport, tiles) {
         var tile,
             inViewport,
             offsetX = transform ? transform.x : drawOffsetX,
@@ -216,10 +216,6 @@ T5.registerRenderer('webgl', function(view, container, params, baseRenderer) {
         for (var ii = tiles.length; ii--; ) {
             tile = tiles[ii];
             
-            // check whether the image is in the viewport or not
-            inViewport = tile.x >= minX && tile.x <= maxX && 
-                tile.y >= minY && tile.y <= maxY;
-                
             // calculate the image relative position
             relX = tile.screenX = tile.x - offsetX;
             relY = tile.screenY = tile.y - offsetY;
@@ -239,32 +235,25 @@ T5.registerRenderer('webgl', function(view, container, params, baseRenderer) {
     function image(image, x, y, width, height) {
     } // image    
     
-    function prepare(layers, state, tickCount, hitData) {
-        var viewOffset = view.getOffset(),
-            scaleFactor = view.getScaleFactor();
-            
+    function prepare(layers, viewport, state, tickCount, hitData) {
         // update the offset x and y
-        drawOffsetX = viewOffset.x;
-        drawOffsetY = viewOffset.y;
+        drawOffsetX = viewport.x;
+        drawOffsetY = viewport.y;
         
         // reset the draw buffers
         tilesToRender = [];
             
-        // initialise the viewport
-        viewport = T5.XYRect.init(drawOffsetX, drawOffsetY, drawOffsetX + vpWidth, drawOffsetY - vpHeight);
-        viewport.scaleFactor = scaleFactor;
-        
         gl.viewport(0, 0, vpWidth, vpHeight);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
  
         mat4.perspective(45, vpWidth / vpHeight, 0.1, 1000, pMatrix);
  
         mat4.identity(mvMatrix);
-        // mat4.rotate(mvMatrix, -Math.PI / 4, [1, 0, 0]);
+        mat4.rotate(mvMatrix, -Math.PI / 4, [1, 0, 0]);
         mat4.translate(mvMatrix, [
-            -drawOffsetX, 
-            drawOffsetY, 
-            -500 / scaleFactor]
+            -drawOffsetX - vpWidth / 2, 
+            drawOffsetY + vpHeight / 2, 
+            -200 / viewport.scaleFactor]
         ); 
         
         return true;
@@ -317,6 +306,7 @@ T5.registerRenderer('webgl', function(view, container, params, baseRenderer) {
 
     var _this = COG.extend(baseRenderer, {
         interactTarget: canvas,
+        preventPartialScale: true,
         
         applyStyle: applyStyle,
         applyTransform: applyTransform,

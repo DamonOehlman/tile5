@@ -3,9 +3,11 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
     /* internals */
 
     var PROP_WK_TRANSFORM = '-webkit-transform',
+        ID_PREFIX = 'tile_',
+        PREFIX_LENGTH = ID_PREFIX.length,
         supportTransforms = typeof container.style[PROP_WK_TRANSFORM] != 'undefined',
         imageDiv = null,
-        lastTiles = null;
+        tileCache = {};
 
     function createImageContainer() {
         imageDiv = document.createElement('div');
@@ -17,6 +19,31 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
 
         container.insertBefore(imageDiv, baseRenderer.interactTarget);
     } // createImageContainer
+
+    function removeOldTiles(tileIds) {
+        tileIds = tileIds || [];
+
+        var ii = 0;
+        while (ii < imageDiv.childNodes.length) {
+            var image = imageDiv.childNodes[ii],
+                tileId = image.id.slice(PREFIX_LENGTH);
+
+            if (T5.indexOf.call(tileIds, tileId) < 0) {
+                tile = tileCache[tileId];
+
+                if (tile) {
+                    tile.image = null;
+                } // if
+
+                delete tileCache[tileId];
+
+                imageDiv.removeChild(image);
+            }
+            else {
+                ii++;
+            } // if..else
+        } // while
+    } // removeOldTiles
 
     /* exports */
 
@@ -50,74 +77,64 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
             maxY = maxY ? Math.min(tile.y, maxY) : tile.y;
         } // for
 
-        /*
-        TODO: get this code working so we can support partial scaling in the DOM
+        removeOldTiles(tileIds);
+
         gridWidth = ((maxX - minX) / tileWidth + 1) * tileWidth;
         gridHeight = ((maxY - minY) / tileHeight + 1) * tileHeight;
 
         scaleOffsetX = gridWidth * scaleFactor - gridWidth;
         scaleOffsetY = gridHeight * scaleFactor - gridHeight;
-        */
 
         offsetX = minX - viewport.x - scaleOffsetX;
         offsetY = minY - viewport.y - scaleOffsetY;
 
         for (ii = tiles.length; ii--; ) {
             tile = tiles[ii];
-            image = tile.image;
 
-            xIndex = (tile.x - minX) / tile.w;
-            yIndex = (tile.y - minY) / tile.h;
+            if (tile.url) {
+                image = tile.image;
 
-            scaledWidth = tile.w * scaleFactor | 0;
-            scaledHeight = tile.h * scaleFactor | 0;
+                xIndex = (tile.x - minX) / tile.w;
+                yIndex = (tile.y - minY) / tile.h;
 
-            relX = offsetX + (xIndex * scaledWidth);
-            relY = offsetY + (yIndex * scaledWidth);
+                scaledWidth = tile.w * scaleFactor | 0;
+                scaledHeight = tile.h * scaleFactor | 0;
 
-            if (! image) {
-                image = tile.image = new Image();
-                image.src = tile.url;
-                image.onload = function() {
-                    imageDiv.appendChild(this);
-                };
+                relX = offsetX + (xIndex * scaledWidth);
+                relY = offsetY + (yIndex * scaledWidth);
 
-                image.style.cssText = '-webkit-user-select: none; -webkit-box-shadow: none; -moz-box-shadow: none; box-shadow: none; border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px; margin-top: 0px; margin-right: 0px; margin-bottom: 0px; margin-left: 0px; position: absolute;';
-            } // if
+                if (! image) {
+                    tileCache[tile.id] = tile;
 
-            if (supportTransforms) {
-                image.style[PROP_WK_TRANSFORM] = 'translate3d(' + relX +'px, ' + relY + 'px, 0px)';
-            }
-            else {
-                image.style.left = relX + 'px';
-                image.style.top = relY + 'px';
-            } // if..else
+                    image = tile.image = new Image();
+                    image.id = ID_PREFIX + tile.id;
+                    image.src = tile.url;
+                    image.onload = function() {
+                        var tileId = this.id.slice(PREFIX_LENGTH);
+                        if (tileCache[tileId]) {
+                            imageDiv.appendChild(this);
+                        } // if
+                    };
 
-            image.style.width = scaledWidth + 'px';
-            image.style.height = scaledHeight + 'px';
-        } // for
-
-        if (lastTiles) {
-            for (ii = lastTiles.length; ii--; ) {
-                tile = lastTiles[ii];
-
-                if (tile.image && T5.indexOf.call(tileIds, lastTiles[ii].id) < 0) {
-                    try {
-                        imageDiv.removeChild(tile.image);
-                    }
-                    catch (e) {
-                    } // try..catch
-
-                    tile.image = null;
+                    image.style.cssText = '-webkit-user-select: none; -webkit-box-shadow: none; -moz-box-shadow: none; box-shadow: none; border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px; margin-top: 0px; margin-right: 0px; margin-bottom: 0px; margin-left: 0px; position: absolute;';
                 } // if
-            } // for
-        } // if
 
-        lastTiles = [].concat(tiles);
+                if (supportTransforms) {
+                    image.style[PROP_WK_TRANSFORM] = 'translate3d(' + relX +'px, ' + relY + 'px, 0px)';
+                }
+                else {
+                    image.style.left = relX + 'px';
+                    image.style.top = relY + 'px';
+                } // if..else
+
+                image.style.width = scaledWidth + 'px';
+                image.style.height = scaledHeight + 'px';
+            } // if
+        } // for
     } // drawTiles
 
     function reset() {
-        imageDiv.innerHTML = '';
+        removeOldTiles();
     } // reset
 
     /* initialization */

@@ -16,7 +16,7 @@ if $MINIFY; then
          --js dist/tile5.js
 fi;
 
-for plugin in renderer.dom renderer.webgl renderer.three
+for plugin in renderer.dom renderer.raphael renderer.webgl renderer.three
 do
     echo "Building Tile5 Plugin: $plugin"
     

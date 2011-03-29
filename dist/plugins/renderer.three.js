@@ -152,6 +152,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
 
     var _this = COG.extend(baseRenderer, {
         interactTarget: renderer.domElement,
+        preventPartialScale: true,
 
         applyStyle: applyStyle,
         applyTransform: applyTransform,
