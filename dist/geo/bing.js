@@ -54,7 +54,9 @@ T5.Geo.Bing = (function() {
         }, params);
         
         var currentImageUrl = '',
-            subDomainIdx = 0;
+            subDomainIdx = 0,
+            osmGenerator = new T5.Geo.OSM.Generator(params),
+            osmRun = osmGenerator.run;
 
         /* internal functions */
         
@@ -71,10 +73,9 @@ T5.Geo.Bing = (function() {
         /* exports */
         
         // initialise the url builder
-        function buildTileUrl(tileX, tileY, numTiles, zoomLevel) {
+        function buildTileUrl(tileX, tileY, zoomLevel, numTiles) {
             // initialise the image url
             var quadKey = quad(tileX, tileY, zoomLevel);
-                tileUrl = 
                 
             // if the subdomain index, has extended beyond the bounds of the available subdomains, reset to 0
             subDomainIdx = subDomainIdx ? (subDomainIdx % subDomains.length) + 1 : 0;
@@ -86,26 +87,24 @@ T5.Geo.Bing = (function() {
                 .replace("{subdomain}", subDomains[subDomainIdx]);
         } // buildTileUrl
         
-        function prepTileCreator(tileWidth, tileHeight, creatorArgs, callback) {
+        function run(view, viewport, store, callback) {
             if (! imageUrls[params.style]) {
                 // authenticate with bing
                 authenticate(params.apikey, params.style, function() {
                     currentImageUrl = imageUrls[params.style];
 
-                    if (callback) {
-                        callback();
-                    } // if
+                    osmRun(view, viewport, store, callback);
                 });
             }
-            else if (callback) {
-                callback();
-            } // if..else
-        } // if
+            else {
+                osmRun(view, viewport, store, callback);
+            } // if..else            
+        } // run
 
         // initialise the generator
-        var _self = COG.extend(new T5.Geo.OSM.Generator(params), {
+        var _self = COG.extend(osmGenerator, {
             buildTileUrl: buildTileUrl,
-            prepTileCreator: prepTileCreator
+            run: run
         });
             
         return _self;        
