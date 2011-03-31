@@ -227,14 +227,22 @@ var View = function(params) {
     function setZoomCenter(xy) {
     } // setZoomCenter
     
-    function getScaledOffset(srcX, srcY) {
-        var viewport = _self.getViewport(),
-            invScaleFactor = 1 / scaleFactor,
-            scaledX = viewport ? (viewport.x + srcX * invScaleFactor) : srcX,
-            scaledY = viewport ? (viewport.y + srcY * invScaleFactor) : srcY;
+    function getProjectedXY(srcX, srcY) {
+        // first see if the renderer will determine the projected xy
+        var projectedXY = renderer && renderer.projectXY ? renderer.projectXY(srcX, srcY) : null;
         
-        return new XY(scaledX, scaledY);
-    } // getScaledOffset
+        // if not, then calculate here
+        if (! projectedXY) {
+            var viewport = _self.getViewport(),
+                invScaleFactor = 1 / scaleFactor,
+                scaledX = viewport ? (viewport.x + srcX * invScaleFactor) : srcX,
+                scaledY = viewport ? (viewport.y + srcY * invScaleFactor) : srcY;
+
+            projectedXY = new XY(scaledX, scaledY);
+        } // if
+        
+        return projectedXY;
+    } // getProjectedXY
     
     function handleContainerUpdate(name, value) {
         container = document.getElementById(value);
@@ -246,13 +254,13 @@ var View = function(params) {
             'doubleTap', 
             absXY,
             relXY,
-            getScaledOffset(relXY.x, relXY.y));
+            getProjectedXY(relXY.x, relXY.y));
             
         if (params.scalable) {
             // animate the scaling
             scale(
                 2, 
-                getScaledOffset(relXY.x, relXY.y), 
+                getProjectedXY(relXY.x, relXY.y), 
                 params.zoomEasing, 
                 null, 
                 params.zoomDuration);            
@@ -299,7 +307,7 @@ var View = function(params) {
         initHitData('tap', absXY, relXY);
 
         // trigger the tap on all layers
-        triggerAll('tap', absXY, relXY, getScaledOffset(relXY.x, relXY.y, true));
+        triggerAll('tap', absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
     } // handlePointerTap
     
     /* private functions */
@@ -423,7 +431,7 @@ var View = function(params) {
     
     function dragSelected(absXY, relXY, drop) {
         if (dragObject) {
-            var scaledOffset = getScaledOffset(relXY.x, relXY.y),
+            var scaledOffset = getProjectedXY(relXY.x, relXY.y),
                 dragOk = dragObject.drag.call(
                     dragObject.target, 
                     dragObject, 
@@ -640,7 +648,7 @@ var View = function(params) {
     
     function initHitData(hitType, absXY, relXY) {
         // initialise the hit data
-        hitData = Hits.init(hitType, absXY, relXY, getScaledOffset(relXY.x, relXY.y, true));
+        hitData = Hits.init(hitType, absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
         
         // iterate through the layers and check to see if we have hit potential
         // iterate through all layers as some layers may use the hit guess operation
@@ -805,10 +813,13 @@ var View = function(params) {
         
         if (value) {
             addLayer(id, value);
+            
+            // trigger a refresh on the layer
+            value.trigger('refresh', _self, getViewport());
         } // if
 
-        // refresh the view
-        refresh();
+        // invalidate the map
+        invalidate();
         
         // return the layer so we can chain if we want
         return value;

@@ -2862,6 +2862,13 @@ var Renderer = function(view, container, params) {
         },
 
         /**
+        ### projectXY(srcX, srcY)
+        This function is optionally implemented by a renderer to manually take
+        care of projecting an x and y coordinate to the target drawing area.
+        */
+        projectXY: null,
+
+        /**
         ### render
         */
         render: function() {
@@ -3620,14 +3627,20 @@ var View = function(params) {
     function setZoomCenter(xy) {
     } // setZoomCenter
 
-    function getScaledOffset(srcX, srcY) {
-        var viewport = _self.getViewport(),
-            invScaleFactor = 1 / scaleFactor,
-            scaledX = viewport ? (viewport.x + srcX * invScaleFactor) : srcX,
-            scaledY = viewport ? (viewport.y + srcY * invScaleFactor) : srcY;
+    function getProjectedXY(srcX, srcY) {
+        var projectedXY = renderer && renderer.projectXY ? renderer.projectXY(srcX, srcY) : null;
 
-        return new XY(scaledX, scaledY);
-    } // getScaledOffset
+        if (! projectedXY) {
+            var viewport = _self.getViewport(),
+                invScaleFactor = 1 / scaleFactor,
+                scaledX = viewport ? (viewport.x + srcX * invScaleFactor) : srcX,
+                scaledY = viewport ? (viewport.y + srcY * invScaleFactor) : srcY;
+
+            projectedXY = new XY(scaledX, scaledY);
+        } // if
+
+        return projectedXY;
+    } // getProjectedXY
 
     function handleContainerUpdate(name, value) {
         container = document.getElementById(value);
@@ -3639,12 +3652,12 @@ var View = function(params) {
             'doubleTap',
             absXY,
             relXY,
-            getScaledOffset(relXY.x, relXY.y));
+            getProjectedXY(relXY.x, relXY.y));
 
         if (params.scalable) {
             scale(
                 2,
-                getScaledOffset(relXY.x, relXY.y),
+                getProjectedXY(relXY.x, relXY.y),
                 params.zoomEasing,
                 null,
                 params.zoomDuration);
@@ -3686,7 +3699,7 @@ var View = function(params) {
     function handlePointerTap(evt, absXY, relXY) {
         initHitData('tap', absXY, relXY);
 
-        triggerAll('tap', absXY, relXY, getScaledOffset(relXY.x, relXY.y, true));
+        triggerAll('tap', absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
     } // handlePointerTap
 
     /* private functions */
@@ -3796,7 +3809,7 @@ var View = function(params) {
 
     function dragSelected(absXY, relXY, drop) {
         if (dragObject) {
-            var scaledOffset = getScaledOffset(relXY.x, relXY.y),
+            var scaledOffset = getProjectedXY(relXY.x, relXY.y),
                 dragOk = dragObject.drag.call(
                     dragObject.target,
                     dragObject,
@@ -3978,7 +3991,7 @@ var View = function(params) {
     } // cycle
 
     function initHitData(hitType, absXY, relXY) {
-        hitData = Hits.init(hitType, absXY, relXY, getScaledOffset(relXY.x, relXY.y, true));
+        hitData = Hits.init(hitType, absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
 
         for (var ii = layerCount; ii--; ) {
             hitFlagged = hitFlagged || (layers[ii].hitGuess ?
@@ -4129,9 +4142,11 @@ var View = function(params) {
 
         if (value) {
             addLayer(id, value);
+
+            value.trigger('refresh', _self, getViewport());
         } // if
 
-        refresh();
+        invalidate();
 
         return value;
     } // setLayer
@@ -7115,6 +7130,14 @@ map.bind('zoomLevelChange', function(evt, newZoomLevel) {
 });
 </pre>
 
+### boundsChange
+This event is triggered when the bounds of the map have changed
+
+<pre>
+map.bind('boundsChange', function(evt, bounds) {
+});
+</pre>
+
 ## Methods
 */
 var Map = exports.Map = function(params) {
@@ -7226,8 +7249,13 @@ var Map = exports.Map = function(params) {
         );
     } // handleTap
 
-    function handleRefresh(evt) {
-        _self.trigger("boundsChange", _self.getBoundingBox());
+    function handleRefresh(evt, view, viewport) {
+        if (lastBoundsChangeOffset.x != viewport.x || lastBoundsChangeOffset.y != viewport.y) {
+            _self.trigger('boundsChange', _self.getBoundingBox());
+
+            lastBoundsChangeOffset.x = viewport.x;
+            lastBoundsChangeOffset.y = viewport.y;
+        } // if
     } // handleWork
 
     function handleProviderUpdate(name, value) {

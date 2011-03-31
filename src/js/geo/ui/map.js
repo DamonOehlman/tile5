@@ -31,6 +31,14 @@ map.bind('zoomLevelChange', function(evt, newZoomLevel) {
 });
 </pre>
 
+### boundsChange
+This event is triggered when the bounds of the map have changed
+
+<pre>
+map.bind('boundsChange', function(evt, bounds) {
+});
+</pre>
+
 ## Methods
 */
 var Map = exports.Map = function(params) {
@@ -156,8 +164,16 @@ var Map = exports.Map = function(params) {
         );
     } // handleTap
     
-    function handleRefresh(evt) {
-        _self.trigger("boundsChange", _self.getBoundingBox());
+    function handleRefresh(evt, view, viewport) {
+        // check the offset has changed (refreshes can happen for other reasons)
+        if (lastBoundsChangeOffset.x != viewport.x || lastBoundsChangeOffset.y != viewport.y) {
+            // trigger the event
+            _self.trigger('boundsChange', _self.getBoundingBox());
+            
+            // update the last bounds change offset
+            lastBoundsChangeOffset.x = viewport.x;
+            lastBoundsChangeOffset.y = viewport.y;
+        } // if
     } // handleWork
     
     function handleProviderUpdate(name, value) {
