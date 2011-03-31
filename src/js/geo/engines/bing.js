@@ -50,7 +50,8 @@ T5.Geo.Bing = (function() {
     var BingGenerator = function(params) {
         params = COG.extend({
             apikey: null,
-            style: 'Road'
+            style: 'Road',
+            osmDataAck: false
         }, params);
         
         var currentImageUrl = '',

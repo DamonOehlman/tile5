@@ -18,7 +18,8 @@ T5.Geo.OSM = (function() {
         params = COG.extend({
             flipY: false,
             tileSize: 256,
-            tilePath: '{0}/{1}/{2}.png'
+            tilePath: '{0}/{1}/{2}.png',
+            osmDataAck: true
         }, params);
         
         // initialise variables
@@ -167,7 +168,9 @@ T5.Geo.OSM = (function() {
         };
         
         // trigger an attribution requirement
-        T5.userMessage('ack', 'osm', 'Map data (c) <a href="http://openstreetmap.org/" target="_blank">OpenStreetMap</a> (and) contributors, CC-BY-SA');
+        if (params.osmDataAck) {
+            T5.userMessage('ack', 'osm', 'Map data (c) <a href="http://openstreetmap.org/" target="_blank">OpenStreetMap</a> (and) contributors, CC-BY-SA');
+        } // if
         
         // bind to generator events
         
