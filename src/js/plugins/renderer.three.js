@@ -52,35 +52,36 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             xSeg = (vpWidth / TILE_SIZE | 0) + 1;
             ySeg = (vpHeight / TILE_SIZE | 0) + 1;
 
-			scene = new THREE.Scene();
+            scene = new THREE.Scene();
 
-			var light, object, material;
+            var light, object, material;
 
-			light = new THREE.DirectionalLight( 0x00aaff, 2.0 );
-			light.position.z = 1;
-			scene.addLight( light );
+            light = new THREE.DirectionalLight( 0x00aaff, 2.0 );
+            light.position.z = 1;
+            scene.addLight( light );
 
-			light = new THREE.DirectionalLight( 0x000040, 0.5 );
-			light.position.z = - 1;
-			scene.addLight( light );
+            light = new THREE.DirectionalLight( 0x000040, 0.5 );
+            light.position.z = - 1;
+            scene.addLight( light );
 
-			tileBg = new THREE.Mesh(
-			    new Plane(xSeg * TILE_SIZE, ySeg * TILE_SIZE, xSeg, ySeg), 
-				new THREE.MeshBasicMaterial({ 
-				    color: 0xffffff, 
-				    wireframe: true
-				})
-			);
-			scene.addObject(tileBg);
-			
-			camera = new THREE.Camera(45, vpWidth / vpHeight, 1, 1500, tileBg);
-			camera.position.z = 150;
+            tileBg = new THREE.Mesh(
+                new Plane(xSeg * TILE_SIZE, ySeg * TILE_SIZE, xSeg, ySeg), 
+                new THREE.MeshBasicMaterial({ 
+                    color: 0xffffff, 
+                    wireframe: true
+                })
+            );
+            tileBg.position.z = -1;
+            scene.addObject(tileBg);
+            
+            camera = new THREE.Camera(45, vpWidth / vpHeight, 1, 1500, tileBg);
+            camera.position.z = 150;
 
-			// create a plane for the tiles
-			tilePlane = new Plane(TILE_SIZE, TILE_SIZE, 4, 4);
+            // create a plane for the tiles
+            tilePlane = new Plane(TILE_SIZE, TILE_SIZE, 4, 4);
 
-			renderer = new THREE.WebGLRenderer();
-			renderer.setSize(vpWidth, vpHeight);
+            renderer = new THREE.WebGLRenderer();
+            renderer.setSize(vpWidth, vpHeight);
             
             // add the canvas to the container
             container.appendChild(renderer.domElement);
@@ -89,8 +90,8 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
     
     function initMesh(mesh, drawable, x, y) {
         // set the mesh position
-        mesh.position.x = x || drawable.xy.x;
-        mesh.position.y = (y || drawable.xy.y) * -1;
+        mesh.position.x = (x || drawable.xy.x) + drawable.translateX;
+        mesh.position.y = ((y || drawable.xy.y) + drawable.translateY) * -1;
         
         if (drawable.scaling !== 1) {
             mesh.scale = new THREE.Vector3(drawable.scaling, drawable.scaling, drawable.scaling);
@@ -170,13 +171,13 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
     } // applyStyle
     
     function applyTransform(drawable) {
-        var translated = drawable.translateX !== 0 || drawable.translateY !== 0,
+        var mesh = drawable.mesh,
+            translated = drawable.translateX !== 0 || drawable.translateY !== 0,
             transformed = translated || drawable.scaling !== 1 || drawable.rotation !== 0;
-            
-        if (transformed && drawable.mesh) {
-            var scale = drawable.mesh.scale;
-            
-            scale.x = scale.y = scale.z = drawable.scaling;
+        
+        if (mesh && (transformed || drawable.transformed)) {
+            mesh.scale.x = mesh.scale.y = mesh.scale.z = drawable.scaling;
+            mesh.rotation.z = drawable.rotation;
             
             // initialise the transform
             transform = {
@@ -187,24 +188,11 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
                 x: drawable.xy.x,
                 y: drawable.xy.y
             };
-            
-
-            /*
-            context.translate(
-                drawable.xy.x - drawOffsetX + drawable.translateX, 
-                drawable.xy.y - drawOffsetY + drawable.translateY
-            );
-
-            if (drawable.rotation !== 0) {
-                context.rotate(drawable.rotation);
-            } // if
-
-            if (drawable.scaling !== 1) {
-                context.scale(drawable.scaling, drawable.scaling);
-            } // if
-            */
         } // if
         
+        // update the drawable transformed state
+        drawable.transformed = transformed;
+            
         return transform;
     } // applyTransform
     
@@ -298,8 +286,14 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
                 texture = new THREE.Texture(image),
                 mesh = drawable.mesh = new THREE.Mesh(
                     plane,
+                    /*
                     new THREE.MeshBasicMaterial({
                         map: texture
+                    })
+                    */
+                    new THREE.MeshBasicMaterial({
+                        map: texture,
+                        blending: THREE.BillboardBlending
                     })
                 );
                 
