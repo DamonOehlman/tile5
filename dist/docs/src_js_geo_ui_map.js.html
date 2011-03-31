@@ -5,11 +5,11 @@ title: Tile5 API Documentation
 
 <h1><a name="T5.Map">T5.Map</a></h1>
 
-<p><em>extends:</em> <a href="src_js_core.js.html#T5">T5</a>.Tiler</p>
+<p><em>extends:</em> <a href="src_js_functions.js.html#T5">T5</a>.Tiler</p>
 
 <p>The Map class is the entry point for creating a tiling map.  Creating a 
 map is quite simple and requires two things to operate.  A containing HTML5 canvas
-that will be used to display the map and a <a href="src_js_core.js.html#T5">T5</a>.Geo.MapProvider that will populate 
+that will be used to display the map and a <a href="src_js_functions.js.html#T5">T5</a>.Geo.MapProvider that will populate 
 the map.</p>
 
 <h2>Example Usage: Creating a Map</h2>
@@ -33,6 +33,15 @@ more information on view level features check out the View documentation.</p>
 
 <pre>
 map.bind('zoomLevelChange', function(evt, newZoomLevel) {
+});
+</pre>
+
+<h3>boundsChange</h3>
+
+<p>This event is triggered when the bounds of the map have changed</p>
+
+<pre>
+map.bind('boundsChange', function(evt, bounds) {
 });
 </pre>
 

@@ -14,9 +14,16 @@ provide the drawables by the <code>loadDrawables</code> method.</p>
 
 <h2>Methods</h2>
 
-<h3>getDrawables(view, viewRect)</h3>
+<h3>find(selector: String)</h3>
+
+<p>The find method will eventually support retrieving all the shapes from the shape
+layer that match the selector expression.  For now though, it just returns all shapes</p>
 
 <h3>hitGuess(hitX, hitY, state, view)</h3>
 
 <p>Return true if any of the markers are hit, additionally, store the hit elements
 so we don't have to do the work again when drawing</p>
+
+<h3>add(poly)</h3>
+
+<p>Used to add a <a href="src_js_graphics_drawables_poly.js.html#T5.Poly">T5.Poly</a> to the layer</p>

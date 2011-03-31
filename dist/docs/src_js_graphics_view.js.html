@@ -41,7 +41,7 @@ performance.  In reality though on slower devices, the framerate will scale back
 automatically, but it can be prudent to set a lower framerate to leave some cpu for 
 other processes :)</li>
 <li><code>turbo</code> - (bool, default = false) - whether or not all possible performance optimizations
-should be implemented.  In this mode certain features such as transparent images in <a href="src_js_graphics_layers_imagelayer.js.html#T5.ImageLayer">T5.ImageLayer</a>
+should be implemented.  In this mode certain features such as transparent images in <a href="src_js_graphics_layers_tilelayer.js.html#T5.ImageLayer">T5.ImageLayer</a>
 will not have these effects applied.  Additionally, clipping is disabled and clearing the background
 rectangle never happens.  This is serious stuff folks.</li>
 <li><code>zoomEasing</code> - (easing, default = <code>quad.out</code>) - The easing effect that should be used when 
@@ -128,9 +128,9 @@ supplied.</p>
 
 <p>Get the ViewLayer with the specified id, return null if not found</p>
 
-<h3>getOffset(): <a href="src_js_core_xy.js.html#T5.XY">T5.XY</a></h3>
+<h3>getOffset(): <a href="src_js_core_xyfns.js.html#T5.XY">T5.XY</a></h3>
 
-<p>Return a <a href="src_js_core_xy.js.html#T5.XY">T5.XY</a> containing the current view offset</p>
+<p>Return a <a href="src_js_core_xyfns.js.html#T5.XY">T5.XY</a> containing the current view offset</p>
 
 <h3>getRenderer(): <a href="src_js_graphics_renderers_base.js.html#T5.Renderer">T5.Renderer</a></h3>
 
@@ -173,11 +173,11 @@ events and will do some of their recalculations when this is called.</p>
 
 <p>Remove the <a href="src_js_graphics_layers_viewlayer.js.html#T5.ViewLayer">T5.ViewLayer</a> specified by the id</p>
 
-<h3>scale(targetScaling: float, targetXY: <a href="src_js_core_xy.js.html#T5.XY">T5.XY</a>, tweenFn: EasingFn, callback: fn)</h3>
+<h3>scale(targetScaling: float, targetXY: <a href="src_js_core_xyfns.js.html#T5.XY">T5.XY</a>, tweenFn: EasingFn, callback: fn)</h3>
 
 <p>Scale the view to the specified <code>targetScaling</code> (1 = normal, 2 = double-size and 0.5 = half-size).</p>
 
-<h3>setZoomLevel(value: int, zoomXY: <a href="src_js_core_xy.js.html#T5.XY">T5.XY</a>): boolean</h3>
+<h3>setZoomLevel(value: int, zoomXY: <a href="src_js_core_xyfns.js.html#T5.XY">T5.XY</a>): boolean</h3>
 
 <p>This function is used to update the zoom level of the view.  The zoom level 
 is checked to ensure that it falls within the <code>minZoom</code> and <code>maxZoom</code> values.  Then
@@ -186,7 +186,7 @@ and a <code>zoomLevelChange</code> event is triggered</p>
 
 <h3>syncXY(points, reverse)</h3>
 
-<p>This function is used to keep a <a href="src_js_core_xy.js.html#T5.XY">T5.XY</a> derivative x and y position in sync
+<p>This function is used to keep a <a href="src_js_core_xyfns.js.html#T5.XY">T5.XY</a> derivative x and y position in sync
 with it's real world location (if it has one).  <a href="src_js_geo_types_geoxy.js.html#T5.GeoXY">T5.GeoXY</a> are a good example 
 of this.</p>
 
