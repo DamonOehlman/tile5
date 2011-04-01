@@ -55,6 +55,7 @@ function ViewLayer(params) {
     
     // initialise members
     this.view = null;
+    this.visible = true;
 
     // make view layers observable
     COG.observable(COG.extend(this, params));

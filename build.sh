@@ -1,5 +1,10 @@
 SPROCKET_OPTS="-I build -I lib -I /development/projects/github/sidelab/"
 MINIFY=$1
+PLUGINS="renderer.dom \
+renderer.raphael \
+renderer.webgl \
+renderer.three \
+clusterer"
 
 : ${MINIFY:=false}
 
@@ -16,7 +21,7 @@ if $MINIFY; then
          --js dist/tile5.js
 fi;
 
-for plugin in renderer.dom renderer.raphael renderer.webgl renderer.three
+for plugin in $PLUGINS
 do
     echo "Building Tile5 Plugin: $plugin"
     

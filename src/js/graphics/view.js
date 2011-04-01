@@ -86,13 +86,20 @@ view.bind('refresh', function(evt) {
 ### drawComplete
 Triggered when drawing the view has been completed (who would have thought).
 <pre>
-view.bind('drawComplete', function(evt, viewRect, tickCount) {
+view.bind('drawComplete', function(evt, viewport, tickCount) {
 });
 </pre>
 
-- offset (T5.Vector) - the view offset that was used for the draw operation
+- viewport - the current viewport of the view
 - tickCount - the tick count at the start of the draw operation.
 
+
+### enterFrame
+Triggered on the view cycling.
+<pre>
+view.bind('enterFrame', function(evt, tickCount, frameData) {
+});
+</pre>
 
 ### zoomLevelChange
 Triggered when the zoom level of the view has changed.  Given that Tile5 was primarily
@@ -518,6 +525,7 @@ var View = function(params) {
             panning,
             scaleChanged,
             newFrame = false,
+            frameData,
             viewport;
             
         // initialise the tick count if it isn't already defined
@@ -544,16 +552,22 @@ var View = function(params) {
             if (refreshXDist >= refreshDist || refreshYDist >= refreshDist) {
                 refresh();
             } // if
+            
+            // initialise the frame data
+            frameData = {
+                index: frameIndex++,
+                draw: viewChanges
+            };
 
             // trigger the enter frame event
-            _self.trigger('enterFrame', tickCount, frameIndex++);
+            _self.trigger('enterFrame', tickCount, frameData);
             
             // update the last cycle ticks
             lastCycleTicks = tickCount;
         }
         
         // if we a due for a redraw then do on
-        if (newFrame && viewChanges) {
+        if (newFrame && frameData.draw) {
             // update the state
             state = stateActive | 
                         (scaleFactor !== 1 ? stateZoom : 0) | 
@@ -595,10 +609,10 @@ var View = function(params) {
                     var drawLayer = layers[ii];
 
                     // determine whether we need to draw
-                    if ((state & drawLayer.validStates) !== 0) {
+                    if (drawLayer.visible && ((state & drawLayer.validStates) !== 0)) {
                         // if the layer has style, then apply it and save the current style
                         var previousStyle = drawLayer.style ? 
-                                renderer.applyStyle(drawLayer.style) : 
+                                renderer.applyStyle(drawLayer.style, true) : 
                                 null;
 
                         // draw the layer
@@ -620,6 +634,9 @@ var View = function(params) {
                 // get the renderer to render the view
                 // NB: some renderers will do absolutely nothing here...
                 renderer.render(viewport);
+                
+                // trigger the draw complete event
+                _self.trigger('drawComplete', viewport, tickCount);
                 
                 // update the last cycle ticks
                 lastOffsetX = offsetX;

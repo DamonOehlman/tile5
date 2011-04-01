@@ -1,3 +1,6 @@
+/**
+# RENDERER: canvas
+*/
 registerRenderer('canvas', function(view, container, params, baseRenderer) {
     params = COG.extend({
     }, params);
@@ -56,6 +59,16 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         } // if
     } // createCanvas
     
+    function getPreviousStyle(canvasId) {
+        // create the previous styles array if not created already
+        if (! previousStyles[canvasId]) {
+            previousStyles[canvasId] = [];
+        } // if
+        
+        // pop the previous style from the style stack
+        return previousStyles[canvasId].pop() || 'basic';
+    } // getPreviousStyle
+    
     function initDrawData(viewport, hitData, state, drawFn) {
         var isHit = false;
         
@@ -85,13 +98,12 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     
     function applyStyle(styleId) {
         var nextStyle = getStyle(styleId),
-            previousStyle = nextStyle && context && context.canvas ? 
-                previousStyles[context.canvas.id] : 
-                null;
+            canvasId = context && context.canvas ? context.canvas.id : 'default',
+            previousStyle = getPreviousStyle(canvasId);
 
         if (nextStyle) {
-            // if we have a style change then make the change
-            previousStyles[context.canvas.id] = styleId;
+            // push the style onto the style stack
+            previousStyles[canvasId].push(styleId);
 
             // apply the style
             nextStyle.applyToContext(context);
@@ -264,6 +276,28 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     } // prepImage
     
     /**
+    ### prepMarker(drawable, viewport, hitData, state, opts)
+    */
+    function prepMarker(drawable, viewport, hitData, state, opts) {
+        var markerX = drawable.xy.x - (transform ? transform.x : drawOffsetX),
+            markerY = drawable.xy.y - (transform ? transform.y : drawOffsetY),
+            size = drawable.size;
+        
+        context.beginPath();
+        
+        switch (drawable.markerStyle.toLowerCase()) {
+            case 'simple': 
+                context.moveTo(markerX, markerY);
+                context.lineTo(markerX - (size >> 1), markerY - size);
+                context.lineTo(markerX + (size >> 1), markerY - size);
+                context.lineTo(markerX, markerY);
+                break;
+        } // switch
+        
+        return initDrawData(viewport, hitData, state);
+    } // prepMarker
+    
+    /**
     ### prepPoly(drawable, viewport, hitData, state, opts)
     */
     function prepPoly(drawable, viewport, hitData, state, opts) {
@@ -309,6 +343,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
 
         prepArc: prepArc,
         prepImage: prepImage,
+        prepMarker: prepMarker,
         prepPoly: prepPoly,
         
         getContext: function() { 

@@ -196,6 +196,10 @@ T5.registerRenderer('webgl', function(view, container, params, baseRenderer) {
     /* exports */
     
     function applyStyle(styleId) {
+        var nextStyle = getStyle(styleId);
+
+        if (nextStyle) {
+        } // if
     } // applyStyle
     
     function applyTransform(drawable) {

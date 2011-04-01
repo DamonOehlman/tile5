@@ -16,8 +16,9 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         materials,
         vpWidth,
         vpHeight,
-        canvas,
-        context,
+        defaultMarker,
+        markerStyles = {},
+        styleMaterials,
         drawOffsetX = 0,
         drawOffsetY = 0,
         transform = null,
@@ -86,12 +87,32 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             // add the canvas to the container
             container.appendChild(renderer.domElement);
         } // if
+        
+        // initialise geometries
+        initGeometries();
+        
+        // initialise materials
+        initMaterials();
     } // createCanvas
     
-    function initMesh(mesh, drawable, x, y) {
+    function initGeometries() {
+        defaultMarker = new Cube(5, 5, 5);
+    } // initGeometries
+    
+    function initMaterials() {
+        styleMaterials = [
+            new THREE.MeshLambertMaterial({
+                color: 0xdddddd, 
+                shading: THREE.FlatShading 
+            })
+        ];
+    } // initMaterials
+    
+    function initMesh(mesh, drawable, x, y, z) {
         // set the mesh position
         mesh.position.x = (x || drawable.xy.x) + drawable.translateX;
-        mesh.position.y = ((y || drawable.xy.y) + drawable.translateY) * -1;
+        mesh.position.y = (y || drawable.xy.y) * -1;
+        mesh.position.z = (z || 0) - drawable.translateY;
         
         if (drawable.scaling !== 1) {
             mesh.scale = new THREE.Vector3(drawable.scaling, drawable.scaling, drawable.scaling);
@@ -99,6 +120,9 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         
         // add to the active objects
         activeObjects[drawable.id] = drawable;
+        
+        // add to the scene
+        scene.addObject(mesh);
     } // initMesh
     
     function loadTileMesh(tile) {
@@ -179,6 +203,9 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             mesh.scale.x = mesh.scale.y = mesh.scale.z = drawable.scaling;
             mesh.rotation.z = drawable.rotation;
             
+            mesh.position.x = drawable.xy.x + drawable.translateX;
+            mesh.position.z = -drawable.translateY;
+            
             // initialise the transform
             transform = {
                 undo: function() {
@@ -251,10 +278,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
                         blending: THREE.AdditiveBlending 
                     }),
                     */
-                    new THREE.MeshLambertMaterial({
-                        color: 0xdddddd, 
-                        shading: THREE.FlatShading 
-                    })
+                    styleMaterials
                 );
                 
             // prep the mesh and add to the scene
@@ -262,9 +286,6 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             
             // rotate the sphere...
             mesh.rotation.x = Math.PI / 2;
-            
-            // add to the scene
-            scene.addObject(mesh);
         } // if
         
         // flag as a current object
@@ -300,18 +321,43 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             texture.needsUpdate = true;
             
             // prep the mesh and add to the scene
-            initMesh(mesh, drawable, drawX, drawY);
-            mesh.position.z = 1;
-            
-            
-            scene.addObject(mesh);
+            initMesh(mesh, drawable, drawX, drawY, 1);
         }
         
         // flag as a current object
         currentObjects[drawable.id] = drawable;
         
         return initDrawData(viewport, hitData, state);
-    } // prepImage    
+    } // prepImage
+    
+    /**
+    ### prepMarker(drawable, viewport, hitData, state, opts)
+    */
+    function prepMarker(drawable, viewport, hitData, state, opts) {
+        if (! drawable.mesh) {
+            var markerX = drawable.xy.x,
+                markerY = drawable.xy.y,
+                size = drawable.size,
+                mesh;
+
+            switch (drawable.markerStyle.toLowerCase()) {
+                case 'simple':
+                    mesh = drawable.mesh = new THREE.Mesh(
+                        markerStyles[drawable.markerStyle] || defaultMarker,
+                        styleMaterials
+                    );
+                    break;
+            } // switch
+            
+            // initialise the mesh and add to the scene
+            initMesh(mesh, drawable);
+        } // if
+        
+        // add to the current object
+        currentObjects[drawable.id] = drawable;
+        
+        return initDrawData(viewport, hitData, state);
+    } // prepMarker    
     
     function render() {
         // remove any old objects
@@ -341,6 +387,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         prepare: prepare,
         prepArc: prepArc,
         prepImage: prepImage,
+        prepMarker: prepMarker,
         
         render: render,
         reset: reset,

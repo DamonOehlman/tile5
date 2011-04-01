@@ -61,10 +61,7 @@ var GeoXY = exports.GeoXY = (function() {
 
             // update the rads per pixel
             xy.rpp = rpp;
-        }
-        else {
-            COG.warn('Attempted to sync an XY composite, not a GeoXY');
-        } // if..else
+        } // if
 
         return xy;
     } // setRadsPerPixel

@@ -475,6 +475,7 @@ http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-l
 (function() {
     var BACK_S = 1.70158,
         HALF_PI = Math.PI / 2,
+        TWO_PI = Math.PI * 2,
         ANI_WAIT = 1000 / 60 | 0,
 
         abs = Math.abs,
@@ -2907,6 +2908,9 @@ var attachRenderer = exports.attachRenderer = function(id, view, container, para
 
     return renderer;
 };
+/**
+# RENDERER: canvas
+*/
 registerRenderer('canvas', function(view, container, params, baseRenderer) {
     params = COG.extend({
     }, params);
@@ -2961,6 +2965,14 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         } // if
     } // createCanvas
 
+    function getPreviousStyle(canvasId) {
+        if (! previousStyles[canvasId]) {
+            previousStyles[canvasId] = [];
+        } // if
+
+        return previousStyles[canvasId].pop() || 'basic';
+    } // getPreviousStyle
+
     function initDrawData(viewport, hitData, state, drawFn) {
         var isHit = false;
 
@@ -2987,12 +2999,11 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
 
     function applyStyle(styleId) {
         var nextStyle = getStyle(styleId),
-            previousStyle = nextStyle && context && context.canvas ?
-                previousStyles[context.canvas.id] :
-                null;
+            canvasId = context && context.canvas ? context.canvas.id : 'default',
+            previousStyle = getPreviousStyle(canvasId);
 
         if (nextStyle) {
-            previousStyles[context.canvas.id] = styleId;
+            previousStyles[canvasId].push(styleId);
 
             nextStyle.applyToContext(context);
 
@@ -3151,6 +3162,28 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     } // prepImage
 
     /**
+    ### prepMarker(drawable, viewport, hitData, state, opts)
+    */
+    function prepMarker(drawable, viewport, hitData, state, opts) {
+        var markerX = drawable.xy.x - (transform ? transform.x : drawOffsetX),
+            markerY = drawable.xy.y - (transform ? transform.y : drawOffsetY),
+            size = drawable.size;
+
+        context.beginPath();
+
+        switch (drawable.markerStyle.toLowerCase()) {
+            case 'simple':
+                context.moveTo(markerX, markerY);
+                context.lineTo(markerX - (size >> 1), markerY - size);
+                context.lineTo(markerX + (size >> 1), markerY - size);
+                context.lineTo(markerX, markerY);
+                break;
+        } // switch
+
+        return initDrawData(viewport, hitData, state);
+    } // prepMarker
+
+    /**
     ### prepPoly(drawable, viewport, hitData, state, opts)
     */
     function prepPoly(drawable, viewport, hitData, state, opts) {
@@ -3193,6 +3226,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
 
         prepArc: prepArc,
         prepImage: prepImage,
+        prepMarker: prepMarker,
         prepPoly: prepPoly,
 
         getContext: function() {
@@ -3332,9 +3366,11 @@ var loadStyles = exports.loadStyles = function(path) {
 
 defineStyles({
     basic: {
-        lineWidth: 1,
-        strokeStyle: '#000',
-        fillStyle: '#fff'
+        fillStyle: '#000'
+    },
+
+    highlight: {
+        fillStyle: '#f00'
     },
 
     waypoints: {
@@ -3492,13 +3528,20 @@ view.bind('refresh', function(evt) {
 ### drawComplete
 Triggered when drawing the view has been completed (who would have thought).
 <pre>
-view.bind('drawComplete', function(evt, viewRect, tickCount) {
+view.bind('drawComplete', function(evt, viewport, tickCount) {
 });
 </pre>
 
-- offset (T5.Vector) - the view offset that was used for the draw operation
+- viewport - the current viewport of the view
 - tickCount - the tick count at the start of the draw operation.
 
+
+### enterFrame
+Triggered on the view cycling.
+<pre>
+view.bind('enterFrame', function(evt, tickCount, frameData) {
+});
+</pre>
 
 ### zoomLevelChange
 Triggered when the zoom level of the view has changed.  Given that Tile5 was primarily
@@ -3889,6 +3932,7 @@ var View = function(params) {
             panning,
             scaleChanged,
             newFrame = false,
+            frameData,
             viewport;
 
         tickCount = tickCount || new Date().getTime();
@@ -3910,12 +3954,17 @@ var View = function(params) {
                 refresh();
             } // if
 
-            _self.trigger('enterFrame', tickCount, frameIndex++);
+            frameData = {
+                index: frameIndex++,
+                draw: viewChanges
+            };
+
+            _self.trigger('enterFrame', tickCount, frameData);
 
             lastCycleTicks = tickCount;
         }
 
-        if (newFrame && viewChanges) {
+        if (newFrame && frameData.draw) {
             state = stateActive |
                         (scaleFactor !== 1 ? stateZoom : 0) |
                         (panning ? statePan : 0) |
@@ -3947,9 +3996,9 @@ var View = function(params) {
                 for (ii = layerCount; ii--; ) {
                     var drawLayer = layers[ii];
 
-                    if ((state & drawLayer.validStates) !== 0) {
+                    if (drawLayer.visible && ((state & drawLayer.validStates) !== 0)) {
                         var previousStyle = drawLayer.style ?
-                                renderer.applyStyle(drawLayer.style) :
+                                renderer.applyStyle(drawLayer.style, true) :
                                 null;
 
                         drawLayer.draw(
@@ -3967,6 +4016,8 @@ var View = function(params) {
                 } // for
 
                 renderer.render(viewport);
+
+                _self.trigger('drawComplete', viewport, tickCount);
 
                 lastOffsetX = offsetX;
                 lastOffsetY = offsetY;
@@ -4449,7 +4500,7 @@ var Drawable = function(params) {
     params = COG.extend({
         style: null,
         xy: null,
-        size: null,
+        size: 10,
         fill: false,
         stroke: true,
         draggable: false,
@@ -4679,18 +4730,39 @@ function animateDrawable(target, fnName, argsStart, argsEnd, opts) {
     } // if
 } // animate
 /**
-### T5.Marker(params)
+# T5.Marker
+The T5.Marker class represents a generic marker for annotating an underlying view.
+Originally the marker class did very little, and in most instances a T5.ImageMarker
+was used instead to generate a marker that looked more visually appealing, however,
+with the introduction of different rendering backends the standard marker class is
+the recommended option for annotating maps and views as it allows the renderer to
+implement suitable rendering behaviour which looks good regardless of the context.
+
+## Initialization Parameters
+In addition to the standard T5.Drawable initialization parameters, a Marker can
+accept the following:
+
+
+- `markerStyle` - (default = simple)
+
+    The style of marker that will be displayed for the marker.  This is interpreted
+    by each renderer individually.
+
 */
 function Marker(params) {
+    params = COG.extend({
+        fill: true,
+        stroke: false,
+        markerStyle: 'simple',
+        hoverStyle: 'highlight',
+        typeName: 'Marker'
+    }, params);
+
     Drawable.call(this, params);
 };
 
 Marker.prototype = COG.extend(Drawable.prototype, {
-    constructor: Marker,
-
-    prep: function(renderer, offsetX, offsetY, state) {
-        return renderer.arc(this.xy.x, this.xy.y, this.size >> 1, 0, Math.PI * 2);
-    } // prep
+    constructor: Marker
 });
 /**
 # T5.Poly
@@ -4774,10 +4846,7 @@ Line.prototype = COG.extend({}, Poly.prototype);
 _extends:_ T5.Drawable
 
 
-An image annotation is simply a T5.Annotation that has been extended to
-display an image rather than a simple circle.  Probably the most common type
-of annotation used.  Supports using either the `image` or `imageUrl` parameters
-to use preloaded or an imageurl for displaying the annotation.
+An image drawable is the class that provides support for drawing images to a T5.DrawLayer.
 
 ## TODO
 
@@ -4785,10 +4854,7 @@ to use preloaded or an imageurl for displaying the annotation.
 tweak touch handling to get this better...
 
 
-## Constructor
-`new T5.Image(params);`
-
-### Initialization Parameters
+## Initialization Parameters
 
 - `image` (HTMLImage, default = null) - one of either this or the `imageUrl` parameter
 is required and the specified image is used to display the annotation.
@@ -4797,19 +4863,8 @@ is required and the specified image is used to display the annotation.
 required.  If specified, the image is obtained using T5.Images module and then drawn
 to the canvas.
 
-- `imageAnchor` (T5.Vector, default = null) - a T5.Vector that optionally specifies the
-anchor position for an annotation.  Consider that your annotation is "pin-like" then you
-would want to provide an anchor vector that specified the pixel position in the image
-around the center and base of the image.  If not `imageAnchor` parameter is provided, then
-the center of the image is assumed for the anchor position.
-
-- `rotation` (float, default = 0) - the value of the rotation for the image marker
-(in radians).  Be aware that applying rotation to a marker does add an extra processing
-overhead as the canvas context needs to be saved and restored as part of the operation.
-
-- `scale` (float, default = 1)
-
-- `opacity` (float, default = 1)
+- `centerOffset` (T5.XY, default = null) - a XY composite that optionally specifies the
+offset that should be applied to the image when it is drawn by the renderer.
 
 
 ## Methods
@@ -4953,7 +5008,12 @@ ImageDrawable.prototype = COG.extend({}, Drawable.prototype, {
     constructor: ImageDrawable
 });
 /**
-### T5.ImageMarker(params)
+# T5.ImageMarker
+The T5.ImageMarker is a class that provides a mechanism for displaying an image
+marker as an annotation for a T5.Map or T5.View
+
+
+_extends_: T5.ImageDrawable
 */
 function ImageMarker(params) {
     params = COG.extend({
@@ -5043,6 +5103,7 @@ function ViewLayer(params) {
     }, params);
 
     this.view = null;
+    this.visible = true;
 
     COG.observable(COG.extend(this, params));
 }; // ViewLayer constructor
@@ -5258,7 +5319,7 @@ var DrawLayer = function(params) {
                     overrideStyle = drawable[styleType] || _self[styleType] || overrideStyle;
                 } // if
 
-                previousStyle = overrideStyle ? renderer.applyStyle(overrideStyle) : null;
+                previousStyle = overrideStyle ? renderer.applyStyle(overrideStyle, true) : null;
 
                 drawFn = drawable.draw || drawData.draw;
 
@@ -5303,6 +5364,8 @@ var DrawLayer = function(params) {
     /* initialise _self */
 
     var _self = COG.extend(new ViewLayer(params), {
+        itemCount: 0,
+
         /**
         ### add(poly)
         Used to add a T5.Poly to the layer
@@ -5330,12 +5393,15 @@ var DrawLayer = function(params) {
 
                 drawable.bind('move', handleItemMove);
             } // if
+
+            _self.itemCount = drawables.length;
         },
 
         clear: function() {
             storage = new SpatialStore();
 
             drawables = [];
+            _self.itemCount = 0;
         },
 
         draw: draw,
@@ -6312,10 +6378,7 @@ var GeoXY = exports.GeoXY = (function() {
             xy.y = (Math.PI - mercXY.y) / rpp | 0;
 
             xy.rpp = rpp;
-        }
-        else {
-            COG.warn('Attempted to sync an XY composite, not a GeoXY');
-        } // if..else
+        } // if
 
         return xy;
     } // setRadsPerPixel

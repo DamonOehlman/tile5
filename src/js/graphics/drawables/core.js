@@ -15,7 +15,7 @@ var Drawable = function(params) {
     params = COG.extend({
         style: null,
         xy: null,
-        size: null,
+        size: 10,
         fill: false,
         stroke: true,
         draggable: false,

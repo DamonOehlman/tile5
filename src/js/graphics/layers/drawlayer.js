@@ -106,7 +106,7 @@ var DrawLayer = function(params) {
                 } // if
 
                 // save the previous style
-                previousStyle = overrideStyle ? renderer.applyStyle(overrideStyle) : null;
+                previousStyle = overrideStyle ? renderer.applyStyle(overrideStyle, true) : null;
                 
                 // get the draw function (using the drawable override if defined)
                 drawFn = drawable.draw || drawData.draw;
@@ -155,6 +155,8 @@ var DrawLayer = function(params) {
     /* initialise _self */
     
     var _self = COG.extend(new ViewLayer(params), {
+        itemCount: 0,
+        
         /**
         ### add(poly)
         Used to add a T5.Poly to the layer
@@ -185,6 +187,9 @@ var DrawLayer = function(params) {
                 // attach a move event handler
                 drawable.bind('move', handleItemMove);
             } // if
+            
+            // update the item count
+            _self.itemCount = drawables.length;
         },
         
         clear: function() {
@@ -193,6 +198,7 @@ var DrawLayer = function(params) {
             
             // reset the drawables
             drawables = [];
+            _self.itemCount = 0;
         },
         
         draw: draw,

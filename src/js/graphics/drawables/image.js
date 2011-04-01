@@ -3,10 +3,7 @@
 _extends:_ T5.Drawable
 
 
-An image annotation is simply a T5.Annotation that has been extended to 
-display an image rather than a simple circle.  Probably the most common type
-of annotation used.  Supports using either the `image` or `imageUrl` parameters
-to use preloaded or an imageurl for displaying the annotation.
+An image drawable is the class that provides support for drawing images to a T5.DrawLayer. 
 
 ## TODO
 
@@ -14,10 +11,7 @@ to use preloaded or an imageurl for displaying the annotation.
 tweak touch handling to get this better...
 
 
-## Constructor
-`new T5.Image(params);`
-
-### Initialization Parameters
+## Initialization Parameters
 
 - `image` (HTMLImage, default = null) - one of either this or the `imageUrl` parameter
 is required and the specified image is used to display the annotation.
@@ -26,19 +20,8 @@ is required and the specified image is used to display the annotation.
 required.  If specified, the image is obtained using T5.Images module and then drawn
 to the canvas.
 
-- `imageAnchor` (T5.Vector, default = null) - a T5.Vector that optionally specifies the 
-anchor position for an annotation.  Consider that your annotation is "pin-like" then you
-would want to provide an anchor vector that specified the pixel position in the image 
-around the center and base of the image.  If not `imageAnchor` parameter is provided, then 
-the center of the image is assumed for the anchor position.
-
-- `rotation` (float, default = 0) - the value of the rotation for the image marker 
-(in radians).  Be aware that applying rotation to a marker does add an extra processing
-overhead as the canvas context needs to be saved and restored as part of the operation.
-
-- `scale` (float, default = 1)
-
-- `opacity` (float, default = 1)
+- `centerOffset` (T5.XY, default = null) - a XY composite that optionally specifies the 
+offset that should be applied to the image when it is drawn by the renderer.
 
 
 ## Methods

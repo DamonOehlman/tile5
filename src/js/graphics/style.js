@@ -111,9 +111,11 @@ var loadStyles = exports.loadStyles = function(path) {
 // define the core styles
 defineStyles({
     basic: {
-        lineWidth: 1,
-        strokeStyle: '#000',
-        fillStyle: '#fff'
+        fillStyle: '#000'
+    },
+    
+    highlight: {
+        fillStyle: '#f00'
     },
     
     waypoints: {
