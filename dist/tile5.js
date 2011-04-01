@@ -2927,6 +2927,9 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         pipTransformed = CANI.canvas.pipTransformed,
         previousStyles = {},
 
+        drawNothing = function(drawData) {
+        },
+
         defaultDrawFn = function(drawData) {
             if (this.fill) {
                  context.fill();
@@ -3167,7 +3170,8 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     function prepMarker(drawable, viewport, hitData, state, opts) {
         var markerX = drawable.xy.x - (transform ? transform.x : drawOffsetX),
             markerY = drawable.xy.y - (transform ? transform.y : drawOffsetY),
-            size = drawable.size;
+            size = drawable.size,
+            drawOverride = undefined;
 
         context.beginPath();
 
@@ -3180,6 +3184,14 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
                 break;
 
             case 'image':
+                drawOverride = drawNothing;
+
+                context.rect(
+                    markerX - (size >> 1),
+                    markerY - (size >> 1),
+                    size,
+                    size);
+
                 if (drawable.image) {
                     context.drawImage(
                         drawable.image,
@@ -3206,7 +3218,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
                 break;
         } // switch
 
-        return initDrawData(viewport, hitData, state);
+        return initDrawData(viewport, hitData, state, drawOverride);
     } // prepMarker
 
     /**
