@@ -7,10 +7,7 @@ title: Tile5 API Documentation
 
 <p><em>extends:</em> <a href="src_js_graphics_drawables_core.js.html#T5.Drawable">T5.Drawable</a></p>
 
-<p>An image annotation is simply a <a href="src_js_functions.js.html#T5">T5</a>.Annotation that has been extended to 
-display an image rather than a simple circle.  Probably the most common type
-of annotation used.  Supports using either the <code>image</code> or <code>imageUrl</code> parameters
-to use preloaded or an imageurl for displaying the annotation.</p>
+<p>An image drawable is the class that provides support for drawing images to a <a href="src_js_graphics_layers_drawlayer.js.html#T5.DrawLayer">T5.DrawLayer</a>. </p>
 
 <h2>TODO</h2>
 
@@ -19,11 +16,7 @@ to use preloaded or an imageurl for displaying the annotation.</p>
 tweak touch handling to get this better...</li>
 </ul>
 
-<h2>Constructor</h2>
-
-<p><code>new <a href="src_js_functions.js.html#T5">T5</a>.Image(params);</code></p>
-
-<h3>Initialization Parameters</h3>
+<h2>Initialization Parameters</h2>
 
 <ul>
 <li><code>image</code> (HTMLImage, default = null) - one of either this or the <code>imageUrl</code> parameter
@@ -31,16 +24,8 @@ is required and the specified image is used to display the annotation.</li>
 <li><code>imageUrl</code> (String, default = null) - one of either this of the <code>image</code> parameter is
 required.  If specified, the image is obtained using <a href="src_js_functions.js.html#T5">T5</a>.Images module and then drawn
 to the canvas.</li>
-<li><code>imageAnchor</code> (<a href="src_js_core_vector.js.html#T5.Vector">T5.Vector</a>, default = null) - a <a href="src_js_core_vector.js.html#T5.Vector">T5.Vector</a> that optionally specifies the 
-anchor position for an annotation.  Consider that your annotation is "pin-like" then you
-would want to provide an anchor vector that specified the pixel position in the image 
-around the center and base of the image.  If not <code>imageAnchor</code> parameter is provided, then 
-the center of the image is assumed for the anchor position.</li>
-<li><code>rotation</code> (float, default = 0) - the value of the rotation for the image marker 
-(in radians).  Be aware that applying rotation to a marker does add an extra processing
-overhead as the canvas context needs to be saved and restored as part of the operation.</li>
-<li><code>scale</code> (float, default = 1)</li>
-<li><code>opacity</code> (float, default = 1)</li>
+<li><code>centerOffset</code> (<a href="src_js_core_xyfns.js.html#T5.XY">T5.XY</a>, default = null) - a XY composite that optionally specifies the 
+offset that should be applied to the image when it is drawn by the renderer.</li>
 </ul>
 
 <h2>Methods</h2>
