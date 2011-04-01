@@ -4221,6 +4221,8 @@ var View = function(params) {
             addLayer(id, value);
 
             value.trigger('refresh', _self, getViewport());
+
+            _self.trigger('layerChange', _self, value);
         } // if
 
         invalidate();

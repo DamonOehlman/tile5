@@ -122,6 +122,22 @@ T5.Clusterer = function(view, params) {
         } // for
     } // checkClusterLayer
     
+    function checkForChanges(checkRequired) {
+        var checkLayers = [];
+        
+        // look for draw layers
+        view.eachLayer(function(layer) {
+            checkRequired = checkRequired || (
+                layer.id.indexOf(CLUSTER_LAYER_PREFIX) < 0 && 
+                layer.itemCount && layer.itemCount !== layerCounts[layer.id]
+            );
+        });
+        
+        if (checkRequired) {
+            checkForClusters();
+        } 
+    } // checkForChanges
+    
     function createClusterLayer(hash, layer, clusterLayerId) {
         
         var clusterLayer = clusterLayers[clusterLayerId] = new T5.DrawLayer({
@@ -209,25 +225,20 @@ T5.Clusterer = function(view, params) {
     
     function handleDrawComplete(evt, viewport, tickCount) {
         if (tickCount - lastCheck >= checkInterval) {
-            var checkLayers = [],
-                checkRequired = false;
-            
-            // look for draw layers
-            view.eachLayer(function(layer) {
-                checkRequired = checkRequired || (
-                    layer.id.indexOf(CLUSTER_LAYER_PREFIX) < 0 && 
-                    layer.itemCount && layer.itemCount !== layerCounts[layer.id]
-                );
-            });
-            
-            if (checkRequired) {
-                checkForClusters();
-            } 
+            checkForChanges();
             
             // update the last check time
             lastCheck = tickCount;
         } // if
     } // handleDrawComplete
+    
+    function handleLayerChange(evt, targetView, layer) {
+        // if we have a cluster layer for the specified layer, then remove it
+        delete clusterLayers[CLUSTER_LAYER_PREFIX + layer.id];
+        
+        // check for changes 
+        checkForChanges(true);
+    } // handleLayerChange
     
     function handleZoomLevelChange(evt) {
         // remove the cluster layers from the view
@@ -276,6 +287,7 @@ T5.Clusterer = function(view, params) {
     
     // attach to the specified view
     view.bind('drawComplete', handleDrawComplete);
+    view.bind('layerChange', handleLayerChange);
     view.bind('zoomLevelChange', handleZoomLevelChange);
     
     return {

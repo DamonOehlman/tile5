@@ -111,6 +111,21 @@ T5.Clusterer = function(view, params) {
         } // for
     } // checkClusterLayer
 
+    function checkForChanges(checkRequired) {
+        var checkLayers = [];
+
+        view.eachLayer(function(layer) {
+            checkRequired = checkRequired || (
+                layer.id.indexOf(CLUSTER_LAYER_PREFIX) < 0 &&
+                layer.itemCount && layer.itemCount !== layerCounts[layer.id]
+            );
+        });
+
+        if (checkRequired) {
+            checkForClusters();
+        }
+    } // checkForChanges
+
     function createClusterLayer(hash, layer, clusterLayerId) {
 
         var clusterLayer = clusterLayers[clusterLayerId] = new T5.DrawLayer({
@@ -187,23 +202,17 @@ T5.Clusterer = function(view, params) {
 
     function handleDrawComplete(evt, viewport, tickCount) {
         if (tickCount - lastCheck >= checkInterval) {
-            var checkLayers = [],
-                checkRequired = false;
-
-            view.eachLayer(function(layer) {
-                checkRequired = checkRequired || (
-                    layer.id.indexOf(CLUSTER_LAYER_PREFIX) < 0 &&
-                    layer.itemCount && layer.itemCount !== layerCounts[layer.id]
-                );
-            });
-
-            if (checkRequired) {
-                checkForClusters();
-            }
+            checkForChanges();
 
             lastCheck = tickCount;
         } // if
     } // handleDrawComplete
+
+    function handleLayerChange(evt, targetView, layer) {
+        delete clusterLayers[CLUSTER_LAYER_PREFIX + layer.id];
+
+        checkForChanges(true);
+    } // handleLayerChange
 
     function handleZoomLevelChange(evt) {
         for (var layerId in clusterLayers) {
@@ -244,6 +253,7 @@ T5.Clusterer = function(view, params) {
     /* initialization */
 
     view.bind('drawComplete', handleDrawComplete);
+    view.bind('layerChange', handleLayerChange);
     view.bind('zoomLevelChange', handleZoomLevelChange);
 
     return {

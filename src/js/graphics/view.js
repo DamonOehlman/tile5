@@ -833,6 +833,9 @@ var View = function(params) {
             
             // trigger a refresh on the layer
             value.trigger('refresh', _self, getViewport());
+            
+            // trigger a layer changed event
+            _self.trigger('layerChange', _self, value);
         } // if
 
         // invalidate the map
