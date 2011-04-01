@@ -3178,6 +3178,32 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
                 context.lineTo(markerX + (size >> 1), markerY - size);
                 context.lineTo(markerX, markerY);
                 break;
+
+            case 'image':
+                if (drawable.image) {
+                    context.drawImage(
+                        drawable.image,
+                        markerX - (size >> 1),
+                        markerY - (size >> 1),
+                        size,
+                        size
+                    );
+                }
+                else {
+                    getImage(drawable.imageUrl, function(image) {
+                        drawable.image = image;
+
+                        context.drawImage(
+                            drawable.image,
+                            markerX - (size >> 1),
+                            markerY - (size >> 1),
+                            size,
+                            size
+                        );
+                    });
+                } // if..else
+
+                break;
         } // switch
 
         return initDrawData(viewport, hitData, state);
