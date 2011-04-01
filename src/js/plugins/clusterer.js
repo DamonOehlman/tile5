@@ -288,6 +288,7 @@ T5.Clusterer = function(view, params) {
     // attach to the specified view
     view.bind('drawComplete', handleDrawComplete);
     view.bind('layerChange', handleLayerChange);
+    view.bind('layerRemove', handleLayerChange);
     view.bind('zoomLevelChange', handleZoomLevelChange);
     
     return {

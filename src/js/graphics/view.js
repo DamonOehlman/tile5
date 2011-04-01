@@ -875,15 +875,12 @@ var View = function(params) {
     Remove the T5.ViewLayer specified by the id
     */
     function removeLayer(id) {
-        // TODO: add some cleaning up code here...
-        
-        
         var layerIndex = getLayerIndex(id);
         if ((layerIndex >= 0) && (layerIndex < layerCount)) {
-            _self.trigger('layerRemoved', layers[layerIndex]);
+            _self.trigger('layerRemove', _self, layers[layerIndex]);
 
             layers.splice(layerIndex, 1);
-            viewChanges++;
+            invalidate();
         } // if
         
         // update the layer count
