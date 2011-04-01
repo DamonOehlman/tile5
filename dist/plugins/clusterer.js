@@ -70,7 +70,7 @@ T5.Clusterer = function(view, params) {
 
         view.eachLayer(function(layer) {
             if (! T5.is(layer.itemCount, 'undefined')) {
-                var clusterLayer = checkLayer(layer);
+                var clusterLayer = checkLayer(layer, true);
                 layer.visible = !clusterLayer;
             } // if
 
@@ -224,11 +224,11 @@ T5.Clusterer = function(view, params) {
 
     /* exports */
 
-    function checkLayer(layer) {
+    function checkLayer(layer, useExisting) {
         var hash = findBroadClusters(layer),
             cluster = shouldCluster(hash),
             clusterLayerId = CLUSTER_LAYER_PREFIX + layer.id,
-            clusterLayer = clusterLayers[clusterLayerId];
+            clusterLayer = useExisting ? clusterLayers[clusterLayerId] : null;
 
         if (cluster) {
             if (! clusterLayer) {
