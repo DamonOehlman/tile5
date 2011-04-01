@@ -33,7 +33,7 @@ T5.Clusterer = function(view, params) {
         clusterLayers = {},
         bucketSize = params.dist;
 
-    function calcAverageXY(markers) {
+    function calcAverageXY(markers, syncer) {
 
         function avg() {
             var sum = 0;
@@ -45,14 +45,24 @@ T5.Clusterer = function(view, params) {
         } // avg
 
         var xValues = [],
-            yValues = [];
+            yValues = [],
+            shouldSync = false,
+            xy;
 
         for (var ii = markers.length; ii--; ) {
             xValues[ii] = markers[ii].xy.x;
             yValues[ii] = markers[ii].xy.y;
+
+            shouldSync = shouldSync || markers[ii].xy.mercXY;
         } // for
 
-        return T5.XY.init(avg.apply(null, xValues), avg.apply(null, yValues));
+        xy = T5.XY.init(avg.apply(null, xValues), avg.apply(null, yValues));
+
+        if (shouldSync && syncer) {
+            syncer.syncXY([xy], true);
+        } // if
+
+        return xy;
     } // calcAverageXY
 
     function checkForClusters() {
@@ -60,26 +70,8 @@ T5.Clusterer = function(view, params) {
 
         view.eachLayer(function(layer) {
             if (! T5.is(layer.itemCount, 'undefined')) {
-                var hash = findBroadClusters(layer),
-                    cluster = shouldCluster(hash),
-                    clusterLayerId = CLUSTER_LAYER_PREFIX + layer.id,
-                    clusterLayer = clusterLayers[clusterLayerId];
-
-                if (cluster) {
-                    if (! clusterLayer) {
-                        clusterLayer = createClusterLayer(hash, layer, clusterLayerId);
-                    }
-                    else {
-                        checkClusterLayer(layer, clusterLayer, hash);
-                    }
-                }
-                else if (clusterLayer) {
-                    delete clusterLayers[clusterLayerId];
-                    view.removeLayer(clusterLayerId);
-                    view.invalidate();
-                } // if
-
-                layer.visible = !cluster;
+                var clusterLayer = checkLayer(layer);
+                layer.visible = !clusterLayer;
             } // if
 
             layerCounts[layer.id] = layer.itemCount;
@@ -134,7 +126,7 @@ T5.Clusterer = function(view, params) {
 
         for (var quad in hash) {
             var childMarkers = hash[quad],
-                markerXY = calcAverageXY(childMarkers),
+                markerXY = calcAverageXY(childMarkers, view || layer.view),
                 clusterMarker = new T5.Marker(COG.extend({}, childMarkers[0], {
                     xy: markerXY,
                     size: childMarkers[0].size + childMarkers.length,
@@ -147,9 +139,6 @@ T5.Clusterer = function(view, params) {
 
             clusterLayer.add(clusterMarker);
         } // for
-
-        view.setLayer(clusterLayerId, clusterLayer);
-        view.invalidate();
 
         return clusterLayer;
     } // createClusterLayer
@@ -235,6 +224,37 @@ T5.Clusterer = function(view, params) {
 
     /* exports */
 
+    function checkLayer(layer) {
+        var hash = findBroadClusters(layer),
+            cluster = shouldCluster(hash),
+            clusterLayerId = CLUSTER_LAYER_PREFIX + layer.id,
+            clusterLayer = clusterLayers[clusterLayerId];
+
+        if (cluster) {
+            if (! clusterLayer) {
+                clusterLayer = createClusterLayer(hash, layer, clusterLayerId);
+
+                if (view) {
+                    view.setLayer(clusterLayerId, clusterLayer);
+                    view.invalidate();
+                } // if
+            }
+            else {
+                checkClusterLayer(layer, clusterLayer, hash);
+            }
+        }
+        else if (clusterLayer) {
+            delete clusterLayers[clusterLayerId];
+
+            if (view) {
+                view.removeLayer(clusterLayerId);
+                view.invalidate();
+            } // if
+        } // if
+
+        return clusterLayer;
+    } // checkLayer
+
     function uncluster() {
         layerCounts = {};
 
@@ -252,12 +272,15 @@ T5.Clusterer = function(view, params) {
 
     /* initialization */
 
-    view.bind('drawComplete', handleDrawComplete);
-    view.bind('layerChange', handleLayerChange);
-    view.bind('layerRemove', handleLayerChange);
-    view.bind('zoomLevelChange', handleZoomLevelChange);
+    if (view) {
+        view.bind('drawComplete', handleDrawComplete);
+        view.bind('layerChange', handleLayerChange);
+        view.bind('layerRemove', handleLayerChange);
+        view.bind('zoomLevelChange', handleZoomLevelChange);
+    } // if
 
     return {
+        checkLayer: checkLayer,
         uncluster: uncluster
     };
 };

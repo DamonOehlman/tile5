@@ -33,7 +33,7 @@ T5.Clusterer = function(view, params) {
         clusterLayers = {},
         bucketSize = params.dist;
         
-    function calcAverageXY(markers) {
+    function calcAverageXY(markers, syncer) {
         
         function avg() {
             var sum = 0;
@@ -46,47 +46,40 @@ T5.Clusterer = function(view, params) {
         
         // iterate through the markers and determine the average x and y
         var xValues = [],
-            yValues = [];
+            yValues = [],
+            shouldSync = false,
+            xy;
             
         // push the x and y values into separate arrays
         for (var ii = markers.length; ii--; ) {
             xValues[ii] = markers[ii].xy.x;
             yValues[ii] = markers[ii].xy.y;
+            
+            // determine whether we should reverse sync the result or not
+            // essentially we are looking for a mercatorXY
+            shouldSync = shouldSync || markers[ii].xy.mercXY;
         } // for
 
-        return T5.XY.init(avg.apply(null, xValues), avg.apply(null, yValues));
-    } // calcAverageXY
+        // initialise the xy
+        xy = T5.XY.init(avg.apply(null, xValues), avg.apply(null, yValues));
         
+        // if we should sync the value and we have a syncer then reverse sync the value
+        if (shouldSync && syncer) {
+            syncer.syncXY([xy], true);
+        } // if
+        
+        // return the new xy position
+        return xy;
+    } // calcAverageXY
+    
     function checkForClusters() {
         COG.info('checking for clusters');
         
         // iterate through the layers and check for markers
         view.eachLayer(function(layer) {
             if (! T5.is(layer.itemCount, 'undefined')) {
-                var hash = findBroadClusters(layer),
-                    cluster = shouldCluster(hash),
-                    clusterLayerId = CLUSTER_LAYER_PREFIX + layer.id,
-                    clusterLayer = clusterLayers[clusterLayerId];
-                    
-                // if we should cluster, then create the cluster layer if required
-                if (cluster) {
-                    // if the cluster layer has not been created, then create it now
-                    if (! clusterLayer) {
-                        clusterLayer = createClusterLayer(hash, layer, clusterLayerId);
-                    }
-                    else {
-                        checkClusterLayer(layer, clusterLayer, hash);
-                    }
-                }
-                else if (clusterLayer) {
-                    // remove the cluster
-                    delete clusterLayers[clusterLayerId];
-                    view.removeLayer(clusterLayerId);
-                    view.invalidate();
-                } // if
-
-                // if this layer is clustering, then hide it as the cluster layer will do the job
-                layer.visible = !cluster;
+                var clusterLayer = checkLayer(layer);
+                layer.visible = !clusterLayer;
             } // if
             
             layerCounts[layer.id] = layer.itemCount;
@@ -147,7 +140,7 @@ T5.Clusterer = function(view, params) {
         // iterate through the hash clusters and create the cluster markers
         for (var quad in hash) {
             var childMarkers = hash[quad],
-                markerXY = calcAverageXY(childMarkers),
+                markerXY = calcAverageXY(childMarkers, view || layer.view),
                 clusterMarker = new T5.Marker(COG.extend({}, childMarkers[0], {
                     xy: markerXY,
                     size: childMarkers[0].size + childMarkers.length,
@@ -163,10 +156,6 @@ T5.Clusterer = function(view, params) {
             clusterLayer.add(clusterMarker);
         } // for
 
-        // add the cluster markers to the cluster layer
-        view.setLayer(clusterLayerId, clusterLayer);
-        view.invalidate();
-        
         return clusterLayer;
     } // createClusterLayer
     
@@ -264,6 +253,42 @@ T5.Clusterer = function(view, params) {
     
     /* exports */
     
+    function checkLayer(layer) {
+        var hash = findBroadClusters(layer),
+            cluster = shouldCluster(hash),
+            clusterLayerId = CLUSTER_LAYER_PREFIX + layer.id,
+            clusterLayer = clusterLayers[clusterLayerId];
+            
+        // if we should cluster, then create the cluster layer if required
+        if (cluster) {
+            // if the cluster layer has not been created, then create it now
+            if (! clusterLayer) {
+                clusterLayer = createClusterLayer(hash, layer, clusterLayerId);
+
+                // if we have a view, then automatically add the layer
+                if (view) {
+                    view.setLayer(clusterLayerId, clusterLayer);
+                    view.invalidate();
+                } // if
+            }
+            else {
+                checkClusterLayer(layer, clusterLayer, hash);
+            }
+        }
+        else if (clusterLayer) {
+            // remove the cluster
+            delete clusterLayers[clusterLayerId];
+            
+            // if we have a view, then auto remove the layer
+            if (view) {
+                view.removeLayer(clusterLayerId);
+                view.invalidate();
+            } // if
+        } // if
+        
+        return clusterLayer;
+    } // checkLayer
+    
     function uncluster() {
         // reset the layer counts
         layerCounts = {};
@@ -285,13 +310,17 @@ T5.Clusterer = function(view, params) {
     
     /* initialization */
     
-    // attach to the specified view
-    view.bind('drawComplete', handleDrawComplete);
-    view.bind('layerChange', handleLayerChange);
-    view.bind('layerRemove', handleLayerChange);
-    view.bind('zoomLevelChange', handleZoomLevelChange);
+    // if the cluster is running in auto mode, then 
+    // attach the events required
+    if (view) {
+        view.bind('drawComplete', handleDrawComplete);
+        view.bind('layerChange', handleLayerChange);
+        view.bind('layerRemove', handleLayerChange);
+        view.bind('zoomLevelChange', handleZoomLevelChange);
+    } // if
     
     return {
+        checkLayer: checkLayer,
         uncluster: uncluster
     };
 };
