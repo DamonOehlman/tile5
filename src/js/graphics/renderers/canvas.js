@@ -13,6 +13,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         context,
         drawOffsetX = 0,
         drawOffsetY = 0,
+        styleFns = {},
         transform = null,
         pipTransformed = CANI.canvas.pipTransformed,
         previousStyles = {},
@@ -28,7 +29,21 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
             if (this.stroke) {
                 context.stroke();
             } // if
-        };
+        },
+        
+        styleParams = [
+            'fill',
+            'stroke',
+            'lineWidth',
+            'opacity'
+        ],
+        
+        styleAppliers = [
+            'fillStyle',
+            'strokeStyle',
+            'lineWidth',
+            'globalAlpha'
+        ];
         
     // TODO (0.9.7): remove the canvas detection and assume that we have been passed a div
     function createCanvas() {
@@ -72,6 +87,21 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         return previousStyles[canvasId].pop() || 'basic';
     } // getPreviousStyle
     
+    function handleStyleDefined(evt, styleId, styleData) {
+        var ii, data;
+        
+        styleFns[styleId] = function(context) {
+            // iterate through the style params and if defined 
+            // use the style applier to apply the style
+            for (ii = styleParams.length; ii--; ) {
+                data = styleData[styleParams[ii]];
+                if (data) {
+                    context[styleAppliers[ii]] = data;
+                } // if
+            } // for
+        };
+    } // handleStyleDefined
+        
     function initDrawData(viewport, hitData, state, drawFn) {
         var isHit = false;
         
@@ -97,10 +127,19 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         };
     } // initDrawData
     
+    function loadStyles() {
+        for (var styleId in T5.styles) {
+            handleStyleDefined(null, styleId, T5.styles[styleId]);
+        } // for
+        
+        // capture style defined events so we know about new styles
+        T5.bind('styleDefined', handleStyleDefined);
+    } // loadStyles
+    
     /* exports */
     
     function applyStyle(styleId) {
-        var nextStyle = getStyle(styleId),
+        var nextStyle = styleFns[styleId],
             canvasId = context && context.canvas ? context.canvas.id : 'default',
             previousStyle = getPreviousStyle(canvasId);
 
@@ -109,7 +148,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
             previousStyles[canvasId].push(styleId);
 
             // apply the style
-            nextStyle.applyToContext(context);
+            nextStyle(context);
 
             // return the previously selected style
             return previousStyle;        
@@ -290,13 +329,6 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         context.beginPath();
         
         switch (drawable.markerStyle.toLowerCase()) {
-            case 'simple': 
-                context.moveTo(markerX, markerY);
-                context.lineTo(markerX - (size >> 1), markerY - size);
-                context.lineTo(markerX + (size >> 1), markerY - size);
-                context.lineTo(markerX, markerY);
-                break;
-                
             case 'image':
                 // update the draw override to the draw nothing handler
                 drawOverride = drawNothing;
@@ -331,6 +363,13 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
                     });
                 } // if..else
                 
+                break;
+                
+            default: 
+                context.moveTo(markerX, markerY);
+                context.lineTo(markerX - (size >> 1), markerY - size);
+                context.lineTo(markerX + (size >> 1), markerY - size);
+                context.lineTo(markerX, markerY);
                 break;
         } // switch
         
@@ -412,6 +451,9 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         }
         */
     });
+    
+    // load the styles
+    loadStyles();
     
     return _this;
 });

@@ -1,3 +1,5 @@
+//= require <colorparser.js>
+
 T5.registerRenderer('three:webgl', function(view, container, params, baseRenderer) {
     params = COG.extend({
     }, params);
@@ -10,22 +12,73 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         renderer,
         activeObjects = {},
         currentObjects = {},
+        currentStyle = 'basic',
         lastTiles = [],
         tileBg,
         tilePlane,
+        tileMaterials = [],
         materials,
         vpWidth,
         vpHeight,
+        cubes = [],
         defaultMarker,
         markerStyles = {},
-        styleMaterials,
+        meshMaterials = {},
+        lineMaterials = {},
         drawOffsetX = 0,
         drawOffsetY = 0,
         transform = null,
+        textureCache = {},
+        materialCache = {},
         previousStyles = {},
         
         defaultDrawFn = function(drawData) {
         };
+        
+    function createCube(size) {
+        var realSize = size >> 1;
+        return cubes[size] = new Cube(realSize, realSize, realSize);
+    } // createCube
+    
+    function getCachedMaterials(materialKey, creator) {
+        if ((! materialCache[materialKey]) && creator) {
+            materialCache[materialKey] = creator();
+        } // if
+        
+        return materialCache[materialKey];
+    } // getCachedMaterial
+    
+    function getPreviousStyle(canvasId) {
+        // create the previous styles array if not created already
+        if (! previousStyles[canvasId]) {
+            previousStyles[canvasId] = [];
+        } // if
+        
+        // pop the previous style from the style stack
+        return previousStyles[canvasId].pop() || 'basic';
+    } // getPreviousStyle
+    
+    function handleStyleDefined(evt, styleId, styleData) {
+        var fillColor = new ColorParser(styleData.fill || '#ffffff'),
+            strokeColor = new ColorParser(styleData.stroke || '#ffffff');
+        
+        // firstly create the mesh materials for the style
+        meshMaterials[styleId] = [
+            new THREE.MeshLambertMaterial({
+                color: fillColor.toHex(), 
+                shading: THREE.FlatShading 
+            })
+        ];
+        
+        // next create the line materials for the style
+        lineMaterials[styleId] = [
+            new THREE.LineBasicMaterial({
+                color: strokeColor.toHex(),
+                opacity: styleData.opacity || 1,
+                linewidth: styleData.lineWidth || 2
+            })        
+        ];
+    } // handleStyleDefined
         
     function initDrawData(viewport, hitData, state, drawFn) {
         var isHit = false;
@@ -57,13 +110,15 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
 
             var light, object, material;
 
-            light = new THREE.DirectionalLight( 0x00aaff, 2.0 );
+            light = new THREE.DirectionalLight( 0xffffff, 2.0 );
             light.position.z = 1;
             scene.addLight( light );
 
+            /*
             light = new THREE.DirectionalLight( 0x000040, 0.5 );
             light.position.z = - 1;
             scene.addLight( light );
+            */
 
             tileBg = new THREE.Mesh(
                 new Plane(xSeg * TILE_SIZE, ySeg * TILE_SIZE, xSeg, ySeg), 
@@ -80,6 +135,9 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
 
             // create a plane for the tiles
             tilePlane = new Plane(TILE_SIZE, TILE_SIZE, 4, 4);
+            
+            // initialise the materials that will be applied to the tiles over the image
+            tileMaterials = [];
 
             renderer = new THREE.WebGLRenderer();
             renderer.setSize(vpWidth, vpHeight);
@@ -100,30 +158,55 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
     } // initGeometries
     
     function initMaterials() {
-        styleMaterials = [
-            new THREE.MeshLambertMaterial({
-                color: 0xdddddd, 
-                shading: THREE.FlatShading 
-            })
-        ];
     } // initMaterials
     
     function initMesh(mesh, drawable, x, y, z) {
+        // initialise the drawable z offset
+        drawable.zOffset = z || drawable.zOffset || 1;
+        
         // set the mesh position
         mesh.position.x = (x || drawable.xy.x) + drawable.translateX;
         mesh.position.y = (y || drawable.xy.y) * -1;
-        mesh.position.z = (z || 0) - drawable.translateY;
-        
+        mesh.position.z = drawable.zOffset - drawable.translateY;
+
         if (drawable.scaling !== 1) {
             mesh.scale = new THREE.Vector3(drawable.scaling, drawable.scaling, drawable.scaling);
         } // if
-        
+
         // add to the active objects
         activeObjects[drawable.id] = drawable;
-        
+
         // add to the scene
         scene.addObject(mesh);
     } // initMesh
+    
+    function loadStyles() {
+        for (var styleId in T5.styles) {
+            handleStyleDefined(null, styleId, T5.styles[styleId]);
+        } // for
+        
+        // capture style defined events so we know about new styles
+        T5.bind('styleDefined', handleStyleDefined);
+    } // loadStyles
+    
+    function loadTexture(imageUrl, mapping, callback) {
+        // get the image, 
+        T5.getImage(imageUrl, function(image) {
+            // create the texture
+            var texture = new THREE.Texture(image, mapping);
+            
+            // flag as needing an update
+            texture.needsUpdate = true;
+            
+            // add to the texture cache
+            textureCache[imageUrl] = texture;
+            
+            // if we have a callback, then fire it
+            if (callback) {
+                callback(texture);
+            } // if
+        });
+    } // loadTexture
     
     function loadTileMesh(tile) {
         // flag the tile as loading
@@ -134,10 +217,11 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             if (currentObjects[tile.id]) {
                 var texture = new THREE.Texture(image),
                     mesh = tile.mesh = new THREE.Mesh(
-                        tilePlane,
-                        new THREE.MeshBasicMaterial({
-                            map: texture
-                        })
+                        tilePlane, [
+                            new THREE.MeshBasicMaterial({
+                                map: texture
+                            })
+                        ].concat(tileMaterials)
                     );
 
                 // set the id of the mesh object
@@ -192,6 +276,18 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
     /* exports */
     
     function applyStyle(styleId) {
+        var previousStyle = getPreviousStyle(container.id);
+
+        if (meshMaterials[styleId]) {
+            // push the style onto the style stack
+            previousStyles[container.id].push(styleId);
+
+            // apply the style
+            currentStyle = styleId;
+
+            // return the previously selected style
+            return previousStyle;        
+        } // if        
     } // applyStyle
     
     function applyTransform(drawable) {
@@ -204,7 +300,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             mesh.rotation.z = drawable.rotation;
             
             mesh.position.x = drawable.xy.x + drawable.translateX;
-            mesh.position.z = -drawable.translateY;
+            mesh.position.z = -drawable.translateY + drawable.zOffset;
             
             // initialise the transform
             transform = {
@@ -278,7 +374,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
                         blending: THREE.AdditiveBlending 
                     }),
                     */
-                    styleMaterials
+                    meshMaterials[currentStyle]
                 );
                 
             // prep the mesh and add to the scene
@@ -307,11 +403,6 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
                 texture = new THREE.Texture(image),
                 mesh = drawable.mesh = new THREE.Mesh(
                     plane,
-                    /*
-                    new THREE.MeshBasicMaterial({
-                        map: texture
-                    })
-                    */
                     new THREE.MeshBasicMaterial({
                         map: texture,
                         blending: THREE.BillboardBlending
@@ -341,23 +432,80 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
                 mesh;
 
             switch (drawable.markerStyle.toLowerCase()) {
-                case 'simple':
+                case 'image':
+                    // look for the image texture
+                    var materialKey = 'marker_image_' + drawable.imageUrl,
+                        materials = getCachedMaterials(materialKey, function() {
+                            return [
+                                new THREE.MeshBasicMaterial({
+                                    map: ImageUtils.loadTexture(drawable.imageUrl)
+                                })
+                            ];
+                        });
+                    
+                    // if we have it then create the mesh
                     mesh = drawable.mesh = new THREE.Mesh(
-                        markerStyles[drawable.markerStyle] || defaultMarker,
-                        styleMaterials
+                        cubes[drawable.size] || createCube(drawable.size),
+                        meshMaterials[currentStyle].concat(materials)
                     );
-                    break;
+                    
+                    break;                
+                    
+                default:
+                    mesh = drawable.mesh = new THREE.Mesh(
+                        cubes[drawable.size] || createCube(drawable.size),
+                        meshMaterials[currentStyle]
+                    );
             } // switch
             
-            // initialise the mesh and add to the scene
-            initMesh(mesh, drawable);
+            
+            if (mesh) {
+                drawable.zOffset = size >> 1;
+                
+                // initialise the mesh and add to the scene
+                initMesh(mesh, drawable);
+            }
         } // if
         
         // add to the current object
         currentObjects[drawable.id] = drawable;
         
         return initDrawData(viewport, hitData, state);
-    } // prepMarker    
+    } // prepMarker
+    
+    /**
+    ### prepPoly(drawable, viewport, hitData, state, opts)
+    */
+    function prepPoly(drawable, viewport, hitData, state, opts) {
+        if (! drawable.mesh) {
+            var points = opts.points || drawable.points,
+                geometry = new THREE.Geometry(),
+                offsetX = drawable.xy.x,
+                offsetY = drawable.xy.y,
+                mesh;
+
+            // initialise the vertices
+            for (var ii = points.length; ii--; ) {
+                geometry.vertices.push(new THREE.Vertex(new THREE.Vector3(
+                    points[ii].x - offsetX,
+                    (points[ii].y - offsetY) * -1,
+                    1)));
+            } // for
+            
+            // create the mesh
+            mesh = drawable.mesh = new THREE.Line(
+                geometry,
+                lineMaterials[currentStyle]
+            );
+            
+            initMesh(mesh, drawable);
+        } // if
+
+        // add the the current object
+        currentObjects[drawable.id] = drawable;
+        
+        return initDrawData(viewport, hitData, state);
+    } // prepPoly    
     
     function render() {
         // remove any old objects
@@ -388,6 +536,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         prepArc: prepArc,
         prepImage: prepImage,
         prepMarker: prepMarker,
+        prepPoly: prepPoly,
         
         render: render,
         reset: reset,
@@ -408,6 +557,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         }
     });
     
+    loadStyles();
     COG.info('created three:webgl renderer');
     
     return _this;

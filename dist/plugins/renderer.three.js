@@ -1,3 +1,82 @@
+function ColorParser(color_string) {
+    this.ok = false;
+
+    if (color_string.charAt(0) == '#') { // remove # if any
+        color_string = color_string.substr(1,6);
+    }
+
+    color_string = color_string.replace(/ /g,'');
+    color_string = color_string.toLowerCase();
+
+    var color_defs = [
+        {
+            re: /^rgb\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})\)$/,
+            example: ['rgb(123, 234, 45)', 'rgb(255,234,245)'],
+            process: function (bits){
+                return [
+                    parseInt(bits[1], 10),
+                    parseInt(bits[2], 10),
+                    parseInt(bits[3], 10)
+                ];
+            }
+        },
+        {
+            re: /^(\w{2})(\w{2})(\w{2})$/,
+            example: ['#00ff00', '336699'],
+            process: function (bits){
+                return [
+                    parseInt(bits[1], 16),
+                    parseInt(bits[2], 16),
+                    parseInt(bits[3], 16)
+                ];
+            }
+        },
+        {
+            re: /^(\w{1})(\w{1})(\w{1})$/,
+            example: ['#fb0', 'f0f'],
+            process: function (bits){
+                return [
+                    parseInt(bits[1] + bits[1], 16),
+                    parseInt(bits[2] + bits[2], 16),
+                    parseInt(bits[3] + bits[3], 16)
+                ];
+            }
+        }
+    ];
+
+    for (var i = 0; i < color_defs.length; i++) {
+        var re = color_defs[i].re;
+        var processor = color_defs[i].process;
+        var bits = re.exec(color_string);
+        if (bits) {
+            channels = processor(bits);
+            this.r = channels[0];
+            this.g = channels[1];
+            this.b = channels[2];
+            this.ok = true;
+        }
+
+    }
+
+    this.r = (this.r < 0 || isNaN(this.r)) ? 0 : ((this.r > 255) ? 255 : this.r);
+    this.g = (this.g < 0 || isNaN(this.g)) ? 0 : ((this.g > 255) ? 255 : this.g);
+    this.b = (this.b < 0 || isNaN(this.b)) ? 0 : ((this.b > 255) ? 255 : this.b);
+
+    this.toRGB = function () {
+        return 'rgb(' + this.r + ', ' + this.g + ', ' + this.b + ')';
+    };
+
+    this.toHex = function () {
+        var r = this.r.toString(16);
+        var g = this.g.toString(16);
+        var b = this.b.toString(16);
+        if (r.length == 1) r = '0' + r;
+        if (g.length == 1) g = '0' + g;
+        if (b.length == 1) b = '0' + b;
+        return parseInt('0x' + r + g + b, 16);
+    };
+}
+
 T5.registerRenderer('three:webgl', function(view, container, params, baseRenderer) {
     params = COG.extend({
     }, params);
@@ -10,22 +89,69 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         renderer,
         activeObjects = {},
         currentObjects = {},
+        currentStyle = 'basic',
         lastTiles = [],
         tileBg,
         tilePlane,
+        tileMaterials = [],
         materials,
         vpWidth,
         vpHeight,
+        cubes = [],
         defaultMarker,
         markerStyles = {},
-        styleMaterials,
+        meshMaterials = {},
+        lineMaterials = {},
         drawOffsetX = 0,
         drawOffsetY = 0,
         transform = null,
+        textureCache = {},
+        materialCache = {},
         previousStyles = {},
 
         defaultDrawFn = function(drawData) {
         };
+
+    function createCube(size) {
+        var realSize = size >> 1;
+        return cubes[size] = new Cube(realSize, realSize, realSize);
+    } // createCube
+
+    function getCachedMaterials(materialKey, creator) {
+        if ((! materialCache[materialKey]) && creator) {
+            materialCache[materialKey] = creator();
+        } // if
+
+        return materialCache[materialKey];
+    } // getCachedMaterial
+
+    function getPreviousStyle(canvasId) {
+        if (! previousStyles[canvasId]) {
+            previousStyles[canvasId] = [];
+        } // if
+
+        return previousStyles[canvasId].pop() || 'basic';
+    } // getPreviousStyle
+
+    function handleStyleDefined(evt, styleId, styleData) {
+        var fillColor = new ColorParser(styleData.fill || '#ffffff'),
+            strokeColor = new ColorParser(styleData.stroke || '#ffffff');
+
+        meshMaterials[styleId] = [
+            new THREE.MeshLambertMaterial({
+                color: fillColor.toHex(),
+                shading: THREE.FlatShading
+            })
+        ];
+
+        lineMaterials[styleId] = [
+            new THREE.LineBasicMaterial({
+                color: strokeColor.toHex(),
+                opacity: styleData.opacity || 1,
+                linewidth: styleData.lineWidth || 2
+            })
+        ];
+    } // handleStyleDefined
 
     function initDrawData(viewport, hitData, state, drawFn) {
         var isHit = false;
@@ -54,13 +180,15 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
 
             var light, object, material;
 
-            light = new THREE.DirectionalLight( 0x00aaff, 2.0 );
+            light = new THREE.DirectionalLight( 0xffffff, 2.0 );
             light.position.z = 1;
             scene.addLight( light );
 
+            /*
             light = new THREE.DirectionalLight( 0x000040, 0.5 );
             light.position.z = - 1;
             scene.addLight( light );
+            */
 
             tileBg = new THREE.Mesh(
                 new Plane(xSeg * TILE_SIZE, ySeg * TILE_SIZE, xSeg, ySeg),
@@ -76,6 +204,8 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             camera.position.z = 150;
 
             tilePlane = new Plane(TILE_SIZE, TILE_SIZE, 4, 4);
+
+            tileMaterials = [];
 
             renderer = new THREE.WebGLRenderer();
             renderer.setSize(vpWidth, vpHeight);
@@ -93,18 +223,14 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
     } // initGeometries
 
     function initMaterials() {
-        styleMaterials = [
-            new THREE.MeshLambertMaterial({
-                color: 0xdddddd,
-                shading: THREE.FlatShading
-            })
-        ];
     } // initMaterials
 
     function initMesh(mesh, drawable, x, y, z) {
+        drawable.zOffset = z || drawable.zOffset || 1;
+
         mesh.position.x = (x || drawable.xy.x) + drawable.translateX;
         mesh.position.y = (y || drawable.xy.y) * -1;
-        mesh.position.z = (z || 0) - drawable.translateY;
+        mesh.position.z = drawable.zOffset - drawable.translateY;
 
         if (drawable.scaling !== 1) {
             mesh.scale = new THREE.Vector3(drawable.scaling, drawable.scaling, drawable.scaling);
@@ -115,6 +241,28 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         scene.addObject(mesh);
     } // initMesh
 
+    function loadStyles() {
+        for (var styleId in T5.styles) {
+            handleStyleDefined(null, styleId, T5.styles[styleId]);
+        } // for
+
+        T5.bind('styleDefined', handleStyleDefined);
+    } // loadStyles
+
+    function loadTexture(imageUrl, mapping, callback) {
+        T5.getImage(imageUrl, function(image) {
+            var texture = new THREE.Texture(image, mapping);
+
+            texture.needsUpdate = true;
+
+            textureCache[imageUrl] = texture;
+
+            if (callback) {
+                callback(texture);
+            } // if
+        });
+    } // loadTexture
+
     function loadTileMesh(tile) {
         tile.loading = true;
 
@@ -122,10 +270,11 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             if (currentObjects[tile.id]) {
                 var texture = new THREE.Texture(image),
                     mesh = tile.mesh = new THREE.Mesh(
-                        tilePlane,
-                        new THREE.MeshBasicMaterial({
-                            map: texture
-                        })
+                        tilePlane, [
+                            new THREE.MeshBasicMaterial({
+                                map: texture
+                            })
+                        ].concat(tileMaterials)
                     );
 
                 mesh.id = tile.id;
@@ -168,6 +317,15 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
     /* exports */
 
     function applyStyle(styleId) {
+        var previousStyle = getPreviousStyle(container.id);
+
+        if (meshMaterials[styleId]) {
+            previousStyles[container.id].push(styleId);
+
+            currentStyle = styleId;
+
+            return previousStyle;
+        } // if
     } // applyStyle
 
     function applyTransform(drawable) {
@@ -180,7 +338,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             mesh.rotation.z = drawable.rotation;
 
             mesh.position.x = drawable.xy.x + drawable.translateX;
-            mesh.position.z = -drawable.translateY;
+            mesh.position.z = -drawable.translateY + drawable.zOffset;
 
             transform = {
                 undo: function() {
@@ -245,7 +403,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
                         blending: THREE.AdditiveBlending
                     }),
                     */
-                    styleMaterials
+                    meshMaterials[currentStyle]
                 );
 
             initMesh(mesh, drawable);
@@ -271,11 +429,6 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
                 texture = new THREE.Texture(image),
                 mesh = drawable.mesh = new THREE.Mesh(
                     plane,
-                    /*
-                    new THREE.MeshBasicMaterial({
-                        map: texture
-                    })
-                    */
                     new THREE.MeshBasicMaterial({
                         map: texture,
                         blending: THREE.BillboardBlending
@@ -303,13 +456,65 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
                 mesh;
 
             switch (drawable.markerStyle.toLowerCase()) {
-                case 'simple':
+                case 'image':
+                    var materialKey = 'marker_image_' + drawable.imageUrl,
+                        materials = getCachedMaterials(materialKey, function() {
+                            return [
+                                new THREE.MeshBasicMaterial({
+                                    map: ImageUtils.loadTexture(drawable.imageUrl)
+                                })
+                            ];
+                        });
+
                     mesh = drawable.mesh = new THREE.Mesh(
-                        markerStyles[drawable.markerStyle] || defaultMarker,
-                        styleMaterials
+                        cubes[drawable.size] || createCube(drawable.size),
+                        meshMaterials[currentStyle].concat(materials)
                     );
+
                     break;
+
+                default:
+                    mesh = drawable.mesh = new THREE.Mesh(
+                        cubes[drawable.size] || createCube(drawable.size),
+                        meshMaterials[currentStyle]
+                    );
             } // switch
+
+
+            if (mesh) {
+                drawable.zOffset = size >> 1;
+
+                initMesh(mesh, drawable);
+            }
+        } // if
+
+        currentObjects[drawable.id] = drawable;
+
+        return initDrawData(viewport, hitData, state);
+    } // prepMarker
+
+    /**
+    ### prepPoly(drawable, viewport, hitData, state, opts)
+    */
+    function prepPoly(drawable, viewport, hitData, state, opts) {
+        if (! drawable.mesh) {
+            var points = opts.points || drawable.points,
+                geometry = new THREE.Geometry(),
+                offsetX = drawable.xy.x,
+                offsetY = drawable.xy.y,
+                mesh;
+
+            for (var ii = points.length; ii--; ) {
+                geometry.vertices.push(new THREE.Vertex(new THREE.Vector3(
+                    points[ii].x - offsetX,
+                    (points[ii].y - offsetY) * -1,
+                    1)));
+            } // for
+
+            mesh = drawable.mesh = new THREE.Line(
+                geometry,
+                lineMaterials[currentStyle]
+            );
 
             initMesh(mesh, drawable);
         } // if
@@ -317,7 +522,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         currentObjects[drawable.id] = drawable;
 
         return initDrawData(viewport, hitData, state);
-    } // prepMarker
+    } // prepPoly
 
     function render() {
         removeOldObjects();
@@ -345,6 +550,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         prepArc: prepArc,
         prepImage: prepImage,
         prepMarker: prepMarker,
+        prepPoly: prepPoly,
 
         render: render,
         reset: reset,
@@ -365,6 +571,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         }
     });
 
+    loadStyles();
     COG.info('created three:webgl renderer');
 
     return _this;

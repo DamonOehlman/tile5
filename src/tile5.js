@@ -20,6 +20,9 @@
 
 var T5 = {};
 (function(exports) {
+    // make T5 observable
+    COG.observable(exports);
+    
     //= require "js/animframe"
     
     //= require "js/functions"
@@ -101,9 +104,6 @@ var T5 = {};
         DrawLayer: DrawLayer,
         ShapeLayer: ShapeLayer
     });
-    
-    // make T5 observable
-    COG.observable(exports);
     
     //= require "js/geo/constants"
     //= require "js/geo/functions"

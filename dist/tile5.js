@@ -1813,6 +1813,8 @@ register('pointer', {
 
 var T5 = {};
 (function(exports) {
+    COG.observable(exports);
+
 window.animFrame = (function() {
     return  window.requestAnimationFrame       ||
             window.webkitRequestAnimationFrame ||
@@ -2923,6 +2925,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         context,
         drawOffsetX = 0,
         drawOffsetY = 0,
+        styleFns = {},
         transform = null,
         pipTransformed = CANI.canvas.pipTransformed,
         previousStyles = {},
@@ -2938,7 +2941,21 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
             if (this.stroke) {
                 context.stroke();
             } // if
-        };
+        },
+
+        styleParams = [
+            'fill',
+            'stroke',
+            'lineWidth',
+            'opacity'
+        ],
+
+        styleAppliers = [
+            'fillStyle',
+            'strokeStyle',
+            'lineWidth',
+            'globalAlpha'
+        ];
 
     function createCanvas() {
         if (container) {
@@ -2976,6 +2993,19 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         return previousStyles[canvasId].pop() || 'basic';
     } // getPreviousStyle
 
+    function handleStyleDefined(evt, styleId, styleData) {
+        var ii, data;
+
+        styleFns[styleId] = function(context) {
+            for (ii = styleParams.length; ii--; ) {
+                data = styleData[styleParams[ii]];
+                if (data) {
+                    context[styleAppliers[ii]] = data;
+                } // if
+            } // for
+        };
+    } // handleStyleDefined
+
     function initDrawData(viewport, hitData, state, drawFn) {
         var isHit = false;
 
@@ -2998,17 +3028,25 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         };
     } // initDrawData
 
+    function loadStyles() {
+        for (var styleId in T5.styles) {
+            handleStyleDefined(null, styleId, T5.styles[styleId]);
+        } // for
+
+        T5.bind('styleDefined', handleStyleDefined);
+    } // loadStyles
+
     /* exports */
 
     function applyStyle(styleId) {
-        var nextStyle = getStyle(styleId),
+        var nextStyle = styleFns[styleId],
             canvasId = context && context.canvas ? context.canvas.id : 'default',
             previousStyle = getPreviousStyle(canvasId);
 
         if (nextStyle) {
             previousStyles[canvasId].push(styleId);
 
-            nextStyle.applyToContext(context);
+            nextStyle(context);
 
             return previousStyle;
         } // if
@@ -3176,13 +3214,6 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         context.beginPath();
 
         switch (drawable.markerStyle.toLowerCase()) {
-            case 'simple':
-                context.moveTo(markerX, markerY);
-                context.lineTo(markerX - (size >> 1), markerY - size);
-                context.lineTo(markerX + (size >> 1), markerY - size);
-                context.lineTo(markerX, markerY);
-                break;
-
             case 'image':
                 drawOverride = drawNothing;
 
@@ -3215,6 +3246,13 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
                     });
                 } // if..else
 
+                break;
+
+            default:
+                context.moveTo(markerX, markerY);
+                context.lineTo(markerX - (size >> 1), markerY - size);
+                context.lineTo(markerX + (size >> 1), markerY - size);
+                context.lineTo(markerX, markerY);
                 break;
         } // switch
 
@@ -3294,84 +3332,20 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         */
     });
 
+    loadStyles();
+
     return _this;
 });
 
-/* internals */
-
-var styleRegistry = {};
-
-/**
-### createStyle(params)
-*/
-function createStyle(params) {
-    params = COG.extend({
-        lineWidth: undefined,
-        lineCap: undefined,
-        lineJoin: undefined,
-        miterLimit: undefined,
-        lineStyle: undefined,
-
-        fillStyle: undefined,
-
-        globalAlpha: undefined,
-        globalCompositeOperation: undefined
-    }, params);
-
-    var mods = [];
-
-    /* internal functions */
-
-    function fillMods(keyName) {
-        var paramVal = params[keyName];
-
-        if (! isType(paramVal, typeUndefined)) {
-            mods.push(function(context) {
-                context[keyName] = paramVal;
-            });
-        } // if
-    } // fillMods
-
-    function reloadMods() {
-        mods = [];
-
-        for (var keyName in params) {
-            fillMods(keyName);
-        } // for
-    } // reloadMods
-
-    /* exports */
-
-    function update(keyName, keyVal) {
-        params[keyName] = keyVal;
-        reloadMods();
-    } // update
-
-    /* define _self */
-
-    var _self = {
-        applyToContext: function(context) {
-            for (var ii = mods.length; ii--; ) {
-                mods[ii](context);
-            } // for
-        },
-
-        update: update
-    };
-
-    /* initialize */
-
-    reloadMods();
-    return _self;
-} // createStyle
-
-/* exports */
+var styleRegistry = exports.styles = {};
 
 /**
 # T5.defineStyle(id, data)
 */
 var defineStyle = exports.defineStyle = function(id, data) {
-    styleRegistry[id] = createStyle(data);
+    styleRegistry[id] = data;
+
+    exports.trigger('styleDefined', id, styleRegistry[id]);
 
     return id;
 };
@@ -3404,23 +3378,23 @@ var loadStyles = exports.loadStyles = function(path) {
 
 defineStyles({
     basic: {
-        fillStyle: '#000'
+        fill: '#000000'
     },
 
     highlight: {
-        fillStyle: '#f00'
+        fill: '#ff0000'
     },
 
     waypoints: {
         lineWidth: 4,
-        strokeStyle: 'rgba(0, 51, 119, 0.9)',
-        fillStyle: '#FFF'
+        stroke: '#003377',
+        fill: '#ffffff'
     },
 
     waypointsHover: {
         lineWidth: 4,
-        strokeStyle: '#f00',
-        fillStyle: '#FFF'
+        stroke: '#ff0000',
+        fill: '#ffffff'
     }
 });
 var viewStates = {
@@ -5505,8 +5479,6 @@ var ShapeLayer = function(params) {
         DrawLayer: DrawLayer,
         ShapeLayer: ShapeLayer
     });
-
-    COG.observable(exports);
 
 var LAT_VARIABILITIES = [
     1.406245461070741,
