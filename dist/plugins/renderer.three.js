@@ -88,7 +88,9 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         scene,
         renderer,
         activeObjects = {},
+        activeTiles = {},
         currentObjects = {},
+        currentTiles = {},
         currentStyle = 'basic',
         lastTiles = [],
         tileBg,
@@ -225,22 +227,6 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
     function initMaterials() {
     } // initMaterials
 
-    function initMesh(mesh, drawable, x, y, z) {
-        drawable.zOffset = z || drawable.zOffset || 1;
-
-        mesh.position.x = (x || drawable.xy.x) + drawable.translateX;
-        mesh.position.y = (y || drawable.xy.y) * -1;
-        mesh.position.z = drawable.zOffset - drawable.translateY;
-
-        if (drawable.scaling !== 1) {
-            mesh.scale = new THREE.Vector3(drawable.scaling, drawable.scaling, drawable.scaling);
-        } // if
-
-        activeObjects[drawable.id] = drawable;
-
-        scene.addObject(mesh);
-    } // initMesh
-
     function loadStyles() {
         for (var styleId in T5.styles) {
             handleStyleDefined(null, styleId, T5.styles[styleId]);
@@ -267,7 +253,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         tile.loading = true;
 
         T5.getImage(tile.url, function(image) {
-            if (currentObjects[tile.id]) {
+            if (currentTiles[tile.id]) {
                 var texture = new THREE.Texture(image),
                     mesh = tile.mesh = new THREE.Mesh(
                         tilePlane, [
@@ -281,7 +267,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
 
                 tile.loading = false;
 
-                activeObjects[tile.id] = tile;
+                activeTiles[tile.id] = tile;
 
                 texture.needsUpdate = true;
 
@@ -294,23 +280,23 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         });
     } // loadTileMesh
 
-    function removeOldObjects(testIds) {
+    function removeOldObjects(activeObj, currentObj, flagField) {
         var deletedKeys = [];
 
-        for (var objId in activeObjects) {
-            var drawable = activeObjects[objId];
+        for (var objId in activeObj) {
+            var item = activeObj[objId];
 
-            if (! currentObjects[objId]) {
-                scene.removeChild(drawable.mesh);
+            if (item[flagField] || (! currentObj[objId])) {
+                scene.removeChild(item.mesh);
 
-                drawable.mesh = null;
+                item.mesh = null;
 
                 deletedKeys[deletedKeys.length] = objId;
             } // if
         } // for
 
         for (var ii = deletedKeys.length; ii--; ) {
-            delete activeObjects[deletedKeys[ii]];
+            delete activeObj[deletedKeys[ii]];
         } // for
     } // removeOldObjects
 
@@ -335,10 +321,10 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
 
         if (mesh && (transformed || drawable.transformed)) {
             mesh.scale.x = mesh.scale.y = mesh.scale.z = drawable.scaling;
-            mesh.rotation.z = drawable.rotation;
+            mesh.rotation.z = -drawable.rotation;
 
             mesh.position.x = drawable.xy.x + drawable.translateX;
-            mesh.position.z = -drawable.translateY + drawable.zOffset;
+            mesh.position.z = -drawable.translateY + drawable.z;
 
             transform = {
                 undo: function() {
@@ -365,13 +351,38 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         for (ii = tiles.length; ii--; ) {
             tile = tiles[ii];
 
-            currentObjects[tile.id] = tile;
-
             if ((! tile.mesh) && (! tile.loading)) {
                 loadTileMesh(tile);
             } // if
+
+            currentTiles[tile.id] = tile;
         } // for
     } // drawTiles
+
+    function meshInit(mesh, drawable, x, y, z) {
+        drawable.z = z || drawable.z || 1;
+
+        mesh.position.x = (x || drawable.xy.x) + drawable.translateX;
+        mesh.position.y = (y || drawable.xy.y) * -1;
+        mesh.position.z = drawable.z - drawable.translateY;
+
+        if (drawable.scaling !== 1) {
+            mesh.scale = new THREE.Vector3(drawable.scaling, drawable.scaling, drawable.scaling);
+        } // if
+
+        activeObjects[drawable.id] = drawable;
+
+        scene.addObject(mesh);
+    } // meshInit
+
+    function meshUpdate(mesh, drawable, x, y) {
+        if (mesh) {
+            currentObjects[drawable.id] = drawable;
+
+            mesh.position.x = (x || drawable.xy.x) + drawable.translateX;
+            mesh.position.y = (y || drawable.xy.y) * -1;
+        } // if
+    } // meshUpdate
 
     function prepare(layers, viewport, state, tickCount, hitData) {
         drawOffsetX = viewport.x;
@@ -406,12 +417,12 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
                     meshMaterials[currentStyle]
                 );
 
-            initMesh(mesh, drawable);
+            meshInit(mesh, drawable);
 
             mesh.rotation.x = Math.PI / 2;
         } // if
 
-        currentObjects[drawable.id] = drawable;
+        meshUpdate(drawable.mesh, drawable);
 
         return initDrawData(viewport, hitData, state);
     } // prepArc
@@ -437,10 +448,10 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
 
             texture.needsUpdate = true;
 
-            initMesh(mesh, drawable, drawX, drawY, 1);
+            meshInit(mesh, drawable, drawX, drawY, 1);
         }
 
-        currentObjects[drawable.id] = drawable;
+        meshUpdate(drawable.mesh, drawable);
 
         return initDrawData(viewport, hitData, state);
     } // prepImage
@@ -482,13 +493,13 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
 
 
             if (mesh) {
-                drawable.zOffset = size >> 1;
+                drawable.z = size >> 1;
 
-                initMesh(mesh, drawable);
+                meshInit(mesh, drawable);
             }
         } // if
 
-        currentObjects[drawable.id] = drawable;
+        meshUpdate(drawable.mesh, drawable);
 
         return initDrawData(viewport, hitData, state);
     } // prepMarker
@@ -516,23 +527,25 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
                 lineMaterials[currentStyle]
             );
 
-            initMesh(mesh, drawable);
+            drawable.removeOnReset = true;
+
+            meshInit(mesh, drawable);
         } // if
 
-        currentObjects[drawable.id] = drawable;
+        meshUpdate(drawable.mesh, drawable);
 
         return initDrawData(viewport, hitData, state);
     } // prepPoly
 
     function render() {
-        removeOldObjects();
+        removeOldObjects(activeObjects, currentObjects);
 
         renderer.render(scene, camera);
     } // render
 
     function reset() {
-        currentObjects = {};
-        removeOldObjects();
+        removeOldObjects(activeTiles, currentTiles);
+        removeOldObjects(activeObjects, currentObjects, 'removeOnReset');
     } // reset
 
     /* initialization */

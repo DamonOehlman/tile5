@@ -41,7 +41,7 @@ var loadStyles = exports.loadStyles = function(path) {
 // define the core styles
 defineStyles({
     basic: {
-        fill: '#000000'
+        fill: '#ffffff'
     },
     
     highlight: {

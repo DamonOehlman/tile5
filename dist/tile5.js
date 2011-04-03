@@ -3378,7 +3378,7 @@ var loadStyles = exports.loadStyles = function(path) {
 
 defineStyles({
     basic: {
-        fill: '#000000'
+        fill: '#ffffff'
     },
 
     highlight: {
