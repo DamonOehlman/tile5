@@ -16,6 +16,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         currentTiles = {},
         currentStyle = 'basic',
         lastTiles = [],
+        jsonLoader = new THREE.JSONLoader(),
         tileBg,
         tilePlane,
         tileMaterials = [],
@@ -23,6 +24,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         vpWidth,
         vpHeight,
         cubes = [],
+        guides = [],
         defaultMarker,
         markerStyles = {},
         meshMaterials = {},
@@ -36,6 +38,51 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         
         defaultDrawFn = function(drawData) {
         };
+        
+    function createGuides() {
+        var xGeom = new THREE.Geometry(),
+            yGeom = new THREE.Geometry(),
+            zGeom = new THREE.Geometry();
+            
+        // create the x line
+        xGeom.vertices.push(new THREE.Vertex(new THREE.Vector3(0, 0, 0)));
+        xGeom.vertices.push(new THREE.Vertex(new THREE.Vector3(128, 0, 0)));
+        
+        // create the y line
+        yGeom.vertices.push(new THREE.Vertex(new THREE.Vector3(0, 0, 0)));
+        yGeom.vertices.push(new THREE.Vertex(new THREE.Vector3(0, 128, 0)));
+        
+        // create the z line
+        zGeom.vertices.push(new THREE.Vertex(new THREE.Vector3(0, 0, 0)));
+        zGeom.vertices.push(new THREE.Vertex(new THREE.Vector3(0, 0, 128)));
+
+        guides.push(new THREE.Line(xGeom, [
+            new THREE.LineBasicMaterial({
+                color: 0xff0000,
+                linewidth: 3
+            })
+        ]));
+
+        guides.push(new THREE.Line(yGeom, [
+            new THREE.LineBasicMaterial({
+                color: 0x00ff00,
+                linewidth: 3
+            })
+        ]));
+
+        guides.push(new THREE.Line(zGeom, [
+            new THREE.LineBasicMaterial({
+                color: 0x0000ff,
+                linewidth: 3
+            })
+        ]));
+        
+        // add the guides to the scene
+        for (var ii = guides.length; ii--; ) {
+            guides[ii].position.y = 1;
+            scene.addObject(guides[ii]);
+        } // for
+    }
         
     function createCube(size) {
         var realSize = size >> 1;
@@ -112,7 +159,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
 
             var light, object, material;
 
-            light = new THREE.DirectionalLight( 0xffffff, 2.0 );
+            globalLight = light = new THREE.DirectionalLight( 0xffffff, 2.0 );
             light.position.z = 1;
             scene.addLight( light );
 
@@ -121,19 +168,23 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             light.position.z = - 1;
             scene.addLight( light );
             */
-
+            
             tileBg = new THREE.Mesh(
                 new Plane(xSeg * TILE_SIZE, ySeg * TILE_SIZE, xSeg, ySeg), 
                 new THREE.MeshBasicMaterial({ 
-                    color: 0xffffff, 
+                    color: 0xdddddd,
                     wireframe: true
                 })
             );
-            tileBg.position.z = -1;
+            
+            createGuides();
+            
+            tileBg.rotation.x = -Math.PI / 2;
+            tileBg.position.y = -1;
             scene.addObject(tileBg);
             
-            camera = new THREE.Camera(45, vpWidth / vpHeight, 1, 1500, tileBg);
-            camera.position.z = 150;
+            globalCamera = camera = new THREE.Camera(45, vpWidth / vpHeight, 1, 2000, tileBg);
+            // camera.position.x = camera.position.y = camera.position.z = 50;
 
             // create a plane for the tiles
             tilePlane = new Plane(TILE_SIZE, TILE_SIZE, 4, 4);
@@ -208,6 +259,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
 
                 // set the id of the mesh object
                 mesh.id = tile.id;
+                mesh.rotation.x = -Math.PI / 2;
 
                 // clear the loading flag
                 tile.loading = false;
@@ -220,7 +272,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
 
                 // update the mesh position and add to the scene
                 mesh.position.x = tile.x + tile.w / 2;
-                mesh.position.y = -(tile.y + tile.h / 2);
+                mesh.position.z = tile.y + tile.h / 2;
                 scene.addObject(mesh);
                 
                 // invalidate the view
@@ -255,6 +307,24 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         } // for
     } // removeOldObjects
     
+    function shiftViewport(centerX, centerY, scaleFactor) {
+        for (var ii = guides.length; ii--; ) {
+            guides[ii].position.x = centerX;
+            guides[ii].position.z = centerY;
+        } // for
+        
+        tileBg.position.x = centerX;
+        tileBg.position.z = centerY;
+        
+        camera.position.x = centerX;
+        camera.position.y = 200 / scaleFactor;
+        camera.position.z = centerY + 200 / scaleFactor;
+        
+        // top down view 
+        // camera.position.y = 350 + 200 / scaleFactor;
+        // camera.position.z = centerY + 1;
+    } // shiftViewport
+    
     /* exports */
     
     function applyStyle(styleId) {
@@ -279,10 +349,10 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         
         if (mesh && (transformed || drawable.transformed)) {
             mesh.scale.x = mesh.scale.y = mesh.scale.z = drawable.scaling;
-            mesh.rotation.z = -drawable.rotation;
+            mesh.rotation.y = -drawable.rotation;
             
             mesh.position.x = drawable.xy.x + drawable.translateX;
-            mesh.position.z = -drawable.translateY + drawable.z;
+            mesh.position.y = drawable.z - drawable.translateY;
             
             // initialise the transform
             transform = {
@@ -327,8 +397,8 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         
         // set the mesh position
         mesh.position.x = (x || drawable.xy.x) + drawable.translateX;
-        mesh.position.y = (y || drawable.xy.y) * -1;
-        mesh.position.z = drawable.z - drawable.translateY;
+        mesh.position.y = drawable.z - drawable.translateY;
+        mesh.position.z = (y || drawable.xy.y);
 
         if (drawable.scaling !== 1) {
             mesh.scale = new THREE.Vector3(drawable.scaling, drawable.scaling, drawable.scaling);
@@ -347,7 +417,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             
             // update the mesh position
             mesh.position.x = (x || drawable.xy.x) + drawable.translateX;
-            mesh.position.y = (y || drawable.xy.y) * -1;
+            mesh.position.z = (y || drawable.xy.y);
         } // if
     } // meshUpdate
     
@@ -356,15 +426,17 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         drawOffsetX = viewport.x;
         drawOffsetY = viewport.y;
             
-        // initialise the viewport
-        // viewport = T5.XYRect.init(drawOffsetX, drawOffsetY, drawOffsetX + vpWidth, drawOffsetY - vpHeight);
-        
         // move the tile bg
-        camera.position.x = tileBg.position.x = drawOffsetX + vpWidth / 2;
-        tileBg.position.y = -drawOffsetY - vpHeight / 2;
-        camera.position.y = tileBg.position.y - 200 / viewport.scaleFactor;
+        shiftViewport(
+            viewport.x + (vpWidth >> 1), 
+            viewport.y + (vpHeight >> 1),
+            viewport.scaleFactor
+        );
+        // camera.position.x = tileBg.position.x = drawOffsetX + vpWidth / 2;
+        //tileBg.position.z = drawOffsetY - vpHeight / 2;
+        //camera.position.z = tileBg.position.y - 200 / viewport.scaleFactor;
         
-        camera.position.z = 150 / viewport.scaleFactor;
+        //camera.position.y = -150 / viewport.scaleFactor;
         
         // reset the current objects array
         currentObjects = {};
@@ -437,7 +509,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
     ### prepMarker(drawable, viewport, hitData, state, opts)
     */
     function prepMarker(drawable, viewport, hitData, state, opts) {
-        if (! drawable.mesh) {
+        if ((! drawable.mesh) && (! drawable.loading)) {
             var markerX = drawable.xy.x,
                 markerY = drawable.xy.y,
                 size = drawable.size,
@@ -461,7 +533,23 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
                         meshMaterials[currentStyle].concat(materials)
                     );
                     
-                    break;                
+                    break;
+                    
+                case 'model.ascii':
+                    drawable.loading = true;
+                    jsonLoader.load({
+                        model: drawable.modelUrl, 
+                        callback: function(geometry) {
+                            mesh = drawable.mesh = new THREE.Mesh(
+                                geometry,
+                                meshMaterials[currentStyle]
+                            );
+                            
+                            meshInit(mesh, drawable);
+                        }
+                    });
+                    
+                    break;
                     
                 default:
                     mesh = drawable.mesh = new THREE.Mesh(
@@ -500,8 +588,9 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             for (var ii = points.length; ii--; ) {
                 geometry.vertices.push(new THREE.Vertex(new THREE.Vector3(
                     points[ii].x - offsetX,
-                    (points[ii].y - offsetY) * -1,
-                    1)));
+                    1,
+                    points[ii].y - offsetY
+                )));
             } // for
             
             // create the mesh
