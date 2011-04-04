@@ -4,9 +4,18 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
 
     /* internals */
 
-    var vpWidth,
+    var RADIANS_TO_DEGREES = 180 / Math.PI,
+        vpWidth,
         vpHeight,
-        lastTiles = [],
+        drawOffsetX,
+        drawOffsetY,
+        activeObjects = {},
+        activeTiles = {},
+        currentObjects = {},
+        currentTiles = {},
+        currentStyle,
+        hitObjects = {},
+        styles = {},
         paper;
 
     function createPaper() {
@@ -16,104 +25,174 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
         paper = Raphael(container, vpWidth, vpHeight);
     } // createCanvas
 
-    function initDrawData(viewport, hitData, state, drawFn) {
+    function handleStyleDefined(evt, styleId, styleData) {
+        styles[styleId] = styleData;
+    } // handleStyleDefined
+
+    function initDrawData(drawable, viewport, hitData, state, drawFn) {
         var isHit = false;
 
         return {
-            draw: drawFn || defaultDrawFn,
+            draw: drawFn || objDraw,
             viewport: viewport,
             state: state,
-            hit: isHit,
-            vpX: viewport.x,
-            vpY: viewport.y
+            hit: hitObjects[drawable.id],
+            vpX: drawOffsetX,
+            vpY: drawOffsetY
         };
     } // initDrawData
+
+    function loadStyles() {
+        for (var styleId in T5.styles) {
+            handleStyleDefined(null, styleId, T5.styles[styleId]);
+        } // for
+
+        T5.bind('styleDefined', handleStyleDefined);
+    } // loadStyles
+
+    function objInit(rObject, drawable) {
+        rObject.scale(drawable.scaling, drawable.scaling);
+
+        rObject.rotate(drawable.rotation * RADIANS_TO_DEGREES, true);
+
+        rObject.mouseover(function(evt) {
+            hitObjects[drawable.id] = true;
+        });
+
+        rObject.mouseout(function(evt) {
+            delete hitObjects[drawable.id];
+        });
+
+        activeObjects[drawable.id] = drawable;
+    } // objInit
+
+    function objDraw(drawData) {
+        if (this.rObject) {
+            var updates = COG.extend({}, styles[currentStyle] || styles.basic),
+                offsetX = drawOffsetX - this.translateX,
+                offsetY = drawOffsetY - this.translateY;
+
+            switch (this.rObject.type) {
+                case 'circle':
+                    updates['cx'] = this.xy.x - offsetX;
+                    updates['cy'] = this.xy.y - offsetY;
+
+                    break;
+
+                case 'path':
+                    var pathString = '',
+                        points = this.drawPoints || [];
+
+                    for (var ii = points.length; ii--; ) {
+                        pathString = (ii == 0 ? 'M' : 'L') +
+                            (points[ii].x - offsetX) + ' ' +
+                            (points[ii].y - offsetY) + pathString;
+                    } // for
+
+                    updates['path'] = pathString;
+
+                    break;
+
+                default:
+                    updates['x'] = this.xy.x - (this.size >> 1) - offsetX;
+                    updates['y'] = this.xy.y - (this.size >> 1) - offsetY;
+            } // switch
+
+            if (updates.fill && (! this.fill)) {
+                delete updates.fill;
+            } // if
+
+            if (updates.stroke && (! this.stroke)) {
+                delete updates.stroke;
+            } // if
+
+            this.rObject.attr(updates);
+
+            currentObjects[this.id] = this;
+        } // if
+    } // objUpdate
+
+    function removeOldObjects(activeObj, currentObj, flagField) {
+        var deletedKeys = [];
+
+        for (var objId in activeObj) {
+            var item = activeObj[objId],
+                inactive = flagField ? item[flagField] : (! currentObj[objId]);
+
+            if (inactive) {
+                item.rObject.remove();
+
+                item.rObject = null;
+
+                deletedKeys[deletedKeys.length] = objId;
+            } // if
+        } // for
+
+        for (var ii = deletedKeys.length; ii--; ) {
+            delete activeObj[deletedKeys[ii]];
+        } // for
+    } // removeOldObjects
 
     /* exports */
 
     function applyStyle(styleId) {
+        var previousStyle;
+
+        if (currentStyle !== styleId) {
+            previousStyle = currentStyle;
+            currentStyle = styleId;
+        } // if
+
+        return previousStyle || 'basic';
     } // applyStyle
 
     function applyTransform(drawable) {
-        /*
-        var translated = drawable.translateX !== 0 || drawable.translateY !== 0,
-            transformed = translated || drawable.scaling !== 1 || drawable.rotation !== 0;
+        if (drawable.rObject) {
+            drawable.rObject.scale(drawable.scaling, drawable.scaling);
 
-        if (transformed) {
-            context.save();
-
-            transform = {
-                undo: function() {
-                    context.restore();
-                    transform = null;
-                },
-
-                x: drawable.xy.x,
-                y: drawable.xy.y
-            };
-
-            context.translate(
-                drawable.xy.x - drawOffsetX + drawable.translateX,
-                drawable.xy.y - drawOffsetY + drawable.translateY
-            );
-
-            if (drawable.rotation !== 0) {
-                context.rotate(drawable.rotation);
-            } // if
-
-            if (drawable.scaling !== 1) {
-                context.scale(drawable.scaling, drawable.scaling);
-            } // if
-        } // if
-
-        return transform;
-        */
+            drawable.rObject.rotate(drawable.rotation * RADIANS_TO_DEGREES, true);
+        }
     } // applyTransform
 
     function drawTiles(viewport, tiles) {
-        var tile,
-            tileIds = [];
+        var tile;
 
         for (var ii = tiles.length; ii--; ) {
             tile = tiles[ii];
-            tileIds[tileIds.length] = tile.id;
 
-            if (tile.image) {
-                tile.image.attr({
-                    x: tile.x - viewport.x,
-                    y: tile.y - viewport.y
+            if (tile.rObject) {
+                tile.rObject.attr({
+                    x: tile.x - drawOffsetX,
+                    y: tile.y - drawOffsetY
                 });
             }
-            else {
-                tile.image = paper.image(
+            else if (! activeTiles[tile.id]) {
+                activeTiles[tile.id] = tile;
+
+                tile.rObject = paper.image(
                     tile.url,
-                    tile.x - viewport.x,
-                    tile.y - viewport.y,
+                    tile.x - drawOffsetX,
+                    tile.y - drawOffsetY,
                     tile.w,
                     tile.h);
+
+                tile.rObject.toBack();
             } // if..else
+
+            currentTiles[tile.id] = tile;
         } // for
-
-        for (ii = lastTiles.length; ii--; ) {
-            tile = lastTiles[ii];
-
-            if (tile.image && T5.indexOf.call(tileIds, lastTiles[ii].id) < 0) {
-                tile.image.remove();
-                tile.image = null;
-            } // if
-        } // for
-
-        lastTiles = [].concat(tiles);
     } // drawTiles
 
-    /**
-    ### hitTest(drawData, hitX, hitY): boolean
-    */
-    function hitTest(drawData, hitX, hitY) {
-        return context.isPointInPath(hitX, hitY);
-    } // hitTest
-
     function prepare(layers, viewport, state, tickCount, hitData) {
+        drawOffsetX = viewport.x;
+        drawOffsetY = viewport.y;
+
+        removeOldObjects(activeObjects, currentObjects);
+        currentObjects = {};
+
+        removeOldObjects(activeTiles, currentTiles);
+        currentTiles = {};
+
         return paper;
     } // prepare
 
@@ -121,75 +200,77 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
     ### prepArc(drawable, viewport, hitData, state, opts)
     */
     function prepArc(drawable, viewport, hitData, state, opts) {
-        /*
-        context.beginPath();
-        context.arc(
-            drawable.xy.x - (transform ? transform.x : drawOffsetX),
-            drawable.xy.y - (transform ? transform.y : drawOffsetY),
-            drawable.size >> 1,
-            drawable.startAngle,
-            drawable.endAngle,
-            false
-        );
+        if (! drawable.rObject) {
+            objInit(drawable.rObject = paper.circle(
+                drawable.xy.x - drawOffsetX,
+                drawable.xy.y - drawOffsetY,
+                drawable.size
+            ), drawable);
+        } // if
 
-        return initDrawData(viewport, hitData, state);
-        */
+        return initDrawData(drawable, viewport, hitData, state);
     } // prepArc
 
     /**
-    ### prepImage(drawable, viewport, hitData, state, opts)
+    ### prepMarker(drawable, viewport, hitData, state, opts)
     */
-    function prepImage(drawable, viewport, hitData, state, opts) {
-        return initDrawData(viewport, hitData, state, function(drawData) {
-            paper.image(
-                drawable.image ? drawable.image.src : drawable.imageSrc,
-                opts.x || drawable.xy.x,
-                opts.y || drawable.xy.y,
-                drawable.bounds.w,
-                drawable.bounds.h
-            );
-        });
-    } // prepImage
+    function prepMarker(drawable, viewport, hitData, state, opts) {
+        if (drawable.reset && drawable.rObject) {
+            drawable.rObject.remove();
+            drawable.rObject = null;
+            drawable.reset = false;
+        } // if
+
+        if (! drawable.rObject) {
+            var markerX = drawable.xy.x - drawOffsetX,
+                markerY = drawable.xy.y - drawOffsetY,
+                size = drawable.size;
+
+            switch (drawable.markerStyle.toLowerCase()) {
+                case 'image':
+                    objInit(drawable.rObject = paper.image(
+                        drawable.imageUrl,
+                        markerX - (size >> 1),
+                        markerY - (size >> 1),
+                        size,
+                        size
+                    ), drawable);
+
+                    break;
+
+                default:
+                    objInit(drawable.rObject = paper.circle(
+                        markerX,
+                        markerY,
+                        size
+                    ), drawable);
+            } // switch
+        } // if
+
+        return initDrawData(drawable, viewport, hitData, state);
+    } // prepMarker
 
     /**
     ### prepPoly(drawable, viewport, hitData, state, opts)
     */
     function prepPoly(drawable, viewport, hitData, state, opts) {
-        /*
-        var first = true,
-            points = opts.points || drawable.points,
-            offsetX = transform ? transform.x : drawOffsetX,
-            offsetY = transform ? transform.y : drawOffsetY;
+        if (! drawable.rObject) {
+            objInit(drawable.rObject = paper.path('M0 0L0 0'), drawable);
+        } // if
 
-        context.beginPath();
+        drawable.drawPoints = opts.points || drawable.points;
 
-        for (var ii = points.length; ii--; ) {
-            var x = points[ii].x - offsetX,
-                y = points[ii].y - offsetY;
-
-            if (first) {
-                context.moveTo(x, y);
-                first = false;
-            }
-            else {
-                context.lineTo(x, y);
-            } // if..else
-        } // for
-
-        return initDrawData(viewport, hitData, state);
-        */
+        return initDrawData(drawable, viewport, hitData, state);
     } // prepPoly
 
     function reset() {
-        for (var ii = lastTiles.length; ii--; ) {
-            if (lastTiles[ii].image) {
-                lastTiles[ii].image.remove();
-            } // if
-        } // for
+        COG.info('reset called');
 
-        lastTiles = [];
+        currentTiles = {};
+        removeOldObjects(activeTiles, currentTiles);
+
+        removeOldObjects(activeObjects, currentObjects, 'removeOnReset');
     } // reset
-
 
     /* initialization */
 
@@ -203,11 +284,10 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
         applyTransform: applyTransform,
         drawTiles: drawTiles,
 
-        hitTest: hitTest,
         prepare: prepare,
 
         prepArc: prepArc,
-        prepImage: prepImage,
+        prepMarker: prepMarker,
         prepPoly: prepPoly,
 
         reset: reset,
@@ -222,18 +302,9 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
         getOffset: function() {
             return new XY(drawOffsetX, drawOffsetY);
         }
-
-        /*
-        render: function(viewport) {
-            context.strokeStyle = '#F00';
-            context.moveTo(0, viewport.h >> 1);
-            context.lineTo(viewport.w, viewport.h >> 1);
-            context.moveTo(viewport.w >> 1, 0);
-            context.lineTo(viewport.w >> 1, viewport.h);
-            context.stroke();
-        }
-        */
     });
+
+    loadStyles();
 
     return _this;
 });

@@ -79,6 +79,7 @@ function ColorParser(color_string) {
 
 T5.registerRenderer('three:webgl', function(view, container, params, baseRenderer) {
     params = COG.extend({
+        guides: false
     }, params);
 
     /* internals */
@@ -111,10 +112,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         transform = null,
         textureCache = {},
         materialCache = {},
-        previousStyles = {},
-
-        defaultDrawFn = function(drawData) {
-        };
+        previousStyles = {};
 
     function createGuides() {
         var xGeom = new THREE.Geometry(),
@@ -202,7 +200,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         var isHit = false;
 
         return {
-            draw: drawFn || defaultDrawFn,
+            draw: drawFn || meshDraw,
             viewport: viewport,
             state: state,
             hit: isHit,
@@ -243,7 +241,9 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
                 })
             );
 
-            createGuides();
+            if (params.guides) {
+                createGuides();
+            } // guides
 
             tileBg.rotation.x = -Math.PI / 2;
             tileBg.position.y = -1;
@@ -296,34 +296,28 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
     } // loadTexture
 
     function loadTileMesh(tile) {
-        tile.loading = true;
+        activeTiles[tile.id] = tile;
 
         T5.getImage(tile.url, function(image) {
-            if (currentTiles[tile.id]) {
-                var texture = new THREE.Texture(image),
-                    mesh = tile.mesh = new THREE.Mesh(
-                        tilePlane, [
-                            new THREE.MeshBasicMaterial({
-                                map: texture
-                            })
-                        ].concat(tileMaterials)
-                    );
+            var texture = new THREE.Texture(image),
+                mesh = tile.mesh = new THREE.Mesh(
+                    tilePlane, [
+                        new THREE.MeshBasicMaterial({
+                            map: texture
+                        })
+                    ].concat(tileMaterials)
+                );
 
-                mesh.id = tile.id;
-                mesh.rotation.x = -Math.PI / 2;
+            mesh.id = tile.id;
+            mesh.rotation.x = -Math.PI / 2;
 
-                tile.loading = false;
+            texture.needsUpdate = true;
 
-                activeTiles[tile.id] = tile;
+            mesh.position.x = tile.x + tile.w / 2;
+            mesh.position.z = tile.y + tile.h / 2;
+            scene.addObject(mesh);
 
-                texture.needsUpdate = true;
-
-                mesh.position.x = tile.x + tile.w / 2;
-                mesh.position.z = tile.y + tile.h / 2;
-                scene.addObject(mesh);
-
-                view.invalidate();
-            } // if
+            view.invalidate();
         });
     } // loadTileMesh
 
@@ -331,12 +325,15 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         var deletedKeys = [];
 
         for (var objId in activeObj) {
-            var item = activeObj[objId];
+            var item = activeObj[objId],
+                inactive = flagField ? item[flagField] : (! currentObj[objId]);
 
-            if (item[flagField] || (! currentObj[objId])) {
-                scene.removeChild(item.mesh);
+            if (inactive) {
+                if (item.mesh) {
+                    scene.removeChild(item.mesh);
 
-                item.mesh = null;
+                    item.mesh = null;
+                } // if
 
                 deletedKeys[deletedKeys.length] = objId;
             } // if
@@ -365,15 +362,14 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
     /* exports */
 
     function applyStyle(styleId) {
-        var previousStyle = getPreviousStyle(container.id);
+        var previousStyle;
 
-        if (meshMaterials[styleId]) {
-            previousStyles[container.id].push(styleId);
-
+        if (currentStyle !== styleId) {
+            previousStyle = currentStyle;
             currentStyle = styleId;
-
-            return previousStyle;
         } // if
+
+        return previousStyle || 'basic';
     } // applyStyle
 
     function applyTransform(drawable) {
@@ -413,13 +409,33 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         for (ii = tiles.length; ii--; ) {
             tile = tiles[ii];
 
-            if ((! tile.mesh) && (! tile.loading)) {
+            if ((! tile.mesh) && (! activeTiles[tile.id])) {
                 loadTileMesh(tile);
             } // if
 
             currentTiles[tile.id] = tile;
         } // for
     } // drawTiles
+
+    function meshDraw(drawData) {
+        var mesh = this.mesh;
+
+        if (mesh) {
+            var styleMaterials = mesh instanceof THREE.Line ? lineMaterials : meshMaterials,
+                materials = styleMaterials[currentStyle] || styleMaterials.basic;
+
+            currentObjects[this.id] = this;
+
+            mesh.position.x = (drawData.x || this.xy.x) + this.translateX;
+            mesh.position.z = (drawData.y || this.xy.y);
+
+            if (this.materials) {
+                materials = materials.concat(this.materials);
+            } // if
+
+            mesh.materials = materials;
+        } // if
+    } // meshDraw
 
     function meshInit(mesh, drawable, x, y, z) {
         drawable.z = z || drawable.z || 1;
@@ -437,15 +453,6 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         scene.addObject(mesh);
     } // meshInit
 
-    function meshUpdate(mesh, drawable, x, y) {
-        if (mesh) {
-            currentObjects[drawable.id] = drawable;
-
-            mesh.position.x = (x || drawable.xy.x) + drawable.translateX;
-            mesh.position.z = (y || drawable.xy.y);
-        } // if
-    } // meshUpdate
-
     function prepare(layers, viewport, state, tickCount, hitData) {
         drawOffsetX = viewport.x;
         drawOffsetY = viewport.y;
@@ -457,7 +464,11 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         );
 
 
+        removeOldObjects(activeObjects, currentObjects);
         currentObjects = {};
+
+        removeOldObjects(activeTiles, currentTiles);
+        currentTiles = {};
 
         return true;
     } // prepare
@@ -469,22 +480,13 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         if (! drawable.mesh) {
             var sphere = new Sphere(drawable.size, 15, 15),
                 mesh = drawable.mesh = new THREE.Mesh(
-                    sphere,
-                    /*
-                    new THREE.MeshBasicMaterial({
-                        color: 0xff0000,
-                        blending: THREE.AdditiveBlending
-                    }),
-                    */
-                    meshMaterials[currentStyle]
+                    sphere
                 );
 
             meshInit(mesh, drawable);
 
             mesh.rotation.x = Math.PI / 2;
         } // if
-
-        meshUpdate(drawable.mesh, drawable);
 
         return initDrawData(viewport, hitData, state);
     } // prepArc
@@ -513,8 +515,6 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             meshInit(mesh, drawable, drawX, drawY, 1);
         }
 
-        meshUpdate(drawable.mesh, drawable);
-
         return initDrawData(viewport, hitData, state);
     } // prepImage
 
@@ -530,31 +530,30 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
 
             switch (drawable.markerStyle.toLowerCase()) {
                 case 'image':
-                    var materialKey = 'marker_image_' + drawable.imageUrl,
-                        materials = getCachedMaterials(materialKey, function() {
-                            return [
-                                new THREE.MeshBasicMaterial({
-                                    map: ImageUtils.loadTexture(drawable.imageUrl)
-                                })
-                            ];
-                        });
+                    var materialKey = 'marker_image_' + drawable.imageUrl;
+
+                    drawable.materials = getCachedMaterials(materialKey, function() {
+                        return [
+                            new THREE.MeshBasicMaterial({
+                                map: ImageUtils.loadTexture(drawable.imageUrl)
+                            })
+                        ];
+                    });
 
                     mesh = drawable.mesh = new THREE.Mesh(
-                        cubes[drawable.size] || createCube(drawable.size),
-                        meshMaterials[currentStyle].concat(materials)
+                        cubes[drawable.size] || createCube(drawable.size)
                     );
 
                     break;
 
                 case 'model.ascii':
+                    var modelStyle = currentStyle;
+
                     drawable.loading = true;
                     jsonLoader.load({
                         model: drawable.modelUrl,
                         callback: function(geometry) {
-                            mesh = drawable.mesh = new THREE.Mesh(
-                                geometry,
-                                meshMaterials[currentStyle]
-                            );
+                            mesh = drawable.mesh = new THREE.Mesh(geometry);
 
                             meshInit(mesh, drawable);
                         }
@@ -564,8 +563,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
 
                 default:
                     mesh = drawable.mesh = new THREE.Mesh(
-                        cubes[drawable.size] || createCube(drawable.size),
-                        meshMaterials[currentStyle]
+                        cubes[drawable.size] || createCube(drawable.size)
                     );
             } // switch
 
@@ -576,8 +574,6 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
                 meshInit(mesh, drawable);
             }
         } // if
-
-        meshUpdate(drawable.mesh, drawable);
 
         return initDrawData(viewport, hitData, state);
     } // prepMarker
@@ -611,19 +607,17 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             meshInit(mesh, drawable);
         } // if
 
-        meshUpdate(drawable.mesh, drawable);
-
         return initDrawData(viewport, hitData, state);
     } // prepPoly
 
     function render() {
-        removeOldObjects(activeObjects, currentObjects);
-
         renderer.render(scene, camera);
     } // render
 
     function reset() {
+        currentTiles = {};
         removeOldObjects(activeTiles, currentTiles);
+
         removeOldObjects(activeObjects, currentObjects, 'removeOnReset');
     } // reset
 

@@ -220,13 +220,6 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         } // for
     } // drawTiles
     
-    /**
-    ### hitTest(drawData, hitX, hitY): boolean
-    */
-    function hitTest(drawData, hitX, hitY) {
-        return context.isPointInPath(hitX, hitY);
-    } // hitTest
-    
     function prepare(layers, viewport, state, tickCount, hitData) {
         var ii,
             canClip = false,
@@ -340,6 +333,13 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
                     size, 
                     size);
                     
+                // if the reset flag has been specified, and we already have an image
+                // then ditch it
+                if (drawable.reset && drawable.image) {
+                    drawable.image = null;
+                    drawable.reset = false;
+                } // if
+                    
                 if (drawable.image) {
                     context.drawImage(
                         drawable.image,
@@ -403,7 +403,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         } // for
         
         return initDrawData(viewport, hitData, state);
-    } // prepPoly    
+    } // prepPoly
     
     /* initialization */
     
@@ -417,7 +417,6 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         applyTransform: applyTransform,
         drawTiles: drawTiles,
         
-        hitTest: hitTest,
         prepare: prepare,
 
         prepArc: prepArc,
@@ -439,6 +438,8 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         getOffset: function() {
             return new XY(drawOffsetX, drawOffsetY);
         }
+        
+        
         
         /*
         render: function(viewport) {

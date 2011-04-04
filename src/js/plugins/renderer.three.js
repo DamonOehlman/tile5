@@ -2,6 +2,7 @@
 
 T5.registerRenderer('three:webgl', function(view, container, params, baseRenderer) {
     params = COG.extend({
+        guides: false
     }, params);
     
     /* internals */
@@ -34,10 +35,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         transform = null,
         textureCache = {},
         materialCache = {},
-        previousStyles = {},
-        
-        defaultDrawFn = function(drawData) {
-        };
+        previousStyles = {};
         
     function createGuides() {
         var xGeom = new THREE.Geometry(),
@@ -110,7 +108,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
     function handleStyleDefined(evt, styleId, styleData) {
         var fillColor = new ColorParser(styleData.fill || '#ffffff'),
             strokeColor = new ColorParser(styleData.stroke || '#ffffff');
-        
+            
         // firstly create the mesh materials for the style
         meshMaterials[styleId] = [
             new THREE.MeshLambertMaterial({
@@ -134,7 +132,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
 
         return {
             // initialise core draw data properties
-            draw: drawFn || defaultDrawFn,
+            draw: drawFn || meshDraw,
             viewport: viewport,
             state: state,
             hit: isHit,
@@ -177,7 +175,10 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
                 })
             );
             
-            createGuides();
+            // if we have guides, then display them
+            if (params.guides) {
+                createGuides();
+            } // guides
             
             tileBg.rotation.x = -Math.PI / 2;
             tileBg.position.y = -1;
@@ -243,41 +244,32 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
     
     function loadTileMesh(tile) {
         // flag the tile as loading
-        tile.loading = true;
+        activeTiles[tile.id] = tile;
         
         T5.getImage(tile.url, function(image) {
-            // if the tile is still current, then load the mesh
-            if (currentTiles[tile.id]) {
-                var texture = new THREE.Texture(image),
-                    mesh = tile.mesh = new THREE.Mesh(
-                        tilePlane, [
-                            new THREE.MeshBasicMaterial({
-                                map: texture
-                            })
-                        ].concat(tileMaterials)
-                    );
+            var texture = new THREE.Texture(image),
+                mesh = tile.mesh = new THREE.Mesh(
+                    tilePlane, [
+                        new THREE.MeshBasicMaterial({
+                            map: texture
+                        })
+                    ].concat(tileMaterials)
+                );
 
-                // set the id of the mesh object
-                mesh.id = tile.id;
-                mesh.rotation.x = -Math.PI / 2;
+            // set the id of the mesh object
+            mesh.id = tile.id;
+            mesh.rotation.x = -Math.PI / 2;
 
-                // clear the loading flag
-                tile.loading = false;
-                
-                // add the tile to the active objects list
-                activeTiles[tile.id] = tile;
+            // flag the texture as needing an update
+            texture.needsUpdate = true;
 
-                // flag the texture as needing an update
-                texture.needsUpdate = true;
-
-                // update the mesh position and add to the scene
-                mesh.position.x = tile.x + tile.w / 2;
-                mesh.position.z = tile.y + tile.h / 2;
-                scene.addObject(mesh);
-                
-                // invalidate the view
-                view.invalidate();
-            } // if
+            // update the mesh position and add to the scene
+            mesh.position.x = tile.x + tile.w / 2;
+            mesh.position.z = tile.y + tile.h / 2;
+            scene.addObject(mesh);
+            
+            // invalidate the view
+            view.invalidate();
         });
     } // loadTileMesh
     
@@ -287,14 +279,18 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         // iterate through the active objects 
         // TODO: use something other than a for in loop please...
         for (var objId in activeObj) {
-            var item = activeObj[objId];
+            var item = activeObj[objId],
+                inactive = flagField ? item[flagField] : (! currentObj[objId]);
             
             // if the object is not in the current objects, remove from the scene
-            if (item[flagField] || (! currentObj[objId])) {
-                scene.removeChild(item.mesh);
-                
-                // reset the mesh
-                item.mesh = null;
+            if (inactive) {
+                if (item.mesh) {
+                    // remove the file object
+                    scene.removeChild(item.mesh);
+
+                    // reset the mesh
+                    item.mesh = null;
+                } // if
                 
                 // add to the deleted keys
                 deletedKeys[deletedKeys.length] = objId;
@@ -328,18 +324,14 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
     /* exports */
     
     function applyStyle(styleId) {
-        var previousStyle = getPreviousStyle(container.id);
-
-        if (meshMaterials[styleId]) {
-            // push the style onto the style stack
-            previousStyles[container.id].push(styleId);
-
-            // apply the style
+        var previousStyle;
+        
+        if (currentStyle !== styleId) {
+            previousStyle = currentStyle;
             currentStyle = styleId;
-
-            // return the previously selected style
-            return previousStyle;        
-        } // if        
+        } // if
+        
+        return previousStyle || 'basic';    
     } // applyStyle
     
     function applyTransform(drawable) {
@@ -382,7 +374,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             tile = tiles[ii];
             
             // show or hide the image depending on whether it is in the viewport
-            if ((! tile.mesh) && (! tile.loading)) {
+            if ((! tile.mesh) && (! activeTiles[tile.id])) {
                 loadTileMesh(tile);
             } // if
             
@@ -390,6 +382,29 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             currentTiles[tile.id] = tile;
         } // for
     } // drawTiles
+    
+    function meshDraw(drawData) {
+        var mesh = this.mesh;
+        
+        if (mesh) {
+            var styleMaterials = mesh instanceof THREE.Line ? lineMaterials : meshMaterials,
+                materials = styleMaterials[currentStyle] || styleMaterials.basic;
+            
+            currentObjects[this.id] = this;
+            
+            // update the mesh position
+            mesh.position.x = (drawData.x || this.xy.x) + this.translateX;
+            mesh.position.z = (drawData.y || this.xy.y);
+            
+            // if the drawable has materials attached, then add those
+            if (this.materials) {
+                materials = materials.concat(this.materials);
+            } // if
+            
+            // update the materials
+            mesh.materials = materials;
+        } // if
+    } // meshDraw
     
     function meshInit(mesh, drawable, x, y, z) {
         // initialise the drawable z offset
@@ -411,16 +426,6 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         scene.addObject(mesh);
     } // meshInit
     
-    function meshUpdate(mesh, drawable, x, y) {
-        if (mesh) {
-            currentObjects[drawable.id] = drawable;
-            
-            // update the mesh position
-            mesh.position.x = (x || drawable.xy.x) + drawable.translateX;
-            mesh.position.z = (y || drawable.xy.y);
-        } // if
-    } // meshUpdate
-    
     function prepare(layers, viewport, state, tickCount, hitData) {
         // update the offset x and y
         drawOffsetX = viewport.x;
@@ -438,8 +443,13 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         
         //camera.position.y = -150 / viewport.scaleFactor;
         
-        // reset the current objects array
+        // remove any old objects
+        removeOldObjects(activeObjects, currentObjects);
         currentObjects = {};
+        
+        // remove any old tiles
+        removeOldObjects(activeTiles, currentTiles);
+        currentTiles = {};
         
         return true;
     } // prepare
@@ -451,14 +461,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         if (! drawable.mesh) {
             var sphere = new Sphere(drawable.size, 15, 15),
                 mesh = drawable.mesh = new THREE.Mesh(
-                    sphere,
-                    /*
-                    new THREE.MeshBasicMaterial({
-                        color: 0xff0000, 
-                        blending: THREE.AdditiveBlending 
-                    }),
-                    */
-                    meshMaterials[currentStyle]
+                    sphere
                 );
                 
             // prep the mesh and add to the scene
@@ -467,9 +470,6 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             // rotate the sphere...
             mesh.rotation.x = Math.PI / 2;
         } // if
-        
-        // flag as a current object
-        meshUpdate(drawable.mesh, drawable);
         
         return initDrawData(viewport, hitData, state);
     } // prepArc
@@ -499,9 +499,6 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             meshInit(mesh, drawable, drawX, drawY, 1);
         }
         
-        // update the mesh position
-        meshUpdate(drawable.mesh, drawable);
-        
         return initDrawData(viewport, hitData, state);
     } // prepImage
     
@@ -518,32 +515,31 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             switch (drawable.markerStyle.toLowerCase()) {
                 case 'image':
                     // look for the image texture
-                    var materialKey = 'marker_image_' + drawable.imageUrl,
-                        materials = getCachedMaterials(materialKey, function() {
-                            return [
-                                new THREE.MeshBasicMaterial({
-                                    map: ImageUtils.loadTexture(drawable.imageUrl)
-                                })
-                            ];
-                        });
+                    var materialKey = 'marker_image_' + drawable.imageUrl;
+                    
+                    drawable.materials = getCachedMaterials(materialKey, function() {
+                        return [
+                            new THREE.MeshBasicMaterial({
+                                map: ImageUtils.loadTexture(drawable.imageUrl)
+                            })
+                        ];
+                    });
                     
                     // if we have it then create the mesh
                     mesh = drawable.mesh = new THREE.Mesh(
-                        cubes[drawable.size] || createCube(drawable.size),
-                        meshMaterials[currentStyle].concat(materials)
+                        cubes[drawable.size] || createCube(drawable.size)
                     );
                     
                     break;
                     
                 case 'model.ascii':
+                    var modelStyle = currentStyle;
+                
                     drawable.loading = true;
                     jsonLoader.load({
                         model: drawable.modelUrl, 
                         callback: function(geometry) {
-                            mesh = drawable.mesh = new THREE.Mesh(
-                                geometry,
-                                meshMaterials[currentStyle]
-                            );
+                            mesh = drawable.mesh = new THREE.Mesh(geometry);
                             
                             meshInit(mesh, drawable);
                         }
@@ -553,8 +549,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
                     
                 default:
                     mesh = drawable.mesh = new THREE.Mesh(
-                        cubes[drawable.size] || createCube(drawable.size),
-                        meshMaterials[currentStyle]
+                        cubes[drawable.size] || createCube(drawable.size)
                     );
             } // switch
             
@@ -566,9 +561,6 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
                 meshInit(mesh, drawable);
             }
         } // if
-        
-        // add to the current object
-        meshUpdate(drawable.mesh, drawable);
         
         return initDrawData(viewport, hitData, state);
     } // prepMarker
@@ -605,26 +597,19 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             meshInit(mesh, drawable);
         } // if
 
-        // add the the current object
-        meshUpdate(drawable.mesh, drawable);
-        
         return initDrawData(viewport, hitData, state);
     } // prepPoly    
     
     function render() {
-        // remove any old objects
-        removeOldObjects(activeObjects, currentObjects);
-        // removeOldObjects(activeTiles, currentTiles);
-        
         // render the scene
         renderer.render(scene, camera);
     } // render
     
     function reset() {
+        currentTiles = {};
         removeOldObjects(activeTiles, currentTiles);
+        
         removeOldObjects(activeObjects, currentObjects, 'removeOnReset');
-        // currentObjects = {};
-        // removeOldObjects();
     } // reset
     
     /* initialization */

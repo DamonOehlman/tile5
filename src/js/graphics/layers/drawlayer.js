@@ -91,7 +91,7 @@ var DrawLayer = function(params) {
             // prep the path for the child
             if (drawData) {
                 // if the element has been hit then update
-                if (drawData.hit) {
+                if (hitData && drawData.hit) {
                     hitData.elements.push(Hits.initHit(
                         drawable.type, 
                         drawable, 

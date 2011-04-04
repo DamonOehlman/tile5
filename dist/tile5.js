@@ -1285,7 +1285,7 @@ function genEventProps(source, evt) {
 
 function matchTarget(evt, targetElement) {
     var targ = evt.target ? evt.target : evt.srcElement;
-    while (targ && (targ !== targetElement) && targ.nodeName && (targ.nodeName.toUpperCase() != 'CANVAS')) {
+    while (targ && (targ !== targetElement) && targ.nodeName) { // && (targ.nodeName.toUpperCase() != 'CANVAS')) {
         targ = targ.parentNode;
     } // while
 
@@ -2878,6 +2878,11 @@ var Renderer = function(view, container, params) {
         },
 
         /**
+        ### resetDrawable(drawable)
+        */
+        resetDrawable: null,
+
+        /**
         ### reset()
         */
         reset: function() {
@@ -3114,13 +3119,6 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         } // for
     } // drawTiles
 
-    /**
-    ### hitTest(drawData, hitX, hitY): boolean
-    */
-    function hitTest(drawData, hitX, hitY) {
-        return context.isPointInPath(hitX, hitY);
-    } // hitTest
-
     function prepare(layers, viewport, state, tickCount, hitData) {
         var ii,
             canClip = false,
@@ -3223,6 +3221,11 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
                     size,
                     size);
 
+                if (drawable.reset && drawable.image) {
+                    drawable.image = null;
+                    drawable.reset = false;
+                } // if
+
                 if (drawable.image) {
                     context.drawImage(
                         drawable.image,
@@ -3297,7 +3300,6 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         applyTransform: applyTransform,
         drawTiles: drawTiles,
 
-        hitTest: hitTest,
         prepare: prepare,
 
         prepArc: prepArc,
@@ -3319,6 +3321,8 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         getOffset: function() {
             return new XY(drawOffsetX, drawOffsetY);
         }
+
+
 
         /*
         render: function(viewport) {
@@ -4800,6 +4804,7 @@ is specified then the style of the T5.PolyLayer is used.
 function Poly(points, params) {
     params = COG.extend({
         simplify: false,
+        fill: true,
         typeName: 'Poly'
     }, params);
 
@@ -5319,7 +5324,7 @@ var DrawLayer = function(params) {
                     drawProps) : null;
 
             if (drawData) {
-                if (drawData.hit) {
+                if (hitData && drawData.hit) {
                     hitData.elements.push(Hits.initHit(
                         drawable.type,
                         drawable,

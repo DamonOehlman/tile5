@@ -76,6 +76,11 @@ var Renderer = function(view, container, params) {
         */
         render: function() {
         },
+        
+        /**
+        ### resetDrawable(drawable)
+        */
+        resetDrawable: null,
 
         /**
         ### reset()
