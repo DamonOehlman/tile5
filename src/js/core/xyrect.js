@@ -29,8 +29,8 @@ var XYRect = (function() {
         return XYRect.init(
             rect.x - bufferX,
             rect.y - (bufferY || bufferX),
-            rect.x + bufferX,
-            rect.y + (bufferY || bufferX)
+            rect.x2 + bufferX,
+            rect.y2 + (bufferY || bufferX)
         );
     } // buffer
     

@@ -18,7 +18,12 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
             container.offsetWidth,
             container.offsetHeight);
 
-        container.insertBefore(imageDiv, baseRenderer.interactTarget);
+        if (container.childNodes.length > 0) {
+            container.insertBefore(imageDiv, container.childNodes[0]);
+        }
+        else {
+            container.appendChild(imageDiv);
+        } // if..else
     } // createImageContainer
 
     function createTileImage(tile) {
@@ -28,14 +33,23 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
 
         image.src = tile.url;
         image.onload = function() {
-            imageDiv.appendChild(this);
-            tile.indom = true;
+            if (currentTiles[tile.id]) {
+                imageDiv.appendChild(this);
+                tile.indom = true;
+            }
+            else {
+                tile.image = null;
+            } // if..else
         };
 
         image.style.cssText = '-webkit-user-select: none; -webkit-box-shadow: none; -moz-box-shadow: none; box-shadow: none; border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px; margin-top: 0px; margin-right: 0px; margin-bottom: 0px; margin-left: 0px; position: absolute;';
 
         return image;
     }
+
+    function handleDetach() {
+        container.removeChild(imageDiv);
+    } // handleDetach
 
     function handlePredraw(evt, viewport, state) {
 
@@ -152,6 +166,10 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
 
     function reset() {
         removeOldObjects(activeTiles, currentTiles = {});
+
+        while (imageDiv.childNodes.length > 0) {
+            imageDiv.removeChild(imageDiv.childNodes[0]);
+        } // while
     } // reset
 
     /* initialization */
@@ -166,6 +184,7 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
     });
 
     _this.bind('predraw', handlePredraw);
+    _this.bind('detach', handleDetach);
 
     return _this;
 });

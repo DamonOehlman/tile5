@@ -10,6 +10,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     var vpWidth,
         vpHeight,
         canvas,
+        createdCanvas = false,
         context,
         drawOffsetX = 0,
         drawOffsetY = 0,
@@ -59,6 +60,9 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
                 // create the canvas
                 canvas = newCanvas(vpWidth, vpHeight);
                 canvas.style.cssText = 'position: absolute; z-index: 1;';
+                
+                // flag that we created the canvas
+                createdCanvas = true;
 
                 // add the canvas to the container
                 container.appendChild(canvas);
@@ -86,6 +90,13 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         // pop the previous style from the style stack
         return previousStyles[canvasId].pop() || 'basic';
     } // getPreviousStyle
+    
+    function handleDetach() {
+        // if we created the canvas, then get rid of it...
+        if (createdCanvas) {
+            container.removeChild(canvas);
+        } // if
+    } // handleDetach
     
     function handleStyleDefined(evt, styleId, styleData) {
         var ii, data;
@@ -415,6 +426,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
         
         applyStyle: applyStyle,
         applyTransform: applyTransform,
+        
         drawTiles: drawTiles,
         
         prepare: prepare,
@@ -455,6 +467,9 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     
     // load the styles
     loadStyles();
+    
+    // handle detaching
+    _this.bind('detach', handleDetach);
     
     return _this;
 });

@@ -1886,6 +1886,10 @@ T5.registerRenderer('webgl', function(view, container, params, baseRenderer) {
         });
     } // createTileBuffer
 
+    function handleDetach() {
+        container.removeChild(canvas);
+    } // handleDetach
+
     function init() {
         var xSeg, ySeg;
 
@@ -2107,6 +2111,8 @@ T5.registerRenderer('webgl', function(view, container, params, baseRenderer) {
     });
 
     COG.info('created webgl renderer');
+
+    _this.bind('detach', handleDetach);
 
     return _this;
 });

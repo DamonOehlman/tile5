@@ -1,5 +1,13 @@
 /**
 # T5.Renderer
+
+## Events
+Renderers fire the following events:
+
+### detach
+
+### predraw
+
 */
 var Renderer = function(view, container, params) {
     
@@ -27,7 +35,7 @@ var Renderer = function(view, container, params) {
         
         checkSize: function() {
         },
-        
+
         /**
         ### getDimensions()
         */
@@ -77,11 +85,6 @@ var Renderer = function(view, container, params) {
         render: function() {
         },
         
-        /**
-        ### resetDrawable(drawable)
-        */
-        resetDrawable: null,
-
         /**
         ### reset()
         */

@@ -2369,8 +2369,8 @@ var XYRect = (function() {
         return XYRect.init(
             rect.x - bufferX,
             rect.y - (bufferY || bufferX),
-            rect.x + bufferX,
-            rect.y + (bufferY || bufferX)
+            rect.x2 + bufferX,
+            rect.y2 + (bufferY || bufferX)
         );
     } // buffer
 
@@ -2800,6 +2800,14 @@ Tile.prototype = {
 
 /**
 # T5.Renderer
+
+## Events
+Renderers fire the following events:
+
+### detach
+
+### predraw
+
 */
 var Renderer = function(view, container, params) {
 
@@ -2878,11 +2886,6 @@ var Renderer = function(view, container, params) {
         },
 
         /**
-        ### resetDrawable(drawable)
-        */
-        resetDrawable: null,
-
-        /**
         ### reset()
         */
         reset: function() {
@@ -2929,6 +2932,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     var vpWidth,
         vpHeight,
         canvas,
+        createdCanvas = false,
         context,
         drawOffsetX = 0,
         drawOffsetY = 0,
@@ -2976,6 +2980,8 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
                 canvas = newCanvas(vpWidth, vpHeight);
                 canvas.style.cssText = 'position: absolute; z-index: 1;';
 
+                createdCanvas = true;
+
                 container.appendChild(canvas);
             }
             else {
@@ -2999,6 +3005,12 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
 
         return previousStyles[canvasId].pop() || 'basic';
     } // getPreviousStyle
+
+    function handleDetach() {
+        if (createdCanvas) {
+            container.removeChild(canvas);
+        } // if
+    } // handleDetach
 
     function handleStyleDefined(evt, styleId, styleData) {
         var ii, data;
@@ -3300,6 +3312,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
 
         applyStyle: applyStyle,
         applyTransform: applyTransform,
+
         drawTiles: drawTiles,
 
         prepare: prepare,
@@ -3339,6 +3352,8 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     });
 
     loadStyles();
+
+    _this.bind('detach', handleDetach);
 
     return _this;
 });
@@ -3767,8 +3782,8 @@ var View = function(params) {
 
     /* private functions */
 
-    function createRenderer() {
-        renderer = attachRenderer(params.renderer, _self, container);
+    function createRenderer(typeName) {
+        renderer = attachRenderer(typeName || params.renderer, _self, container);
 
         partialScaling = ! renderer.preventPartialScale;
 
@@ -3825,6 +3840,17 @@ var View = function(params) {
             eventMonitor.bind('tap', handlePointerTap);
         } // if
     } // captureInteractionEvents
+
+    function changeRenderer(name, value) {
+        if (renderer) {
+            renderer.trigger('detach');
+            renderer = null;
+        } // if
+
+        createRenderer(value);
+
+        invalidate();
+    } // changeRenderer
 
     /*
     The constrain offset function is used to keep the view offset within a specified
@@ -3984,7 +4010,7 @@ var View = function(params) {
             lastCycleTicks = tickCount;
         }
 
-        if (newFrame && frameData.draw) {
+        if (renderer && newFrame && frameData.draw) {
             state = stateActive |
                         (scaleFactor !== 1 ? stateZoom : 0) |
                         (panning ? statePan : 0) |
@@ -4085,6 +4111,10 @@ var View = function(params) {
     will definitely want to call the detach method between usages.
     */
     function detach() {
+        if (renderer) {
+            renderer.trigger('detach');
+        } // if
+
         if (eventMonitor) {
             eventMonitor.unbind();
         } // if
@@ -4472,6 +4502,7 @@ var View = function(params) {
             'inertia',
             'minZoom',
             'maxZoom',
+            'renderer',
             'zoom'
         ],
         COG.paramTweaker(params, null, {
@@ -4479,7 +4510,8 @@ var View = function(params) {
             'inertia': captureInteractionEvents,
             'captureHover': captureInteractionEvents,
             'scalable': captureInteractionEvents,
-            'pannable': captureInteractionEvents
+            'pannable': captureInteractionEvents,
+            'renderer': changeRenderer
         }),
         true);
 
@@ -5220,7 +5252,7 @@ var TileLayer = function(genId, params) {
     ### draw(renderer)
     */
     function draw(renderer, viewport) {
-        renderer.drawTiles(viewport, storage.search(viewport));
+        renderer.drawTiles(viewport, storage.search(XYRect.buffer(viewport, 128)));
     } // draw
 
     /* definition */

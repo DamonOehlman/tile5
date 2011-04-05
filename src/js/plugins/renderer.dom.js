@@ -19,7 +19,12 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
             container.offsetHeight);
         
         // append the container to the same element as the canvas
-        container.insertBefore(imageDiv, baseRenderer.interactTarget);
+        if (container.childNodes.length > 0) {
+            container.insertBefore(imageDiv, container.childNodes[0]);
+        }
+        else {
+            container.appendChild(imageDiv);
+        } // if..else
     } // createImageContainer
     
     function createTileImage(tile) {
@@ -31,9 +36,15 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
 
         image.src = tile.url;
         image.onload = function() {
-            // check that this image is still valid (it will be in the tile cache)
-            imageDiv.appendChild(this);
-            tile.indom = true;
+            if (currentTiles[tile.id]) {
+                // check that this image is still valid (it will be in the tile cache)
+                imageDiv.appendChild(this);
+                tile.indom = true;
+            }
+            // otherwise, reset the image
+            else {
+                tile.image = null;
+            } // if..else
         };
 
         // initialise the image style
@@ -42,6 +53,11 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
         // return the image
         return image;
     }
+    
+    function handleDetach() {
+        // remove the image div from the container
+        container.removeChild(imageDiv);
+    } // handleDetach
     
     function handlePredraw(evt, viewport, state) {
         // remove any old objects
@@ -180,6 +196,11 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
     
     function reset() {
         removeOldObjects(activeTiles, currentTiles = {});
+        
+        // remove all the children of the image div (just to be sure)
+        while (imageDiv.childNodes.length > 0) {
+            imageDiv.removeChild(imageDiv.childNodes[0]);
+        } // while
     } // reset
 
     /* initialization */
@@ -189,13 +210,14 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
     
     var _this = COG.extend(baseRenderer, {
         preventPartialScale: true,
-        
+
         drawTiles: drawTiles,
         reset: reset
     });
     
     // handle the predraw
     _this.bind('predraw', handlePredraw);
+    _this.bind('detach', handleDetach);
     
     return _this;
 });

@@ -322,8 +322,8 @@ var View = function(params) {
     
     /* private functions */
     
-    function createRenderer() {
-        renderer = attachRenderer(params.renderer, _self, container);
+    function createRenderer(typeName) {
+        renderer = attachRenderer(typeName || params.renderer, _self, container);
         
         // determine whether partial scaling is supporter
         partialScaling = ! renderer.preventPartialScale;
@@ -392,6 +392,20 @@ var View = function(params) {
             eventMonitor.bind('tap', handlePointerTap);
         } // if
     } // captureInteractionEvents
+    
+    function changeRenderer(name, value) {
+        // if we have a renderer, then detach it
+        if (renderer) {
+            renderer.trigger('detach');
+            renderer = null;
+        } // if
+        
+        // now create the new renderer
+        createRenderer(value);
+        
+        // invalidate the view
+        invalidate();
+    } // changeRenderer
     
     /*
     The constrain offset function is used to keep the view offset within a specified
@@ -570,7 +584,7 @@ var View = function(params) {
         }
         
         // if we a due for a redraw then do on
-        if (newFrame && frameData.draw) {
+        if (renderer && newFrame && frameData.draw) {
             // update the state
             state = stateActive | 
                         (scaleFactor !== 1 ? stateZoom : 0) | 
@@ -698,6 +712,11 @@ var View = function(params) {
     will definitely want to call the detach method between usages.
     */
     function detach() {
+        // if we have a renderer, then detach 
+        if (renderer) {
+            renderer.trigger('detach');
+        } // if
+        
         if (eventMonitor) {
             eventMonitor.unbind();
         } // if
@@ -1126,6 +1145,7 @@ var View = function(params) {
             'inertia',
             'minZoom', 
             'maxZoom',
+            'renderer',
             'zoom'
         ], 
         COG.paramTweaker(params, null, {
@@ -1133,7 +1153,8 @@ var View = function(params) {
             'inertia': captureInteractionEvents,
             'captureHover': captureInteractionEvents,
             'scalable': captureInteractionEvents,
-            'pannable': captureInteractionEvents
+            'pannable': captureInteractionEvents,
+            'renderer': changeRenderer
         }),
         true);
 

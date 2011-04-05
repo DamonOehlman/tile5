@@ -27,6 +27,11 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
         paper = Raphael(container, vpWidth, vpHeight);
     } // createCanvas
     
+    function handleDetach() {
+        // remove the canvas from the dom
+        container.removeChild(paper.canvas);
+    } // handleDetach
+    
     function handlePredraw(evt, viewport, state) {
         // remove any old objects
         removeOldObjects(activeObjects, currentObjects);
@@ -99,19 +104,7 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
                     break;
                 
                 case 'path':
-                    var rawPoints = this.rawPath || [],
-                        path = [];
-
-                    // create the path string
-                    for (var ii = rawPoints.length; ii--; ) {
-                        path[ii] = [
-                            rawPoints[ii][0], 
-                            rawPoints[ii][1] - offsetX, 
-                            rawPoints[ii][2] - offsetY
-                        ];
-                    } // for
-                
-                    updates.path = path;
+                    updates.path = this.path(offsetX, offsetY);
                     
                     break;
                     
@@ -293,20 +286,20 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
             var rawPath = [],
                 points = opts.points || drawable.points;
                 
-            // calculate the raw path
-            for (var ii = points.length; ii--; ) {
-                rawPath[ii] = [
-                    ii === 0 ? 'M' : 'L',
-                    points[ii].x,
-                    points[ii].y
-                ];
-            } // for
-            
-            // set the raw path of the drawable
-            drawable.rawPath = rawPath;
-            drawable.removeOnReset = true;
-
+            drawable.path = function(x, y) {
+                var pathString = '';
+                
+                for (var ii = points.length; ii--; ) {
+                    pathString = (ii > 0 ? 'L' : 'M') + 
+                        (points[ii].x - x) + ' ' + (points[ii].y - y) + 
+                        pathString;
+                } // for
+                
+                return pathString;
+            };
+                
             // initialise the object
+            drawable.removeOnReset = true;
             objInit(drawable.rObject = paper.path('M0 0L0 0'), drawable);
         } // if
         
@@ -357,6 +350,7 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
     
     // handle the predraw event
     _this.bind('predraw', handlePredraw);
+    _this.bind('detach', handleDetach);
     
     // load styles
     loadStyles();

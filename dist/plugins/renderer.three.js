@@ -176,6 +176,11 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         return previousStyles[canvasId].pop() || 'basic';
     } // getPreviousStyle
 
+    function handleDetach() {
+
+        container.removeChild(renderer.domElement);
+    } // handleDetach
+
     function handleStyleDefined(evt, styleId, styleData) {
         var fillColor = new ColorParser(styleData.fill || '#ffffff'),
             strokeColor = new ColorParser(styleData.stroke || '#ffffff');
@@ -630,6 +635,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
 
         applyStyle: applyStyle,
         applyTransform: applyTransform,
+
         drawTiles: drawTiles,
 
         prepare: prepare,
@@ -656,6 +662,8 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             };
         }
     });
+
+    _this.bind('detach', handleDetach);
 
     loadStyles();
     COG.info('created three:webgl renderer');
