@@ -93,29 +93,31 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
             
             switch (this.rObject.type) {
                 case 'circle':
-                    updates['cx'] = this.xy.x - offsetX;
-                    updates['cy'] = this.xy.y - offsetY;
+                    updates.cx = this.xy.x - offsetX;
+                    updates.cy = this.xy.y - offsetY;
                     
                     break;
                 
                 case 'path':
-                    var pathString = '',
-                        points = this.drawPoints || [];
+                    var rawPoints = this.rawPath || [],
+                        path = [];
 
                     // create the path string
-                    for (var ii = points.length; ii--; ) {
-                        pathString = (ii == 0 ? 'M' : 'L') + 
-                            (points[ii].x - offsetX) + ' ' + 
-                            (points[ii].y - offsetY) + pathString;
+                    for (var ii = rawPoints.length; ii--; ) {
+                        path[ii] = [
+                            rawPoints[ii][0], 
+                            rawPoints[ii][1] - offsetX, 
+                            rawPoints[ii][2] - offsetY
+                        ];
                     } // for
                 
-                    updates['path'] = pathString;
+                    updates.path = path;
                     
                     break;
                     
                 default:
-                    updates['x'] = this.xy.x - (this.size >> 1) - offsetX;
-                    updates['y'] = this.xy.y - (this.size >> 1) - offsetY;
+                    updates.x = this.xy.x - (this.size >> 1) - offsetX;
+                    updates.y = this.xy.y - (this.size >> 1) - offsetY;
             } // switch
             
             // check for a fill attribute and a drawable fill setting of false
@@ -286,14 +288,28 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
     ### prepPoly(drawable, viewport, hitData, state, opts)
     */
     function prepPoly(drawable, viewport, hitData, state, opts) {
+        
         if (! drawable.rObject) {
+            var rawPath = [],
+                points = opts.points || drawable.points;
+                
+            // calculate the raw path
+            for (var ii = points.length; ii--; ) {
+                rawPath[ii] = [
+                    ii === 0 ? 'M' : 'L',
+                    points[ii].x,
+                    points[ii].y
+                ];
+            } // for
+            
+            // set the raw path of the drawable
+            drawable.rawPath = rawPath;
+            drawable.removeOnReset = true;
+
             // initialise the object
             objInit(drawable.rObject = paper.path('M0 0L0 0'), drawable);
         } // if
         
-        // save the draw points to the drawable
-        drawable.drawPoints = opts.points || drawable.points;
-
         return initDrawData(drawable, viewport, hitData, state);
     } // prepPoly
     
@@ -312,7 +328,7 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
     createPaper();
 
     var _this = COG.extend(baseRenderer, {
-        interactTarget: paper.canvas,
+        interactTarget: container,
         preventPartialScale: true,
         
         applyStyle: applyStyle,

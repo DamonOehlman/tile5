@@ -209,6 +209,9 @@ var View = function(params) {
     function handlePan(evt, x, y) {
         if (! dragObject) {
             updateOffset(offsetX - x, offsetY - y);
+            
+            // trigger the view pan event
+            _self.trigger('pan', offsetX, offsetY);
         } // if
     } // pan
     
