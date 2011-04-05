@@ -7,7 +7,7 @@ var Renderer = function(view, container, params) {
     
     /* exports */
     
-    return {
+    var _this = {
         /**
         ### applyStyle(style: T5.Style): string
         */
@@ -88,6 +88,8 @@ var Renderer = function(view, container, params) {
         reset: function() {
         }
     };
+    
+    return COG.observable(_this);
 };
 
 var rendererRegistry = {};

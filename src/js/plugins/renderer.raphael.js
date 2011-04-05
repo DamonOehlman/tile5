@@ -27,6 +27,16 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
         paper = Raphael(container, vpWidth, vpHeight);
     } // createCanvas
     
+    function handlePredraw(evt, viewport, state) {
+        // remove any old objects
+        removeOldObjects(activeObjects, currentObjects);
+        currentObjects = {};
+
+        // remove old tiles
+        removeOldObjects(activeTiles, currentTiles);
+        currentTiles = {};
+    } // handlePredraw
+    
     function handleStyleDefined(evt, styleId, styleData) {
         styles[styleId] = styleData;
     } // handleStyleDefined
@@ -133,7 +143,7 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
         for (var objId in activeObj) {
             var item = activeObj[objId],
                 inactive = flagField ? item[flagField] : (! currentObj[objId]);
-            
+                
             // if the object is not in the current objects, remove from the scene
             if (inactive) {
                 // remove the object from the raphael paper
@@ -178,7 +188,7 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
     
     function drawTiles(viewport, tiles) {
         var tile;
-            
+        
         for (var ii = tiles.length; ii--; ) {
             tile = tiles[ii];
             
@@ -188,10 +198,10 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
                     y: tile.y - drawOffsetY
                 });
             }
-            else if (! activeTiles[tile.id]) {
+            else {
                 // add the tile to the list of active tiles
                 activeTiles[tile.id] = tile;
-
+                
                 // create the tile
                 tile.rObject = paper.image(
                     tile.url,
@@ -213,14 +223,6 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
         // save the viewport x and y as the draw offset x and y
         drawOffsetX = viewport.x;
         drawOffsetY = viewport.y;
-        
-        // remove any old objects
-        removeOldObjects(activeObjects, currentObjects);
-        currentObjects = {};
-
-        // remove old tiles
-        removeOldObjects(activeTiles, currentTiles);
-        currentTiles = {};
         
         return paper;
     } // prepare
@@ -296,8 +298,6 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
     } // prepPoly
     
     function reset() {
-        COG.info('reset called');
-        
         currentTiles = {};
         removeOldObjects(activeTiles, currentTiles);
         
@@ -312,7 +312,7 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
     createPaper();
 
     var _this = COG.extend(baseRenderer, {
-        interactTarget: container,
+        interactTarget: paper.canvas,
         preventPartialScale: true,
         
         applyStyle: applyStyle,
@@ -338,6 +338,9 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
             return new XY(drawOffsetX, drawOffsetY);
         }
     });
+    
+    // handle the predraw event
+    _this.bind('predraw', handlePredraw);
     
     // load styles
     loadStyles();

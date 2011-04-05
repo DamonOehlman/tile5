@@ -793,16 +793,16 @@ T5.Geo.Decarta = (function() {
                     yTile = numTiles - (viewRect.y / tileSize | 0) - numTilesHalf - yTiles,
                     tiles = store.search({
                         x: (numTilesHalf + xTile) * tileSize,
-                        y: (numTilesHalf + yTile*-1) * tileSize,
+                        y: (numTilesHalf + yTile*-1 - yTiles) * tileSize,
                         w: xTiles * tileSize,
                         h: yTiles * tileSize
                     }),
-                    idIndex = new Array(tiles.length),
+                    tileIds = {},
                     ii;
 
                 // iterate through the tiles and create the tile id index
                 for (ii = tiles.length; ii--; ) {
-                    idIndex[ii] = tiles[ii].id;
+                    tileIds[tiles[ii].id] = true;
                 } // for
                     
                 for (var xx = 0; xx <= xTiles; xx++) {
@@ -812,7 +812,7 @@ T5.Geo.Decarta = (function() {
                             tileId = tileX + '_' + tileY;
                             
                         // if the tile is not in the index, then create
-                        if (T5.indexOf.call(idIndex, tileId) < 0) {
+                        if (! tileIds[tileId]) {
                             var tileUrl = hosts[xx % hosts.length] + '/openls/image-cache/TILE?'+
                                    'LLMIN=0.0,0.0' +
                                    '&LLMAX=' + _ll_LUT[zoomLevel] +

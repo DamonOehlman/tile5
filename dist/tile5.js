@@ -2807,7 +2807,7 @@ var Renderer = function(view, container, params) {
 
     /* exports */
 
-    return {
+    var _this = {
         /**
         ### applyStyle(style: T5.Style): string
         */
@@ -2888,6 +2888,8 @@ var Renderer = function(view, container, params) {
         reset: function() {
         }
     };
+
+    return COG.observable(_this);
 };
 
 var rendererRegistry = {};
@@ -3997,6 +3999,8 @@ var View = function(params) {
             } // if
             */
 
+
+            renderer.trigger('predraw', viewport, state);
 
             if (renderer.prepare(layers, viewport, state, tickCount, hitData)) {
                 viewChanges = 0;
@@ -5183,8 +5187,6 @@ var TileLayer = function(genId, params) {
         storage = null,
         zoomTrees = [],
         tiles = [],
-        oldTiles = [],
-        lastViewport = null,
         loadArgs = params.imageLoadArgs;
 
     /* event handlers */
@@ -5193,23 +5195,14 @@ var TileLayer = function(genId, params) {
         var tickCount = new Date().getTime();
 
         if (storage) {
-            oldTiles = lastViewport ? storage.search(lastViewport) : [];
-
             genFn(view, viewport, storage, function() {
                 view.invalidate();
                 COG.info('GEN COMPLETED IN ' + (new Date().getTime() - tickCount) + ' ms');
             });
-
-            lastViewport = XYRect.copy(viewport);
         } // if
     } // handleViewIdle
 
     function handleResync(evt, view) {
-        if (storage && lastViewport) {
-            oldTiles = storage.search(lastViewport);
-            lastViewport = null;
-        } // if
-
         var zoomLevel = view && view.getZoomLevel ? view.getZoomLevel() : 0;
 
         if (! zoomTrees[zoomLevel]) {

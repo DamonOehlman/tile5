@@ -7,7 +7,8 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
         PREFIX_LENGTH = ID_PREFIX.length,
         supportTransforms = typeof container.style[PROP_WK_TRANSFORM] != 'undefined',
         imageDiv = null,
-        tileCache = {};
+        activeTiles = {},
+        currentTiles = {};
 
     function createImageContainer() {
         imageDiv = document.createElement('div');
@@ -20,30 +21,56 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
         container.insertBefore(imageDiv, baseRenderer.interactTarget);
     } // createImageContainer
 
-    function removeOldTiles(tileIds) {
-        tileIds = tileIds || [];
+    function createTileImage(tile) {
+        var image = tile.image = new Image();
 
-        var ii = 0;
-        while (ii < imageDiv.childNodes.length) {
-            var image = imageDiv.childNodes[ii],
-                tileId = image.id.slice(PREFIX_LENGTH);
+        activeTiles[tile.id] = tile;
 
-            if (T5.indexOf.call(tileIds, tileId) < 0) {
-                tile = tileCache[tileId];
+        image.src = tile.url;
+        image.onload = function() {
+            imageDiv.appendChild(this);
+            tile.indom = true;
+        };
 
-                if (tile) {
-                    tile.image = null;
+        image.style.cssText = '-webkit-user-select: none; -webkit-box-shadow: none; -moz-box-shadow: none; box-shadow: none; border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px; margin-top: 0px; margin-right: 0px; margin-bottom: 0px; margin-left: 0px; position: absolute;';
+
+        return image;
+    }
+
+    function handlePredraw(evt, viewport, state) {
+
+        removeOldObjects(activeTiles, currentTiles);
+        currentTiles = {};
+    } // handlePredraw
+
+    function removeOldObjects(activeObj, currentObj, flagField) {
+        var deletedKeys = [];
+
+        for (var objId in activeObj) {
+            var item = activeObj[objId],
+                inactive = flagField ? item[flagField] : (! currentObj[objId]);
+
+            if (inactive) {
+                if (item.indom) {
+                    COG.info('attemping to remove tile ' + item.id + ' from the dom');
+                    try {
+                        imageDiv.removeChild(item.image);
+                    }
+                    catch (e) {
+                        COG.warn('could not remove tile ' + item.id + ' from the DOM');
+                    }
+
+                    item.image = null;
                 } // if
 
-                delete tileCache[tileId];
+                deletedKeys[deletedKeys.length] = objId;
+            } // if
+        } // for
 
-                imageDiv.removeChild(image);
-            }
-            else {
-                ii++;
-            } // if..else
-        } // while
-    } // removeOldTiles
+        for (var ii = deletedKeys.length; ii--; ) {
+            delete activeObj[deletedKeys[ii]];
+        } // for
+    } // removeOldObjects
 
     /* exports */
 
@@ -67,7 +94,6 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
 
         for (ii = tiles.length; ii--; ) {
             tile = tiles[ii];
-            tileIds[tileIds.length] = tile.id;
 
             tileWidth = tileWidth || tile.w;
             tileHeight = tileHeight || tile.h;
@@ -77,8 +103,6 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
             maxX = maxX ? Math.max(tile.x, maxX) : tile.x;
             maxY = maxY ? Math.max(tile.y, maxY) : tile.y;
         } // for
-
-        removeOldTiles(tileIds);
 
         gridWidth = ((maxX - minX) / tileWidth + 1) * tileWidth;
         gridHeight = ((maxY - minY) / tileHeight + 1) * tileHeight;
@@ -97,6 +121,10 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
             if (tile.url) {
                 image = tile.image;
 
+                if (! image) {
+                    image = createTileImage(tile);
+                } // if
+
                 xIndex = (tile.x - minX) / tile.w;
                 yIndex = (tile.y - minY) / tile.h;
 
@@ -105,22 +133,6 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
 
                 relX = offsetX + (xIndex * scaledWidth);
                 relY = offsetY + (yIndex * scaledWidth);
-
-                if (! image) {
-                    tileCache[tile.id] = tile;
-
-                    image = tile.image = new Image();
-                    image.id = ID_PREFIX + tile.id;
-                    image.src = tile.url;
-                    image.onload = function() {
-                        var tileId = this.id.slice(PREFIX_LENGTH);
-                        if (tileCache[tileId]) {
-                            imageDiv.appendChild(this);
-                        } // if
-                    };
-
-                    image.style.cssText = '-webkit-user-select: none; -webkit-box-shadow: none; -moz-box-shadow: none; box-shadow: none; border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px; margin-top: 0px; margin-right: 0px; margin-bottom: 0px; margin-left: 0px; position: absolute;';
-                } // if
 
                 if (supportTransforms) {
                     image.style[PROP_WK_TRANSFORM] = 'translate3d(' + relX +'px, ' + relY + 'px, 0px)';
@@ -132,12 +144,14 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
 
                 image.style.width = scaledWidth + 'px';
                 image.style.height = scaledHeight + 'px';
+
+                currentTiles[tile.id] = tile;
             } // if
         } // for
     } // drawTiles
 
     function reset() {
-        removeOldTiles();
+        removeOldObjects(activeTiles, currentTiles = {});
     } // reset
 
     /* initialization */
@@ -150,6 +164,8 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
         drawTiles: drawTiles,
         reset: reset
     });
+
+    _this.bind('predraw', handlePredraw);
 
     return _this;
 });

@@ -25,6 +25,14 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
         paper = Raphael(container, vpWidth, vpHeight);
     } // createCanvas
 
+    function handlePredraw(evt, viewport, state) {
+        removeOldObjects(activeObjects, currentObjects);
+        currentObjects = {};
+
+        removeOldObjects(activeTiles, currentTiles);
+        currentTiles = {};
+    } // handlePredraw
+
     function handleStyleDefined(evt, styleId, styleData) {
         styles[styleId] = styleData;
     } // handleStyleDefined
@@ -166,7 +174,7 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
                     y: tile.y - drawOffsetY
                 });
             }
-            else if (! activeTiles[tile.id]) {
+            else {
                 activeTiles[tile.id] = tile;
 
                 tile.rObject = paper.image(
@@ -186,12 +194,6 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
     function prepare(layers, viewport, state, tickCount, hitData) {
         drawOffsetX = viewport.x;
         drawOffsetY = viewport.y;
-
-        removeOldObjects(activeObjects, currentObjects);
-        currentObjects = {};
-
-        removeOldObjects(activeTiles, currentTiles);
-        currentTiles = {};
 
         return paper;
     } // prepare
@@ -264,8 +266,6 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
     } // prepPoly
 
     function reset() {
-        COG.info('reset called');
-
         currentTiles = {};
         removeOldObjects(activeTiles, currentTiles);
 
@@ -277,7 +277,7 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
     createPaper();
 
     var _this = COG.extend(baseRenderer, {
-        interactTarget: container,
+        interactTarget: paper.canvas,
         preventPartialScale: true,
 
         applyStyle: applyStyle,
@@ -303,6 +303,8 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
             return new XY(drawOffsetX, drawOffsetY);
         }
     });
+
+    _this.bind('predraw', handlePredraw);
 
     loadStyles();
 

@@ -590,6 +590,9 @@ var View = function(params) {
 
             // TODO: if we have a hover offset, check that no elements have moved under the cursor (maybe)
             
+            // trigger the predraw event
+            renderer.trigger('predraw', viewport, state);
+            
             // prepare the renderer
             if (renderer.prepare(layers, viewport, state, tickCount, hitData)) {
                 // reset the view changes count

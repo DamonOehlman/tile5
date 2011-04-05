@@ -105,12 +105,12 @@ T5.Geo.OSM = (function() {
                         w: xTiles * tileSize,
                         h: yTiles * tileSize
                     }),
-                    idIndex = new Array(tiles.length),
+                    tileIds = {},
                     ii;
                     
                 // iterate through the tiles and create the tile id index
                 for (ii = tiles.length; ii--; ) {
-                    idIndex[ii] = tiles[ii].id;
+                    tileIds[tiles[ii].id] = true;
                 } // for
                 
                 // COG.info('tile pixels = ' + T5.XY.toString(tilePixels) + ', viewrect.x1 = ' + viewport.x);
@@ -128,7 +128,7 @@ T5.Geo.OSM = (function() {
                             tile;
                             
                         // if the tile is not in the index, then create
-                        if (T5.indexOf.call(idIndex, tileId) < 0) {
+                        if (! tileIds[tileId]) {
                             // build the tile url 
                             tileUrl = _self.buildTileUrl(
                                 tileOffset.x + xx, 

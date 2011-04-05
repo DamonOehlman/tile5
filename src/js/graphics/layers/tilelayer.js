@@ -12,8 +12,6 @@ var TileLayer = function(genId, params) {
         storage = null,
         zoomTrees = [],
         tiles = [],
-        oldTiles = [],
-        lastViewport = null,
         loadArgs = params.imageLoadArgs;
     
     /* event handlers */
@@ -22,28 +20,15 @@ var TileLayer = function(genId, params) {
         var tickCount = new Date().getTime();
         
         if (storage) {
-            // if we have a last view rect, then get the tiles for that rect
-            oldTiles = lastViewport ? storage.search(lastViewport) : [];
-            
             // fire the generator
             genFn(view, viewport, storage, function() {
                 view.invalidate();
                 COG.info('GEN COMPLETED IN ' + (new Date().getTime() - tickCount) + ' ms');
             });
-            
-            // update the last view rect
-            lastViewport = XYRect.copy(viewport);
         } // if
     } // handleViewIdle
     
     function handleResync(evt, view) {
-        // if we have a current tree then get the tiles from the current tree and 
-        // flag them for removal
-        if (storage && lastViewport) {
-            oldTiles = storage.search(lastViewport);
-            lastViewport = null;
-        } // if
-        
         // get the zoom level for the view
         var zoomLevel = view && view.getZoomLevel ? view.getZoomLevel() : 0;
         

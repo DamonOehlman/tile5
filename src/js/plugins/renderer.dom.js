@@ -7,7 +7,8 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
         PREFIX_LENGTH = ID_PREFIX.length,
         supportTransforms = typeof container.style[PROP_WK_TRANSFORM] != 'undefined',
         imageDiv = null,
-        tileCache = {};
+        activeTiles = {},
+        currentTiles = {};
     
     function createImageContainer() {
         imageDiv = document.createElement('div');
@@ -21,35 +22,72 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
         container.insertBefore(imageDiv, baseRenderer.interactTarget);
     } // createImageContainer
     
-    function removeOldTiles(tileIds) {
-        tileIds = tileIds || [];
+    function createTileImage(tile) {
+        // create the image
+        var image = tile.image = new Image();
         
-        // iterate through the child nodes of the image div and 
-        // remove any orphaned images
-        var ii = 0;
-        while (ii < imageDiv.childNodes.length) {
-            // get the image
-            var image = imageDiv.childNodes[ii],
-                tileId = image.id.slice(PREFIX_LENGTH);
+        // save to the tile cache so we can remove it once no longer needed
+        activeTiles[tile.id] = tile;
+
+        image.src = tile.url;
+        image.onload = function() {
+            // check that this image is still valid (it will be in the tile cache)
+            imageDiv.appendChild(this);
+            tile.indom = true;
+        };
+
+        // initialise the image style
+        image.style.cssText = '-webkit-user-select: none; -webkit-box-shadow: none; -moz-box-shadow: none; box-shadow: none; border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px; margin-top: 0px; margin-right: 0px; margin-bottom: 0px; margin-left: 0px; position: absolute;';
+     
+        // return the image
+        return image;
+    }
+    
+    function handlePredraw(evt, viewport, state) {
+        // remove any old objects
+        // removeOldObjects(activeObjects, currentObjects);
+        // currentObjects = {};
+
+        // remove old tiles
+        removeOldObjects(activeTiles, currentTiles);
+        currentTiles = {};
+    } // handlePredraw
+    
+    function removeOldObjects(activeObj, currentObj, flagField) {
+        var deletedKeys = [];
+        
+        // iterate through the active objects 
+        // TODO: use something other than a for in loop please...
+        for (var objId in activeObj) {
+            var item = activeObj[objId],
+                inactive = flagField ? item[flagField] : (! currentObj[objId]);
                 
-            if (T5.indexOf.call(tileIds, tileId) < 0) {
-                tile = tileCache[tileId];
-                
-                if (tile) {
-                    tile.image = null;
+            // if the object is not in the current objects, remove from the scene
+            if (inactive) {
+                if (item.indom) {
+                    COG.info('attemping to remove tile ' + item.id + ' from the dom');
+                    try {
+                        // remove the object from the raphael paper
+                        imageDiv.removeChild(item.image);
+                    }
+                    catch (e) {
+                        COG.warn('could not remove tile ' + item.id + ' from the DOM');
+                    }
+
+                    // reset to null
+                    item.image = null;
                 } // if
                 
-                // remove the tilecache entry
-                delete tileCache[tileId];
-                
-                // remove the image from the dom
-                imageDiv.removeChild(image);
-            }
-            else {
-                ii++;
-            } // if..else
-        } // while
-    } // removeOldTiles
+                // add to the deleted keys
+                deletedKeys[deletedKeys.length] = objId;
+            } // if
+        } // for
+        
+        // remove the deleted keys from the active objects
+        for (var ii = deletedKeys.length; ii--; ) {
+            delete activeObj[deletedKeys[ii]];
+        } // for
+    } // removeOldObjects    
     
     /* exports */
     
@@ -74,7 +112,6 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
         // first iterate through the tiles and determine minx and miny
         for (ii = tiles.length; ii--; ) {
             tile = tiles[ii];
-            tileIds[tileIds.length] = tile.id;
             
             // get the tile width and height and store
             tileWidth = tileWidth || tile.w;
@@ -86,8 +123,6 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
             maxX = maxX ? Math.max(tile.x, maxX) : tile.x;
             maxY = maxY ? Math.max(tile.y, maxY) : tile.y;
         } // for
-        
-        removeOldTiles(tileIds);
         
         // determine the width of the tile grid
         gridWidth = ((maxX - minX) / tileWidth + 1) * tileWidth;
@@ -110,6 +145,10 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
             if (tile.url) {
                 image = tile.image;
 
+                if (! image) {
+                    image = createTileImage(tile);
+                } // if
+
                 // calculate the x and y index of the tile
                 xIndex = (tile.x - minX) / tile.w;
                 yIndex = (tile.y - minY) / tile.h;
@@ -121,26 +160,7 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
                 // calculate the x and y position for the tile
                 relX = offsetX + (xIndex * scaledWidth);
                 relY = offsetY + (yIndex * scaledWidth);
-
-                if (! image) {
-                    // save to the tile cache so we can remove it once no longer needed
-                    tileCache[tile.id] = tile;
-                    
-                    // create the image
-                    image = tile.image = new Image();
-                    image.id = ID_PREFIX + tile.id;
-                    image.src = tile.url;
-                    image.onload = function() {
-                        // check that this image is still valid (it will be in the tile cache)
-                        var tileId = this.id.slice(PREFIX_LENGTH);
-                        if (tileCache[tileId]) {
-                            imageDiv.appendChild(this);
-                        } // if
-                    };
-
-                    image.style.cssText = '-webkit-user-select: none; -webkit-box-shadow: none; -moz-box-shadow: none; box-shadow: none; border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px; margin-top: 0px; margin-right: 0px; margin-bottom: 0px; margin-left: 0px; position: absolute;';
-                } // if
-
+                
                 if (supportTransforms) {
                     image.style[PROP_WK_TRANSFORM] = 'translate3d(' + relX +'px, ' + relY + 'px, 0px)';
                 }
@@ -150,13 +170,16 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
                 } // if..else
 
                 image.style.width = scaledWidth + 'px';
-                image.style.height = scaledHeight + 'px';                
+                image.style.height = scaledHeight + 'px';
+
+                // flag the tile as current
+                currentTiles[tile.id] = tile;
             } // if
         } // for
     } // drawTiles
     
     function reset() {
-        removeOldTiles();
+        removeOldObjects(activeTiles, currentTiles = {});
     } // reset
 
     /* initialization */
@@ -170,6 +193,9 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
         drawTiles: drawTiles,
         reset: reset
     });
+    
+    // handle the predraw
+    _this.bind('predraw', handlePredraw);
     
     return _this;
 });
