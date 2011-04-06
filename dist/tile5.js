@@ -2556,8 +2556,14 @@ Hits = (function() {
         triggerEvent: triggerEvent
     };
 })();
-function createStoreForZoomLevel(zoomLevel) {
-    return new SpatialStore(Math.sqrt(256 << zoomLevel) | 0);
+function createStoreForZoomLevel(zoomLevel, oldStorage) {
+    var store = new SpatialStore(Math.sqrt(256 << zoomLevel) | 0);
+
+    if (oldStorage) {
+        oldStorage.copyInto(store);
+    } // if
+
+    return store;
 }
 
 var SpatialStore = function(cellsize) {
@@ -2588,6 +2594,20 @@ var SpatialStore = function(cellsize) {
     } // getBuckets
 
     /* exports */
+
+    /**
+    ### copyInto(target)
+    This function is used to copy the items in the current store into the specified store.
+    We use this primarily when we are creating a store with a new cellsize and need to copy
+    the old items across.
+    */
+    function copyInto(target) {
+        for (var itemId in lookup) {
+            var itemData = lookup[itemId];
+
+            target.insert(itemData.bounds || itemData, itemData, itemId);
+        } // for
+    } // copyInto
 
     function insert(rect, data, id) {
         var minX = rect.x / cellsize | 0,
@@ -2663,6 +2683,7 @@ var SpatialStore = function(cellsize) {
     } // search
 
     return {
+        copyInto: copyInto,
         insert: insert,
         remove: remove,
         search: search
@@ -5312,7 +5333,7 @@ var DrawLayer = function(params) {
     } // handleItemMove
 
     function handleResync(evt, view) {
-        storage = createStoreForZoomLevel(view.getZoomLevel());
+        storage = createStoreForZoomLevel(view.getZoomLevel(), storage);
 
         for (var ii = drawables.length; ii--; ) {
             var drawable = drawables[ii];
