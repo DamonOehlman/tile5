@@ -4874,6 +4874,10 @@ function Poly(points, params) {
     Drawable.call(this, params);
 
     COG.extend(this, {
+        getPoints: function() {
+            return [].concat(points);
+        },
+
         resync: resync
     });
 

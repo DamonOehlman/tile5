@@ -64,6 +64,10 @@ function Poly(points, params) {
     
     // extend this
     COG.extend(this, {
+        getPoints: function() {
+            return [].concat(points);
+        },
+        
         resync: resync
     });
     
