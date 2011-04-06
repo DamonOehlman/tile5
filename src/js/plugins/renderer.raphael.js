@@ -321,7 +321,6 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
     createPaper();
 
     var _this = COG.extend(baseRenderer, {
-        interactTarget: container,
         preventPartialScale: true,
         
         applyStyle: applyStyle,

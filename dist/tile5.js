@@ -1075,7 +1075,7 @@ var EventMonitor = function(target, handlers, params) {
     function unbind() {
         observable.unbind();
 
-        for (var ii = 0; ii < handlerInstances.length; ii++) {
+        for (ii = 0; ii < handlerInstances.length; ii++) {
             handlerInstances[ii].unbind();
         } // for
 
@@ -1103,21 +1103,29 @@ var EventMonitor = function(target, handlers, params) {
 
     /* internal functions */
 
-    function genBinder(useBody) {
-        return function(evtName, callback, customTarget) {
-            var target = customTarget ? customTarget : (useBody ? document.body : document);
-
+    function genBinder(target) {
+        return function(evtName, callback) {
             target.addEventListener(evtName, callback, false);
         };
     } // bindDoc
 
-    function genUnbinder(useBody) {
+    function genUnbinder(target) {
         return function(evtName, callback, customTarget) {
-            var target = customTarget ? customTarget : (useBody ? document.body : document);
-
             target.removeEventListener(evtName, callback, false);
         };
     } // unbindDoc
+
+    function genIEBinder(target) {
+        return function(evtName, callback) {
+            target.attachEvent('on' + evtName, callback);
+        };
+    } // genIEBinder
+
+    function genIEUnbinder(target) {
+        return function(evtName, callback) {
+            target.detachEvent('on' + evtName, callback);
+        };
+    } // genIEUnbinder
 
     function getHandlers(types, capabilities) {
         var handlers = [];
@@ -1142,14 +1150,6 @@ var EventMonitor = function(target, handlers, params) {
         return handlers;
     } // getHandlers
 
-    function ieBind(evtName, callback, customTarget) {
-        (customTarget ? customTarget : document).attachEvent('on' + evtName, callback);
-    } // ieBind
-
-    function ieUnbind(evtName, callback, customTarget) {
-        (customTarget ? customTarget : document).detachEvent('on' + evtName, callback);
-    } // ieUnbind
-
     function point(x, y) {
         return {
             x: x ? x : 0,
@@ -1173,7 +1173,7 @@ var EventMonitor = function(target, handlers, params) {
     */
     function watch(target, opts, caps) {
         opts = COG.extend({
-            bindToBody: false,
+            bindTarget: null,
             observable: null,
             isIE: typeof window.attachEvent != 'undefined',
             types: null
@@ -1189,8 +1189,8 @@ var EventMonitor = function(target, handlers, params) {
             globalOpts = opts;
         } // if
 
-        opts.binder = opts.isIE ? ieBind : genBinder(opts.bindToBody);
-        opts.unbinder = opts.isIE ? ieUnbind : genUnbinder(opts.bindToBody);
+        opts.binder = (opts.isIE ? genIEBinder : genBinder)(opts.bindTarget || document);
+        opts.unbinder = (opts.isIE ? genIEBinder : genUnbinder)(opts.bindTarget || document);
 
         return new EventMonitor(target, getHandlers(opts.types, capabilities), opts);
     } // watch
@@ -1284,8 +1284,10 @@ function genEventProps(source, evt) {
 } // genEventProps
 
 function matchTarget(evt, targetElement) {
-    var targ = evt.target ? evt.target : evt.srcElement;
-    while (targ && (targ !== targetElement) && targ.nodeName) { // && (targ.nodeName.toUpperCase() != 'CANVAS')) {
+    var targ = evt.target ? evt.target : evt.srcElement,
+        targClass = targ.className;
+
+    while (targ && (targ !== targetElement)) {
         targ = targ.parentNode;
     } // while
 
@@ -1304,8 +1306,8 @@ function preventDefault(evt) {
         evt.preventDefault();
         evt.stopPropagation();
     }
-    else if (evt.cancelBubble) {
-        evt.cancelBubble();
+    else if (typeof evt.cancelBubble != 'undefined') {
+        evt.cancelBubble = true;
     } // if..else
 } // preventDefault
 var MouseHandler = function(targetElement, observable, opts) {
@@ -1381,7 +1383,7 @@ var MouseHandler = function(targetElement, observable, opts) {
                 var pagePos = getPagePos(evt);
 
                 targetElement.style.cursor = 'move';
-                preventDefault(evt);
+                preventDefault(evt, true);
 
                 lastX = pagePos.x;
                 lastY = pagePos.y;
@@ -1483,21 +1485,21 @@ var MouseHandler = function(targetElement, observable, opts) {
     /* exports */
 
     function unbind() {
-        opts.unbinder('mousedown', handleMouseDown, false);
-        opts.unbinder('mousemove', handleMouseMove, false);
-        opts.unbinder('mouseup', handleMouseUp, false);
+        opts.unbinder('mousedown', handleMouseDown);
+        opts.unbinder('mousemove', handleMouseMove);
+        opts.unbinder('mouseup', handleMouseUp);
 
-        opts.unbinder("mousewheel", handleWheel, document);
-        opts.unbinder("DOMMouseScroll", handleWheel, document);
+        opts.unbinder("mousewheel", handleWheel);
+        opts.unbinder("DOMMouseScroll", handleWheel);
     } // unbind
 
-    opts.binder('mousedown', handleMouseDown, false);
-    opts.binder('mousemove', handleMouseMove, false);
-    opts.binder('mouseup', handleMouseUp, false);
-    opts.binder('dblclick', handleDoubleClick, false);
+    opts.binder('mousedown', handleMouseDown);
+    opts.binder('mousemove', handleMouseMove);
+    opts.binder('mouseup', handleMouseUp);
+    opts.binder('dblclick', handleDoubleClick);
 
-    opts.binder('mousewheel', handleWheel, document);
-    opts.binder('DOMMouseScroll', handleWheel, document);
+    opts.binder('mousewheel', handleWheel);
+    opts.binder('DOMMouseScroll', handleWheel);
 
     return {
         unbind: unbind
@@ -1782,14 +1784,14 @@ var TouchHandler = function(targetElement, observable, opts) {
     /* exports */
 
     function unbind() {
-        opts.unbinder('touchstart', handleTouchStart, false);
-        opts.unbinder('touchmove', handleTouchMove, false);
-        opts.unbinder('touchend', handleTouchEnd, false);
+        opts.unbinder('touchstart', handleTouchStart);
+        opts.unbinder('touchmove', handleTouchMove);
+        opts.unbinder('touchend', handleTouchEnd);
     } // unbind
 
-    opts.binder('touchstart', handleTouchStart, false);
-    opts.binder('touchmove', handleTouchMove, false);
-    opts.binder('touchend', handleTouchEnd, false);
+    opts.binder('touchstart', handleTouchStart);
+    opts.binder('touchmove', handleTouchMove);
+    opts.binder('touchend', handleTouchEnd);
 
     COG.info('initialized touch handler');
 
@@ -3308,8 +3310,6 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     createCanvas();
 
     var _this = COG.extend(baseRenderer, {
-        interactTarget: canvas,
-
         applyStyle: applyStyle,
         applyTransform: applyTransform,
 
@@ -3783,7 +3783,7 @@ var View = function(params) {
     /* private functions */
 
     function createRenderer(typeName) {
-        renderer = attachRenderer(typeName || params.renderer, _self, container);
+        renderer = attachRenderer(typeName || params.renderer, _self, container, params);
 
         partialScaling = ! renderer.preventPartialScale;
 
@@ -3818,7 +3818,7 @@ var View = function(params) {
         } // if
 
         if (renderer) {
-            eventMonitor = INTERACT.watch(renderer.interactTarget);
+            eventMonitor = INTERACT.watch(renderer.interactTarget || container);
 
             if (params.pannable) {
                 eventMonitor.pannable().bind('pan', handlePan);

@@ -323,7 +323,7 @@ var View = function(params) {
     /* private functions */
     
     function createRenderer(typeName) {
-        renderer = attachRenderer(typeName || params.renderer, _self, container);
+        renderer = attachRenderer(typeName || params.renderer, _self, container, params);
         
         // determine whether partial scaling is supporter
         partialScaling = ! renderer.preventPartialScale;
@@ -366,7 +366,7 @@ var View = function(params) {
 
         if (renderer) {
             // recreate the event monitor
-            eventMonitor = INTERACT.watch(renderer.interactTarget);
+            eventMonitor = INTERACT.watch(renderer.interactTarget || container);
 
             // if this is pannable, then attach event handlers
             if (params.pannable) {

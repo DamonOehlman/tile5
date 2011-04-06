@@ -422,8 +422,6 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     createCanvas();
 
     var _this = COG.extend(baseRenderer, {
-        interactTarget: canvas,
-        
         applyStyle: applyStyle,
         applyTransform: applyTransform,
         

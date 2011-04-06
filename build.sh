@@ -4,7 +4,8 @@ PLUGINS="renderer.dom \
 renderer.raphael \
 renderer.webgl \
 renderer.three \
-clusterer"
+clusterer \
+renderer.zoombar"
 
 : ${MINIFY:=false}
 
