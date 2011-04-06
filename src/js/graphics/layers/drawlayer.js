@@ -17,7 +17,7 @@ var DrawLayer = function(params) {
     
     // initialise variables
     var drawables = [],
-        storage = new SpatialStore(),
+        storage,
         sortTimeout = 0;
         
     /* private functions */
@@ -52,6 +52,9 @@ var DrawLayer = function(params) {
     } // handleItemMove
     
     function handleResync(evt, view) {
+        // create the storage with an appropriate cell size
+        storage = createStoreForZoomLevel(view.getZoomLevel());
+        
         // iterate through the shapes and resync to the grid
         for (var ii = drawables.length; ii--; ) {
             var drawable = drawables[ii];

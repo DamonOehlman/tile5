@@ -1,3 +1,7 @@
+function createStoreForZoomLevel(zoomLevel) {
+    return new SpatialStore(Math.sqrt(256 << zoomLevel) | 0);
+}
+
 var SpatialStore = function(cellsize) {
     cellsize = cellsize || 128;
     
@@ -51,29 +55,32 @@ var SpatialStore = function(cellsize) {
     } // insert
     
     function remove(rect, data, id) {
-        var minX = rect.x / cellsize | 0,
-            minY = rect.y / cellsize | 0,
-            maxX = (rect.x + rect.w) / cellsize | 0,
-            maxY = (rect.y + rect.h) / cellsize | 0;
-            
         // if the id is not defined, look for an id within the data
         id = id || data.id;
         
-        // if we have the id, then remove it from the lookup
-        delete lookup[id];
-        
-        // now remove from the spatial store
-        for (var xx = minX; xx <= maxX; xx++) {
-            for (var yy = minY; yy <= maxY; yy++) {
-                var bucket = getBucket(xx, yy),
-                    itemIndex = indexOf.call(bucket, id);
-                
-                // if the item was in the bucket, then splice it out
-                if (itemIndex >= 0) {
-                    bucket.splice(itemIndex, 1);
-                } // if
+        // if the object is the lookup, then process, otherwise do nothing
+        if (lookup[id]) {
+            var minX = rect.x / cellsize | 0,
+                minY = rect.y / cellsize | 0,
+                maxX = (rect.x + rect.w) / cellsize | 0,
+                maxY = (rect.y + rect.h) / cellsize | 0;
+
+            // if we have the id, then remove it from the lookup
+            delete lookup[id];
+
+            // now remove from the spatial store
+            for (var xx = minX; xx <= maxX; xx++) {
+                for (var yy = minY; yy <= maxY; yy++) {
+                    var bucket = getBucket(xx, yy),
+                        itemIndex = indexOf.call(bucket, id);
+
+                    // if the item was in the bucket, then splice it out
+                    if (itemIndex >= 0) {
+                        bucket.splice(itemIndex, 1);
+                    } // if
+                } // for
             } // for
-        } // for
+        } // if
     } // remove
     
     function search(rect) {

@@ -33,7 +33,7 @@ var TileLayer = function(genId, params) {
         var zoomLevel = view && view.getZoomLevel ? view.getZoomLevel() : 0;
         
         if (! zoomTrees[zoomLevel]) {
-            zoomTrees[zoomLevel] = new SpatialStore();
+            zoomTrees[zoomLevel] = createStoreForZoomLevel(zoomLevel);
         } // if
         
         storage = zoomTrees[zoomLevel];

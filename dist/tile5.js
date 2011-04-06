@@ -2569,6 +2569,10 @@ Hits = (function() {
         triggerEvent: triggerEvent
     };
 })();
+function createStoreForZoomLevel(zoomLevel) {
+    return new SpatialStore(Math.sqrt(256 << zoomLevel) | 0);
+}
+
 var SpatialStore = function(cellsize) {
     cellsize = cellsize || 128;
 
@@ -2616,25 +2620,27 @@ var SpatialStore = function(cellsize) {
     } // insert
 
     function remove(rect, data, id) {
-        var minX = rect.x / cellsize | 0,
-            minY = rect.y / cellsize | 0,
-            maxX = (rect.x + rect.w) / cellsize | 0,
-            maxY = (rect.y + rect.h) / cellsize | 0;
-
         id = id || data.id;
 
-        delete lookup[id];
+        if (lookup[id]) {
+            var minX = rect.x / cellsize | 0,
+                minY = rect.y / cellsize | 0,
+                maxX = (rect.x + rect.w) / cellsize | 0,
+                maxY = (rect.y + rect.h) / cellsize | 0;
 
-        for (var xx = minX; xx <= maxX; xx++) {
-            for (var yy = minY; yy <= maxY; yy++) {
-                var bucket = getBucket(xx, yy),
-                    itemIndex = indexOf.call(bucket, id);
+            delete lookup[id];
 
-                if (itemIndex >= 0) {
-                    bucket.splice(itemIndex, 1);
-                } // if
+            for (var xx = minX; xx <= maxX; xx++) {
+                for (var yy = minY; yy <= maxY; yy++) {
+                    var bucket = getBucket(xx, yy),
+                        itemIndex = indexOf.call(bucket, id);
+
+                    if (itemIndex >= 0) {
+                        bucket.splice(itemIndex, 1);
+                    } // if
+                } // for
             } // for
-        } // for
+        } // if
     } // remove
 
     function search(rect) {
@@ -5244,7 +5250,7 @@ var TileLayer = function(genId, params) {
         var zoomLevel = view && view.getZoomLevel ? view.getZoomLevel() : 0;
 
         if (! zoomTrees[zoomLevel]) {
-            zoomTrees[zoomLevel] = new SpatialStore();
+            zoomTrees[zoomLevel] = createStoreForZoomLevel(zoomLevel);
         } // if
 
         storage = zoomTrees[zoomLevel];
@@ -5289,7 +5295,7 @@ var DrawLayer = function(params) {
     }, params);
 
     var drawables = [],
-        storage = new SpatialStore(),
+        storage,
         sortTimeout = 0;
 
     /* private functions */
@@ -5321,6 +5327,8 @@ var DrawLayer = function(params) {
     } // handleItemMove
 
     function handleResync(evt, view) {
+        storage = createStoreForZoomLevel(view.getZoomLevel());
+
         for (var ii = drawables.length; ii--; ) {
             var drawable = drawables[ii];
 
