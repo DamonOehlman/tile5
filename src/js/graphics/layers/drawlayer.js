@@ -22,6 +22,38 @@ var DrawLayer = function(params) {
         
     /* private functions */
     
+    function dragObject(dragData, dragX, dragY, drop) {
+        var dragOffset = this.dragOffset;
+        
+        // if the drag offset is unknown then calculate
+        if (! dragOffset) {
+            dragOffset = this.dragOffset = new XY(
+                dragData.startX - this.xy.x, 
+                dragData.startY - this.xy.y
+            );
+        } // if
+
+        // update the xy and accounting for a drag offset
+        this.xy.x = dragX - dragOffset.x;
+        this.xy.y = dragY - dragOffset.y;
+        
+        if (drop) {
+            delete this.dragOffset;
+            
+            // TODO: reset scale
+            
+            var view = _self.view;
+            if (view) {
+                view.syncXY([this.xy], true);
+                view.invalidate();
+            } // if
+            
+            this.trigger('dragDrop');
+        } // if
+        
+        return true;
+    } // dragObject
+    
     function triggerSort(view) {
         clearTimeout(sortTimeout);
         sortTimeout = setTimeout(function() {
@@ -98,7 +130,7 @@ var DrawLayer = function(params) {
                     hitData.elements.push(Hits.initHit(
                         drawable.type, 
                         drawable, 
-                        drawable.draggable ? drawable.drag : null)
+                        drawable.draggable ? dragObject : null)
                     );
 
                     // init the style type to match the type of event

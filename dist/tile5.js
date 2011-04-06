@@ -1034,7 +1034,7 @@ var EventMonitor = function(target, handlers, params) {
 
     function handlePointerUp(evt, absXY, relXY) {
         if (! deltaGreaterThan(MAXMOVE_TAP)) {
-            observable.trigger('tap', absXY, relXY);
+            observable.triggerCustom('tap', evt, absXY, relXY);
         }
         else if (pannableOpts) {
             checkInertia(pans);
@@ -1350,19 +1350,6 @@ var MouseHandler = function(targetElement, observable, opts) {
             );
         } // if
     } // getPagePos
-
-    function handleClick(evt) {
-        if (matchTarget(evt, targetElement)) {
-            var clickXY = getPagePos(evt);
-
-            observable.triggerCustom(
-                'tap',
-                genEventProps('mouse', evt),
-                clickXY,
-                pointerOffset(clickXY, getOffset(targetElement))
-            );
-        } // if
-    } // handleClick
 
     function handleDoubleClick(evt) {
         COG.info('captured double click');
@@ -3917,7 +3904,7 @@ var View = function(params) {
                     drop);
 
             if (dragOk) {
-                redraw = true;
+                invalidate();
             } // if
 
             if (drop) {
@@ -4942,8 +4929,7 @@ function ImageDrawable(params) {
         typeName: 'Image'
     }, params);
 
-    var dragOffset = null,
-        drawableResync = Drawable.prototype.resync,
+    var drawableResync = Drawable.prototype.resync,
         drawX,
         drawY,
         imgOffsetX = 0,
@@ -4995,39 +4981,6 @@ function ImageDrawable(params) {
     } // changeImage
 
     /**
-    ### drag(dragData, dragX, dragY, drop)
-    */
-    function drag(dragData, dragX, dragY, drop) {
-        if (! dragOffset) {
-            dragOffset = new XY(
-                dragData.startX - this.xy.x,
-                dragData.startY - this.xy.y
-            );
-
-        }
-
-        this.xy.x = dragX - dragOffset.x;
-        this.xy.y = dragY - dragOffset.y;
-
-        if (drop) {
-            dragOffset = null;
-
-
-            if (this.layer) {
-                var view = this.layer.view;
-                if (view) {
-                    view.syncXY([this.xy], true);
-                    view.invalidate();
-                } // if
-            } // if
-
-            this.trigger('dragDrop');
-        } // if
-
-        return true;
-    } // drag
-
-    /**
     ### getProps(renderer, state)
     Get the drawable item properties that will be passed to the renderer during
     the prepare and draw phase
@@ -5054,7 +5007,6 @@ function ImageDrawable(params) {
 
     var _self = COG.extend(this, {
         changeImage: changeImage,
-        drag: drag,
         getProps: getProps,
         resync: resync
     });
@@ -5300,6 +5252,35 @@ var DrawLayer = function(params) {
 
     /* private functions */
 
+    function dragObject(dragData, dragX, dragY, drop) {
+        var dragOffset = this.dragOffset;
+
+        if (! dragOffset) {
+            dragOffset = this.dragOffset = new XY(
+                dragData.startX - this.xy.x,
+                dragData.startY - this.xy.y
+            );
+        } // if
+
+        this.xy.x = dragX - dragOffset.x;
+        this.xy.y = dragY - dragOffset.y;
+
+        if (drop) {
+            delete this.dragOffset;
+
+
+            var view = _self.view;
+            if (view) {
+                view.syncXY([this.xy], true);
+                view.invalidate();
+            } // if
+
+            this.trigger('dragDrop');
+        } // if
+
+        return true;
+    } // dragObject
+
     function triggerSort(view) {
         clearTimeout(sortTimeout);
         sortTimeout = setTimeout(function() {
@@ -5367,7 +5348,7 @@ var DrawLayer = function(params) {
                     hitData.elements.push(Hits.initHit(
                         drawable.type,
                         drawable,
-                        drawable.draggable ? drawable.drag : null)
+                        drawable.draggable ? dragObject : null)
                     );
 
                     styleType = hitData.type + 'Style';

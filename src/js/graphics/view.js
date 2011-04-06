@@ -464,7 +464,7 @@ var View = function(params) {
                     drop);
                 
             if (dragOk) {
-                redraw = true;
+                invalidate();
             } // if
             
             if (drop) {

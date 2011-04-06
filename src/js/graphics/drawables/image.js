@@ -34,8 +34,7 @@ function ImageDrawable(params) {
         typeName: 'Image'
     }, params);
     
-    var dragOffset = null,
-        drawableResync = Drawable.prototype.resync,
+    var drawableResync = Drawable.prototype.resync,
         drawX,
         drawY,
         imgOffsetX = 0,
@@ -90,43 +89,6 @@ function ImageDrawable(params) {
     } // changeImage
     
     /**
-    ### drag(dragData, dragX, dragY, drop)
-    */
-    function drag(dragData, dragX, dragY, drop) {
-        // if the drag offset is unknown then calculate
-        if (! dragOffset) {
-            dragOffset = new XY(
-                dragData.startX - this.xy.x, 
-                dragData.startY - this.xy.y
-            );
-
-            // TODO: increase scale? to highlight dragging
-        }
-
-        // update the xy and accounting for a drag offset
-        this.xy.x = dragX - dragOffset.x;
-        this.xy.y = dragY - dragOffset.y;
-        
-        if (drop) {
-            dragOffset = null;
-            
-            // TODO: reset scale
-            
-            if (this.layer) {
-                var view = this.layer.view;
-                if (view) {
-                    view.syncXY([this.xy], true);
-                    view.invalidate();
-                } // if
-            } // if
-            
-            this.trigger('dragDrop');
-        } // if
-        
-        return true;
-    } // drag
-    
-    /**
     ### getProps(renderer, state)
     Get the drawable item properties that will be passed to the renderer during
     the prepare and draw phase
@@ -157,7 +119,6 @@ function ImageDrawable(params) {
     
     var _self = COG.extend(this, {
         changeImage: changeImage,
-        drag: drag,
         getProps: getProps,
         resync: resync
     });
