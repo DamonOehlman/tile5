@@ -2,7 +2,7 @@ T5.registerRenderer('zoombar', function(view, container, params, baseRenderer) {
     params = COG.extend({
         width: 24,
         height: 200,
-        images: 'img/zoom.png',
+        images: '/img/zoom.png',
         margin: 10,
         thumbHeight: 16
     }, params.zoombar);
@@ -153,6 +153,9 @@ T5.registerRenderer('zoombar', function(view, container, params, baseRenderer) {
     
     // bind to the view zoom level change event
     view.bind('zoomLevelChange', handleZoomLevelChange);
+    
+    // set the zoom level to the current zoom level of the view
+    setThumbVal(view.getZoomLevel());
     
     return _this;
 });

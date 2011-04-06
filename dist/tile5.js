@@ -1301,7 +1301,7 @@ function pointerOffset(absPoint, offset) {
     };
 } // triggerPositionEvent
 
-function preventDefault(evt) {
+function preventDefault(evt, immediate) {
     if (evt.preventDefault) {
         evt.preventDefault();
         evt.stopPropagation();
@@ -1309,6 +1309,10 @@ function preventDefault(evt) {
     else if (typeof evt.cancelBubble != 'undefined') {
         evt.cancelBubble = true;
     } // if..else
+
+    if (immediate && evt.stopImmediatePropagation) {
+        evt.stopImmediatePropagation();
+    } // if
 } // preventDefault
 var MouseHandler = function(targetElement, observable, opts) {
     opts = COG.extend({
@@ -1672,7 +1676,7 @@ var TouchHandler = function(targetElement, observable, opts) {
 
     function handleTouchMove(evt) {
         if (matchTarget(evt, targetElement)) {
-            evt.preventDefault();
+            preventDefault(evt);
 
             touchesCurrent = getTouchData(evt);
 
