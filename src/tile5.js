@@ -47,6 +47,7 @@ var T5 = {};
     //= require "js/graphics/style"
     //= require "js/graphics/viewstate"
     //= require "js/graphics/view"
+    //= require "js/graphics/map"
     
     //= require "js/graphics/drawables/core"
     //= require "js/graphics/drawables/animation"
@@ -102,7 +103,9 @@ var T5 = {};
         ImageMarker: ImageMarker,
         
         DrawLayer: DrawLayer,
-        ShapeLayer: ShapeLayer
+        ShapeLayer: ShapeLayer,
+        
+        Map: Map
     });
     
     //= require "js/geo/constants"
@@ -119,9 +122,7 @@ var T5 = {};
     //= require "js/geo/routing"
     //= require "js/geo/geojson"
 
-    //= require "js/geo/ui/map"
     //= require "js/geo/ui/geopoly"
-    //= require "js/geo/ui/locationoverlay"    
     
     // define the geo functionality
     exports.Geo = {
@@ -139,14 +140,6 @@ var T5 = {};
         
         // TODO: probably need to include local support for addressing, but really don't want to bulk out T5 :/
 
-        GeocodeFieldWeights: {
-            streetDetails: 50,
-            location: 50
-        },
-
-        AddressCompareFns: {
-        },
-                
         Engine: GeoEngine,
         
         Routing: Routing,

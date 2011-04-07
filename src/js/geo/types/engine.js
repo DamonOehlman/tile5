@@ -21,3 +21,28 @@ var GeoEngine = function(params) {
     engines[_self.id] = _self;
     return _self;
 };
+
+/**
+### getEngine(requiredCapability)
+Returns the engine that provides the required functionality.  If preferred engines are supplied
+as additional arguments, then those are looked for first
+*/
+function getEngine(requiredCapability) {
+    // initialise variables
+    var fnresult = null;
+
+    // iterate through the arguments beyond the capabililty for the preferred engine
+    for (var ii = 1; (! fnresult) && (ii < arguments.length); ii++) {
+        fnresult = findEngine(requiredCapability, arguments[ii]);
+    } // for
+
+    // if we found an engine using preferences, return that otherwise return an alternative
+    fnresult = fnresult ? fnresult : findEngine(requiredCapability);
+
+    // if no engine was found, then throw an exception
+    if (! fnresult) {
+        throw new Error("Unable to find GEO engine with " + requiredCapability + " capability");
+    }
+
+    return fnresult;
+} // getEngine

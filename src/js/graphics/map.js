@@ -41,110 +41,28 @@ map.bind('boundsChange', function(evt, bounds) {
 
 ## Methods
 */
-var Map = exports.Map = function(params) {
+var Map = function(params) {
     params = COG.extend({
-        tapExtent: 10, // TODO: remove and use the inherited value
-        crosshair: false,
-        zoomLevel: 0,
+        zoomLevel: 1,
         minZoom: 1,
         maxZoom: 18,
         pannable: true,
         scalable: true
     }, params);
 
-    // define the locate modes
-    var LOCATE_MODE = {
-        NONE: 0,
-        SINGLE: 1,
-        WATCH: 2
-    };
-    
     // initialise variables
     var lastBoundsChangeOffset = new XY(),
-        locationWatchId = 0,
-        locateMode = LOCATE_MODE.NONE,
         initialized = false,
         tappedPOIs = [],
         annotations = null, // annotations layer
         guideOffset = null,
-        locationOverlay = null,
-        geoWatchId = 0,
         initialTrackingUpdate = true,
         rpp = 0,
         tapExtent = params.tapExtent;
         
     /* internal functions */
     
-    /* tracking functions */
-    
-    function trackingUpdate(position) {
-        try {
-            var currentPos = Position.init(
-                        position.coords.latitude, 
-                        position.coords.longitude),
-                accuracy = position.coords.accuracy / 1000;
-                
-            _self.trigger('locationUpdate', position, accuracy);
-
-            // if this is the initial tracking update then 
-            // create the overlay
-            if (initialTrackingUpdate) {
-                // if the geolocation annotation has not 
-                // been created then do that now
-                if (! locationOverlay) {
-                    locationOverlay = new UI.LocationOverlay({
-                        pos: currentPos,
-                        accuracy: accuracy
-                    });
-
-                    // if we want to display the location annotation, t
-                    // then put it onscreen
-                    locationOverlay.update(_self.getTileLayer());
-                    _self.setLayer('location', locationOverlay);
-                } // if
-
-                // TODO: fix the magic number
-                var targetBounds = BoundingBox.createBoundsFromCenter(
-                        currentPos, 
-                        Math.max(accuracy, 1));
-                        
-                _self.gotoBounds(targetBounds);
-            }
-            // otherwise, animate to the new position
-            else {
-                // update location annotation details
-                locationOverlay.pos = currentPos;
-                locationOverlay.accuracy = accuracy;
-
-                // tell the location annotation to update 
-                // it's xy coordinate
-                locationOverlay.update(_self.getTileLayer());
-
-                // pan to the position
-                panToPosition(
-                    currentPos, 
-                    null, 
-                    COG.easing('sine.out'));
-            } // if..else
-
-            initialTrackingUpdate = false;
-        }
-        catch (e) {
-            COG.exception(e);
-        }
-    } // trackingUpdate
-    
-    function trackingError(error) {
-        COG.info('caught location tracking error:', error);
-    } // trackingError
-    
     /* event handlers */
-    
-    function handlePan(evt, x, y) {
-        if (locateMode === LOCATE_MODE.SINGLE) {
-            _self.trackCancel();
-        } // if
-    } // handlePan
     
     function handleTap(evt, absXY, relXY, offsetXY) {
         var tapPos = GeoXY.toPos(offsetXY, rpp),
@@ -289,14 +207,6 @@ var Map = exports.Map = function(params) {
             
         // COG.info('panning to center xy: ', centerXY);
         _self.updateOffset(offsetX, offsetY, easingFn, easingDuration, function() {
-            /*
-            // refresh the display
-            _self.refresh();
-            
-            // trigger a bounds change event
-            _self.trigger("boundsChange", _self.getBoundingBox());
-            */
-            
             // if a callback is defined, then pass that on
             if (callback) {
                 callback(_self); 
@@ -331,89 +241,10 @@ var Map = exports.Map = function(params) {
         gotoBounds: gotoBounds,
         gotoPosition: gotoPosition,
         panToPosition: panToPosition,
-        
-        syncXY: syncXY,
-
-        /**
-        - `locate()`
-        
-        TODO
-        */
-        locate: function() {
-            // run a track start, but only allow 
-            // it to run for a maximum of 30s 
-            _self.trackStart(LOCATE_MODE.SINGLE);
-            
-            // stop checking for location after 10 seconds
-            setTimeout(_self.trackCancel, 10000);
-        },
-        
-        /**
-        - `trackStart(mode)`
-        
-        TODO
-        */
-        trackStart: function(mode) {
-            if (navigator.geolocation && (! geoWatchId)) {
-                locateMode = mode ? mode : LOCATE_MODE.WATCH;
-                
-                initialTrackingUpdate = true;
-                geoWatchId = navigator.geolocation.watchPosition(
-                    trackingUpdate, 
-                    trackingError, {
-                        enableHighAccuracy: true,
-                        timeout: 10000,
-                        maximumAge: 5000
-                    });
-            } // if
-        },
-        
-        /**
-        - `trackCancel()`
-        
-        TODO
-        */
-        trackCancel: function() {
-            if (geoWatchId && navigator.geolocation) {
-                navigator.geolocation.clearWatch(geoWatchId);
-            } // if
-            
-            _self.removeLayer('location');
-            locationOverlay = null;
-            
-            // reset the locate mode
-            locateMode = LOCATE_MODE.NONE;
-            
-            // reset the watch
-            geoWatchId = 0;
-        },
-        
-        /**
-        - `animateRoute(easing, duration, callback, center)`
-        
-        TODO
-        */
-        animateRoute: function(easing, duration, callback, center) {
-            // get the routing layer
-            var routeLayer = _self.getLayer('route');
-            if (routeLayer) {
-                // create the animation layer from the route
-                var animationLayer = routeLayer.getAnimation(
-                                        easing, 
-                                        duration, 
-                                        callback, 
-                                        center);
-                
-                // add the animation layer
-                if (animationLayer) {
-                    animationLayer.addToView(_self);
-                }
-            } // if
-        }
+        syncXY: syncXY
     });
     
     // bind some event handlers
-    _self.bind('pan', handlePan);
     _self.bind('tap', handleTap);
     
     // listen for the view idling

@@ -161,7 +161,7 @@ T5.SearchTools = (function() {
     */
     function rankGeocodeResponses(requestAddress, responseAddresses, engine) {
         var matches = [],
-            compareFns = module.AddressCompareFns;
+            compareFns = {};
 
         // if the engine is specified and the engine has compare fns, then extend them
         if (engine && engine.compareFns) {
@@ -189,6 +189,11 @@ T5.SearchTools = (function() {
     /* exports */
     
     var module = {
+        GeocodeFieldWeights: {
+            streetDetails: 50,
+            location: 50
+        },
+
         /**
         ### search(args, callback)
         The search method represents the guts of the SearchTools module. The args parameter accepts 

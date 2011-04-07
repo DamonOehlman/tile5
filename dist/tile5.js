@@ -4591,6 +4591,238 @@ var View = function(params) {
     return _self;
 }; // T5.View
 
+/**
+# T5.Map
+_extends:_ T5.Tiler
+
+
+The Map class is the entry point for creating a tiling map.  Creating a
+map is quite simple and requires two things to operate.  A containing HTML5 canvas
+that will be used to display the map and a T5.Geo.MapProvider that will populate
+the map.
+
+## Example Usage: Creating a Map
+
+<pre lang='javascript'>
+map = new T5.Map({
+    container: 'mapContainer'
+});
+</pre>
+
+Like all View descendants the map supports features such as intertial scrolling and
+the like and is configurable through implementing the COG.configurable interface. For
+more information on view level features check out the View documentation.
+
+## Events
+
+### zoomLevelChange
+This event is triggered when the zoom level has been updated
+
+<pre>
+map.bind('zoomLevelChange', function(evt, newZoomLevel) {
+});
+</pre>
+
+### boundsChange
+This event is triggered when the bounds of the map have changed
+
+<pre>
+map.bind('boundsChange', function(evt, bounds) {
+});
+</pre>
+
+## Methods
+*/
+var Map = function(params) {
+    params = COG.extend({
+        zoomLevel: 1,
+        minZoom: 1,
+        maxZoom: 18,
+        pannable: true,
+        scalable: true
+    }, params);
+
+    var lastBoundsChangeOffset = new XY(),
+        initialized = false,
+        tappedPOIs = [],
+        annotations = null, // annotations layer
+        guideOffset = null,
+        initialTrackingUpdate = true,
+        rpp = 0,
+        tapExtent = params.tapExtent;
+
+    /* internal functions */
+
+    /* event handlers */
+
+    function handleTap(evt, absXY, relXY, offsetXY) {
+        var tapPos = GeoXY.toPos(offsetXY, rpp),
+            minPos = GeoXY.toPos(
+                XYFns.offset(offsetXY, -tapExtent, tapExtent),
+                rpp),
+            maxPos = GeoXY.toPos(
+                XYFns.offset(offsetXY, tapExtent, -tapExtent),
+                rpp);
+
+        _self.trigger(
+            'geotap',
+            absXY,
+            relXY,
+            tapPos,
+            BoundingBox.init(minPos, maxPos)
+        );
+    } // handleTap
+
+    function handleRefresh(evt, view, viewport) {
+        if (lastBoundsChangeOffset.x != viewport.x || lastBoundsChangeOffset.y != viewport.y) {
+            _self.trigger('boundsChange', _self.getBoundingBox());
+
+            lastBoundsChangeOffset.x = viewport.x;
+            lastBoundsChangeOffset.y = viewport.y;
+        } // if
+    } // handleWork
+
+    function handleProviderUpdate(name, value) {
+        _self.cleanup();
+        initialized = false;
+    } // handleProviderUpdate
+
+    function handleZoomLevelChange(evt, zoomLevel) {
+        var gridSize;
+
+        rpp = radsPerPixel(zoomLevel);
+
+        gridSize = TWO_PI / rpp | 0;
+        _self.setMaxOffset(gridSize, gridSize, true, false);
+
+
+        _self.resetScale();
+        _self.triggerAll('resync', _self);
+    } // handleZoomLevel
+
+    /* internal functions */
+
+    function getLayerScaling(oldZoom, newZoom) {
+        return radsPerPixel(oldZoom) / radsPerPixel(newZoom);
+    } // getLayerScaling
+
+    /* public methods */
+
+    /**
+    ### getBoundingBox()
+
+    Return a T5.Geo.BoundingBox for the current map view area
+    */
+    function getBoundingBox() {
+        var viewport = _self.getViewport();
+
+        return viewport ?
+            BoundingBox.init(
+                GeoXY.toPos(new XY(viewport.x, viewport.y2), rpp),
+                GeoXY.toPos(new XY(viewport.x2, viewport.y), rpp)) :
+            null;
+    } // getBoundingBox
+
+    /**
+    ### getCenterPosition()`
+    Return a T5.GeoXY composite for the center position of the map
+    */
+    function getCenterPosition() {
+        var viewport = _self.getViewport();
+        if (viewport) {
+            var xy = new XY(viewport.x + (viewport.w >> 1), viewport.y + (viewport.h >> 1));
+            return GeoXY.toPos(xy, rpp);
+        } // if
+
+        return null;
+    } // getCenterPosition
+
+    /**
+    ### gotoBounds(bounds, callback)
+    Calculates the optimal display bounds for the specified T5.Geo.BoundingBox and
+    then goes to the center position and zoom level best suited.
+    */
+    function gotoBounds(bounds, callback) {
+        var zoomLevel = BoundingBox.getZoomLevel(
+                            bounds,
+                            _self.getViewport());
+
+        gotoPosition(
+            BoundingBox.getCenter(bounds),
+            zoomLevel,
+            callback);
+    } // gotoBounds
+
+    /**
+    ### gotoPosition(position, newZoomLevel, callback)
+    This function is used to tell the map to go to the specified position.  The
+    newZoomLevel parameter is optional and updates the map zoom level if supplied.
+    An optional callback argument is provided to receieve a notification once
+    the position of the map has been updated.
+    */
+    function gotoPosition(position, newZoomLevel, callback) {
+        _self.setZoomLevel(newZoomLevel);
+
+        panToPosition(position, callback);
+    } // gotoPosition
+
+    /**
+    ### panToPosition(position, callback, easingFn)
+    This method is used to tell the map to pan (not zoom) to the specified
+    T5.GeoXY.  An optional callback can be passed as the second
+    parameter to the function and this fires a notification once the map is
+    at the new specified position.  Additionally, an optional easingFn parameter
+    can be supplied if the pan operation should ease to the specified location
+    rather than just shift immediately.  An easingDuration can also be supplied.
+    */
+    function panToPosition(position, callback, easingFn, easingDuration) {
+        var centerXY = GeoXY.init(position, radsPerPixel(_self.getZoomLevel())),
+            offsetX = centerXY.x - (_self.width >> 1),
+            offsetY = centerXY.y - (_self.height >> 1);
+
+        _self.updateOffset(offsetX, offsetY, easingFn, easingDuration, function() {
+            if (callback) {
+                callback(_self);
+            } // if
+        });
+    } // panToPosition
+
+    /**
+    ### syncXY(points)
+    This function iterates through the specified vectors and if they are
+    of type GeoXY composite they are provided the rads per pixel of the
+    grid so they can perform their calculations
+    */
+    function syncXY(points, reverse) {
+        return (reverse ? GeoXY.syncPos : GeoXY.sync)(points, rpp);
+    } // syncXY
+
+    /* public object definition */
+
+    params.adjustScaleFactor = function(scaleFactor) {
+        var roundFn = scaleFactor < 1 ? Math.floor : Math.ceil;
+        return Math.pow(2, roundFn(Math.log(scaleFactor)));
+    };
+
+    var _self = COG.extend(new View(params), {
+
+        getBoundingBox: getBoundingBox,
+        getCenterPosition: getCenterPosition,
+
+        gotoBounds: gotoBounds,
+        gotoPosition: gotoPosition,
+        panToPosition: panToPosition,
+        syncXY: syncXY
+    });
+
+    _self.bind('tap', handleTap);
+
+    _self.bind('refresh', handleRefresh);
+
+    _self.bind('zoomLevelChange', handleZoomLevelChange);
+
+    return _self;
+}; // T5.Map
 
 /**
 # T5.Drawable
@@ -5564,7 +5796,9 @@ var ShapeLayer = function(params) {
         ImageMarker: ImageMarker,
 
         DrawLayer: DrawLayer,
-        ShapeLayer: ShapeLayer
+        ShapeLayer: ShapeLayer,
+
+        Map: Map
     });
 
 var LAT_VARIABILITIES = [
@@ -5625,27 +5859,6 @@ To be completed
 function dist2rad(distance) {
     return distance / KM_PER_RAD;
 } // dist2rad
-
-/**
-### getEngine(requiredCapability)
-Returns the engine that provides the required functionality.  If preferred engines are supplied
-as additional arguments, then those are looked for first
-*/
-function getEngine(requiredCapability) {
-    var fnresult = null;
-
-    for (var ii = 1; (! fnresult) && (ii < arguments.length); ii++) {
-        fnresult = findEngine(requiredCapability, arguments[ii]);
-    } // for
-
-    fnresult = fnresult ? fnresult : findEngine(requiredCapability);
-
-    if (! fnresult) {
-        throw new Error("Unable to find GEO engine with " + requiredCapability + " capability");
-    }
-
-    return fnresult;
-} // getEngine
 
 /**
 ### lat2pix(lat)
@@ -6515,6 +6728,27 @@ var GeoEngine = function(params) {
 };
 
 /**
+### getEngine(requiredCapability)
+Returns the engine that provides the required functionality.  If preferred engines are supplied
+as additional arguments, then those are looked for first
+*/
+function getEngine(requiredCapability) {
+    var fnresult = null;
+
+    for (var ii = 1; (! fnresult) && (ii < arguments.length); ii++) {
+        fnresult = findEngine(requiredCapability, arguments[ii]);
+    } // for
+
+    fnresult = fnresult ? fnresult : findEngine(requiredCapability);
+
+    if (! fnresult) {
+        throw new Error("Unable to find GEO engine with " + requiredCapability + " capability");
+    }
+
+    return fnresult;
+} // getEngine
+
+/**
 # T5.Geo.Routing
 _module_
 
@@ -7090,384 +7324,6 @@ var GeoJSON = exports.GeoJSON = {
 };
 
 /**
-# T5.Map
-_extends:_ T5.Tiler
-
-
-The Map class is the entry point for creating a tiling map.  Creating a
-map is quite simple and requires two things to operate.  A containing HTML5 canvas
-that will be used to display the map and a T5.Geo.MapProvider that will populate
-the map.
-
-## Example Usage: Creating a Map
-
-<pre lang='javascript'>
-map = new T5.Map({
-    container: 'mapContainer'
-});
-</pre>
-
-Like all View descendants the map supports features such as intertial scrolling and
-the like and is configurable through implementing the COG.configurable interface. For
-more information on view level features check out the View documentation.
-
-## Events
-
-### zoomLevelChange
-This event is triggered when the zoom level has been updated
-
-<pre>
-map.bind('zoomLevelChange', function(evt, newZoomLevel) {
-});
-</pre>
-
-### boundsChange
-This event is triggered when the bounds of the map have changed
-
-<pre>
-map.bind('boundsChange', function(evt, bounds) {
-});
-</pre>
-
-## Methods
-*/
-var Map = exports.Map = function(params) {
-    params = COG.extend({
-        tapExtent: 10, // TODO: remove and use the inherited value
-        crosshair: false,
-        zoomLevel: 0,
-        minZoom: 1,
-        maxZoom: 18,
-        pannable: true,
-        scalable: true
-    }, params);
-
-    var LOCATE_MODE = {
-        NONE: 0,
-        SINGLE: 1,
-        WATCH: 2
-    };
-
-    var lastBoundsChangeOffset = new XY(),
-        locationWatchId = 0,
-        locateMode = LOCATE_MODE.NONE,
-        initialized = false,
-        tappedPOIs = [],
-        annotations = null, // annotations layer
-        guideOffset = null,
-        locationOverlay = null,
-        geoWatchId = 0,
-        initialTrackingUpdate = true,
-        rpp = 0,
-        tapExtent = params.tapExtent;
-
-    /* internal functions */
-
-    /* tracking functions */
-
-    function trackingUpdate(position) {
-        try {
-            var currentPos = Position.init(
-                        position.coords.latitude,
-                        position.coords.longitude),
-                accuracy = position.coords.accuracy / 1000;
-
-            _self.trigger('locationUpdate', position, accuracy);
-
-            if (initialTrackingUpdate) {
-                if (! locationOverlay) {
-                    locationOverlay = new UI.LocationOverlay({
-                        pos: currentPos,
-                        accuracy: accuracy
-                    });
-
-                    locationOverlay.update(_self.getTileLayer());
-                    _self.setLayer('location', locationOverlay);
-                } // if
-
-                var targetBounds = BoundingBox.createBoundsFromCenter(
-                        currentPos,
-                        Math.max(accuracy, 1));
-
-                _self.gotoBounds(targetBounds);
-            }
-            else {
-                locationOverlay.pos = currentPos;
-                locationOverlay.accuracy = accuracy;
-
-                locationOverlay.update(_self.getTileLayer());
-
-                panToPosition(
-                    currentPos,
-                    null,
-                    COG.easing('sine.out'));
-            } // if..else
-
-            initialTrackingUpdate = false;
-        }
-        catch (e) {
-            COG.exception(e);
-        }
-    } // trackingUpdate
-
-    function trackingError(error) {
-        COG.info('caught location tracking error:', error);
-    } // trackingError
-
-    /* event handlers */
-
-    function handlePan(evt, x, y) {
-        if (locateMode === LOCATE_MODE.SINGLE) {
-            _self.trackCancel();
-        } // if
-    } // handlePan
-
-    function handleTap(evt, absXY, relXY, offsetXY) {
-        var tapPos = GeoXY.toPos(offsetXY, rpp),
-            minPos = GeoXY.toPos(
-                XYFns.offset(offsetXY, -tapExtent, tapExtent),
-                rpp),
-            maxPos = GeoXY.toPos(
-                XYFns.offset(offsetXY, tapExtent, -tapExtent),
-                rpp);
-
-        _self.trigger(
-            'geotap',
-            absXY,
-            relXY,
-            tapPos,
-            BoundingBox.init(minPos, maxPos)
-        );
-    } // handleTap
-
-    function handleRefresh(evt, view, viewport) {
-        if (lastBoundsChangeOffset.x != viewport.x || lastBoundsChangeOffset.y != viewport.y) {
-            _self.trigger('boundsChange', _self.getBoundingBox());
-
-            lastBoundsChangeOffset.x = viewport.x;
-            lastBoundsChangeOffset.y = viewport.y;
-        } // if
-    } // handleWork
-
-    function handleProviderUpdate(name, value) {
-        _self.cleanup();
-        initialized = false;
-    } // handleProviderUpdate
-
-    function handleZoomLevelChange(evt, zoomLevel) {
-        var gridSize;
-
-        rpp = radsPerPixel(zoomLevel);
-
-        gridSize = TWO_PI / rpp | 0;
-        _self.setMaxOffset(gridSize, gridSize, true, false);
-
-
-        _self.resetScale();
-        _self.triggerAll('resync', _self);
-    } // handleZoomLevel
-
-    /* internal functions */
-
-    function getLayerScaling(oldZoom, newZoom) {
-        return radsPerPixel(oldZoom) / radsPerPixel(newZoom);
-    } // getLayerScaling
-
-    /* public methods */
-
-    /**
-    ### getBoundingBox()
-
-    Return a T5.Geo.BoundingBox for the current map view area
-    */
-    function getBoundingBox() {
-        var viewport = _self.getViewport();
-
-        return viewport ?
-            BoundingBox.init(
-                GeoXY.toPos(new XY(viewport.x, viewport.y2), rpp),
-                GeoXY.toPos(new XY(viewport.x2, viewport.y), rpp)) :
-            null;
-    } // getBoundingBox
-
-    /**
-    ### getCenterPosition()`
-    Return a T5.GeoXY composite for the center position of the map
-    */
-    function getCenterPosition() {
-        var viewport = _self.getViewport();
-        if (viewport) {
-            var xy = new XY(viewport.x + (viewport.w >> 1), viewport.y + (viewport.h >> 1));
-            return GeoXY.toPos(xy, rpp);
-        } // if
-
-        return null;
-    } // getCenterPosition
-
-    /**
-    ### gotoBounds(bounds, callback)
-    Calculates the optimal display bounds for the specified T5.Geo.BoundingBox and
-    then goes to the center position and zoom level best suited.
-    */
-    function gotoBounds(bounds, callback) {
-        var zoomLevel = BoundingBox.getZoomLevel(
-                            bounds,
-                            _self.getViewport());
-
-        gotoPosition(
-            BoundingBox.getCenter(bounds),
-            zoomLevel,
-            callback);
-    } // gotoBounds
-
-    /**
-    ### gotoPosition(position, newZoomLevel, callback)
-    This function is used to tell the map to go to the specified position.  The
-    newZoomLevel parameter is optional and updates the map zoom level if supplied.
-    An optional callback argument is provided to receieve a notification once
-    the position of the map has been updated.
-    */
-    function gotoPosition(position, newZoomLevel, callback) {
-        _self.setZoomLevel(newZoomLevel);
-
-        panToPosition(position, callback);
-    } // gotoPosition
-
-    /**
-    ### panToPosition(position, callback, easingFn)
-    This method is used to tell the map to pan (not zoom) to the specified
-    T5.GeoXY.  An optional callback can be passed as the second
-    parameter to the function and this fires a notification once the map is
-    at the new specified position.  Additionally, an optional easingFn parameter
-    can be supplied if the pan operation should ease to the specified location
-    rather than just shift immediately.  An easingDuration can also be supplied.
-    */
-    function panToPosition(position, callback, easingFn, easingDuration) {
-        var centerXY = GeoXY.init(position, radsPerPixel(_self.getZoomLevel())),
-            offsetX = centerXY.x - (_self.width >> 1),
-            offsetY = centerXY.y - (_self.height >> 1);
-
-        _self.updateOffset(offsetX, offsetY, easingFn, easingDuration, function() {
-            /*
-            _self.refresh();
-
-            _self.trigger("boundsChange", _self.getBoundingBox());
-            */
-
-            if (callback) {
-                callback(_self);
-            } // if
-        });
-    } // panToPosition
-
-    /**
-    ### syncXY(points)
-    This function iterates through the specified vectors and if they are
-    of type GeoXY composite they are provided the rads per pixel of the
-    grid so they can perform their calculations
-    */
-    function syncXY(points, reverse) {
-        return (reverse ? GeoXY.syncPos : GeoXY.sync)(points, rpp);
-    } // syncXY
-
-    /* public object definition */
-
-    params.adjustScaleFactor = function(scaleFactor) {
-        var roundFn = scaleFactor < 1 ? Math.floor : Math.ceil;
-        return Math.pow(2, roundFn(Math.log(scaleFactor)));
-    };
-
-    var _self = COG.extend(new View(params), {
-
-        getBoundingBox: getBoundingBox,
-        getCenterPosition: getCenterPosition,
-
-        gotoBounds: gotoBounds,
-        gotoPosition: gotoPosition,
-        panToPosition: panToPosition,
-
-        syncXY: syncXY,
-
-        /**
-        - `locate()`
-
-        TODO
-        */
-        locate: function() {
-            _self.trackStart(LOCATE_MODE.SINGLE);
-
-            setTimeout(_self.trackCancel, 10000);
-        },
-
-        /**
-        - `trackStart(mode)`
-
-        TODO
-        */
-        trackStart: function(mode) {
-            if (navigator.geolocation && (! geoWatchId)) {
-                locateMode = mode ? mode : LOCATE_MODE.WATCH;
-
-                initialTrackingUpdate = true;
-                geoWatchId = navigator.geolocation.watchPosition(
-                    trackingUpdate,
-                    trackingError, {
-                        enableHighAccuracy: true,
-                        timeout: 10000,
-                        maximumAge: 5000
-                    });
-            } // if
-        },
-
-        /**
-        - `trackCancel()`
-
-        TODO
-        */
-        trackCancel: function() {
-            if (geoWatchId && navigator.geolocation) {
-                navigator.geolocation.clearWatch(geoWatchId);
-            } // if
-
-            _self.removeLayer('location');
-            locationOverlay = null;
-
-            locateMode = LOCATE_MODE.NONE;
-
-            geoWatchId = 0;
-        },
-
-        /**
-        - `animateRoute(easing, duration, callback, center)`
-
-        TODO
-        */
-        animateRoute: function(easing, duration, callback, center) {
-            var routeLayer = _self.getLayer('route');
-            if (routeLayer) {
-                var animationLayer = routeLayer.getAnimation(
-                                        easing,
-                                        duration,
-                                        callback,
-                                        center);
-
-                if (animationLayer) {
-                    animationLayer.addToView(_self);
-                }
-            } // if
-        }
-    });
-
-    _self.bind('pan', handlePan);
-    _self.bind('tap', handleTap);
-
-    _self.bind('refresh', handleRefresh);
-
-    _self.bind('zoomLevelChange', handleZoomLevelChange);
-
-    return _self;
-}; // T5.Map
-/**
 # T5.GeoShape
 _extends:_ T5.Shape
 
@@ -7505,90 +7361,6 @@ var GeoShape = exports.GeoShape = function(positions, params) {
 
     return new T5.Poly(vectors, params);
 };
-var LOCATOR_IMAGE =
-'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAA' +
-'BHNCSVQICAgIfAhkiAAAAAlwSFlzAAACIQAAAiEBPhEQkwAAABl0RVh0U29mdHdhcmUAd3' +
-'d3Lmlua3NjYXBlLm9yZ5vuPBoAAAG+SURBVCiRlZHNahNRAIW/O7mTTJPahLZBA1YUyriI' +
-'NRAE3bQIKm40m8K8gLj0CRQkO32ELHUlKbgoIu4EqeJPgtCaoBuNtjXt5LeTMZk0mbmuWi' +
-'uuPLsD3+HAOUIpxf9IHjWmaUbEyWv5ROrsVULhcHP761rUfnN3Y2Otc8CIg4YT85lzuVsP' +
-'P+Qupw1vpPjRCvhS9ymvV0e77x7nNj+uvADQAIQQ+uLyvdfLV9JGZi7EdEwQlqBpEJ019f' +
-'0z1mo2u5Q8DMydv25lshemmj1FueZTawbs7inarqLbV7Qjab1upB9YlhWSAHLavLHZCvg1' +
-'VEhN0PMU9W7At4bPVidg7CtkLLXkut+lBPD6/Ub155jJiADAHSpaLmx3ApyBQoYEUd0PBo' +
-'OBkAC6+3llvda/YxgGgYL+UNHf/zN3KiExGlsvTdP0NYDkhPdWrz35ZDsBzV5wCMuQwEyF' +
-'mXFeeadjzfuFQmGkAZRKpdGC/n7x+M6jqvA9Zo6FWDhlcHE+wqT93J1tP7vpOE7rrx8ALM' +
-'uasPf8S12St4WmJ6bYWTUC52k8Hm8Vi0X/nwBAPp/XKpWKdF1X2LYdlMvlsToC/QYTls7D' +
-'LFr/PAAAAABJRU5ErkJggg%3D%3D';
-
-/**
-# T5.Geo.LocationOverlay
-
-*/
-var LocationOverlay = exports.LocationOverlay = function(params) {
-    params = COG.extend({
-        pos: null,
-        accuracy: null,
-        zindex: 90
-    }, params);
-
-    var iconImage = new Image(),
-        iconOffset = T5.XY.init(),
-        centerXY = T5.XY.init(),
-        indicatorRadius = null;
-
-    iconImage.src = LOCATOR_IMAGE;
-    iconImage.onload = function() {
-        iconOffset = T5.XY.init(
-            iconImage.width >> 1,
-            iconImage.height >> 1);
-    };
-
-    var _self = COG.extend(new T5.ViewLayer(params), {
-        pos: params.pos,
-        accuracy: params.accuracy,
-        drawAccuracyIndicator: false,
-
-        draw: function(context, offset, dimensions, state, view) {
-            var centerX = centerXY.x - offset.x,
-                centerY = centerXY.y - offset.y;
-
-            if (indicatorRadius) {
-                context.fillStyle = 'rgba(30, 30, 30, 0.2)';
-
-                context.beginPath();
-                context.arc(
-                    centerX,
-                    centerY,
-                    indicatorRadius,
-                    0,
-                    Math.PI * 2,
-                    false);
-                context.fill();
-            } // if
-
-            if (iconImage.complete && iconImage.width > 0) {
-                context.drawImage(
-                    iconImage,
-                    centerX - iconOffset.x,
-                    centerY - iconOffset.y,
-                    iconImage.width,
-                    iconImage.height);
-            } // if
-        },
-
-        update: function(grid) {
-            if (grid) {
-                indicatorRadius = grid.getPixelDistance(_self.accuracy) >> 1;
-                centerXY = grid.getGridXYForPosition(_self.pos);
-            } // if
-        }
-    });
-
-    _self.bind('gridUpdate', function(evt, grid) {
-        _self.update(grid);
-    });
-
-    return _self;
-};
 
     exports.Geo = {
         distanceToString: distanceToString,
@@ -7603,14 +7375,6 @@ var LocationOverlay = exports.LocationOverlay = function(params) {
         Address: Address,
         A: addrTools,
 
-
-        GeocodeFieldWeights: {
-            streetDetails: 50,
-            location: 50
-        },
-
-        AddressCompareFns: {
-        },
 
         Engine: GeoEngine,
 

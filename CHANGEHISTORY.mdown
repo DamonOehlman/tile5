@@ -4,6 +4,10 @@
 
 ### Detailed Changes
 
+- Geolocation tracking functions removed from the `T5.Map` class.  Will be reimplemented as a plugin so those who want it can use it.  Ideally this will be used in conjunction with the `T5.SearchTools` plugin.
+
+- `animateRoute` method removed from the `T5.Map` class. A more generic path animation solution will be implemented at a later date.
+
 - Restructure of the Geo namespace, with removal of some utility search classes to a separate search plugin. (see: T5.SearchTools)
 
 - HitTest events refer to hit target as `target` rather than `data` which was a poor choice of name.
