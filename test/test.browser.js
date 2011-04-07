@@ -32,10 +32,10 @@ T5TEST = (function() {
     function inject() {
         console.debug('injecting ' + testModules.length + ' modules');
         for (var ii = 0; ii < testModules.length; ii++) {
-            document.write('<script src="unit/' + testModules[ii] + '.js"></script>\n');
+            document.write('<script src="spec/' + testModules[ii] + '.spec.js"></script>\n');
         } // for
 
-        document.write('<script defer="true">setTimeout(T5TEST.runCoverageCheck, 100);</script>\n');
+        // document.write('<script defer="true">setTimeout(T5TEST.runCoverageCheck, 100);</script>\n');
     }
     
     function runCoverageCheck() {
@@ -51,13 +51,6 @@ T5TEST = (function() {
     } // checkCoverage
     
     testModules = getTestModules(T5, 'T5');
-    QUnit.moduleStart = function(moduleName, testEnvironment) {
-        coveredModules[moduleName] = true;
-    };
-    
-    QUnit.testStart = function(testName, testEnvironment) {
-        runTests[testName] = true;
-    } // testStart
     
     return {
         modules: testModules,
