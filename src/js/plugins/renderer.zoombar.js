@@ -194,9 +194,6 @@ T5.registerRenderer('zoombar', function(view, container, params, baseRenderer) {
     
     /* exports */
     
-    function reset() {
-    } // reset
-
     function setThumbVal(value) {
         if (value !== thumbVal) {
             // calculate the thumb value
@@ -229,7 +226,6 @@ T5.registerRenderer('zoombar', function(view, container, params, baseRenderer) {
     createZoomBar();
     
     var _this = COG.extend(baseRenderer, {
-        reset: reset
     });
     
     // handle the predraw

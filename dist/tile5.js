@@ -2828,6 +2828,8 @@ Renderers fire the following events:
 
 ### predraw
 
+### reset
+
 */
 var Renderer = function(view, container, params) {
 
@@ -4390,7 +4392,7 @@ var View = function(params) {
 
             scaleFactor = 1;
 
-            renderer.reset();
+            renderer.trigger('reset');
 
             refresh();
         } // if

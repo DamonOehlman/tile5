@@ -1006,7 +1006,7 @@ var View = function(params) {
             scaleFactor = 1;
             
             // reset the renderer
-            renderer.reset();
+            renderer.trigger('reset');
             
             // refresh the display
             refresh();

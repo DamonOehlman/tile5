@@ -133,6 +133,11 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             })        
         ];
     } // handleStyleDefined
+    
+    function handleReset(evt) {
+        removeOldObjects(activeTiles, currentTiles = {});
+        removeOldObjects(activeObjects, currentObjects, 'removeOnReset');
+    } // handleReset
         
     function initDrawData(viewport, hitData, state, drawFn) {
         var isHit = false;
@@ -612,13 +617,6 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         renderer.render(scene, camera);
     } // render
     
-    function reset() {
-        currentTiles = {};
-        removeOldObjects(activeTiles, currentTiles);
-        
-        removeOldObjects(activeObjects, currentObjects, 'removeOnReset');
-    } // reset
-    
     /* initialization */
     
     // initialise the container
@@ -637,7 +635,6 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         prepPoly: prepPoly,
         
         render: render,
-        reset: reset,
         
         getCamera: function() {
             return camera;
@@ -657,6 +654,7 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
     
     // handle cleanup
     _this.bind('detach', handleDetach);
+    _this.bind('reset', handleReset);
     
     loadStyles();
     COG.info('created three:webgl renderer');

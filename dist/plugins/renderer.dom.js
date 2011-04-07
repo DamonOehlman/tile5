@@ -57,6 +57,14 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
         currentTiles = {};
     } // handlePredraw
 
+    function handleReset(evt) {
+        removeOldObjects(activeTiles, currentTiles = {});
+
+        while (imageDiv.childNodes.length > 0) {
+            imageDiv.removeChild(imageDiv.childNodes[0]);
+        } // while
+    } // handleReset
+
     function removeOldObjects(activeObj, currentObj, flagField) {
         var deletedKeys = [];
 
@@ -164,14 +172,6 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
         } // for
     } // drawTiles
 
-    function reset() {
-        removeOldObjects(activeTiles, currentTiles = {});
-
-        while (imageDiv.childNodes.length > 0) {
-            imageDiv.removeChild(imageDiv.childNodes[0]);
-        } // while
-    } // reset
-
     /* initialization */
 
     createImageContainer();
@@ -179,12 +179,12 @@ T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
     var _this = COG.extend(baseRenderer, {
         preventPartialScale: true,
 
-        drawTiles: drawTiles,
-        reset: reset
+        drawTiles: drawTiles
     });
 
     _this.bind('predraw', handlePredraw);
     _this.bind('detach', handleDetach);
+    _this.bind('reset', handleReset);
 
     return _this;
 });

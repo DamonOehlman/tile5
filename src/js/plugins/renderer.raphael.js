@@ -46,6 +46,14 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
         styles[styleId] = styleData;
     } // handleStyleDefined
     
+    function handleReset(evt) {
+        removeOldObjects(activeTiles, currentTiles = {});
+        removeOldObjects(activeObjects, currentObjects, 'removeOnReset');
+        
+        // clear the paper
+        // paper.clear();
+    } // handleReset
+    
     function initDrawData(drawable, viewport, hitData, state, drawFn) {
         var isHit = false;
         
@@ -306,15 +314,6 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
         return initDrawData(drawable, viewport, hitData, state);
     } // prepPoly
     
-    function reset() {
-        currentTiles = {};
-        removeOldObjects(activeTiles, currentTiles);
-        
-        removeOldObjects(activeObjects, currentObjects, 'removeOnReset');
-        // currentObjects = {};
-        // removeOldObjects();
-    } // reset
-    
     /* initialization */
     
     // initialise the container
@@ -333,8 +332,6 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
         prepMarker: prepMarker,
         prepPoly: prepPoly,
         
-        reset: reset,
-        
         getDimensions: function() {
             return {
                 width: vpWidth,
@@ -350,6 +347,7 @@ T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
     // handle the predraw event
     _this.bind('predraw', handlePredraw);
     _this.bind('detach', handleDetach);
+    _this.bind('reset', handleReset);
     
     // load styles
     loadStyles();
