@@ -1,9 +1,13 @@
 function createStoreForZoomLevel(zoomLevel, oldStorage) {
     var store = new SpatialStore(Math.sqrt(256 << zoomLevel) | 0);
     
-    if (oldStorage) {
+    // if we were supplied another spatial store and the zoom levels match then transfer items
+    if (oldStorage && (oldStorage.zoomLevel === zoomLevel)) {
         oldStorage.copyInto(store);
     } // if
+    
+    // tag the new store with the zoom level
+    store.zoomLevel = zoomLevel;
     
     return store;
 }

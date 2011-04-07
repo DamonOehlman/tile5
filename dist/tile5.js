@@ -2596,9 +2596,11 @@ Hits = (function() {
 function createStoreForZoomLevel(zoomLevel, oldStorage) {
     var store = new SpatialStore(Math.sqrt(256 << zoomLevel) | 0);
 
-    if (oldStorage) {
+    if (oldStorage && (oldStorage.zoomLevel === zoomLevel)) {
         oldStorage.copyInto(store);
     } // if
+
+    store.zoomLevel = zoomLevel;
 
     return store;
 }
@@ -5604,7 +5606,7 @@ var DrawLayer = function(params) {
     } // handleItemMove
 
     function handleResync(evt, view) {
-        storage = createStoreForZoomLevel(view.getZoomLevel()); // TODO: populate with the previous storage
+        storage = createStoreForZoomLevel(view.getZoomLevel(), storage); // TODO: populate with the previous storage
 
         for (var ii = drawables.length; ii--; ) {
             var drawable = drawables[ii];
