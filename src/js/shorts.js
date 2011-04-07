@@ -36,6 +36,8 @@ var abs = Math.abs,
     typeNumber = 'number',
     typeArray = 'array',
     
+    reDelimitedSplit = /[\,\s]/,
+    
     // some detection variables
     isExplorerCanvas = typeof G_vmlCanvasManager != typeUndefined,
     isFlashCanvas = typeof FlashCanvas != typeUndefined;

@@ -55,7 +55,7 @@ T5.SearchTools = (function() {
         /* tracking functions */
 
         function parsePosition(position) {
-            var currentPos = Position.init(
+            var currentPos = new Pos(
                     position.coords.latitude, 
                     position.coords.longitude);
 

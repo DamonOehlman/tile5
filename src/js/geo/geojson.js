@@ -49,7 +49,7 @@ function readVectors(coordinates) {
         positions = new Array(count);
 
     for (var ii = count; ii--; ) {
-        positions[ii] = Position.init(coordinates[ii][1], coordinates[ii][0]);
+        positions[ii] = new Pos(coordinates[ii][1], coordinates[ii][0]);
     } // for
 
     return Position.vectorize(positions, VECTORIZE_OPTIONS);

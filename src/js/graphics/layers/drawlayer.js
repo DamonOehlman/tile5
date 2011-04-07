@@ -85,7 +85,7 @@ var DrawLayer = function(params) {
     
     function handleResync(evt, view) {
         // create the storage with an appropriate cell size
-        storage = createStoreForZoomLevel(view.getZoomLevel(), storage);
+        storage = createStoreForZoomLevel(view.getZoomLevel()); // TODO: populate with the previous storage
         
         // iterate through the shapes and resync to the grid
         for (var ii = drawables.length; ii--; ) {

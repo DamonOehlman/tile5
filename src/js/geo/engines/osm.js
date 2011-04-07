@@ -50,7 +50,7 @@ T5.Geo.OSM = (function() {
                 lon = x / numTiles * 360 - 180,
                 lat = RADIANS_TO_DEGREES * Math.atan(0.5*(Math.exp(n)-Math.exp(-n)));
             
-            return T5.Geo.Position.init(lat, lon);
+            return new T5.Pos(lat, lon);
         } // calculatePosition
         
         function getTileXY(x, y, numTiles, radsPerPixel) {

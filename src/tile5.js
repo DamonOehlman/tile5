@@ -63,6 +63,8 @@ var T5 = {};
     //= require "js/graphics/layers/drawlayer"
     //= require "js/graphics/layers/shapelayer"
     
+    //= require "js/geo/types/pos"
+    
     COG.extend(exports, {
         ex: COG.extend,
         is: isType,
@@ -105,12 +107,15 @@ var T5 = {};
         DrawLayer: DrawLayer,
         ShapeLayer: ShapeLayer,
         
-        Map: Map
+        Map: Map,
+        
+        // some of the geo types starting to move up...
+        Pos: Pos
     });
     
     //= require "js/geo/constants"
     //= require "js/geo/functions"
-    
+
     //= require "js/geo/types/position"
     //= require "js/geo/types/boundingbox"
     //= require "js/geo/types/radius"

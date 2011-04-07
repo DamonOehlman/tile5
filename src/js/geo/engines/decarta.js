@@ -244,7 +244,7 @@ T5.Geo.Decarta = (function() {
         
         CenterContext: function(jsonData) {
             return {
-                centerPos: T5.Geo.Position.parse(jsonData.CenterPoint ? jsonData.CenterPoint.pos.content : ""),
+                centerPos: new T5.Pos(jsonData.CenterPoint ? jsonData.CenterPoint.pos.content : ""),
                 radius: new T5.Geo.Radius(jsonData.Radius ? jsonData.Radius.content : 0, jsonData.Radius ? jsonData.Radius.unit : null)
             }; // _self
         } // CenterContext
@@ -399,7 +399,7 @@ T5.Geo.Decarta = (function() {
             if (match && validMatch(match)) {
                 // if the point is defined, then convert that to a position
                 if (match && match.Point) {
-                    matchPos = T5.Geo.Position.parse(match.Point.pos);
+                    matchPos = new T5.Pos(match.Point.pos);
                 } // if
 
                 // if we have the address then convert that to an address
@@ -498,7 +498,7 @@ T5.Geo.Decarta = (function() {
                     "<xls:ReverseGeocodeRequest>" + 
                         "<xls:Position>" + 
                             "<gml:Point>" + 
-                                "<gml:pos>" + T5.Geo.Position.toString(params.position) + "</gml:pos>" + 
+                                "<gml:pos>" + params.position.toString() + "</gml:pos>" + 
                             "</gml:Point>" + 
                         "</xls:Position>" + 
                         "<xls:ReverseGeocodePreference>" + params.geocodePreference + "</xls:ReverseGeocodePreference>" + 
@@ -510,7 +510,7 @@ T5.Geo.Decarta = (function() {
                 
                 // if the point is defined, then convert that to a position
                 if (response && response.Point) {
-                    matchPos = T5.Geo.Position.parse(match.Point.pos);
+                    matchPos = new T5.Pos(match.Point.pos);
                 } // if
 
                 // if we have the address then convert that to an address
@@ -558,7 +558,7 @@ T5.Geo.Decarta = (function() {
                 totalTime = COG.addDuration(totalTime, time);
                 
                 fnresult.push(new T5.Geo.Routing.Instruction({
-                    position: T5.Geo.Position.parse(instructions[ii].Point),
+                    position: new T5.Pos(instructions[ii].Point),
                     description: instructions[ii].Instruction,
                     distance: distance,
                     distanceTotal: totalDistance,
@@ -603,7 +603,7 @@ T5.Geo.Decarta = (function() {
                     // as to why this is required, who knows....
                     var tagName = (ii === 0 ? "StartPoint" : (ii === params.waypoints.length-1 ? "EndPoint" : "ViaPoint"));
                     
-                    body += COG.formatStr("<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>", tagName, T5.Geo.Position.toString(params.waypoints[ii]));
+                    body += COG.formatStr("<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>", tagName, params.waypoints[ii].toString());
                 }
                 
                 // close the waypoint list

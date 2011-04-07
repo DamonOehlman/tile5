@@ -153,11 +153,7 @@ var Position = (function() {
     ### init(initLat, initLon)
     */
     function init(initLat, initLon) {
-        // initialise _self
-        return {
-            lat: parseFloat(initLat ? initLat : 0),
-            lon: parseFloat(initLon ? initLon : 0)
-        };
+        return new Pos(initLat, initLon);
     } // init
     
     /**
@@ -191,25 +187,7 @@ var Position = (function() {
     returns a copy of the position.
     */
     function parse(pos) {
-        // first case, null value, create a new empty position
-        if (! pos) {
-            return init();
-        }
-        else if (isType(pos.lat, typeNumber)) {
-            return copy(pos);
-        }
-        // now attempt the various different types of splits
-        else if (pos.split) {
-            var sepChars = [' ', ','];
-            for (var ii = 0; ii < sepChars.length; ii++) {
-                var coords = pos.split(sepChars[ii]);
-                if (coords.length === 2) {
-                    return init(coords[0], coords[1]);
-                } // if
-            } // for
-        } // if..else
-
-        return null;
+        return new Pos(pos);
     } // parse
     
     /**
@@ -221,7 +199,7 @@ var Position = (function() {
             positions = new Array(sourceLen);
 
         for (var ii = sourceLen; ii--; ) {
-            positions[ii] = parse(sourceData[ii]);
+            positions[ii] = new Pos(sourceData[ii]);
         } // for
 
         // COG.info("parsed " + positions.length + " positions");
@@ -243,7 +221,7 @@ var Position = (function() {
     Return a string representation of the Geo.Position object
     */
     function toString(pos) {
-        return pos ? pos.lat + " " + pos.lon : "";
+        return pos ? pos.toString() : "";
     } // toString
     
     /**

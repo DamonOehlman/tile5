@@ -1904,6 +1904,8 @@ var abs = Math.abs,
     typeNumber = 'number',
     typeArray = 'array',
 
+    reDelimitedSplit = /[\,\s]/,
+
     isExplorerCanvas = typeof G_vmlCanvasManager != typeUndefined,
     isFlashCanvas = typeof FlashCanvas != typeUndefined;
 /**
@@ -5602,7 +5604,7 @@ var DrawLayer = function(params) {
     } // handleItemMove
 
     function handleResync(evt, view) {
-        storage = createStoreForZoomLevel(view.getZoomLevel(), storage);
+        storage = createStoreForZoomLevel(view.getZoomLevel()); // TODO: populate with the previous storage
 
         for (var ii = drawables.length; ii--; ) {
             var drawable = drawables[ii];
@@ -5760,6 +5762,37 @@ var ShapeLayer = function(params) {
     return new DrawLayer(params);
 };
 
+/**
+# T5.Pos (internal class)
+The T5.Pos class is a currently an internal class that is used by the `T5.Geo.Position` module.
+This is currently a little obscure and is due to a change in the way Tile5 is structured internally.
+*/
+function Pos(p1, p2) {
+    if (p1 && p1.split) {
+        var coords = p1.split(reDelimitedSplit);
+
+        if (coords.length > 1) {
+            p1 = coords[0];
+            p2 = coords[1];
+        } // if
+    }
+    else if (p1 && p1.lat) {
+        p2 = p1.lon;
+        p1 = p1.lat;
+    } // if..else
+
+    this.lat = parseFloat(p1 || 0);
+    this.lon = parseFloat(p2 || 0);
+} // Pos constructor
+
+Pos.prototype = {
+    constructor: Pos,
+
+    toString: function(delimiter) {
+        return this.lat + (delimiter || ' ') + this.lon;
+    }
+};
+
     COG.extend(exports, {
         ex: COG.extend,
         is: isType,
@@ -5798,7 +5831,9 @@ var ShapeLayer = function(params) {
         DrawLayer: DrawLayer,
         ShapeLayer: ShapeLayer,
 
-        Map: Map
+        Map: Map,
+
+        Pos: Pos
     });
 
 var LAT_VARIABILITIES = [
@@ -6119,10 +6154,7 @@ var Position = (function() {
     ### init(initLat, initLon)
     */
     function init(initLat, initLon) {
-        return {
-            lat: parseFloat(initLat ? initLat : 0),
-            lon: parseFloat(initLon ? initLon : 0)
-        };
+        return new Pos(initLat, initLon);
     } // init
 
     /**
@@ -6155,23 +6187,7 @@ var Position = (function() {
     returns a copy of the position.
     */
     function parse(pos) {
-        if (! pos) {
-            return init();
-        }
-        else if (isType(pos.lat, typeNumber)) {
-            return copy(pos);
-        }
-        else if (pos.split) {
-            var sepChars = [' ', ','];
-            for (var ii = 0; ii < sepChars.length; ii++) {
-                var coords = pos.split(sepChars[ii]);
-                if (coords.length === 2) {
-                    return init(coords[0], coords[1]);
-                } // if
-            } // for
-        } // if..else
-
-        return null;
+        return new Pos(pos);
     } // parse
 
     /**
@@ -6183,7 +6199,7 @@ var Position = (function() {
             positions = new Array(sourceLen);
 
         for (var ii = sourceLen; ii--; ) {
-            positions[ii] = parse(sourceData[ii]);
+            positions[ii] = new Pos(sourceData[ii]);
         } // for
 
         return positions;
@@ -6204,7 +6220,7 @@ var Position = (function() {
     Return a string representation of the Geo.Position object
     */
     function toString(pos) {
-        return pos ? pos.lat + " " + pos.lon : "";
+        return pos ? pos.toString() : "";
     } // toString
 
     /**
@@ -6358,8 +6374,8 @@ var BoundingBox = (function() {
         } // if..else
 
         return BoundingBox.init(
-            Position.init(minLat * RADIANS_TO_DEGREES, minLon * RADIANS_TO_DEGREES),
-            Position.init(maxLat * RADIANS_TO_DEGREES, maxLon * RADIANS_TO_DEGREES));
+            new Pos(minLat * RADIANS_TO_DEGREES, minLon * RADIANS_TO_DEGREES),
+            new Pos(maxLat * RADIANS_TO_DEGREES, maxLon * RADIANS_TO_DEGREES));
     } // createBoundsFromCenter
 
     /**
@@ -6369,8 +6385,8 @@ var BoundingBox = (function() {
     */
     function expand(bounds, amount) {
         return BoundingBox.init(
-            Position.init(bounds.min.lat - amount, bounds.min.lon - amount % 360),
-            Position.init(bounds.max.lat + amount, bounds.max.lon + amount % 360));
+            new Pos(bounds.min.lat - amount, bounds.min.lon - amount % 360),
+            new Pos(bounds.max.lat + amount, bounds.max.lon + amount % 360));
     } // expand
 
     /**
@@ -6425,20 +6441,8 @@ var BoundingBox = (function() {
     function getCenter(bounds) {
         var size = calcSize(bounds.min, bounds.max);
 
-        return Position.init(bounds.min.lat + (size.y >> 1), bounds.min.lon + (size.x >> 1));
+        return new Pos(bounds.min.lat + (size.y >> 1), bounds.min.lon + (size.x >> 1));
     } // getCenter
-
-
-    /**
-    ### getGeohash(bounds)
-    To be completed
-    */
-    function getGeoHash(bounds) {
-        var minHash = T5.Geo.GeoHash.encode(bounds.min.lat, bounds.min.lon),
-            maxHash = T5.Geo.GeoHash.encode(bounds.max.lat, bounds.max.lon);
-
-        COG.info("min hash = " + minHash + ", max hash = " + maxHash);
-    } // getGeoHash
 
     /**
     ### getZoomLevel(bounds, viewport)
@@ -6464,8 +6468,8 @@ var BoundingBox = (function() {
 
     function init(initMin, initMax) {
         return {
-            min: Position.parse(initMin),
-            max: Position.parse(initMax)
+            min: new Pos(initMin),
+            max: new Pos(initMax)
         };
     } // init
 
@@ -6491,7 +6495,6 @@ var BoundingBox = (function() {
         expand: expand,
         forPositions: forPositions,
         getCenter: getCenter,
-        getGeoHash: getGeoHash,
         getZoomLevel: getZoomLevel,
         init: init,
         isEmpty: isEmpty,
@@ -7094,7 +7097,7 @@ function readVectors(coordinates) {
         positions = new Array(count);
 
     for (var ii = count; ii--; ) {
-        positions[ii] = Position.init(coordinates[ii][1], coordinates[ii][0]);
+        positions[ii] = new Pos(coordinates[ii][1], coordinates[ii][0]);
     } // for
 
     return Position.vectorize(positions, VECTORIZE_OPTIONS);

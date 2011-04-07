@@ -68,8 +68,8 @@ var BoundingBox = (function() {
         } // if..else
         
         return BoundingBox.init(
-            Position.init(minLat * RADIANS_TO_DEGREES, minLon * RADIANS_TO_DEGREES), 
-            Position.init(maxLat * RADIANS_TO_DEGREES, maxLon * RADIANS_TO_DEGREES));
+            new Pos(minLat * RADIANS_TO_DEGREES, minLon * RADIANS_TO_DEGREES), 
+            new Pos(maxLat * RADIANS_TO_DEGREES, maxLon * RADIANS_TO_DEGREES));
     } // createBoundsFromCenter
     
     /**
@@ -79,8 +79,8 @@ var BoundingBox = (function() {
     */
     function expand(bounds, amount) {
         return BoundingBox.init(
-            Position.init(bounds.min.lat - amount, bounds.min.lon - amount % 360),
-            Position.init(bounds.max.lat + amount, bounds.max.lon + amount % 360));
+            new Pos(bounds.min.lat - amount, bounds.min.lon - amount % 360),
+            new Pos(bounds.max.lat + amount, bounds.max.lon + amount % 360));
     } // expand
     
     /**
@@ -140,20 +140,8 @@ var BoundingBox = (function() {
         var size = calcSize(bounds.min, bounds.max);
         
         // create a new position offset from the current min
-        return Position.init(bounds.min.lat + (size.y >> 1), bounds.min.lon + (size.x >> 1));
+        return new Pos(bounds.min.lat + (size.y >> 1), bounds.min.lon + (size.x >> 1));
     } // getCenter
-    
-        
-    /**
-    ### getGeohash(bounds)
-    To be completed
-    */
-    function getGeoHash(bounds) {
-        var minHash = T5.Geo.GeoHash.encode(bounds.min.lat, bounds.min.lon),
-            maxHash = T5.Geo.GeoHash.encode(bounds.max.lat, bounds.max.lon);
-            
-        COG.info("min hash = " + minHash + ", max hash = " + maxHash);
-    } // getGeoHash
     
     /** 
     ### getZoomLevel(bounds, viewport)
@@ -187,8 +175,8 @@ var BoundingBox = (function() {
     
     function init(initMin, initMax) {
         return {
-            min: Position.parse(initMin),
-            max: Position.parse(initMax)
+            min: new Pos(initMin),
+            max: new Pos(initMax)
         };
     } // init
     
@@ -214,7 +202,6 @@ var BoundingBox = (function() {
         expand: expand,
         forPositions: forPositions,
         getCenter: getCenter,
-        getGeoHash: getGeoHash,
         getZoomLevel: getZoomLevel,
         init: init,
         isEmpty: isEmpty,
