@@ -104,37 +104,6 @@ function radsPerPixel(zoomLevel) {
 } // radsPerPixel
 
 
-/**
-### rankGeocodeResponses(requestAddress, responseAddress, engine)
-To be completed
-*/
-function rankGeocodeResponses(requestAddress, responseAddresses, engine) {
-    var matches = [],
-        compareFns = module.AddressCompareFns;
-
-    // if the engine is specified and the engine has compare fns, then extend them
-    if (engine && engine.compareFns) {
-        compareFns = COG.extend({}, compareFns, engine.compareFns);
-    } // if
-
-    // iterate through the response addresses and compare against the request address
-    for (var ii = 0; ii < responseAddresses.length; ii++) {
-        matches.push(new module.GeoSearchResult({
-            caption: addrTools.toString(responseAddresses[ii]),
-            data: responseAddresses[ii],
-            pos: responseAddresses[ii].pos,
-            matchWeight: plainTextAddressMatch(requestAddress, responseAddresses[ii], compareFns, module.GeocodeFieldWeights)
-        }));
-    } // for
-
-    // TODO: sort the matches
-    matches.sort(function(itemA, itemB) {
-        return itemB.matchWeight - itemA.matchWeight;
-    });
-
-    return matches;
-} // rankGeocodeResponses
-
 /* internal functions */
 
 function findEngine(capability, preference) {

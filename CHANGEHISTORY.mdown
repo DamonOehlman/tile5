@@ -4,6 +4,8 @@
 
 ### Detailed Changes
 
+- Restructure of the Geo namespace, with removal of some utility search classes to a separate search plugin. (see: T5.SearchTools)
+
 - HitTest events refer to hit target as `target` rather than `data` which was a poor choice of name.
 
 - Marker dragDrop support implemented, feedback would be great :)

@@ -116,10 +116,6 @@ var T5 = {};
     
     //= require "js/geo/types/engine"
     
-    //= require "js/geo/search/search"
-    //= require "js/geo/search/searchresult"
-    //= require "js/geo/search/geolocation"
-    
     //= require "js/geo/routing"
     //= require "js/geo/geojson"
 
@@ -132,14 +128,6 @@ var T5 = {};
         distanceToString: distanceToString,
         dist2rad: dist2rad,
         getEngine: getEngine,
-
-        /*
-        lat2pix: lat2pix,
-        lon2pix: lon2pix,
-        pix2lat: pix2lat,
-        pix2lon: pix2lon,
-        */
-
         radsPerPixel: radsPerPixel,
 
         Position: Position,
@@ -161,12 +149,7 @@ var T5 = {};
                 
         Engine: GeoEngine,
         
-        Search: Search,
-        GeoSearchResult: GeoSearchResult,
-        LocationSearch: LocationSearch,
-        
         Routing: Routing,
-        
         GeoJSON: GeoJSON
     };
 })(T5);

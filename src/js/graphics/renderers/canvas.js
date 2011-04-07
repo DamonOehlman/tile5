@@ -336,7 +336,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
             case 'image':
                 // update the draw override to the draw nothing handler
                 drawOverride = drawNothing;
-            
+                
                 // create the rect for the hit test
                 context.rect(
                     markerX - (size >> 1),
@@ -373,7 +373,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
                         );
                     });
                 } // if..else
-                
+            
                 break;
                 
             default: 

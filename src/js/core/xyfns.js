@@ -96,7 +96,7 @@ var XYFns = (function() {
     then floating point precision errors will likely occur.
     */
     function equals(pt1, pt2) {
-        return pt1.x === pt2.x && pt1.y === pt2.y;
+        return pt1.equals(pt2);
     } // equals
     
     /**

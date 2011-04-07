@@ -1962,13 +1962,48 @@ var Generator = (function() {
     };
 })();
 
+/**
+# T5.XY (Internal Class)
+The internal XY class is currently created by making a call to `T5.XY.init` rather than `new T5.XY`.
+This will seem strange, and it is strange, and is a result of migrating from a closure based pattern
+to a prototypal pattern in areas of the Tile5 library.
+
+## Methods
+*/
 function XY(x, y) {
     this.x = x || 0;
     this.y = y || 0;
 } // XY constructor
 
 XY.prototype = {
-    constructor: XY
+    constructor: XY,
+
+    /**
+    ### add(xy*)
+    Return a __new__ xy composite that is adds the current value of this xy value with the other xy
+    values that have been passed to the function.  The actual value of this XY value remain unchanged.
+    */
+    add: function() {
+        var sumX = this.x,
+            sumY = this.y;
+
+        for (var ii = arguments.length; ii--; ) {
+            sumX += arguments[ii].x;
+            sumY += arguments[ii].y;
+        } // for
+
+        return new XY(sumX, sumY);
+    }, // add
+
+    /**
+    ### equals(xy)
+    Return true if the two points are equal, false otherwise.  __NOTE:__ This function
+    does not automatically floor the values so if the point values are floating point
+    then floating point precision errors will likely occur.
+    */
+    equals: function(xy) {
+        return this.x === xy.x && this.y === xy.y;
+    }
 };
 function Rect(x, y, width, height) {
     this.x = x || 0;
@@ -2077,7 +2112,7 @@ var XYFns = (function() {
     then floating point precision errors will likely occur.
     */
     function equals(pt1, pt2) {
-        return pt1.x === pt2.x && pt1.y === pt2.y;
+        return pt1.equals(pt2);
     } // equals
 
     /**
@@ -5668,34 +5703,6 @@ function radsPerPixel(zoomLevel) {
 } // radsPerPixel
 
 
-/**
-### rankGeocodeResponses(requestAddress, responseAddress, engine)
-To be completed
-*/
-function rankGeocodeResponses(requestAddress, responseAddresses, engine) {
-    var matches = [],
-        compareFns = module.AddressCompareFns;
-
-    if (engine && engine.compareFns) {
-        compareFns = COG.extend({}, compareFns, engine.compareFns);
-    } // if
-
-    for (var ii = 0; ii < responseAddresses.length; ii++) {
-        matches.push(new module.GeoSearchResult({
-            caption: addrTools.toString(responseAddresses[ii]),
-            data: responseAddresses[ii],
-            pos: responseAddresses[ii].pos,
-            matchWeight: plainTextAddressMatch(requestAddress, responseAddresses[ii], compareFns, module.GeocodeFieldWeights)
-        }));
-    } // for
-
-    matches.sort(function(itemA, itemB) {
-        return itemB.matchWeight - itemA.matchWeight;
-    });
-
-    return matches;
-} // rankGeocodeResponses
-
 /* internal functions */
 
 function findEngine(capability, preference) {
@@ -6504,147 +6511,6 @@ var GeoEngine = function(params) {
     }, params);
 
     engines[_self.id] = _self;
-    return _self;
-};
-
-/**
-# T5.Geo.Search
-_module_
-
-
-Define functions for geo search operations
-
-## Functions
-*/
-var Search = (function() {
-    var DEFAULT_MAXDIFF = 20;
-
-    var module = {
-        bestResults: function(searchResults, maxDifference) {
-            if (! maxDifference) {
-                maxDifference = DEFAULT_MAXDIFF;
-            }
-
-            var bestMatch = searchResults.length > 0 ? searchResults[0] : null,
-                fnresult = [];
-
-            for (var ii = 0; ii < searchResults.length; ii++) {
-                if (bestMatch && searchResults[ii] &&
-                    (bestMatch.matchWeight - searchResults[ii].matchWeight <= maxDifference)) {
-
-                    fnresult.push(searchResults[ii]);
-                }
-                else {
-                    break;
-                } // if..else
-            } // for
-
-            return fnresult;
-        }
-    };
-
-    return module;
-})();
-/**
-# T5.Geo.GeoSearchResult
-
-TODO
-*/
-var GeoSearchResult = function(params) {
-    params = COG.extend({
-        id: null,
-        caption: "",
-        resultType: "",
-        data: null,
-        pos: null,
-        matchWeight: 0
-    }, params);
-
-    return COG.extend(params, {
-        toString: function() {
-            return params.caption + (params.matchWeight ? " (" + params.matchWeight + ")" : "");
-        }
-    });
-};
-var LocationSearch = function(params) {
-    params = COG.extend({
-        name: "Geolocation Search",
-        requiredAccuracy: null,
-        searchTimeout: 5000,
-        watch: false
-    }, params);
-
-    var geoWatchId = 0,
-        locationTimeout = 0,
-        lastPosition = null;
-
-    /* tracking functions */
-
-    function parsePosition(position) {
-        var currentPos = Position.init(
-                position.coords.latitude,
-                position.coords.longitude);
-
-        return new GeoSearchResult({
-            id: 1,
-            caption: 'Current Location',
-            pos: currentPos,
-            accuracy: position.coords.accuracy / 1000,
-            matchWeight: 100
-        });
-    } // trackingUpdate
-
-    function sendPosition(searchResult, callback) {
-        navigator.geolocation.clearWatch(geoWatchId);
-        geoWatchId = 0;
-
-        if (locationTimeout) {
-            clearTimeout(locationTimeout);
-            locationTimeout = 0;
-        } // if
-
-        if (callback) {
-            callback([searchResult], params);
-        } // if
-    } // sendPosition
-
-    function trackingError(error) {
-        COG.info('caught location tracking error:', error);
-    } // trackingError
-
-    var _self = new T5.Geo.GeoSearchAgent(COG.extend({
-        execute: function(searchParams, callback) {
-            if (navigator.geolocation && (! geoWatchId)) {
-                geoWatchId = navigator.geolocation.watchPosition(
-                    function(position) {
-                        var newPosition = parsePosition(position);
-
-                        if ((! lastPosition) || (newPosition.accuracy < lastPosition.accuracy)) {
-                            lastPosition = newPosition;
-                        } // if
-
-                        if ((! params.requiredAccuracy) ||
-                            (lastPosition.accuracy < params.requiredAccuracy)) {
-                            sendPosition(lastPosition, callback);
-                        } // if
-                    },
-                    trackingError, {
-                        enableHighAccuracy: true,
-                        timeout: 10000,
-                        maximumAge: 5000
-                    });
-
-                if (params.searchTimeout) {
-                    locationTimeout = setTimeout(function() {
-                        if (lastPosition) {
-                            sendPosition(lastPosition, callback);
-                        } // if
-                    }, params.searchTimeout);
-                } // if
-            } // if
-        }
-    }, params));
-
     return _self;
 };
 
@@ -7728,14 +7594,6 @@ var LocationOverlay = exports.LocationOverlay = function(params) {
         distanceToString: distanceToString,
         dist2rad: dist2rad,
         getEngine: getEngine,
-
-        /*
-        lat2pix: lat2pix,
-        lon2pix: lon2pix,
-        pix2lat: pix2lat,
-        pix2lon: pix2lon,
-        */
-
         radsPerPixel: radsPerPixel,
 
         Position: Position,
@@ -7756,12 +7614,7 @@ var LocationOverlay = exports.LocationOverlay = function(params) {
 
         Engine: GeoEngine,
 
-        Search: Search,
-        GeoSearchResult: GeoSearchResult,
-        LocationSearch: LocationSearch,
-
         Routing: Routing,
-
         GeoJSON: GeoJSON
     };
 })(T5);
