@@ -1,6 +1,6 @@
 /**
 # T5.SearchTools
-__PLUGIN__: `plugins/searchtools.js`
+__PLUGIN__: `plugins/geo.searchtools.js`
 
 The Tile5 search tools plugin is an extraction of some of the core search
 functionality that was originally implemented in the core Tile5 library. Basically

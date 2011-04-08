@@ -124,7 +124,6 @@ var T5 = {};
     
     //= require "js/geo/types/engine"
     
-    //= require "js/geo/routing"
     //= require "js/geo/geojson"
 
     //= require "js/geo/ui/geopoly"
@@ -146,8 +145,6 @@ var T5 = {};
         // TODO: probably need to include local support for addressing, but really don't want to bulk out T5 :/
 
         Engine: GeoEngine,
-        
-        Routing: Routing,
         GeoJSON: GeoJSON
     };
 })(T5);

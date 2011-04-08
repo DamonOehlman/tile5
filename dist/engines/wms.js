@@ -1,17 +1,17 @@
 T5.Generator.register('osm.wms', function(params) {
-    params = COG.extend({ 
-        extent: [-90, -180, 90, 180], 
-        mapurl: "" 
+    params = COG.extend({
+        extent: [-90, -180, 90, 180],
+        mapurl: ""
     }, params);
-    
+
     /* internals */
-    
+
     var minLat = params.extent[0] || -90,
         minLon = params.extent[1] || -180,
         maxLat = params.extent[2] || 90,
         maxLon = params.extent[3] || 180,
         dlat = maxLat - minLat,
-        dlon = maxLon - minLon; 
+        dlon = maxLon - minLon;
 
     function tileToExtent(x, y, zoomLevel, numTiles) {
         var ddlat = dlat / numTiles,
@@ -21,15 +21,15 @@ T5.Generator.register('osm.wms', function(params) {
             tlat = llat + ddlon,
             llon = tlon - ddlon;
 
-        return llat + "," + llon + "," + tlat + "," + tlon; 
+        return llat + "," + llon + "," + tlat + "," + tlon;
     } // tileToExtend
-    
 
-    T5.userMessage('ack', 'osm.wms', ''); 
 
-    return COG.extend(new T5.Geo.OSM.Generator(params), { 
-        buildTileUrl: function(tileX, tileY, zoomLevel, numTiles) { 
-            return params.mapurl + "&BBOX=" + tileToExtent(tileX, tileY, zoomLevel, numTiles); 
-        } 
-    }); 
+    T5.userMessage('ack', 'osm.wms', '');
+
+    return COG.extend(new T5.Geo.OSM.Generator(params), {
+        buildTileUrl: function(tileX, tileY, zoomLevel, numTiles) {
+            return params.mapurl + "&BBOX=" + tileToExtent(tileX, tileY, zoomLevel, numTiles);
+        }
+    });
 });

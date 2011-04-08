@@ -26,8 +26,8 @@ T5.Geo.Decarta = (function() {
         }
     };
     
-    var ZOOM_MAX = 18;
-    var ZOOM_MIN = 3;
+    var ZOOM_MAX = 18,
+        ZOOM_MIN = 3;
     
     var placeFormatters = {
         DEFAULT: function(params) {
@@ -46,7 +46,6 @@ T5.Geo.Decarta = (function() {
     
     var lastZoom = null,
         requestCounter = 1;
-
     
     /* internal decarta functions */
     
@@ -525,7 +524,6 @@ T5.Geo.Decarta = (function() {
         return _self;
     }; 
         
-        
     var RouteRequest = function(params) {
         params = COG.extend({
             waypoints: [],
@@ -557,7 +555,7 @@ T5.Geo.Decarta = (function() {
                 totalDistance = totalDistance + distance;
                 totalTime = COG.addDuration(totalTime, time);
                 
-                fnresult.push(new T5.Geo.Routing.Instruction({
+                fnresult.push(new T5.RouteTools.Instruction({
                     position: new T5.Pos(instructions[ii].Point),
                     description: instructions[ii].Instruction,
                     distance: distance,
@@ -633,7 +631,7 @@ T5.Geo.Decarta = (function() {
                 // COG.info("received route request response:", response);
                 
                 // create a new route data object and map items 
-                return new T5.Geo.Routing.RouteData({
+                return new T5.RouteTools.RouteData({
                     geometry: T5.Geo.Position.parseArray(response.RouteGeometry.LineString.pos),
                     instructions: parseInstructions(response.RouteInstructionsList)
                 });
@@ -661,13 +659,19 @@ T5.Geo.Decarta = (function() {
                waypoints: []
             }, args);
             
-            // create the geocoding request and execute it
-            var request = new RouteRequest(args);
-            makeServerRequest(request, function(routeData) {
-                if (callback) {
-                    callback(routeData);
-                } // if
-            });
+            // check for the route tools
+            if (typeof T5.RouteTools !== 'undefined') {
+                // create the geocoding request and execute it
+                var request = new RouteRequest(args);
+                makeServerRequest(request, function(routeData) {
+                    if (callback) {
+                        callback(routeData);
+                    } // if
+                });
+            }
+            else {
+                COG.warn('Could not generate route, T5.RouteTools plugin not found');
+            } // if..else
         },
         
         geocode: function(args) {

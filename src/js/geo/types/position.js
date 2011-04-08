@@ -158,24 +158,14 @@ var Position = (function() {
     
     /**
     ### offset(pos, latOffset, lonOffset)
+    __deprecated:__ will be replaced by direct access to `T5.Pos.offset()`
+    
     Return a new T5.Geo.Position which is the original `pos` offset by
     the specified `latOffset` and `lonOffset` (which are specified in 
     km distance)
     */
     function offset(pos, latOffset, lonOffset) {
-        var radOffsetLat = latOffset / KM_PER_RAD,
-            radOffsetLon = lonOffset / KM_PER_RAD,
-            radLat = pos.lat * DEGREES_TO_RADIANS,
-            radLon = pos.lon * DEGREES_TO_RADIANS,
-            newLat = radLat + radOffsetLat,
-            deltaLon = asin(sin(radOffsetLon) / cos(radLat)),
-            newLon = radLon + deltaLon;
-           
-        // if the new latitude has wrapped, then update
-        newLat = ((newLat + HALF_PI) % Math.PI) - HALF_PI;
-        newLon = newLon % TWO_PI;
-        
-        return init(newLat * RADIANS_TO_DEGREES, newLon * RADIANS_TO_DEGREES);
+        return pos.offset(latOffset, lonOffset);
     } // offset
     
     /**

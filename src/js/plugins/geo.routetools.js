@@ -1,13 +1,15 @@
 /**
-# T5.Geo.Routing
-_module_
+# T5.RouteTools
+__PLUGIN__: `plugins/geo.routetools.js`
 
 
-Define functionality to enable routing for mapping
+## Events
 
-## Module Functions
+## Module Methods
 */
-var Routing = (function() {
+T5.RouteTools = (function() {
+    
+    /* internals */
     
     // define the turn types
     var TurnType = {
@@ -41,10 +43,61 @@ var Routing = (function() {
         // ramp maneuvers
         Ramp: "ramp",
         RampExit: "ramp-exit"
-    }; 
+    };
+    
+    var RouteData = function(params) {
+        params = COG.extend({
+            geometry: [],
+            instructions: [],
+            boundingBox: null
+        }, params);
+        
+        // update the bounding box
+        if (! params.boundingBox) {
+            params.boundingBox = BoundingBox.forPositions(params.geometry);
+        } // if
+        
+        var _self = COG.extend({
+            getInstructionPositions: function() {
+                var positions = [];
+                    
+                for (var ii = 0; ii < params.instructions.length; ii++) {
+                    if (params.instructions[ii].position) {
+                        positions.push(params.instructions[ii].position);
+                    } // if
+                } // for
+                
+                return positions;
+            }
+        }, params);
+        
+        return _self;
+    }; // RouteData
+    
+    var Instruction = function(params) {
+        params = COG.extend({
+            position: null,
+            description: "",
+            distance: 0,
+            distanceTotal: 0,
+            time: 0,
+            timeTotal: 0,
+            turnType: null
+        }, params);
+        
+        // parse the description
+        params.description = markupInstruction(params.description);
+        
+        // if the manuever has not been defined, then attempt to parse the description
+        if (! params.turnType) {
+            params.turnType = parseTurnType(params.description);
+        } // if
+        
+        return params;
+    }; // instruction
     
     // include the turntype rules based on the locale (something TODO)
-    //= require "localization/turntype-rules.en"
+    // TODO: require "localization/turntype-rules.en"
     
     /* internal functions */
     
@@ -61,7 +114,7 @@ var Routing = (function() {
     } // markupInstruction
     
     /* exports */
-    
+
     /**
     ### calculate(args)
     To be completed
@@ -178,82 +231,18 @@ var Routing = (function() {
         } // for
         
         return turnType;
-    } // parseTurnType
+    } // parseTurnType    
     
-    // define the module
     var module = {
-        /* module functions */
-        
         calculate: calculate,
         createMapOverlay: createMapOverlay,
         parseTurnType: parseTurnType,
         
-        /**
-        # T5.Geo.Routing.TurnType
-        
-        */
-        TurnType: TurnType,
-        
-        /**
-        # T5.Geo.Routing.Instruction
-        
-        */
-        Instruction: function(params) {
-            params = COG.extend({
-                position: null,
-                description: "",
-                distance: 0,
-                distanceTotal: 0,
-                time: 0,
-                timeTotal: 0,
-                turnType: null
-            }, params);
-            
-            // parse the description
-            params.description = markupInstruction(params.description);
-            
-            // if the manuever has not been defined, then attempt to parse the description
-            if (! params.turnType) {
-                params.turnType = parseTurnType(params.description);
-            } // if
-            
-            return params;
-        },
-        
-        
-        /**
-        # T5.Geo.Routing.RouteData
-        
-        */
-        RouteData: function(params) {
-            params = COG.extend({
-                geometry: [],
-                instructions: [],
-                boundingBox: null
-            }, params);
-            
-            // update the bounding box
-            if (! params.boundingBox) {
-                params.boundingBox = BoundingBox.forPositions(params.geometry);
-            } // if
-            
-            var _self = COG.extend({
-                getInstructionPositions: function() {
-                    var positions = [];
-                        
-                    for (var ii = 0; ii < params.instructions.length; ii++) {
-                        if (params.instructions[ii].position) {
-                            positions.push(params.instructions[ii].position);
-                        } // if
-                    } // for
-                    
-                    return positions;
-                }
-            }, params);
-            
-            return _self;
-        }
+        TurnType: TurnType
     };
+    
+    // make the module observable
+    COG.observable(module);
     
     return module;
 })();

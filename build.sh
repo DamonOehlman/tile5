@@ -5,7 +5,11 @@ renderer.raphael \
 renderer.webgl \
 renderer.three \
 clusterer \
+geo.searchtools \
+geo.routetools \
 renderer.zoombar"
+
+ENGINES="osm decarta bing wms"
 
 : ${MINIFY:=false}
 
@@ -38,9 +42,21 @@ do
     fi;
 done;
 
-# copy the engines across
-# TODO: minify the engines
-cp src/js/geo/engines/*.js dist/geo/
+for engine in $ENGINES
+do
+    echo "Building Tile5 Engine: $engine"
+    
+    # sprocketize the source
+    sprocketize $SPROCKET_OPTS src/js/engines/$engine.js > dist/engines/$engine.js
+    
+    # minify
+    if $MINIFY; then
+        java -jar build/google-compiler-20100629.jar \
+             --compilation_level SIMPLE_OPTIMIZATIONS \
+             --js_output_file dist/engines/$engine.min.js \
+             --js dist/engines/$engine.js
+    fi;    
+done;
 
 # copy the styles across
 cp src/style/* dist/style/
