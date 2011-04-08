@@ -11,6 +11,8 @@ T5.RouteTools = (function() {
     
     /* internals */
     
+    var customTurnTypeRules = undefined;
+    
     // define the turn types
     var TurnType = {
         Unknown: "turn-unknown",
@@ -45,6 +47,74 @@ T5.RouteTools = (function() {
         RampExit: "ramp-exit"
     };
     
+    // EN-* manuever text matching rules 
+    var DefaultTurnTypeRules = (function() {
+        var rules = [];
+
+        rules.push({
+            regex: /continue/i,
+            turnType: TurnType.Continue
+        });
+
+        rules.push({
+            regex: /(take|bear|turn)(.*?)left/i,
+            customCheck: function(text, matches) {
+                var isSlight = (/bear/i).test(matches[1]);
+
+                return isSlight ? TurnType.TurnLeftSlight : TurnType.TurnLeft;
+            }
+        });
+
+        rules.push({
+            regex: /(take|bear|turn)(.*?)right/i,
+            customCheck: function(text, matches) {
+                var isSlight = (/bear/i).test(matches[1]);
+
+                return isSlight ? TurnType.TurnRightSlight : TurnType.TurnRight;
+            }
+        });
+
+        rules.push({
+            regex: /enter\s(roundabout|rotaty)/i,
+            turnType: TurnType.EnterRoundabout
+        });
+
+        rules.push({
+            regex: /take.*?ramp/i,
+            turnType: TurnType.Ramp
+        });
+
+        rules.push({
+            regex: /take.*?exit/i,
+            turnType: TurnType.RampExit
+        });
+
+        rules.push({
+            regex: /make(.*?)u\-turn/i,
+            customCheck: function(text, matches) {
+                return (/right/i).test(matches[1]) ? TurnType.UTurnRight : TurnType.UTurnLeft;
+            }
+        });
+
+        rules.push({
+            regex: /proceed/i,
+            turnType: TurnType.Start
+        });
+
+        rules.push({
+            regex: /arrive/i,
+            turnType: TurnType.Arrive
+        });
+
+        // "FELL THROUGH" - WTF!
+        rules.push({
+            regex: /fell\sthrough/i,
+            turnType: TurnType.Merge
+        });
+
+        return rules;
+    })();
+    
     var RouteData = function(params) {
         params = COG.extend({
             geometry: [],
@@ -54,7 +124,7 @@ T5.RouteTools = (function() {
         
         // update the bounding box
         if (! params.boundingBox) {
-            params.boundingBox = BoundingBox.forPositions(params.geometry);
+            params.boundingBox = T5.Geo.BoundingBox.forPositions(params.geometry);
         } // if
         
         var _self = COG.extend({
@@ -132,11 +202,11 @@ T5.RouteTools = (function() {
         }, args);
         
         // find an available routing engine
-        var engine = getEngine("route");
+        var engine = T5.Geo.getEngine("route");
         if (engine) {
             engine.route(args, function(routeData) {
                 if (args.generalize) {
-                    routeData.geometry = Position.generalize(routeData.geometry, routeData.getInstructionPositions());
+                    routeData.geometry = T5.Geo.Position.generalize(routeData.geometry, routeData.getInstructionPositions());
                 } // if
                 
                 // firstly, if we have a map defined, then let's place the route on the map
@@ -188,7 +258,7 @@ T5.RouteTools = (function() {
         */
         
         if (routeData.geometry) {
-            Position.vectorize(routeData.geometry, {
+            T5.Geo.Position.vectorize(routeData.geometry, {
                 callback: function(coords) {
                     routeOverlay.add(new T5.Line(coords, {
                         style: 'waypoints',
@@ -208,7 +278,7 @@ T5.RouteTools = (function() {
     */
     function parseTurnType(text) {
         var turnType = TurnType.Unknown,
-            rules = TurnTypeRules;
+            rules = customTurnTypeRules || DefaultTurnTypeRules;
         
         // run the text through the manuever rules
         for (var ii = 0; ii < rules.length; ii++) {
@@ -238,7 +308,9 @@ T5.RouteTools = (function() {
         createMapOverlay: createMapOverlay,
         parseTurnType: parseTurnType,
         
-        TurnType: TurnType
+        TurnType: TurnType,
+        Instruction: Instruction,
+        RouteData: RouteData
     };
     
     // make the module observable
