@@ -1,6 +1,6 @@
 //= require <colorparser.js>
 
-T5.registerRenderer('three:webgl', function(view, container, params, baseRenderer) {
+T5.registerRenderer('three:webgl', function(view, container, outer, params, baseRenderer) {
     params = COG.extend({
         guides: false
     }, params);
@@ -148,8 +148,8 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
             viewport: viewport,
             state: state,
             hit: isHit,
-            vpX: viewport.x,
-            vpY: viewport.y
+            vpX: drawOffsetX,
+            vpY: drawOffsetY
         };
     } // initDrawData        
         
@@ -158,8 +158,8 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
         
         if (container) {
             // initialise the viewport height and width
-            vpWidth = view.width = container.offsetWidth;
-            vpHeight = view.height = container.offsetHeight;
+            vpWidth = container.offsetWidth - (view.padding * 2);
+            vpHeight = container.offsetHeight - (view.padding * 2);
             
             // calculate the number of x segments
             xSeg = (vpWidth / TILE_SIZE | 0) + 1;
@@ -207,6 +207,10 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
 
             renderer = new THREE.WebGLRenderer();
             renderer.setSize(vpWidth, vpHeight);
+            
+            // add an appropriate margin to the dom element to counteract the view padding for 
+            // the 2d renderers
+            renderer.domElement.style.margin = COG.formatStr('{0}px 0 0 {0}px', view.padding);
             
             // add the canvas to the container
             container.appendChild(renderer.domElement);
@@ -440,13 +444,13 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
     
     function prepare(layers, viewport, state, tickCount, hitData) {
         // update the offset x and y
-        drawOffsetX = viewport.x;
-        drawOffsetY = viewport.y;
+        drawOffsetX = viewport.x + view.padding;
+        drawOffsetY = viewport.y + view.padding;
             
         // move the tile bg
         shiftViewport(
-            viewport.x + (vpWidth >> 1), 
-            viewport.y + (vpHeight >> 1),
+            drawOffsetX + (vpWidth >> 1), 
+            drawOffsetY + (vpHeight >> 1),
             viewport.scaleFactor
         );
         // camera.position.x = tileBg.position.x = drawOffsetX + vpWidth / 2;
@@ -623,6 +627,8 @@ T5.registerRenderer('three:webgl', function(view, container, params, baseRendere
     initThree();
 
     var _this = COG.extend(baseRenderer, {
+        fastpan: false,
+        
         applyStyle: applyStyle,
         applyTransform: applyTransform,
         

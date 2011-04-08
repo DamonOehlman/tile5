@@ -1,4 +1,4 @@
-T5.registerRenderer('zoombar', function(view, container, params, baseRenderer) {
+T5.registerRenderer('zoombar', function(view, container, outer, params, baseRenderer) {
     params = COG.extend({
         width: 24,
         height: 200,
@@ -80,8 +80,6 @@ T5.registerRenderer('zoombar', function(view, container, params, baseRenderer) {
     } // createThumb
 
     function createZoomBar() {
-        var parent = container.parentNode || container;
-
         zoomBar = document.createElement('div');
         zoomBar.className = 't5-zoombar';
         zoomBar.style.cssText = COG.formatStr(
@@ -91,11 +89,11 @@ T5.registerRenderer('zoombar', function(view, container, params, baseRenderer) {
             getMargin(),
             getBackground());
 
-        if (parent.childNodes[0]) {
-            parent.insertBefore(zoomBar, parent.childNodes[0]);
+        if (outer.childNodes[0]) {
+            outer.insertBefore(zoomBar, outer.childNodes[0]);
         }
         else {
-            parent.appendChild(zoomBar);
+            outer.appendChild(zoomBar);
         } // if..else
 
         createThumb();
@@ -123,7 +121,7 @@ T5.registerRenderer('zoombar', function(view, container, params, baseRenderer) {
             params.margin + 'px',
             0,
             '0',
-            (container.offsetWidth - params.width - params.margin) + 'px');
+            (outer.offsetWidth - params.width - params.margin) + 'px');
     } // getMargin
 
     function getThumbBackground(state) {
@@ -135,7 +133,7 @@ T5.registerRenderer('zoombar', function(view, container, params, baseRenderer) {
     function handleDetach() {
         eventMonitor.unbind();
 
-        container.removeChild(zoomBar);
+        outer.removeChild(zoomBar);
     } // handleDetach
 
     function handlePointerDown(evt, absXY, relXY) {

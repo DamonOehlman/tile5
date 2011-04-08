@@ -156,11 +156,13 @@ var View = function(params) {
         layerCount = 0,
         container = null,
         panContainer = null,
+        outer,
         dragObject = null,
         frameIndex = 0,
         mainContext = null,
         isIE = !isType(window.attachEvent, typeUndefined),
         hitFlagged = false,
+        fastpan = true,
         pointerDown = false,
         dx = 0, dy = 0,
         totalDX = 0,
@@ -325,10 +327,11 @@ var View = function(params) {
     /* private functions */
     
     function createRenderer(typeName) {
-        renderer = attachRenderer(typeName || params.renderer, _self, container, params);
+        renderer = attachRenderer(typeName || params.renderer, _self, container, outer, params);
         
         // determine whether partial scaling is supporter
         partialScaling = ! renderer.preventPartialScale;
+        fastpan = renderer.fastpan;
         
         // attach interaction handlers
         captureInteractionEvents();
@@ -495,7 +498,7 @@ var View = function(params) {
         return -1;
     } // getLayerIndex
     
-    function initContainer(outer) {
+    function initContainer() {
         panContainer = document.createElement('div');
         panContainer.id = COG.objId('t5_container');
         panContainer.style.cssText = COG.formatStr(
@@ -523,7 +526,7 @@ var View = function(params) {
     } // initContainer
     
     function updateContainer(name, value) {
-        initContainer(document.getElementById(value));
+        initContainer(outer = document.getElementById(value));
         createRenderer();
     } // updateContainer
     
@@ -626,20 +629,17 @@ var View = function(params) {
             interacting = redrawBG && (state & stateAnimating) === 0;
             
             // if the delta energy is above the energy threshold, move the container
-            if (deltaEnergy > 5) {
+            if (fastpan && deltaEnergy > 5) {
                 totalDX += dx;
                 totalDY += dy;
 
                 if (supportTransforms) {
                     container.style[PROP_WK_TRANSFORM] = 'translate3d(' + (totalDX | 0) +'px, ' + (totalDY | 0) + 'px, 0px)';
-                    COG.info(container.style[PROP_WK_TRANSFORM]);
                 }
                 else {
                     container.style.left = totalDX + 'px';
                     container.style.top = totalDY + 'px';
                 } // if..else
-                
-                COG.info('drawing');
             }
             // otherwise, reset the container position and refire the renderer
             else {
@@ -652,10 +652,8 @@ var View = function(params) {
                 // offsetY -= totalDY | 0;
                 
                 if (totalDX || totalDY) {
-                    COG.info('reset');
                     if (supportTransforms) {
                         container.style[PROP_WK_TRANSFORM] = 'translate3d(0px, 0px, 0px)';
-                        COG.info(container.style[PROP_WK_TRANSFORM]);
                     }
                     else {
                         container.style.left = 0;
@@ -1191,6 +1189,7 @@ var View = function(params) {
     // initialise _self
     var _self = {
         id: params.id,
+        padding: params.padding,
         
         detach: detach,
         eachLayer: eachLayer,

@@ -1,4 +1,4 @@
-T5.registerRenderer('raphael', function(view, container, params, baseRenderer) {
+T5.registerRenderer('raphael', function(view, container, outer, params, baseRenderer) {
     params = COG.extend({
     }, params);
 

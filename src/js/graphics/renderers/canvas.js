@@ -1,7 +1,7 @@
 /**
 # RENDERER: canvas
 */
-registerRenderer('canvas', function(view, container, params, baseRenderer) {
+registerRenderer('canvas', function(view, container, outer, params, baseRenderer) {
     params = COG.extend({
     }, params);
     

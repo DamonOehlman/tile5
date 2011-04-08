@@ -11,13 +11,15 @@ Renderers fire the following events:
 ### reset
 
 */
-var Renderer = function(view, container, params) {
+var Renderer = function(view, container, outer, params) {
     
     /* internals */
     
     /* exports */
     
     var _this = {
+        fastpan: true,
+        
         /**
         ### applyStyle(style: T5.Style): string
         */
@@ -109,16 +111,16 @@ var registerRenderer = exports.registerRenderer = function(id, creatorFn) {
 /**
 # T5.attachRenderer(id, view, container, params)
 */
-var attachRenderer = exports.attachRenderer = function(id, view, container, params) {
+var attachRenderer = exports.attachRenderer = function(id, view, container, outer, params) {
     // split the id on slashes as multiple renderers may have been requested
     var ids = id.split('/'),
-        renderer = new Renderer(view, container, params);
+        renderer = new Renderer(view, container, outer, params);
     
     // iterate through the renderers and create the resulting renderer
     for (var ii = 0; ii < ids.length; ii++) {
         var rClass = rendererRegistry[ids[ii]];
         if (rClass) {
-            renderer = new rClass(view, container, params, renderer);
+            renderer = new rClass(view, container, outer, params, renderer);
         } // if
     } // for
     

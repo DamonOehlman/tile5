@@ -2750,13 +2750,15 @@ Renderers fire the following events:
 ### reset
 
 */
-var Renderer = function(view, container, params) {
+var Renderer = function(view, container, outer, params) {
 
     /* internals */
 
     /* exports */
 
     var _this = {
+        fastpan: true,
+
         /**
         ### applyStyle(style: T5.Style): string
         */
@@ -2848,14 +2850,14 @@ var registerRenderer = exports.registerRenderer = function(id, creatorFn) {
 /**
 # T5.attachRenderer(id, view, container, params)
 */
-var attachRenderer = exports.attachRenderer = function(id, view, container, params) {
+var attachRenderer = exports.attachRenderer = function(id, view, container, outer, params) {
     var ids = id.split('/'),
-        renderer = new Renderer(view, container, params);
+        renderer = new Renderer(view, container, outer, params);
 
     for (var ii = 0; ii < ids.length; ii++) {
         var rClass = rendererRegistry[ids[ii]];
         if (rClass) {
-            renderer = new rClass(view, container, params, renderer);
+            renderer = new rClass(view, container, outer, params, renderer);
         } // if
     } // for
 
@@ -2864,7 +2866,7 @@ var attachRenderer = exports.attachRenderer = function(id, view, container, para
 /**
 # RENDERER: canvas
 */
-registerRenderer('canvas', function(view, container, params, baseRenderer) {
+registerRenderer('canvas', function(view, container, outer, params, baseRenderer) {
     params = COG.extend({
     }, params);
 
@@ -3277,7 +3279,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
 
     return _this;
 });
-registerRenderer('dom', function(view, container, params, baseRenderer) {
+registerRenderer('dom', function(view, container, outer, params, baseRenderer) {
 
     /* internals */
 
@@ -3735,11 +3737,13 @@ var View = function(params) {
         layerCount = 0,
         container = null,
         panContainer = null,
+        outer,
         dragObject = null,
         frameIndex = 0,
         mainContext = null,
         isIE = !isType(window.attachEvent, typeUndefined),
         hitFlagged = false,
+        fastpan = true,
         pointerDown = false,
         dx = 0, dy = 0,
         totalDX = 0,
@@ -3893,9 +3897,10 @@ var View = function(params) {
     /* private functions */
 
     function createRenderer(typeName) {
-        renderer = attachRenderer(typeName || params.renderer, _self, container, params);
+        renderer = attachRenderer(typeName || params.renderer, _self, container, outer, params);
 
         partialScaling = ! renderer.preventPartialScale;
+        fastpan = renderer.fastpan;
 
         captureInteractionEvents();
     } // createRenderer
@@ -4046,7 +4051,7 @@ var View = function(params) {
         return -1;
     } // getLayerIndex
 
-    function initContainer(outer) {
+    function initContainer() {
         panContainer = document.createElement('div');
         panContainer.id = COG.objId('t5_container');
         panContainer.style.cssText = COG.formatStr(
@@ -4073,7 +4078,7 @@ var View = function(params) {
     } // initContainer
 
     function updateContainer(name, value) {
-        initContainer(document.getElementById(value));
+        initContainer(outer = document.getElementById(value));
         createRenderer();
     } // updateContainer
 
@@ -4157,20 +4162,17 @@ var View = function(params) {
             redrawBG = (state & (stateZoom | statePan)) !== 0;
             interacting = redrawBG && (state & stateAnimating) === 0;
 
-            if (deltaEnergy > 5) {
+            if (fastpan && deltaEnergy > 5) {
                 totalDX += dx;
                 totalDY += dy;
 
                 if (supportTransforms) {
                     container.style[PROP_WK_TRANSFORM] = 'translate3d(' + (totalDX | 0) +'px, ' + (totalDY | 0) + 'px, 0px)';
-                    COG.info(container.style[PROP_WK_TRANSFORM]);
                 }
                 else {
                     container.style.left = totalDX + 'px';
                     container.style.top = totalDY + 'px';
                 } // if..else
-
-                COG.info('drawing');
             }
             else {
                 offsetX -= (dx + totalDX) | 0;
@@ -4178,10 +4180,8 @@ var View = function(params) {
 
 
                 if (totalDX || totalDY) {
-                    COG.info('reset');
                     if (supportTransforms) {
                         container.style[PROP_WK_TRANSFORM] = 'translate3d(0px, 0px, 0px)';
-                        COG.info(container.style[PROP_WK_TRANSFORM]);
                     }
                     else {
                         container.style.left = 0;
@@ -4650,6 +4650,7 @@ var View = function(params) {
 
     var _self = {
         id: params.id,
+        padding: params.padding,
 
         detach: detach,
         eachLayer: eachLayer,

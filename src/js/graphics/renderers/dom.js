@@ -1,4 +1,4 @@
-registerRenderer('dom', function(view, container, params, baseRenderer) {
+registerRenderer('dom', function(view, container, outer, params, baseRenderer) {
     
     /* internals */
     

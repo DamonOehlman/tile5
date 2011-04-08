@@ -1791,7 +1791,7 @@ quat4.str = function(quat) {
 }
 
 
-T5.registerRenderer('webgl', function(view, container, params, baseRenderer) {
+T5.registerRenderer('webgl', function(view, container, outer, params, baseRenderer) {
     params = COG.extend({
     }, params);
 
