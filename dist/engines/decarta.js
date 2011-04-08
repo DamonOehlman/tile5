@@ -169,7 +169,7 @@ COG.extend = function() {
     }; // durationToSeconds
 })();
 
-T5.Geo.Decarta = (function() {
+T5.Decarta = (function() {
     var currentConfig = {
         sessionID: T5.ticks(),
         server: "",
@@ -191,323 +191,455 @@ T5.Geo.Decarta = (function() {
         }
     };
 
-    var ZOOM_MAX = 18,
-        ZOOM_MIN = 3;
+var ZOOM_MAX = 18,
+    ZOOM_MIN = 3;
 
-    var placeFormatters = {
-        DEFAULT: function(params) {
-            var keys = ["landmark", "municipalitySubdivision", "municipality", "countrySubdivision"];
-            var place = "";
+var placeFormatters = {
+    DEFAULT: function(params) {
+        var keys = ["landmark", "municipalitySubdivision", "municipality", "countrySubdivision"];
+        var place = "";
 
-            for (var ii = 0; ii < keys.length; ii++) {
-                if (params[keys[ii]]) {
-                    place += params[keys[ii]] + " ";
-                } // if
-            } // for
-
-            return place;
-        } // DEFAULT formatter
-    };
-
-    var lastZoom = null,
-        requestCounter = 1;
-
-    /* internal decarta functions */
-
-    /*
-    This function is used to convert from the deCarta distance JSON data
-    to an integer value representing the distance in meters
-    */
-    function distanceToMeters(distance) {
-        var uom = distance.uom ? distance.uom.toUpperCase() : 'M',
-            conversionFactors = {
-                'M': 1,
-                'KM': 1000
-            },
-            factor = conversionFactors[uom];
-
-        return distance.value && factor ? distance.value * factor : 0;
-    } // uomToMeters
-
-    var types = {
-        Address: function(params) {
-            params = COG.extend({
-                countryCode: currentConfig.geocoding.countryCode,
-                language: currentConfig.geocoding.language,
-                freeform: null,
-                streetAddress: {
-                    building: null
-                }
-            }, params);
-
-            var _self = {
-                getXML: function() {
-                    var addressXml = COG.formatStr("<xls:Address countryCode=\"{0}\" language=\"{1}\">", params.countryCode, params.language);
-
-                    if (params.freeform) {
-                        var addressText = String(params.freeform).replace(/(\'|\")/, "\\$1");
-                        addressXml += "<xls:freeFormAddress>" + addressText + "</xls:freeFormAddress>";
-                    }
-                    else {
-
-                    } // if..else
-
-                    return addressXml + "</xls:Address>";
-                } //getXML
-            };
-
-            return _self;
-        },
-
-        Place: function(params) {
-            params = COG.extend({
-                landmark: "",
-                municipality: "",
-                municipalitySubdivision: "",
-                countrySubdivision: "",
-                countryCode: ""
-            }, params);
-
-            var _self = COG.extend({
-                calcMatchPercentage: function(input) {
-                    var fnresult = 0;
-
-                    if (params.landmark && params.landmarkSubType) {
-                        if (COG.wordExists(input, params.landmarkSubType)) {
-                            fnresult += 0.4;
-
-                            fnresult += COG.wordExists(input, params.landmark) ? 0.6 : 0;
-                        } // if
-                    }
-                    else {
-                        fnresult += COG.wordExists(input, params.municipalitySubdivision) ? 0.8 : 0;
-
-                        if ((fnresult === 0) && params.municipality) {
-                            fnresult += COG.wordExists(input, params.municipality) ? 0.7 : 0;
-                        } // if
-                    } // if..else
-
-                    if (params.countrySubdivision) {
-                        fnresult += COG.wordExists(input, params.countrySubdivision) ? 0.2 : 0;
-                    } // if
-
-                    return fnresult;
-                },
-
-                getCountryCode: function() {
-                    if (params.countryCode) {
-                        return params.countryCode.toUpperCase();
-                    } // if
-
-                    return "";
-                },
-
-                parse: function(details) {
-                    for (var ii = 0; details && (ii < details.length); ii++) {
-                        var contentType = details[ii].type ? (details[ii].type.slice(0, 1).toLowerCase() + details[ii].type.slice(1)) : "";
-
-                        if (typeof params[contentType] !== 'undefined') {
-                            params[contentType] = details[ii].content;
-
-                            if (details[ii].subType) {
-                                params[contentType + "SubType"] = details[ii].subType;
-                            } // if
-                        } // if
-                    } // for
-
-                    COG.extend(_self, params);
-                },
-
-                toString: function() {
-                    var formatter = placeFormatters[_self.getCountryCode()];
-
-                    if (! formatter) {
-                        formatter = placeFormatters.DEFAULT;
-                    } // if
-
-                    return formatter(params);
-                }
-            }, params);
-
-            return _self;
-        },
-
-        Street: function(params) {
-            params = COG.extend({
-                json: {}
-            }, params);
-
-            var street = "",
-                building = "";
-
-            if (params.json.Street) {
-                street = params.json.Street.content ? params.json.Street.content : params.json.Street;
+        for (var ii = 0; ii < keys.length; ii++) {
+            if (params[keys[ii]]) {
+                place += params[keys[ii]] + " ";
             } // if
+        } // for
 
-            street = (street && street.replace) ? street.replace(/\/\d+$/, "") : "";
+        return place;
+    } // DEFAULT formatter
+};
 
-            if (params.json.Building) {
-                if (params.json.Building.number) {
-                    building = params.json.Building.number;
-                } // if
-            } // if
+var lastZoom = null,
+    requestCounter = 1;
 
-            return {
-                building: building,
-                street: street,
+/* internal decarta functions */
 
-                calcMatchPercentage: function(input) {
-                    var fnresult = 0,
-                        test1 = T5.Geo.A.normalize(input),
-                        test2 = T5.Geo.A.normalize(street);
-
-                    if (params.json.Building) {
-                        if (T5.Geo.A.buildingMatch(input, params.json.Building.number.toString())) {
-                            fnresult += 0.2;
-                        } // if
-                    } // if
-
-                    if (test1 && test2 && COG.wordExists(test1, test2)) {
-                        fnresult += 0.8;
-                    } // if
-
-                    return fnresult;
-                },
-
-                toString: function() {
-                    if (street) {
-                        return (building ? building + " " : "") + street;
-                    } // if
-
-                    return "";
-                }
-            };
+/*
+This function is used to convert from the deCarta distance JSON data
+to an integer value representing the distance in meters
+*/
+function distanceToMeters(distance) {
+    var uom = distance.uom ? distance.uom.toUpperCase() : 'M',
+        conversionFactors = {
+            'M': 1,
+            'KM': 1000
         },
+        factor = conversionFactors[uom];
 
-        CenterContext: function(jsonData) {
-            return {
-                centerPos: new T5.Pos(jsonData.CenterPoint ? jsonData.CenterPoint.pos.content : ""),
-                radius: new T5.Geo.Radius(jsonData.Radius ? jsonData.Radius.content : 0, jsonData.Radius ? jsonData.Radius.unit : null)
-            }; // _self
-        } // CenterContext
-    }; // types
+    return distance.value && factor ? distance.value * factor : 0;
+} // uomToMeters
 
-    /* request types and functions */
-
-    function createRequestHeader(payload) {
-        return COG.formatStr(
-            "<xls:XLS version='1' xls:lang='en' xmlns:xls='http://www.opengis.net/xls' rel='{4}' xmlns:gml='http://www.opengis.net/gml'>" +
-                "<xls:RequestHeader clientName='{0}' clientPassword='{1}' sessionID='{2}' configuration='{3}' />" +
-                "{5}" +
-            "</xls:XLS>",
-
-            currentConfig.clientName,
-            currentConfig.clientPassword,
-            currentConfig.sessionID,
-            currentConfig.configuration,
-            currentConfig.release,
-            payload);
-    } // createRequestHeader
-
-    function createRequestTag(request, payload) {
-        return COG.formatStr(
-            "<xls:Request maximumResponses='{0}' version='{1}' requestID='{2}' methodName='{3}Request'>{4}</xls:Request>",
-            request.maxResponses,
-            request.version,
-            request.requestID,
-            request.methodName,
-            payload);
-    } // createRequestTag
-
-    function generateRequest(request) {
-        return createRequestHeader(createRequestTag(request, request.getRequestBody()));
-    } // generateRequest
-
-    function generateRequestUrl(request, request_data) {
-        if (! currentConfig.server) {
-            COG.warn("No server configured for deCarta - we are going to have issues");
-        } // if
-
-        return COG.formatStr("{0}/JSON?reqID={1}&chunkNo=1&numChunks=1&data={2}&responseFormat=JSON",
-            currentConfig.server,
-            request.requestID,
-            escape(request_data));
-    } // generateRequestUrl
-
-    function makeServerRequest(request, callback) {
-
-        COG.jsonp(generateRequestUrl(request, generateRequest(request)), function(data) {
-            var response = data.response.XLS.Response;
-
-            if ((response.numberOfResponses > 0) && response[request.methodName + 'Response']) {
-                var parsedResponse = null;
-                if (request.parseResponse) {
-                    parsedResponse = request.parseResponse(response[request.methodName + 'Response']);
-                } // if
-
-                if (callback) {
-                    callback(parsedResponse);
-                } // if
+var Address = function(params) {
+        params = COG.extend({
+            countryCode: currentConfig.geocoding.countryCode,
+            language: currentConfig.geocoding.language,
+            freeform: null,
+            streetAddress: {
+                building: null
             }
-            else {
-                COG.error("no responses from server: " + data.response);
-            } // if..else
-        });
-    } // openlsComms
+        }, params);
 
-    function parseAddress(address, position) {
-        var streetDetails = new types.Street({
-                json: address.StreetAddress
-            });
+        var _self = {
+            getXML: function() {
+                var addressXml = COG.formatStr("<xls:Address countryCode=\"{0}\" language=\"{1}\">", params.countryCode, params.language);
 
-        var placeDetails = new types.Place({
-            countryCode: address.countryCode
-        });
+                if (params.freeform) {
+                    var addressText = String(params.freeform).replace(/(\'|\")/, "\\$1");
+                    addressXml += "<xls:freeFormAddress>" + addressText + "</xls:freeFormAddress>";
+                }
+                else {
 
-        placeDetails.parse(address.Place);
+                } // if..else
 
-        var addressParams = {
-            streetDetails: streetDetails,
-            location: placeDetails,
-            country: address.countryCode ? address.countryCode : "",
-            postalCode: address.PostalCode ? address.PostalCode : "",
-            pos: position
+                return addressXml + "</xls:Address>";
+            } //getXML
         };
 
-        return new T5.Geo.Address(addressParams);
-    } // parseAddress
+        return _self;
+    },
 
-    var Request = function() {
-        var _self = {
-            methodName: "",
-            maxResponses: 25,
-            version: "1.0",
-            requestID: requestCounter++,
+    Place = function(params) {
+        params = COG.extend({
+            landmark: "",
+            municipality: "",
+            municipalitySubdivision: "",
+            countrySubdivision: "",
+            countryCode: ""
+        }, params);
 
-            getRequestBody: function() {
+        var _self = COG.extend({
+            calcMatchPercentage: function(input) {
+                var fnresult = 0;
+
+                if (params.landmark && params.landmarkSubType) {
+                    if (COG.wordExists(input, params.landmarkSubType)) {
+                        fnresult += 0.4;
+
+                        fnresult += COG.wordExists(input, params.landmark) ? 0.6 : 0;
+                    } // if
+                }
+                else {
+                    fnresult += COG.wordExists(input, params.municipalitySubdivision) ? 0.8 : 0;
+
+                    if ((fnresult === 0) && params.municipality) {
+                        fnresult += COG.wordExists(input, params.municipality) ? 0.7 : 0;
+                    } // if
+                } // if..else
+
+                if (params.countrySubdivision) {
+                    fnresult += COG.wordExists(input, params.countrySubdivision) ? 0.2 : 0;
+                } // if
+
+                return fnresult;
+            },
+
+            getCountryCode: function() {
+                if (params.countryCode) {
+                    return params.countryCode.toUpperCase();
+                } // if
+
                 return "";
             },
 
-            parseResponse: function(response) {
-                return response;
+            parse: function(details) {
+                for (var ii = 0; details && (ii < details.length); ii++) {
+                    var contentType = details[ii].type ? (details[ii].type.slice(0, 1).toLowerCase() + details[ii].type.slice(1)) : "";
+
+                    if (typeof params[contentType] !== 'undefined') {
+                        params[contentType] = details[ii].content;
+
+                        if (details[ii].subType) {
+                            params[contentType + "SubType"] = details[ii].subType;
+                        } // if
+                    } // if
+                } // for
+
+                COG.extend(_self, params);
+            },
+
+            toString: function() {
+                var formatter = placeFormatters[_self.getCountryCode()];
+
+                if (! formatter) {
+                    formatter = placeFormatters.DEFAULT;
+                } // if
+
+                return formatter(params);
             }
-        }; // _self
+        }, params);
 
         return _self;
+    },
+
+    Street = function(params) {
+        params = COG.extend({
+            json: {}
+        }, params);
+
+        var street = "",
+            building = "";
+
+        if (params.json.Street) {
+            street = params.json.Street.content ? params.json.Street.content : params.json.Street;
+        } // if
+
+        street = (street && street.replace) ? street.replace(/\/\d+$/, "") : "";
+
+        if (params.json.Building) {
+            if (params.json.Building.number) {
+                building = params.json.Building.number;
+            } // if
+        } // if
+
+        return {
+            building: building,
+            street: street,
+
+            calcMatchPercentage: function(input) {
+                var fnresult = 0,
+                    test1 = T5.Geo.A.normalize(input),
+                    test2 = T5.Geo.A.normalize(street);
+
+                if (params.json.Building) {
+                    if (T5.Geo.A.buildingMatch(input, params.json.Building.number.toString())) {
+                        fnresult += 0.2;
+                    } // if
+                } // if
+
+                if (test1 && test2 && COG.wordExists(test1, test2)) {
+                    fnresult += 0.8;
+                } // if
+
+                return fnresult;
+            },
+
+            toString: function() {
+                if (street) {
+                    return (building ? building + " " : "") + street;
+                } // if
+
+                return "";
+            }
+        };
+    },
+
+    CenterContext = function(jsonData) {
+        return {
+            centerPos: new T5.Pos(jsonData.CenterPoint ? jsonData.CenterPoint.pos.content : ""),
+            radius: new T5.Geo.Radius(jsonData.Radius ? jsonData.Radius.content : 0, jsonData.Radius ? jsonData.Radius.unit : null)
+        }; // _self
     };
 
-    var RUOKRequest = function(params) {
-        return COG.extend(new Request(), {
-            methodName: 'RUOK',
+/* request types and functions */
 
-            parseResponse: function(response) {
-                return {
-                    aliasCount: response.maxHostAliases,
-                    host: response.hostName
-                };
-            }
+function createRequestHeader(payload) {
+    return COG.formatStr(
+        "<xls:XLS version='1' xls:lang='en' xmlns:xls='http://www.opengis.net/xls' rel='{4}' xmlns:gml='http://www.opengis.net/gml'>" +
+            "<xls:RequestHeader clientName='{0}' clientPassword='{1}' sessionID='{2}' configuration='{3}' />" +
+            "{5}" +
+        "</xls:XLS>",
+
+        currentConfig.clientName,
+        currentConfig.clientPassword,
+        currentConfig.sessionID,
+        currentConfig.configuration,
+        currentConfig.release,
+        payload);
+} // createRequestHeader
+
+function createRequestTag(request, payload) {
+    return COG.formatStr(
+        "<xls:Request maximumResponses='{0}' version='{1}' requestID='{2}' methodName='{3}Request'>{4}</xls:Request>",
+        request.maxResponses,
+        request.version,
+        request.requestID,
+        request.methodName,
+        payload);
+} // createRequestTag
+
+function generateRequest(request) {
+    return createRequestHeader(createRequestTag(request, request.getRequestBody()));
+} // generateRequest
+
+function generateRequestUrl(request, request_data) {
+    if (! currentConfig.server) {
+        COG.warn("No server configured for deCarta - we are going to have issues");
+    } // if
+
+    return COG.formatStr("{0}/JSON?reqID={1}&chunkNo=1&numChunks=1&data={2}&responseFormat=JSON",
+        currentConfig.server,
+        request.requestID,
+        escape(request_data));
+} // generateRequestUrl
+
+function makeServerRequest(request, callback) {
+
+    COG.jsonp(generateRequestUrl(request, generateRequest(request)), function(data) {
+        var response = data.response.XLS.Response;
+
+        if ((response.numberOfResponses > 0) && response[request.methodName + 'Response']) {
+            var parsedResponse = null;
+            if (request.parseResponse) {
+                parsedResponse = request.parseResponse(response[request.methodName + 'Response']);
+            } // if
+
+            if (callback) {
+                callback(parsedResponse);
+            } // if
+        }
+        else {
+            COG.error("no responses from server: " + data.response);
+        } // if..else
+    });
+} // openlsComms
+
+function parseAddress(address, position) {
+    var streetDetails = new Street({
+            json: address.StreetAddress
         });
-    }; // RUOKRequest
+
+    var placeDetails = new Place({
+        countryCode: address.countryCode
+    });
+
+    placeDetails.parse(address.Place);
+
+    var addressParams = {
+        streetDetails: streetDetails,
+        location: placeDetails,
+        country: address.countryCode ? address.countryCode : "",
+        postalCode: address.PostalCode ? address.PostalCode : "",
+        pos: position
+    };
+
+    return new T5.Geo.Address(addressParams);
+} // parseAddress
+
+var Request = function() {
+    var _self = {
+        methodName: "",
+        maxResponses: 25,
+        version: "1.0",
+        requestID: requestCounter++,
+
+        getRequestBody: function() {
+            return "";
+        },
+
+        parseResponse: function(response) {
+            return response;
+        }
+    }; // _self
+
+    return _self;
+};
+
+var RUOKRequest = function(params) {
+    return COG.extend(new Request(), {
+        methodName: 'RUOK',
+
+        parseResponse: function(response) {
+            return {
+                aliasCount: response.maxHostAliases,
+                host: response.hostName
+            };
+        }
+    });
+}; // RUOKRequest
+T5.Generator.register('decarta', function(params) {
+    params = COG.extend({
+        tileSize: 256
+    }, params);
+
+    var DEGREES_TO_RADIANS = Math.PI / 180,
+        RADIANS_TO_DEGREES = 180 / Math.PI;
+
+    var _ll_LUT = [
+        "89.787438015348100000,360.00000000000000000",
+        "85.084059050110410000,180.00000000000000000",
+        "66.653475896509040000,90.00000000000000000",
+        "41.170427238429790000,45.000000000000000000",
+        "22.076741328793200000,22.500000000000000000",
+        "11.251819676168665000,11.250000000000000000",
+        "5.653589942659626000,5.625000000000000000",
+        "2.830287664051185000,2.812500000000000000",
+        "1.415581451872543800,1.406250000000000000",
+        "0.707845460801532700,0.703125000000000000",
+        "0.353929573271679340,0.351562500000000000",
+        "0.176965641673330230,0.175781250000000000",
+        "0.088482927761462040,0.087890625000000000",
+        "0.044241477246363230,0.043945312500000000",
+        "0.022120740293895182,0.021972656250000000",
+        "0.011060370355776452,0.010986328125000000",
+        "0.005530185203987857,0.005493164062500000",
+        "0.002765092605263539,0.002746582031250000",
+        "0.001382546303032519,0.001373291015625000",
+        "0.000691272945568983,0.000686645507812500",
+        "0.000345636472797214,0.000343322753906250"
+    ],
+    hosts = null;
+
+    /* internals */
+
+    function createTiles(view, viewRect, store, callback) {
+        var zoomLevel = view.getZoomLevel ? view.getZoomLevel() : 0;
+
+        if (zoomLevel) {
+            var numTiles = 2 << (zoomLevel - 1),
+                numTilesHalf = numTiles >> 1,
+                tileSize = params.tileSize,
+                xTiles = (viewRect.w / tileSize | 0) + 1,
+                yTiles = (viewRect.h / tileSize | 0) + 1,
+                xTile = (viewRect.x / tileSize | 0) - numTilesHalf,
+                yTile = numTiles - (viewRect.y / tileSize | 0) - numTilesHalf - yTiles,
+                tiles = store.search({
+                    x: (numTilesHalf + xTile) * tileSize,
+                    y: (numTilesHalf + yTile*-1 - yTiles) * tileSize,
+                    w: xTiles * tileSize,
+                    h: yTiles * tileSize
+                }),
+                tileIds = {},
+                ii;
+
+            for (ii = tiles.length; ii--; ) {
+                tileIds[tiles[ii].id] = true;
+            } // for
+
+            for (var xx = 0; xx <= xTiles; xx++) {
+                for (var yy = 0; yy <= yTiles; yy++) {
+                    var tileX = xTile + xx,
+                        tileY = yTile + yy - 1,
+                        tileId = tileX + '_' + tileY;
+
+                    if (! tileIds[tileId]) {
+                        var tileUrl = hosts[xx % hosts.length] + '/openls/image-cache/TILE?'+
+                               'LLMIN=0.0,0.0' +
+                               '&LLMAX=' + _ll_LUT[zoomLevel] +
+                               '&CACHEABLE=true' +
+                               '&DS=navteq-world' +
+                               '&WIDTH=' + (256 /* * dpr*/) +
+                               '&HEIGHT=' + (256 /* * dpr*/) +
+                               '&CLIENTNAME=' + currentConfig.clientName +
+                               '&SESSIONID=' + currentConfig.sessionID +
+                               '&FORMAT=PNG' +
+                               '&CONFIG=' + currentConfig.configuration +
+                               '&N=' + tileY +
+                               '&E=' + tileX,
+                            tile = new T5.Tile(
+                                (numTilesHalf + xTile + xx) * tileSize,
+                                (numTilesHalf + yTile*-1 - yy) * tileSize,
+                                tileUrl,
+                                tileSize,
+                                tileSize,
+                                tileId);
+
+                        store.insert(tile, tile);
+                    } // if
+                } // for
+            } // for
+
+            if (callback) {
+                callback();
+            } // if
+        } // if
+    } // createTiles
+
+
+    /* exports */
+
+    function run(view, viewRect, store, callback) {
+        if (hosts) {
+            createTiles(view, viewRect, store, callback);
+        }
+        else {
+            makeServerRequest(new RUOKRequest(), function(tileConfig) {
+                hosts = [];
+
+                if (tileConfig.aliasCount) {
+                    for (var ii = 0; ii < tileConfig.aliasCount; ii++) {
+                        hosts[ii] = 'http://' + tileConfig.host.replace('^(.*?)\.(.*)$', '\1-0' + (ii + 1) + '.\2');
+                    } // for
+                }
+                else {
+                    hosts = ['http://' + tileConfig.host];
+                } // if..else
+
+                createTiles(view, viewRect, store, callback);
+            });
+        }
+    } // run
+
+    /* define the generator */
+
+    T5.userMessage('ack', 'decarta', '&copy; deCarta, Inc. Map and Imagery Data &copy; NAVTEQ or Tele Atlas or DigitalGlobe');
+
+    return {
+        run: run
+    };
+});
+T5.Service.register('geocoder', function() {
+
+    /* internals */
 
     var GeocodeRequest = function(params) {
         params = COG.extend({
@@ -641,6 +773,72 @@ T5.Geo.Decarta = (function() {
         return _self;
     };
 
+    /* exports */
+
+    function forward(args) {
+        args = COG.extend({
+            addresses: [],
+            complete: null
+        }, args);
+
+        var ii, requestAddresses = [];
+
+        if (args.addresses && (! COG.isArray(args.addresses))) {
+            args.addresses = [args.addresses];
+        } // if
+
+        for (ii = 0; ii < args.addresses.length; ii++) {
+            if (COG.isPlainObject(args.addresses[ii])) {
+                COG.warn("attempting to geocode a simple object - not implemented");
+            }
+            else {
+                requestAddresses.push(new types.Address({
+                    freeform: args.addresses[ii]
+                }));
+            }
+        } // if
+
+        if (requestAddresses.length > 0) {
+            var request = new GeocodeRequest({
+                addresses: requestAddresses
+            });
+
+            makeServerRequest(request, function(geocodeResponses) {
+                if (args.complete) {
+                    for (ii = 0; ii < geocodeResponses.length; ii++) {
+                        args.complete(args.addresses[ii], geocodeResponses[ii]);
+                    } // for
+                } // if
+
+            });
+        } // if
+    } // forward
+
+    function reverse(args) {
+        args = COG.extend({
+            position: null,
+            complete: null
+        }, args);
+
+        if (! args.position) {
+            throw new Error("Cannot reverse geocode without a position");
+        } // if
+
+        var request = new ReverseGeocodeRequest(args);
+
+        makeServerRequest(request, function(matchingAddress) {
+            if (args.complete) {
+                args.complete(matchingAddress);
+            }
+        });
+    } // reverse
+
+    return {
+        forward: forward,
+        reverse: reverse
+    };
+});
+T5.Service.register('routing', function() {
     var RouteRequest = function(params) {
         params = COG.extend({
             waypoints: [],
@@ -737,233 +935,36 @@ T5.Geo.Decarta = (function() {
         return _self;
     };
 
-    /* exposed module functionality */
+    /* exports */
 
-    var module = {
+    function calculate(args, callback) {
+        args = COG.extend({
+           waypoints: []
+        }, args);
 
+        if (typeof T5.RouteTools !== 'undefined') {
+            var request = new RouteRequest(args);
+            makeServerRequest(request, function(routeData) {
+                if (callback) {
+                    callback(routeData);
+                } // if
+            });
+        }
+        else {
+            COG.warn('Could not generate route, T5.RouteTools plugin not found');
+        } // if..else
+    } // calculate
+
+    return {
+        calculate: calculate
+    };
+});
+
+    return {
         applyConfig: function(args) {
             COG.extend(currentConfig, args);
         },
 
-        /**
-        Send through a route request to the decarta server
-        */
-        calculateRoute: function(args, callback) {
-            args = COG.extend({
-               waypoints: []
-            }, args);
-
-            if (typeof T5.RouteTools !== 'undefined') {
-                var request = new RouteRequest(args);
-                makeServerRequest(request, function(routeData) {
-                    if (callback) {
-                        callback(routeData);
-                    } // if
-                });
-            }
-            else {
-                COG.warn('Could not generate route, T5.RouteTools plugin not found');
-            } // if..else
-        },
-
-        geocode: function(args) {
-            args = COG.extend({
-                addresses: [],
-                complete: null
-            }, args);
-
-            var ii, requestAddresses = [];
-
-            if (args.addresses && (! COG.isArray(args.addresses))) {
-                args.addresses = [args.addresses];
-            } // if
-
-            for (ii = 0; ii < args.addresses.length; ii++) {
-                if (COG.isPlainObject(args.addresses[ii])) {
-                    COG.warn("attempting to geocode a simple object - not implemented");
-                }
-                else {
-                    requestAddresses.push(new types.Address({
-                        freeform: args.addresses[ii]
-                    }));
-                }
-            } // if
-
-            if (requestAddresses.length > 0) {
-                var request = new GeocodeRequest({
-                    addresses: requestAddresses
-                });
-
-                makeServerRequest(request, function(geocodeResponses) {
-                    if (args.complete) {
-                        for (ii = 0; ii < geocodeResponses.length; ii++) {
-                            args.complete(args.addresses[ii], geocodeResponses[ii]);
-                        } // for
-                    } // if
-
-                });
-            } // if
-        },
-
-        reverseGeocode: function(args) {
-            args = COG.extend({
-                position: null,
-                complete: null
-            }, args);
-
-            if (! args.position) {
-                throw new Error("Cannot reverse geocode without a position");
-            } // if
-
-            var request = new ReverseGeocodeRequest(args);
-
-            makeServerRequest(request, function(matchingAddress) {
-                if (args.complete) {
-                    args.complete(matchingAddress);
-                }
-            });
-        }
-    };
-
-    var DecartaTileGenerator = function(params) {
-        params = COG.extend({
-            tileSize: 256
-        }, params);
-
-        var DEGREES_TO_RADIANS = Math.PI / 180,
-            RADIANS_TO_DEGREES = 180 / Math.PI;
-
-        var _ll_LUT = [
-            "89.787438015348100000,360.00000000000000000",
-            "85.084059050110410000,180.00000000000000000",
-            "66.653475896509040000,90.00000000000000000",
-            "41.170427238429790000,45.000000000000000000",
-            "22.076741328793200000,22.500000000000000000",
-            "11.251819676168665000,11.250000000000000000",
-            "5.653589942659626000,5.625000000000000000",
-            "2.830287664051185000,2.812500000000000000",
-            "1.415581451872543800,1.406250000000000000",
-            "0.707845460801532700,0.703125000000000000",
-            "0.353929573271679340,0.351562500000000000",
-            "0.176965641673330230,0.175781250000000000",
-            "0.088482927761462040,0.087890625000000000",
-            "0.044241477246363230,0.043945312500000000",
-            "0.022120740293895182,0.021972656250000000",
-            "0.011060370355776452,0.010986328125000000",
-            "0.005530185203987857,0.005493164062500000",
-            "0.002765092605263539,0.002746582031250000",
-            "0.001382546303032519,0.001373291015625000",
-            "0.000691272945568983,0.000686645507812500",
-            "0.000345636472797214,0.000343322753906250"
-        ],
-        hosts = null;
-
-        /* internals */
-
-        function createTiles(view, viewRect, store, callback) {
-            var zoomLevel = view.getZoomLevel ? view.getZoomLevel() : 0;
-
-            if (zoomLevel) {
-                var numTiles = 2 << (zoomLevel - 1),
-                    numTilesHalf = numTiles >> 1,
-                    tileSize = params.tileSize,
-                    xTiles = (viewRect.w / tileSize | 0) + 1,
-                    yTiles = (viewRect.h / tileSize | 0) + 1,
-                    xTile = (viewRect.x / tileSize | 0) - numTilesHalf,
-                    yTile = numTiles - (viewRect.y / tileSize | 0) - numTilesHalf - yTiles,
-                    tiles = store.search({
-                        x: (numTilesHalf + xTile) * tileSize,
-                        y: (numTilesHalf + yTile*-1 - yTiles) * tileSize,
-                        w: xTiles * tileSize,
-                        h: yTiles * tileSize
-                    }),
-                    tileIds = {},
-                    ii;
-
-                for (ii = tiles.length; ii--; ) {
-                    tileIds[tiles[ii].id] = true;
-                } // for
-
-                for (var xx = 0; xx <= xTiles; xx++) {
-                    for (var yy = 0; yy <= yTiles; yy++) {
-                        var tileX = xTile + xx,
-                            tileY = yTile + yy - 1,
-                            tileId = tileX + '_' + tileY;
-
-                        if (! tileIds[tileId]) {
-                            var tileUrl = hosts[xx % hosts.length] + '/openls/image-cache/TILE?'+
-                                   'LLMIN=0.0,0.0' +
-                                   '&LLMAX=' + _ll_LUT[zoomLevel] +
-                                   '&CACHEABLE=true' +
-                                   '&DS=navteq-world' +
-                                   '&WIDTH=' + (256 /* * dpr*/) +
-                                   '&HEIGHT=' + (256 /* * dpr*/) +
-                                   '&CLIENTNAME=' + currentConfig.clientName +
-                                   '&SESSIONID=' + currentConfig.sessionID +
-                                   '&FORMAT=PNG' +
-                                   '&CONFIG=' + currentConfig.configuration +
-                                   '&N=' + tileY +
-                                   '&E=' + tileX,
-                                tile = new T5.Tile(
-                                    (numTilesHalf + xTile + xx) * tileSize,
-                                    (numTilesHalf + yTile*-1 - yy) * tileSize,
-                                    tileUrl,
-                                    tileSize,
-                                    tileSize,
-                                    tileId);
-
-                            store.insert(tile, tile);
-                        } // if
-                    } // for
-                } // for
-
-                if (callback) {
-                    callback();
-                } // if
-            } // if
-        } // createTiles
-
-
-        /* exports */
-
-        function run(view, viewRect, store, callback) {
-            if (hosts) {
-                createTiles(view, viewRect, store, callback);
-            }
-            else {
-                makeServerRequest(new RUOKRequest(), function(tileConfig) {
-                    hosts = [];
-
-                    if (tileConfig.aliasCount) {
-                        for (var ii = 0; ii < tileConfig.aliasCount; ii++) {
-                            hosts[ii] = 'http://' + tileConfig.host.replace('^(.*?)\.(.*)$', '\1-0' + (ii + 1) + '.\2');
-                        } // for
-                    }
-                    else {
-                        hosts = ['http://' + tileConfig.host];
-                    } // if..else
-
-                    createTiles(view, viewRect, store, callback);
-                });
-            }
-        } // run
-
-        /* define the generator */
-
-        T5.userMessage('ack', 'decarta', '&copy; deCarta, Inc. Map and Imagery Data &copy; NAVTEQ or Tele Atlas or DigitalGlobe');
-
-        return {
-            run: run
-        };
-    };
-
-    T5.Generator.register('decarta', DecartaTileGenerator);
-
-    new T5.Geo.Engine({
-        id: "decarta",
-        route: module.calculateRoute,
-        geocode: module.geocode,
-        reverseGeocode: module.reverseGeocode,
         compareFns: (function() {
             return {
                 streetDetails: function(input, fieldVal) {
@@ -974,8 +975,5 @@ T5.Geo.Decarta = (function() {
                 }
             };
         })()
-    });
-
-    return module;
+    };
 })();
-

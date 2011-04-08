@@ -1963,6 +1963,40 @@ var Generator = (function() {
         register: register
     };
 })();
+/**
+# T5.Service
+This is a module of Tile5 that supports registration of services that provide capabilities
+to Tile5.  For instance an engine for a GIS backend might provide `route` or `geocode` service
+*/
+var Service = (function() {
+    var registry = {};
+
+    /* exports */
+
+    /**
+    ### find(serviceType)
+    */
+    function find(serviceType) {
+        return (registry[serviceType] || [])[0];
+    } // find
+
+    /**
+    ### register(serviceType, initFn)
+    */
+    function register(serviceType, initFn) {
+        if (! registry[serviceType]) {
+            registry[serviceType] = [];
+        } // if
+
+        registry[serviceType].push(initFn());
+    } // register
+
+    return {
+        find: find,
+        register: register
+    };
+})();
+
 
 /**
 # T5.XY (Internal Class)
@@ -5832,6 +5866,7 @@ Pos.prototype = {
         Hits: Hits,
 
         Generator: Generator,
+        Service: Service,
 
         tweenValue: COG.tweenValue,
         easing: COG.easing,
@@ -5977,25 +6012,6 @@ function radsPerPixel(zoomLevel) {
 
 
 /* internal functions */
-
-function findEngine(capability, preference) {
-    var matchingEngine = null;
-
-    for (var engineId in engines) {
-        if (preference) {
-            if ((engineId == preference) && engines[engineId][capability]) {
-                matchingEngine = engines[engineId];
-                break;
-            } // if
-        }
-        else if (engines[engineId][capability]) {
-            matchingEngine = engines[engineId];
-            break;
-        } // if..else
-    } // for
-
-    return matchingEngine;
-} // findEngine
 
 function findRadPhi(phi, t) {
     var eSinPhi = ECC * sin(phi);
@@ -6726,47 +6742,6 @@ var GeoXY = exports.GeoXY = (function() {
     };
 })();
 
-var engines = {};
-
-/**
-# T5.Geo.Engine
-*/
-var GeoEngine = function(params) {
-    if (! params.id) {
-        throw new Error("A GEO.Engine cannot be registered without providing an id.");
-    } // if
-
-    var _self = COG.extend({
-        remove: function() {
-            delete engines[_self.id];
-        }
-    }, params);
-
-    engines[_self.id] = _self;
-    return _self;
-};
-
-/**
-### getEngine(requiredCapability)
-Returns the engine that provides the required functionality.  If preferred engines are supplied
-as additional arguments, then those are looked for first
-*/
-function getEngine(requiredCapability) {
-    var fnresult = null;
-
-    for (var ii = 1; (! fnresult) && (ii < arguments.length); ii++) {
-        fnresult = findEngine(requiredCapability, arguments[ii]);
-    } // for
-
-    fnresult = fnresult ? fnresult : findEngine(requiredCapability);
-
-    if (! fnresult) {
-        throw new Error("Unable to find GEO engine with " + requiredCapability + " capability");
-    }
-
-    return fnresult;
-} // getEngine
-
 var FEATURE_TYPE_COLLECTION = 'featurecollection',
     FEATURE_TYPE_FEATURE = 'feature',
     VECTORIZE_OPTIONS = {
@@ -7087,7 +7062,6 @@ var GeoShape = exports.GeoShape = function(positions, params) {
     exports.Geo = {
         distanceToString: distanceToString,
         dist2rad: dist2rad,
-        getEngine: getEngine,
         radsPerPixel: radsPerPixel,
 
         Position: Position,
@@ -7097,8 +7071,6 @@ var GeoShape = exports.GeoShape = function(positions, params) {
         Address: Address,
         A: addrTools,
 
-
-        Engine: GeoEngine,
         GeoJSON: GeoJSON
     };
 })(T5);

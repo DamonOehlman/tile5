@@ -29,6 +29,7 @@ var T5 = {};
     //= require "js/shorts"
     //= require "js/canvasmaker"
     //= require "js/generator"
+    //= require "js/service"
     
     //= require "js/core/xy"
     //= require "js/core/rect"
@@ -79,6 +80,7 @@ var T5 = {};
         Hits: Hits,
         
         Generator: Generator,
+        Service: Service,
         
         // animation functions and modules
         tweenValue: COG.tweenValue,
@@ -122,8 +124,6 @@ var T5 = {};
     //= require "js/geo/types/address"
     //= require "js/geo/types/geoxy"
     
-    //= require "js/geo/types/engine"
-    
     //= require "js/geo/geojson"
 
     //= require "js/geo/ui/geopoly"
@@ -132,7 +132,6 @@ var T5 = {};
     exports.Geo = {
         distanceToString: distanceToString,
         dist2rad: dist2rad,
-        getEngine: getEngine,
         radsPerPixel: radsPerPixel,
 
         Position: Position,
@@ -142,9 +141,6 @@ var T5 = {};
         Address: Address,
         A: addrTools,
         
-        // TODO: probably need to include local support for addressing, but really don't want to bulk out T5 :/
-
-        Engine: GeoEngine,
         GeoJSON: GeoJSON
     };
 })(T5);

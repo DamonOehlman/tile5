@@ -184,9 +184,9 @@ T5.RouteTools = (function() {
             generalize: false
         }, args);
 
-        var engine = T5.Geo.getEngine("route");
-        if (engine) {
-            engine.route(args, function(routeData) {
+        var service = T5.Service.find('routing');
+        if (service) {
+            service.calculate(args, function(routeData) {
                 if (args.generalize) {
                     routeData.geometry = T5.Geo.Position.generalize(routeData.geometry, routeData.getInstructionPositions());
                 } // if

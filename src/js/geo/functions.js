@@ -81,26 +81,6 @@ function radsPerPixel(zoomLevel) {
 
 /* internal functions */
 
-function findEngine(capability, preference) {
-    var matchingEngine = null;
-    
-    // iterate through the registered engines
-    for (var engineId in engines) {
-        if (preference) {
-            if ((engineId == preference) && engines[engineId][capability]) {
-                matchingEngine = engines[engineId];
-                break;
-            } // if
-        }
-        else if (engines[engineId][capability]) {
-            matchingEngine = engines[engineId];
-            break;
-        } // if..else
-    } // for
-
-    return matchingEngine;
-} // findEngine
-
 function findRadPhi(phi, t) {
     var eSinPhi = ECC * sin(phi);
 
