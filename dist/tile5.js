@@ -953,81 +953,23 @@ var EventMonitor = function(target, handlers, params) {
         INERTIA_IDLE_DISTANCE = 15; // pixels
 
     var observable = params.observable,
-        pannableOpts = null,
         handlerInstances = [],
-        pans = [],
         totalDeltaX,
         totalDeltaY;
 
 
     /* internals */
 
-    function checkInertia(events) {
-        var evtCount = events.length,
-            includedCount,
-            vectorX = 0,
-            vectorY = 0,
-            diffX,
-            diffY,
-            distance,
-            theta,
-            extraDistance,
-            totalTicks = 0, // evtCount > 0 ? (new Date().getTime() - events[evtCount-1].ticks) : 0,
-            xyRatio = 1,
-            ii;
-
-        ii = events.length;
-        while (--ii > 1 && totalTicks < INERTIA_TIMEOUT) {
-            totalTicks += (events[ii].ticks - events[ii - 1].ticks);
-        } // while
-
-        includedCount = evtCount - ii;
-
-        if (includedCount > 1) {
-            diffX = events[evtCount - 1].x - events[ii].x;
-            diffY = events[evtCount - 1].y - events[ii].y;
-            distance = Math.sqrt(diffX * diffX + diffY * diffY) | 0;
-
-            if (distance > INERTIA_IDLE_DISTANCE) {
-                diffX = events[evtCount - 1].x - events[0].x;
-                diffY = events[evtCount - 1].y - events[0].y;
-                distance = Math.sqrt(diffX * diffX + diffY * diffY) | 0;
-                theta = Math.asin(diffY / distance);
-
-                extraDistance = distance * INERTIA_DURATION / totalTicks | 0;
-                extraDistance = extraDistance > INERTIA_MAXDIST ? INERTIA_MAXDIST : extraDistance;
-
-                inertiaPan(
-                    Math.cos(diffX > 0 ? theta : Math.PI - theta) * extraDistance,
-                    Math.sin(theta) * extraDistance,
-                    COG.easing('sine.out'),
-                    INERTIA_DURATION);
-            } // if
-        } // if
-    } // checkInertia
-
     function deltaGreaterThan(value) {
         return Math.abs(totalDeltaX) > value || Math.abs(totalDeltaY) > value;
     } // deltaGreaterThan
 
     function handlePointerMove(evt, absXY, relXY, deltaXY) {
-        if (pannableOpts) {
-            pans[pans.length] = {
-                ticks: new Date().getTime(),
-                x: deltaXY.x,
-                y: deltaXY.y
-            };
-
-            observable.trigger('pan', deltaXY.x, deltaXY.y);
-        } // if
-
-        totalDeltaX += deltaXY.x ? deltaXY.x : 0;
-        totalDeltaY += deltaXY.y ? deltaXY.y : 0;
+        totalDeltaX += deltaXY.x || 0;
+        totalDeltaY += deltaXY.y || 0;
     } // handlePanMove
 
     function handlePointerDown(evt, absXY, relXY) {
-        pans = [];
-
         totalDeltaX = 0;
         totalDeltaY = 0;
     } // handlePointerDown
@@ -1035,42 +977,14 @@ var EventMonitor = function(target, handlers, params) {
     function handlePointerUp(evt, absXY, relXY) {
         if (! deltaGreaterThan(MAXMOVE_TAP)) {
             observable.triggerCustom('tap', evt, absXY, relXY);
-        }
-        else if (pannableOpts) {
-            checkInertia(pans);
-        }
+        } // if
     } // handlePointerUP
-
-    function inertiaPan(changeX, changeY, easing, duration) {
-        var currentX = 0,
-            currentY = 0,
-            lastX = 0;
-
-
-        COG.tweenValue(0, changeX, easing, duration, function(val, complete) {
-            lastX = currentX;
-            currentX = val;
-        });
-
-        COG.tweenValue(0, changeY, easing, duration, function(val, complete) {
-            observable.trigger('pan', currentX - lastX, val - currentY);
-            currentY = val;
-        });
-    } // inertia pan
 
     /* exports */
 
     function bind() {
         return observable.bind.apply(null, arguments);
     } // bind
-
-    function pannable(opts) {
-        pannableOpts = COG.extend({
-            inertia: true
-        }, opts);
-
-        return self;
-    } // pannable
 
     function unbind() {
         observable.unbind();
@@ -1086,7 +1000,6 @@ var EventMonitor = function(target, handlers, params) {
 
     var self = {
         bind: bind,
-        pannable: pannable,
         unbind: unbind
     };
 
@@ -1194,66 +1107,6 @@ var EventMonitor = function(target, handlers, params) {
 
         return new EventMonitor(target, getHandlers(opts.types, capabilities), opts);
     } // watch
-
-var InertiaMonitor = function(upX, upY, params) {
-    params = COG.extend({
-        inertiaTrigger: 20
-    }, params);
-
-    var INERTIA_TIMEOUT = 300,
-        INERTIA_DURATION = 300,
-        INERTIA_MAXDIST = 500;
-
-    var startTicks = new Date().getTime(),
-        worker;
-
-    /* internals */
-
-    function calcDistance(x1, y1, x2, y2) {
-        var distX = x1 - x2,
-            distY = y1 - y2;
-
-        return Math.sqrt(distX * distX + distY * distY);
-    } // calcDistance
-
-    function calculateInertia(currentX, currentY, distance, tickDiff) {
-        var theta = Math.asin((upY - currentY) / distance),
-            extraDistance = distance * (INERTIA_DURATION / tickDiff) >> 0;
-
-        extraDistance = extraDistance > INERTIA_MAXDIST ? INERTIA_MAXDIST : extraDistance;
-
-        theta = currentX > upX ? theta : Math.PI - theta;
-
-        self.trigger(
-            'inertia',
-            upX,
-            upY,
-            Math.cos(theta) * extraDistance | 0,
-            Math.sin(theta) * -extraDistance | 0);
-    } // calculateInertia
-
-    /* exports */
-
-    function check(currentX, currentY) {
-        var distance = calcDistance(upX, upY, currentX, currentY),
-            tickDiff = new Date().getTime() - startTicks;
-
-        if ((tickDiff < INERTIA_TIMEOUT) && (distance > params.inertiaTrigger)) {
-            calculateInertia(currentX, currentY, distance, tickDiff);
-        }
-        else if (tickDiff > INERTIA_TIMEOUT) {
-            self.trigger('timeout');
-        } // if..else
-    } // check
-
-    var self = {
-        check: check
-    };
-
-    COG.observable(self);
-
-    return self;
-};
 
 /* common pointer (mouse, touch, etc) functions */
 
@@ -1872,7 +1725,8 @@ var indexOf = Array.prototype.indexOf || function(target) {
     return -1;
 };
 var TWO_PI = Math.PI * 2,
-    HALF_PI = Math.PI / 2;
+    HALF_PI = Math.PI / 2,
+    PROP_WK_TRANSFORM = '-webkit-transform';
 
 var abs = Math.abs,
     ceil = Math.ceil,
@@ -1904,10 +1758,9 @@ var abs = Math.abs,
     typeNumber = 'number',
     typeArray = 'array',
 
-    reDelimitedSplit = /[\,\s]/,
+    supportTransforms = typeof document.body.style[PROP_WK_TRANSFORM] != 'undefined',
 
-    isExplorerCanvas = typeof G_vmlCanvasManager != typeUndefined,
-    isFlashCanvas = typeof FlashCanvas != typeUndefined;
+    reDelimitedSplit = /[\,\s]/;
 /**
 # T5.newCanvas(width, height)
 */
@@ -1917,14 +1770,7 @@ var newCanvas = T5.newCanvas = function(width, height) {
     tmpCanvas.width = width ? width : 0;
     tmpCanvas.height = height ? height : 0;
 
-    if (isFlashCanvas) {
-        document.body.appendChild(tmpCanvas);
-        FlashCanvas.initElement(tmpCanvas);
-    } // if
-
-    if (isExplorerCanvas) {
-        G_vmlCanvasManager.initElement(tmpCanvas);
-    } // if
+    T5.trigger('createCanvas', tmpCanvas);
 
     return tmpCanvas;
 };
@@ -2812,7 +2658,7 @@ function checkImageLoads(tickCount) {
 } // imageLoadWorker
 
 function isLoaded(image) {
-    return image && (isFlashCanvas || (image.complete && image.width > 0));
+    return image && image.complete && image.width > 0;
 } // isLoaded
 
 function loadImage(url, callback) {
@@ -3065,30 +2911,13 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
 
     function createCanvas() {
         if (container) {
-            var isCanvas = container.tagName == 'CANVAS',
-                sizeTarget = isCanvas ? container.parentNode : container;
+            vpWidth = container.offsetWidth;
+            vpHeight = container.offsetHeight;
 
-            vpWidth = view.width = sizeTarget.offsetWidth;
-            vpHeight = view.height = sizeTarget.offsetHeight;
+            canvas = newCanvas(vpWidth, vpHeight);
+            canvas.style.cssText = 'position: absolute; z-index: 1;';
 
-            if (! isCanvas) {
-                canvas = newCanvas(vpWidth, vpHeight);
-                canvas.style.cssText = 'position: absolute; z-index: 1;';
-
-                createdCanvas = true;
-
-                container.appendChild(canvas);
-            }
-            else {
-                canvas = container;
-                canvas.width = vpWidth;
-                canvas.height = vpHeight;
-
-                if (isFlashCanvas) {
-                    FlashCanvas.initElement(canvas);
-                } // if
-            } // if..else
-
+            container.appendChild(canvas);
             context = null;
         } // if
     } // createCanvas
@@ -3102,9 +2931,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     } // getPreviousStyle
 
     function handleDetach() {
-        if (createdCanvas) {
-            container.removeChild(canvas);
-        } // if
+        container.removeChild(canvas);
     } // handleDetach
 
     function handleStyleDefined(evt, styleId, styleData) {
@@ -3450,6 +3277,194 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
 
     return _this;
 });
+registerRenderer('dom', function(view, container, params, baseRenderer) {
+
+    /* internals */
+
+    var ID_PREFIX = 'tile_',
+        PREFIX_LENGTH = ID_PREFIX.length,
+        imageDiv = null,
+        activeTiles = {},
+        currentTiles = {};
+
+    function createImageContainer() {
+        imageDiv = document.createElement('div');
+        imageDiv.id = COG.objId('domImages');
+        imageDiv.style.cssText = COG.formatStr(
+            'position: absolute; overflow: hidden; width: {0}px; height: {1}px;',
+            container.offsetWidth,
+            container.offsetHeight);
+
+        if (container.childNodes.length > 0) {
+            container.insertBefore(imageDiv, container.childNodes[0]);
+        }
+        else {
+            container.appendChild(imageDiv);
+        } // if..else
+    } // createImageContainer
+
+    function createTileImage(tile) {
+        var image = tile.image = new Image();
+
+        activeTiles[tile.id] = tile;
+
+        image.src = tile.url;
+        image.onload = function() {
+            if (currentTiles[tile.id]) {
+                imageDiv.appendChild(this);
+                tile.indom = true;
+            }
+            else {
+                tile.image = null;
+            } // if..else
+        };
+
+        image.style.cssText = '-webkit-user-select: none; -webkit-box-shadow: none; -moz-box-shadow: none; box-shadow: none; border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px; margin-top: 0px; margin-right: 0px; margin-bottom: 0px; margin-left: 0px; position: absolute;';
+
+        return image;
+    }
+
+    function handleDetach() {
+        container.removeChild(imageDiv);
+    } // handleDetach
+
+    function handlePredraw(evt, viewport, state) {
+
+        removeOldObjects(activeTiles, currentTiles);
+        currentTiles = {};
+    } // handlePredraw
+
+    function handleReset(evt) {
+        removeOldObjects(activeTiles, currentTiles = {});
+
+        while (imageDiv.childNodes.length > 0) {
+            imageDiv.removeChild(imageDiv.childNodes[0]);
+        } // while
+    } // handleReset
+
+    function removeOldObjects(activeObj, currentObj, flagField) {
+        var deletedKeys = [];
+
+        for (var objId in activeObj) {
+            var item = activeObj[objId],
+                inactive = flagField ? item[flagField] : (! currentObj[objId]);
+
+            if (inactive) {
+                if (item.indom) {
+                    COG.info('attemping to remove tile ' + item.id + ' from the dom');
+                    try {
+                        imageDiv.removeChild(item.image);
+                    }
+                    catch (e) {
+                        COG.warn('could not remove tile ' + item.id + ' from the DOM');
+                    }
+
+                    item.image = null;
+                } // if
+
+                deletedKeys[deletedKeys.length] = objId;
+            } // if
+        } // for
+
+        for (var ii = deletedKeys.length; ii--; ) {
+            delete activeObj[deletedKeys[ii]];
+        } // for
+    } // removeOldObjects
+
+    /* exports */
+
+    function drawTiles(viewport, tiles) {
+        var tile,
+            image,
+            scaleFactor = viewport.scaleFactor,
+            inViewport,
+            offsetX, offsetY,
+            minX, minY, maxX, maxY,
+            tileWidth, tileHeight,
+            gridWidth, gridHeight,
+            diffWidth, diffHeight,
+            scaleOffsetX = 0,
+            scaleOffsetY = 0,
+            relX, relY, ii,
+            xIndex, yIndex,
+            scaledWidth,
+            scaledHeight,
+            tileIds = [];
+
+        for (ii = tiles.length; ii--; ) {
+            tile = tiles[ii];
+
+            tileWidth = tileWidth || tile.w;
+            tileHeight = tileHeight || tile.h;
+
+            minX = minX ? Math.min(tile.x, minX) : tile.x;
+            minY = minY ? Math.min(tile.y, minY) : tile.y;
+            maxX = maxX ? Math.max(tile.x, maxX) : tile.x;
+            maxY = maxY ? Math.max(tile.y, maxY) : tile.y;
+        } // for
+
+        gridWidth = ((maxX - minX) / tileWidth + 1) * tileWidth;
+        gridHeight = ((maxY - minY) / tileHeight + 1) * tileHeight;
+        diffWidth = gridWidth * scaleFactor - viewport.w;
+        diffHeight = gridHeight * scaleFactor - viewport.h;
+
+        scaleOffsetX = diffWidth * scaleFactor - diffWidth;
+        scaleOffsetY = diffHeight * scaleFactor - diffHeight;
+
+        offsetX = minX - viewport.x;
+        offsetY = minY - viewport.y;
+
+        for (ii = tiles.length; ii--; ) {
+            tile = tiles[ii];
+
+            if (tile.url) {
+                image = tile.image;
+
+                if (! image) {
+                    image = createTileImage(tile);
+                } // if
+
+                xIndex = (tile.x - minX) / tile.w;
+                yIndex = (tile.y - minY) / tile.h;
+
+                scaledWidth = tile.w * scaleFactor | 0;
+                scaledHeight = tile.h * scaleFactor | 0;
+
+                relX = offsetX + (xIndex * scaledWidth);
+                relY = offsetY + (yIndex * scaledWidth);
+
+                if (supportTransforms) {
+                    image.style[PROP_WK_TRANSFORM] = 'translate3d(' + relX +'px, ' + relY + 'px, 0px)';
+                }
+                else {
+                    image.style.left = relX + 'px';
+                    image.style.top = relY + 'px';
+                } // if..else
+
+                image.style.width = scaledWidth + 'px';
+                image.style.height = scaledHeight + 'px';
+
+                currentTiles[tile.id] = tile;
+            } // if
+        } // for
+    } // drawTiles
+
+    /* initialization */
+
+    createImageContainer();
+
+    var _this = COG.extend(baseRenderer, {
+        preventPartialScale: true,
+
+        drawTiles: drawTiles
+    });
+
+    _this.bind('predraw', handlePredraw);
+    _this.bind('detach', handleDetach);
+    _this.bind('reset', handleReset);
+
+    return _this;
+});
 
 var styleRegistry = exports.styles = {};
 
@@ -3692,6 +3707,7 @@ var View = function(params) {
         captureDrag: false,
         inertia: true,
         refreshDistance: 256,
+        padding: 256 >> 1,
         pannable: false,
         clipping: true,
         scalable: false,
@@ -3702,7 +3718,7 @@ var View = function(params) {
         tapExtent: 10,
         guides: false,
         turbo: false,
-        fps: 25,
+        fps: 60,
 
         minZoom: 1,
         maxZoom: 1,
@@ -3717,12 +3733,17 @@ var View = function(params) {
         caps = {},
         layers = [],
         layerCount = 0,
-        container = document.getElementById(params.container),
+        container = null,
+        panContainer = null,
         dragObject = null,
         frameIndex = 0,
         mainContext = null,
         isIE = !isType(window.attachEvent, typeUndefined),
         hitFlagged = false,
+        pointerDown = false,
+        dx = 0, dy = 0,
+        totalDX = 0,
+        totalDY = 0,
         refreshDist = params.refreshDistance,
         offsetX = 0,
         offsetY = 0,
@@ -3756,6 +3777,8 @@ var View = function(params) {
         tweeningOffset = false,
         cycleDelay = 1000 / params.fps | 0,
         viewChanges = 0,
+        width, height,
+        halfWidth, halfHeight,
         zoomX, zoomY,
         zoomLevel = params.zoomLevel,
 
@@ -3769,14 +3792,6 @@ var View = function(params) {
         state = stateActive;
 
     /* event handlers */
-
-    function handlePan(evt, x, y) {
-        if (! dragObject) {
-            updateOffset(offsetX - x, offsetY - y);
-
-            _self.trigger('pan', offsetX, offsetY);
-        } // if
-    } // pan
 
     /* scaling functions */
 
@@ -3813,11 +3828,6 @@ var View = function(params) {
         return projectedXY;
     } // getProjectedXY
 
-    function handleContainerUpdate(name, value) {
-        container = document.getElementById(value);
-        createRenderer();
-    } // handleContainerUpdate
-
     function handleDoubleTap(evt, absXY, relXY) {
         triggerAll(
             'doubleTap',
@@ -3837,6 +3847,7 @@ var View = function(params) {
 
     function handlePointerDown(evt, absXY, relXY) {
         dragObject = null;
+        pointerDown = true;
 
         initHitData('down', absXY, relXY);
     } // handlePointerDown
@@ -3845,12 +3856,18 @@ var View = function(params) {
         initHitData('hover', absXY, relXY);
     } // handlePointerHover
 
-    function handlePointerMove(evt, absXY, relXY) {
+    function handlePointerMove(evt, absXY, relXY, deltaXY) {
         dragSelected(absXY, relXY, false);
+
+        if (! dragObject) {
+            dx = deltaXY.x;
+            dy = deltaXY.y;
+        } // if
     } // handlePointerMove
 
     function handlePointerUp(evt, absXY, relXY) {
         dragSelected(absXY, relXY, true);
+        pointerDown = false;
     } // handlePointerUp
 
     function handleResize(evt) {
@@ -3912,10 +3929,6 @@ var View = function(params) {
 
         if (renderer) {
             eventMonitor = INTERACT.watch(renderer.interactTarget || container);
-
-            if (params.pannable) {
-                eventMonitor.pannable().bind('pan', handlePan);
-            } // if
 
             if (params.scalable) {
                 eventMonitor.bind('zoom', handleZoom);
@@ -4033,6 +4046,37 @@ var View = function(params) {
         return -1;
     } // getLayerIndex
 
+    function initContainer(outer) {
+        panContainer = document.createElement('div');
+        panContainer.id = COG.objId('t5_container');
+        panContainer.style.cssText = COG.formatStr(
+            'position: absolute; overflow: hidden; width: {0}px; height: {1}px;',
+            outer.offsetWidth,
+            outer.offsetHeight);
+
+        outer.appendChild(panContainer);
+
+        width = panContainer.offsetWidth + params.padding * 2;
+        height = panContainer.offsetHeight + params.padding * 2;
+        halfWidth = width / 2;
+        halfHeight = height / 2;
+
+        container = document.createElement('div');
+        container.id = COG.objId('t5_view');
+        container.style.cssText = COG.formatStr(
+            'position: absolute; overflow: hidden; width: {0}px; height: {1}px; margin: {2}px 0 0 {2}px;',
+            width,
+            height,
+            -params.padding);
+
+        panContainer.appendChild(container);
+    } // initContainer
+
+    function updateContainer(name, value) {
+        initContainer(document.getElementById(value));
+        createRenderer();
+    } // updateContainer
+
     /* draw code */
 
     /*
@@ -4072,11 +4116,12 @@ var View = function(params) {
             scaleChanged,
             newFrame = false,
             frameData,
-            viewport;
+            viewport,
+            deltaEnergy = abs(dx) + abs(dy);
 
         tickCount = tickCount || new Date().getTime();
 
-        newFrame = tickCount - lastCycleTicks > cycleDelay;
+        newFrame = true; // tickCount - lastCycleTicks > cycleDelay;
 
         if (newFrame) {
             var refreshXDist = abs(offsetX - refreshX),
@@ -4089,13 +4134,13 @@ var View = function(params) {
                 viewChanges++;
             } // if
 
-            if (refreshXDist >= refreshDist || refreshYDist >= refreshDist) {
+            if ((deltaEnergy < 10) && (refreshXDist >= refreshDist || refreshYDist >= refreshDist)) {
                 refresh();
             } // if
 
             frameData = {
                 index: frameIndex++,
-                draw: viewChanges
+                draw: viewChanges || deltaEnergy || totalDX || totalDY
             };
 
             _self.trigger('enterFrame', tickCount, frameData);
@@ -4112,66 +4157,111 @@ var View = function(params) {
             redrawBG = (state & (stateZoom | statePan)) !== 0;
             interacting = redrawBG && (state & stateAnimating) === 0;
 
-            viewport = getViewport();
+            if (deltaEnergy > 5) {
+                totalDX += dx;
+                totalDY += dy;
 
-            /*
-            if (offsetMaxX || offsetMaxY) {
-                constrainOffset();
-            } // if
-            */
+                if (supportTransforms) {
+                    container.style[PROP_WK_TRANSFORM] = 'translate3d(' + (totalDX | 0) +'px, ' + (totalDY | 0) + 'px, 0px)';
+                    COG.info(container.style[PROP_WK_TRANSFORM]);
+                }
+                else {
+                    container.style.left = totalDX + 'px';
+                    container.style.top = totalDY + 'px';
+                } // if..else
+
+                COG.info('drawing');
+            }
+            else {
+                offsetX -= (dx + totalDX) | 0;
+                offsetY -= (dy + totalDY) | 0;
 
 
-            renderer.trigger('predraw', viewport, state);
+                if (totalDX || totalDY) {
+                    COG.info('reset');
+                    if (supportTransforms) {
+                        container.style[PROP_WK_TRANSFORM] = 'translate3d(0px, 0px, 0px)';
+                        COG.info(container.style[PROP_WK_TRANSFORM]);
+                    }
+                    else {
+                        container.style.left = 0;
+                        container.style.top = 0;
+                    } // if..else
 
-            if (renderer.prepare(layers, viewport, state, tickCount, hitData)) {
-                viewChanges = 0;
+                    totalDX = 0;
+                    totalDY = 0;
+                } // if..else
+
+                viewport = getViewport();
 
                 /*
-                for (var ii = layerCount; ii--; ) {
-                    state = state | (layers[ii].animated ? stateAnimating : 0);
-
-                    layers[ii].cycle(tickCount, viewport, state);
-                } // for
+                if (offsetMaxX || offsetMaxY) {
+                    constrainOffset();
+                } // if
                 */
 
-                for (ii = layerCount; ii--; ) {
-                    var drawLayer = layers[ii];
 
-                    if (drawLayer.visible && ((state & drawLayer.validStates) !== 0)) {
-                        var previousStyle = drawLayer.style ?
-                                renderer.applyStyle(drawLayer.style, true) :
-                                null;
+                renderer.trigger('predraw', viewport, state);
 
-                        drawLayer.draw(
-                            renderer,
-                            viewport,
-                            state,
-                            _self,
-                            tickCount,
-                            hitData);
+                if (renderer.prepare(layers, viewport, state, tickCount, hitData)) {
+                    viewChanges = 0;
 
-                        if (previousStyle) {
-                            renderer.applyStyle(previousStyle);
+                    /*
+                    for (var ii = layerCount; ii--; ) {
+                        state = state | (layers[ii].animated ? stateAnimating : 0);
+
+                        layers[ii].cycle(tickCount, viewport, state);
+                    } // for
+                    */
+
+                    for (ii = layerCount; ii--; ) {
+                        var drawLayer = layers[ii];
+
+                        if (drawLayer.visible && ((state & drawLayer.validStates) !== 0)) {
+                            var previousStyle = drawLayer.style ?
+                                    renderer.applyStyle(drawLayer.style, true) :
+                                    null;
+
+                            drawLayer.draw(
+                                renderer,
+                                viewport,
+                                state,
+                                _self,
+                                tickCount,
+                                hitData);
+
+                            if (previousStyle) {
+                                renderer.applyStyle(previousStyle);
+                            } // if
                         } // if
-                    } // if
-                } // for
+                    } // for
 
-                renderer.render(viewport);
+                    renderer.render(viewport);
 
-                _self.trigger('drawComplete', viewport, tickCount);
+                    _self.trigger('drawComplete', viewport, tickCount);
 
-                lastOffsetX = offsetX;
-                lastOffsetY = offsetY;
-                lastScaleFactor = scaleFactor;
-            } // if
+                    lastOffsetX = offsetX;
+                    lastOffsetY = offsetY;
+                    lastScaleFactor = scaleFactor;
+                } // if
+            } // if..else
 
-            /*
-            drawView(
-                state,
-                cycleRect,
-                clipping && clippable && (! redrawBG),
-                tickCount);
-            */
+            if (pointerDown) {
+                dx = 0;
+                dy = 0;
+            }
+            else if (dx != 0 || dy != 0) {
+                dx *= 0.8;
+                dy *= 0.8;
+
+                if (abs(dx) < 0.5) {
+                    dx = 0;
+                } // if
+
+                if (abs(dy) < 0.5) {
+                    dy = 0;
+                } // if
+            } // if..else
 
             if (hitData) {
                 checkHits();
@@ -4210,6 +4300,13 @@ var View = function(params) {
 
         if (eventMonitor) {
             eventMonitor.unbind();
+        } // if
+
+        if (panContainer) {
+            document.getElementById(panContainer).removeChild(panContainer);
+
+            panContainer = null;
+            container = null;
         } // if
     } // detach
 
@@ -4292,19 +4389,19 @@ var View = function(params) {
     Return a T5.XYRect for the last drawn view rect
     */
     function getViewport() {
-        var viewport = new Rect(offsetX, offsetY, _self.width, _self.height);
+        var viewport = new Rect(offsetX, offsetY, width, height);
 
         viewport.scaleFactor = scaleFactor;
 
         if (scaleFactor !== 1) {
-            var centerX = offsetX + (_self.width >> 1),
-                centerY = offsetY + (_self.height >> 1);
+            var centerX = offsetX + halfWidth,
+                centerY = offsetY + halfHeight;
 
             viewport.scaled = XYRect.fromCenter(
-                centerX,
-                centerY,
-                _self.width / scaleFactor | 0,
-                _self.height / scaleFactor | 0
+                centerX | 0,
+                centerY | 0,
+                width / scaleFactor | 0,
+                height / scaleFactor | 0
             );
         } // if
 
@@ -4444,8 +4541,6 @@ var View = function(params) {
         value = max(params.minZoom, min(params.maxZoom, value));
         if (value !== zoomLevel) {
             var scaling = pow(2, value - zoomLevel),
-                halfWidth = _self.width >> 1,
-                halfHeight = _self.height >> 1,
                 scaledHalfWidth = halfWidth / scaling | 0,
                 scaledHalfHeight = halfHeight / scaling | 0;
 
@@ -4599,7 +4694,7 @@ var View = function(params) {
             'zoom'
         ],
         COG.paramTweaker(params, null, {
-            'container': handleContainerUpdate,
+            'container': updateContainer,
             'inertia': captureInteractionEvents,
             'captureHover': captureInteractionEvents,
             'scalable': captureInteractionEvents,
@@ -4614,7 +4709,7 @@ var View = function(params) {
         }));
 
         caps = testResults;
-        createRenderer();
+        updateContainer(null, params.container);
 
         if (isIE) {
             window.attachEvent('onresize', handleResize);
@@ -4628,7 +4723,6 @@ var View = function(params) {
 
     return _self;
 }; // T5.View
-
 /**
 # T5.Map
 _extends:_ T5.Tiler
@@ -4815,8 +4909,9 @@ var Map = function(params) {
     */
     function panToPosition(position, callback, easingFn, easingDuration) {
         var centerXY = GeoXY.init(position, radsPerPixel(_self.getZoomLevel())),
-            offsetX = centerXY.x - (_self.width >> 1),
-            offsetY = centerXY.y - (_self.height >> 1);
+            viewport = _self.getViewport(),
+            offsetX = centerXY.x - (viewport.w >> 1),
+            offsetY = centerXY.y - (viewport.h >> 1);
 
         _self.updateOffset(offsetX, offsetY, easingFn, easingDuration, function() {
             if (callback) {

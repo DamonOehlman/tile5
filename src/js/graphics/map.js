@@ -202,8 +202,9 @@ var Map = function(params) {
         // determine the tile offset for the 
         // requested position
         var centerXY = GeoXY.init(position, radsPerPixel(_self.getZoomLevel())),
-            offsetX = centerXY.x - (_self.width >> 1),
-            offsetY = centerXY.y - (_self.height >> 1);
+            viewport = _self.getViewport(),
+            offsetX = centerXY.x - (viewport.w >> 1),
+            offsetY = centerXY.y - (viewport.h >> 1);
             
         // COG.info('panning to center xy: ', centerXY);
         _self.updateOffset(offsetX, offsetY, easingFn, easingDuration, function() {

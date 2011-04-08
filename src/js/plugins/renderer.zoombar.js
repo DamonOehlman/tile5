@@ -85,6 +85,8 @@ T5.registerRenderer('zoombar', function(view, container, params, baseRenderer) {
     } // createThumb
     
     function createZoomBar() {
+        var parent = container.parentNode || container;
+        
         zoomBar = document.createElement('div');
         zoomBar.className = 't5-zoombar';
         zoomBar.style.cssText = COG.formatStr(
@@ -95,11 +97,11 @@ T5.registerRenderer('zoombar', function(view, container, params, baseRenderer) {
             getBackground());
             
         // add the zoom bar
-        if (container.childNodes[0]) {
-            container.insertBefore(zoomBar, container.childNodes[0]);
+        if (parent.childNodes[0]) {
+            parent.insertBefore(zoomBar, parent.childNodes[0]);
         }
         else {
-            container.appendChild(zoomBar);
+            parent.appendChild(zoomBar);
         } // if..else
         
         // create the thumb elements

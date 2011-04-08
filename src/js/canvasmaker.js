@@ -8,16 +8,9 @@ var newCanvas = T5.newCanvas = function(width, height) {
     tmpCanvas.width = width ? width : 0;
     tmpCanvas.height = height ? height : 0;
 
-    // flash canvas initialization
-    if (isFlashCanvas) {
-        document.body.appendChild(tmpCanvas);
-        FlashCanvas.initElement(tmpCanvas);
-    } // if
-    
-    // if we are working with explorer canvas, then initialise the canvas
-    if (isExplorerCanvas) {
-        G_vmlCanvasManager.initElement(tmpCanvas);
-    } // if    
+    // trigger the create canvas event which will allow polyfills such
+    // as flash canvas and explorer canvas initialize the display
+    T5.trigger('createCanvas', tmpCanvas);
 
     return tmpCanvas;
 };

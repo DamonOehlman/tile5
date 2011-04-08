@@ -1,11 +1,9 @@
-T5.registerRenderer('dom', function(view, container, params, baseRenderer) {
+registerRenderer('dom', function(view, container, params, baseRenderer) {
     
     /* internals */
     
-    var PROP_WK_TRANSFORM = '-webkit-transform',
-        ID_PREFIX = 'tile_',
+    var ID_PREFIX = 'tile_',
         PREFIX_LENGTH = ID_PREFIX.length,
-        supportTransforms = typeof container.style[PROP_WK_TRANSFORM] != 'undefined',
         imageDiv = null,
         activeTiles = {},
         currentTiles = {};

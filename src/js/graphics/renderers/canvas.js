@@ -49,34 +49,16 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     // TODO (0.9.7): remove the canvas detection and assume that we have been passed a div
     function createCanvas() {
         if (container) {
-            var isCanvas = container.tagName == 'CANVAS',
-                sizeTarget = isCanvas ? container.parentNode : container;
-            
             // initialise the viewport height and width
-            vpWidth = view.width = sizeTarget.offsetWidth;
-            vpHeight = view.height = sizeTarget.offsetHeight;
+            vpWidth = container.offsetWidth;
+            vpHeight = container.offsetHeight;
             
-            if (! isCanvas) {
-                // create the canvas
-                canvas = newCanvas(vpWidth, vpHeight);
-                canvas.style.cssText = 'position: absolute; z-index: 1;';
-                
-                // flag that we created the canvas
-                createdCanvas = true;
+            // create the canvas
+            canvas = newCanvas(vpWidth, vpHeight);
+            canvas.style.cssText = 'position: absolute; z-index: 1;';
 
-                // add the canvas to the container
-                container.appendChild(canvas);
-            } 
-            else {
-                canvas = container;
-                canvas.width = vpWidth;
-                canvas.height = vpHeight;
-                
-                if (isFlashCanvas) {
-                    FlashCanvas.initElement(canvas);
-                } // if
-            } // if..else
-            
+            // add the canvas to the container
+            container.appendChild(canvas);
             context = null;
         } // if
     } // createCanvas
@@ -92,10 +74,7 @@ registerRenderer('canvas', function(view, container, params, baseRenderer) {
     } // getPreviousStyle
     
     function handleDetach() {
-        // if we created the canvas, then get rid of it...
-        if (createdCanvas) {
-            container.removeChild(canvas);
-        } // if
+        container.removeChild(canvas);
     } // handleDetach
     
     function handleStyleDefined(evt, styleId, styleData) {

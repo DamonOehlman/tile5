@@ -1,7 +1,7 @@
 /**
-# T5.Geo.OSM
+# T5.OSM
 */
-T5.Geo.OSM = (function() {
+T5.OSM = (function() {
     
     // initialise constants
     var DEGREES_TO_RADIANS = Math.PI / 180,
@@ -10,11 +10,11 @@ T5.Geo.OSM = (function() {
     /* define generators */
     
     /**
-    # T5.Geo.OSM.Generator
+    # T5.OSM.Generator
     
     ## Functions
     */
-    var OSMGenerator = function(params) {
+    var Generator = function(params) {
         params = COG.extend({
             flipY: false,
             tileSize: 256,
@@ -175,30 +175,7 @@ T5.Geo.OSM = (function() {
         // bind to generator events
         
         return _self;
-    }; // OSMGenerator
-    
-    T5.Generator.register('osm.cloudmade', function(params) {
-        params = COG.extend({
-            apikey: null,
-            styleid: 1
-        }, params);
-        
-        T5.userMessage('ack', 'osm.cloudmade', 'This product uses the <a href="http://cloudmade.com/" target="_blank">CloudMade</a> APIs, but is not endorsed or certified by CloudMade.');
-        
-        return COG.extend(new OSMGenerator(params), {
-            getServerDetails: function() {
-                return {
-                    baseUrl: COG.formatStr(
-                        'http://{3}.tile.cloudmade.com/{0}/{1}/{2}/',
-                        params.apikey,
-                        params.styleid,
-                        256, 
-                        '{0}'),
-                    subDomains: ['a', 'b', 'c']
-                };
-            }
-        });
-    });
+    }; // Generator
     
     T5.Generator.register('osm.mapbox', function(params) {
         params = COG.extend({
@@ -209,7 +186,7 @@ T5.Geo.OSM = (function() {
         
         T5.userMessage('ack', 'osm.mapbox', 'Tiles Courtesy of <a href="http://mapbox.com/" target="_blank">MapBox</a>');
         
-        return COG.extend(new OSMGenerator(params), {
+        return COG.extend(new Generator(params), {
             getServerDetails: function() {
                 return {
                     baseUrl: COG.formatStr("http://{2}.tile.mapbox.com/{0}/{1}/", params.version, params.style, "{0}"),
@@ -222,7 +199,7 @@ T5.Geo.OSM = (function() {
     T5.Generator.register('osm.mapquest', function(params) {
         T5.userMessage('ack', 'osm.mapquest', 'Tiles Courtesy of <a href="http://open.mapquest.co.uk/" target="_blank">MapQuest</a>');
         
-        return COG.extend(new OSMGenerator(params), {
+        return COG.extend(new Generator(params), {
             getServerDetails: function() {
                 return {
                     baseUrl: 'http://otile{0}.mqcdn.com/tiles/1.0.0/osm/',
@@ -233,13 +210,11 @@ T5.Geo.OSM = (function() {
     });
     
     // register the open street map style generators
-    T5.Generator.register('osm.local', OSMGenerator);
+    T5.Generator.register('osm.local', Generator);
     
     /* define module */
     
-    var module = {
-        Generator: OSMGenerator
+    return {
+        Generator: Generator
     };
-
-    return module;
 })();

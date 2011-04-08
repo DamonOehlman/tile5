@@ -1,7 +1,6 @@
 SPROCKET_OPTS="-I build -I lib -I /development/projects/github/sidelab/"
 MINIFY=$1
-PLUGINS="renderer.dom \
-renderer.raphael \
+PLUGINS="renderer.raphael \
 renderer.webgl \
 renderer.three \
 clusterer \
@@ -9,7 +8,7 @@ geo.searchtools \
 geo.routetools \
 renderer.zoombar"
 
-ENGINES="osm decarta bing wms"
+ENGINES="osm cloudmade decarta bing wms"
 
 : ${MINIFY:=false}
 

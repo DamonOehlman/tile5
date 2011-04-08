@@ -56,7 +56,7 @@ function checkImageLoads(tickCount) {
 } // imageLoadWorker
 
 function isLoaded(image) {
-    return image && (isFlashCanvas || (image.complete && image.width > 0));
+    return image && image.complete && image.width > 0;
 } // isLoaded
 
 function loadImage(url, callback) {

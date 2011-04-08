@@ -125,6 +125,7 @@ var View = function(params) {
         captureDrag: false,
         inertia: true,
         refreshDistance: 256,
+        padding: 256 >> 1,
         pannable: false,
         clipping: true,
         scalable: false,
@@ -135,7 +136,7 @@ var View = function(params) {
         tapExtent: 10,
         guides: false,
         turbo: false,
-        fps: 25,
+        fps: 60,
         
         // zoom parameters
         minZoom: 1,
@@ -153,12 +154,17 @@ var View = function(params) {
         caps = {},
         layers = [],
         layerCount = 0,
-        container = document.getElementById(params.container),
+        container = null,
+        panContainer = null,
         dragObject = null,
         frameIndex = 0,
         mainContext = null,
         isIE = !isType(window.attachEvent, typeUndefined),
         hitFlagged = false,
+        pointerDown = false,
+        dx = 0, dy = 0,
+        totalDX = 0,
+        totalDY = 0,
         refreshDist = params.refreshDistance,
         offsetX = 0,
         offsetY = 0,
@@ -192,6 +198,8 @@ var View = function(params) {
         tweeningOffset = false,
         cycleDelay = 1000 / params.fps | 0,
         viewChanges = 0,
+        width, height,
+        halfWidth, halfHeight,
         zoomX, zoomY,
         zoomLevel = params.zoomLevel,
         
@@ -205,15 +213,6 @@ var View = function(params) {
         state = stateActive;
         
     /* event handlers */
-    
-    function handlePan(evt, x, y) {
-        if (! dragObject) {
-            updateOffset(offsetX - x, offsetY - y);
-            
-            // trigger the view pan event
-            _self.trigger('pan', offsetX, offsetY);
-        } // if
-    } // pan
     
     /* scaling functions */
     
@@ -254,11 +253,6 @@ var View = function(params) {
         return projectedXY;
     } // getProjectedXY
     
-    function handleContainerUpdate(name, value) {
-        container = document.getElementById(value);
-        createRenderer();
-    } // handleContainerUpdate
-    
     function handleDoubleTap(evt, absXY, relXY) {
         triggerAll(
             'doubleTap', 
@@ -280,7 +274,8 @@ var View = function(params) {
     function handlePointerDown(evt, absXY, relXY) {
         // reset the hover offset and the drag element
         dragObject = null;
-
+        pointerDown = true;
+        
         // initialise the hit data
         initHitData('down', absXY, relXY);
     } // handlePointerDown
@@ -290,12 +285,19 @@ var View = function(params) {
         initHitData('hover', absXY, relXY);
     } // handlePointerHover
     
-    function handlePointerMove(evt, absXY, relXY) {
+    function handlePointerMove(evt, absXY, relXY, deltaXY) {
+        // drag the selected if we 
         dragSelected(absXY, relXY, false);
+        
+        if (! dragObject) {
+            dx = deltaXY.x;
+            dy = deltaXY.y;
+        } // if
     } // handlePointerMove
     
     function handlePointerUp(evt, absXY, relXY) {
         dragSelected(absXY, relXY, true);
+        pointerDown = false;
     } // handlePointerUp
     
     function handleResize(evt) {
@@ -367,11 +369,6 @@ var View = function(params) {
         if (renderer) {
             // recreate the event monitor
             eventMonitor = INTERACT.watch(renderer.interactTarget || container);
-
-            // if this is pannable, then attach event handlers
-            if (params.pannable) {
-                eventMonitor.pannable().bind('pan', handlePan);
-            } // if
 
             // if this view is scalable, attach zooming event handlers
             if (params.scalable) {
@@ -498,6 +495,38 @@ var View = function(params) {
         return -1;
     } // getLayerIndex
     
+    function initContainer(outer) {
+        panContainer = document.createElement('div');
+        panContainer.id = COG.objId('t5_container');
+        panContainer.style.cssText = COG.formatStr(
+            'position: absolute; overflow: hidden; width: {0}px; height: {1}px;',
+            outer.offsetWidth,
+            outer.offsetHeight);
+
+        outer.appendChild(panContainer);
+        
+        // initialise the view width and height
+        width = panContainer.offsetWidth + params.padding * 2;
+        height = panContainer.offsetHeight + params.padding * 2;
+        halfWidth = width / 2;
+        halfHeight = height / 2;
+        
+        container = document.createElement('div');
+        container.id = COG.objId('t5_view');
+        container.style.cssText = COG.formatStr(
+            'position: absolute; overflow: hidden; width: {0}px; height: {1}px; margin: {2}px 0 0 {2}px;',
+            width,
+            height,
+            -params.padding);
+
+        panContainer.appendChild(container);
+    } // initContainer
+    
+    function updateContainer(name, value) {
+        initContainer(document.getElementById(value));
+        createRenderer();
+    } // updateContainer
+    
     /* draw code */
     
     /*
@@ -543,14 +572,15 @@ var View = function(params) {
             scaleChanged,
             newFrame = false,
             frameData,
-            viewport;
+            viewport,
+            deltaEnergy = abs(dx) + abs(dy);
             
         // initialise the tick count if it isn't already defined
         // not all browsers pass through the ticks with the requestAnimationFrame :/
         tickCount = tickCount || new Date().getTime();
         
         // set the new frame flag
-        newFrame = tickCount - lastCycleTicks > cycleDelay;
+        newFrame = true; // tickCount - lastCycleTicks > cycleDelay;
         
         // if we have a new frame, then fire the enterFrame event
         if (newFrame) {
@@ -566,14 +596,14 @@ var View = function(params) {
             } // if
                 
             // determine whether a refresh is required
-            if (refreshXDist >= refreshDist || refreshYDist >= refreshDist) {
+            if ((deltaEnergy < 10) && (refreshXDist >= refreshDist || refreshYDist >= refreshDist)) {
                 refresh();
             } // if
             
             // initialise the frame data
             frameData = {
                 index: frameIndex++,
-                draw: viewChanges
+                draw: viewChanges || deltaEnergy || totalDX || totalDY
             };
 
             // trigger the enter frame event
@@ -595,91 +625,143 @@ var View = function(params) {
             redrawBG = (state & (stateZoom | statePan)) !== 0;
             interacting = redrawBG && (state & stateAnimating) === 0;
             
-            // initialise the viewport
-            viewport = getViewport();
+            // if the delta energy is above the energy threshold, move the container
+            if (deltaEnergy > 5) {
+                totalDX += dx;
+                totalDY += dy;
 
-            /*
-            // check that the offset is within bounds
-            if (offsetMaxX || offsetMaxY) {
-                constrainOffset();
-            } // if
-            */
-
-            // TODO: if we have a hover offset, check that no elements have moved under the cursor (maybe)
-            
-            // trigger the predraw event
-            renderer.trigger('predraw', viewport, state);
-            
-            // prepare the renderer
-            if (renderer.prepare(layers, viewport, state, tickCount, hitData)) {
-                // reset the view changes count
-                viewChanges = 0;
+                if (supportTransforms) {
+                    container.style[PROP_WK_TRANSFORM] = 'translate3d(' + (totalDX | 0) +'px, ' + (totalDY | 0) + 'px, 0px)';
+                    COG.info(container.style[PROP_WK_TRANSFORM]);
+                }
+                else {
+                    container.style.left = totalDX + 'px';
+                    container.style.top = totalDY + 'px';
+                } // if..else
                 
-                /*
-                for (var ii = layerCount; ii--; ) {
-                    // if a layer is animating the flag as such
-                    state = state | (layers[ii].animated ? stateAnimating : 0);
+                COG.info('drawing');
+            }
+            // otherwise, reset the container position and refire the renderer
+            else {
+                // shift the offset by the delta amount
+                offsetX -= (dx + totalDX) | 0;
+                offsetY -= (dy + totalDY) | 0;
+                
+                // shift the offset by the delta amount
+                // offsetX -= totalDX | 0;
+                // offsetY -= totalDY | 0;
+                
+                if (totalDX || totalDY) {
+                    COG.info('reset');
+                    if (supportTransforms) {
+                        container.style[PROP_WK_TRANSFORM] = 'translate3d(0px, 0px, 0px)';
+                        COG.info(container.style[PROP_WK_TRANSFORM]);
+                    }
+                    else {
+                        container.style.left = 0;
+                        container.style.top = 0;
+                    } // if..else
 
-                    // cycle the layer
-                    layers[ii].cycle(tickCount, viewport, state);
-                } // for
+                    totalDX = 0;
+                    totalDY = 0;
+                } // if..else
+                
+                // initialise the viewport
+                viewport = getViewport();
+
+                /*
+                // check that the offset is within bounds
+                if (offsetMaxX || offsetMaxY) {
+                    constrainOffset();
+                } // if
                 */
 
-                for (ii = layerCount; ii--; ) {
-                    var drawLayer = layers[ii];
+                // TODO: if we have a hover offset, check that no elements have moved under the cursor (maybe)
 
-                    // determine whether we need to draw
-                    if (drawLayer.visible && ((state & drawLayer.validStates) !== 0)) {
-                        // if the layer has style, then apply it and save the current style
-                        var previousStyle = drawLayer.style ? 
-                                renderer.applyStyle(drawLayer.style, true) : 
-                                null;
+                // trigger the predraw event
+                renderer.trigger('predraw', viewport, state);
 
-                        // draw the layer
-                        drawLayer.draw(
-                            renderer,
-                            viewport,
-                            state, 
-                            _self,
-                            tickCount,
-                            hitData);
+                // prepare the renderer
+                if (renderer.prepare(layers, viewport, state, tickCount, hitData)) {
+                    // reset the view changes count
+                    viewChanges = 0;
 
-                        // if we applied a style, then restore the previous style if supplied
-                        if (previousStyle) {
-                            renderer.applyStyle(previousStyle);
+                    /*
+                    for (var ii = layerCount; ii--; ) {
+                        // if a layer is animating the flag as such
+                        state = state | (layers[ii].animated ? stateAnimating : 0);
+
+                        // cycle the layer
+                        layers[ii].cycle(tickCount, viewport, state);
+                    } // for
+                    */
+
+                    for (ii = layerCount; ii--; ) {
+                        var drawLayer = layers[ii];
+
+                        // determine whether we need to draw
+                        if (drawLayer.visible && ((state & drawLayer.validStates) !== 0)) {
+                            // if the layer has style, then apply it and save the current style
+                            var previousStyle = drawLayer.style ? 
+                                    renderer.applyStyle(drawLayer.style, true) : 
+                                    null;
+
+                            // draw the layer
+                            drawLayer.draw(
+                                renderer,
+                                viewport,
+                                state, 
+                                _self,
+                                tickCount,
+                                hitData);
+
+                            // if we applied a style, then restore the previous style if supplied
+                            if (previousStyle) {
+                                renderer.applyStyle(previousStyle);
+                            } // if
                         } // if
-                    } // if
-                } // for
-                
-                // get the renderer to render the view
-                // NB: some renderers will do absolutely nothing here...
-                renderer.render(viewport);
-                
-                // trigger the draw complete event
-                _self.trigger('drawComplete', viewport, tickCount);
-                
-                // update the last cycle ticks
-                lastOffsetX = offsetX;
-                lastOffsetY = offsetY;
-                lastScaleFactor = scaleFactor;
-            } // if
-            
-            /*
-            // draw the view
-            drawView(
-                state, 
-                cycleRect, 
-                clipping && clippable && (! redrawBG), 
-                tickCount);
-            */
+                    } // for
 
+                    // get the renderer to render the view
+                    // NB: some renderers will do absolutely nothing here...
+                    renderer.render(viewport);
+
+                    // trigger the draw complete event
+                    _self.trigger('drawComplete', viewport, tickCount);
+
+                    // update the last cycle ticks
+                    lastOffsetX = offsetX;
+                    lastOffsetY = offsetY;
+                    lastScaleFactor = scaleFactor;
+                } // if
+            } // if..else
+            
+            // apply the inertial dampeners 
+            // really just wanted to say that...
+            if (pointerDown) {
+                dx = 0;
+                dy = 0;
+            }
+            else if (dx != 0 || dy != 0) {
+                dx *= 0.8;
+                dy *= 0.8;
+                
+                if (abs(dx) < 0.5) {
+                    dx = 0;
+                } // if
+                
+                if (abs(dy) < 0.5) {
+                    dy = 0;
+                } // if
+            } // if..else            
+            
             // check for hits 
             if (hitData) {
                 checkHits();
                 hitData = null;
             } // if
         } // if
-
+        
         animFrame(cycle);
     } // cycle
     
@@ -719,6 +801,15 @@ var View = function(params) {
         
         if (eventMonitor) {
             eventMonitor.unbind();
+        } // if
+        
+        // remove the pan container
+        if (panContainer) {
+            document.getElementById(panContainer).removeChild(panContainer);
+            
+            // reset the pan container and container variables
+            panContainer = null;
+            container = null;
         } // if
     } // detach
     
@@ -806,21 +897,21 @@ var View = function(params) {
     Return a T5.XYRect for the last drawn view rect
     */
     function getViewport() {
-        var viewport = new Rect(offsetX, offsetY, _self.width, _self.height);
+        var viewport = new Rect(offsetX, offsetY, width, height);
 
         // add the scale factor information
         viewport.scaleFactor = scaleFactor;
             
         // if we are scaling, then attach the scaled viewport information also
         if (scaleFactor !== 1) {
-            var centerX = offsetX + (_self.width >> 1),
-                centerY = offsetY + (_self.height >> 1);
+            var centerX = offsetX + halfWidth,
+                centerY = offsetY + halfHeight;
 
             viewport.scaled = XYRect.fromCenter(
-                centerX, 
-                centerY, 
-                _self.width / scaleFactor | 0,
-                _self.height / scaleFactor | 0
+                centerX | 0, 
+                centerY | 0, 
+                width / scaleFactor | 0,
+                height / scaleFactor | 0
             );
         } // if
         
@@ -979,8 +1070,6 @@ var View = function(params) {
         value = max(params.minZoom, min(params.maxZoom, value));
         if (value !== zoomLevel) {
             var scaling = pow(2, value - zoomLevel),
-                halfWidth = _self.width >> 1,
-                halfHeight = _self.height >> 1,
                 scaledHalfWidth = halfWidth / scaling | 0,
                 scaledHalfHeight = halfHeight / scaling | 0;
             
@@ -1149,7 +1238,7 @@ var View = function(params) {
             'zoom'
         ], 
         COG.paramTweaker(params, null, {
-            'container': handleContainerUpdate,
+            'container': updateContainer,
             'inertia': captureInteractionEvents,
             'captureHover': captureInteractionEvents,
             'scalable': captureInteractionEvents,
@@ -1166,7 +1255,7 @@ var View = function(params) {
         
         // create the renderer
         caps = testResults;
-        createRenderer();
+        updateContainer(null, params.container);
 
         // if autosized, then listen for resize events
         if (isIE) {
@@ -1178,8 +1267,8 @@ var View = function(params) {
     });
     
     // start the animation frame
+    // setInterval(cycle, 1000 / 60);
     animFrame(cycle);
 
     return _self;
 }; // T5.View
-
