@@ -38,6 +38,7 @@ var T5 = {};
     //= require "js/core/xyrect"
     //= require "js/core/hits"
     //= require "js/core/spatialstore"
+    //= require "js/core/domtools"
     
     //= require "js/images/loader"
     //= require "js/images/tile"

@@ -1791,7 +1791,7 @@ quat4.str = function(quat) {
 }
 
 
-T5.registerRenderer('webgl', function(view, container, outer, params, baseRenderer) {
+T5.registerRenderer('webgl', function(view, panFrame, container, params, baseRenderer) {
     params = COG.extend({
     }, params);
 
@@ -1887,15 +1887,15 @@ T5.registerRenderer('webgl', function(view, container, outer, params, baseRender
     } // createTileBuffer
 
     function handleDetach() {
-        container.removeChild(canvas);
+        panFrame.removeChild(canvas);
     } // handleDetach
 
     function init() {
         var xSeg, ySeg;
 
-        if (container) {
-            vpWidth = view.width = container.offsetWidth;
-            vpHeight = view.height = container.offsetHeight;
+        if (panFrame) {
+            vpWidth = view.width = panFrame.offsetWidth;
+            vpHeight = view.height = panFrame.offsetHeight;
 
             xSeg = (vpWidth / TILE_SIZE | 0) + 2;
             ySeg = (vpHeight / TILE_SIZE | 0) + 2;
@@ -1907,7 +1907,7 @@ T5.registerRenderer('webgl', function(view, container, outer, params, baseRender
             gl.viewportWidth = vpWidth;
             gl.viewportHeight = vpHeight;
 
-            container.appendChild(canvas);
+            panFrame.appendChild(canvas);
 
             initShaders();
 

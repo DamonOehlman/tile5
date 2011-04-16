@@ -77,7 +77,7 @@ function ColorParser(color_string) {
     };
 }
 
-T5.registerRenderer('three:webgl', function(view, container, outer, params, baseRenderer) {
+T5.registerRenderer('three:webgl', function(view, panFrame, container, params, baseRenderer) {
     params = COG.extend({
         guides: false
     }, params);
@@ -178,7 +178,7 @@ T5.registerRenderer('three:webgl', function(view, container, outer, params, base
 
     function handleDetach() {
 
-        container.removeChild(renderer.domElement);
+        panFrame.removeChild(renderer.domElement);
     } // handleDetach
 
     function handleStyleDefined(evt, styleId, styleData) {
@@ -222,9 +222,9 @@ T5.registerRenderer('three:webgl', function(view, container, outer, params, base
     function initThree() {
         var xSeg, ySeg;
 
-        if (container) {
-            vpWidth = container.offsetWidth - (view.padding * 2);
-            vpHeight = container.offsetHeight - (view.padding * 2);
+        if (panFrame) {
+            vpWidth = panFrame.offsetWidth - (view.padding * 2);
+            vpHeight = panFrame.offsetHeight - (view.padding * 2);
 
             xSeg = (vpWidth / TILE_SIZE | 0) + 1;
             ySeg = (vpHeight / TILE_SIZE | 0) + 1;
@@ -270,7 +270,7 @@ T5.registerRenderer('three:webgl', function(view, container, outer, params, base
 
             renderer.domElement.style.margin = COG.formatStr('{0}px 0 0 {0}px', view.padding);
 
-            container.appendChild(renderer.domElement);
+            panFrame.appendChild(renderer.domElement);
         } // if
 
         initGeometries();

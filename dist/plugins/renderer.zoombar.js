@@ -1,4 +1,4 @@
-T5.registerRenderer('zoombar', function(view, container, outer, params, baseRenderer) {
+T5.registerRenderer('zoombar', function(view, panFrame, container, params, baseRenderer) {
     params = COG.extend({
         width: 24,
         height: 200,
@@ -16,7 +16,7 @@ T5.registerRenderer('zoombar', function(view, container, outer, params, baseRend
         PROP_WK_TRANSFORM = '-webkit-transform',
         buttonHeight = params.buttonHeight,
         eventMonitor,
-        supportTransforms = typeof container.style[PROP_WK_TRANSFORM] != 'undefined',
+        supportTransforms = typeof panFrame.style[PROP_WK_TRANSFORM] != 'undefined',
         spriteStart = params.height,
         thumb,
         thumbHeight = params.thumbHeight,
@@ -89,11 +89,11 @@ T5.registerRenderer('zoombar', function(view, container, outer, params, baseRend
             getMargin(),
             getBackground());
 
-        if (outer.childNodes[0]) {
-            outer.insertBefore(zoomBar, outer.childNodes[0]);
+        if (container.childNodes[0]) {
+            container.insertBefore(zoomBar, container.childNodes[0]);
         }
         else {
-            outer.appendChild(zoomBar);
+            container.appendChild(zoomBar);
         } // if..else
 
         createThumb();
@@ -121,7 +121,7 @@ T5.registerRenderer('zoombar', function(view, container, outer, params, baseRend
             params.margin + 'px',
             0,
             '0',
-            (outer.offsetWidth - params.width - params.margin) + 'px');
+            (container.offsetWidth - params.width - params.margin) + 'px');
     } // getMargin
 
     function getThumbBackground(state) {
@@ -133,7 +133,7 @@ T5.registerRenderer('zoombar', function(view, container, outer, params, baseRend
     function handleDetach() {
         eventMonitor.unbind();
 
-        outer.removeChild(zoomBar);
+        container.removeChild(zoomBar);
     } // handleDetach
 
     function handlePointerDown(evt, absXY, relXY) {

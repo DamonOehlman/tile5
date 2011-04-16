@@ -1,7 +1,7 @@
 /**
 # RENDERER: canvas
 */
-registerRenderer('canvas', function(view, container, outer, params, baseRenderer) {
+registerRenderer('canvas', function(view, panFrame, container, params, baseRenderer) {
     params = COG.extend({
     }, params);
     
@@ -48,17 +48,17 @@ registerRenderer('canvas', function(view, container, outer, params, baseRenderer
         
     // TODO (0.9.7): remove the canvas detection and assume that we have been passed a div
     function createCanvas() {
-        if (container) {
+        if (panFrame) {
             // initialise the viewport height and width
-            vpWidth = container.offsetWidth;
-            vpHeight = container.offsetHeight;
+            vpWidth = panFrame.offsetWidth;
+            vpHeight = panFrame.offsetHeight;
             
             // create the canvas
             canvas = newCanvas(vpWidth, vpHeight);
             canvas.style.cssText = 'position: absolute; z-index: 1;';
 
-            // add the canvas to the container
-            container.appendChild(canvas);
+            // add the canvas to the panFrame
+            panFrame.appendChild(canvas);
             context = null;
         } // if
     } // createCanvas
@@ -74,7 +74,7 @@ registerRenderer('canvas', function(view, container, outer, params, baseRenderer
     } // getPreviousStyle
     
     function handleDetach() {
-        container.removeChild(canvas);
+        panFrame.removeChild(canvas);
     } // handleDetach
     
     function handleStyleDefined(evt, styleId, styleData) {
@@ -397,7 +397,7 @@ registerRenderer('canvas', function(view, container, outer, params, baseRenderer
     
     /* initialization */
     
-    // initialise the container
+    // initialise the panFrame
     createCanvas();
 
     var _this = COG.extend(baseRenderer, {

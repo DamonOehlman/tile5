@@ -1,4 +1,4 @@
-T5.registerRenderer('raphael', function(view, container, outer, params, baseRenderer) {
+T5.registerRenderer('raphael', function(view, panFrame, container, params, baseRenderer) {
     params = COG.extend({
     }, params);
     
@@ -20,16 +20,16 @@ T5.registerRenderer('raphael', function(view, container, outer, params, baseRend
         
     function createPaper() {
         // initialise the viewport height and width
-        vpWidth = view.width = container.offsetWidth;
-        vpHeight = view.height = container.offsetHeight;
+        vpWidth = view.width = panFrame.offsetWidth;
+        vpHeight = view.height = panFrame.offsetHeight;
 
         // create the mapper
-        paper = Raphael(container, vpWidth, vpHeight);
+        paper = Raphael(panFrame, vpWidth, vpHeight);
     } // createCanvas
     
     function handleDetach() {
         // remove the canvas from the dom
-        container.removeChild(paper.canvas);
+        panFrame.removeChild(paper.canvas);
     } // handleDetach
     
     function handlePredraw(evt, viewport, state) {
@@ -316,7 +316,7 @@ T5.registerRenderer('raphael', function(view, container, outer, params, baseRend
     
     /* initialization */
     
-    // initialise the container
+    // initialise the panFrame
     createPaper();
 
     var _this = COG.extend(baseRenderer, {

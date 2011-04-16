@@ -1,6 +1,6 @@
 //= require <colorparser.js>
 
-T5.registerRenderer('three:webgl', function(view, container, outer, params, baseRenderer) {
+T5.registerRenderer('three:webgl', function(view, panFrame, container, params, baseRenderer) {
     params = COG.extend({
         guides: false
     }, params);
@@ -108,8 +108,8 @@ T5.registerRenderer('three:webgl', function(view, container, outer, params, base
     function handleDetach() {
         // TODO: clean up the scene
         
-        // remove the dom element from the container
-        container.removeChild(renderer.domElement);
+        // remove the dom element from the panFrame
+        panFrame.removeChild(renderer.domElement);
     } // handleDetach
     
     function handleStyleDefined(evt, styleId, styleData) {
@@ -156,10 +156,10 @@ T5.registerRenderer('three:webgl', function(view, container, outer, params, base
     function initThree() {
         var xSeg, ySeg;
         
-        if (container) {
+        if (panFrame) {
             // initialise the viewport height and width
-            vpWidth = container.offsetWidth - (view.padding * 2);
-            vpHeight = container.offsetHeight - (view.padding * 2);
+            vpWidth = panFrame.offsetWidth - (view.padding * 2);
+            vpHeight = panFrame.offsetHeight - (view.padding * 2);
             
             // calculate the number of x segments
             xSeg = (vpWidth / TILE_SIZE | 0) + 1;
@@ -212,8 +212,8 @@ T5.registerRenderer('three:webgl', function(view, container, outer, params, base
             // the 2d renderers
             renderer.domElement.style.margin = COG.formatStr('{0}px 0 0 {0}px', view.padding);
             
-            // add the canvas to the container
-            container.appendChild(renderer.domElement);
+            // add the canvas to the panFrame
+            panFrame.appendChild(renderer.domElement);
         } // if
         
         // initialise geometries
@@ -623,7 +623,7 @@ T5.registerRenderer('three:webgl', function(view, container, outer, params, base
     
     /* initialization */
     
-    // initialise the container
+    // initialise three
     initThree();
 
     var _this = COG.extend(baseRenderer, {

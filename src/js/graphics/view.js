@@ -20,8 +20,6 @@ var view = new T5.View(params);
 
 - `container` (required)
 
-- `autoSize`
-
 - `id`
 
 - `captureHover` - whether or not hover events should be intercepted by the View.  
@@ -34,27 +32,11 @@ false, but it's overheads are minimals given no events will be generated.
 
 - `scalable`
 
-- `panAnimationEasing`
-
-- `panAnimationDuration`
-
 - `fps` - (int, default = 25) - the frame rate of the view, by default this is set to 
 25 frames per second but can be increased or decreased to compensate for device 
 performance.  In reality though on slower devices, the framerate will scale back 
 automatically, but it can be prudent to set a lower framerate to leave some cpu for 
 other processes :)
-
-- `turbo` - (bool, default = false) - whether or not all possible performance optimizations
-should be implemented.  In this mode certain features such as transparent images in T5.ImageLayer
-will not have these effects applied.  Additionally, clipping is disabled and clearing the background
-rectangle never happens.  This is serious stuff folks.
-
-- `zoomEasing` - (easing, default = `quad.out`) - The easing effect that should be used when 
-the user double taps the display to zoom in on the view.
-
-- `zoomDuration` - (int, default = 300) - If the `zoomEasing` parameter is specified then 
-this is the duration for the tween.
-
 
 ## Events
 
@@ -122,28 +104,18 @@ var View = function(params) {
         id: COG.objId('view'),
         container: "",
         captureHover: true,
-        captureDrag: false,
+        fastpan: false,
+        fastpanPadding: 128,
         inertia: true,
         refreshDistance: 256,
-        padding: 256 >> 1,
         pannable: false,
-        clipping: true,
         scalable: false,
-        panAnimationEasing: COG.easing('sine.out'),
-        panAnimationDuration: 750,
-        pinchZoomAnimateTrigger: 400,
-        autoSize: true,
-        tapExtent: 10,
-        guides: false,
-        turbo: false,
         fps: 60,
         
         // zoom parameters
         minZoom: 1,
         maxZoom: 1,
         renderer: 'canvas',
-        zoomEasing: COG.easing('quad.out'),
-        zoomDuration: 300,
         zoomLevel: 1
     }, params);
     
@@ -158,7 +130,6 @@ var View = function(params) {
         panContainer = null,
         outer,
         dragObject = null,
-        frameIndex = 0,
         mainContext = null,
         isIE = !isType(window.attachEvent, typeUndefined),
         hitFlagged = false,
@@ -178,32 +149,29 @@ var View = function(params) {
         offsetMaxY = null,
         offsetWrapX = false,
         offsetWrapY = false,
-        clipping = params.clipping,
-        guides = params.guides,
-        wakeTriggers = 0,
+        padding = params.fastpan ? params.fastpanPadding : 0,
         hitData = null,
-        interactOffset = null,
-        interactCenter = null,
         interacting = false,
-        lastRefresh = 0,
-        lastClear = 0,
         lastHitData = null,
-        rotation = 0,
         resizeCanvasTimeout = 0,
         scaleFactor = 1,
-        scaleTween = null,
         lastScaleFactor = 1,
         lastCycleTicks = 0,
         eventMonitor = null,
-        turbo = params.turbo,
+        frameData = {
+            index: 0,
+            draw: false
+        },
         partialScaling = true,
-        tweeningOffset = false,
+        tweeningOffset = false, // TODO: find a better way to determine this than with a flag
         cycleDelay = 1000 / params.fps | 0,
         viewChanges = 0,
         width, height,
         halfWidth, halfHeight,
         zoomX, zoomY,
         zoomLevel = params.zoomLevel,
+        zoomEasing = COG.easing('quad.out'),
+        zoomDuration = 300,
         
         /* state shortcuts */
         
@@ -267,9 +235,9 @@ var View = function(params) {
             scale(
                 2, 
                 getProjectedXY(relXY.x, relXY.y), 
-                params.zoomEasing, 
+                zoomEasing, 
                 null, 
-                params.zoomDuration);            
+                zoomDuration);
         } // if
     } // handleDoubleTap
     
@@ -312,10 +280,6 @@ var View = function(params) {
     function handleResync(evt, view) {
     } // handleResync
     
-    function handleRotationUpdate(name, value) {
-        rotation = value;
-    } // handlePrepCanvasCallback
-    
     function handlePointerTap(evt, absXY, relXY) {
         // initialise the hit data
         initHitData('tap', absXY, relXY);
@@ -331,7 +295,7 @@ var View = function(params) {
         
         // determine whether partial scaling is supporter
         partialScaling = ! renderer.preventPartialScale;
-        fastpan = renderer.fastpan;
+        fastpan = params.fastpan && renderer.fastpan;
         
         // attach interaction handlers
         captureInteractionEvents();
@@ -499,30 +463,33 @@ var View = function(params) {
     } // getLayerIndex
     
     function initContainer() {
-        panContainer = document.createElement('div');
-        panContainer.id = COG.objId('t5_container');
-        panContainer.style.cssText = COG.formatStr(
-            'position: absolute; overflow: hidden; width: {0}px; height: {1}px;',
-            outer.offsetWidth,
-            outer.offsetHeight);
-
-        outer.appendChild(panContainer);
+        outer.appendChild(panContainer = createEl(
+            'div', 
+            COG.objId('t5_container'), 
+            COG.formatStr(
+                'position: absolute; overflow: hidden; width: {0}px; height: {1}px;',
+                outer.offsetWidth,
+                outer.offsetHeight
+            )
+        ));
         
         // initialise the view width and height
-        width = panContainer.offsetWidth + params.padding * 2;
-        height = panContainer.offsetHeight + params.padding * 2;
+        width = panContainer.offsetWidth + padding * 2;
+        height = panContainer.offsetHeight + padding * 2;
         halfWidth = width / 2;
         halfHeight = height / 2;
-        
-        container = document.createElement('div');
-        container.id = COG.objId('t5_view');
-        container.style.cssText = COG.formatStr(
-            'position: absolute; overflow: hidden; width: {0}px; height: {1}px; margin: {2}px 0 0 {2}px;',
-            width,
-            height,
-            -params.padding);
 
-        panContainer.appendChild(container);
+        // create the view div and append to the pan container
+        panContainer.appendChild(container = createEl(
+            'div',
+            COG.objId('t5_view'),
+            COG.formatStr(
+                'position: absolute; overflow: hidden; width: {0}px; height: {1}px; margin: {2}px 0 0 {2}px;',
+                width,
+                height,
+                -padding)
+            )
+        );
     } // initContainer
     
     function updateContainer(name, value) {
@@ -574,7 +541,6 @@ var View = function(params) {
             panning,
             scaleChanged,
             newFrame = false,
-            frameData,
             viewport,
             deltaEnergy = abs(dx) + abs(dy);
             
@@ -583,7 +549,7 @@ var View = function(params) {
         tickCount = tickCount || new Date().getTime();
         
         // set the new frame flag
-        newFrame = true; // tickCount - lastCycleTicks > cycleDelay;
+        newFrame = tickCount - lastCycleTicks > cycleDelay;
         
         // if we have a new frame, then fire the enterFrame event
         if (newFrame) {
@@ -604,10 +570,8 @@ var View = function(params) {
             } // if
             
             // initialise the frame data
-            frameData = {
-                index: frameIndex++,
-                draw: viewChanges || deltaEnergy || totalDX || totalDY
-            };
+            frameData.index++;
+            frameData.draw = viewChanges || deltaEnergy || totalDX || totalDY;
 
             // trigger the enter frame event
             _self.trigger('enterFrame', tickCount, frameData);
@@ -736,7 +700,7 @@ var View = function(params) {
             
             // apply the inertial dampeners 
             // really just wanted to say that...
-            if (pointerDown) {
+            if (pointerDown || (! params.inertia)) {
                 dx = 0;
                 dy = 0;
             }
@@ -1189,7 +1153,7 @@ var View = function(params) {
     // initialise _self
     var _self = {
         id: params.id,
-        padding: params.padding,
+        padding: padding,
         
         detach: detach,
         eachLayer: eachLayer,
@@ -1227,7 +1191,6 @@ var View = function(params) {
         _self, [
             'container',
             'captureHover',
-            'captureDrag', 
             'scalable', 
             'pannable', 
             'inertia',
@@ -1238,7 +1201,6 @@ var View = function(params) {
         ], 
         COG.paramTweaker(params, null, {
             'container': updateContainer,
-            'inertia': captureInteractionEvents,
             'captureHover': captureInteractionEvents,
             'scalable': captureInteractionEvents,
             'pannable': captureInteractionEvents,

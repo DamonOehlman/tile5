@@ -1,4 +1,4 @@
-registerRenderer('dom', function(view, container, outer, params, baseRenderer) {
+registerRenderer('dom', function(view, panFrame, container, params, baseRenderer) {
     
     /* internals */
     
@@ -9,19 +9,21 @@ registerRenderer('dom', function(view, container, outer, params, baseRenderer) {
         currentTiles = {};
     
     function createImageContainer() {
-        imageDiv = document.createElement('div');
-        imageDiv.id = COG.objId('domImages');
-        imageDiv.style.cssText = COG.formatStr(
-            'position: absolute; overflow: hidden; width: {0}px; height: {1}px;',
-            container.offsetWidth,
-            container.offsetHeight);
+        imageDiv = createEl(
+            'div',
+            COG.objId('domImages'),
+            COG.formatStr(
+                'position: absolute; overflow: hidden; width: {0}px; height: {1}px;',
+                panFrame.offsetWidth,
+                panFrame.offsetHeight)
+        );
         
-        // append the container to the same element as the canvas
-        if (container.childNodes.length > 0) {
-            container.insertBefore(imageDiv, container.childNodes[0]);
+        // append the panFrame to the same element as the canvas
+        if (panFrame.childNodes.length > 0) {
+            panFrame.insertBefore(imageDiv, panFrame.childNodes[0]);
         }
         else {
-            container.appendChild(imageDiv);
+            panFrame.appendChild(imageDiv);
         } // if..else
     } // createImageContainer
     
@@ -53,8 +55,8 @@ registerRenderer('dom', function(view, container, outer, params, baseRenderer) {
     }
     
     function handleDetach() {
-        // remove the image div from the container
-        container.removeChild(imageDiv);
+        // remove the image div from the panFrame
+        panFrame.removeChild(imageDiv);
     } // handleDetach
     
     function handlePredraw(evt, viewport, state) {

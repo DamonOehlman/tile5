@@ -1,4 +1,4 @@
-T5.registerRenderer('raphael', function(view, container, outer, params, baseRenderer) {
+T5.registerRenderer('raphael', function(view, panFrame, container, params, baseRenderer) {
     params = COG.extend({
     }, params);
 
@@ -19,14 +19,14 @@ T5.registerRenderer('raphael', function(view, container, outer, params, baseRend
         paper;
 
     function createPaper() {
-        vpWidth = view.width = container.offsetWidth;
-        vpHeight = view.height = container.offsetHeight;
+        vpWidth = view.width = panFrame.offsetWidth;
+        vpHeight = view.height = panFrame.offsetHeight;
 
-        paper = Raphael(container, vpWidth, vpHeight);
+        paper = Raphael(panFrame, vpWidth, vpHeight);
     } // createCanvas
 
     function handleDetach() {
-        container.removeChild(paper.canvas);
+        panFrame.removeChild(paper.canvas);
     } // handleDetach
 
     function handlePredraw(evt, viewport, state) {

@@ -1,6 +1,6 @@
 //= require <glMatrix>
 
-T5.registerRenderer('webgl', function(view, container, outer, params, baseRenderer) {
+T5.registerRenderer('webgl', function(view, panFrame, container, params, baseRenderer) {
     params = COG.extend({
     }, params);
     
@@ -102,16 +102,16 @@ T5.registerRenderer('webgl', function(view, container, outer, params, baseRender
     
     function handleDetach() {
         // remove teh canvas
-        container.removeChild(canvas);
+        panFrame.removeChild(canvas);
     } // handleDetach
         
     function init() {
         var xSeg, ySeg;
         
-        if (container) {
+        if (panFrame) {
             // initialise the viewport height and width
-            vpWidth = view.width = container.offsetWidth;
-            vpHeight = view.height = container.offsetHeight;
+            vpWidth = view.width = panFrame.offsetWidth;
+            vpHeight = view.height = panFrame.offsetHeight;
             
             // calculate the number of x segments
             xSeg = (vpWidth / TILE_SIZE | 0) + 2;
@@ -126,8 +126,8 @@ T5.registerRenderer('webgl', function(view, container, outer, params, baseRender
             gl.viewportWidth = vpWidth;
             gl.viewportHeight = vpHeight;
 
-            // add the canvas to the container
-            container.appendChild(canvas);
+            // add the canvas to the panFrame
+            panFrame.appendChild(canvas);
             
             // initialise the shaders
             initShaders();
@@ -312,7 +312,7 @@ T5.registerRenderer('webgl', function(view, container, outer, params, baseRender
     
     /* initialization */
     
-    // initialise the container
+    // initialise the panFrame
     init();
 
     var _this = COG.extend(baseRenderer, {
