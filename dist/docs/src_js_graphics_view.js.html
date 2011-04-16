@@ -88,14 +88,23 @@ view.bind('refresh', function(evt) {
 <p>Triggered when drawing the view has been completed (who would have thought).</p>
 
 <pre>
-view.bind('drawComplete', function(evt, viewRect, tickCount) {
+view.bind('drawComplete', function(evt, viewport, tickCount) {
 });
 </pre>
 
 <ul>
-<li>offset (<a href="src_js_core_vector.js.html#T5.Vector">T5.Vector</a>) - the view offset that was used for the draw operation</li>
+<li>viewport - the current viewport of the view</li>
 <li>tickCount - the tick count at the start of the draw operation.</li>
 </ul>
+
+<h3>enterFrame</h3>
+
+<p>Triggered on the view cycling.</p>
+
+<pre>
+view.bind('enterFrame', function(evt, tickCount, frameData) {
+});
+</pre>
 
 <h3>zoomLevelChange</h3>
 
@@ -112,7 +121,7 @@ view.bind('zoomLevelChange', function(evt, zoomLevel) {
 <li>zoomLevel (int) - the new zoom level</li>
 </ul>
 
-<h2>Methods</h2>
+<h2><a href="src_js_geo_types_pos.js.html#Methods">Methods</a></h2>
 
 <h3>detach</h3>
 

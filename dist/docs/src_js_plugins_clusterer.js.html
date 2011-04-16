@@ -1,0 +1,18 @@
+---
+layout: apidoc
+title: Tile5 API Documentation
+---
+
+<h1><a name="T5.Clusterer">T5.Clusterer</a></h1>
+
+<p><strong>PLUGIN</strong>: <code>plugins/clusterer.js</code>
+The clusterer plugin can be used to implement client side marker
+clustering for markers that are contained within a <a href="src_js_graphics_layers_drawlayer.js.html#T5.DrawLayer">T5.DrawLayer</a>.  Markers
+will be clustered on a per draw layer basis (i.e. markers on different
+draw layers will never be clustered together).
+To implement clustering do the following:
+1 - include the clusterer.js plugin into your project
+2 - Attach a clusterer to the <a href="src_js_graphics_view.js.html#T5.View">T5.View</a> (or <a href="src_js_graphics_map.js.html#T5.Map">T5.Map</a>) that you want to 
+have the clustering operate on:</p>
+
+<p>var clusterer = new <a href="src_js_plugins_clusterer.js.html#T5.Clusterer">T5.Clusterer</a>(view);</p>
