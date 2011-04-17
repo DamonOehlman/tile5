@@ -13,7 +13,7 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
             'div',
             COG.objId('domImages'),
             COG.formatStr(
-                'position: absolute; overflow: hidden; width: {0}px; height: {1}px;',
+                '-webkit-user-select: none; position: absolute; width: {0}px; height: {1}px;',
                 panFrame.offsetWidth,
                 panFrame.offsetHeight)
         );
@@ -37,9 +37,12 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
         image.src = tile.url;
         image.onload = function() {
             if (currentTiles[tile.id]) {
+                // set the left and top position
+                image.style.left = tile.x + 'px';
+                image.style.top = tile.y + 'px';
+
                 // check that this image is still valid (it will be in the tile cache)
                 imageDiv.appendChild(this);
-                tile.indom = true;
             }
             // otherwise, reset the image
             else {
@@ -60,10 +63,8 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
     } // handleDetach
     
     function handlePredraw(evt, viewport, state) {
-        // remove any old objects
-        // removeOldObjects(activeObjects, currentObjects);
-        // currentObjects = {};
-
+        // moveEl(imageDiv, viewport.x, viewport.y);
+        
         // remove old tiles
         removeOldObjects(activeTiles, currentTiles);
         currentTiles = {};
@@ -89,15 +90,9 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
                 
             // if the object is not in the current objects, remove from the scene
             if (inactive) {
-                if (item.indom) {
-                    COG.info('attemping to remove tile ' + item.id + ' from the dom');
-                    try {
-                        // remove the object from the raphael paper
-                        imageDiv.removeChild(item.image);
-                    }
-                    catch (e) {
-                        COG.warn('could not remove tile ' + item.id + ' from the DOM');
-                    }
+                if (item.image && item.image.parentNode) {
+                    // remove the object from the raphael paper
+                    imageDiv.removeChild(item.image);
 
                     // reset to null
                     item.image = null;
@@ -119,83 +114,15 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
     function drawTiles(viewport, tiles) {
         var tile,
             image,
-            scaleFactor = viewport.scaleFactor,
-            inViewport,
-            offsetX, offsetY,
-            minX, minY, maxX, maxY,
-            tileWidth, tileHeight,
-            gridWidth, gridHeight,
-            diffWidth, diffHeight,
-            scaleOffsetX = 0, 
-            scaleOffsetY = 0,
-            relX, relY, ii, 
-            xIndex, yIndex,
-            scaledWidth,
-            scaledHeight,
-            tileIds = [];
-            
-        // first iterate through the tiles and determine minx and miny
-        for (ii = tiles.length; ii--; ) {
-            tile = tiles[ii];
-            
-            // get the tile width and height and store
-            tileWidth = tileWidth || tile.w;
-            tileHeight = tileHeight || tile.h;
-            
-            // calculate the min and max x & y
-            minX = minX ? Math.min(tile.x, minX) : tile.x;
-            minY = minY ? Math.min(tile.y, minY) : tile.y;
-            maxX = maxX ? Math.max(tile.x, maxX) : tile.x;
-            maxY = maxY ? Math.max(tile.y, maxY) : tile.y;
-        } // for
-        
-        // determine the width of the tile grid
-        gridWidth = ((maxX - minX) / tileWidth + 1) * tileWidth;
-        gridHeight = ((maxY - minY) / tileHeight + 1) * tileHeight;
-        diffWidth = gridWidth * scaleFactor - viewport.w;
-        diffHeight = gridHeight * scaleFactor - viewport.h;
-        
-        // calculate the scale x and y offset
-        scaleOffsetX = diffWidth * scaleFactor - diffWidth;
-        scaleOffsetY = diffHeight * scaleFactor - diffHeight;
-        
-        // calculate the offset
-        offsetX = minX - viewport.x;
-        offsetY = minY - viewport.y;
-            
+            offsetX = viewport.x, 
+            offsetY = viewport.y;
+
         // draw the tiles
-        for (ii = tiles.length; ii--; ) {
+        for (var ii = tiles.length; ii--; ) {
             tile = tiles[ii];
             
             if (tile.url) {
-                image = tile.image;
-
-                if (! image) {
-                    image = createTileImage(tile);
-                } // if
-
-                // calculate the x and y index of the tile
-                xIndex = (tile.x - minX) / tile.w;
-                yIndex = (tile.y - minY) / tile.h;
-
-                // calculate the scaled width and height
-                scaledWidth = tile.w * scaleFactor | 0;
-                scaledHeight = tile.h * scaleFactor | 0;
-
-                // calculate the x and y position for the tile
-                relX = offsetX + (xIndex * scaledWidth);
-                relY = offsetY + (yIndex * scaledWidth);
-                
-                if (supportTransforms) {
-                    image.style[PROP_WK_TRANSFORM] = 'translate3d(' + relX +'px, ' + relY + 'px, 0px)';
-                }
-                else {
-                    image.style.left = relX + 'px';
-                    image.style.top = relY + 'px';
-                } // if..else
-
-                image.style.width = scaledWidth + 'px';
-                image.style.height = scaledHeight + 'px';
+                image = tile.image || createTileImage(tile);
 
                 // flag the tile as current
                 currentTiles[tile.id] = tile;
@@ -209,8 +136,6 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
     createImageContainer();
     
     var _this = COG.extend(baseRenderer, {
-        preventPartialScale: true,
-
         drawTiles: drawTiles
     });
     

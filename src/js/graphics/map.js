@@ -190,13 +190,11 @@ var Map = function(params) {
     } // gotoPosition
     
     /**
-    ### panToPosition(position, callback, easingFn)
+    ### panToPosition(position)
     This method is used to tell the map to pan (not zoom) to the specified 
-    T5.GeoXY.  An optional callback can be passed as the second
-    parameter to the function and this fires a notification once the map is
-    at the new specified position.  Additionally, an optional easingFn parameter
-    can be supplied if the pan operation should ease to the specified location 
-    rather than just shift immediately.  An easingDuration can also be supplied.
+    T5.GeoXY. 
+    
+    __NOTE:__ callback, easingFn & easingDuration parameters removed
     */
     function panToPosition(position, callback, easingFn, easingDuration) {
         // determine the tile offset for the 
@@ -207,12 +205,16 @@ var Map = function(params) {
             offsetY = centerXY.y - (viewport.h >> 1);
             
         // COG.info('panning to center xy: ', centerXY);
-        _self.updateOffset(offsetX, offsetY, easingFn, easingDuration, function() {
-            // if a callback is defined, then pass that on
-            if (callback) {
-                callback(_self); 
-            } // if
-        });
+        _self.setOffset(offsetX, offsetY);
+        
+        if (callback) {
+            callback();
+            COG.warn('panToPosition callback parameter deprecated');
+        } // if
+        
+        if (easingFn || easingDuration) {
+            COG.warn('panToPosition easingFn and easingDuration parameters not supported');
+        } // if
     } // panToPosition
     
     /**

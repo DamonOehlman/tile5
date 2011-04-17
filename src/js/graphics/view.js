@@ -104,7 +104,7 @@ var View = function(params) {
         id: COG.objId('view'),
         container: "",
         captureHover: true,
-        fastpan: false,
+        fastpan: true,
         fastpanPadding: 128,
         inertia: true,
         refreshDistance: 256,
@@ -162,7 +162,7 @@ var View = function(params) {
             index: 0,
             draw: false
         },
-        partialScaling = true,
+        partialScaling = false,
         tweeningOffset = false, // TODO: find a better way to determine this than with a flag
         cycleDelay = 1000 / params.fps | 0,
         viewChanges = 0,
@@ -294,7 +294,6 @@ var View = function(params) {
         renderer = attachRenderer(typeName || params.renderer, _self, container, outer, params);
         
         // determine whether partial scaling is supporter
-        partialScaling = ! renderer.preventPartialScale;
         fastpan = params.fastpan && renderer.fastpan;
         
         // attach interaction handlers
@@ -467,7 +466,7 @@ var View = function(params) {
             'div', 
             COG.objId('t5_container'), 
             COG.formatStr(
-                'position: absolute; overflow: hidden; width: {0}px; height: {1}px;',
+                '-webkit-user-select: none; position: absolute; overflow: hidden; width: {0}px; height: {1}px;',
                 outer.offsetWidth,
                 outer.offsetHeight
             )
@@ -484,7 +483,7 @@ var View = function(params) {
             'div',
             COG.objId('t5_view'),
             COG.formatStr(
-                'position: absolute; overflow: hidden; width: {0}px; height: {1}px; margin: {2}px 0 0 {2}px;',
+                '-webkit-user-select: none; position: absolute; width: {0}px; height: {1}px; margin: {2}px 0 0 {2}px;',
                 width,
                 height,
                 -padding)
@@ -565,7 +564,7 @@ var View = function(params) {
             } // if
                 
             // determine whether a refresh is required
-            if ((deltaEnergy < 10) && (refreshXDist >= refreshDist || refreshYDist >= refreshDist)) {
+            if ((deltaEnergy < 2) && (refreshXDist >= refreshDist || refreshYDist >= refreshDist)) {
                 refresh();
             } // if
             
@@ -592,42 +591,17 @@ var View = function(params) {
             redrawBG = (state & (stateZoom | statePan)) !== 0;
             interacting = redrawBG && (state & stateAnimating) === 0;
             
-            // if the delta energy is above the energy threshold, move the container
-            if (fastpan && deltaEnergy > 5) {
-                totalDX += dx;
-                totalDY += dy;
+            // update the offset
+            offsetX -= dx;
+            offsetY -= dy;
 
-                if (supportTransforms) {
-                    container.style[PROP_WK_TRANSFORM] = 'translate3d(' + (totalDX | 0) +'px, ' + (totalDY | 0) + 'px, 0px)';
-                }
-                else {
-                    container.style.left = totalDX + 'px';
-                    container.style.top = totalDY + 'px';
-                } // if..else
-            }
+            if (renderer.fastpan) {
+                // move the container
+                moveEl(container, -offsetX, -offsetY);
+            } // if
+
             // otherwise, reset the container position and refire the renderer
-            else {
-                // shift the offset by the delta amount
-                offsetX -= (dx + totalDX) | 0;
-                offsetY -= (dy + totalDY) | 0;
-                
-                // shift the offset by the delta amount
-                // offsetX -= totalDX | 0;
-                // offsetY -= totalDY | 0;
-                
-                if (totalDX || totalDY) {
-                    if (supportTransforms) {
-                        container.style[PROP_WK_TRANSFORM] = 'translate3d(0px, 0px, 0px)';
-                    }
-                    else {
-                        container.style.left = 0;
-                        container.style.top = 0;
-                    } // if..else
-
-                    totalDX = 0;
-                    totalDY = 0;
-                } // if..else
-                
+            if ((! renderer.fastpan) || deltaEnergy < 2) {
                 // initialise the viewport
                 viewport = getViewport();
 
@@ -686,7 +660,7 @@ var View = function(params) {
 
                     // get the renderer to render the view
                     // NB: some renderers will do absolutely nothing here...
-                    renderer.render(viewport);
+                    renderer.trigger('render', viewport, state);
 
                     // trigger the draw complete event
                     _self.trigger('drawComplete', viewport, tickCount);
@@ -696,7 +670,7 @@ var View = function(params) {
                     lastOffsetY = offsetY;
                     lastScaleFactor = scaleFactor;
                 } // if
-            } // if..else
+            } // if
             
             // apply the inertial dampeners 
             // really just wanted to say that...
@@ -812,6 +786,17 @@ var View = function(params) {
     } // getOffset
     
     /**
+    ### setOffset(x, y)
+    Set the offset of the display
+    */
+    function setOffset(x, y) {
+        offsetX = x || 0;
+        offsetY = y || 0;
+        
+        viewChanges++;
+    } // setOffset
+    
+    /**
     ### getRenderer(): T5.Renderer
     */
     function getRenderer() {
@@ -881,16 +866,15 @@ var View = function(params) {
     } // getViewport
     
     /**
-    ### pan(x: int, y: int, tweenFn: EasingFn, tweenDuration: int, callback: fn)
+    ### pan(x: int, y: int)
     
-    Used to pan the view by the specified x and y.  This is simply a wrapper to the 
-    updateOffset function that adds the specified x and y to the current view offset.
-    Tweening effects can be applied by specifying values for the optional `tweenFn` and
-    `tweenDuration` arguments, and if a notification is required once the pan has completed
-    then a callback can be supplied as the final argument.
+    Used to pan the view by the specified x and y
     */
-    function pan(x, y, tweenFn, tweenDuration, callback) {
-        updateOffset(offsetX + x, offsetY + y, tweenFn, tweenDuration, callback);
+    function pan(x, y) {
+        dx = x;
+        dy = y;
+        
+        viewChanges++;
     } // pan
     
     /**
@@ -1039,7 +1023,7 @@ var View = function(params) {
             zoomLevel = value;
             
             // update the offset
-            updateOffset(
+            setOffset(
                 ((zoomX ? zoomX : offsetX + halfWidth) - scaledHalfWidth) * scaling,
                 ((zoomY ? zoomY : offsetY + halfHeight) - scaledHalfHeight) * scaling
             );
@@ -1092,60 +1076,15 @@ var View = function(params) {
     
     /**
     ### updateOffset(x: int, y: int, tweenFn: EasingFn, tweenDuration: int, callback: fn)
+    __deprecated__
 
     This function allows you to specified the absolute x and y offset that should 
     become the top-left corner of the view.  As per the `pan` function documentation, tween and
     callback arguments can be supplied to animate the transition.
     */
     function updateOffset(x, y, tweenFn, tweenDuration, callback) {
-        
-        // initialise variables
-        var tweensComplete = 0;
-        
-        function endTween() {
-            tweensComplete += 1;
-            
-            if (tweensComplete >= 2) {
-                tweeningOffset = false;
-                
-                if (callback) {
-                    callback();
-                } // if
-            } // if
-        } // endOffsetUpdate
-        
-        if (tweenFn) {
-            // if the interface is already being move about, then don't set up additional
-            // tweens, that will just ruin it for everybody
-            if ((state & statePan) !== 0) {
-                return;
-            } // if
-            
-            COG.tweenValue(offsetX, x, tweenFn, tweenDuration, function(val, complete){
-                offsetX = val | 0;
-                
-                (complete ? endTween : invalidate)();
-                return !interacting;
-            });
-            
-            COG.tweenValue(offsetY, y, tweenFn, tweenDuration, function(val, complete) {
-                offsetY = val | 0;
-
-                (complete ? endTween : invalidate)();
-                return !interacting;
-            });
-            
-            tweeningOffset = true;
-        }
-        else {
-            offsetX = x | 0;
-            offsetY = y | 0;
-            
-            // trigger the callback
-            if (callback) {
-                callback();
-            } // if
-        } // if..else
+        COG.warn('updateOffset function has been deprecated, please use setOffset instead');
+        setOffset(x, y);
     } // updateOffset
     
     /* object definition */
@@ -1172,6 +1111,8 @@ var View = function(params) {
         /* offset methods */
         
         getOffset: getOffset,
+        setOffset: setOffset,
+        
         getRenderer: getRenderer,
         getScaleFactor: getScaleFactor,
         setMaxOffset: setMaxOffset,

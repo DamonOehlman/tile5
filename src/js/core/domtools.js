@@ -9,3 +9,14 @@ function createEl(elemType, id, css) {
     // return the new element
     return elem;
 } // createEl
+
+function moveEl(element, x, y) {
+    // move the container
+    if (supportTransforms) {
+        element.style[PROP_WK_TRANSFORM] = 'translate3d(' + x +'px, ' + y + 'px, 0px)';
+    }
+    else {
+        element.style.left = x + 'px';
+        element.style.top = y + 'px';
+    } // if..else
+} // moveEl

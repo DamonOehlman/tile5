@@ -1,5 +1,5 @@
 /**
-# RENDERER: canvas
+# Tile5 Renderer: Canvas
 */
 registerRenderer('canvas', function(view, panFrame, container, params, baseRenderer) {
     params = COG.extend({
@@ -76,6 +76,10 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
     function handleDetach() {
         panFrame.removeChild(canvas);
     } // handleDetach
+    
+    function handlePredraw(evt, viewport, state) {
+        moveEl(canvas, viewport.x, viewport.y);
+    } // handlePredraw
     
     function handleStyleDefined(evt, styleId, styleData) {
         var ii, data;
@@ -415,19 +419,7 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
         
         getContext: function() { 
             return context;
-        },
-        
-        getDimensions: function() {
-            return {
-                width: vpWidth,
-                height: vpHeight
-            };
-        },
-        
-        getOffset: function() {
-            return new XY(drawOffsetX, drawOffsetY);
         }
-        
         
         
         /*
@@ -447,6 +439,7 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
     
     // handle detaching
     _this.bind('detach', handleDetach);
+    _this.bind('predraw', handlePredraw);
     
     return _this;
 });

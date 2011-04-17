@@ -45,7 +45,9 @@ var TileLayer = function(genId, params) {
     ### draw(renderer)
     */
     function draw(renderer, viewport) {
-        renderer.drawTiles(viewport, storage.search(XYRect.buffer(viewport, 128)));
+        if (renderer.drawTiles) {
+            renderer.drawTiles(viewport, storage.search(XYRect.buffer(viewport, 128)));
+        } // if
     } // draw    
     
     /* definition */

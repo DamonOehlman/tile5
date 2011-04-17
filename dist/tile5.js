@@ -2617,6 +2617,16 @@ function createEl(elemType, id, css) {
     return elem;
 } // createEl
 
+function moveEl(element, x, y) {
+    if (supportTransforms) {
+        element.style[PROP_WK_TRANSFORM] = 'translate3d(' + x +'px, ' + y + 'px, 0px)';
+    }
+    else {
+        element.style.left = x + 'px';
+        element.style.top = y + 'px';
+    } // if..else
+} // moveEl
+
 var INTERVAL_LOADCHECK = 10,
     INTERVAL_CACHECHECK = 10000,
     LOAD_TIMEOUT = 30000,
@@ -2755,6 +2765,8 @@ Renderers fire the following events:
 
 ### predraw
 
+### render
+
 ### reset
 
 */
@@ -2831,12 +2843,6 @@ var Renderer = function(view, container, outer, params) {
         projectXY: null,
 
         /**
-        ### render
-        */
-        render: function() {
-        },
-
-        /**
         ### reset()
         */
         reset: function() {
@@ -2872,7 +2878,7 @@ var attachRenderer = exports.attachRenderer = function(id, view, container, oute
     return renderer;
 };
 /**
-# RENDERER: canvas
+# Tile5 Renderer: Canvas
 */
 registerRenderer('canvas', function(view, panFrame, container, params, baseRenderer) {
     params = COG.extend({
@@ -2943,6 +2949,10 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
     function handleDetach() {
         panFrame.removeChild(canvas);
     } // handleDetach
+
+    function handlePredraw(evt, viewport, state) {
+        moveEl(canvas, viewport.x, viewport.y);
+    } // handlePredraw
 
     function handleStyleDefined(evt, styleId, styleData) {
         var ii, data;
@@ -3254,19 +3264,7 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
 
         getContext: function() {
             return context;
-        },
-
-        getDimensions: function() {
-            return {
-                width: vpWidth,
-                height: vpHeight
-            };
-        },
-
-        getOffset: function() {
-            return new XY(drawOffsetX, drawOffsetY);
         }
-
 
 
         /*
@@ -3284,6 +3282,7 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
     loadStyles();
 
     _this.bind('detach', handleDetach);
+    _this.bind('predraw', handlePredraw);
 
     return _this;
 });
@@ -3302,7 +3301,7 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
             'div',
             COG.objId('domImages'),
             COG.formatStr(
-                'position: absolute; overflow: hidden; width: {0}px; height: {1}px;',
+                '-webkit-user-select: none; position: absolute; width: {0}px; height: {1}px;',
                 panFrame.offsetWidth,
                 panFrame.offsetHeight)
         );
@@ -3323,8 +3322,10 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
         image.src = tile.url;
         image.onload = function() {
             if (currentTiles[tile.id]) {
+                image.style.left = tile.x + 'px';
+                image.style.top = tile.y + 'px';
+
                 imageDiv.appendChild(this);
-                tile.indom = true;
             }
             else {
                 tile.image = null;
@@ -3362,14 +3363,8 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
                 inactive = flagField ? item[flagField] : (! currentObj[objId]);
 
             if (inactive) {
-                if (item.indom) {
-                    COG.info('attemping to remove tile ' + item.id + ' from the dom');
-                    try {
-                        imageDiv.removeChild(item.image);
-                    }
-                    catch (e) {
-                        COG.warn('could not remove tile ' + item.id + ' from the DOM');
-                    }
+                if (item.image && item.image.parentNode) {
+                    imageDiv.removeChild(item.image);
 
                     item.image = null;
                 } // if
@@ -3388,73 +3383,14 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
     function drawTiles(viewport, tiles) {
         var tile,
             image,
-            scaleFactor = viewport.scaleFactor,
-            inViewport,
-            offsetX, offsetY,
-            minX, minY, maxX, maxY,
-            tileWidth, tileHeight,
-            gridWidth, gridHeight,
-            diffWidth, diffHeight,
-            scaleOffsetX = 0,
-            scaleOffsetY = 0,
-            relX, relY, ii,
-            xIndex, yIndex,
-            scaledWidth,
-            scaledHeight,
-            tileIds = [];
+            offsetX = viewport.x,
+            offsetY = viewport.y;
 
-        for (ii = tiles.length; ii--; ) {
-            tile = tiles[ii];
-
-            tileWidth = tileWidth || tile.w;
-            tileHeight = tileHeight || tile.h;
-
-            minX = minX ? Math.min(tile.x, minX) : tile.x;
-            minY = minY ? Math.min(tile.y, minY) : tile.y;
-            maxX = maxX ? Math.max(tile.x, maxX) : tile.x;
-            maxY = maxY ? Math.max(tile.y, maxY) : tile.y;
-        } // for
-
-        gridWidth = ((maxX - minX) / tileWidth + 1) * tileWidth;
-        gridHeight = ((maxY - minY) / tileHeight + 1) * tileHeight;
-        diffWidth = gridWidth * scaleFactor - viewport.w;
-        diffHeight = gridHeight * scaleFactor - viewport.h;
-
-        scaleOffsetX = diffWidth * scaleFactor - diffWidth;
-        scaleOffsetY = diffHeight * scaleFactor - diffHeight;
-
-        offsetX = minX - viewport.x;
-        offsetY = minY - viewport.y;
-
-        for (ii = tiles.length; ii--; ) {
+        for (var ii = tiles.length; ii--; ) {
             tile = tiles[ii];
 
             if (tile.url) {
-                image = tile.image;
-
-                if (! image) {
-                    image = createTileImage(tile);
-                } // if
-
-                xIndex = (tile.x - minX) / tile.w;
-                yIndex = (tile.y - minY) / tile.h;
-
-                scaledWidth = tile.w * scaleFactor | 0;
-                scaledHeight = tile.h * scaleFactor | 0;
-
-                relX = offsetX + (xIndex * scaledWidth);
-                relY = offsetY + (yIndex * scaledWidth);
-
-                if (supportTransforms) {
-                    image.style[PROP_WK_TRANSFORM] = 'translate3d(' + relX +'px, ' + relY + 'px, 0px)';
-                }
-                else {
-                    image.style.left = relX + 'px';
-                    image.style.top = relY + 'px';
-                } // if..else
-
-                image.style.width = scaledWidth + 'px';
-                image.style.height = scaledHeight + 'px';
+                image = tile.image || createTileImage(tile);
 
                 currentTiles[tile.id] = tile;
             } // if
@@ -3466,14 +3402,280 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
     createImageContainer();
 
     var _this = COG.extend(baseRenderer, {
-        preventPartialScale: true,
-
         drawTiles: drawTiles
     });
 
     _this.bind('predraw', handlePredraw);
     _this.bind('detach', handleDetach);
     _this.bind('reset', handleReset);
+
+    return _this;
+});
+T5.registerRenderer('raphael', function(view, panFrame, container, params, baseRenderer) {
+    params = COG.extend({
+    }, params);
+
+    /* internals */
+
+    var drawOffsetX,
+        drawOffsetY,
+        activeObjects = {},
+        currentObjects = {},
+        currentStyle,
+        hitObjects = {},
+        styles = {},
+        paper;
+
+    function createPaper() {
+        paper = Raphael(panFrame, panFrame.offsetWidth, panFrame.offsetHeight);
+
+        paper.canvas.style.position = 'absolute';
+    } // createCanvas
+
+    function handleDetach() {
+        panFrame.removeChild(paper.canvas);
+    } // handleDetach
+
+    function handlePredraw(evt, viewport, state) {
+        moveEl(paper.canvas, viewport.x, viewport.y);
+
+        removeOldObjects(activeObjects, currentObjects);
+        currentObjects = {};
+    } // handlePredraw
+
+    function handleStyleDefined(evt, styleId, styleData) {
+        styles[styleId] = styleData;
+    } // handleStyleDefined
+
+    function handleReset(evt) {
+        removeOldObjects(activeObjects, currentObjects, 'removeOnReset');
+    } // handleReset
+
+    function initDrawData(drawable, viewport, hitData, state, drawFn) {
+        var isHit = false;
+
+        return {
+            draw: drawFn || objDraw,
+            viewport: viewport,
+            state: state,
+            hit: hitObjects[drawable.id],
+            vpX: drawOffsetX,
+            vpY: drawOffsetY
+        };
+    } // initDrawData
+
+    function loadStyles() {
+        for (var styleId in T5.styles) {
+            handleStyleDefined(null, styleId, T5.styles[styleId]);
+        } // for
+
+        T5.bind('styleDefined', handleStyleDefined);
+    } // loadStyles
+
+    function objInit(rObject, drawable) {
+        rObject.scale(drawable.scaling, drawable.scaling);
+
+        rObject.rotate(drawable.rotation * RADIANS_TO_DEGREES, true);
+
+        rObject.mouseover(function(evt) {
+            hitObjects[drawable.id] = true;
+        });
+
+        rObject.mouseout(function(evt) {
+            delete hitObjects[drawable.id];
+        });
+
+        activeObjects[drawable.id] = drawable;
+    } // objInit
+
+    function objDraw(drawData) {
+        if (this.rObject) {
+            var updates = COG.extend({}, styles[currentStyle] || styles.basic),
+                offsetX = drawOffsetX - this.translateX,
+                offsetY = drawOffsetY - this.translateY;
+
+            switch (this.rObject.type) {
+                case 'circle':
+                    updates.cx = this.xy.x - offsetX;
+                    updates.cy = this.xy.y - offsetY;
+
+                    break;
+
+                case 'path':
+                    updates.path = this.path(offsetX, offsetY);
+
+                    break;
+
+                default:
+                    updates.x = this.xy.x - (this.size >> 1) - offsetX;
+                    updates.y = this.xy.y - (this.size >> 1) - offsetY;
+            } // switch
+
+            if (updates.fill && (! this.fill)) {
+                delete updates.fill;
+            } // if
+
+            if (updates.stroke && (! this.stroke)) {
+                delete updates.stroke;
+            } // if
+
+            this.rObject.attr(updates);
+
+            currentObjects[this.id] = this;
+        } // if
+    } // objUpdate
+
+    function removeOldObjects(activeObj, currentObj, flagField) {
+        var deletedKeys = [];
+
+        for (var objId in activeObj) {
+            var item = activeObj[objId],
+                inactive = flagField ? item[flagField] : (! currentObj[objId]);
+
+            if (inactive) {
+                item.rObject.remove();
+
+                item.rObject = null;
+
+                deletedKeys[deletedKeys.length] = objId;
+            } // if
+        } // for
+
+        for (var ii = deletedKeys.length; ii--; ) {
+            delete activeObj[deletedKeys[ii]];
+        } // for
+    } // removeOldObjects
+
+    /* exports */
+
+    function applyStyle(styleId) {
+        var previousStyle;
+
+        if (currentStyle !== styleId) {
+            previousStyle = currentStyle;
+            currentStyle = styleId;
+        } // if
+
+        return previousStyle || 'basic';
+    } // applyStyle
+
+    function applyTransform(drawable) {
+        if (drawable.rObject) {
+            drawable.rObject.scale(drawable.scaling, drawable.scaling);
+
+            drawable.rObject.rotate(drawable.rotation * RADIANS_TO_DEGREES, true);
+        }
+    } // applyTransform
+
+    function prepare(layers, viewport, state, tickCount, hitData) {
+        drawOffsetX = viewport.x;
+        drawOffsetY = viewport.y;
+
+        return paper;
+    } // prepare
+
+    /**
+    ### prepArc(drawable, viewport, hitData, state, opts)
+    */
+    function prepArc(drawable, viewport, hitData, state, opts) {
+        if (! drawable.rObject) {
+            objInit(drawable.rObject = paper.circle(
+                drawable.xy.x - drawOffsetX,
+                drawable.xy.y - drawOffsetY,
+                drawable.size
+            ), drawable);
+        } // if
+
+        return initDrawData(drawable, viewport, hitData, state);
+    } // prepArc
+
+    /**
+    ### prepMarker(drawable, viewport, hitData, state, opts)
+    */
+    function prepMarker(drawable, viewport, hitData, state, opts) {
+        if (drawable.reset && drawable.rObject) {
+            drawable.rObject.remove();
+            drawable.rObject = null;
+            drawable.reset = false;
+        } // if
+
+        if (! drawable.rObject) {
+            var markerX = drawable.xy.x - drawOffsetX,
+                markerY = drawable.xy.y - drawOffsetY,
+                size = drawable.size;
+
+            switch (drawable.markerStyle.toLowerCase()) {
+                case 'image':
+                    objInit(drawable.rObject = paper.image(
+                        drawable.imageUrl,
+                        markerX - (size >> 1),
+                        markerY - (size >> 1),
+                        size,
+                        size
+                    ), drawable);
+
+                    break;
+
+                default:
+                    objInit(drawable.rObject = paper.circle(
+                        markerX,
+                        markerY,
+                        size
+                    ), drawable);
+            } // switch
+        } // if
+
+        return initDrawData(drawable, viewport, hitData, state);
+    } // prepMarker
+
+    /**
+    ### prepPoly(drawable, viewport, hitData, state, opts)
+    */
+    function prepPoly(drawable, viewport, hitData, state, opts) {
+
+        if (! drawable.rObject) {
+            var rawPath = [],
+                points = opts.points || drawable.points;
+
+            drawable.path = function(x, y) {
+                var pathString = '';
+
+                for (var ii = points.length; ii--; ) {
+                    pathString = (ii > 0 ? 'L' : 'M') +
+                        (points[ii].x - x) + ' ' + (points[ii].y - y) +
+                        pathString;
+                } // for
+
+                return pathString;
+            };
+
+            drawable.removeOnReset = true;
+            objInit(drawable.rObject = paper.path('M0 0L0 0'), drawable);
+        } // if
+
+        return initDrawData(drawable, viewport, hitData, state);
+    } // prepPoly
+
+    /* initialization */
+
+    createPaper();
+
+    var _this = COG.extend(baseRenderer, {
+        applyStyle: applyStyle,
+        applyTransform: applyTransform,
+
+        prepare: prepare,
+
+        prepArc: prepArc,
+        prepMarker: prepMarker,
+        prepPoly: prepPoly
+    });
+
+    _this.bind('predraw', handlePredraw);
+    _this.bind('detach', handleDetach);
+    _this.bind('reset', handleReset);
+
+    loadStyles();
 
     return _this;
 });
@@ -3698,7 +3900,7 @@ var View = function(params) {
         id: COG.objId('view'),
         container: "",
         captureHover: true,
-        fastpan: false,
+        fastpan: true,
         fastpanPadding: 128,
         inertia: true,
         refreshDistance: 256,
@@ -3753,7 +3955,7 @@ var View = function(params) {
             index: 0,
             draw: false
         },
-        partialScaling = true,
+        partialScaling = false,
         tweeningOffset = false, // TODO: find a better way to determine this than with a flag
         cycleDelay = 1000 / params.fps | 0,
         viewChanges = 0,
@@ -3873,7 +4075,6 @@ var View = function(params) {
     function createRenderer(typeName) {
         renderer = attachRenderer(typeName || params.renderer, _self, container, outer, params);
 
-        partialScaling = ! renderer.preventPartialScale;
         fastpan = params.fastpan && renderer.fastpan;
 
         captureInteractionEvents();
@@ -4030,7 +4231,7 @@ var View = function(params) {
             'div',
             COG.objId('t5_container'),
             COG.formatStr(
-                'position: absolute; overflow: hidden; width: {0}px; height: {1}px;',
+                '-webkit-user-select: none; position: absolute; overflow: hidden; width: {0}px; height: {1}px;',
                 outer.offsetWidth,
                 outer.offsetHeight
             )
@@ -4045,7 +4246,7 @@ var View = function(params) {
             'div',
             COG.objId('t5_view'),
             COG.formatStr(
-                'position: absolute; overflow: hidden; width: {0}px; height: {1}px; margin: {2}px 0 0 {2}px;',
+                '-webkit-user-select: none; position: absolute; width: {0}px; height: {1}px; margin: {2}px 0 0 {2}px;',
                 width,
                 height,
                 -padding)
@@ -4114,7 +4315,7 @@ var View = function(params) {
                 viewChanges++;
             } // if
 
-            if ((deltaEnergy < 10) && (refreshXDist >= refreshDist || refreshYDist >= refreshDist)) {
+            if ((deltaEnergy < 2) && (refreshXDist >= refreshDist || refreshYDist >= refreshDist)) {
                 refresh();
             } // if
 
@@ -4135,36 +4336,14 @@ var View = function(params) {
             redrawBG = (state & (stateZoom | statePan)) !== 0;
             interacting = redrawBG && (state & stateAnimating) === 0;
 
-            if (fastpan && deltaEnergy > 5) {
-                totalDX += dx;
-                totalDY += dy;
+            offsetX -= dx;
+            offsetY -= dy;
 
-                if (supportTransforms) {
-                    container.style[PROP_WK_TRANSFORM] = 'translate3d(' + (totalDX | 0) +'px, ' + (totalDY | 0) + 'px, 0px)';
-                }
-                else {
-                    container.style.left = totalDX + 'px';
-                    container.style.top = totalDY + 'px';
-                } // if..else
-            }
-            else {
-                offsetX -= (dx + totalDX) | 0;
-                offsetY -= (dy + totalDY) | 0;
+            if (renderer.fastpan) {
+                moveEl(container, -offsetX, -offsetY);
+            } // if
 
-
-                if (totalDX || totalDY) {
-                    if (supportTransforms) {
-                        container.style[PROP_WK_TRANSFORM] = 'translate3d(0px, 0px, 0px)';
-                    }
-                    else {
-                        container.style.left = 0;
-                        container.style.top = 0;
-                    } // if..else
-
-                    totalDX = 0;
-                    totalDY = 0;
-                } // if..else
-
+            if ((! renderer.fastpan) || deltaEnergy < 2) {
                 viewport = getViewport();
 
                 /*
@@ -4209,7 +4388,7 @@ var View = function(params) {
                         } // if
                     } // for
 
-                    renderer.render(viewport);
+                    renderer.trigger('render', viewport, state);
 
                     _self.trigger('drawComplete', viewport, tickCount);
 
@@ -4217,7 +4396,7 @@ var View = function(params) {
                     lastOffsetY = offsetY;
                     lastScaleFactor = scaleFactor;
                 } // if
-            } // if..else
+            } // if
 
             if (pointerDown || (! params.inertia)) {
                 dx = 0;
@@ -4317,6 +4496,17 @@ var View = function(params) {
     } // getOffset
 
     /**
+    ### setOffset(x, y)
+    Set the offset of the display
+    */
+    function setOffset(x, y) {
+        offsetX = x || 0;
+        offsetY = y || 0;
+
+        viewChanges++;
+    } // setOffset
+
+    /**
     ### getRenderer(): T5.Renderer
     */
     function getRenderer() {
@@ -4382,16 +4572,15 @@ var View = function(params) {
     } // getViewport
 
     /**
-    ### pan(x: int, y: int, tweenFn: EasingFn, tweenDuration: int, callback: fn)
+    ### pan(x: int, y: int)
 
-    Used to pan the view by the specified x and y.  This is simply a wrapper to the
-    updateOffset function that adds the specified x and y to the current view offset.
-    Tweening effects can be applied by specifying values for the optional `tweenFn` and
-    `tweenDuration` arguments, and if a notification is required once the pan has completed
-    then a callback can be supplied as the final argument.
+    Used to pan the view by the specified x and y
     */
-    function pan(x, y, tweenFn, tweenDuration, callback) {
-        updateOffset(offsetX + x, offsetY + y, tweenFn, tweenDuration, callback);
+    function pan(x, y) {
+        dx = x;
+        dy = y;
+
+        viewChanges++;
     } // pan
 
     /**
@@ -4519,7 +4708,7 @@ var View = function(params) {
 
             zoomLevel = value;
 
-            updateOffset(
+            setOffset(
                 ((zoomX ? zoomX : offsetX + halfWidth) - scaledHalfWidth) * scaling,
                 ((zoomY ? zoomY : offsetY + halfHeight) - scaledHalfHeight) * scaling
             );
@@ -4567,56 +4756,15 @@ var View = function(params) {
 
     /**
     ### updateOffset(x: int, y: int, tweenFn: EasingFn, tweenDuration: int, callback: fn)
+    __deprecated__
 
     This function allows you to specified the absolute x and y offset that should
     become the top-left corner of the view.  As per the `pan` function documentation, tween and
     callback arguments can be supplied to animate the transition.
     */
     function updateOffset(x, y, tweenFn, tweenDuration, callback) {
-
-        var tweensComplete = 0;
-
-        function endTween() {
-            tweensComplete += 1;
-
-            if (tweensComplete >= 2) {
-                tweeningOffset = false;
-
-                if (callback) {
-                    callback();
-                } // if
-            } // if
-        } // endOffsetUpdate
-
-        if (tweenFn) {
-            if ((state & statePan) !== 0) {
-                return;
-            } // if
-
-            COG.tweenValue(offsetX, x, tweenFn, tweenDuration, function(val, complete){
-                offsetX = val | 0;
-
-                (complete ? endTween : invalidate)();
-                return !interacting;
-            });
-
-            COG.tweenValue(offsetY, y, tweenFn, tweenDuration, function(val, complete) {
-                offsetY = val | 0;
-
-                (complete ? endTween : invalidate)();
-                return !interacting;
-            });
-
-            tweeningOffset = true;
-        }
-        else {
-            offsetX = x | 0;
-            offsetY = y | 0;
-
-            if (callback) {
-                callback();
-            } // if
-        } // if..else
+        COG.warn('updateOffset function has been deprecated, please use setOffset instead');
+        setOffset(x, y);
     } // updateOffset
 
     /* object definition */
@@ -4642,6 +4790,8 @@ var View = function(params) {
         /* offset methods */
 
         getOffset: getOffset,
+        setOffset: setOffset,
+
         getRenderer: getRenderer,
         getScaleFactor: getScaleFactor,
         setMaxOffset: setMaxOffset,
@@ -4871,13 +5021,11 @@ var Map = function(params) {
     } // gotoPosition
 
     /**
-    ### panToPosition(position, callback, easingFn)
+    ### panToPosition(position)
     This method is used to tell the map to pan (not zoom) to the specified
-    T5.GeoXY.  An optional callback can be passed as the second
-    parameter to the function and this fires a notification once the map is
-    at the new specified position.  Additionally, an optional easingFn parameter
-    can be supplied if the pan operation should ease to the specified location
-    rather than just shift immediately.  An easingDuration can also be supplied.
+    T5.GeoXY.
+
+    __NOTE:__ callback, easingFn & easingDuration parameters removed
     */
     function panToPosition(position, callback, easingFn, easingDuration) {
         var centerXY = GeoXY.init(position, radsPerPixel(_self.getZoomLevel())),
@@ -4885,11 +5033,16 @@ var Map = function(params) {
             offsetX = centerXY.x - (viewport.w >> 1),
             offsetY = centerXY.y - (viewport.h >> 1);
 
-        _self.updateOffset(offsetX, offsetY, easingFn, easingDuration, function() {
-            if (callback) {
-                callback(_self);
-            } // if
-        });
+        _self.setOffset(offsetX, offsetY);
+
+        if (callback) {
+            callback();
+            COG.warn('panToPosition callback parameter deprecated');
+        } // if
+
+        if (easingFn || easingDuration) {
+            COG.warn('panToPosition easingFn and easingDuration parameters not supported');
+        } // if
     } // panToPosition
 
     /**
@@ -5613,7 +5766,9 @@ var TileLayer = function(genId, params) {
     ### draw(renderer)
     */
     function draw(renderer, viewport) {
-        renderer.drawTiles(viewport, storage.search(XYRect.buffer(viewport, 128)));
+        if (renderer.drawTiles) {
+            renderer.drawTiles(viewport, storage.search(XYRect.buffer(viewport, 128)));
+        } // if
     } // draw
 
     /* definition */

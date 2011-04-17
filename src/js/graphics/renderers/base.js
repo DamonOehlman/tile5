@@ -8,6 +8,8 @@ Renderers fire the following events:
 
 ### predraw
 
+### render
+
 ### reset
 
 */
@@ -83,12 +85,6 @@ var Renderer = function(view, container, outer, params) {
         */
         projectXY: null,
 
-        /**
-        ### render
-        */
-        render: function() {
-        },
-        
         /**
         ### reset()
         */

@@ -4,27 +4,21 @@ T5.registerRenderer('raphael', function(view, panFrame, container, params, baseR
     
     /* internals */
     
-    var RADIANS_TO_DEGREES = 180 / Math.PI,
-        vpWidth,
-        vpHeight,
-        drawOffsetX,
+    var drawOffsetX,
         drawOffsetY,
         activeObjects = {},
-        activeTiles = {},
         currentObjects = {},
-        currentTiles = {},
         currentStyle,
         hitObjects = {},
         styles = {},
         paper;
         
     function createPaper() {
-        // initialise the viewport height and width
-        vpWidth = view.width = panFrame.offsetWidth;
-        vpHeight = view.height = panFrame.offsetHeight;
-
         // create the mapper
-        paper = Raphael(panFrame, vpWidth, vpHeight);
+        paper = Raphael(panFrame, panFrame.offsetWidth, panFrame.offsetHeight);
+
+        // set some CSS properties on the canvas
+        paper.canvas.style.position = 'absolute';
     } // createCanvas
     
     function handleDetach() {
@@ -33,13 +27,11 @@ T5.registerRenderer('raphael', function(view, panFrame, container, params, baseR
     } // handleDetach
     
     function handlePredraw(evt, viewport, state) {
+        moveEl(paper.canvas, viewport.x, viewport.y);
+        
         // remove any old objects
         removeOldObjects(activeObjects, currentObjects);
         currentObjects = {};
-
-        // remove old tiles
-        removeOldObjects(activeTiles, currentTiles);
-        currentTiles = {};
     } // handlePredraw
     
     function handleStyleDefined(evt, styleId, styleData) {
@@ -47,11 +39,7 @@ T5.registerRenderer('raphael', function(view, panFrame, container, params, baseR
     } // handleStyleDefined
     
     function handleReset(evt) {
-        removeOldObjects(activeTiles, currentTiles = {});
         removeOldObjects(activeObjects, currentObjects, 'removeOnReset');
-        
-        // clear the paper
-        // paper.clear();
     } // handleReset
     
     function initDrawData(drawable, viewport, hitData, state, drawFn) {
@@ -189,39 +177,6 @@ T5.registerRenderer('raphael', function(view, panFrame, container, params, baseR
         }
     } // applyTransform
     
-    function drawTiles(viewport, tiles) {
-        var tile;
-        
-        for (var ii = tiles.length; ii--; ) {
-            tile = tiles[ii];
-            
-            if (tile.rObject) {
-                tile.rObject.attr({
-                    x: tile.x - drawOffsetX,
-                    y: tile.y - drawOffsetY
-                });
-            }
-            else {
-                // add the tile to the list of active tiles
-                activeTiles[tile.id] = tile;
-                
-                // create the tile
-                tile.rObject = paper.image(
-                    tile.url,
-                    tile.x - drawOffsetX,
-                    tile.y - drawOffsetY, 
-                    tile.w, 
-                    tile.h);
-                    
-                // send the tile to the back
-                tile.rObject.toBack();
-            } // if..else
-            
-            // add the tile to the list of currently displayed tiles
-            currentTiles[tile.id] = tile;
-        } // for
-    } // drawTiles
-    
     function prepare(layers, viewport, state, tickCount, hitData) {
         // save the viewport x and y as the draw offset x and y
         drawOffsetX = viewport.x;
@@ -320,28 +275,14 @@ T5.registerRenderer('raphael', function(view, panFrame, container, params, baseR
     createPaper();
 
     var _this = COG.extend(baseRenderer, {
-        preventPartialScale: true,
-        
         applyStyle: applyStyle,
         applyTransform: applyTransform,
-        drawTiles: drawTiles,
         
         prepare: prepare,
 
         prepArc: prepArc,
         prepMarker: prepMarker,
-        prepPoly: prepPoly,
-        
-        getDimensions: function() {
-            return {
-                width: vpWidth,
-                height: vpHeight
-            };
-        },
-        
-        getOffset: function() {
-            return new XY(drawOffsetX, drawOffsetY);
-        }
+        prepPoly: prepPoly
     });
     
     // handle the predraw event
