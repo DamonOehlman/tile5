@@ -126,7 +126,7 @@ var View = function(params) {
         caps = {},
         layers = [],
         layerCount = 0,
-        container = null,
+        viewpane = null,
         panContainer = null,
         outer,
         dragObject = null,
@@ -143,8 +143,6 @@ var View = function(params) {
         offsetY = 0,
         refreshX = 0,
         refreshY = 0,
-        lastOffsetX = 0,
-        lastOffsetY = 0,
         offsetMaxX = null,
         offsetMaxY = null,
         offsetWrapX = false,
@@ -291,7 +289,7 @@ var View = function(params) {
     /* private functions */
     
     function createRenderer(typeName) {
-        renderer = attachRenderer(typeName || params.renderer, _self, container, outer, params);
+        renderer = attachRenderer(typeName || params.renderer, _self, viewpane, outer, params);
         
         // determine whether partial scaling is supporter
         fastpan = params.fastpan && renderer.fastpan;
@@ -307,7 +305,7 @@ var View = function(params) {
         
         // tell the layer that I'm going to take care of it
         value.view = _self;
-        value.trigger('parentChange', _self, container, mainContext);
+        value.trigger('parentChange', _self, viewpane, mainContext);
         
         // add the new layer
         layers.push(value);
@@ -334,7 +332,7 @@ var View = function(params) {
 
         if (renderer) {
             // recreate the event monitor
-            eventMonitor = INTERACT.watch(renderer.interactTarget || container);
+            eventMonitor = INTERACT.watch(renderer.interactTarget || viewpane);
 
             // if this view is scalable, attach zooming event handlers
             if (params.scalable) {
@@ -479,7 +477,7 @@ var View = function(params) {
         halfHeight = height / 2;
 
         // create the view div and append to the pan container
-        panContainer.appendChild(container = createEl(
+        panContainer.appendChild(viewpane = createEl(
             'div',
             COG.objId('t5_view'),
             COG.formatStr(
@@ -556,7 +554,7 @@ var View = function(params) {
                 refreshYDist = abs(offsetY - refreshY);
                 
             // update the panning flag
-            panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
+            panning = deltaEnergy > 0;
             scaleChanged = scaleFactor !== lastScaleFactor;
             
             if (panning || scaleChanged) {
@@ -594,17 +592,17 @@ var View = function(params) {
             // update the offset
             offsetX -= dx;
             offsetY -= dy;
+            
+            // initialise the viewport
+            viewport = getViewport();
 
             if (renderer.fastpan) {
-                // move the container
-                moveEl(container, -offsetX, -offsetY);
+                // move the view pane
+                moveEl(viewpane, -viewport.x, -viewport.y);
             } // if
 
-            // otherwise, reset the container position and refire the renderer
+            // otherwise, reset the view pane position and refire the renderer
             if ((! renderer.fastpan) || deltaEnergy < 2) {
-                // initialise the viewport
-                viewport = getViewport();
-
                 /*
                 // check that the offset is within bounds
                 if (offsetMaxX || offsetMaxY) {
@@ -666,8 +664,6 @@ var View = function(params) {
                     _self.trigger('drawComplete', viewport, tickCount);
 
                     // update the last cycle ticks
-                    lastOffsetX = offsetX;
-                    lastOffsetY = offsetY;
                     lastScaleFactor = scaleFactor;
                 } // if
             } // if
@@ -745,7 +741,7 @@ var View = function(params) {
             
             // reset the pan container and container variables
             panContainer = null;
-            container = null;
+            viewpane = null;
         } // if
     } // detach
     
@@ -845,23 +841,10 @@ var View = function(params) {
     */
     function getViewport() {
         var viewport = new Rect(offsetX, offsetY, width, height);
-
+        
         // add the scale factor information
         viewport.scaleFactor = scaleFactor;
             
-        // if we are scaling, then attach the scaled viewport information also
-        if (scaleFactor !== 1) {
-            var centerX = offsetX + halfWidth,
-                centerY = offsetY + halfHeight;
-
-            viewport.scaled = XYRect.fromCenter(
-                centerX | 0, 
-                centerY | 0, 
-                width / scaleFactor | 0,
-                height / scaleFactor | 0
-            );
-        } // if
-        
         return viewport;
     } // getViewport
     
@@ -1029,8 +1012,6 @@ var View = function(params) {
             );
             
             // reset the last offset
-            lastOffsetX = offsetX;
-            lastOffsetY = offsetY;
             refreshX = 0;
             refreshY = 0;
 

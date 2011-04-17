@@ -3919,7 +3919,7 @@ var View = function(params) {
         caps = {},
         layers = [],
         layerCount = 0,
-        container = null,
+        viewpane = null,
         panContainer = null,
         outer,
         dragObject = null,
@@ -3936,8 +3936,6 @@ var View = function(params) {
         offsetY = 0,
         refreshX = 0,
         refreshY = 0,
-        lastOffsetX = 0,
-        lastOffsetY = 0,
         offsetMaxX = null,
         offsetMaxY = null,
         offsetWrapX = false,
@@ -4073,7 +4071,7 @@ var View = function(params) {
     /* private functions */
 
     function createRenderer(typeName) {
-        renderer = attachRenderer(typeName || params.renderer, _self, container, outer, params);
+        renderer = attachRenderer(typeName || params.renderer, _self, viewpane, outer, params);
 
         fastpan = params.fastpan && renderer.fastpan;
 
@@ -4085,7 +4083,7 @@ var View = function(params) {
         value.added = ticks();
 
         value.view = _self;
-        value.trigger('parentChange', _self, container, mainContext);
+        value.trigger('parentChange', _self, viewpane, mainContext);
 
         layers.push(value);
 
@@ -4108,7 +4106,7 @@ var View = function(params) {
         } // if
 
         if (renderer) {
-            eventMonitor = INTERACT.watch(renderer.interactTarget || container);
+            eventMonitor = INTERACT.watch(renderer.interactTarget || viewpane);
 
             if (params.scalable) {
                 eventMonitor.bind('zoom', handleZoom);
@@ -4242,7 +4240,7 @@ var View = function(params) {
         halfWidth = width / 2;
         halfHeight = height / 2;
 
-        panContainer.appendChild(container = createEl(
+        panContainer.appendChild(viewpane = createEl(
             'div',
             COG.objId('t5_view'),
             COG.formatStr(
@@ -4308,7 +4306,7 @@ var View = function(params) {
             var refreshXDist = abs(offsetX - refreshX),
                 refreshYDist = abs(offsetY - refreshY);
 
-            panning = offsetX !== lastOffsetX || offsetY !== lastOffsetY;
+            panning = deltaEnergy > 0;
             scaleChanged = scaleFactor !== lastScaleFactor;
 
             if (panning || scaleChanged) {
@@ -4339,13 +4337,13 @@ var View = function(params) {
             offsetX -= dx;
             offsetY -= dy;
 
+            viewport = getViewport();
+
             if (renderer.fastpan) {
-                moveEl(container, -offsetX, -offsetY);
+                moveEl(viewpane, -viewport.x, -viewport.y);
             } // if
 
             if ((! renderer.fastpan) || deltaEnergy < 2) {
-                viewport = getViewport();
-
                 /*
                 if (offsetMaxX || offsetMaxY) {
                     constrainOffset();
@@ -4392,8 +4390,6 @@ var View = function(params) {
 
                     _self.trigger('drawComplete', viewport, tickCount);
 
-                    lastOffsetX = offsetX;
-                    lastOffsetY = offsetY;
                     lastScaleFactor = scaleFactor;
                 } // if
             } // if
@@ -4458,7 +4454,7 @@ var View = function(params) {
             document.getElementById(panContainer).removeChild(panContainer);
 
             panContainer = null;
-            container = null;
+            viewpane = null;
         } // if
     } // detach
 
@@ -4555,18 +4551,6 @@ var View = function(params) {
         var viewport = new Rect(offsetX, offsetY, width, height);
 
         viewport.scaleFactor = scaleFactor;
-
-        if (scaleFactor !== 1) {
-            var centerX = offsetX + halfWidth,
-                centerY = offsetY + halfHeight;
-
-            viewport.scaled = XYRect.fromCenter(
-                centerX | 0,
-                centerY | 0,
-                width / scaleFactor | 0,
-                height / scaleFactor | 0
-            );
-        } // if
 
         return viewport;
     } // getViewport
@@ -4713,8 +4697,6 @@ var View = function(params) {
                 ((zoomY ? zoomY : offsetY + halfHeight) - scaledHalfHeight) * scaling
             );
 
-            lastOffsetX = offsetX;
-            lastOffsetY = offsetY;
             refreshX = 0;
             refreshY = 0;
 
