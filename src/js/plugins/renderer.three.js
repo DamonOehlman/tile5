@@ -109,7 +109,7 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
         // TODO: clean up the scene
         
         // remove the dom element from the panFrame
-        panFrame.removeChild(renderer.domElement);
+        container.removeChild(renderer.domElement);
     } // handleDetach
     
     function handleStyleDefined(evt, styleId, styleData) {
@@ -134,7 +134,7 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
         ];
     } // handleStyleDefined
     
-    function handleRender(evt, viewport, state) {
+    function handleRender(evt, viewport) {
         // render the scene
         renderer.render(scene, camera);
     } // handleRender
@@ -144,14 +144,13 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
         removeOldObjects(activeObjects, currentObjects, 'removeOnReset');
     } // handleReset
         
-    function initDrawData(viewport, hitData, state, drawFn) {
+    function initDrawData(viewport, hitData, drawFn) {
         var isHit = false;
 
         return {
             // initialise core draw data properties
             draw: drawFn || meshDraw,
             viewport: viewport,
-            state: state,
             hit: isHit,
             vpX: drawOffsetX,
             vpY: drawOffsetY
@@ -378,7 +377,7 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
             };
         } // if
         
-        // update the drawable transformed state
+        // update the drawable transformed status
         drawable.transformed = transformed;
             
         return transform;
@@ -447,7 +446,7 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
         scene.addObject(mesh);
     } // meshInit
     
-    function prepare(layers, viewport, state, tickCount, hitData) {
+    function prepare(layers, viewport, tickCount, hitData) {
         // update the offset x and y
         drawOffsetX = viewport.x + view.padding;
         drawOffsetY = viewport.y + view.padding;
@@ -476,9 +475,9 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
     } // prepare
     
     /**
-    ### prepArc(drawable, viewport, hitData, state, opts)
+    ### prepArc(drawable, viewport, hitData, opts)
     */
-    function prepArc(drawable, viewport, hitData, state, opts) {
+    function prepArc(drawable, viewport, hitData, opts) {
         if (! drawable.mesh) {
             var sphere = new Sphere(drawable.size, 15, 15),
                 mesh = drawable.mesh = new THREE.Mesh(
@@ -492,13 +491,13 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
             mesh.rotation.x = Math.PI / 2;
         } // if
         
-        return initDrawData(viewport, hitData, state);
+        return initDrawData(viewport, hitData);
     } // prepArc
     
     /**
-    ### prepImage(drawable, viewport, hitData, state, opts)
+    ### prepImage(drawable, viewport, hitData, opts)
     */
-    function prepImage(drawable, viewport, hitData, state, opts) {
+    function prepImage(drawable, viewport, hitData, opts) {
         var image = opts.image || drawable.image;
         
         if (image && (! drawable.mesh)) {
@@ -520,13 +519,13 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
             meshInit(mesh, drawable, drawX, drawY, 1);
         }
         
-        return initDrawData(viewport, hitData, state);
+        return initDrawData(viewport, hitData);
     } // prepImage
     
     /**
-    ### prepMarker(drawable, viewport, hitData, state, opts)
+    ### prepMarker(drawable, viewport, hitData, opts)
     */
-    function prepMarker(drawable, viewport, hitData, state, opts) {
+    function prepMarker(drawable, viewport, hitData, opts) {
         if ((! drawable.mesh) && (! drawable.loading)) {
             var markerX = drawable.xy.x,
                 markerY = drawable.xy.y,
@@ -583,13 +582,13 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
             }
         } // if
         
-        return initDrawData(viewport, hitData, state);
+        return initDrawData(viewport, hitData);
     } // prepMarker
     
     /**
-    ### prepPoly(drawable, viewport, hitData, state, opts)
+    ### prepPoly(drawable, viewport, hitData, opts)
     */
-    function prepPoly(drawable, viewport, hitData, state, opts) {
+    function prepPoly(drawable, viewport, hitData, opts) {
         if (! drawable.mesh) {
             var points = opts.points || drawable.points,
                 geometry = new THREE.Geometry(),
@@ -618,7 +617,7 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
             meshInit(mesh, drawable);
         } // if
 
-        return initDrawData(viewport, hitData, state);
+        return initDrawData(viewport, hitData);
     } // prepPoly    
     
     /* initialization */
@@ -646,13 +645,6 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
         
         getContext: function() { 
             return context;
-        },
-        
-        getDimensions: function() {
-            return {
-                width: vpWidth,
-                height: vpHeight
-            };
         }
     });
     

@@ -60,7 +60,7 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
         panFrame.removeChild(imageDiv);
     } // handleDetach
     
-    function handlePredraw(evt, viewport, state) {
+    function handlePredraw(evt, viewport) {
         // moveEl(imageDiv, viewport.x, viewport.y);
         
         // remove old tiles

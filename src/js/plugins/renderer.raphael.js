@@ -30,7 +30,7 @@ T5.registerRenderer('raphael', function(view, panFrame, container, params, baseR
         panFrame.removeChild(paper.canvas);
     } // handleDetach
     
-    function handlePredraw(evt, viewport, state) {
+    function handlePredraw(evt, viewport) {
         // remove any old objects
         removeOldObjects(activeObjects, currentObjects);
         currentObjects = {};
@@ -44,14 +44,13 @@ T5.registerRenderer('raphael', function(view, panFrame, container, params, baseR
         removeOldObjects(activeObjects, currentObjects, 'removeOnReset');
     } // handleReset
     
-    function initDrawData(drawable, viewport, hitData, state, drawFn) {
+    function initDrawData(drawable, viewport, hitData, drawFn) {
         var isHit = false;
         
         return {
             // initialise core draw data properties
             draw: drawFn || objDraw,
             viewport: viewport,
-            state: state,
             hit: hitObjects[drawable.id],
             vpX: drawOffsetX,
             vpY: drawOffsetY
@@ -179,7 +178,7 @@ T5.registerRenderer('raphael', function(view, panFrame, container, params, baseR
         }
     } // applyTransform
     
-    function prepare(layers, viewport, state, tickCount, hitData) {
+    function prepare(layers, viewport, tickCount, hitData) {
         // save the viewport x and y as the draw offset x and y
         drawOffsetX = viewport.x;
         drawOffsetY = viewport.y;
@@ -188,9 +187,9 @@ T5.registerRenderer('raphael', function(view, panFrame, container, params, baseR
     } // prepare
     
     /**
-    ### prepArc(drawable, viewport, hitData, state, opts)
+    ### prepArc(drawable, viewport, hitData, opts)
     */
-    function prepArc(drawable, viewport, hitData, state, opts) {
+    function prepArc(drawable, viewport, hitData, opts) {
         if (! drawable.rObject) {
             objInit(drawable.rObject = paper.circle(
                 drawable.xy.x - drawOffsetX,
@@ -199,13 +198,13 @@ T5.registerRenderer('raphael', function(view, panFrame, container, params, baseR
             ), drawable);
         } // if
         
-        return initDrawData(drawable, viewport, hitData, state);
+        return initDrawData(drawable, viewport, hitData);
     } // prepArc
     
     /**
-    ### prepMarker(drawable, viewport, hitData, state, opts)
+    ### prepMarker(drawable, viewport, hitData, opts)
     */
-    function prepMarker(drawable, viewport, hitData, state, opts) {
+    function prepMarker(drawable, viewport, hitData, opts) {
         // if this is a reset, then remove the existing object
         if (drawable.reset && drawable.rObject) {
             drawable.rObject.remove();
@@ -239,13 +238,13 @@ T5.registerRenderer('raphael', function(view, panFrame, container, params, baseR
             } // switch
         } // if
         
-        return initDrawData(drawable, viewport, hitData, state);
+        return initDrawData(drawable, viewport, hitData);
     } // prepMarker    
     
     /**
-    ### prepPoly(drawable, viewport, hitData, state, opts)
+    ### prepPoly(drawable, viewport, hitData, opts)
     */
-    function prepPoly(drawable, viewport, hitData, state, opts) {
+    function prepPoly(drawable, viewport, hitData, opts) {
         
         if (! drawable.rObject) {
             var rawPath = [],
@@ -268,7 +267,7 @@ T5.registerRenderer('raphael', function(view, panFrame, container, params, baseR
             objInit(drawable.rObject = paper.path('M0 0L0 0'), drawable);
         } // if
         
-        return initDrawData(drawable, viewport, hitData, state);
+        return initDrawData(drawable, viewport, hitData);
     } // prepPoly
     
     /* initialization */

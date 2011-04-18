@@ -2830,9 +2830,9 @@ var Renderer = function(view, container, outer, params) {
         },
 
         /**
-        ### prepare(layers, state, tickCount, hitData)
+        ### prepare(layers, tickCount, hitData)
         */
-        prepare: function(layers, state, tickCount, hitData) {
+        prepare: function(layers, tickCount, hitData) {
         },
 
         /**
@@ -2964,7 +2964,7 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
         };
     } // handleStyleDefined
 
-    function initDrawData(viewport, hitData, state, drawFn) {
+    function initDrawData(viewport, hitData, drawFn) {
         var isHit = false;
 
         if (hitData) {
@@ -2977,7 +2977,6 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
         return {
             draw: drawFn || defaultDrawFn,
             viewport: viewport,
-            state: state,
             hit: isHit,
             vpX: drawOffsetX,
             vpY: drawOffsetY,
@@ -3072,7 +3071,7 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
         } // for
     } // drawTiles
 
-    function prepare(layers, viewport, state, tickCount, hitData) {
+    function prepare(layers, viewport, tickCount, hitData) {
         var ii,
             canClip = false,
             targetVP = viewport.scaled || viewport,
@@ -3108,9 +3107,9 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
     } // prepare
 
     /**
-    ### prepArc(drawable, viewport, hitData, state, opts)
+    ### prepArc(drawable, viewport, hitData, opts)
     */
-    function prepArc(drawable, viewport, hitData, state, opts) {
+    function prepArc(drawable, viewport, hitData, opts) {
         context.beginPath();
         context.arc(
             drawable.xy.x - (transform ? transform.x : drawOffsetX),
@@ -3121,13 +3120,13 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
             false
         );
 
-        return initDrawData(viewport, hitData, state);
+        return initDrawData(viewport, hitData);
     } // prepArc
 
     /**
-    ### prepImage(drawable, viewport, hitData, state, opts)
+    ### prepImage(drawable, viewport, hitData, opts)
     */
-    function prepImage(drawable, viewport, hitData, state, opts) {
+    function prepImage(drawable, viewport, hitData, opts) {
         var realX = (opts.x || drawable.xy.x) - (transform ? transform.x : drawOffsetX),
             realY = (opts.y || drawable.xy.y) - (transform ? transform.y : drawOffsetY),
             image = opts.image || drawable.image;
@@ -3141,7 +3140,7 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
                 opts.height || image.height
             );
 
-            return initDrawData(viewport, hitData, state, function(drawData) {
+            return initDrawData(viewport, hitData, function(drawData) {
                 context.drawImage(
                     image,
                     realX,
@@ -3154,9 +3153,9 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
     } // prepImage
 
     /**
-    ### prepMarker(drawable, viewport, hitData, state, opts)
+    ### prepMarker(drawable, viewport, hitData, opts)
     */
-    function prepMarker(drawable, viewport, hitData, state, opts) {
+    function prepMarker(drawable, viewport, hitData, opts) {
         var markerX = drawable.xy.x - (transform ? transform.x : drawOffsetX),
             markerY = drawable.xy.y - (transform ? transform.y : drawOffsetY),
             size = drawable.size,
@@ -3212,13 +3211,13 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
                 break;
         } // switch
 
-        return initDrawData(viewport, hitData, state, drawOverride);
+        return initDrawData(viewport, hitData, drawOverride);
     } // prepMarker
 
     /**
-    ### prepPoly(drawable, viewport, hitData, state, opts)
+    ### prepPoly(drawable, viewport, hitData, opts)
     */
-    function prepPoly(drawable, viewport, hitData, state, opts) {
+    function prepPoly(drawable, viewport, hitData, opts) {
         var first = true,
             points = opts.points || drawable.points,
             offsetX = transform ? transform.x : drawOffsetX,
@@ -3239,7 +3238,7 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
             } // if..else
         } // for
 
-        return initDrawData(viewport, hitData, state);
+        return initDrawData(viewport, hitData);
     } // prepPoly
 
     /* initialization */
@@ -3336,7 +3335,7 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
         panFrame.removeChild(imageDiv);
     } // handleDetach
 
-    function handlePredraw(evt, viewport, state) {
+    function handlePredraw(evt, viewport) {
 
         removeOldObjects(activeTiles, currentTiles);
         currentTiles = {};
@@ -3468,61 +3467,6 @@ defineStyles({
         fill: '#ffffff'
     }
 });
-var viewStates = {
-    NONE: 0,
-    ACTIVE: 1,
-    ANIMATING: 4,
-    PAN: 8,
-    ZOOM: 16,
-    FREEZE: 128
-};
-
-/**
-# T5.viewState
-The T5.viewState function is used to return the value of the view state requested of the function.  The
-function supports a request for multiple different states and in those cases, returns a bitwise-or of the
-states.
-
-## View State Bitwise Values
-
-- NONE = 0
-- ACTIVE = 1
-- _UNUSED_ = 2
-- ANIMATING = 4
-- PAN = 8
-- ZOOM = 16
-- _UNUSED_ = 32
-- _UNUSED_ = 64
-- FREEZE = 128
-
-
-## Example Usage
-~ // get the active state
-~ var stateActive = T5.viewState('active');
-~
-~ // get the bitmask for a view state of active or panning
-~ var stateActivePan = T5.viewState('active', 'pan');
-~
-~ // add the animating state to the stateActivePan variable
-~ stateActivePan = stateActivePan | T5.viewState('animating');
-
-~ // now test whether the updated state is still considered activate
-~ if ((stateActive & stateActivePan) !== 0) {
-~     // yep, we are active
-~ } // if
-*/
-function viewState() {
-    var result = 0;
-
-    for (var ii = arguments.length; ii--; ) {
-        var value = viewStates[arguments[ii].toUpperCase()];
-        if (value) {
-            result = result | value;
-        } // if
-    } // for
-
-    return result;
-} // viewState
 /**
 # T5.View
 The View is the fundamental building block for tiling and
@@ -3583,8 +3527,6 @@ view.bind('tapHit', function(evt, elements, absXY, relXY, offsetXY) {
 As per the tapHit event, but triggered through a mouse-over event.
 
 ### refresh
-This event is fired once the view has gone into an idle state or every second
-(configurable).
 <pre>
 view.bind('refresh', function(evt) {
 });
@@ -3643,6 +3585,8 @@ var View = function(params) {
     }, params);
 
     var TURBO_CLEAR_INTERVAL = 500,
+        ENERGY_THRESHOLD_REFRESH = 2,
+        ENERGY_THRESHOLD_FASTPAN = 5,
 
         caps = {},
         layers = [],
@@ -3673,7 +3617,6 @@ var View = function(params) {
         padding = params.fastpan ? params.fastpanPadding : 0,
         panFrames = [],
         hitData = null,
-        interacting = false,
         lastHitData = null,
         resizeCanvasTimeout = 0,
         scaleFactor = 1,
@@ -3693,16 +3636,7 @@ var View = function(params) {
         zoomX, zoomY,
         zoomLevel = params.zoomLevel,
         zoomEasing = COG.easing('quad.out'),
-        zoomDuration = 300,
-
-        /* state shortcuts */
-
-        stateActive = viewState('ACTIVE'),
-        statePan = viewState('PAN'),
-        stateZoom = viewState('ZOOM'),
-        stateAnimating = viewState('ANIMATING'),
-
-        state = stateActive;
+        zoomDuration = 300;
 
     /* event handlers */
 
@@ -3837,7 +3771,7 @@ var View = function(params) {
         } // if
 
         if (renderer) {
-            eventMonitor = INTERACT.watch(renderer.interactTarget || viewpane);
+            eventMonitor = INTERACT.watch(renderer.interactTarget || outer);
 
             if (params.scalable) {
                 eventMonitor.bind('zoom', handleZoom);
@@ -4022,10 +3956,10 @@ var View = function(params) {
     } // checkHits
 
     function cycle(tickCount) {
-        var redrawBG,
-            panning,
+        var panning,
             scaleChanged,
             newFrame = false,
+            refreshValid,
             viewport,
             deltaEnergy = abs(dx) + abs(dy);
 
@@ -4034,8 +3968,8 @@ var View = function(params) {
         newFrame = tickCount - lastCycleTicks > cycleDelay;
 
         if (newFrame) {
-            var refreshXDist = abs(offsetX - refreshX),
-                refreshYDist = abs(offsetY - refreshY);
+            refreshValid = abs(offsetX - refreshX) >= refreshDist ||
+                abs(offsetY - refreshY) >= refreshDist;
 
             panning = deltaEnergy > 0;
             scaleChanged = scaleFactor !== lastScaleFactor;
@@ -4044,7 +3978,7 @@ var View = function(params) {
                 viewChanges++;
             } // if
 
-            if ((deltaEnergy < 2) && (refreshXDist >= refreshDist || refreshYDist >= refreshDist)) {
+            if (refreshValid && deltaEnergy < ENERGY_THRESHOLD_REFRESH) {
                 refresh();
             } // if
 
@@ -4057,18 +3991,10 @@ var View = function(params) {
         }
 
         if (renderer && newFrame && frameData.draw) {
-            state = stateActive |
-                        (scaleFactor !== 1 ? stateZoom : 0) |
-                        (panning ? statePan : 0) |
-                        (tweeningOffset ? stateAnimating : 0);
-
-            redrawBG = (state & (stateZoom | statePan)) !== 0;
-            interacting = redrawBG && (state & stateAnimating) === 0;
-
             panX += dx;
             panY += dy;
 
-            if ((! fastpan) || deltaEnergy < 2) {
+            if ((! fastpan) || deltaEnergy < ENERGY_THRESHOLD_FASTPAN) {
                 offsetX = (offsetX - panX) | 0;
                 offsetY = (offsetY - panY) | 0;
 
@@ -4081,23 +4007,15 @@ var View = function(params) {
                 */
 
 
-                renderer.trigger('predraw', viewport, state);
+                renderer.trigger('predraw', viewport);
 
-                if (renderer.prepare(layers, viewport, state, tickCount, hitData)) {
+                if (renderer.prepare(layers, viewport, tickCount, hitData)) {
                     viewChanges = 0;
-
-                    /*
-                    for (var ii = layerCount; ii--; ) {
-                        state = state | (layers[ii].animated ? stateAnimating : 0);
-
-                        layers[ii].cycle(tickCount, viewport, state);
-                    } // for
-                    */
 
                     for (ii = layerCount; ii--; ) {
                         var drawLayer = layers[ii];
 
-                        if (drawLayer.visible && ((state & drawLayer.validStates) !== 0)) {
+                        if (drawLayer.visible) {
                             var previousStyle = drawLayer.style ?
                                     renderer.applyStyle(drawLayer.style, true) :
                                     null;
@@ -4105,7 +4023,6 @@ var View = function(params) {
                             drawLayer.draw(
                                 renderer,
                                 viewport,
-                                state,
                                 _self,
                                 tickCount,
                                 hitData);
@@ -4116,7 +4033,7 @@ var View = function(params) {
                         } // if
                     } // for
 
-                    renderer.trigger('render', viewport, state);
+                    renderer.trigger('render', viewport);
 
                     _self.trigger('drawComplete', viewport, tickCount);
 
@@ -4160,7 +4077,7 @@ var View = function(params) {
 
         for (var ii = layerCount; ii--; ) {
             hitFlagged = hitFlagged || (layers[ii].hitGuess ?
-                layers[ii].hitGuess(hitData.x, hitData.y, state, _self) :
+                layers[ii].hitGuess(hitData.x, hitData.y, _self) :
                 false);
         } // for
 
@@ -4886,7 +4803,7 @@ Drawable.prototype = {
     draw: null,
 
     /**
-    ### getProps(renderer, state)
+    ### getProps(renderer)
     Get the drawable item properties that will be passed to the renderer during
     the prepare and draw phase
     */
@@ -5267,11 +5184,11 @@ function ImageDrawable(params) {
     } // changeImage
 
     /**
-    ### getProps(renderer, state)
+    ### getProps(renderer)
     Get the drawable item properties that will be passed to the renderer during
     the prepare and draw phase
     */
-    function getProps(renderer, state) {
+    function getProps(renderer) {
         if (! this.bounds) {
             checkOffsetAndBounds(this, image);
         } // if
@@ -5367,9 +5284,6 @@ can be used when later accessing the layer from a View.
 
 - `zindex` (default: 0) - a zindex in Tile5 means the same thing it does in CSS
 
-- `validStates` - the a bitmask of DisplayState that the layer will be drawn for
-
-
 ## Events
 
 ### changed
@@ -5399,7 +5313,6 @@ function ViewLayer(params) {
         id: COG.objId('layer'),
         zindex: 0,
         animated: false,
-        validStates: viewState('ACTIVE', 'ANIMATING', 'PAN', 'ZOOM'),
         style: null,
         minXY: null,
         maxXY: null
@@ -5415,37 +5328,36 @@ ViewLayer.prototype = {
     constructor: ViewLayer,
 
     /**
-    ### clip(context, offset, dimensions, state)
+    ### clip(context, offset, dimensions)
     */
     clip: null,
 
     /**
-    ### cycle(tickCount, offset, state)
+    ### cycle(tickCount, offset)
 
     Called in the View method of the same name, each layer has an opportunity
     to update it_self in the current animation cycle before it is drawn.
     */
-    cycle: function(tickCount, offset, state) {
+    cycle: function(tickCount, offset) {
     },
 
     /**
-    ### draw(context, offset, dimensions, state, view)
+    ### draw(context, offset, dimensions, view)
 
     The business end of layer drawing.  This method is called when a layer needs to be
     drawn and the following parameters are passed to the method:
 
         - renderer - the renderer that will be drawing the viewlayer
         - viewport - the current viewport
-        - state - the current DisplayState of the view
         - view - a reference to the View
         - tickCount - the current tick count
         - hitData - an object that contains information regarding the current hit data
     */
-    draw: function(renderer, viewport, state, view, tickCount, hitData) {
+    draw: function(renderer, viewport, view, tickCount, hitData) {
     },
 
     /**
-    ### hitGuess(hitX, hitY, state, view)
+    ### hitGuess(hitX, hitY, view)
     The hitGuess function is used to determine if a layer would return elements for
     a more granular hitTest.  Essentially, hitGuess calls are used when events such
     as hover and tap events occur on a view and then if a positive result is detected
@@ -5608,7 +5520,7 @@ var DrawLayer = function(params) {
 
     /* exports */
 
-    function draw(renderer, viewport, state, view, tickCount, hitData) {
+    function draw(renderer, viewport, view, tickCount, hitData) {
         var emptyProps = {
             },
             drawItems = storage && viewport ? storage.search(viewport): [];
@@ -5619,7 +5531,7 @@ var DrawLayer = function(params) {
                 styleType,
                 previousStyle,
                 transform = renderer.applyTransform(drawable),
-                drawProps = drawable.getProps ? drawable.getProps(renderer, state) : emptyProps,
+                drawProps = drawable.getProps ? drawable.getProps(renderer) : emptyProps,
 
                 prepFn = renderer['prep' + drawable.typeName],
                 drawFn,
@@ -5628,7 +5540,6 @@ var DrawLayer = function(params) {
                     drawable,
                     viewport,
                     hitData,
-                    state,
                     drawProps) : null;
 
             if (drawData) {
@@ -5673,11 +5584,11 @@ var DrawLayer = function(params) {
     } // find
 
     /**
-    ### hitGuess(hitX, hitY, state, view)
+    ### hitGuess(hitX, hitY, view)
     Return true if any of the markers are hit, additionally, store the hit elements
     so we don't have to do the work again when drawing
     */
-    function hitGuess(hitX, hitY, state, view) {
+    function hitGuess(hitX, hitY, view) {
         return storage && storage.search({
             x: hitX - 10,
             y: hitY - 10,
@@ -5831,7 +5742,6 @@ Pos.prototype = {
         TileLayer: TileLayer,
         getImage: getImage,
 
-        viewState: viewState,
         View: View,
         ViewLayer: ViewLayer,
         ImageLayer: TileLayer,

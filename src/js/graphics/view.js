@@ -58,8 +58,6 @@ view.bind('tapHit', function(evt, elements, absXY, relXY, offsetXY) {
 As per the tapHit event, but triggered through a mouse-over event.
 
 ### refresh
-This event is fired once the view has gone into an idle state or every second
-(configurable).
 <pre>
 view.bind('refresh', function(evt) {
 });
@@ -121,6 +119,8 @@ var View = function(params) {
     
     // initialise constants
     var TURBO_CLEAR_INTERVAL = 500,
+        ENERGY_THRESHOLD_REFRESH = 2,
+        ENERGY_THRESHOLD_FASTPAN = 5,
     
         // get the container context
         caps = {},
@@ -152,7 +152,6 @@ var View = function(params) {
         padding = params.fastpan ? params.fastpanPadding : 0,
         panFrames = [],
         hitData = null,
-        interacting = false,
         lastHitData = null,
         resizeCanvasTimeout = 0,
         scaleFactor = 1,
@@ -172,16 +171,7 @@ var View = function(params) {
         zoomX, zoomY,
         zoomLevel = params.zoomLevel,
         zoomEasing = COG.easing('quad.out'),
-        zoomDuration = 300,
-        
-        /* state shortcuts */
-        
-        stateActive = viewState('ACTIVE'),
-        statePan = viewState('PAN'),
-        stateZoom = viewState('ZOOM'),
-        stateAnimating = viewState('ANIMATING'),
-        
-        state = stateActive;
+        zoomDuration = 300;
         
     /* event handlers */
     
@@ -335,7 +325,7 @@ var View = function(params) {
 
         if (renderer) {
             // recreate the event monitor
-            eventMonitor = INTERACT.watch(renderer.interactTarget || viewpane);
+            eventMonitor = INTERACT.watch(renderer.interactTarget || outer);
 
             // if this view is scalable, attach zooming event handlers
             if (params.scalable) {
@@ -537,10 +527,10 @@ var View = function(params) {
     
     function cycle(tickCount) {
         // check to see if we are panning
-        var redrawBG,
-            panning,
+        var panning,
             scaleChanged,
             newFrame = false,
+            refreshValid,
             viewport,
             deltaEnergy = abs(dx) + abs(dy);
             
@@ -553,8 +543,8 @@ var View = function(params) {
         
         // if we have a new frame, then fire the enterFrame event
         if (newFrame) {
-            var refreshXDist = abs(offsetX - refreshX),
-                refreshYDist = abs(offsetY - refreshY);
+            refreshValid = abs(offsetX - refreshX) >= refreshDist ||
+                abs(offsetY - refreshY) >= refreshDist;
                 
             // update the panning flag
             panning = deltaEnergy > 0;
@@ -565,7 +555,7 @@ var View = function(params) {
             } // if
                 
             // determine whether a refresh is required
-            if ((deltaEnergy < 2) && (refreshXDist >= refreshDist || refreshYDist >= refreshDist)) {
+            if (refreshValid && deltaEnergy < ENERGY_THRESHOLD_REFRESH) {
                 refresh();
             } // if
             
@@ -582,22 +572,12 @@ var View = function(params) {
         
         // if we a due for a redraw then do on
         if (renderer && newFrame && frameData.draw) {
-            // update the state
-            state = stateActive | 
-                        (scaleFactor !== 1 ? stateZoom : 0) | 
-                        (panning ? statePan : 0) | 
-                        (tweeningOffset ? stateAnimating : 0);
-
-            // update the redraw background flags
-            redrawBG = (state & (stateZoom | statePan)) !== 0;
-            interacting = redrawBG && (state & stateAnimating) === 0;
-            
             // update the pan x and y
             panX += dx;
             panY += dy;
             
             // otherwise, reset the view pane position and refire the renderer
-            if ((! fastpan) || deltaEnergy < 2) {
+            if ((! fastpan) || deltaEnergy < ENERGY_THRESHOLD_FASTPAN) {
                 offsetX = (offsetX - panX) | 0;
                 offsetY = (offsetY - panY) | 0;
 
@@ -615,28 +595,18 @@ var View = function(params) {
                 // TODO: if we have a hover offset, check that no elements have moved under the cursor (maybe)
 
                 // trigger the predraw event
-                renderer.trigger('predraw', viewport, state);
+                renderer.trigger('predraw', viewport);
 
                 // prepare the renderer
-                if (renderer.prepare(layers, viewport, state, tickCount, hitData)) {
+                if (renderer.prepare(layers, viewport, tickCount, hitData)) {
                     // reset the view changes count
                     viewChanges = 0;
-
-                    /*
-                    for (var ii = layerCount; ii--; ) {
-                        // if a layer is animating the flag as such
-                        state = state | (layers[ii].animated ? stateAnimating : 0);
-
-                        // cycle the layer
-                        layers[ii].cycle(tickCount, viewport, state);
-                    } // for
-                    */
 
                     for (ii = layerCount; ii--; ) {
                         var drawLayer = layers[ii];
 
                         // determine whether we need to draw
-                        if (drawLayer.visible && ((state & drawLayer.validStates) !== 0)) {
+                        if (drawLayer.visible) {
                             // if the layer has style, then apply it and save the current style
                             var previousStyle = drawLayer.style ? 
                                     renderer.applyStyle(drawLayer.style, true) : 
@@ -646,7 +616,6 @@ var View = function(params) {
                             drawLayer.draw(
                                 renderer,
                                 viewport,
-                                state, 
                                 _self,
                                 tickCount,
                                 hitData);
@@ -660,7 +629,7 @@ var View = function(params) {
 
                     // get the renderer to render the view
                     // NB: some renderers will do absolutely nothing here...
-                    renderer.trigger('render', viewport, state);
+                    renderer.trigger('render', viewport);
 
                     // trigger the draw complete event
                     _self.trigger('drawComplete', viewport, tickCount);
@@ -716,7 +685,7 @@ var View = function(params) {
         // (T5.MarkerLayer for instance)
         for (var ii = layerCount; ii--; ) {
             hitFlagged = hitFlagged || (layers[ii].hitGuess ? 
-                layers[ii].hitGuess(hitData.x, hitData.y, state, _self) :
+                layers[ii].hitGuess(hitData.x, hitData.y, _self) :
                 false);
         } // for
 

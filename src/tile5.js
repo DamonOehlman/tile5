@@ -48,7 +48,6 @@ var T5 = {};
     //= require "js/graphics/renderers/dom"
     
     //= require "js/graphics/style"
-    //= require "js/graphics/viewstate"
     //= require "js/graphics/view"
     //= require "js/graphics/map"
     
@@ -94,7 +93,6 @@ var T5 = {};
         getImage: getImage,
         
         // core graphics modules
-        viewState: viewState,
         View: View,
         ViewLayer: ViewLayer,
         ImageLayer: TileLayer,

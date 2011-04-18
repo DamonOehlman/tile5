@@ -89,11 +89,11 @@ function ImageDrawable(params) {
     } // changeImage
     
     /**
-    ### getProps(renderer, state)
+    ### getProps(renderer)
     Get the drawable item properties that will be passed to the renderer during
     the prepare and draw phase
     */
-    function getProps(renderer, state) {
+    function getProps(renderer) {
         // check the offset and bounds
         if (! this.bounds) {
             checkOffsetAndBounds(this, image);

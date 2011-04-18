@@ -73,9 +73,9 @@ var Renderer = function(view, container, outer, params) {
         },
         
         /**
-        ### prepare(layers, state, tickCount, hitData)
+        ### prepare(layers, tickCount, hitData)
         */
-        prepare: function(layers, state, tickCount, hitData) {
+        prepare: function(layers, tickCount, hitData) {
         },
         
         /**

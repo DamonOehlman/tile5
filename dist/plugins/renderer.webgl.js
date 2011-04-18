@@ -2021,7 +2021,7 @@ T5.registerRenderer('webgl', function(view, panFrame, container, params, baseRen
     function image(image, x, y, width, height) {
     } // image
 
-    function prepare(layers, viewport, state, tickCount, hitData) {
+    function prepare(layers, viewport, tickCount, hitData) {
         drawOffsetX = viewport.x;
         drawOffsetY = viewport.y;
 

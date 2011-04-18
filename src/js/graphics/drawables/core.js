@@ -72,7 +72,7 @@ Drawable.prototype = {
     draw: null,
 
     /**
-    ### getProps(renderer, state)
+    ### getProps(renderer)
     Get the drawable item properties that will be passed to the renderer during
     the prepare and draw phase
     */

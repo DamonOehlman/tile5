@@ -94,7 +94,7 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
         };
     } // handleStyleDefined
         
-    function initDrawData(viewport, hitData, state, drawFn) {
+    function initDrawData(viewport, hitData, drawFn) {
         var isHit = false;
         
         // check for a hit
@@ -109,7 +109,6 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
             // initialise core draw data properties
             draw: drawFn || defaultDrawFn,
             viewport: viewport,
-            state: state,
             hit: isHit,
             vpX: drawOffsetX,
             vpY: drawOffsetY,
@@ -212,7 +211,7 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
         } // for
     } // drawTiles
     
-    function prepare(layers, viewport, state, tickCount, hitData) {
+    function prepare(layers, viewport, tickCount, hitData) {
         var ii,
             canClip = false,
             targetVP = viewport.scaled || viewport,
@@ -256,9 +255,9 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
     } // prepare
     
     /**
-    ### prepArc(drawable, viewport, hitData, state, opts)
+    ### prepArc(drawable, viewport, hitData, opts)
     */
-    function prepArc(drawable, viewport, hitData, state, opts) {
+    function prepArc(drawable, viewport, hitData, opts) {
         context.beginPath();
         context.arc(
             drawable.xy.x - (transform ? transform.x : drawOffsetX),
@@ -269,13 +268,13 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
             false
         );
         
-        return initDrawData(viewport, hitData, state);
+        return initDrawData(viewport, hitData);
     } // prepArc
     
     /**
-    ### prepImage(drawable, viewport, hitData, state, opts)
+    ### prepImage(drawable, viewport, hitData, opts)
     */
-    function prepImage(drawable, viewport, hitData, state, opts) {
+    function prepImage(drawable, viewport, hitData, opts) {
         var realX = (opts.x || drawable.xy.x) - (transform ? transform.x : drawOffsetX),
             realY = (opts.y || drawable.xy.y) - (transform ? transform.y : drawOffsetY),
             image = opts.image || drawable.image;
@@ -290,7 +289,7 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
                 opts.height || image.height
             );
 
-            return initDrawData(viewport, hitData, state, function(drawData) {
+            return initDrawData(viewport, hitData, function(drawData) {
                 context.drawImage(
                     image, 
                     realX, 
@@ -303,9 +302,9 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
     } // prepImage
     
     /**
-    ### prepMarker(drawable, viewport, hitData, state, opts)
+    ### prepMarker(drawable, viewport, hitData, opts)
     */
-    function prepMarker(drawable, viewport, hitData, state, opts) {
+    function prepMarker(drawable, viewport, hitData, opts) {
         var markerX = drawable.xy.x - (transform ? transform.x : drawOffsetX),
             markerY = drawable.xy.y - (transform ? transform.y : drawOffsetY),
             size = drawable.size,
@@ -365,13 +364,13 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
                 break;
         } // switch
         
-        return initDrawData(viewport, hitData, state, drawOverride);
+        return initDrawData(viewport, hitData, drawOverride);
     } // prepMarker
     
     /**
-    ### prepPoly(drawable, viewport, hitData, state, opts)
+    ### prepPoly(drawable, viewport, hitData, opts)
     */
-    function prepPoly(drawable, viewport, hitData, state, opts) {
+    function prepPoly(drawable, viewport, hitData, opts) {
         var first = true,
             points = opts.points || drawable.points,
             offsetX = transform ? transform.x : drawOffsetX,
@@ -394,7 +393,7 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
             } // if..else
         } // for
         
-        return initDrawData(viewport, hitData, state);
+        return initDrawData(viewport, hitData);
     } // prepPoly
     
     /* initialization */

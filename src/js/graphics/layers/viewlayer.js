@@ -15,9 +15,6 @@ can be used when later accessing the layer from a View.
 
 - `zindex` (default: 0) - a zindex in Tile5 means the same thing it does in CSS
 
-- `validStates` - the a bitmask of DisplayState that the layer will be drawn for
-
-
 ## Events
 
 ### changed
@@ -47,7 +44,6 @@ function ViewLayer(params) {
         id: COG.objId('layer'),
         zindex: 0,
         animated: false,
-        validStates: viewState('ACTIVE', 'ANIMATING', 'PAN', 'ZOOM'),
         style: null,
         minXY: null,
         maxXY: null
@@ -65,37 +61,36 @@ ViewLayer.prototype = {
     constructor: ViewLayer,
 
     /**
-    ### clip(context, offset, dimensions, state)
+    ### clip(context, offset, dimensions)
     */
     clip: null,
     
     /**
-    ### cycle(tickCount, offset, state)
+    ### cycle(tickCount, offset)
     
     Called in the View method of the same name, each layer has an opportunity 
     to update it_self in the current animation cycle before it is drawn.
     */
-    cycle: function(tickCount, offset, state) {
+    cycle: function(tickCount, offset) {
     },
     
     /**
-    ### draw(context, offset, dimensions, state, view)
+    ### draw(context, offset, dimensions, view)
     
     The business end of layer drawing.  This method is called when a layer needs to be 
     drawn and the following parameters are passed to the method:
 
         - renderer - the renderer that will be drawing the viewlayer
         - viewport - the current viewport
-        - state - the current DisplayState of the view
         - view - a reference to the View
         - tickCount - the current tick count
         - hitData - an object that contains information regarding the current hit data
     */
-    draw: function(renderer, viewport, state, view, tickCount, hitData) {
+    draw: function(renderer, viewport, view, tickCount, hitData) {
     },
     
     /**
-    ### hitGuess(hitX, hitY, state, view)
+    ### hitGuess(hitX, hitY, view)
     The hitGuess function is used to determine if a layer would return elements for
     a more granular hitTest.  Essentially, hitGuess calls are used when events such 
     as hover and tap events occur on a view and then if a positive result is detected

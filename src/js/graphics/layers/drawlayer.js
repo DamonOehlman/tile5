@@ -99,7 +99,7 @@ var DrawLayer = function(params) {
     
     /* exports */
     
-    function draw(renderer, viewport, state, view, tickCount, hitData) {
+    function draw(renderer, viewport, view, tickCount, hitData) {
         var emptyProps = {
             },
             drawItems = storage && viewport ? storage.search(viewport): [];
@@ -111,7 +111,7 @@ var DrawLayer = function(params) {
                 styleType,
                 previousStyle,
                 transform = renderer.applyTransform(drawable),
-                drawProps = drawable.getProps ? drawable.getProps(renderer, state) : emptyProps,
+                drawProps = drawable.getProps ? drawable.getProps(renderer) : emptyProps,
                 
                 prepFn = renderer['prep' + drawable.typeName],
                 drawFn,
@@ -120,7 +120,6 @@ var DrawLayer = function(params) {
                     drawable,
                     viewport,
                     hitData,
-                    state,
                     drawProps) : null;
                     
             // prep the path for the child
@@ -174,11 +173,11 @@ var DrawLayer = function(params) {
     } // find    
     
     /**
-    ### hitGuess(hitX, hitY, state, view)
+    ### hitGuess(hitX, hitY, view)
     Return true if any of the markers are hit, additionally, store the hit elements
     so we don't have to do the work again when drawing
     */
-    function hitGuess(hitX, hitY, state, view) {
+    function hitGuess(hitX, hitY, view) {
         return storage && storage.search({
             x: hitX - 10, 
             y: hitY - 10, 
