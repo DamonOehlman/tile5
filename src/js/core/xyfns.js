@@ -117,7 +117,7 @@ var XYFns = (function() {
     function floorXY(points) {
         var results = new Array(points.length);
         for (var ii = points.length; ii--; ) {
-            results[ii] = init(~~points[ii].x, ~~points[ii].y);
+            results[ii] = init(points[ii].x | 0, points[ii].y | 0);
         } // for
         
         return results;

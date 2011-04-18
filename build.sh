@@ -1,6 +1,7 @@
 SPROCKET_OPTS="-I build -I lib -I /development/projects/github/sidelab/"
 MINIFY=$1
-PLUGINS="renderer.webgl \
+PLUGINS="renderer.raphael \
+renderer.webgl \
 renderer.three \
 clusterer \
 geo.searchtools \

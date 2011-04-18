@@ -57,8 +57,10 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
             canvas = newCanvas(vpWidth, vpHeight);
             canvas.style.cssText = 'position: absolute; z-index: 1;';
 
-            // add the canvas to the panFrame
-            panFrame.appendChild(canvas);
+            // attach the frame to the view
+            view.attachFrame(canvas, true);
+
+            // initialise the context
             context = null;
         } // if
     } // createCanvas
@@ -76,10 +78,6 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
     function handleDetach() {
         panFrame.removeChild(canvas);
     } // handleDetach
-    
-    function handlePredraw(evt, viewport, state) {
-        moveEl(canvas, viewport.x, viewport.y);
-    } // handlePredraw
     
     function handleStyleDefined(evt, styleId, styleData) {
         var ii, data;
@@ -439,7 +437,6 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
     
     // handle detaching
     _this.bind('detach', handleDetach);
-    _this.bind('predraw', handlePredraw);
     
     return _this;
 });

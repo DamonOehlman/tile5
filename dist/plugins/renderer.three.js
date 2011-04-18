@@ -274,7 +274,7 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
 
             renderer.domElement.style.margin = COG.formatStr('{0}px 0 0 {0}px', view.padding);
 
-            panFrame.appendChild(renderer.domElement);
+            container.appendChild(renderer.domElement);
         } // if
 
         initGeometries();

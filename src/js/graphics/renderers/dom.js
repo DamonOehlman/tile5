@@ -25,6 +25,8 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
         else {
             panFrame.appendChild(imageDiv);
         } // if..else
+        
+        view.attachFrame(imageDiv);
     } // createImageContainer
     
     function createTileImage(tile) {
@@ -37,10 +39,6 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
         image.src = tile.url;
         image.onload = function() {
             if (currentTiles[tile.id]) {
-                // set the left and top position
-                image.style.left = tile.x + 'px';
-                image.style.top = tile.y + 'px';
-
                 // check that this image is still valid (it will be in the tile cache)
                 imageDiv.appendChild(this);
             }
@@ -123,6 +121,7 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
             
             if (tile.url) {
                 image = tile.image || createTileImage(tile);
+                moveEl(image, tile.x - offsetX, tile.y - offsetY);
 
                 // flag the tile as current
                 currentTiles[tile.id] = tile;

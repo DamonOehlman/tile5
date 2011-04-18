@@ -46,7 +46,6 @@ var T5 = {};
     //= require "js/graphics/renderers/base"
     //= require "js/graphics/renderers/canvas"
     //= require "js/graphics/renderers/dom"
-    //= require "js/graphics/renderers/raphael"
     
     //= require "js/graphics/style"
     //= require "js/graphics/viewstate"

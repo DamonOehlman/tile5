@@ -39,10 +39,10 @@ T5.OSM = (function() {
         function calculateTileOffset(lat, lon, numTiles) {
             var tileX, tileY;
                 
-            tileX = Math.floor((lon+180) / 360 * numTiles);
-            tileY = Math.floor((1-Math.log(Math.tan(lat*DEGREES_TO_RADIANS) + 1/Math.cos(lat*DEGREES_TO_RADIANS))/Math.PI)/2 * numTiles) % numTiles;
+            tileX = (lon+180) / 360 * numTiles;
+            tileY = ((1-Math.log(Math.tan(lat*DEGREES_TO_RADIANS) + 1/Math.cos(lat*DEGREES_TO_RADIANS))/Math.PI)/2 * numTiles) % numTiles;
             
-            return T5.XY.init(tileX, tileY);
+            return T5.XY.init(tileX | 0, tileY | 0);
         } // calculateTileOffset
         
         function calculatePosition(x, y, numTiles) {
@@ -131,8 +131,8 @@ T5.OSM = (function() {
                         if (! tileIds[tileId]) {
                             // build the tile url 
                             tileUrl = _self.buildTileUrl(
-                                tileOffset.x + xx, 
-                                tileOffset.y + yy, 
+                                tileX, 
+                                tileY, 
                                 zoomLevel, 
                                 numTiles, 
                                 flipY);

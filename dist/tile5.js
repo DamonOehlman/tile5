@@ -1731,12 +1731,12 @@ var TWO_PI = Math.PI * 2,
 var abs = Math.abs,
     ceil = Math.ceil,
     floor = Math.floor,
+    round = Math.round,
     min = Math.min,
     max = Math.max,
     pow = Math.pow,
     sqrt = Math.sqrt,
     log = Math.log,
-    round = Math.round,
     sin = Math.sin,
     asin = Math.asin,
     cos = Math.cos,
@@ -2015,7 +2015,7 @@ var XYFns = (function() {
     function floorXY(points) {
         var results = new Array(points.length);
         for (var ii = points.length; ii--; ) {
-            results[ii] = init(~~points[ii].x, ~~points[ii].y);
+            results[ii] = init(points[ii].x | 0, points[ii].y | 0);
         } // for
 
         return results;
@@ -2933,7 +2933,8 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
             canvas = newCanvas(vpWidth, vpHeight);
             canvas.style.cssText = 'position: absolute; z-index: 1;';
 
-            panFrame.appendChild(canvas);
+            view.attachFrame(canvas, true);
+
             context = null;
         } // if
     } // createCanvas
@@ -2949,10 +2950,6 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
     function handleDetach() {
         panFrame.removeChild(canvas);
     } // handleDetach
-
-    function handlePredraw(evt, viewport, state) {
-        moveEl(canvas, viewport.x, viewport.y);
-    } // handlePredraw
 
     function handleStyleDefined(evt, styleId, styleData) {
         var ii, data;
@@ -3282,7 +3279,6 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
     loadStyles();
 
     _this.bind('detach', handleDetach);
-    _this.bind('predraw', handlePredraw);
 
     return _this;
 });
@@ -3312,6 +3308,8 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
         else {
             panFrame.appendChild(imageDiv);
         } // if..else
+
+        view.attachFrame(imageDiv);
     } // createImageContainer
 
     function createTileImage(tile) {
@@ -3322,9 +3320,6 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
         image.src = tile.url;
         image.onload = function() {
             if (currentTiles[tile.id]) {
-                image.style.left = tile.x + 'px';
-                image.style.top = tile.y + 'px';
-
                 imageDiv.appendChild(this);
             }
             else {
@@ -3391,6 +3386,7 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
 
             if (tile.url) {
                 image = tile.image || createTileImage(tile);
+                moveEl(image, tile.x - offsetX, tile.y - offsetY);
 
                 currentTiles[tile.id] = tile;
             } // if
@@ -3408,274 +3404,6 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
     _this.bind('predraw', handlePredraw);
     _this.bind('detach', handleDetach);
     _this.bind('reset', handleReset);
-
-    return _this;
-});
-T5.registerRenderer('raphael', function(view, panFrame, container, params, baseRenderer) {
-    params = COG.extend({
-    }, params);
-
-    /* internals */
-
-    var drawOffsetX,
-        drawOffsetY,
-        activeObjects = {},
-        currentObjects = {},
-        currentStyle,
-        hitObjects = {},
-        styles = {},
-        paper;
-
-    function createPaper() {
-        paper = Raphael(panFrame, panFrame.offsetWidth, panFrame.offsetHeight);
-
-        paper.canvas.style.position = 'absolute';
-    } // createCanvas
-
-    function handleDetach() {
-        panFrame.removeChild(paper.canvas);
-    } // handleDetach
-
-    function handlePredraw(evt, viewport, state) {
-        moveEl(paper.canvas, viewport.x, viewport.y);
-
-        removeOldObjects(activeObjects, currentObjects);
-        currentObjects = {};
-    } // handlePredraw
-
-    function handleStyleDefined(evt, styleId, styleData) {
-        styles[styleId] = styleData;
-    } // handleStyleDefined
-
-    function handleReset(evt) {
-        removeOldObjects(activeObjects, currentObjects, 'removeOnReset');
-    } // handleReset
-
-    function initDrawData(drawable, viewport, hitData, state, drawFn) {
-        var isHit = false;
-
-        return {
-            draw: drawFn || objDraw,
-            viewport: viewport,
-            state: state,
-            hit: hitObjects[drawable.id],
-            vpX: drawOffsetX,
-            vpY: drawOffsetY
-        };
-    } // initDrawData
-
-    function loadStyles() {
-        for (var styleId in T5.styles) {
-            handleStyleDefined(null, styleId, T5.styles[styleId]);
-        } // for
-
-        T5.bind('styleDefined', handleStyleDefined);
-    } // loadStyles
-
-    function objInit(rObject, drawable) {
-        rObject.scale(drawable.scaling, drawable.scaling);
-
-        rObject.rotate(drawable.rotation * RADIANS_TO_DEGREES, true);
-
-        rObject.mouseover(function(evt) {
-            hitObjects[drawable.id] = true;
-        });
-
-        rObject.mouseout(function(evt) {
-            delete hitObjects[drawable.id];
-        });
-
-        activeObjects[drawable.id] = drawable;
-    } // objInit
-
-    function objDraw(drawData) {
-        if (this.rObject) {
-            var updates = COG.extend({}, styles[currentStyle] || styles.basic),
-                offsetX = drawOffsetX - this.translateX,
-                offsetY = drawOffsetY - this.translateY;
-
-            switch (this.rObject.type) {
-                case 'circle':
-                    updates.cx = this.xy.x - offsetX;
-                    updates.cy = this.xy.y - offsetY;
-
-                    break;
-
-                case 'path':
-                    updates.path = this.path(offsetX, offsetY);
-
-                    break;
-
-                default:
-                    updates.x = this.xy.x - (this.size >> 1) - offsetX;
-                    updates.y = this.xy.y - (this.size >> 1) - offsetY;
-            } // switch
-
-            if (updates.fill && (! this.fill)) {
-                delete updates.fill;
-            } // if
-
-            if (updates.stroke && (! this.stroke)) {
-                delete updates.stroke;
-            } // if
-
-            this.rObject.attr(updates);
-
-            currentObjects[this.id] = this;
-        } // if
-    } // objUpdate
-
-    function removeOldObjects(activeObj, currentObj, flagField) {
-        var deletedKeys = [];
-
-        for (var objId in activeObj) {
-            var item = activeObj[objId],
-                inactive = flagField ? item[flagField] : (! currentObj[objId]);
-
-            if (inactive) {
-                item.rObject.remove();
-
-                item.rObject = null;
-
-                deletedKeys[deletedKeys.length] = objId;
-            } // if
-        } // for
-
-        for (var ii = deletedKeys.length; ii--; ) {
-            delete activeObj[deletedKeys[ii]];
-        } // for
-    } // removeOldObjects
-
-    /* exports */
-
-    function applyStyle(styleId) {
-        var previousStyle;
-
-        if (currentStyle !== styleId) {
-            previousStyle = currentStyle;
-            currentStyle = styleId;
-        } // if
-
-        return previousStyle || 'basic';
-    } // applyStyle
-
-    function applyTransform(drawable) {
-        if (drawable.rObject) {
-            drawable.rObject.scale(drawable.scaling, drawable.scaling);
-
-            drawable.rObject.rotate(drawable.rotation * RADIANS_TO_DEGREES, true);
-        }
-    } // applyTransform
-
-    function prepare(layers, viewport, state, tickCount, hitData) {
-        drawOffsetX = viewport.x;
-        drawOffsetY = viewport.y;
-
-        return paper;
-    } // prepare
-
-    /**
-    ### prepArc(drawable, viewport, hitData, state, opts)
-    */
-    function prepArc(drawable, viewport, hitData, state, opts) {
-        if (! drawable.rObject) {
-            objInit(drawable.rObject = paper.circle(
-                drawable.xy.x - drawOffsetX,
-                drawable.xy.y - drawOffsetY,
-                drawable.size
-            ), drawable);
-        } // if
-
-        return initDrawData(drawable, viewport, hitData, state);
-    } // prepArc
-
-    /**
-    ### prepMarker(drawable, viewport, hitData, state, opts)
-    */
-    function prepMarker(drawable, viewport, hitData, state, opts) {
-        if (drawable.reset && drawable.rObject) {
-            drawable.rObject.remove();
-            drawable.rObject = null;
-            drawable.reset = false;
-        } // if
-
-        if (! drawable.rObject) {
-            var markerX = drawable.xy.x - drawOffsetX,
-                markerY = drawable.xy.y - drawOffsetY,
-                size = drawable.size;
-
-            switch (drawable.markerStyle.toLowerCase()) {
-                case 'image':
-                    objInit(drawable.rObject = paper.image(
-                        drawable.imageUrl,
-                        markerX - (size >> 1),
-                        markerY - (size >> 1),
-                        size,
-                        size
-                    ), drawable);
-
-                    break;
-
-                default:
-                    objInit(drawable.rObject = paper.circle(
-                        markerX,
-                        markerY,
-                        size
-                    ), drawable);
-            } // switch
-        } // if
-
-        return initDrawData(drawable, viewport, hitData, state);
-    } // prepMarker
-
-    /**
-    ### prepPoly(drawable, viewport, hitData, state, opts)
-    */
-    function prepPoly(drawable, viewport, hitData, state, opts) {
-
-        if (! drawable.rObject) {
-            var rawPath = [],
-                points = opts.points || drawable.points;
-
-            drawable.path = function(x, y) {
-                var pathString = '';
-
-                for (var ii = points.length; ii--; ) {
-                    pathString = (ii > 0 ? 'L' : 'M') +
-                        (points[ii].x - x) + ' ' + (points[ii].y - y) +
-                        pathString;
-                } // for
-
-                return pathString;
-            };
-
-            drawable.removeOnReset = true;
-            objInit(drawable.rObject = paper.path('M0 0L0 0'), drawable);
-        } // if
-
-        return initDrawData(drawable, viewport, hitData, state);
-    } // prepPoly
-
-    /* initialization */
-
-    createPaper();
-
-    var _this = COG.extend(baseRenderer, {
-        applyStyle: applyStyle,
-        applyTransform: applyTransform,
-
-        prepare: prepare,
-
-        prepArc: prepArc,
-        prepMarker: prepMarker,
-        prepPoly: prepPoly
-    });
-
-    _this.bind('predraw', handlePredraw);
-    _this.bind('detach', handleDetach);
-    _this.bind('reset', handleReset);
-
-    loadStyles();
 
     return _this;
 });
@@ -3900,7 +3628,7 @@ var View = function(params) {
         id: COG.objId('view'),
         container: "",
         captureHover: true,
-        fastpan: true,
+        fastpan: false,
         fastpanPadding: 128,
         inertia: true,
         refreshDistance: 256,
@@ -3934,6 +3662,8 @@ var View = function(params) {
         refreshDist = params.refreshDistance,
         offsetX = 0,
         offsetY = 0,
+        panX = 0,
+        panY = 0,
         refreshX = 0,
         refreshY = 0,
         offsetMaxX = null,
@@ -3941,6 +3671,7 @@ var View = function(params) {
         offsetWrapX = false,
         offsetWrapY = false,
         padding = params.fastpan ? params.fastpanPadding : 0,
+        panFrames = [],
         hitData = null,
         interacting = false,
         lastHitData = null,
@@ -4334,16 +4065,15 @@ var View = function(params) {
             redrawBG = (state & (stateZoom | statePan)) !== 0;
             interacting = redrawBG && (state & stateAnimating) === 0;
 
-            offsetX -= dx;
-            offsetY -= dy;
+            panX += dx;
+            panY += dy;
 
-            viewport = getViewport();
+            if ((! fastpan) || deltaEnergy < 2) {
+                offsetX = (offsetX - panX) | 0;
+                offsetY = (offsetY - panY) | 0;
 
-            if (renderer.fastpan) {
-                moveEl(viewpane, -viewport.x, -viewport.y);
-            } // if
+                viewport = getViewport();
 
-            if ((! renderer.fastpan) || deltaEnergy < 2) {
                 /*
                 if (offsetMaxX || offsetMaxY) {
                     constrainOffset();
@@ -4391,8 +4121,13 @@ var View = function(params) {
                     _self.trigger('drawComplete', viewport, tickCount);
 
                     lastScaleFactor = scaleFactor;
+
+                    moveEl(viewpane, panX = 0, panY = 0);
                 } // if
-            } // if
+            }
+            else {
+                moveEl(viewpane, panX, panY);
+            } // if..else
 
             if (pointerDown || (! params.inertia)) {
                 dx = 0;
@@ -4437,6 +4172,20 @@ var View = function(params) {
     /* exports */
 
     /**
+    ### attachFrame(element)
+    The attachFrame method is used to attach a dom element that will be panned around along with
+    the view.
+    */
+    function attachFrame(element, append) {
+
+        panFrames[panFrames.length] = element;
+
+        if (append) {
+            viewpane.appendChild(element);
+        } // if
+    } // attachFrame
+
+    /**
     ### detach
     If you plan on reusing a single canvas element to display different views then you
     will definitely want to call the detach method between usages.
@@ -4456,6 +4205,8 @@ var View = function(params) {
             panContainer = null;
             viewpane = null;
         } // if
+
+        panFrames = [];
     } // detach
 
     /**
@@ -4496,8 +4247,8 @@ var View = function(params) {
     Set the offset of the display
     */
     function setOffset(x, y) {
-        offsetX = x || 0;
-        offsetY = y || 0;
+        offsetX = x | 0;
+        offsetY = y | 0;
 
         viewChanges++;
     } // setOffset
@@ -4755,6 +4506,7 @@ var View = function(params) {
         id: params.id,
         padding: padding,
 
+        attachFrame: attachFrame,
         detach: detach,
         eachLayer: eachLayer,
         getLayer: getLayer,
@@ -6895,8 +6647,8 @@ var GeoXY = exports.GeoXY = (function() {
         else if (xy.mercXY) {
             var mercXY = xy.mercXY;
 
-            xy.x = (mercXY.x + Math.PI) / rpp | 0;
-            xy.y = (Math.PI - mercXY.y) / rpp | 0;
+            xy.x = round((mercXY.x + Math.PI) / rpp);
+            xy.y = round((Math.PI - mercXY.y) / rpp);
 
             xy.rpp = rpp;
         } // if

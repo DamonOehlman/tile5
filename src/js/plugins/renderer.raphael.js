@@ -4,7 +4,8 @@ T5.registerRenderer('raphael', function(view, panFrame, container, params, baseR
     
     /* internals */
     
-    var drawOffsetX,
+    var RADIANS_TO_DEGREES = 180 / Math.PI,
+        drawOffsetX,
         drawOffsetY,
         activeObjects = {},
         currentObjects = {},
@@ -16,9 +17,12 @@ T5.registerRenderer('raphael', function(view, panFrame, container, params, baseR
     function createPaper() {
         // create the mapper
         paper = Raphael(panFrame, panFrame.offsetWidth, panFrame.offsetHeight);
-
-        // set some CSS properties on the canvas
+        
+        // set the canvas display style
         paper.canvas.style.position = 'absolute';
+        
+        // register the canvas with the view
+        view.attachFrame(paper.canvas);
     } // createCanvas
     
     function handleDetach() {
@@ -27,8 +31,6 @@ T5.registerRenderer('raphael', function(view, panFrame, container, params, baseR
     } // handleDetach
     
     function handlePredraw(evt, viewport, state) {
-        moveEl(paper.canvas, viewport.x, viewport.y);
-        
         // remove any old objects
         removeOldObjects(activeObjects, currentObjects);
         currentObjects = {};

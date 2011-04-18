@@ -104,7 +104,7 @@ var View = function(params) {
         id: COG.objId('view'),
         container: "",
         captureHover: true,
-        fastpan: true,
+        fastpan: false,
         fastpanPadding: 128,
         inertia: true,
         refreshDistance: 256,
@@ -141,6 +141,8 @@ var View = function(params) {
         refreshDist = params.refreshDistance,
         offsetX = 0,
         offsetY = 0,
+        panX = 0,
+        panY = 0,
         refreshX = 0,
         refreshY = 0,
         offsetMaxX = null,
@@ -148,6 +150,7 @@ var View = function(params) {
         offsetWrapX = false,
         offsetWrapY = false,
         padding = params.fastpan ? params.fastpanPadding : 0,
+        panFrames = [],
         hitData = null,
         interacting = false,
         lastHitData = null,
@@ -589,20 +592,19 @@ var View = function(params) {
             redrawBG = (state & (stateZoom | statePan)) !== 0;
             interacting = redrawBG && (state & stateAnimating) === 0;
             
-            // update the offset
-            offsetX -= dx;
-            offsetY -= dy;
+            // update the pan x and y
+            panX += dx;
+            panY += dy;
             
-            // initialise the viewport
-            viewport = getViewport();
-
-            if (renderer.fastpan) {
-                // move the view pane
-                moveEl(viewpane, -viewport.x, -viewport.y);
-            } // if
-
             // otherwise, reset the view pane position and refire the renderer
-            if ((! renderer.fastpan) || deltaEnergy < 2) {
+            if ((! fastpan) || deltaEnergy < 2) {
+                offsetX = (offsetX - panX) | 0;
+                offsetY = (offsetY - panY) | 0;
+
+                // initialise the viewport
+                viewport = getViewport();
+                // viewport.energy = deltaEnergy;
+
                 /*
                 // check that the offset is within bounds
                 if (offsetMaxX || offsetMaxY) {
@@ -665,8 +667,15 @@ var View = function(params) {
 
                     // update the last cycle ticks
                     lastScaleFactor = scaleFactor;
+
+                    // reset the view pan position
+                    moveEl(viewpane, panX = 0, panY = 0);
                 } // if
-            } // if
+            }
+            else {
+                // move the view pane
+                moveEl(viewpane, panX, panY);
+            } // if..else
             
             // apply the inertial dampeners 
             // really just wanted to say that...
@@ -721,6 +730,25 @@ var View = function(params) {
     /* exports */
     
     /**
+    ### attachFrame(element)
+    The attachFrame method is used to attach a dom element that will be panned around along with
+    the view.
+    */
+    function attachFrame(element, append) {
+        // initialise the css of the element
+        // element.style.position = 'absolute';
+        // element.style['z-index'] = panFrames.length + 1;
+        
+        // add to the pan frames array
+        panFrames[panFrames.length] = element;
+        
+        // append to the dom
+        if (append) {
+            viewpane.appendChild(element);
+        } // if
+    } // attachFrame
+    
+    /**
     ### detach
     If you plan on reusing a single canvas element to display different views then you 
     will definitely want to call the detach method between usages.
@@ -743,6 +771,9 @@ var View = function(params) {
             panContainer = null;
             viewpane = null;
         } // if
+        
+        // reset the pan frames
+        panFrames = [];
     } // detach
     
     /**
@@ -786,8 +817,8 @@ var View = function(params) {
     Set the offset of the display
     */
     function setOffset(x, y) {
-        offsetX = x || 0;
-        offsetY = y || 0;
+        offsetX = x | 0;
+        offsetY = y | 0;
         
         viewChanges++;
     } // setOffset
@@ -1075,6 +1106,7 @@ var View = function(params) {
         id: params.id,
         padding: padding,
         
+        attachFrame: attachFrame,
         detach: detach,
         eachLayer: eachLayer,
         getLayer: getLayer,

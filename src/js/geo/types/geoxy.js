@@ -56,8 +56,8 @@ var GeoXY = exports.GeoXY = (function() {
             var mercXY = xy.mercXY;
 
             // calculate the x and y
-            xy.x = (mercXY.x + Math.PI) / rpp | 0;
-            xy.y = (Math.PI - mercXY.y) / rpp | 0;
+            xy.x = round((mercXY.x + Math.PI) / rpp);
+            xy.y = round((Math.PI - mercXY.y) / rpp);
 
             // update the rads per pixel
             xy.rpp = rpp;
