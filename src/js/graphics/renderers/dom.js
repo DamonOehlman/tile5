@@ -9,14 +9,10 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
         currentTiles = {};
     
     function createImageContainer() {
-        imageDiv = createEl(
-            'div',
-            COG.objId('domImages'),
-            COG.formatStr(
-                '-webkit-user-select: none; position: absolute; overflow: hidden; width: {0}px; height: {1}px;',
-                panFrame.offsetWidth,
-                panFrame.offsetHeight)
-        );
+        imageDiv = DOM.create('div', COG.objId('domImages'), '', DOM.styles({
+            width: panFrame.offsetWidth + 'px',
+            height: panFrame.offsetHeight + 'px'
+        }));
         
         // append the panFrame to the same element as the canvas
         if (panFrame.childNodes.length > 0) {
@@ -61,8 +57,6 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
     } // handleDetach
     
     function handlePredraw(evt, viewport) {
-        // moveEl(imageDiv, viewport.x, viewport.y);
-        
         // remove old tiles
         removeOldObjects(activeTiles, currentTiles);
         currentTiles = {};
@@ -121,7 +115,7 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
             
             if (tile.url) {
                 image = tile.image || createTileImage(tile);
-                moveEl(image, tile.x - offsetX, tile.y - offsetY);
+                DOM.move(image, tile.x - offsetX, tile.y - offsetY);
 
                 // flag the tile as current
                 currentTiles[tile.id] = tile;

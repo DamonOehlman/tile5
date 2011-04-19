@@ -203,7 +203,7 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
                 }
                 else {
                     context.drawImage(
-                        tile.image, 
+                        tile.image,
                         tile.x - drawOffsetX, 
                         tile.y - drawOffsetY);
                 } // if..else

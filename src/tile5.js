@@ -31,6 +31,7 @@ var T5 = {};
     //= require "js/generator"
     //= require "js/service"
     
+    //= require "js/core/dom"
     //= require "js/core/xy"
     //= require "js/core/rect"
     //= require "js/core/xyfns"
@@ -38,7 +39,6 @@ var T5 = {};
     //= require "js/core/xyrect"
     //= require "js/core/hits"
     //= require "js/core/spatialstore"
-    //= require "js/core/domtools"
     
     //= require "js/images/loader"
     //= require "js/images/tile"
@@ -74,6 +74,7 @@ var T5 = {};
         userMessage: userMessage,
         indexOf: indexOf,
         
+        DOM: DOM,
         Rect: Rect,
         XY: XYFns,
         XYRect: XYRect,

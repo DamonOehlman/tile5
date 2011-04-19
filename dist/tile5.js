@@ -1758,8 +1758,6 @@ var abs = Math.abs,
     typeNumber = 'number',
     typeArray = 'array',
 
-    supportTransforms = typeof document.body.style[PROP_WK_TRANSFORM] != 'undefined',
-
     reDelimitedSplit = /[\,\s]/;
 /**
 # T5.newCanvas(width, height)
@@ -1844,6 +1842,73 @@ var Service = (function() {
 })();
 
 
+var DOM = (function() {
+    /* internals */
+
+    var CORE_STYLES = {
+            '-webkit-user-select': 'none',
+            position: 'absolute',
+            overflow: 'hidden'
+        },
+        testTransformProps = ['-webkit-transform', '-moz-transform', '-o-transform'],
+        supportTransforms = false,
+        transformProp;
+
+    function checkCaps() {
+        for (var ii = 0; ii < testTransformProps.length; ii++) {
+            transformProp = testTransformProps[ii];
+            if (typeof document.body.style[transformProp] != 'undefined') {
+                supportTransforms = true;
+                break;
+            } // if
+        } // for
+    } // checkCaps
+
+    /* exports */
+
+    function create(elemType, id, className, cssProps) {
+        var elem = document.createElement(elemType),
+            cssRules = [],
+            props = cssProps || {};
+
+        elem.id = id;
+        elem.className = className || '';
+
+        for (var propId in props) {
+            cssRules[cssRules.length] = propId + ': ' + props[propId];
+        } // for
+
+        elem.style.cssText = cssRules.join(';');
+
+        return elem;
+    } // create
+
+    function move(element, x, y, extraTransforms) {
+        if (supportTransforms) {
+            element.style[transformProp] = 'translate3d(' + x +'px, ' + y + 'px, 0px) ' + (extraTransforms || '');
+        }
+        else {
+            element.style.left = x + 'px';
+            element.style.top = y + 'px';
+        } // if..else
+    } // move
+
+    function styles(extraStyles) {
+        return COG.extend({}, CORE_STYLES, extraStyles);
+    } // extraStyles
+
+    /* initialization */
+
+    checkCaps();
+
+    return {
+        supportTransforms: supportTransforms,
+
+        create: create,
+        move: move,
+        styles: styles
+    };
+})();
 /**
 # T5.XY (Internal Class)
 The internal XY class is currently created by making a call to `T5.XY.init` rather than `new T5.XY`.
@@ -2608,24 +2673,6 @@ var SpatialStore = function(cellsize) {
         search: search
     };
 };
-function createEl(elemType, id, css) {
-    var elem = document.createElement(elemType);
-
-    elem.id = id;
-    elem.style.cssText = css || '';
-
-    return elem;
-} // createEl
-
-function moveEl(element, x, y, extraTransforms) {
-    if (supportTransforms) {
-        element.style[PROP_WK_TRANSFORM] = 'translate3d(' + x +'px, ' + y + 'px, 0px) ' + (extraTransforms || '');
-    }
-    else {
-        element.style.left = x + 'px';
-        element.style.top = y + 'px';
-    } // if..else
-} // moveEl
 
 var INTERVAL_LOADCHECK = 10,
     INTERVAL_CACHECHECK = 10000,
@@ -3289,14 +3336,10 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
         currentTiles = {};
 
     function createImageContainer() {
-        imageDiv = createEl(
-            'div',
-            COG.objId('domImages'),
-            COG.formatStr(
-                '-webkit-user-select: none; position: absolute; overflow: hidden; width: {0}px; height: {1}px;',
-                panFrame.offsetWidth,
-                panFrame.offsetHeight)
-        );
+        imageDiv = DOM.create('div', COG.objId('domImages'), '', DOM.styles({
+            width: panFrame.offsetWidth + 'px',
+            height: panFrame.offsetHeight + 'px'
+        }));
 
         if (panFrame.childNodes.length > 0) {
             panFrame.insertBefore(imageDiv, panFrame.childNodes[0]);
@@ -3333,7 +3376,6 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
     } // handleDetach
 
     function handlePredraw(evt, viewport) {
-
         removeOldObjects(activeTiles, currentTiles);
         currentTiles = {};
     } // handlePredraw
@@ -3382,7 +3424,7 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
 
             if (tile.url) {
                 image = tile.image || createTileImage(tile);
-                moveEl(image, tile.x - offsetX, tile.y - offsetY);
+                DOM.move(image, tile.x - offsetX, tile.y - offsetY);
 
                 currentTiles[tile.id] = tile;
             } // if
@@ -3888,15 +3930,10 @@ var View = function(params) {
     } // getLayerIndex
 
     function initContainer() {
-        outer.appendChild(panContainer = createEl(
-            'div',
-            COG.objId('t5_container'),
-            COG.formatStr(
-                '-webkit-user-select: none; position: absolute; overflow: hidden; width: {0}px; height: {1}px;',
-                outer.offsetWidth,
-                outer.offsetHeight
-            )
-        ));
+        outer.appendChild(panContainer = DOM.create('div', COG.objId('t5_container'), '', DOM.styles({
+            width: outer.offsetWidth + 'px',
+            height: outer.offsetHeight + 'px'
+        })));
 
         width = panContainer.offsetWidth + padding * 2;
         height = panContainer.offsetHeight + padding * 2;
@@ -3905,16 +3942,11 @@ var View = function(params) {
         halfOuterWidth = outer.offsetWidth / 2;
         halfOuterHeight = outer.offsetHeight / 2;
 
-        panContainer.appendChild(viewpane = createEl(
-            'div',
-            COG.objId('t5_view'),
-            COG.formatStr(
-                '-webkit-user-select: none; position: absolute; width: {0}px; height: {1}px; margin: {2}px 0 0 {2}px;',
-                width,
-                height,
-                -padding)
-            )
-        );
+        panContainer.appendChild(viewpane = DOM.create('div', COG.objId('t5_view'), '', DOM.styles({
+            width: width + 'px',
+            height: height + 'px',
+            margin: (-padding) + 'px 0 0 ' + (-padding) + 'px'
+        })));
     } // initContainer
 
     function updateContainer(name, value) {
@@ -4045,7 +4077,7 @@ var View = function(params) {
 
                     lastScaleFactor = scaleFactor;
 
-                    if (supportTransforms) {
+                    if (DOM.supportTransforms) {
                         extraTransforms += 'scale(' + scaleFactor + ')';
                     }
                     else {
@@ -4061,11 +4093,11 @@ var View = function(params) {
                         } // if..else
                     } // if..else
 
-                    moveEl(viewpane, viewpaneX, viewpaneY, extraTransforms);
+                    DOM.move(viewpane, viewpaneX, viewpaneY, extraTransforms);
                 } // if
             }
             else {
-                moveEl(viewpane, panX, panY);
+                DOM.move(viewpane, panX, panY);
             } // if..else
 
             if (pointerDown || (! params.inertia)) {
@@ -5768,6 +5800,7 @@ Pos.prototype = {
         userMessage: userMessage,
         indexOf: indexOf,
 
+        DOM: DOM,
         Rect: Rect,
         XY: XYFns,
         XYRect: XYRect,

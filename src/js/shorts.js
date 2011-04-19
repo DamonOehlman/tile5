@@ -37,6 +37,4 @@ var abs = Math.abs,
     typeNumber = 'number',
     typeArray = 'array',
     
-    supportTransforms = typeof document.body.style[PROP_WK_TRANSFORM] != 'undefined',
-    
     reDelimitedSplit = /[\,\s]/;

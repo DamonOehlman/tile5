@@ -27,10 +27,8 @@ T5.registerRenderer('zoombar', function(view, panFrame, container, params, baseR
     var STATE_STATIC = 0,
         STATE_HOVER = 1,
         STATE_DOWN = 2,
-        PROP_WK_TRANSFORM = '-webkit-transform',
         buttonHeight = params.buttonHeight,
         eventMonitor,
-        supportTransforms = typeof panFrame.style[PROP_WK_TRANSFORM] != 'undefined',
         spriteStart = params.height,
         thumb,
         thumbHeight = params.thumbHeight,
@@ -219,14 +217,7 @@ T5.registerRenderer('zoombar', function(view, panFrame, container, params, baseR
 
             // if we are snapping then calculate the snapped thumbpos
             thumbPos = thumbMax - (thumbVal / zoomSteps * (thumbMax - thumbMin)) | 0;
-
-            // update the thumb style
-            if (supportTransforms) {
-                thumb.style[PROP_WK_TRANSFORM] = 'translate3d(0px, ' + (thumbPos - thumbMin) + 'px, 0px)';
-            }
-            else {
-                thumb.style.margin = thumbPos + 'px 0 0 0';
-            } // if..else
+            T5.DOM.move(thumb, 0, thumbPos - thumbMin);
             
             clearTimeout(zoomTimeout);
             zoomTimeout = setTimeout(function() {

@@ -454,15 +454,10 @@ var View = function(params) {
     } // getLayerIndex
     
     function initContainer() {
-        outer.appendChild(panContainer = createEl(
-            'div', 
-            COG.objId('t5_container'), 
-            COG.formatStr(
-                '-webkit-user-select: none; position: absolute; overflow: hidden; width: {0}px; height: {1}px;',
-                outer.offsetWidth,
-                outer.offsetHeight
-            )
-        ));
+        outer.appendChild(panContainer = DOM.create('div', COG.objId('t5_container'), '', DOM.styles({
+            width: outer.offsetWidth + 'px',
+            height: outer.offsetHeight + 'px'
+        })));
         
         // initialise the view width and height
         width = panContainer.offsetWidth + padding * 2;
@@ -473,16 +468,11 @@ var View = function(params) {
         halfOuterHeight = outer.offsetHeight / 2;
 
         // create the view div and append to the pan container
-        panContainer.appendChild(viewpane = createEl(
-            'div',
-            COG.objId('t5_view'),
-            COG.formatStr(
-                '-webkit-user-select: none; position: absolute; width: {0}px; height: {1}px; margin: {2}px 0 0 {2}px;',
-                width,
-                height,
-                -padding)
-            )
-        );
+        panContainer.appendChild(viewpane = DOM.create('div', COG.objId('t5_view'), '', DOM.styles({
+            width: width + 'px',
+            height: height + 'px',
+            margin: (-padding) + 'px 0 0 ' + (-padding) + 'px'
+        })));
     } // initContainer
     
     function updateContainer(name, value) {
@@ -647,7 +637,7 @@ var View = function(params) {
                     lastScaleFactor = scaleFactor;
                     
                     // if transforms are supported, then scale using transforms
-                    if (supportTransforms) {
+                    if (DOM.supportTransforms) {
                         extraTransforms += 'scale(' + scaleFactor + ')';
                     }
                     // otherwise, use the css zoom property
@@ -667,12 +657,12 @@ var View = function(params) {
                     } // if..else
 
                     // reset the view pan position
-                    moveEl(viewpane, viewpaneX, viewpaneY, extraTransforms);
+                    DOM.move(viewpane, viewpaneX, viewpaneY, extraTransforms);
                 } // if
             }
             else {
                 // move the view pane
-                moveEl(viewpane, panX, panY);
+                DOM.move(viewpane, panX, panY);
             } // if..else
             
             // apply the inertial dampeners 
