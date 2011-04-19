@@ -3296,7 +3296,7 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
             'div',
             COG.objId('domImages'),
             COG.formatStr(
-                '-webkit-user-select: none; position: absolute; width: {0}px; height: {1}px;',
+                '-webkit-user-select: none; position: absolute; overflow: hidden; width: {0}px; height: {1}px;',
                 panFrame.offsetWidth,
                 panFrame.offsetHeight)
         );
@@ -3585,8 +3585,8 @@ var View = function(params) {
     }, params);
 
     var TURBO_CLEAR_INTERVAL = 500,
-        ENERGY_THRESHOLD_REFRESH = 2,
-        ENERGY_THRESHOLD_FASTPAN = 5,
+        PANSPEED_THRESHOLD_REFRESH = 2,
+        PANSPEED_THRESHOLD_FASTPAN = 5,
 
         caps = {},
         layers = [],
@@ -3627,7 +3627,7 @@ var View = function(params) {
             index: 0,
             draw: false
         },
-        partialScaling = false,
+        partialScaling = true,
         tweeningOffset = false, // TODO: find a better way to determine this than with a flag
         cycleDelay = 1000 / params.fps | 0,
         viewChanges = 0,
@@ -3960,30 +3960,30 @@ var View = function(params) {
             scaleChanged,
             newFrame = false,
             refreshValid,
-            viewport,
-            deltaEnergy = abs(dx) + abs(dy);
+            viewport;
 
         tickCount = tickCount || new Date().getTime();
 
         newFrame = tickCount - lastCycleTicks > cycleDelay;
 
         if (newFrame) {
+            panSpeed = abs(dx) + abs(dy);
+
             refreshValid = abs(offsetX - refreshX) >= refreshDist ||
                 abs(offsetY - refreshY) >= refreshDist;
 
-            panning = deltaEnergy > 0;
             scaleChanged = scaleFactor !== lastScaleFactor;
 
-            if (panning || scaleChanged) {
+            if (panSpeed > 0 || scaleChanged) {
                 viewChanges++;
             } // if
 
-            if (refreshValid && deltaEnergy < ENERGY_THRESHOLD_REFRESH) {
+            if (refreshValid && panSpeed < PANSPEED_THRESHOLD_REFRESH) {
                 refresh();
             } // if
 
             frameData.index++;
-            frameData.draw = viewChanges || deltaEnergy || totalDX || totalDY;
+            frameData.draw = viewChanges || panSpeed || totalDX || totalDY;
 
             _self.trigger('enterFrame', tickCount, frameData);
 
@@ -3994,11 +3994,12 @@ var View = function(params) {
             panX += dx;
             panY += dy;
 
-            if ((! fastpan) || deltaEnergy < ENERGY_THRESHOLD_FASTPAN) {
+            if ((! fastpan) || panSpeed < PANSPEED_THRESHOLD_FASTPAN) {
                 offsetX = (offsetX - panX) | 0;
                 offsetY = (offsetY - panY) | 0;
 
                 viewport = getViewport();
+                viewport.panSpeed = panSpeed;
 
                 /*
                 if (offsetMaxX || offsetMaxY) {
@@ -4158,17 +4159,6 @@ var View = function(params) {
     function getOffset() {
         return new XY(offsetX, offsetY);
     } // getOffset
-
-    /**
-    ### setOffset(x, y)
-    Set the offset of the display
-    */
-    function setOffset(x, y) {
-        offsetX = x | 0;
-        offsetY = y | 0;
-
-        viewChanges++;
-    } // setOffset
 
     /**
     ### getRenderer(): T5.Renderer
@@ -4360,7 +4350,7 @@ var View = function(params) {
 
             zoomLevel = value;
 
-            setOffset(
+            updateOffset(
                 ((zoomX ? zoomX : offsetX + halfWidth) - scaledHalfWidth) * scaling,
                 ((zoomY ? zoomY : offsetY + halfHeight) - scaledHalfHeight) * scaling
             );
@@ -4406,15 +4396,52 @@ var View = function(params) {
 
     /**
     ### updateOffset(x: int, y: int, tweenFn: EasingFn, tweenDuration: int, callback: fn)
-    __deprecated__
 
     This function allows you to specified the absolute x and y offset that should
     become the top-left corner of the view.  As per the `pan` function documentation, tween and
     callback arguments can be supplied to animate the transition.
     */
     function updateOffset(x, y, tweenFn, tweenDuration, callback) {
-        COG.warn('updateOffset function has been deprecated, please use setOffset instead');
-        setOffset(x, y);
+
+        var tweensComplete = 0;
+
+        function endTween() {
+            tweensComplete += 1;
+
+            if (tweensComplete >= 2) {
+                tweeningOffset = false;
+
+                if (callback) {
+                    callback();
+                } // if
+            } // if
+        } // endOffsetUpdate
+
+        if (tweenFn && (panSpeed === 0)) {
+            COG.tweenValue(offsetX, x, tweenFn, tweenDuration, function(val, complete){
+                offsetX = val | 0;
+
+                (complete ? endTween : invalidate)();
+                return panSpeed === 0;
+            });
+
+            COG.tweenValue(offsetY, y, tweenFn, tweenDuration, function(val, complete) {
+                offsetY = val | 0;
+
+                (complete ? endTween : invalidate)();
+                return panSpeed === 0;
+            });
+
+            tweeningOffset = true;
+        }
+        else {
+            offsetX = x | 0;
+            offsetY = y | 0;
+
+            if (callback) {
+                callback();
+            } // if
+        } // if..else
     } // updateOffset
 
     /* object definition */
@@ -4441,7 +4468,6 @@ var View = function(params) {
         /* offset methods */
 
         getOffset: getOffset,
-        setOffset: setOffset,
 
         getRenderer: getRenderer,
         getScaleFactor: getScaleFactor,
@@ -4684,16 +4710,11 @@ var Map = function(params) {
             offsetX = centerXY.x - (viewport.w >> 1),
             offsetY = centerXY.y - (viewport.h >> 1);
 
-        _self.setOffset(offsetX, offsetY);
-
-        if (callback) {
-            callback();
-            COG.warn('panToPosition callback parameter deprecated');
-        } // if
-
-        if (easingFn || easingDuration) {
-            COG.warn('panToPosition easingFn and easingDuration parameters not supported');
-        } // if
+        _self.updateOffset(offsetX, offsetY, easingFn, easingDuration, function() {
+            if (callback) {
+                callback(_self);
+            } // if
+        });
     } // panToPosition
 
     /**

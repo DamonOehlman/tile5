@@ -205,16 +205,12 @@ var Map = function(params) {
             offsetY = centerXY.y - (viewport.h >> 1);
             
         // COG.info('panning to center xy: ', centerXY);
-        _self.setOffset(offsetX, offsetY);
-        
-        if (callback) {
-            callback();
-            COG.warn('panToPosition callback parameter deprecated');
-        } // if
-        
-        if (easingFn || easingDuration) {
-            COG.warn('panToPosition easingFn and easingDuration parameters not supported');
-        } // if
+        _self.updateOffset(offsetX, offsetY, easingFn, easingDuration, function() {
+            // if a callback is defined, then pass that on
+            if (callback) {
+                callback(_self); 
+            } // if
+        });
     } // panToPosition
     
     /**

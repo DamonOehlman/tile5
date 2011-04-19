@@ -13,7 +13,7 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
             'div',
             COG.objId('domImages'),
             COG.formatStr(
-                '-webkit-user-select: none; position: absolute; width: {0}px; height: {1}px;',
+                '-webkit-user-select: none; position: absolute; overflow: hidden; width: {0}px; height: {1}px;',
                 panFrame.offsetWidth,
                 panFrame.offsetHeight)
         );

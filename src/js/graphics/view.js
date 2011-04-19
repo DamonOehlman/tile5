@@ -119,8 +119,8 @@ var View = function(params) {
     
     // initialise constants
     var TURBO_CLEAR_INTERVAL = 500,
-        ENERGY_THRESHOLD_REFRESH = 2,
-        ENERGY_THRESHOLD_FASTPAN = 5,
+        PANSPEED_THRESHOLD_REFRESH = 2,
+        PANSPEED_THRESHOLD_FASTPAN = 5,
     
         // get the container context
         caps = {},
@@ -162,7 +162,7 @@ var View = function(params) {
             index: 0,
             draw: false
         },
-        partialScaling = false,
+        partialScaling = true,
         tweeningOffset = false, // TODO: find a better way to determine this than with a flag
         cycleDelay = 1000 / params.fps | 0,
         viewChanges = 0,
@@ -531,8 +531,7 @@ var View = function(params) {
             scaleChanged,
             newFrame = false,
             refreshValid,
-            viewport,
-            deltaEnergy = abs(dx) + abs(dy);
+            viewport;
             
         // initialise the tick count if it isn't already defined
         // not all browsers pass through the ticks with the requestAnimationFrame :/
@@ -543,25 +542,27 @@ var View = function(params) {
         
         // if we have a new frame, then fire the enterFrame event
         if (newFrame) {
+            // calculate the current pan speed
+            panSpeed = abs(dx) + abs(dy);
+            
             refreshValid = abs(offsetX - refreshX) >= refreshDist ||
                 abs(offsetY - refreshY) >= refreshDist;
                 
             // update the panning flag
-            panning = deltaEnergy > 0;
             scaleChanged = scaleFactor !== lastScaleFactor;
             
-            if (panning || scaleChanged) {
+            if (panSpeed > 0 || scaleChanged) {
                 viewChanges++;
             } // if
                 
             // determine whether a refresh is required
-            if (refreshValid && deltaEnergy < ENERGY_THRESHOLD_REFRESH) {
+            if (refreshValid && panSpeed < PANSPEED_THRESHOLD_REFRESH) {
                 refresh();
             } // if
             
             // initialise the frame data
             frameData.index++;
-            frameData.draw = viewChanges || deltaEnergy || totalDX || totalDY;
+            frameData.draw = viewChanges || panSpeed || totalDX || totalDY;
 
             // trigger the enter frame event
             _self.trigger('enterFrame', tickCount, frameData);
@@ -577,13 +578,13 @@ var View = function(params) {
             panY += dy;
             
             // otherwise, reset the view pane position and refire the renderer
-            if ((! fastpan) || deltaEnergy < ENERGY_THRESHOLD_FASTPAN) {
+            if ((! fastpan) || panSpeed < PANSPEED_THRESHOLD_FASTPAN) {
                 offsetX = (offsetX - panX) | 0;
                 offsetY = (offsetY - panY) | 0;
 
                 // initialise the viewport
                 viewport = getViewport();
-                // viewport.energy = deltaEnergy;
+                viewport.panSpeed = panSpeed;
 
                 /*
                 // check that the offset is within bounds
@@ -780,17 +781,6 @@ var View = function(params) {
         // return the last calculated cycle offset
         return new XY(offsetX, offsetY);
     } // getOffset
-    
-    /**
-    ### setOffset(x, y)
-    Set the offset of the display
-    */
-    function setOffset(x, y) {
-        offsetX = x | 0;
-        offsetY = y | 0;
-        
-        viewChanges++;
-    } // setOffset
     
     /**
     ### getRenderer(): T5.Renderer
@@ -1006,7 +996,7 @@ var View = function(params) {
             zoomLevel = value;
             
             // update the offset
-            setOffset(
+            updateOffset(
                 ((zoomX ? zoomX : offsetX + halfWidth) - scaledHalfWidth) * scaling,
                 ((zoomY ? zoomY : offsetY + halfHeight) - scaledHalfHeight) * scaling
             );
@@ -1057,15 +1047,54 @@ var View = function(params) {
     
     /**
     ### updateOffset(x: int, y: int, tweenFn: EasingFn, tweenDuration: int, callback: fn)
-    __deprecated__
 
     This function allows you to specified the absolute x and y offset that should 
     become the top-left corner of the view.  As per the `pan` function documentation, tween and
     callback arguments can be supplied to animate the transition.
     */
     function updateOffset(x, y, tweenFn, tweenDuration, callback) {
-        COG.warn('updateOffset function has been deprecated, please use setOffset instead');
-        setOffset(x, y);
+        
+        // initialise variables
+        var tweensComplete = 0;
+        
+        function endTween() {
+            tweensComplete += 1;
+            
+            if (tweensComplete >= 2) {
+                tweeningOffset = false;
+                
+                if (callback) {
+                    callback();
+                } // if
+            } // if
+        } // endOffsetUpdate
+        
+        if (tweenFn && (panSpeed === 0)) {
+            COG.tweenValue(offsetX, x, tweenFn, tweenDuration, function(val, complete){
+                offsetX = val | 0;
+                
+                (complete ? endTween : invalidate)();
+                return panSpeed === 0;
+            });
+            
+            COG.tweenValue(offsetY, y, tweenFn, tweenDuration, function(val, complete) {
+                offsetY = val | 0;
+
+                (complete ? endTween : invalidate)();
+                return panSpeed === 0;
+            });
+            
+            tweeningOffset = true;
+        }
+        else {
+            offsetX = x | 0;
+            offsetY = y | 0;
+            
+            // trigger the callback
+            if (callback) {
+                callback();
+            } // if
+        } // if..else
     } // updateOffset
     
     /* object definition */
@@ -1093,7 +1122,6 @@ var View = function(params) {
         /* offset methods */
         
         getOffset: getOffset,
-        setOffset: setOffset,
         
         getRenderer: getRenderer,
         getScaleFactor: getScaleFactor,
