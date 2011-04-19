@@ -11,41 +11,37 @@ T5.RouteTools = (function() {
     
     /* internals */
     
-    var customTurnTypeRules = undefined;
+    var customTurnTypeRules = undefined,
     
-    // define the turn types
-    var TurnType = {
-        Unknown: "turn-unknown",
+        // predefined regexes
+        REGEX_BEAR = /bear/i,
+        REGEX_DIR_RIGHT = /right/i,
         
-        // continue maneuver
-        Start: "turn-none-start",
-        Continue: "turn-none",
-        Arrive: "turn-none-arrive",
-        
-        // turn left maneuvers
-        TurnLeft: "turn-left",
-        TurnLeftSlight: "turn-left-slight",
-        TurnLeftSharp: "turn-left-sharp",
-        
-        // turn right maneuvers
-        TurnRight: "turn-right",
-        TurnRightSlight: "turn-right-slight",
-        TurnRightSharp: "turn-right-sharp",
-        
-        // merge maneuvers
-        Merge: "merge",
-        
-        // uturn
-        UTurnLeft:  "uturn-left",
-        UTurnRight: "uturn-right",
-        
-        // enter roundabout maneuver
-        EnterRoundabout: "roundabout-enter",
-        
-        // ramp maneuvers
-        Ramp: "ramp",
-        RampExit: "ramp-exit"
-    };
+        TurnTypes = [
+            'unknown',
+            
+            'start',
+            'none',
+            'arrive',
+            
+            'left',
+            'left-slight',
+            'left-sharp',
+            
+            'right',
+            'right-slight',
+            'right-sharp',
+            
+            'merge',
+            
+            'uturn-left',
+            'uturn-right',
+            
+            'roundabout-enter',
+            
+            'ramp',
+            'ramp-exit'
+        ];
     
     // EN-* manuever text matching rules 
     var DefaultTurnTypeRules = (function() {
@@ -53,63 +49,59 @@ T5.RouteTools = (function() {
 
         rules.push({
             regex: /continue/i,
-            turnType: TurnType.Continue
+            turnType: 'none'
         });
 
         rules.push({
             regex: /(take|bear|turn)(.*?)left/i,
             customCheck: function(text, matches) {
-                var isSlight = (/bear/i).test(matches[1]);
-
-                return isSlight ? TurnType.TurnLeftSlight : TurnType.TurnLeft;
+                return 'turn-left' + getTurnAngle(matches[1]);
             }
         });
 
         rules.push({
             regex: /(take|bear|turn)(.*?)right/i,
             customCheck: function(text, matches) {
-                var isSlight = (/bear/i).test(matches[1]);
-
-                return isSlight ? TurnType.TurnRightSlight : TurnType.TurnRight;
+                return 'turn-right' + getTurnAngle(matches[1]);
             }
         });
 
         rules.push({
-            regex: /enter\s(roundabout|rotaty)/i,
-            turnType: TurnType.EnterRoundabout
+            regex: /enter\s(roundabout|rotary)/i,
+            turnType: 'roundabout'
         });
 
         rules.push({
             regex: /take.*?ramp/i,
-            turnType: TurnType.Ramp
+            turnType: 'ramp'
         });
 
         rules.push({
             regex: /take.*?exit/i,
-            turnType: TurnType.RampExit
+            turnType: 'ramp-exit'
         });
 
         rules.push({
             regex: /make(.*?)u\-turn/i,
             customCheck: function(text, matches) {
-                return (/right/i).test(matches[1]) ? TurnType.UTurnRight : TurnType.UTurnLeft;
+                return 'uturn' + getTurnDirection(matches[1]);
             }
         });
 
         rules.push({
             regex: /proceed/i,
-            turnType: TurnType.Start
+            turnType: 'start'
         });
 
         rules.push({
             regex: /arrive/i,
-            turnType: TurnType.Arrive
+            turnType: 'arrive'
         });
 
         // "FELL THROUGH" - WTF!
         rules.push({
             regex: /fell\sthrough/i,
-            turnType: TurnType.Merge
+            turnType: 'merge'
         });
 
         return rules;
@@ -170,6 +162,18 @@ T5.RouteTools = (function() {
     // TODO: require "localization/turntype-rules.en"
     
     /* internal functions */
+    
+    function getTurnDirection(turnDir) {
+        return REGEX_DIR_RIGHT.test(turnDir) ? '-right' : '-left';
+    } // getTurnDirection
+    
+    function getTurnAngle(turnText) {
+        if (REGEX_BEAR.test(turnText)) {
+            return '-slight';
+        } // if
+        
+        return '';
+    } // getTurnAngle
     
     /*
     This function is used to cleanup a turn instruction that has been passed
@@ -277,7 +281,7 @@ T5.RouteTools = (function() {
     To be completed
     */
     function parseTurnType(text) {
-        var turnType = TurnType.Unknown,
+        var turnType = 'unknown',
             rules = customTurnTypeRules || DefaultTurnTypeRules;
         
         // run the text through the manuever rules
@@ -308,7 +312,6 @@ T5.RouteTools = (function() {
         createMapOverlay: createMapOverlay,
         parseTurnType: parseTurnType,
         
-        TurnType: TurnType,
         Instruction: Instruction,
         RouteData: RouteData
     };
