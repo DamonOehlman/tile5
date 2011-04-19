@@ -214,8 +214,7 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
     function prepare(layers, viewport, tickCount, hitData) {
         var ii,
             canClip = false,
-            targetVP = viewport.scaled || viewport,
-            scaleFactor = viewport.scaleFactor;
+            targetVP = viewport.scaled || viewport;
             
         // if we already have a context, then restore
         if (context) {
@@ -243,9 +242,6 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
 
             // save the context
             context.save();
-            
-            // scale the context
-            context.scale(scaleFactor, scaleFactor);
         } // if
         
         // initialise the composite operation

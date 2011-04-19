@@ -214,8 +214,6 @@ T5.registerRenderer('zoombar', function(view, panFrame, container, params, baseR
                 thumb.style.margin = thumbPos + 'px 0 0 0';
             } // if..else
 
-            COG.info('thumb value = ' + thumbVal + ', pos = ' + thumbPos);
-
             clearTimeout(zoomTimeout);
             zoomTimeout = setTimeout(function() {
                 view.setZoomLevel(thumbVal);

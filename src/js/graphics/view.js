@@ -168,6 +168,7 @@ var View = function(params) {
         viewChanges = 0,
         width, height,
         halfWidth, halfHeight,
+        halfOuterWidth, halfOuterHeight,
         zoomX, zoomY,
         zoomLevel = params.zoomLevel,
         zoomEasing = COG.easing('quad.out'),
@@ -468,6 +469,8 @@ var View = function(params) {
         height = panContainer.offsetHeight + padding * 2;
         halfWidth = width / 2;
         halfHeight = height / 2;
+        halfOuterWidth = outer.offsetWidth / 2;
+        halfOuterHeight = outer.offsetHeight / 2;
 
         // create the view div and append to the pan container
         panContainer.appendChild(viewpane = createEl(
@@ -527,10 +530,13 @@ var View = function(params) {
     
     function cycle(tickCount) {
         // check to see if we are panning
-        var panning,
+        var extraTransforms = '',
+            panning,
             scaleChanged,
             newFrame = false,
             refreshValid,
+            viewpaneX,
+            viewpaneY,
             viewport;
             
         // initialise the tick count if it isn't already defined
@@ -602,6 +608,8 @@ var View = function(params) {
                 if (renderer.prepare(layers, viewport, tickCount, hitData)) {
                     // reset the view changes count
                     viewChanges = 0;
+                    viewpaneX = panX = 0;
+                    viewpaneY = panY = 0;
 
                     for (ii = layerCount; ii--; ) {
                         var drawLayer = layers[ii];
@@ -637,9 +645,29 @@ var View = function(params) {
 
                     // update the last cycle ticks
                     lastScaleFactor = scaleFactor;
+                    
+                    // if transforms are supported, then scale using transforms
+                    if (supportTransforms) {
+                        extraTransforms += 'scale(' + scaleFactor + ')';
+                    }
+                    // otherwise, use the css zoom property
+                    else {
+                        // set the viewpan zoom
+                        viewpane.style.zoom = scaleFactor;
+
+                        // if the scale factor is not equal to 1, then calculate the view pane x and y
+                        if (scaleFactor > 1) {
+                            viewpaneX = -(halfOuterWidth - halfWidth / scaleFactor);
+                            viewpaneY = -(halfOuterHeight - halfHeight / scaleFactor);
+                        }
+                        else if (scaleFactor < 1) {
+                            viewpaneX = (halfOuterWidth / scaleFactor - halfWidth);
+                            viewpaneY = (halfOuterHeight / scaleFactor -  halfHeight);
+                        } // if..else
+                    } // if..else
 
                     // reset the view pan position
-                    moveEl(viewpane, panX = 0, panY = 0);
+                    moveEl(viewpane, viewpaneX, viewpaneY, extraTransforms);
                 } // if
             }
             else {

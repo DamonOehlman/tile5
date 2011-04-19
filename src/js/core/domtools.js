@@ -10,10 +10,10 @@ function createEl(elemType, id, css) {
     return elem;
 } // createEl
 
-function moveEl(element, x, y) {
+function moveEl(element, x, y, extraTransforms) {
     // move the container
     if (supportTransforms) {
-        element.style[PROP_WK_TRANSFORM] = 'translate3d(' + x +'px, ' + y + 'px, 0px)';
+        element.style[PROP_WK_TRANSFORM] = 'translate3d(' + x +'px, ' + y + 'px, 0px) ' + (extraTransforms || '');
     }
     else {
         element.style.left = x + 'px';

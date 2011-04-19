@@ -2617,9 +2617,9 @@ function createEl(elemType, id, css) {
     return elem;
 } // createEl
 
-function moveEl(element, x, y) {
+function moveEl(element, x, y, extraTransforms) {
     if (supportTransforms) {
-        element.style[PROP_WK_TRANSFORM] = 'translate3d(' + x +'px, ' + y + 'px, 0px)';
+        element.style[PROP_WK_TRANSFORM] = 'translate3d(' + x +'px, ' + y + 'px, 0px) ' + (extraTransforms || '');
     }
     else {
         element.style.left = x + 'px';
@@ -3074,8 +3074,7 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
     function prepare(layers, viewport, tickCount, hitData) {
         var ii,
             canClip = false,
-            targetVP = viewport.scaled || viewport,
-            scaleFactor = viewport.scaleFactor;
+            targetVP = viewport.scaled || viewport;
 
         if (context) {
             context.restore();
@@ -3097,8 +3096,6 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
             } // if
 
             context.save();
-
-            context.scale(scaleFactor, scaleFactor);
         } // if
 
         context.globalCompositeOperation = 'source-over';
@@ -3633,6 +3630,7 @@ var View = function(params) {
         viewChanges = 0,
         width, height,
         halfWidth, halfHeight,
+        halfOuterWidth, halfOuterHeight,
         zoomX, zoomY,
         zoomLevel = params.zoomLevel,
         zoomEasing = COG.easing('quad.out'),
@@ -3904,6 +3902,8 @@ var View = function(params) {
         height = panContainer.offsetHeight + padding * 2;
         halfWidth = width / 2;
         halfHeight = height / 2;
+        halfOuterWidth = outer.offsetWidth / 2;
+        halfOuterHeight = outer.offsetHeight / 2;
 
         panContainer.appendChild(viewpane = createEl(
             'div',
@@ -3956,10 +3956,13 @@ var View = function(params) {
     } // checkHits
 
     function cycle(tickCount) {
-        var panning,
+        var extraTransforms = '',
+            panning,
             scaleChanged,
             newFrame = false,
             refreshValid,
+            viewpaneX,
+            viewpaneY,
             viewport;
 
         tickCount = tickCount || new Date().getTime();
@@ -4012,6 +4015,8 @@ var View = function(params) {
 
                 if (renderer.prepare(layers, viewport, tickCount, hitData)) {
                     viewChanges = 0;
+                    viewpaneX = panX = 0;
+                    viewpaneY = panY = 0;
 
                     for (ii = layerCount; ii--; ) {
                         var drawLayer = layers[ii];
@@ -4040,7 +4045,23 @@ var View = function(params) {
 
                     lastScaleFactor = scaleFactor;
 
-                    moveEl(viewpane, panX = 0, panY = 0);
+                    if (supportTransforms) {
+                        extraTransforms += 'scale(' + scaleFactor + ')';
+                    }
+                    else {
+                        viewpane.style.zoom = scaleFactor;
+
+                        if (scaleFactor > 1) {
+                            viewpaneX = -(halfOuterWidth - halfWidth / scaleFactor);
+                            viewpaneY = -(halfOuterHeight - halfHeight / scaleFactor);
+                        }
+                        else if (scaleFactor < 1) {
+                            viewpaneX = (halfOuterWidth / scaleFactor - halfWidth);
+                            viewpaneY = (halfOuterHeight / scaleFactor -  halfHeight);
+                        } // if..else
+                    } // if..else
+
+                    moveEl(viewpane, viewpaneX, viewpaneY, extraTransforms);
                 } // if
             }
             else {
