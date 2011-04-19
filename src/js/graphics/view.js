@@ -371,6 +371,8 @@ var View = function(params) {
     
     function clone() {
         var clonedViewPane = viewpane.cloneNode(true);
+        
+        // TODO: if we are using the canvas renderer have it draw on the new canvas
 
         if (viewClone) {
             panContainer.removeChild(viewClone.element);
@@ -480,7 +482,7 @@ var View = function(params) {
     } // getLayerIndex
     
     function initContainer() {
-        outer.appendChild(panContainer = DOM.create('div', COG.objId('t5_container'), '', DOM.styles({
+        outer.appendChild(panContainer = DOM.create('div', '', DOM.styles({
             width: outer.offsetWidth + 'px',
             height: outer.offsetHeight + 'px'
         })));
@@ -494,7 +496,7 @@ var View = function(params) {
         halfOuterHeight = outer.offsetHeight / 2;
 
         // create the view div and append to the pan container
-        panContainer.appendChild(viewpane = DOM.create('div', COG.objId('t5_view'), '', DOM.styles({
+        panContainer.appendChild(viewpane = DOM.create('div', '', DOM.styles({
             width: width + 'px',
             height: height + 'px',
             'z-index': 2,

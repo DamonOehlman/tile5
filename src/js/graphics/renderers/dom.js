@@ -9,7 +9,7 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
         currentTiles = {};
     
     function createImageContainer() {
-        imageDiv = DOM.create('div', COG.objId('domImages'), '', DOM.styles({
+        imageDiv = DOM.create('div', '', DOM.styles({
             width: panFrame.offsetWidth + 'px',
             height: panFrame.offsetHeight + 'px'
         }));

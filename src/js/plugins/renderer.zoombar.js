@@ -69,7 +69,7 @@ T5.registerRenderer('zoombar', function(view, panFrame, container, params, baseR
     
     function createButton(btnIndex, marginTop) {
         // create the zoom in button
-        var button = buttons[btnIndex] = T5.DOM.create('div', '', 't5-zoombar-button', {
+        var button = buttons[btnIndex] = T5.DOM.create('div', 't5-zoombar-button', {
             position: 'absolute',
             background: getButtonBackground(btnIndex),
             'z-index': 51,
@@ -83,7 +83,7 @@ T5.registerRenderer('zoombar', function(view, panFrame, container, params, baseR
     } // createButton
         
     function createThumb() {
-        zoomBar.appendChild(thumb = T5.DOM.create('div', '', 't5-zoombar-thumb', {
+        zoomBar.appendChild(thumb = T5.DOM.create('div', 't5-zoombar-thumb', {
             position: 'absolute',
             background: getThumbBackground(),
             'z-index': 51,
@@ -95,7 +95,7 @@ T5.registerRenderer('zoombar', function(view, panFrame, container, params, baseR
     } // createThumb
     
     function createZoomBar() {
-        zoomBar = T5.DOM.create('div', COG.objId('t5-zoombar'), 't5-zoombar', {
+        zoomBar = T5.DOM.create('div', 't5-zoombar', {
             position: 'absolute',
             background: getBackground(),
             'z-index': 50,

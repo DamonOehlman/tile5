@@ -1868,12 +1868,11 @@ var DOM = (function() {
 
     /* exports */
 
-    function create(elemType, id, className, cssProps) {
+    function create(elemType, className, cssProps) {
         var elem = document.createElement(elemType),
             cssRules = [],
             props = cssProps || {};
 
-        elem.id = id;
         elem.className = className || '';
 
         for (var propId in props) {
@@ -3343,7 +3342,7 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
         currentTiles = {};
 
     function createImageContainer() {
-        imageDiv = DOM.create('div', COG.objId('domImages'), '', DOM.styles({
+        imageDiv = DOM.create('div', '', DOM.styles({
             width: panFrame.offsetWidth + 'px',
             height: panFrame.offsetHeight + 'px'
         }));
@@ -3860,6 +3859,7 @@ var View = function(params) {
     function clone() {
         var clonedViewPane = viewpane.cloneNode(true);
 
+
         if (viewClone) {
             panContainer.removeChild(viewClone.element);
         } // if
@@ -3963,7 +3963,7 @@ var View = function(params) {
     } // getLayerIndex
 
     function initContainer() {
-        outer.appendChild(panContainer = DOM.create('div', COG.objId('t5_container'), '', DOM.styles({
+        outer.appendChild(panContainer = DOM.create('div', '', DOM.styles({
             width: outer.offsetWidth + 'px',
             height: outer.offsetHeight + 'px'
         })));
@@ -3975,7 +3975,7 @@ var View = function(params) {
         halfOuterWidth = outer.offsetWidth / 2;
         halfOuterHeight = outer.offsetHeight / 2;
 
-        panContainer.appendChild(viewpane = DOM.create('div', COG.objId('t5_view'), '', DOM.styles({
+        panContainer.appendChild(viewpane = DOM.create('div', '', DOM.styles({
             width: width + 'px',
             height: height + 'px',
             'z-index': 2,

@@ -24,14 +24,13 @@ var DOM = (function() {
 
     /* exports */
     
-    function create(elemType, id, className, cssProps) {
+    function create(elemType, className, cssProps) {
         // create the element
         var elem = document.createElement(elemType),
             cssRules = [],
             props = cssProps || {};
 
         // set the id and css text
-        elem.id = id;
         elem.className = className || '';
         
         // initialise the css props
