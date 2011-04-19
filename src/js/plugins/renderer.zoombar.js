@@ -1,9 +1,23 @@
+/**
+# Tile5 Plugin: Zoombar
+The tile5 zoombar provides a zoom control for a Tile5 map. The zoombar is implemented
+as a series of DOM elements which draw images from a sprite sheet supplied in the 
+`images` parameter.
+
+## Using the Zoombar
+TO BE COMPLETED
+
+## Customizing the Zoombar
+TO BE COMPLETED
+*/
 T5.registerRenderer('zoombar', function(view, panFrame, container, params, baseRenderer) {
     params = COG.extend({
         width: 24,
         height: 200,
         images: '/img/zoom.png',
-        margin: 10,
+        align: 'right',
+        marginTop: 10,
+        spacing: 10,
         thumbHeight: 16,
         buttonHeight: 16
     }, params.zoombar);
@@ -20,7 +34,7 @@ T5.registerRenderer('zoombar', function(view, panFrame, container, params, baseR
         spriteStart = params.height,
         thumb,
         thumbHeight = params.thumbHeight,
-        thumbMin = params.margin + buttonHeight - (thumbHeight >> 1),
+        thumbMin = params.spacing + buttonHeight - (thumbHeight >> 1),
         thumbMax = params.height - buttonHeight - (thumbHeight >> 1),
         thumbPos = thumbMin,
         thumbVal = -1,
@@ -125,11 +139,15 @@ T5.registerRenderer('zoombar', function(view, panFrame, container, params, baseR
     }
     
     function getMargin() {
-        return COG.formatStr('{0} {1} {2} {3}',
-            params.margin + 'px',
-            0,
-            '0',
-            (container.offsetWidth - params.width - params.margin) + 'px');
+        var marginLeft = params.spacing;
+
+        if (params.align === 'right') {
+            marginLeft = container.offsetWidth - params.width - params.spacing;
+        } // if
+        
+        return COG.formatStr('{0}px 0 0 {1}px',
+            params.marginTop,
+            marginLeft);
     } // getMargin
     
     function getThumbBackground(state) {
