@@ -1991,7 +1991,7 @@ T5.registerRenderer('webgl', function(view, panFrame, container, params, baseRen
     function arc(x, y, radius, startAngle, endAngle) {
     } // arc
 
-    function drawTiles(viewport, tiles) {
+    function drawTiles(viewport, tiles, okToLoad) {
         var tile,
             inViewport,
             offsetX = transform ? transform.x : drawOffsetX,

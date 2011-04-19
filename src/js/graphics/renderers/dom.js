@@ -103,7 +103,7 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
     
     /* exports */
     
-    function drawTiles(viewport, tiles) {
+    function drawTiles(viewport, tiles, okToLoad) {
         var tile,
             image,
             offsetX = viewport.x, 
@@ -114,8 +114,13 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
             tile = tiles[ii];
             
             if (tile.url) {
-                image = tile.image || createTileImage(tile);
-                DOM.move(image, tile.x - offsetX, tile.y - offsetY);
+                // get the tile image
+                image = tile.image || (okToLoad ? createTileImage(tile) : null);
+                
+                // if we have an image, then move it
+                if (image) {
+                    DOM.move(image, tile.x - offsetX, tile.y - offsetY);
+                } // if
 
                 // flag the tile as current
                 currentTiles[tile.id] = tile;

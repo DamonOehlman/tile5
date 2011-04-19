@@ -181,7 +181,7 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
         return transform;
     } // applyTransform
     
-    function drawTiles(viewport, tiles) {
+    function drawTiles(viewport, tiles, okToLoad) {
         var tile,
             inViewport,
             minX = drawOffsetX - 256,
@@ -198,10 +198,10 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
                 
             // show or hide the image depending on whether it is in the viewport
             if (inViewport) {
-                if (! tile.loaded) {
+                if ((! tile.loaded) && okToLoad) {
                     tile.load(view.invalidate);
                 }
-                else {
+                else if (tile.image) {
                     context.drawImage(
                         tile.image,
                         tile.x - drawOffsetX, 

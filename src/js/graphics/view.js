@@ -127,6 +127,7 @@ var View = function(params) {
         layers = [],
         layerCount = 0,
         viewpane = null,
+        viewClone = null,
         panContainer = null,
         outer,
         dragObject = null,
@@ -185,6 +186,12 @@ var View = function(params) {
     function scaleView() {
         var scaleFactorExp = log(scaleFactor) / Math.LN2 | 0;
         
+        // if we have a view clone, then remove it
+        if (viewClone) {
+            panContainer.removeChild(viewClone.element);
+            viewClone = null;
+        } // if
+        
         // COG.info('scale factor = ' + scaleFactor + ', exp = ' + scaleFactorExp);
         if (scaleFactorExp !== 0) {
             scaleFactor = pow(2, scaleFactorExp);
@@ -192,7 +199,7 @@ var View = function(params) {
         }
 
         // invalidate the view
-        redraw = true;
+        viewChanges++;
     } // scaleView
     
     function setZoomCenter(xy) {
@@ -362,6 +369,25 @@ var View = function(params) {
         invalidate();
     } // changeRenderer
     
+    function clone() {
+        var clonedViewPane = viewpane.cloneNode(true);
+
+        if (viewClone) {
+            panContainer.removeChild(viewClone.element);
+        } // if
+        
+        // add the cloned view pane to the dom
+        panContainer.insertBefore(clonedViewPane, viewpane);
+        
+        // track the viewpane in the clonepanes array
+        viewClone = {
+            element: clonedViewPane,
+            x: 0,
+            y: 0,
+            extraTransforms: DOM.supportTransforms ? 'scale(' + scaleFactor + ')' : ''
+        };
+    } // clone
+    
     /*
     The constrain offset function is used to keep the view offset within a specified
     offset using wrapping if allowed.  The function is much more 'if / then / elsey' 
@@ -471,6 +497,7 @@ var View = function(params) {
         panContainer.appendChild(viewpane = DOM.create('div', COG.objId('t5_view'), '', DOM.styles({
             width: width + 'px',
             height: height + 'px',
+            'z-index': 2,
             margin: (-padding) + 'px 0 0 ' + (-padding) + 'px'
         })));
     } // initContainer
@@ -539,7 +566,7 @@ var View = function(params) {
         // if we have a new frame, then fire the enterFrame event
         if (newFrame) {
             // calculate the current pan speed
-            panSpeed = abs(dx) + abs(dy);
+            self.panSpeed = panSpeed = abs(dx) + abs(dy);
             
             refreshValid = abs(offsetX - refreshX) >= refreshDist ||
                 abs(offsetY - refreshY) >= refreshDist;
@@ -580,7 +607,6 @@ var View = function(params) {
 
                 // initialise the viewport
                 viewport = getViewport();
-                viewport.panSpeed = panSpeed;
 
                 /*
                 // check that the offset is within bounds
@@ -640,21 +666,23 @@ var View = function(params) {
                     if (DOM.supportTransforms) {
                         extraTransforms += 'scale(' + scaleFactor + ')';
                     }
+                    /*
                     // otherwise, use the css zoom property
                     else {
                         // set the viewpan zoom
                         viewpane.style.zoom = scaleFactor;
 
                         // if the scale factor is not equal to 1, then calculate the view pane x and y
-                        if (scaleFactor > 1) {
+                        if (scaleFactor < 1) {
                             viewpaneX = -(halfOuterWidth - halfWidth / scaleFactor);
                             viewpaneY = -(halfOuterHeight - halfHeight / scaleFactor);
                         }
-                        else if (scaleFactor < 1) {
+                        else if (scaleFactor > 1) {
                             viewpaneX = (halfOuterWidth / scaleFactor - halfWidth);
                             viewpaneY = (halfOuterHeight / scaleFactor -  halfHeight);
                         } // if..else
                     } // if..else
+                    */
 
                     // reset the view pan position
                     DOM.move(viewpane, viewpaneX, viewpaneY, extraTransforms);
@@ -664,6 +692,16 @@ var View = function(params) {
                 // move the view pane
                 DOM.move(viewpane, panX, panY);
             } // if..else
+            
+            // if we have a cloned view, move that in sync
+            if (viewClone) {
+                DOM.move(
+                    viewClone.element, 
+                    viewClone.x += dx, 
+                    viewClone.y += dy,
+                    viewClone.extraTransforms
+                );
+            } // if
             
             // apply the inertial dampeners 
             // really just wanted to say that...
@@ -753,11 +791,12 @@ var View = function(params) {
         
         // remove the pan container
         if (panContainer) {
-            document.getElementById(panContainer).removeChild(panContainer);
+            outer.removeChild(panContainer);
             
             // reset the pan container and container variables
             panContainer = null;
             viewpane = null;
+            viewClone = null;
         } // if
         
         // reset the pan frames
@@ -1009,6 +1048,11 @@ var View = function(params) {
             var scaling = pow(2, value - zoomLevel),
                 scaledHalfWidth = halfWidth / scaling | 0,
                 scaledHalfHeight = halfHeight / scaling | 0;
+                
+            // clone the current view (if transforms are supported and we have scaled the view)
+            if (DOM.supportTransforms) {
+                clone();
+            } // if
             
             // update the zoom level
             zoomLevel = value;
@@ -1121,6 +1165,7 @@ var View = function(params) {
     var _self = {
         id: params.id,
         padding: padding,
+        panSpeed: 0,
         
         attachFrame: attachFrame,
         detach: detach,

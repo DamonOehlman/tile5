@@ -6,18 +6,20 @@ var DOM = (function() {
             position: 'absolute',
             overflow: 'hidden'
         },
-        testTransformProps = ['-webkit-transform', '-moz-transform', '-o-transform'],
-        supportTransforms = false,
-        transformProp;
+        css3dTransformProps = ['WebkitPerspective', 'MozPerspective'],
+        testTransformProps = ['-webkit-transform', 'MozTransform'],
+        transformProp,
+        css3dTransformProp;
         
-    function checkCaps() {
-        for (var ii = 0; ii < testTransformProps.length; ii++) {
-            transformProp = testTransformProps[ii];
-            if (typeof document.body.style[transformProp] != 'undefined') {
-                supportTransforms = true;
-                break;
+    function checkCaps(testProps) {
+        for (var ii = 0; ii < testProps.length; ii++) {
+            var propName = testProps[ii];
+            if (typeof document.body.style[propName] != 'undefined') {
+                return propName;
             } // if
         } // for
+        
+        return undefined;
     } // checkCaps
 
     /* exports */
@@ -45,9 +47,12 @@ var DOM = (function() {
     } // create
 
     function move(element, x, y, extraTransforms) {
-        // move the container
-        if (supportTransforms) {
-            element.style[transformProp] = 'translate3d(' + x +'px, ' + y + 'px, 0px) ' + (extraTransforms || '');
+        if (css3dTransformProp || transformProp) {
+            var translate = css3dTransformProp ? 
+                    'translate3d(' + x +'px, ' + y + 'px, 0px)' : 
+                    'translate(' + x + 'px, ' + y + 'px)';
+            
+            element.style[transformProp] = translate + ' ' + (extraTransforms || '');
         }
         else {
             element.style.left = x + 'px';
@@ -61,10 +66,11 @@ var DOM = (function() {
 
     /* initialization */
     
-    checkCaps();
+    transformProp = checkCaps(testTransformProps);
+    css3DTransformProps = checkCaps(css3dTransformProps);
     
     return {
-        supportTransforms: supportTransforms,
+        supportTransforms: transformProp,
         
         create: create,
         move: move,

@@ -414,7 +414,7 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
         return transform;
     } // applyTransform
 
-    function drawTiles(viewport, tiles) {
+    function drawTiles(viewport, tiles, okToLoad) {
         var tile,
             offsetX = transform ? transform.x : drawOffsetX,
             offsetY = transform ? transform.y : drawOffsetY,

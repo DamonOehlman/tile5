@@ -1850,18 +1850,20 @@ var DOM = (function() {
             position: 'absolute',
             overflow: 'hidden'
         },
-        testTransformProps = ['-webkit-transform', '-moz-transform', '-o-transform'],
-        supportTransforms = false,
-        transformProp;
+        css3dTransformProps = ['WebkitPerspective', 'MozPerspective'],
+        testTransformProps = ['-webkit-transform', 'MozTransform'],
+        transformProp,
+        css3dTransformProp;
 
-    function checkCaps() {
-        for (var ii = 0; ii < testTransformProps.length; ii++) {
-            transformProp = testTransformProps[ii];
-            if (typeof document.body.style[transformProp] != 'undefined') {
-                supportTransforms = true;
-                break;
+    function checkCaps(testProps) {
+        for (var ii = 0; ii < testProps.length; ii++) {
+            var propName = testProps[ii];
+            if (typeof document.body.style[propName] != 'undefined') {
+                return propName;
             } // if
         } // for
+
+        return undefined;
     } // checkCaps
 
     /* exports */
@@ -1884,8 +1886,12 @@ var DOM = (function() {
     } // create
 
     function move(element, x, y, extraTransforms) {
-        if (supportTransforms) {
-            element.style[transformProp] = 'translate3d(' + x +'px, ' + y + 'px, 0px) ' + (extraTransforms || '');
+        if (css3dTransformProp || transformProp) {
+            var translate = css3dTransformProp ?
+                    'translate3d(' + x +'px, ' + y + 'px, 0px)' :
+                    'translate(' + x + 'px, ' + y + 'px)';
+
+            element.style[transformProp] = translate + ' ' + (extraTransforms || '');
         }
         else {
             element.style.left = x + 'px';
@@ -1899,10 +1905,11 @@ var DOM = (function() {
 
     /* initialization */
 
-    checkCaps();
+    transformProp = checkCaps(testTransformProps);
+    css3DTransformProps = checkCaps(css3dTransformProps);
 
     return {
-        supportTransforms: supportTransforms,
+        supportTransforms: transformProp,
 
         create: create,
         move: move,
@@ -3090,7 +3097,7 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
         return transform;
     } // applyTransform
 
-    function drawTiles(viewport, tiles) {
+    function drawTiles(viewport, tiles, okToLoad) {
         var tile,
             inViewport,
             minX = drawOffsetX - 256,
@@ -3105,10 +3112,10 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
                 tile.y >= minY && tile.y <= maxY;
 
             if (inViewport) {
-                if (! tile.loaded) {
+                if ((! tile.loaded) && okToLoad) {
                     tile.load(view.invalidate);
                 }
-                else {
+                else if (tile.image) {
                     context.drawImage(
                         tile.image,
                         tile.x - drawOffsetX,
@@ -3413,7 +3420,7 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
 
     /* exports */
 
-    function drawTiles(viewport, tiles) {
+    function drawTiles(viewport, tiles, okToLoad) {
         var tile,
             image,
             offsetX = viewport.x,
@@ -3423,8 +3430,11 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
             tile = tiles[ii];
 
             if (tile.url) {
-                image = tile.image || createTileImage(tile);
-                DOM.move(image, tile.x - offsetX, tile.y - offsetY);
+                image = tile.image || (okToLoad ? createTileImage(tile) : null);
+
+                if (image) {
+                    DOM.move(image, tile.x - offsetX, tile.y - offsetY);
+                } // if
 
                 currentTiles[tile.id] = tile;
             } // if
@@ -3631,6 +3641,7 @@ var View = function(params) {
         layers = [],
         layerCount = 0,
         viewpane = null,
+        viewClone = null,
         panContainer = null,
         outer,
         dragObject = null,
@@ -3689,12 +3700,17 @@ var View = function(params) {
     function scaleView() {
         var scaleFactorExp = log(scaleFactor) / Math.LN2 | 0;
 
+        if (viewClone) {
+            panContainer.removeChild(viewClone.element);
+            viewClone = null;
+        } // if
+
         if (scaleFactorExp !== 0) {
             scaleFactor = pow(2, scaleFactorExp);
             setZoomLevel(zoomLevel + scaleFactorExp, zoomX, zoomY);
         }
 
-        redraw = true;
+        viewChanges++;
     } // scaleView
 
     function setZoomCenter(xy) {
@@ -3841,6 +3857,23 @@ var View = function(params) {
         invalidate();
     } // changeRenderer
 
+    function clone() {
+        var clonedViewPane = viewpane.cloneNode(true);
+
+        if (viewClone) {
+            panContainer.removeChild(viewClone.element);
+        } // if
+
+        panContainer.insertBefore(clonedViewPane, viewpane);
+
+        viewClone = {
+            element: clonedViewPane,
+            x: 0,
+            y: 0,
+            extraTransforms: DOM.supportTransforms ? 'scale(' + scaleFactor + ')' : ''
+        };
+    } // clone
+
     /*
     The constrain offset function is used to keep the view offset within a specified
     offset using wrapping if allowed.  The function is much more 'if / then / elsey'
@@ -3945,6 +3978,7 @@ var View = function(params) {
         panContainer.appendChild(viewpane = DOM.create('div', COG.objId('t5_view'), '', DOM.styles({
             width: width + 'px',
             height: height + 'px',
+            'z-index': 2,
             margin: (-padding) + 'px 0 0 ' + (-padding) + 'px'
         })));
     } // initContainer
@@ -4002,7 +4036,7 @@ var View = function(params) {
         newFrame = tickCount - lastCycleTicks > cycleDelay;
 
         if (newFrame) {
-            panSpeed = abs(dx) + abs(dy);
+            self.panSpeed = panSpeed = abs(dx) + abs(dy);
 
             refreshValid = abs(offsetX - refreshX) >= refreshDist ||
                 abs(offsetY - refreshY) >= refreshDist;
@@ -4034,7 +4068,6 @@ var View = function(params) {
                 offsetY = (offsetY - panY) | 0;
 
                 viewport = getViewport();
-                viewport.panSpeed = panSpeed;
 
                 /*
                 if (offsetMaxX || offsetMaxY) {
@@ -4080,18 +4113,20 @@ var View = function(params) {
                     if (DOM.supportTransforms) {
                         extraTransforms += 'scale(' + scaleFactor + ')';
                     }
+                    /*
                     else {
                         viewpane.style.zoom = scaleFactor;
 
-                        if (scaleFactor > 1) {
+                        if (scaleFactor < 1) {
                             viewpaneX = -(halfOuterWidth - halfWidth / scaleFactor);
                             viewpaneY = -(halfOuterHeight - halfHeight / scaleFactor);
                         }
-                        else if (scaleFactor < 1) {
+                        else if (scaleFactor > 1) {
                             viewpaneX = (halfOuterWidth / scaleFactor - halfWidth);
                             viewpaneY = (halfOuterHeight / scaleFactor -  halfHeight);
                         } // if..else
                     } // if..else
+                    */
 
                     DOM.move(viewpane, viewpaneX, viewpaneY, extraTransforms);
                 } // if
@@ -4099,6 +4134,15 @@ var View = function(params) {
             else {
                 DOM.move(viewpane, panX, panY);
             } // if..else
+
+            if (viewClone) {
+                DOM.move(
+                    viewClone.element,
+                    viewClone.x += dx,
+                    viewClone.y += dy,
+                    viewClone.extraTransforms
+                );
+            } // if
 
             if (pointerDown || (! params.inertia)) {
                 dx = 0;
@@ -4171,10 +4215,11 @@ var View = function(params) {
         } // if
 
         if (panContainer) {
-            document.getElementById(panContainer).removeChild(panContainer);
+            outer.removeChild(panContainer);
 
             panContainer = null;
             viewpane = null;
+            viewClone = null;
         } // if
 
         panFrames = [];
@@ -4401,6 +4446,10 @@ var View = function(params) {
                 scaledHalfWidth = halfWidth / scaling | 0,
                 scaledHalfHeight = halfHeight / scaling | 0;
 
+            if (DOM.supportTransforms) {
+                clone();
+            } // if
+
             zoomLevel = value;
 
             updateOffset(
@@ -4502,6 +4551,7 @@ var View = function(params) {
     var _self = {
         id: params.id,
         padding: padding,
+        panSpeed: 0,
 
         attachFrame: attachFrame,
         detach: detach,
@@ -5450,7 +5500,8 @@ var TileLayer = function(genId, params) {
         imageLoadArgs: {}
     }, params);
 
-    var genFn = genId ? Generator.init(genId, params).run : null,
+    var TILELOAD_MAX_PANSPEED = 2,
+        genFn = genId ? Generator.init(genId, params).run : null,
         generating = false,
         storage = null,
         zoomTrees = [],
@@ -5485,9 +5536,12 @@ var TileLayer = function(genId, params) {
     /**
     ### draw(renderer)
     */
-    function draw(renderer, viewport) {
+    function draw(renderer, viewport, view) {
         if (renderer.drawTiles) {
-            renderer.drawTiles(viewport, storage.search(XYRect.buffer(viewport, 128)));
+            renderer.drawTiles(
+                viewport,
+                storage.search(XYRect.buffer(viewport, 128)),
+                view.panSpeed < TILELOAD_MAX_PANSPEED);
         } // if
     } // draw
 

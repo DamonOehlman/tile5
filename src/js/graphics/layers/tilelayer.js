@@ -7,7 +7,8 @@ var TileLayer = function(genId, params) {
     }, params);
     
     // initialise variables
-    var genFn = genId ? Generator.init(genId, params).run : null,
+    var TILELOAD_MAX_PANSPEED = 2,
+        genFn = genId ? Generator.init(genId, params).run : null,
         generating = false,
         storage = null,
         zoomTrees = [],
@@ -44,9 +45,12 @@ var TileLayer = function(genId, params) {
     /**
     ### draw(renderer)
     */
-    function draw(renderer, viewport) {
+    function draw(renderer, viewport, view) {
         if (renderer.drawTiles) {
-            renderer.drawTiles(viewport, storage.search(XYRect.buffer(viewport, 128)));
+            renderer.drawTiles(
+                viewport, 
+                storage.search(XYRect.buffer(viewport, 128)),
+                view.panSpeed < TILELOAD_MAX_PANSPEED);
         } // if
     } // draw    
     

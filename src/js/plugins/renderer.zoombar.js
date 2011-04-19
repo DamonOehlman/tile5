@@ -69,42 +69,41 @@ T5.registerRenderer('zoombar', function(view, panFrame, container, params, baseR
     
     function createButton(btnIndex, marginTop) {
         // create the zoom in button
-        var button = buttons[btnIndex] = document.createElement('div');
-        button.className = 't5-zoombar-button';
-        button.style.cssText = COG.formatStr(
-            'position: absolute; background: {0}; z-index: 51; width: {1}px; height: {2}px; margin-top: {3}px',
-            getButtonBackground(btnIndex),
-            params.width,
-            params.buttonHeight,
-            marginTop || 0);
+        var button = buttons[btnIndex] = T5.DOM.create('div', '', 't5-zoombar-button', {
+            position: 'absolute',
+            background: getButtonBackground(btnIndex),
+            'z-index': 51,
+            width: params.width + 'px',
+            height: params.buttonHeight + 'px',
+            'margin-top': (marginTop || 0) + 'px'
+        });
 
         // add the button to the zoomBar
         zoomBar.appendChild(button);
     } // createButton
         
     function createThumb() {
-        thumb = document.createElement('div');
-        thumb.className = 't5-zoombar-thumb';
-        thumb.style.cssText = COG.formatStr(
-            'position: absolute; background: {0}; z-index: 51; width: {1}px; height: {2}px; margin-top: {3}px;',
-            getThumbBackground(),
-            params.width,
-            params.thumbHeight,
-            thumbPos);
-            
-        // add the thumb
-        zoomBar.appendChild(thumb);
+        zoomBar.appendChild(thumb = T5.DOM.create('div', '', 't5-zoombar-thumb', {
+            position: 'absolute',
+            background: getThumbBackground(),
+            'z-index': 51,
+            width: params.width + 'px',
+            height: params.thumbHeight + 'px',
+            margin: '10px 0 0 0',
+            top: (thumbPos - thumbMin) + 'px'
+        }));
     } // createThumb
     
     function createZoomBar() {
-        zoomBar = document.createElement('div');
-        zoomBar.className = 't5-zoombar';
-        zoomBar.style.cssText = COG.formatStr(
-            'position: absolute; background: {3}; z-index: 50; overflow: hidden; width: {0}px; height: {1}px; margin: {2};',
-            params.width,
-            params.height,
-            getMargin(),
-            getBackground());
+        zoomBar = T5.DOM.create('div', COG.objId('t5-zoombar'), 't5-zoombar', {
+            position: 'absolute',
+            background: getBackground(),
+            'z-index': 50,
+            overflow: 'hidden',
+            width: params.width + 'px',
+            height: params.height + 'px',
+            margin: getMargin()
+        });
             
         // add the zoom bar
         if (container.childNodes[0]) {
