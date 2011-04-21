@@ -102,7 +102,8 @@ var View = function(params) {
         id: COG.objId('view'),
         container: "",
         captureHover: true,
-        fastpan: true,
+        drawOnScale: true,
+        fastpan: false,
         fastpanPadding: 128,
         inertia: true,
         refreshDistance: 256,
@@ -127,7 +128,6 @@ var View = function(params) {
         layers = [],
         layerCount = 0,
         viewpane = null,
-        viewClone = null,
         panContainer = null,
         outer,
         dragObject = null,
@@ -150,7 +150,7 @@ var View = function(params) {
         offsetMaxY = null,
         offsetWrapX = false,
         offsetWrapY = false,
-        padding = params.fastpan ? params.fastpanPadding : 0,
+        padding = 0, // params.fastpan ? params.fastpanPadding : 0,
         panFrames = [],
         hitData = null,
         lastHitData = null,
@@ -198,17 +198,11 @@ var View = function(params) {
             // calculate the scale factor exponent
             scaleFactorExp = log(scaleFactor) / Math.LN2 | 0;
 
-            // if we have a view clone, then remove it
-            if (viewClone) {
-                panContainer.removeChild(viewClone.element);
-                viewClone = null;
-            } // if
-
             // COG.info('scale factor = ' + scaleFactor + ', exp = ' + scaleFactorExp);
             if (scaleFactorExp !== 0) {
                 scaleFactor = pow(2, scaleFactorExp);
                 setZoomLevel(zoomLevel + scaleFactorExp, zoomX, zoomY);
-            } // if
+            } // ifg
 
             // invalidate the view
             viewChanges++;
@@ -379,27 +373,6 @@ var View = function(params) {
         invalidate();
     } // changeRenderer
     
-    function clone() {
-        var clonedViewPane = viewpane.cloneNode(true);
-        
-        // TODO: if we are using the canvas renderer have it draw on the new canvas
-
-        if (viewClone) {
-            panContainer.removeChild(viewClone.element);
-        } // if
-        
-        // add the cloned view pane to the dom
-        panContainer.insertBefore(clonedViewPane, viewpane);
-        
-        // track the viewpane in the clonepanes array
-        viewClone = {
-            element: clonedViewPane,
-            x: 0,
-            y: 0,
-            extraTransforms: DOM.supportTransforms ? ['scale(' + scaleFactor + ')'] : []
-        };
-    } // clone
-    
     /*
     The constrain offset function is used to keep the view offset within a specified
     offset using wrapping if allowed.  The function is much more 'if / then / elsey' 
@@ -562,6 +535,7 @@ var View = function(params) {
         var extraTransforms = [],
             panning,
             scaleChanged,
+            rerender,
             newFrame = false,
             refreshValid,
             viewpaneX,
@@ -621,10 +595,16 @@ var View = function(params) {
                 extraTransforms[extraTransforms.length] = 'scale(' + scaleFactor + ')';
             } // if
             
+            // determine whether we should rerender or not
+            rerender = (! fastpan) || (
+                (params.drawOnScale || scaleFactor === 1) && 
+                panSpeed < PANSPEED_THRESHOLD_FASTPAN
+            );
+            
             // otherwise, reset the view pane position and refire the renderer
-            if ((! fastpan) || scaleFactor !== 1 || panSpeed < PANSPEED_THRESHOLD_FASTPAN) {
-                offsetX = (offsetX - panX) | 0;
-                offsetY = (offsetY - panY) | 0;
+            if (rerender) {
+                offsetX = (offsetX - panX / scaleFactor) | 0;
+                offsetY = (offsetY - panY / scaleFactor) | 0;
 
                 // initialise the viewport
                 viewport = getViewport();
@@ -691,16 +671,6 @@ var View = function(params) {
                 // move the view pane
                 DOM.move(viewpane, panX, panY, extraTransforms);
             } // if..else
-            
-            // if we have a cloned view, move that in sync
-            if (viewClone) {
-                DOM.move(
-                    viewClone.element, 
-                    viewClone.x += dx, 
-                    viewClone.y += dy,
-                    viewClone.extraTransforms
-                );
-            } // if
             
             // apply the inertial dampeners 
             // really just wanted to say that...
@@ -795,7 +765,6 @@ var View = function(params) {
             // reset the pan container and container variables
             panContainer = null;
             viewpane = null;
-            viewClone = null;
         } // if
         
         // reset the pan frames
@@ -1044,11 +1013,6 @@ var View = function(params) {
                 scaledHalfWidth = halfWidth / scaling | 0,
                 scaledHalfHeight = halfHeight / scaling | 0;
                 
-            // clone the current view (if transforms are supported and we have scaled the view)
-            if (DOM.supportTransforms && (abs(value - zoomLevel) <= 1)) {
-                clone();
-            } // if
-            
             // update the zoom level
             zoomLevel = value;
             

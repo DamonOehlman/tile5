@@ -3618,7 +3618,8 @@ var View = function(params) {
         id: COG.objId('view'),
         container: "",
         captureHover: true,
-        fastpan: true,
+        drawOnScale: true,
+        fastpan: false,
         fastpanPadding: 128,
         inertia: true,
         refreshDistance: 256,
@@ -3640,7 +3641,6 @@ var View = function(params) {
         layers = [],
         layerCount = 0,
         viewpane = null,
-        viewClone = null,
         panContainer = null,
         outer,
         dragObject = null,
@@ -3663,7 +3663,7 @@ var View = function(params) {
         offsetMaxY = null,
         offsetWrapX = false,
         offsetWrapY = false,
-        padding = params.fastpan ? params.fastpanPadding : 0,
+        padding = 0, // params.fastpan ? params.fastpanPadding : 0,
         panFrames = [],
         hitData = null,
         lastHitData = null,
@@ -3708,15 +3708,10 @@ var View = function(params) {
 
             scaleFactorExp = log(scaleFactor) / Math.LN2 | 0;
 
-            if (viewClone) {
-                panContainer.removeChild(viewClone.element);
-                viewClone = null;
-            } // if
-
             if (scaleFactorExp !== 0) {
                 scaleFactor = pow(2, scaleFactorExp);
                 setZoomLevel(zoomLevel + scaleFactorExp, zoomX, zoomY);
-            } // if
+            } // ifg
 
             viewChanges++;
         } // if
@@ -3862,24 +3857,6 @@ var View = function(params) {
 
         invalidate();
     } // changeRenderer
-
-    function clone() {
-        var clonedViewPane = viewpane.cloneNode(true);
-
-
-        if (viewClone) {
-            panContainer.removeChild(viewClone.element);
-        } // if
-
-        panContainer.insertBefore(clonedViewPane, viewpane);
-
-        viewClone = {
-            element: clonedViewPane,
-            x: 0,
-            y: 0,
-            extraTransforms: DOM.supportTransforms ? ['scale(' + scaleFactor + ')'] : []
-        };
-    } // clone
 
     /*
     The constrain offset function is used to keep the view offset within a specified
@@ -4032,6 +4009,7 @@ var View = function(params) {
         var extraTransforms = [],
             panning,
             scaleChanged,
+            rerender,
             newFrame = false,
             refreshValid,
             viewpaneX,
@@ -4078,9 +4056,14 @@ var View = function(params) {
                 extraTransforms[extraTransforms.length] = 'scale(' + scaleFactor + ')';
             } // if
 
-            if ((! fastpan) || scaleFactor !== 1 || panSpeed < PANSPEED_THRESHOLD_FASTPAN) {
-                offsetX = (offsetX - panX) | 0;
-                offsetY = (offsetY - panY) | 0;
+            rerender = (! fastpan) || (
+                (params.drawOnScale || scaleFactor === 1) &&
+                panSpeed < PANSPEED_THRESHOLD_FASTPAN
+            );
+
+            if (rerender) {
+                offsetX = (offsetX - panX / scaleFactor) | 0;
+                offsetY = (offsetY - panY / scaleFactor) | 0;
 
                 viewport = getViewport();
 
@@ -4131,15 +4114,6 @@ var View = function(params) {
             else {
                 DOM.move(viewpane, panX, panY, extraTransforms);
             } // if..else
-
-            if (viewClone) {
-                DOM.move(
-                    viewClone.element,
-                    viewClone.x += dx,
-                    viewClone.y += dy,
-                    viewClone.extraTransforms
-                );
-            } // if
 
             if (pointerDown || (! params.inertia)) {
                 dx = 0;
@@ -4216,7 +4190,6 @@ var View = function(params) {
 
             panContainer = null;
             viewpane = null;
-            viewClone = null;
         } // if
 
         panFrames = [];
@@ -4438,10 +4411,6 @@ var View = function(params) {
             var scaling = pow(2, value - zoomLevel),
                 scaledHalfWidth = halfWidth / scaling | 0,
                 scaledHalfHeight = halfHeight / scaling | 0;
-
-            if (DOM.supportTransforms && (abs(value - zoomLevel) <= 1)) {
-                clone();
-            } // if
 
             zoomLevel = value;
 
