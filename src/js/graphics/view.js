@@ -102,7 +102,7 @@ var View = function(params) {
         id: COG.objId('view'),
         container: "",
         captureHover: true,
-        fastpan: false,
+        fastpan: true,
         fastpanPadding: 128,
         inertia: true,
         refreshDistance: 256,
@@ -183,27 +183,37 @@ var View = function(params) {
         scale(min(max(scaleFactor + pow(2, scaleChange) - 1, 0.5), 2));
     } // handleWheelZoom
     
-    function scaleView() {
-        var scaleFactorExp = log(scaleFactor) / Math.LN2 | 0;
+    function scaleView(newScaleFactor) {
+        var scaleFactorExp,
+            flooredScaleFactor = newScaleFactor | 0,
+            fraction = newScaleFactor - flooredScaleFactor;
         
-        // if we have a view clone, then remove it
-        if (viewClone) {
-            panContainer.removeChild(viewClone.element);
-            viewClone = null;
-        } // if
+        // round to the nearest 0.125
+        newScaleFactor = flooredScaleFactor + Math.round(fraction * 50) / 50;
         
-        // COG.info('scale factor = ' + scaleFactor + ', exp = ' + scaleFactorExp);
-        if (scaleFactorExp !== 0) {
-            scaleFactor = pow(2, scaleFactorExp);
-            setZoomLevel(zoomLevel + scaleFactorExp, zoomX, zoomY);
-        }
+        if (newScaleFactor !== scaleFactor) {
+            // update the scale factor
+            scaleFactor = newScaleFactor;
+            
+            // calculate the scale factor exponent
+            scaleFactorExp = log(scaleFactor) / Math.LN2 | 0;
 
-        // invalidate the view
-        viewChanges++;
+            // if we have a view clone, then remove it
+            if (viewClone) {
+                panContainer.removeChild(viewClone.element);
+                viewClone = null;
+            } // if
+
+            // COG.info('scale factor = ' + scaleFactor + ', exp = ' + scaleFactorExp);
+            if (scaleFactorExp !== 0) {
+                scaleFactor = pow(2, scaleFactorExp);
+                setZoomLevel(zoomLevel + scaleFactorExp, zoomX, zoomY);
+            } // if
+
+            // invalidate the view
+            viewChanges++;
+        } // if
     } // scaleView
-    
-    function setZoomCenter(xy) {
-    } // setZoomCenter
     
     function getProjectedXY(srcX, srcY) {
         // first see if the renderer will determine the projected xy
@@ -386,7 +396,7 @@ var View = function(params) {
             element: clonedViewPane,
             x: 0,
             y: 0,
-            extraTransforms: DOM.supportTransforms ? 'scale(' + scaleFactor + ')' : ''
+            extraTransforms: DOM.supportTransforms ? ['scale(' + scaleFactor + ')'] : []
         };
     } // clone
     
@@ -549,7 +559,7 @@ var View = function(params) {
     
     function cycle(tickCount) {
         // check to see if we are panning
-        var extraTransforms = '',
+        var extraTransforms = [],
             panning,
             scaleChanged,
             newFrame = false,
@@ -602,8 +612,17 @@ var View = function(params) {
             panX += dx;
             panY += dy;
             
+            if (dx || dy) {
+                _self.trigger('pan');
+            } // if
+            
+            // if transforms are supported, then scale using transforms
+            if ((scaleFactor !== 1) && DOM.supportTransforms) {
+                extraTransforms[extraTransforms.length] = 'scale(' + scaleFactor + ')';
+            } // if
+            
             // otherwise, reset the view pane position and refire the renderer
-            if ((! fastpan) || panSpeed < PANSPEED_THRESHOLD_FASTPAN) {
+            if ((! fastpan) || scaleFactor !== 1 || panSpeed < PANSPEED_THRESHOLD_FASTPAN) {
                 offsetX = (offsetX - panX) | 0;
                 offsetY = (offsetY - panY) | 0;
 
@@ -664,35 +683,13 @@ var View = function(params) {
                     // update the last cycle ticks
                     lastScaleFactor = scaleFactor;
                     
-                    // if transforms are supported, then scale using transforms
-                    if (DOM.supportTransforms) {
-                        extraTransforms += 'scale(' + scaleFactor + ')';
-                    }
-                    /*
-                    // otherwise, use the css zoom property
-                    else {
-                        // set the viewpan zoom
-                        viewpane.style.zoom = scaleFactor;
-
-                        // if the scale factor is not equal to 1, then calculate the view pane x and y
-                        if (scaleFactor < 1) {
-                            viewpaneX = -(halfOuterWidth - halfWidth / scaleFactor);
-                            viewpaneY = -(halfOuterHeight - halfHeight / scaleFactor);
-                        }
-                        else if (scaleFactor > 1) {
-                            viewpaneX = (halfOuterWidth / scaleFactor - halfWidth);
-                            viewpaneY = (halfOuterHeight / scaleFactor -  halfHeight);
-                        } // if..else
-                    } // if..else
-                    */
-
                     // reset the view pan position
                     DOM.move(viewpane, viewpaneX, viewpaneY, extraTransforms);
                 } // if
             }
             else {
                 // move the view pane
-                DOM.move(viewpane, panX, panY);
+                DOM.move(viewpane, panX, panY, extraTransforms);
             } // if..else
             
             // if we have a cloned view, move that in sync
@@ -991,7 +988,7 @@ var View = function(params) {
     */
     function scale(targetScaling, targetXY, tweenFn, callback, duration) {
         var scaleFactorExp;
-        
+                
         // if partial scrolling is disabled handle it
         if (! partialScaling) {
             tweenFn = false;
@@ -1006,13 +1003,13 @@ var View = function(params) {
         if (tweenFn) {
             COG.tweenValue(scaleFactor, targetScaling, tweenFn, duration, function(val, completed) {
                 // update the scale factor
-                scaleFactor = val;
+                targetScaling = val;
                 
                 if (completed) {
-                    scaleFactorExp = round(log(scaleFactor) / Math.LN2);
+                    scaleFactorExp = round(log(targetScaling) / Math.LN2);
 
                     // round the scale factor to the nearest power of 2
-                    scaleFactor = pow(2, scaleFactorExp);
+                    targetScaling = pow(2, scaleFactorExp);
 
                     // if we have a callback to complete, then call it
                     if (callback) {
@@ -1021,17 +1018,13 @@ var View = function(params) {
                 } // if
 
                 // trigger the on animate handler
-                setZoomCenter(targetXY);
-                scaleView();
+                scaleView(targetScaling);
             });
         }
         // otherwise, update the scale factor and fire the callback
         else {
-            scaleFactor = targetScaling;
-            
             // update the zoom center
-            setZoomCenter(targetXY);
-            scaleView();
+            scaleView(targetScaling);
         }  // if..else        
 
         return _self;
@@ -1052,7 +1045,7 @@ var View = function(params) {
                 scaledHalfHeight = halfHeight / scaling | 0;
                 
             // clone the current view (if transforms are supported and we have scaled the view)
-            if (DOM.supportTransforms) {
+            if (DOM.supportTransforms && (abs(value - zoomLevel) <= 1)) {
                 clone();
             } // if
             
@@ -1201,6 +1194,9 @@ var View = function(params) {
     
     // handle the view being resynced
     _self.bind('resync', handleResync);
+    _self.bind('resize', function() {
+        renderer.checkSize();
+    });
     
     // make the view configurable
     COG.configurable(

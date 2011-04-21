@@ -17,31 +17,31 @@ T5.RouteTools = (function() {
         REGEX_BEAR = /bear/i,
         REGEX_DIR_RIGHT = /right/i,
         
-        TurnTypes = [
-            'unknown',
+        // initialise the turn type sprite positions
+        TurnTypeSprites = {
+            'unknown': '0:0',
             
-            'start',
-            'none',
-            'arrive',
+            'start': '1:0',
+            'continue': '1:1',
+            'arrive': '1:2',
             
-            'left',
-            'left-slight',
-            'left-sharp',
+            'left': '2:0',
+            'left-slight': '2:1',
+            'left-sharp': '2:2',
             
-            'right',
-            'right-slight',
-            'right-sharp',
+            'right': '3:0',
+            'right-slight': '3:1',
+            'right-sharp': '3:2',
+             
+            'uturn-left': '4:0',
+            'uturn-right': '4:1',
+            'merge': '4:2',
             
-            'merge',
+            'roundabout-enter': '5:0',
             
-            'uturn-left',
-            'uturn-right',
-            
-            'roundabout-enter',
-            
-            'ramp',
-            'ramp-exit'
-        ];
+            'ramp': '6:0',
+            'ramp-exit': '6:1'
+        };
     
     // EN-* manuever text matching rules 
     var DefaultTurnTypeRules = (function() {
@@ -49,7 +49,7 @@ T5.RouteTools = (function() {
 
         rules.push({
             regex: /continue/i,
-            turnType: 'none'
+            turnType: 'continue'
         });
 
         rules.push({

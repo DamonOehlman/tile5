@@ -1890,7 +1890,7 @@ var DOM = (function() {
                     'translate3d(' + x +'px, ' + y + 'px, 0px)' :
                     'translate(' + x + 'px, ' + y + 'px)';
 
-            element.style[transformProp] = translate + ' ' + (extraTransforms || '');
+            element.style[transformProp] = translate + ' ' + (extraTransforms || []).join(' ');
         }
         else {
             element.style.left = x + 'px';
@@ -1905,7 +1905,7 @@ var DOM = (function() {
     /* initialization */
 
     transformProp = checkCaps(testTransformProps);
-    css3DTransformProps = checkCaps(css3dTransformProps);
+    css3DTransformProp = checkCaps(css3dTransformProps);
 
     return {
         supportTransforms: transformProp,
@@ -3618,7 +3618,7 @@ var View = function(params) {
         id: COG.objId('view'),
         container: "",
         captureHover: true,
-        fastpan: false,
+        fastpan: true,
         fastpanPadding: 128,
         inertia: true,
         refreshDistance: 256,
@@ -3696,24 +3696,31 @@ var View = function(params) {
         scale(min(max(scaleFactor + pow(2, scaleChange) - 1, 0.5), 2));
     } // handleWheelZoom
 
-    function scaleView() {
-        var scaleFactorExp = log(scaleFactor) / Math.LN2 | 0;
+    function scaleView(newScaleFactor) {
+        var scaleFactorExp,
+            flooredScaleFactor = newScaleFactor | 0,
+            fraction = newScaleFactor - flooredScaleFactor;
 
-        if (viewClone) {
-            panContainer.removeChild(viewClone.element);
-            viewClone = null;
+        newScaleFactor = flooredScaleFactor + Math.round(fraction * 50) / 50;
+
+        if (newScaleFactor !== scaleFactor) {
+            scaleFactor = newScaleFactor;
+
+            scaleFactorExp = log(scaleFactor) / Math.LN2 | 0;
+
+            if (viewClone) {
+                panContainer.removeChild(viewClone.element);
+                viewClone = null;
+            } // if
+
+            if (scaleFactorExp !== 0) {
+                scaleFactor = pow(2, scaleFactorExp);
+                setZoomLevel(zoomLevel + scaleFactorExp, zoomX, zoomY);
+            } // if
+
+            viewChanges++;
         } // if
-
-        if (scaleFactorExp !== 0) {
-            scaleFactor = pow(2, scaleFactorExp);
-            setZoomLevel(zoomLevel + scaleFactorExp, zoomX, zoomY);
-        }
-
-        viewChanges++;
     } // scaleView
-
-    function setZoomCenter(xy) {
-    } // setZoomCenter
 
     function getProjectedXY(srcX, srcY) {
         var projectedXY = renderer && renderer.projectXY ? renderer.projectXY(srcX, srcY) : null;
@@ -3870,7 +3877,7 @@ var View = function(params) {
             element: clonedViewPane,
             x: 0,
             y: 0,
-            extraTransforms: DOM.supportTransforms ? 'scale(' + scaleFactor + ')' : ''
+            extraTransforms: DOM.supportTransforms ? ['scale(' + scaleFactor + ')'] : []
         };
     } // clone
 
@@ -4022,7 +4029,7 @@ var View = function(params) {
     } // checkHits
 
     function cycle(tickCount) {
-        var extraTransforms = '',
+        var extraTransforms = [],
             panning,
             scaleChanged,
             newFrame = false,
@@ -4063,7 +4070,15 @@ var View = function(params) {
             panX += dx;
             panY += dy;
 
-            if ((! fastpan) || panSpeed < PANSPEED_THRESHOLD_FASTPAN) {
+            if (dx || dy) {
+                _self.trigger('pan');
+            } // if
+
+            if ((scaleFactor !== 1) && DOM.supportTransforms) {
+                extraTransforms[extraTransforms.length] = 'scale(' + scaleFactor + ')';
+            } // if
+
+            if ((! fastpan) || scaleFactor !== 1 || panSpeed < PANSPEED_THRESHOLD_FASTPAN) {
                 offsetX = (offsetX - panX) | 0;
                 offsetY = (offsetY - panY) | 0;
 
@@ -4110,29 +4125,11 @@ var View = function(params) {
 
                     lastScaleFactor = scaleFactor;
 
-                    if (DOM.supportTransforms) {
-                        extraTransforms += 'scale(' + scaleFactor + ')';
-                    }
-                    /*
-                    else {
-                        viewpane.style.zoom = scaleFactor;
-
-                        if (scaleFactor < 1) {
-                            viewpaneX = -(halfOuterWidth - halfWidth / scaleFactor);
-                            viewpaneY = -(halfOuterHeight - halfHeight / scaleFactor);
-                        }
-                        else if (scaleFactor > 1) {
-                            viewpaneX = (halfOuterWidth / scaleFactor - halfWidth);
-                            viewpaneY = (halfOuterHeight / scaleFactor -  halfHeight);
-                        } // if..else
-                    } // if..else
-                    */
-
                     DOM.move(viewpane, viewpaneX, viewpaneY, extraTransforms);
                 } // if
             }
             else {
-                DOM.move(viewpane, panX, panY);
+                DOM.move(viewpane, panX, panY, extraTransforms);
             } // if..else
 
             if (viewClone) {
@@ -4406,27 +4403,23 @@ var View = function(params) {
 
         if (tweenFn) {
             COG.tweenValue(scaleFactor, targetScaling, tweenFn, duration, function(val, completed) {
-                scaleFactor = val;
+                targetScaling = val;
 
                 if (completed) {
-                    scaleFactorExp = round(log(scaleFactor) / Math.LN2);
+                    scaleFactorExp = round(log(targetScaling) / Math.LN2);
 
-                    scaleFactor = pow(2, scaleFactorExp);
+                    targetScaling = pow(2, scaleFactorExp);
 
                     if (callback) {
                         callback();
                     } // if
                 } // if
 
-                setZoomCenter(targetXY);
-                scaleView();
+                scaleView(targetScaling);
             });
         }
         else {
-            scaleFactor = targetScaling;
-
-            setZoomCenter(targetXY);
-            scaleView();
+            scaleView(targetScaling);
         }  // if..else
 
         return _self;
@@ -4446,7 +4439,7 @@ var View = function(params) {
                 scaledHalfWidth = halfWidth / scaling | 0,
                 scaledHalfHeight = halfHeight / scaling | 0;
 
-            if (DOM.supportTransforms) {
+            if (DOM.supportTransforms && (abs(value - zoomLevel) <= 1)) {
                 clone();
             } // if
 
@@ -4583,6 +4576,9 @@ var View = function(params) {
     COG.observable(_self);
 
     _self.bind('resync', handleResync);
+    _self.bind('resize', function() {
+        renderer.checkSize();
+    });
 
     COG.configurable(
         _self, [

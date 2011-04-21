@@ -16,38 +16,37 @@ T5.RouteTools = (function() {
         REGEX_BEAR = /bear/i,
         REGEX_DIR_RIGHT = /right/i,
 
-        TurnTypes = [
-            'unknown',
+        TurnTypeSprites = {
+            'unknown': '0:0',
 
-            'start',
-            'none',
-            'arrive',
+            'start': '1:0',
+            'continue': '1:1',
+            'arrive': '1:2',
 
-            'left',
-            'left-slight',
-            'left-sharp',
+            'left': '2:0',
+            'left-slight': '2:1',
+            'left-sharp': '2:2',
 
-            'right',
-            'right-slight',
-            'right-sharp',
+            'right': '3:0',
+            'right-slight': '3:1',
+            'right-sharp': '3:2',
 
-            'merge',
+            'uturn-left': '4:0',
+            'uturn-right': '4:1',
+            'merge': '4:2',
 
-            'uturn-left',
-            'uturn-right',
+            'roundabout-enter': '5:0',
 
-            'roundabout-enter',
-
-            'ramp',
-            'ramp-exit'
-        ];
+            'ramp': '6:0',
+            'ramp-exit': '6:1'
+        };
 
     var DefaultTurnTypeRules = (function() {
         var rules = [];
 
         rules.push({
             regex: /continue/i,
-            turnType: 'none'
+            turnType: 'continue'
         });
 
         rules.push({

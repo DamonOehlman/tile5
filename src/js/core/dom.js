@@ -51,7 +51,7 @@ var DOM = (function() {
                     'translate3d(' + x +'px, ' + y + 'px, 0px)' : 
                     'translate(' + x + 'px, ' + y + 'px)';
             
-            element.style[transformProp] = translate + ' ' + (extraTransforms || '');
+            element.style[transformProp] = translate + ' ' + (extraTransforms || []).join(' ');
         }
         else {
             element.style.left = x + 'px';
@@ -66,7 +66,7 @@ var DOM = (function() {
     /* initialization */
     
     transformProp = checkCaps(testTransformProps);
-    css3DTransformProps = checkCaps(css3dTransformProps);
+    css3DTransformProp = checkCaps(css3dTransformProps);
     
     return {
         supportTransforms: transformProp,
