@@ -4,11 +4,11 @@ __PLUGIN__: `plugins/geo.searchtools.js`
 
 The Tile5 search tools plugin is an extraction of some of the core search
 functionality that was originally implemented in the core Tile5 library. Basically
-the goal is to create a suite of tools that assist with the rationalization of
-multiple search results across a number of disparate stores and help aggregate
+the goal is to create a suite of tools that assist with the rationalization of 
+multiple search results across a number of disparate stores and help aggregate 
 those into a single meaningful set of results.
 
-Depending on the capabilities of the current browser the search tools module is
+Depending on the capabilities of the current browser the search tools module is 
 capable of taking forward geocoding requests, reverse geocoding requests, direction
 requests and 'Current Location' requests and attempting to provide results based
 on the geo engines that are currently available in the Tile5 application.
@@ -20,9 +20,9 @@ on the geo engines that are currently available in the Tile5 application.
 ## Module Methods
 */
 T5.SearchTools = (function() {
-
+    
     /* internals */
-
+    
     var GeoSearchResult = function(params) {
         params = _extend({
             id: null,
@@ -39,7 +39,7 @@ T5.SearchTools = (function() {
             }
         });
     };
-
+    
     var LocationSearch = function(params) {
         params = _extend({
             name: "Geolocation Search",
@@ -56,7 +56,7 @@ T5.SearchTools = (function() {
 
         function parsePosition(position) {
             var currentPos = new Pos(
-                    position.coords.latitude,
+                    position.coords.latitude, 
                     position.coords.longitude);
 
             return new GeoSearchResult({
@@ -72,6 +72,7 @@ T5.SearchTools = (function() {
             navigator.geolocation.clearWatch(geoWatchId);
             geoWatchId = 0;
 
+            // if we have a location timeout reset that
             if (locationTimeout) {
                 clearTimeout(locationTimeout);
                 locationTimeout = 0;
@@ -86,28 +87,36 @@ T5.SearchTools = (function() {
             _log('caught location tracking error:', error);
         } // trackingError
 
+        // initialise the geosearch agent
         var _self = new T5.Geo.GeoSearchAgent(_extend({
             execute: function(searchParams, callback) {
                 if (navigator.geolocation && (! geoWatchId)) {
+                    // watch for position updates
                     geoWatchId = navigator.geolocation.watchPosition(
                         function(position) {
                             var newPosition = parsePosition(position);
 
+                            // if the new position is better than the last
+                            // then update the last position
                             if ((! lastPosition) || (newPosition.accuracy < lastPosition.accuracy)) {
                                 lastPosition = newPosition;
                             } // if
 
-                            if ((! params.requiredAccuracy) ||
+                            // if we don't have a required accuracy or the last
+                            // position is at a sufficient accuracy, then fire the 
+                            // callback
+                            if ((! params.requiredAccuracy) || 
                                 (lastPosition.accuracy < params.requiredAccuracy)) {
                                 sendPosition(lastPosition, callback);
                             } // if
-                        },
+                        }, 
                         trackingError, {
                             enableHighAccuracy: true,
                             timeout: 10000,
                             maximumAge: 5000
                         });
 
+                    // implement the search timeout
                     if (params.searchTimeout) {
                         locationTimeout = setTimeout(function() {
                             if (lastPosition) {
@@ -121,29 +130,31 @@ T5.SearchTools = (function() {
 
         return _self;
     };
-
+    
     var DEFAULT_MAXDIFF = 20;
-
+    
     function bestResults(searchResults, maxDifference) {
         maxDifference = maxDifference || DEFAULT_MAXDIFF;
-
+        
+        // initialise variables
         var bestMatch = searchResults.length > 0 ? searchResults[0] : null,
             fnresult = [];
-
+            
+        // iterate through the search results and cull those that are 
         for (var ii = 0; ii < searchResults.length; ii++) {
-            if (bestMatch && searchResults[ii] &&
+            if (bestMatch && searchResults[ii] && 
                 (bestMatch.matchWeight - searchResults[ii].matchWeight <= maxDifference)) {
-
+                    
                 fnresult.push(searchResults[ii]);
             }
             else {
                 break;
             } // if..else
         } // for
-
+        
         return fnresult;
     }
-
+    
     /*
     ### rankGeocodeResponses(requestAddress, responseAddress, engine)
     To be completed
@@ -152,10 +163,12 @@ T5.SearchTools = (function() {
         var matches = [],
             compareFns = {};
 
+        // if the engine is specified and the engine has compare fns, then extend them
         if (engine && engine.compareFns) {
             compareFns = _extend({}, compareFns, engine.compareFns);
         } // if
 
+        // iterate through the response addresses and compare against the request address
         for (var ii = 0; ii < responseAddresses.length; ii++) {
             matches.push(new module.GeoSearchResult({
                 caption: addrTools.toString(responseAddresses[ii]),
@@ -165,15 +178,16 @@ T5.SearchTools = (function() {
             }));
         } // for
 
+        // TODO: sort the matches
         matches.sort(function(itemA, itemB) {
             return itemB.matchWeight - itemA.matchWeight;
         });
 
         return matches;
     } // rankGeocodeResponses
-
+    
     /* exports */
-
+    
     var module = {
         GeocodeFieldWeights: {
             streetDetails: 50,
@@ -182,15 +196,16 @@ T5.SearchTools = (function() {
 
         /**
         ### search(args, callback)
-        The search method represents the guts of the SearchTools module. The args parameter accepts
+        The search method represents the guts of the SearchTools module. The args parameter accepts 
         either a simple string or an object literal which is then passed onto suitable search agents.
         */
         search: function(args, callback) {
-
+            
         }
     };
-
+    
+    // make the module observable
     _observable(module);
-
+    
     return module;
 })();

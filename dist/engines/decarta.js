@@ -210,7 +210,14 @@ var placeFormatters = {
 };
 
 var lastZoom = null,
-    requestCounter = 1;
+    requestCounter = 1,
+    header = _formatter(
+        "<xls:XLS version='1' xls:lang='en' xmlns:xls='http://www.opengis.net/xls' rel='{4}' xmlns:gml='http://www.opengis.net/gml'>" +
+            "<xls:RequestHeader clientName='{0}' clientPassword='{1}' sessionID='{2}' configuration='{3}' />" +
+            "{5}" +
+        "</xls:XLS>"),
+    requestFormatter = _formatter("<xls:Request maximumResponses='{0}' version='{1}' requestID='{2}' methodName='{3}Request'>{4}</xls:Request>"),
+    urlFormatter = _formatter('{0}/JSON?reqID={1}&chunkNo=1&numChunks=1&data={2}&responseFormat=JSON');
 
 /* internal decarta functions */
 
@@ -230,7 +237,7 @@ function distanceToMeters(distance) {
 } // uomToMeters
 
 var Address = function(params) {
-        params = COG.extend({
+        params = T5.ex({
             countryCode: currentConfig.geocoding.countryCode,
             language: currentConfig.geocoding.language,
             freeform: null,
@@ -239,9 +246,11 @@ var Address = function(params) {
             }
         }, params);
 
+        var addressHeader = _formatter('<xls:Address countryCode="{0}" language="{1}">');
+
         var _self = {
             getXML: function() {
-                var addressXml = COG.formatStr("<xls:Address countryCode=\"{0}\" language=\"{1}\">", params.countryCode, params.language);
+                var addressXml = addressHeader(params.countryCode, params.language);
 
                 if (params.freeform) {
                     var addressText = String(params.freeform).replace(/(\'|\")/, "\\$1");
@@ -259,7 +268,7 @@ var Address = function(params) {
     },
 
     Place = function(params) {
-        params = COG.extend({
+        params = T5.ex({
             landmark: "",
             municipality: "",
             municipalitySubdivision: "",
@@ -267,27 +276,27 @@ var Address = function(params) {
             countryCode: ""
         }, params);
 
-        var _self = COG.extend({
+        var _self = T5.ex({
             calcMatchPercentage: function(input) {
                 var fnresult = 0;
 
                 if (params.landmark && params.landmarkSubType) {
-                    if (COG.wordExists(input, params.landmarkSubType)) {
+                    if (T5.wordExists(input, params.landmarkSubType)) {
                         fnresult += 0.4;
 
-                        fnresult += COG.wordExists(input, params.landmark) ? 0.6 : 0;
+                        fnresult += T5.wordExists(input, params.landmark) ? 0.6 : 0;
                     } // if
                 }
                 else {
-                    fnresult += COG.wordExists(input, params.municipalitySubdivision) ? 0.8 : 0;
+                    fnresult += T5.wordExists(input, params.municipalitySubdivision) ? 0.8 : 0;
 
                     if ((fnresult === 0) && params.municipality) {
-                        fnresult += COG.wordExists(input, params.municipality) ? 0.7 : 0;
+                        fnresult += T5.wordExists(input, params.municipality) ? 0.7 : 0;
                     } // if
                 } // if..else
 
                 if (params.countrySubdivision) {
-                    fnresult += COG.wordExists(input, params.countrySubdivision) ? 0.2 : 0;
+                    fnresult += T5.wordExists(input, params.countrySubdivision) ? 0.2 : 0;
                 } // if
 
                 return fnresult;
@@ -314,7 +323,7 @@ var Address = function(params) {
                     } // if
                 } // for
 
-                COG.extend(_self, params);
+                T5.ex(_self, params);
             },
 
             toString: function() {
@@ -332,7 +341,7 @@ var Address = function(params) {
     },
 
     Street = function(params) {
-        params = COG.extend({
+        params = T5.ex({
             json: {}
         }, params);
 
@@ -366,7 +375,7 @@ var Address = function(params) {
                     } // if
                 } // if
 
-                if (test1 && test2 && COG.wordExists(test1, test2)) {
+                if (test1 && test2 && T5.wordExists(test1, test2)) {
                     fnresult += 0.8;
                 } // if
 
@@ -393,12 +402,7 @@ var Address = function(params) {
 /* request types and functions */
 
 function createRequestHeader(payload) {
-    return COG.formatStr(
-        "<xls:XLS version='1' xls:lang='en' xmlns:xls='http://www.opengis.net/xls' rel='{4}' xmlns:gml='http://www.opengis.net/gml'>" +
-            "<xls:RequestHeader clientName='{0}' clientPassword='{1}' sessionID='{2}' configuration='{3}' />" +
-            "{5}" +
-        "</xls:XLS>",
-
+    return header(
         currentConfig.clientName,
         currentConfig.clientPassword,
         currentConfig.sessionID,
@@ -408,8 +412,7 @@ function createRequestHeader(payload) {
 } // createRequestHeader
 
 function createRequestTag(request, payload) {
-    return COG.formatStr(
-        "<xls:Request maximumResponses='{0}' version='{1}' requestID='{2}' methodName='{3}Request'>{4}</xls:Request>",
+    return requestFormatter(
         request.maxResponses,
         request.version,
         request.requestID,
@@ -423,18 +426,15 @@ function generateRequest(request) {
 
 function generateRequestUrl(request, request_data) {
     if (! currentConfig.server) {
-        COG.warn("No server configured for deCarta - we are going to have issues");
+        _log("No server configured for deCarta - we are going to have issues", 'warn');
     } // if
 
-    return COG.formatStr("{0}/JSON?reqID={1}&chunkNo=1&numChunks=1&data={2}&responseFormat=JSON",
-        currentConfig.server,
-        request.requestID,
-        escape(request_data));
+    return urlFormatter(currentConfig.server, request.requestID, escape(request_data));
 } // generateRequestUrl
 
 function makeServerRequest(request, callback) {
 
-    COG.jsonp(generateRequestUrl(request, generateRequest(request)), function(data) {
+    _jsonp(generateRequestUrl(request, generateRequest(request)), function(data) {
         var response = data.response.XLS.Response;
 
         if ((response.numberOfResponses > 0) && response[request.methodName + 'Response']) {
@@ -448,7 +448,7 @@ function makeServerRequest(request, callback) {
             } // if
         }
         else {
-            COG.error("no responses from server: " + data.response);
+            _log("no responses from server: " + data.response, 'error');
         } // if..else
     });
 } // openlsComms
@@ -495,7 +495,7 @@ var Request = function() {
 };
 
 var RUOKRequest = function(params) {
-    return COG.extend(new Request(), {
+    return T5.ex(new Request(), {
         methodName: 'RUOK',
 
         parseResponse: function(response) {
@@ -507,7 +507,7 @@ var RUOKRequest = function(params) {
     });
 }; // RUOKRequest
 T5.Generator.register('decarta', function(params) {
-    params = COG.extend({
+    params = T5.ex({
         tileSize: 256
     }, params);
 
@@ -642,12 +642,14 @@ T5.Service.register('geocoder', function() {
     /* internals */
 
     var GeocodeRequest = function(params) {
-        params = COG.extend({
+        params = T5.ex({
             addresses: [],
             parserReport: false,
             parseOnly: false,
             returnSpatialKeys: false
         }, params);
+
+        var requestFormatter = _formatter('<xls:GeocodeRequest parserReport="{0}" parseOnly="{1}" returnSpatialKeys="{2}">');
 
         function validMatch(match) {
             return match.GeocodeMatchCode && match.GeocodeMatchCode.matchType !== "NO_MATCH";
@@ -691,7 +693,7 @@ T5.Service.register('geocoder', function() {
                 } // for
             }
             catch (e) {
-                COG.exception(e);
+                _log(e, 'error');
             } // try..except
 
             return addresses;
@@ -699,14 +701,11 @@ T5.Service.register('geocoder', function() {
 
         var parent = new Request();
 
-        var _self = COG.extend({}, parent, {
+        var _self = T5.ex({}, parent, {
             methodName: "Geocode",
 
             getRequestBody: function() {
-                var body = COG.formatStr("<xls:GeocodeRequest parserReport=\"{0}\" parseOnly=\"{1}\" returnSpatialKeys=\"{2}\">",
-                                params.parserReport,
-                                params.parseOnly,
-                                params.returnSpatialKeys);
+                var body = requestFormatter(params.parserReport, params.parseOnly, params.returnSpatialKeys);
 
                 for (var ii = 0; ii < params.addresses.length; ii++) {
                     body += params.addresses[ii].getXML();
@@ -735,12 +734,12 @@ T5.Service.register('geocoder', function() {
     };
 
     var ReverseGeocodeRequest = function(params) {
-        params = COG.extend({
+        params = T5.ex({
             position: null,
             geocodePreference: "StreetAddress"
         }, params);
 
-        var _self = COG.extend(new Request(), {
+        var _self = T5.ex(new Request(), {
             methodName: "ReverseGeocode",
 
             getRequestBody: function() {
@@ -776,20 +775,20 @@ T5.Service.register('geocoder', function() {
     /* exports */
 
     function forward(args) {
-        args = COG.extend({
+        args = T5.ex({
             addresses: [],
             complete: null
         }, args);
 
         var ii, requestAddresses = [];
 
-        if (args.addresses && (! COG.isArray(args.addresses))) {
+        if (args.addresses && (! T5.is(args.addresses, 'array'))) {
             args.addresses = [args.addresses];
         } // if
 
         for (ii = 0; ii < args.addresses.length; ii++) {
-            if (COG.isPlainObject(args.addresses[ii])) {
-                COG.warn("attempting to geocode a simple object - not implemented");
+            if (T5.is(args.addresses[ii], 'object')) {
+                _log("attempting to geocode a simple object - not implemented", 'warn');
             }
             else {
                 requestAddresses.push(new types.Address({
@@ -815,7 +814,7 @@ T5.Service.register('geocoder', function() {
     } // forward
 
     function reverse(args) {
-        args = COG.extend({
+        args = T5.ex({
             position: null,
             complete: null
         }, args);
@@ -840,7 +839,7 @@ T5.Service.register('geocoder', function() {
 });
 T5.Service.register('routing', function() {
     var RouteRequest = function(params) {
-        params = COG.extend({
+        params = T5.ex({
             waypoints: [],
             provideRouteHandle: false,
             distanceUnit: "KM",
@@ -850,7 +849,9 @@ T5.Service.register('routing', function() {
             routeGeometry: true
         }, params);
 
-        var parent = new Request();
+        var parent = new Request(),
+            routeHeaderFormatter = _formatter('<xls:DetermineRouteRequest provideRouteHandle="{0}" distanceUnit="{1}" routeQueryType="{2}">'),
+            waypointFormatter = _formatter('<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>');
 
         function parseInstructions(instructionList) {
             var fnresult = [],
@@ -880,7 +881,7 @@ T5.Service.register('routing', function() {
             return fnresult;
         } // parseInstructions
 
-        var _self = COG.extend({}, parent, {
+        var _self = T5.ex({}, parent, {
             methodName: "DetermineRoute",
 
             getRequestBody: function() {
@@ -888,11 +889,7 @@ T5.Service.register('routing', function() {
                     throw new Error("Cannot send RouteRequest, less than 2 waypoints specified");
                 } // if
 
-                var body = COG.formatStr(
-                                "<xls:DetermineRouteRequest provideRouteHandle=\"{0}\" distanceUnit=\"{1}\" routeQueryType=\"{2}\">",
-                                params.provideRouteHandle,
-                                params.distanceUnit,
-                                params.routeQueryType);
+                var body = routeHeaderFormatter(params.provideRouteHandle, params.distanceUnit, params.routeQueryType);
 
                 body += "<xls:RoutePlan>";
 
@@ -903,7 +900,7 @@ T5.Service.register('routing', function() {
                 for (var ii = 0; ii < params.waypoints.length; ii++) {
                     var tagName = (ii === 0 ? "StartPoint" : (ii === params.waypoints.length-1 ? "EndPoint" : "ViaPoint"));
 
-                    body += COG.formatStr("<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>", tagName, params.waypoints[ii].toString());
+                    body += waypointFormatter(tagName, params.waypoints[ii].toString());
                 }
 
                 body += "</xls:WayPointList>";
@@ -938,7 +935,7 @@ T5.Service.register('routing', function() {
     /* exports */
 
     function calculate(args, callback) {
-        args = COG.extend({
+        args = T5.ex({
            waypoints: []
         }, args);
 
@@ -951,7 +948,7 @@ T5.Service.register('routing', function() {
             });
         }
         else {
-            COG.warn('Could not generate route, T5.RouteTools plugin not found');
+            _log('Could not generate route, T5.RouteTools plugin not found', 'warn');
         } // if..else
     } // calculate
 
@@ -962,7 +959,7 @@ T5.Service.register('routing', function() {
 
     return {
         applyConfig: function(args) {
-            COG.extend(currentConfig, args);
+            T5.ex(currentConfig, args);
         },
 
         compareFns: (function() {

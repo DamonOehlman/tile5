@@ -1,89 +1,12 @@
-function ColorParser(color_string) {
-    this.ok = false;
-
-    if (color_string.charAt(0) == '#') { // remove # if any
-        color_string = color_string.substr(1,6);
-    }
-
-    color_string = color_string.replace(/ /g,'');
-    color_string = color_string.toLowerCase();
-
-    var color_defs = [
-        {
-            re: /^rgb\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})\)$/,
-            example: ['rgb(123, 234, 45)', 'rgb(255,234,245)'],
-            process: function (bits){
-                return [
-                    parseInt(bits[1], 10),
-                    parseInt(bits[2], 10),
-                    parseInt(bits[3], 10)
-                ];
-            }
-        },
-        {
-            re: /^(\w{2})(\w{2})(\w{2})$/,
-            example: ['#00ff00', '336699'],
-            process: function (bits){
-                return [
-                    parseInt(bits[1], 16),
-                    parseInt(bits[2], 16),
-                    parseInt(bits[3], 16)
-                ];
-            }
-        },
-        {
-            re: /^(\w{1})(\w{1})(\w{1})$/,
-            example: ['#fb0', 'f0f'],
-            process: function (bits){
-                return [
-                    parseInt(bits[1] + bits[1], 16),
-                    parseInt(bits[2] + bits[2], 16),
-                    parseInt(bits[3] + bits[3], 16)
-                ];
-            }
-        }
-    ];
-
-    for (var i = 0; i < color_defs.length; i++) {
-        var re = color_defs[i].re;
-        var processor = color_defs[i].process;
-        var bits = re.exec(color_string);
-        if (bits) {
-            channels = processor(bits);
-            this.r = channels[0];
-            this.g = channels[1];
-            this.b = channels[2];
-            this.ok = true;
-        }
-
-    }
-
-    this.r = (this.r < 0 || isNaN(this.r)) ? 0 : ((this.r > 255) ? 255 : this.r);
-    this.g = (this.g < 0 || isNaN(this.g)) ? 0 : ((this.g > 255) ? 255 : this.g);
-    this.b = (this.b < 0 || isNaN(this.b)) ? 0 : ((this.b > 255) ? 255 : this.b);
-
-    this.toRGB = function () {
-        return 'rgb(' + this.r + ', ' + this.g + ', ' + this.b + ')';
-    };
-
-    this.toHex = function () {
-        var r = this.r.toString(16);
-        var g = this.g.toString(16);
-        var b = this.b.toString(16);
-        if (r.length == 1) r = '0' + r;
-        if (g.length == 1) g = '0' + g;
-        if (b.length == 1) b = '0' + b;
-        return parseInt('0x' + r + g + b, 16);
-    };
-}
+//= require <colorparser.js>
 
 T5.registerRenderer('three:webgl', function(view, panFrame, container, params, baseRenderer) {
     params = _extend({
         guides: false
     }, params);
-
+    
     /* internals */
-
+    
     var TILE_SIZE = 256,
         camera,
         scene,
@@ -113,18 +36,21 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
         textureCache = {},
         materialCache = {},
         previousStyles = {};
-
+        
     function createGuides() {
         var xGeom = new THREE.Geometry(),
             yGeom = new THREE.Geometry(),
             zGeom = new THREE.Geometry();
-
+            
+        // create the x line
         xGeom.vertices.push(new THREE.Vertex(new THREE.Vector3(0, 0, 0)));
         xGeom.vertices.push(new THREE.Vertex(new THREE.Vector3(128, 0, 0)));
-
+        
+        // create the y line
         yGeom.vertices.push(new THREE.Vertex(new THREE.Vector3(0, 0, 0)));
         yGeom.vertices.push(new THREE.Vertex(new THREE.Vector3(0, 128, 0)));
-
+        
+        // create the z line
         zGeom.vertices.push(new THREE.Vertex(new THREE.Vector3(0, 0, 0)));
         zGeom.vertices.push(new THREE.Vertex(new THREE.Vector3(0, 0, 128)));
 
@@ -148,87 +74,98 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
                 linewidth: 3
             })
         ]));
-
+        
+        // add the guides to the scene
         for (var ii = guides.length; ii--; ) {
             guides[ii].position.y = 1;
             scene.addObject(guides[ii]);
         } // for
     }
-
+        
     function createCube(size) {
         var realSize = size >> 1;
         return cubes[size] = new Cube(realSize, realSize, realSize);
     } // createCube
-
+    
     function getCachedMaterials(materialKey, creator) {
         if ((! materialCache[materialKey]) && creator) {
             materialCache[materialKey] = creator();
         } // if
-
+        
         return materialCache[materialKey];
     } // getCachedMaterial
-
+    
     function getPreviousStyle(canvasId) {
+        // create the previous styles array if not created already
         if (! previousStyles[canvasId]) {
             previousStyles[canvasId] = [];
         } // if
-
+        
+        // pop the previous style from the style stack
         return previousStyles[canvasId].pop() || 'basic';
     } // getPreviousStyle
-
+    
     function handleDetach() {
-
+        // TODO: clean up the scene
+        
+        // remove the dom element from the panFrame
         container.removeChild(renderer.domElement);
     } // handleDetach
-
+    
     function handleStyleDefined(evt, styleId, styleData) {
         var fillColor = new ColorParser(styleData.fill || '#ffffff'),
             strokeColor = new ColorParser(styleData.stroke || '#ffffff');
-
+            
+        // firstly create the mesh materials for the style
         meshMaterials[styleId] = [
             new THREE.MeshLambertMaterial({
-                color: fillColor.toHex(),
-                shading: THREE.FlatShading
+                color: fillColor.toHex(), 
+                shading: THREE.FlatShading 
             })
         ];
-
+        
+        // next create the line materials for the style
         lineMaterials[styleId] = [
             new THREE.LineBasicMaterial({
                 color: strokeColor.toHex(),
                 opacity: styleData.opacity || 1,
                 linewidth: styleData.lineWidth || 2
-            })
+            })        
         ];
     } // handleStyleDefined
-
+    
     function handleRender(evt, viewport) {
+        // render the scene
         renderer.render(scene, camera);
     } // handleRender
-
+    
     function handleReset(evt) {
         removeOldObjects(activeTiles, currentTiles = {});
         removeOldObjects(activeObjects, currentObjects, 'removeOnReset');
     } // handleReset
-
+        
     function initDrawData(viewport, hitData, drawFn) {
         var isHit = false;
 
         return {
+            // initialise core draw data properties
             draw: drawFn || meshDraw,
             viewport: viewport,
             hit: isHit,
             vpX: drawOffsetX,
             vpY: drawOffsetY
         };
-    } // initDrawData
-
+    } // initDrawData        
+        
     function initThree() {
         var xSeg, ySeg;
-
+        
         if (panFrame) {
+            // initialise the viewport height and width
             vpWidth = panFrame.offsetWidth;
             vpHeight = panFrame.offsetHeight;
-
+            
+            // calculate the number of x segments
             xSeg = (vpWidth / TILE_SIZE | 0) + 1;
             ySeg = (vpHeight / TILE_SIZE | 0) + 1;
 
@@ -245,74 +182,90 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
             light.position.z = - 1;
             scene.addLight( light );
             */
-
+            
             tileBg = new THREE.Mesh(
-                new Plane(xSeg * TILE_SIZE, ySeg * TILE_SIZE, xSeg, ySeg),
-                new THREE.MeshBasicMaterial({
+                new Plane(xSeg * TILE_SIZE, ySeg * TILE_SIZE, xSeg, ySeg), 
+                new THREE.MeshBasicMaterial({ 
                     color: 0xdddddd,
                     wireframe: true
                 })
             );
-
+            
+            // if we have guides, then display them
             if (params.guides) {
                 createGuides();
             } // guides
-
+            
             tileBg.rotation.x = -Math.PI / 2;
             tileBg.position.y = -1;
             scene.addObject(tileBg);
-
+            
             globalCamera = camera = new THREE.Camera(45, vpWidth / vpHeight, 1, 2000, tileBg);
+            // camera.position.x = camera.position.y = camera.position.z = 50;
 
+            // create a plane for the tiles
             tilePlane = new Plane(TILE_SIZE, TILE_SIZE, 4, 4);
-
+            
+            // initialise the materials that will be applied to the tiles over the image
             tileMaterials = [];
 
             renderer = new THREE.WebGLRenderer();
             renderer.setSize(vpWidth, vpHeight);
-
+            
+            // add an appropriate margin to the dom element to counteract the view padding for 
+            // the 2d renderers
             renderer.domElement.style.margin = _formatter('{0}px 0 0 {0}px')(view.padding);
-
+            
+            // add the canvas to the panFrame
             container.appendChild(renderer.domElement);
         } // if
-
+        
+        // initialise geometries
         initGeometries();
-
+        
+        // initialise materials
         initMaterials();
     } // createCanvas
-
+    
     function initGeometries() {
         defaultMarker = new Cube(5, 5, 5);
     } // initGeometries
-
+    
     function initMaterials() {
     } // initMaterials
-
+    
     function loadStyles() {
         for (var styleId in T5.styles) {
             handleStyleDefined(null, styleId, T5.styles[styleId]);
         } // for
-
+        
+        // capture style defined events so we know about new styles
         T5.bind('styleDefined', handleStyleDefined);
     } // loadStyles
-
+    
     function loadTexture(imageUrl, mapping, callback) {
+        // get the image, 
         T5.getImage(imageUrl, function(image) {
+            // create the texture
             var texture = new THREE.Texture(image, mapping);
-
+            
+            // flag as needing an update
             texture.needsUpdate = true;
-
+            
+            // add to the texture cache
             textureCache[imageUrl] = texture;
-
+            
+            // if we have a callback, then fire it
             if (callback) {
                 callback(texture);
             } // if
         });
     } // loadTexture
-
+    
     function loadTileMesh(tile) {
+        // flag the tile as loading
         activeTiles[tile.id] = tile;
-
+        
         T5.getImage(tile.url, function(image) {
             var texture = new THREE.Texture(image),
                 mesh = tile.mesh = new THREE.Mesh(
@@ -323,138 +276,161 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
                     ].concat(tileMaterials)
                 );
 
+            // set the id of the mesh object
             mesh.id = tile.id;
             mesh.rotation.x = -Math.PI / 2;
 
+            // flag the texture as needing an update
             texture.needsUpdate = true;
 
+            // update the mesh position and add to the scene
             mesh.position.x = tile.x + tile.w / 2;
             mesh.position.z = tile.y + tile.h / 2;
             scene.addObject(mesh);
-
+            
+            // invalidate the view
             view.invalidate();
         });
     } // loadTileMesh
-
+    
     function removeOldObjects(activeObj, currentObj, flagField) {
         var deletedKeys = [];
-
+        
+        // iterate through the active objects 
+        // TODO: use something other than a for in loop please...
         for (var objId in activeObj) {
             var item = activeObj[objId],
                 inactive = flagField ? item[flagField] : (! currentObj[objId]);
-
+            
+            // if the object is not in the current objects, remove from the scene
             if (inactive) {
                 if (item.mesh) {
+                    // remove the file object
                     scene.removeChild(item.mesh);
 
+                    // reset the mesh
                     item.mesh = null;
                 } // if
-
+                
+                // add to the deleted keys
                 deletedKeys[deletedKeys.length] = objId;
             } // if
         } // for
-
+        
+        // remove the deleted keys from the active objects
         for (var ii = deletedKeys.length; ii--; ) {
             delete activeObj[deletedKeys[ii]];
         } // for
     } // removeOldObjects
-
+    
     function shiftViewport(centerX, centerY, scaleFactor) {
         for (var ii = guides.length; ii--; ) {
             guides[ii].position.x = centerX;
             guides[ii].position.z = centerY;
         } // for
-
+        
         tileBg.position.x = centerX;
         tileBg.position.z = centerY;
-
+        
         camera.position.x = centerX;
         camera.position.y = 200 / scaleFactor;
         camera.position.z = centerY + 200 / scaleFactor;
-
+        
+        // top down view 
+        // camera.position.y = 350 + 200 / scaleFactor;
+        // camera.position.z = centerY + 1;
     } // shiftViewport
-
+    
     /* exports */
-
+    
     function applyStyle(styleId) {
         var previousStyle;
-
+        
         if (currentStyle !== styleId) {
             previousStyle = currentStyle;
             currentStyle = styleId;
         } // if
-
-        return previousStyle || 'basic';
+        
+        return previousStyle || 'basic';    
     } // applyStyle
-
+    
     function applyTransform(drawable) {
         var mesh = drawable.mesh,
             translated = drawable.translateX !== 0 || drawable.translateY !== 0,
             transformed = translated || drawable.scaling !== 1 || drawable.rotation !== 0;
-
+        
         if (mesh && (transformed || drawable.transformed)) {
             mesh.scale.x = mesh.scale.y = mesh.scale.z = drawable.scaling;
             mesh.rotation.y = -drawable.rotation;
-
+            
             mesh.position.x = drawable.xy.x + drawable.translateX;
             mesh.position.y = drawable.z - drawable.translateY;
-
+            
+            // initialise the transform
             transform = {
                 undo: function() {
                     transform = null;
                 },
-
+                
                 x: drawable.xy.x,
                 y: drawable.xy.y
             };
         } // if
-
+        
+        // update the drawable transformed status
         drawable.transformed = transformed;
-
+            
         return transform;
     } // applyTransform
-
+    
     function drawTiles(viewport, tiles, okToLoad) {
         var tile,
             offsetX = transform ? transform.x : drawOffsetX,
             offsetY = transform ? transform.y : drawOffsetY,
             ii,
             tileIds = [];
-
+            
         for (ii = tiles.length; ii--; ) {
             tile = tiles[ii];
-
+            
+            // show or hide the image depending on whether it is in the viewport
             if ((! tile.mesh) && (! activeTiles[tile.id])) {
                 loadTileMesh(tile);
             } // if
-
+            
+            // add the tile to the current objects
             currentTiles[tile.id] = tile;
         } // for
     } // drawTiles
-
+    
     function meshDraw(drawData) {
         var mesh = this.mesh;
-
+        
         if (mesh) {
             var styleMaterials = mesh instanceof THREE.Line ? lineMaterials : meshMaterials,
                 materials = styleMaterials[currentStyle] || styleMaterials.basic;
-
+            
             currentObjects[this.id] = this;
-
+            
+            // update the mesh position
             mesh.position.x = (drawData.x || this.xy.x) + this.translateX;
             mesh.position.z = (drawData.y || this.xy.y);
-
+            
+            // if the drawable has materials attached, then add those
             if (this.materials) {
                 materials = materials.concat(this.materials);
             } // if
-
+            
+            // update the materials
             mesh.materials = materials;
         } // if
     } // meshDraw
-
+    
     function meshInit(mesh, drawable, x, y, z) {
+        // initialise the drawable z offset
         drawable.z = z || drawable.z || 1;
-
+        
+        // set the mesh position
         mesh.position.x = (x || drawable.xy.x) + drawable.translateX;
         mesh.position.y = drawable.z - drawable.translateY;
         mesh.position.z = (y || drawable.xy.y);
@@ -463,31 +439,41 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
             mesh.scale = new THREE.Vector3(drawable.scaling, drawable.scaling, drawable.scaling);
         } // if
 
+        // add to the active objects
         activeObjects[drawable.id] = drawable;
 
+        // add to the scene
         scene.addObject(mesh);
     } // meshInit
-
+    
     function prepare(layers, viewport, tickCount, hitData) {
+        // update the offset x and y
         drawOffsetX = viewport.x + view.padding;
         drawOffsetY = viewport.y + view.padding;
-
+            
+        // move the tile bg
         shiftViewport(
-            drawOffsetX + (vpWidth >> 1),
+            drawOffsetX + (vpWidth >> 1), 
             drawOffsetY + (vpHeight >> 1),
             viewport.scaleFactor
         );
-
-
+        // camera.position.x = tileBg.position.x = drawOffsetX + vpWidth / 2;
+        //tileBg.position.z = drawOffsetY - vpHeight / 2;
+        //camera.position.z = tileBg.position.y - 200 / viewport.scaleFactor;
+        
+        //camera.position.y = -150 / viewport.scaleFactor;
+        
+        // remove any old objects
         removeOldObjects(activeObjects, currentObjects);
         currentObjects = {};
-
+        
+        // remove any old tiles
         removeOldObjects(activeTiles, currentTiles);
         currentTiles = {};
-
+        
         return true;
     } // prepare
-
+    
     /**
     ### prepArc(drawable, viewport, hitData, opts)
     */
@@ -497,21 +483,23 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
                 mesh = drawable.mesh = new THREE.Mesh(
                     sphere
                 );
-
+                
+            // prep the mesh and add to the scene
             meshInit(mesh, drawable);
-
+            
+            // rotate the sphere...
             mesh.rotation.x = Math.PI / 2;
         } // if
-
+        
         return initDrawData(viewport, hitData);
     } // prepArc
-
+    
     /**
     ### prepImage(drawable, viewport, hitData, opts)
     */
     function prepImage(drawable, viewport, hitData, opts) {
         var image = opts.image || drawable.image;
-
+        
         if (image && (! drawable.mesh)) {
             var plane = new Plane(image.width, image.height),
                 drawX = (opts.x || drawable.xy.x) + image.width / 2,
@@ -524,15 +512,16 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
                         blending: THREE.BillboardBlending
                     })
                 );
-
+                
             texture.needsUpdate = true;
-
+            
+            // prep the mesh and add to the scene
             meshInit(mesh, drawable, drawX, drawY, 1);
         }
-
+        
         return initDrawData(viewport, hitData);
     } // prepImage
-
+    
     /**
     ### prepMarker(drawable, viewport, hitData, opts)
     */
@@ -545,8 +534,9 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
 
             switch (drawable.markerStyle.toLowerCase()) {
                 case 'image':
+                    // look for the image texture
                     var materialKey = 'marker_image_' + drawable.imageUrl;
-
+                    
                     drawable.materials = getCachedMaterials(materialKey, function() {
                         return [
                             new THREE.MeshBasicMaterial({
@@ -554,45 +544,47 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
                             })
                         ];
                     });
-
+                    
+                    // if we have it then create the mesh
                     mesh = drawable.mesh = new THREE.Mesh(
                         cubes[drawable.size] || createCube(drawable.size)
                     );
-
+                    
                     break;
-
+                    
                 case 'model.ascii':
                     var modelStyle = currentStyle;
-
+                
                     drawable.loading = true;
                     jsonLoader.load({
-                        model: drawable.modelUrl,
+                        model: drawable.modelUrl, 
                         callback: function(geometry) {
                             mesh = drawable.mesh = new THREE.Mesh(geometry);
-
+                            
                             meshInit(mesh, drawable);
                         }
                     });
-
+                    
                     break;
-
+                    
                 default:
                     mesh = drawable.mesh = new THREE.Mesh(
                         cubes[drawable.size] || createCube(drawable.size)
                     );
             } // switch
-
-
+            
+            
             if (mesh) {
                 drawable.z = size >> 1;
-
+                
+                // initialise the mesh and add to the scene
                 meshInit(mesh, drawable);
             }
         } // if
-
+        
         return initDrawData(viewport, hitData);
     } // prepMarker
-
+    
     /**
     ### prepPoly(drawable, viewport, hitData, opts)
     */
@@ -604,6 +596,7 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
                 offsetY = drawable.xy.y,
                 mesh;
 
+            // initialise the vertices
             for (var ii = points.length; ii--; ) {
                 geometry.vertices.push(new THREE.Vertex(new THREE.Vector3(
                     points[ii].x - offsetX,
@@ -611,53 +604,57 @@ T5.registerRenderer('three:webgl', function(view, panFrame, container, params, b
                     points[ii].y - offsetY
                 )));
             } // for
-
+            
+            // create the mesh
             mesh = drawable.mesh = new THREE.Line(
                 geometry,
                 lineMaterials[currentStyle]
             );
-
+            
+            // flag the drawable as remove on reset
             drawable.removeOnReset = true;
-
+            
             meshInit(mesh, drawable);
         } // if
 
         return initDrawData(viewport, hitData);
-    } // prepPoly
-
+    } // prepPoly    
+    
     /* initialization */
-
+    
+    // initialise three
     initThree();
 
     var _this = _extend(baseRenderer, {
         fastpan: false,
-
+        
         applyStyle: applyStyle,
         applyTransform: applyTransform,
-
+        
         drawTiles: drawTiles,
-
+        
         prepare: prepare,
         prepArc: prepArc,
         prepImage: prepImage,
         prepMarker: prepMarker,
         prepPoly: prepPoly,
-
+        
         getCamera: function() {
             return camera;
         },
-
-        getContext: function() {
+        
+        getContext: function() { 
             return context;
         }
     });
-
+    
+    // handle cleanup
     _this.bind('detach', handleDetach);
     _this.bind('render', handleRender);
     _this.bind('reset', handleReset);
-
+    
     loadStyles();
     _log('created three:webgl renderer');
-
+    
     return _this;
 });

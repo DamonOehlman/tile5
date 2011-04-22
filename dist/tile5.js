@@ -11,6 +11,95 @@
 
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true */
 
+var CANI = {};
+(function(exports) {
+    var tests = [],
+        testIdx = 0,
+        publishedResults = false;
+
+    /* exports */
+
+    var register = exports.register = function(section, runFn) {
+        tests.push({
+            section: section,
+            run: runFn
+        });
+    };
+
+    var init = exports.init = function(callback) {
+
+        var tmpResults = {};
+
+        function runCurrentTest() {
+            if (testIdx < tests.length) {
+                var test = tests[testIdx++];
+
+                if (! tmpResults[test.section]) {
+                    tmpResults[test.section] = {};
+                } // if
+
+                test.run(tmpResults[test.section], runCurrentTest);
+            }
+            else {
+                for (var section in tmpResults) {
+                    exports[section] = tmpResults[section];
+                } // for
+
+                publishedResults = true;
+
+                if (callback) {
+                    callback(exports);
+                } // if
+            } // if..else
+        } // runCurrentTest
+
+        if (publishedResults && callback) {
+            callback(exports);
+        }
+        else {
+            testIdx = 0;
+            runCurrentTest();
+        } // if..else
+    }; // run
+
+register('canvas', function(results, callback) {
+
+    var testCanvas = document.createElement('canvas'),
+        isFlashCanvas = typeof FlashCanvas != 'undefined',
+        isExplorerCanvas = typeof G_vmlCanvasManager != 'undefnined';
+
+    /* define test functions */
+
+    function checkPointInPath() {
+        var transformed,
+            testContext = testCanvas.getContext('2d');
+
+        testContext.save();
+        try {
+            testContext.translate(50, 50);
+
+            testContext.beginPath();
+            testContext.rect(0, 0, 20, 20);
+
+            transformed = testContext.isPointInPath(10, 10);
+        }
+        finally {
+            testContext.restore();
+        } // try..finally
+
+        return transformed;
+    } // checkPointInPath
+
+    /* initialise and run the tests */
+
+    testCanvas.width = 200;
+    testCanvas.height = 200;
+
+    results.pipTransformed = isFlashCanvas || isExplorerCanvas ? false : checkPointInPath();
+
+    callback();
+});
+})(CANI);
 /*!
  * Sidelab COG Javascript Library v0.2.0
  * http://www.sidelab.com/
@@ -48,176 +137,6 @@ COG.extend = function() {
 
     return target;
 }; // extend
-
-(function() {
-    var REGEX_TEMPLATE_VAR = /\$\{(.*?)\}/ig;
-
-    var hasOwn = Object.prototype.hasOwnProperty,
-        objectCounter = 0,
-        extend = COG.extend;
-
-    /* exports */
-
-    var exports = {},
-
-        toID = exports.toID = function(text) {
-            return text.replace(/\s/g, "-");
-        },
-
-        objId = exports.objId = function(prefix) {
-            return (prefix ? prefix : "obj") + objectCounter++;
-        };
-
-var isFunction = exports.isFunction = function( obj ) {
-    return toString.call(obj) === "[object Function]";
-};
-
-var isArray = exports.isArray = function( obj ) {
-    return toString.call(obj) === "[object Array]";
-};
-
-var isPlainObject = exports.isPlainObject = function( obj ) {
-    if ( !obj || toString.call(obj) !== "[object Object]" || obj.nodeType || obj.setInterval ) {
-        return false;
-    }
-
-    if ( obj.constructor &&
-        !hasOwn.call(obj, "constructor") &&
-        !hasOwn.call(obj.constructor.prototype, "isPrototypeOf") ) {
-        return false;
-    }
-
-
-    var key;
-    for ( key in obj ) {}
-
-    return key === undefined || hasOwn.call( obj, key );
-};
-
-var isEmptyObject = exports.isEmptyObject = function( obj ) {
-    for ( var name in obj ) {
-        return false;
-    }
-    return true;
-};
-
-var isXmlDocument = exports.isXmlDocument = function(obj) {
-    return toString.call(obj) === "[object Document]";
-};
-/**
-### contains(obj, members)
-This function is used to determine whether an object contains the specified names
-as specified by arguments beyond and including index 1.  For instance, if you wanted
-to check whether object 'foo' contained the member 'name' then you would simply call
-COG.contains(foo, 'name').
-*/
-var contains = exports.contains = function(obj, members) {
-    var fnresult = obj;
-    var memberArray = arguments;
-    var startIndex = 1;
-
-    if (members && module.isArray(members)) {
-        memberArray = members;
-        startIndex = 0;
-    } // if
-
-    for (var ii = startIndex; ii < memberArray; ii++) {
-        fnresult = fnresult && (typeof foo[memberArray[ii]] !== 'undefined');
-    } // for
-
-    return fnresult;
-}; // contains
-/**
-### formatStr(text, args*)
-*/
-var formatStr = exports.formatStr = function(text) {
-    if ( arguments.length <= 1 )
-    {
-        return text;
-    }
-    var tokenCount = arguments.length - 2;
-    for( var token = 0; token <= tokenCount; token++ )
-    {
-        text = text.replace( new RegExp( "\\{" + token + "\\}", "gi" ),
-                                                arguments[ token + 1 ] );
-    }
-    return text;
-}; // formatStr
-
-var wordExists = exports.wordExists = function(stringToCheck, word) {
-    var testString = "";
-
-    if (word.toString) {
-        word = word.toString();
-    } // if
-
-    for (var ii = 0; ii < word.length; ii++) {
-        testString += (! (/\w/).test(word[ii])) ? "\\" + word[ii] : word[ii];
-    } // for
-
-    var regex = new RegExp("(^|\\s|\\,)" + testString + "(\\,|\\s|$)", "i");
-
-    return regex.test(stringToCheck);
-}; // wordExists
-
-    COG.extend(COG, exports);
-})();
-
-
-(function() {
-    var traceAvailable = window.console && window.console.markTimeline,
-        logError = writer('error'),
-        logInfo = writer('info');
-
-    /* internal functions */
-
-    function writer(level) {
-        if (typeof console !== 'undefined') {
-            return function() {
-                console[level](Array.prototype.slice.call(arguments, 0).join(' '));
-
-                return true;
-            };
-        }
-        else {
-            return function() {
-                return false;
-            };
-        } // if..else
-    } // writer
-
-    /* exports */
-
-    var trace = (function() {
-        if (traceAvailable) {
-            return function(message, startTicks) {
-                console.markTimeline(message + (startTicks ? ": " +
-                    (new Date().getTime() - startTicks) + "ms" : ""));
-            };
-        }
-        else {
-            return function() {};
-        } // if..else
-    })();
-
-    COG.extend(COG, {
-        trace: trace,
-        debug: writer('debug'),
-        info: logInfo,
-        warn: writer('warn'),
-        error: logError,
-
-        exception: function(error) {
-            if (logError) {
-                for (var keyname in error) {
-                    logInfo("ERROR DETAIL: " + keyname + ": " + error[keyname]);
-                } // for
-            }
-        }
-
-    });
-})();
-
 
 (function() {
     var callbackCounter = 0;
@@ -321,156 +240,6 @@ var wordExists = exports.wordExists = function(stringToCheck, word) {
         return target;
     };
 })();
-
-(function() {
-    var configurables = {},
-        counter = 0;
-
-    /* internal functions */
-
-    function attachHelper(target, helperName) {
-        if (! target[helperName]) {
-            target[helperName] = function(value) {
-                return target.configure(helperName, value);
-            };
-        } // if
-    } // attachHelper
-
-    function getSettings(target) {
-        return target.gtConfig;
-    } // getSettings
-
-    function getConfigCallbacks(target) {
-        return target.gtConfigFns;
-    } // getConfigGetters
-
-    function initSettings(target) {
-        target.gtConfId = 'configurable' + (counter++);
-        target.gtConfig = {};
-        target.gtConfigFns = [];
-
-        return target.gtConfig;
-    } // initSettings
-
-    /* define the param tweaker */
-
-    COG.paramTweaker = function(params, getCallbacks, setCallbacks) {
-        return function(name, value) {
-            if (typeof value !== "undefined") {
-                if (name in params) {
-                    params[name] = value;
-                } // if
-
-                if (setCallbacks && (name in setCallbacks)) {
-                    setCallbacks[name](name, value);
-                } // if
-            }
-            else {
-                return (getCallbacks && (name in getCallbacks)) ?
-                    getCallbacks[name](name) :
-                    params[name];
-            } // if..else
-
-            return undefined;
-        };
-    }; // paramTweaker
-
-    /* define configurable */
-
-    COG.configurable = function(target, configParams, callback, bindHelpers) {
-        if (! target) { return; }
-
-        if (! target.gtConfId) {
-            initSettings(target);
-        } // if
-
-        var ii,
-            targetId = target.gtConfId,
-            targetSettings = getSettings(target),
-            targetCallbacks = getConfigCallbacks(target);
-
-        configurables[targetId] = target;
-
-        targetCallbacks.push(callback);
-
-        for (ii = configParams.length; ii--; ) {
-            targetSettings[configParams[ii]] = true;
-
-            if (bindHelpers) {
-                attachHelper(target, configParams[ii]);
-            } // if
-        } // for
-
-        if (! target.configure) {
-            target.configure = function(name, value) {
-                if (targetSettings[name]) {
-                    for (var ii = targetCallbacks.length; ii--; ) {
-                        var result = targetCallbacks[ii](name, value);
-                        if (typeof result !== "undefined") {
-                            return result;
-                        } // if
-                    } // for
-
-                    return configurables[targetId];
-                } // if
-
-                return null;
-            };
-        } // if
-    };
-})();
-
-/**
-Lightweight JSONP fetcher - www.nonobstrusive.com
-The JSONP namespace provides a lightweight JSONP implementation.  This code
-is implemented as-is from the code released on www.nonobtrusive.com, as per the
-blog post listed below.  Only two changes were made. First, rename the json function
-to get around jslint warnings. Second, remove the params functionality from that
-function (not needed for my implementation).  Oh, and fixed some scoping with the jsonp
-variable (didn't work with multiple calls).
-
-http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-libraries/
-*/
-(function(){
-    var counter = 0, head, query, key, window = this;
-
-    function load(url) {
-        var script = document.createElement('script'),
-            done = false;
-        script.src = url;
-        script.async = true;
-
-        script.onload = script.onreadystatechange = function() {
-            if ( !done && (!this.readyState || this.readyState === "loaded" || this.readyState === "complete") ) {
-                done = true;
-                script.onload = script.onreadystatechange = null;
-                if ( script && script.parentNode ) {
-                    script.parentNode.removeChild( script );
-                }
-            }
-        };
-        if ( !head ) {
-            head = document.getElementsByTagName('head')[0];
-        }
-        head.appendChild( script );
-    } // load
-
-    COG.jsonp = function(url, callback, callbackParam) {
-        url += url.indexOf("?") >= 0 ? "&" : "?";
-
-        var jsonp = "json" + (++counter);
-        window[ jsonp ] = function(data){
-            callback(data);
-            window[ jsonp ] = null;
-            try {
-                delete window[ jsonp ];
-            } catch (e) {}
-        };
-
-        load(url + (callbackParam ? callbackParam : "callback") + "=" + jsonp);
-        return jsonp;
-    }; // jsonp
-}());
 
 (function() {
     var BACK_S = 1.70158,
@@ -677,261 +446,59 @@ http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-l
 })();
 
 (function() {
-    var DAY_SECONDS = 86400;
-
-    var periodRegex = /^P(\d+Y)?(\d+M)?(\d+D)?$/,
-        timeRegex = /^(\d+H)?(\d+M)?(\d+S)?$/,
-        durationParsers = {
-            8601: parse8601Duration
-        };
+    var traceAvailable = window.console && window.console.markTimeline,
+        logError = writer('error'),
+        logInfo = writer('info');
 
     /* internal functions */
 
-    /*
-    Used to convert a ISO8601 duration value (not W3C subset)
-    (see http://en.wikipedia.org/wiki/ISO_8601#Durations) into a
-    composite value in days and seconds
-    */
-    function parse8601Duration(input) {
-        var durationParts = input.split('T'),
-            periodMatches = null,
-            timeMatches = null,
-            days = 0,
-            seconds = 0;
+    function writer(level) {
+        if (typeof console !== 'undefined') {
+            return function() {
+                console[level](Array.prototype.slice.call(arguments, 0).join(' '));
 
-        periodRegex.lastIndex = -1;
-        periodMatches = periodRegex.exec(durationParts[0]);
-
-        days = days + (periodMatches[3] ? parseInt(periodMatches[3].slice(0, -1), 10) : 0);
-
-        timeRegex.lastIndex = -1;
-        timeMatches = timeRegex.exec(durationParts[1]);
-
-        seconds = seconds + (timeMatches[1] ? parseInt(timeMatches[1].slice(0, -1), 10) * 3600 : 0);
-        seconds = seconds + (timeMatches[2] ? parseInt(timeMatches[2].slice(0, -1), 10) * 60 : 0);
-        seconds = seconds + (timeMatches[3] ? parseInt(timeMatches[3].slice(0, -1), 10) : 0);
-
-        return new Duration(days, seconds);
-    } // parse8601Duration
-
-    /* exports */
-
-    var Duration = COG.Duration = function(days, seconds) {
-        return {
-            days: days ? days : 0,
-            seconds: seconds ? seconds : 0
-        };
-    };
-
-    /**
-    ### addDuration(duration*)
-    This function is used to return a new duration that is the sum of the duration
-    values passed to the function.
-    */
-    var addDuration = COG.addDuration = function() {
-        var result = new Duration();
-
-        for (var ii = arguments.length; ii--; ) {
-            result.days = result.days + arguments[ii].days;
-            result.seconds = result.seconds + arguments[ii].seconds;
-        } // for
-
-        if (result.seconds >= DAY_SECONDS) {
-            result.days = result.days + ~~(result.seconds / DAY_SECONDS);
-            result.seconds = result.seconds % DAY_SECONDS;
-        } // if
-
-        return result;
-    }; // increaseDuration
-
-    /**
-    ### formatDuration(duration)
-
-    This function is used to format the specified duration as a string value
-
-    #### TODO
-    Add formatting options and i18n support
-    */
-    var formatDuration = COG.formatDuration = function(duration) {
-
-        var days, hours, minutes, totalSeconds,
-            output = '';
-
-        if (duration.days) {
-            output = duration.days + ' days ';
-        } // if
-
-        if (duration.seconds) {
-            totalSeconds = duration.seconds;
-
-            if (totalSeconds >= 3600) {
-                hours = ~~(totalSeconds / 3600);
-                totalSeconds = totalSeconds - (hours * 3600);
-            } // if
-
-            if (totalSeconds >= 60) {
-                minutes = Math.round(totalSeconds / 60);
-                totalSeconds = totalSeconds - (minutes * 60);
-            } // if
-
-            if (hours) {
-                output = output + hours +
-                    (hours > 1 ? ' hrs ' : ' hr ') +
-                    (minutes ?
-                        (minutes > 10 ?
-                            minutes :
-                            '0' + minutes) + ' min '
-                        : '');
-            }
-            else if (minutes) {
-                output = output + minutes + ' min';
-            }
-            else if (totalSeconds > 0) {
-                output = output +
-                    (totalSeconds > 10 ?
-                        totalSeconds :
-                        '0' + totalSeconds) + ' sec';
-            } // if..else
-        } // if
-
-        return output;
-    }; // formatDuration
-
-    var parseDuration = COG.parseDuration = function(duration, format) {
-        var parser = format ? durationParsers[format] : null;
-
-        if (parser) {
-            return parser(duration);
-        }
-
-        COG.Log.warn('Could not find duration parser for specified format: ' + format);
-        return new Duration();
-    }; // durationToSeconds
-})();
-
-COG.ObjectStore = function() {
-
-    /* internals */
-
-    var index = {},
-        groups = {},
-        objPrefix = 'obj_' + new Date().getTime(),
-        objCounter = 0,
-        hasOwn = Object.prototype.hasOwnProperty;
-
-    /* exports */
-
-    function add(object, group) {
-        var objects;
-
-        group = group ? group : 'default';
-
-        if (object && object.constructor) {
-            if (! hasOwn.call(object, 'id')) {
-                object.id = objPrefix + (++objCounter);
-            } // if
-        } // if
-
-        objects = groups[group] ? groups[group] : (groups[group] = []);
-
-        index[object.id] = objects.length;
-
-        objects[object.length] = object;
-    } // add
-
-    return {
-        add: add
-    };
-};
-var CANI = {};
-(function(exports) {
-    var tests = [],
-        testIdx = 0,
-        publishedResults = false;
-
-    /* exports */
-
-    var register = exports.register = function(section, runFn) {
-        tests.push({
-            section: section,
-            run: runFn
-        });
-    };
-
-    var init = exports.init = function(callback) {
-
-        var tmpResults = {};
-
-        function runCurrentTest() {
-            if (testIdx < tests.length) {
-                var test = tests[testIdx++];
-
-                if (! tmpResults[test.section]) {
-                    tmpResults[test.section] = {};
-                } // if
-
-                test.run(tmpResults[test.section], runCurrentTest);
-            }
-            else {
-                for (var section in tmpResults) {
-                    exports[section] = tmpResults[section];
-                } // for
-
-                publishedResults = true;
-
-                if (callback) {
-                    callback(exports);
-                } // if
-            } // if..else
-        } // runCurrentTest
-
-        if (publishedResults && callback) {
-            callback(exports);
+                return true;
+            };
         }
         else {
-            testIdx = 0;
-            runCurrentTest();
+            return function() {
+                return false;
+            };
         } // if..else
-    }; // run
+    } // writer
 
-register('canvas', function(results, callback) {
+    /* exports */
 
-    var testCanvas = document.createElement('canvas'),
-        isFlashCanvas = typeof FlashCanvas != 'undefined',
-        isExplorerCanvas = typeof G_vmlCanvasManager != 'undefnined';
-
-    /* define test functions */
-
-    function checkPointInPath() {
-        var transformed,
-            testContext = testCanvas.getContext('2d');
-
-        testContext.save();
-        try {
-            testContext.translate(50, 50);
-
-            testContext.beginPath();
-            testContext.rect(0, 0, 20, 20);
-
-            transformed = testContext.isPointInPath(10, 10);
+    var trace = (function() {
+        if (traceAvailable) {
+            return function(message, startTicks) {
+                console.markTimeline(message + (startTicks ? ": " +
+                    (new Date().getTime() - startTicks) + "ms" : ""));
+            };
         }
-        finally {
-            testContext.restore();
-        } // try..finally
+        else {
+            return function() {};
+        } // if..else
+    })();
 
-        return transformed;
-    } // checkPointInPath
+    COG.extend(COG, {
+        trace: trace,
+        debug: writer('debug'),
+        info: logInfo,
+        warn: writer('warn'),
+        error: logError,
 
-    /* initialise and run the tests */
+        exception: function(error) {
+            if (logError) {
+                for (var keyname in error) {
+                    logInfo("ERROR DETAIL: " + keyname + ": " + error[keyname]);
+                } // for
+            }
+        }
 
-    testCanvas.width = 200;
-    testCanvas.height = 200;
+    });
+})();
 
-    results.pipTransformed = isFlashCanvas || isExplorerCanvas ? false : checkPointInPath();
-
-    callback();
-});
-})(CANI);
 
 /**
 # INTERACT
@@ -1657,10 +1224,7 @@ register('pointer', {
     };
 })();
 
-var T5 = {};
-(function(exports) {
-    COG.observable(exports);
-
+(function() {
 window.animFrame = (function() {
     return  window.requestAnimationFrame       ||
             window.webkitRequestAnimationFrame ||
@@ -1673,6 +1237,449 @@ window.animFrame = (function() {
                 }, 1000 / 60);
             };
 })();
+function _extend() {
+    var target = arguments[0] || {},
+        sources = Array.prototype.slice.call(arguments, 1),
+        length = sources.length,
+        source,
+        ii;
+
+    for (ii = length; ii--; ) {
+        if ((source = sources[ii]) !== null) {
+            for (var name in source) {
+                var copy = source[name];
+
+                if (target === copy) {
+                    continue;
+                } // if
+
+                if (copy !== undefined) {
+                    target[name] = copy;
+                } // if
+            } // for
+        } // if
+    } // for
+
+    return target;
+} // _extend
+function _log(msg, level) {
+    if (typeof console !== 'undefined') {
+        console[level || 'debug'](msg);
+    } // if
+} // _log
+var REGEX_FORMAT_HOLDERS = /\{(\d+)(?=\})/g;
+
+function _formatter(format) {
+    var matches = format.match(REGEX_FORMAT_HOLDERS),
+        regexes = [],
+        regexCount = 0,
+        ii;
+
+    for (ii = matches ? matches.length : 0; ii--; ) {
+        var argIndex = matches[ii].slice(1);
+
+        if (! regexes[argIndex]) {
+            regexes[argIndex] = new RegExp('\\{' + argIndex + '\\}', 'g');
+        } // if
+    } // for
+
+    regexCount = regexes.length;
+
+    return function() {
+        var output = format;
+
+        for (ii = 0; ii < regexCount; ii++) {
+            output = output.replace(regexes[ii], arguments[ii] || '');
+        } // for
+
+        return output;
+    };
+} // _formatter
+
+function _wordExists(string, word) {
+    var words = string.split(/\s|\,/);
+    for (var ii = words.length; ii--; ) {
+        if (string.toLowerCase() == word.toLowerCase()) {
+            return true;
+        } // if
+    } // for
+
+    return false;
+} // _wordExists
+var easingFns = (function() {
+    var BACK_S = 1.70158,
+        HALF_PI = Math.PI / 2,
+        ANI_WAIT = 1000 / 60 | 0,
+
+        abs = Math.abs,
+        pow = Math.pow,
+        sin = Math.sin,
+        asin = Math.asin,
+        cos = Math.cos,
+
+        tweenWorker = null,
+        updatingTweens = false;
+
+    /*
+    Easing functions
+
+    sourced from Robert Penner's excellent work:
+    http://www.robertpenner.com/easing/
+
+    Functions follow the function format of fn(t, b, c, d, s) where:
+    - t = time
+    - b = beginning position
+    - c = change
+    - d = duration
+    */
+    return {
+        linear: function(t, b, c, d) {
+            return c*t/d + b;
+        },
+
+        /* back easing functions */
+
+        backin: function(t, b, c, d) {
+            return c*(t/=d)*t*((BACK_S+1)*t - BACK_S) + b;
+        },
+
+        backout: function(t, b, c, d) {
+            return c*((t=t/d-1)*t*((BACK_S+1)*t + BACK_S) + 1) + b;
+        },
+
+        backinout: function(t, b, c, d) {
+            return ((t/=d/2)<1) ? c/2*(t*t*(((BACK_S*=(1.525))+1)*t-BACK_S))+b : c/2*((t-=2)*t*(((BACK_S*=(1.525))+1)*t+BACK_S)+2)+b;
+        },
+
+        /* bounce easing functions */
+
+        bouncein: function(t, b, c, d) {
+            return c - easingFns.bounceout(d-t, 0, c, d) + b;
+        },
+
+        bounceout: function(t, b, c, d) {
+            if ((t/=d) < (1/2.75)) {
+                return c*(7.5625*t*t) + b;
+            } else if (t < (2/2.75)) {
+                return c*(7.5625*(t-=(1.5/2.75))*t + 0.75) + b;
+            } else if (t < (2.5/2.75)) {
+                return c*(7.5625*(t-=(2.25/2.75))*t + 0.9375) + b;
+            } else {
+                return c*(7.5625*(t-=(2.625/2.75))*t + 0.984375) + b;
+            }
+        },
+
+        bounceinout: function(t, b, c, d) {
+            if (t < d/2) return easingFns.bouncein(t*2, 0, c, d) / 2 + b;
+            else return easingFns.bounceout(t*2-d, 0, c, d) / 2 + c/2 + b;
+        },
+
+        /* cubic easing functions */
+
+        cubicin: function(t, b, c, d) {
+            return c*(t/=d)*t*t + b;
+        },
+
+        cubicout: function(t, b, c, d) {
+            return c*((t=t/d-1)*t*t + 1) + b;
+        },
+
+        cubicinout: function(t, b, c, d) {
+            if ((t/=d/2) < 1) return c/2*t*t*t + b;
+            return c/2*((t-=2)*t*t + 2) + b;
+        },
+
+        /* elastic easing functions */
+
+        elasticin: function(t, b, c, d, a, p) {
+            var s;
+
+            if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*0.3;
+            if (!a || a < abs(c)) { a=c; s=p/4; }
+            else s = p/TWO_PI * asin (c/a);
+            return -(a*pow(2,10*(t-=1)) * sin( (t*d-s)*TWO_PI/p )) + b;
+        },
+
+        elasticout: function(t, b, c, d, a, p) {
+            var s;
+
+            if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*0.3;
+            if (!a || a < abs(c)) { a=c; s=p/4; }
+            else s = p/TWO_PI * asin (c/a);
+            return (a*pow(2,-10*t) * sin( (t*d-s)*TWO_PI/p ) + c + b);
+        },
+
+        elasticinout: function(t, b, c, d, a, p) {
+            var s;
+
+            if (t==0) return b;  if ((t/=d/2)==2) return b+c;  if (!p) p=d*(0.3*1.5);
+            if (!a || a < abs(c)) { a=c; s=p/4; }
+            else s = p/TWO_PI * asin (c/a);
+            if (t < 1) return -0.5*(a*pow(2,10*(t-=1)) * sin( (t*d-s)*TWO_PI/p )) + b;
+            return a*pow(2,-10*(t-=1)) * sin( (t*d-s)*TWO_PI/p )*0.5 + c + b;
+        },
+
+        /* quad easing */
+
+        quadin: function(t, b, c, d) {
+            return c*(t/=d)*t + b;
+        },
+
+        quadout: function(t, b, c, d) {
+            return -c *(t/=d)*(t-2) + b;
+        },
+
+        quadinout: function(t, b, c, d) {
+            if ((t/=d/2) < 1) return c/2*t*t + b;
+            return -c/2 * ((--t)*(t-2) - 1) + b;
+        },
+
+        /* sine easing */
+
+        sinein: function(t, b, c, d) {
+            return -c * cos(t/d * HALF_PI) + c + b;
+        },
+
+        sineout: function(t, b, c, d) {
+            return c * sin(t/d * HALF_PI) + b;
+        },
+
+        sineinout: function(t, b, c, d) {
+            return -c/2 * (cos(Math.PI*t/d) - 1) + b;
+        }
+    };
+})();
+
+function _easing(typeName) {
+    typeName = typeName.replace(/[\-\_\s\.]/g, '').toLowerCase();
+
+    return easingFns[typeName] || easingFns.linear;
+} // _easing
+
+function _tweenValue(startValue, endValue, fn, duration, callback) {
+
+    var startTicks = new Date().getTime(),
+        lastTicks = 0,
+        change = endValue - startValue,
+        tween = {};
+
+    function runTween(tickCount) {
+        tickCount = tickCount ? tickCount : new Date().getTime();
+
+        if (lastTicks + ANI_WAIT < tickCount) {
+            var elapsed = tickCount - startTicks,
+                updatedValue = fn(elapsed, startValue, change, duration),
+                complete = startTicks + duration <= tickCount,
+                cont = !complete,
+                retVal;
+
+            if (callback) {
+                retVal = callback(updatedValue, complete, elapsed);
+
+                cont = typeof retVal != 'undefined' ? retVal && cont : cont;
+            } // if
+
+            if (cont) {
+                animFrame(runTween);
+            } // if
+        } // if
+    } // runTween
+
+    animFrame(runTween);
+
+    return tween;
+}; // tweenValue
+
+if (typeof animFrame === 'undefined') {
+    throw new Error('animFrame COG required for tweening support');
+} // if
+var _observable = (function() {
+    var callbackCounter = 0;
+
+    function getHandlers(target) {
+        return target.hasOwnProperty('obsHandlers') ?
+                target.obsHandlers :
+                null;
+    } // getHandlers
+
+    function getHandlersForName(target, eventName) {
+        var handlers = getHandlers(target);
+        if (! handlers[eventName]) {
+            handlers[eventName] = [];
+        } // if
+
+        return handlers[eventName];
+    } // getHandlersForName
+
+    return function(target) {
+        if (! target) { return null; }
+
+        /* initialization code */
+
+        if (! getHandlers(target)) {
+            target.obsHandlers = {};
+        } // if
+
+        var attached = target.hasOwnProperty('bind');
+        if (! attached) {
+            target.bind = function(eventName, callback) {
+                var callbackId = "callback" + (callbackCounter++);
+                getHandlersForName(target, eventName).unshift({
+                    fn: callback,
+                    id: callbackId
+                });
+
+                return callbackId;
+            }; // bind
+
+            target.triggerCustom = function(eventName, args) {
+                var eventCallbacks = getHandlersForName(target, eventName),
+                    evt = {
+                        cancel: false,
+                        name: eventName,
+                        source: this
+                    },
+                    eventArgs;
+
+                for (var key in args) {
+                    evt[key] = args[key];
+                } // for
+
+                if (! eventCallbacks) {
+                    return null;
+                } // if
+
+                eventArgs = Array.prototype.slice.call(arguments, 2);
+
+                if (target.eventInterceptor) {
+                    target.eventInterceptor(eventName, evt, eventArgs);
+                } // if
+
+                eventArgs.unshift(evt);
+
+                for (var ii = eventCallbacks.length; ii-- && (! evt.cancel); ) {
+                    eventCallbacks[ii].fn.apply(this, eventArgs);
+                } // for
+
+                return evt;
+            };
+
+            target.trigger = function(eventName) {
+                var eventArgs = Array.prototype.slice.call(arguments, 1);
+                eventArgs.splice(0, 0, eventName, null);
+
+                return target.triggerCustom.apply(this, eventArgs);
+            }; // trigger
+
+            target.unbind = function(eventName, callbackId) {
+                if (typeof eventName === 'undefined') {
+                    target.obsHandlers = {};
+                }
+                else {
+                    var eventCallbacks = getHandlersForName(target, eventName);
+                    for (var ii = 0; eventCallbacks && (ii < eventCallbacks.length); ii++) {
+                        if (eventCallbacks[ii].id === callbackId) {
+                            eventCallbacks.splice(ii, 1);
+                            break;
+                        } // if
+                    } // for
+                } // if..else
+
+                return target;
+            }; // unbind
+        } // if
+
+        return target;
+    };
+})();
+var _indexOf = Array.prototype.indexOf || function(target) {
+    for (var ii = 0; ii < this.length; ii++) {
+        if (this[ii] === target) {
+            return ii;
+        } // if
+    } // for
+
+    return -1;
+};
+var _is = (function() {
+    /*
+    Dmitry Baranovskiy's wonderful is function, sourced from RaphaelJS:
+    https://github.com/DmitryBaranovskiy/raphael
+    */
+    return function(o, type) {
+        type = lowerCase.call(type);
+        if (type == "finite") {
+            return !isnan[has](+o);
+        }
+        return  (type == "null" && o === null) ||
+                (type == typeof o) ||
+                (type == "object" && o === Object(o)) ||
+                (type == "array" && Array.isArray && Array.isArray(o)) ||
+                objectToString.call(o).slice(8, -1).toLowerCase() == type;
+    }; // is
+})();
+/**
+Lightweight JSONP fetcher - www.nonobstrusive.com
+The JSONP namespace provides a lightweight JSONP implementation.  This code
+is implemented as-is from the code released on www.nonobtrusive.com, as per the
+blog post listed below.  Only two changes were made. First, rename the json function
+to get around jslint warnings. Second, remove the params functionality from that
+function (not needed for my implementation).  Oh, and fixed some scoping with the jsonp
+variable (didn't work with multiple calls).
+
+http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-libraries/
+*/
+var _jsonp = (function(){
+    var counter = 0, head, query, key, window = this;
+
+    function load(url) {
+        var script = document.createElement('script'),
+            done = false;
+        script.src = url;
+        script.async = true;
+
+        script.onload = script.onreadystatechange = function() {
+            if ( !done && (!this.readyState || this.readyState === "loaded" || this.readyState === "complete") ) {
+                done = true;
+                script.onload = script.onreadystatechange = null;
+                if ( script && script.parentNode ) {
+                    script.parentNode.removeChild( script );
+                }
+            }
+        };
+        if ( !head ) {
+            head = document.getElementsByTagName('head')[0];
+        }
+        head.appendChild( script );
+    } // load
+
+    return function(url, callback, callbackParam) {
+        url += url.indexOf("?") >= 0 ? "&" : "?";
+
+        var jsonp = "json" + (++counter);
+        window[ jsonp ] = function(data){
+            callback(data);
+            window[ jsonp ] = null;
+            try {
+                delete window[ jsonp ];
+            } catch (e) {}
+        };
+
+        load(url + (callbackParam ? callbackParam : "callback") + "=" + jsonp);
+        return jsonp;
+    }; // jsonp
+}());
+
+    window.T5 = {
+        ex: _extend,
+        observable: _observable,
+        formatter: _formatter,
+        wordExists: _wordExists,
+        is: _is,
+        indexOf: _indexOf
+    };
+
+    _observable(T5);
 
 /**
 # T5
@@ -1696,34 +1703,8 @@ function ticks() {
 ### userMessage(msgType, msgKey, msgHtml)
 */
 function userMessage(msgType, msgKey, msgHtml) {
-    exports.trigger('userMessage', msgType, msgKey, msgHtml);
+    T5.trigger('userMessage', msgType, msgKey, msgHtml);
 } // userMessage
-
-/*
-Dmitry Baranovskiy's wonderful is function, sourced from RaphaelJS:
-https://github.com/DmitryBaranovskiy/raphael
-*/
-function isType(o, type) {
-    type = lowerCase.call(type);
-    if (type == "finite") {
-        return !isnan[has](+o);
-    }
-    return  (type == "null" && o === null) ||
-            (type == typeof o) ||
-            (type == "object" && o === Object(o)) ||
-            (type == "array" && Array.isArray && Array.isArray(o)) ||
-            objectToString.call(o).slice(8, -1).toLowerCase() == type;
-}; // is
-
-var indexOf = Array.prototype.indexOf || function(target) {
-    for (var ii = 0; ii < this.length; ii++) {
-        if (this[ii] === target) {
-            return ii;
-        } // if
-    } // for
-
-    return -1;
-};
 var TWO_PI = Math.PI * 2,
     HALF_PI = Math.PI / 2,
     PROP_WK_TRANSFORM = '-webkit-transform';
@@ -1757,6 +1738,9 @@ var abs = Math.abs,
     typeObject = 'object',
     typeNumber = 'number',
     typeArray = 'array',
+
+    drawableCounter = 0,
+    layerCounter = 0,
 
     reDelimitedSplit = /[\,\s]/;
 /**
@@ -1899,7 +1883,7 @@ var DOM = (function() {
     } // move
 
     function styles(extraStyles) {
-        return COG.extend({}, CORE_STYLES, extraStyles);
+        return _extend({}, CORE_STYLES, extraStyles);
     } // extraStyles
 
     /* initialization */
@@ -2103,11 +2087,11 @@ var XYFns = (function() {
         for (var ii = points.length; ii--; ) {
             var xy = points[ii];
 
-            minX = isType(minX, typeUndefined) || xy.x < minX ? xy.x : minX;
-            minY = isType(minY, typeUndefined) || xy.y < minY ? xy.y : minY;
+            minX = _is(minX, typeUndefined) || xy.x < minX ? xy.x : minX;
+            minY = _is(minY, typeUndefined) || xy.y < minY ? xy.y : minY;
 
-            maxX = isType(maxX, typeUndefined) || xy.x > maxX ? xy.x : maxX;
-            maxY = isType(maxY, typeUndefined) || xy.y > maxY ? xy.y : maxY;
+            maxX = _is(maxX, typeUndefined) || xy.x > maxX ? xy.x : maxX;
+            maxY = _is(maxY, typeUndefined) || xy.y > maxY ? xy.y : maxY;
         } // for
 
         return new Rect(minX, minY, maxX - minX, maxY - minY);
@@ -2286,7 +2270,7 @@ var Vector = (function() {
             } // if
         } // for
 
-        COG.info('max distance = ' + distanceMax + ', unitized distance vector = ', u);
+        _log('max distance = ' + distanceMax + ', unitized distance vector = ', u);
 
         if (distanceMax >= epsilon) {
             var r1 = simplify(vectors.slice(0, index), epsilon),
@@ -2562,7 +2546,8 @@ var SpatialStore = function(cellsize) {
     /* internals */
 
     var buckets = [],
-        lookup = {};
+        lookup = {},
+        objectCounter = 0;
 
     /* internals */
 
@@ -2605,7 +2590,7 @@ var SpatialStore = function(cellsize) {
             maxX = (rect.x + rect.w) / cellsize | 0,
             maxY = (rect.y + rect.h) / cellsize | 0;
 
-        id = id || data.id || COG.objId('spatial');
+        id = id || data.id || ('obj_' + objectCounter++);
 
         lookup[id] = data;
 
@@ -2630,7 +2615,7 @@ var SpatialStore = function(cellsize) {
             for (var xx = minX; xx <= maxX; xx++) {
                 for (var yy = minY; yy <= maxY; yy++) {
                     var bucket = getBucket(xx, yy),
-                        itemIndex = indexOf.call(bucket, id);
+                        itemIndex = _indexOf.call(bucket, id);
 
                     if (itemIndex >= 0) {
                         bucket.splice(itemIndex, 1);
@@ -2902,7 +2887,7 @@ var Renderer = function(view, container, outer, params) {
         }
     };
 
-    return COG.observable(_this);
+    return _observable(_this);
 };
 
 var rendererRegistry = {};
@@ -2910,14 +2895,14 @@ var rendererRegistry = {};
 /**
 # T5.registerRenderer(id, creatorFn)
 */
-var registerRenderer = exports.registerRenderer = function(id, creatorFn) {
+var registerRenderer = T5.registerRenderer = function(id, creatorFn) {
     rendererRegistry[id] = creatorFn;
 };
 
 /**
 # T5.attachRenderer(id, view, container, params)
 */
-var attachRenderer = exports.attachRenderer = function(id, view, container, outer, params) {
+var attachRenderer = T5.attachRenderer = function(id, view, container, outer, params) {
     var ids = id.split('/'),
         renderer = new Renderer(view, container, outer, params);
 
@@ -2934,7 +2919,7 @@ var attachRenderer = exports.attachRenderer = function(id, view, container, oute
 # Tile5 Renderer: Canvas
 */
 registerRenderer('canvas', function(view, panFrame, container, params, baseRenderer) {
-    params = COG.extend({
+    params = _extend({
     }, params);
 
     /* internals */
@@ -3295,7 +3280,7 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
 
     createCanvas();
 
-    var _this = COG.extend(baseRenderer, {
+    var _this = _extend(baseRenderer, {
         applyStyle: applyStyle,
         applyTransform: applyTransform,
 
@@ -3444,7 +3429,7 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
 
     createImageContainer();
 
-    var _this = COG.extend(baseRenderer, {
+    var _this = _extend(baseRenderer, {
         drawTiles: drawTiles
     });
 
@@ -3455,15 +3440,15 @@ registerRenderer('dom', function(view, panFrame, container, params, baseRenderer
     return _this;
 });
 
-var styleRegistry = exports.styles = {};
+var styleRegistry = T5.styles = {};
 
 /**
 # T5.defineStyle(id, data)
 */
-var defineStyle = exports.defineStyle = function(id, data) {
+var defineStyle = T5.defineStyle = function(id, data) {
     styleRegistry[id] = data;
 
-    exports.trigger('styleDefined', id, styleRegistry[id]);
+    T5.trigger('styleDefined', id, styleRegistry[id]);
 
     return id;
 };
@@ -3471,7 +3456,7 @@ var defineStyle = exports.defineStyle = function(id, data) {
 /**
 # T5.defineStyles(data)
 */
-var defineStyles = exports.defineStyles = function(data) {
+var defineStyles = T5.defineStyles = function(data) {
     for (var styleId in data) {
         defineStyle(styleId, data[styleId]);
     } // for
@@ -3480,15 +3465,15 @@ var defineStyles = exports.defineStyles = function(data) {
 /**
 # T5.getStyle(id)
 */
-var getStyle = exports.getStyle = function(id) {
+var getStyle = T5.getStyle = function(id) {
     return styleRegistry[id];
 }; // getStyle
 
 /**
 # T5.loadStyles(path, callback)
 */
-var loadStyles = exports.loadStyles = function(path) {
-    COG.jsonp(path, function(data) {
+var loadStyles = T5.loadStyles = function(path) {
+    _jsonp(path, function(data) {
         defineStyles(data);
     });
 }; // loadStyles
@@ -3614,8 +3599,7 @@ view.bind('zoomLevelChange', function(evt, zoomLevel) {
 ## Methods
 */
 var View = function(params) {
-    params = COG.extend({
-        id: COG.objId('view'),
+    params = _extend({
         container: "",
         captureHover: true,
         drawOnScale: true,
@@ -3645,7 +3629,7 @@ var View = function(params) {
         outer,
         dragObject = null,
         mainContext = null,
-        isIE = !isType(window.attachEvent, typeUndefined),
+        isIE = !_is(window.attachEvent, typeUndefined),
         hitFlagged = false,
         fastpan = true,
         pointerDown = false,
@@ -3685,7 +3669,7 @@ var View = function(params) {
         halfOuterWidth, halfOuterHeight,
         zoomX, zoomY,
         zoomLevel = params.zoomLevel,
-        zoomEasing = COG.easing('quad.out'),
+        zoomEasing = _easing('quad.out'),
         zoomDuration = 300;
 
     /* event handlers */
@@ -4002,7 +3986,7 @@ var View = function(params) {
             Hits.triggerEvent(hitData, _self);
         } // if
 
-        lastHitData = elements.length > 0 ? COG.extend({}, hitData) : null;
+        lastHitData = elements.length > 0 ? _extend({}, hitData) : null;
     } // checkHits
 
     function cycle(tickCount) {
@@ -4375,7 +4359,7 @@ var View = function(params) {
         } // if
 
         if (tweenFn) {
-            COG.tweenValue(scaleFactor, targetScaling, tweenFn, duration, function(val, completed) {
+            _tweenValue(scaleFactor, targetScaling, tweenFn, duration, function(val, completed) {
                 targetScaling = val;
 
                 if (completed) {
@@ -4482,14 +4466,14 @@ var View = function(params) {
         } // endOffsetUpdate
 
         if (tweenFn && (panSpeed === 0)) {
-            COG.tweenValue(offsetX, x, tweenFn, tweenDuration, function(val, complete){
+            _tweenValue(offsetX, x, tweenFn, tweenDuration, function(val, complete){
                 offsetX = val | 0;
 
                 (complete ? endTween : invalidate)();
                 return panSpeed === 0;
             });
 
-            COG.tweenValue(offsetY, y, tweenFn, tweenDuration, function(val, complete) {
+            _tweenValue(offsetY, y, tweenFn, tweenDuration, function(val, complete) {
                 offsetY = val | 0;
 
                 (complete ? endTween : invalidate)();
@@ -4542,13 +4526,14 @@ var View = function(params) {
         pan: pan
     };
 
-    COG.observable(_self);
+    _observable(_self);
 
     _self.bind('resync', handleResync);
     _self.bind('resize', function() {
         renderer.checkSize();
     });
 
+    /*
     COG.configurable(
         _self, [
             'container',
@@ -4569,6 +4554,7 @@ var View = function(params) {
             'renderer': changeRenderer
         }),
         true);
+    */
 
     CANI.init(function(testResults) {
         _self.markers = addLayer('markers', new ShapeLayer({
@@ -4609,7 +4595,7 @@ map = new T5.Map({
 </pre>
 
 Like all View descendants the map supports features such as intertial scrolling and
-the like and is configurable through implementing the COG.configurable interface. For
+the like and is configurable through implementing the configurable interface. For
 more information on view level features check out the View documentation.
 
 ## Events
@@ -4633,7 +4619,7 @@ map.bind('boundsChange', function(evt, bounds) {
 ## Methods
 */
 var Map = function(params) {
-    params = COG.extend({
+    params = _extend({
         zoomLevel: 1,
         minZoom: 1,
         maxZoom: 18,
@@ -4802,7 +4788,7 @@ var Map = function(params) {
         return Math.pow(2, roundFn(Math.log(scaleFactor)));
     };
 
-    var _self = COG.extend(new View(params), {
+    var _self = _extend(new View(params), {
 
         getBoundingBox: getBoundingBox,
         getCenterPosition: getCenterPosition,
@@ -4836,7 +4822,7 @@ that need to be implemented for shapes that can be drawn in a T5.ShapeLayer.
 -
 */
 var Drawable = function(params) {
-    params = COG.extend({
+    params = _extend({
         style: null,
         xy: null,
         size: 10,
@@ -4848,9 +4834,9 @@ var Drawable = function(params) {
         typeName: 'Shape'
     }, params);
 
-    COG.extend(this, params);
+    _extend(this, params);
 
-    this.id = COG.objId(this.typeName);
+    this.id = 'drawable_' + drawableCounter++;
     this.bounds = null;
     this.view = null;
 
@@ -4861,7 +4847,7 @@ var Drawable = function(params) {
     this.translateY = 0;
 
     if (this.observable) {
-        COG.observable(this);
+        _observable(this);
     } // if
 };
 
@@ -4989,7 +4975,7 @@ function registerAnimationCallback(fn) {
 } // registerAnimationCallback
 
 function animateDrawable(target, fnName, argsStart, argsEnd, opts) {
-    opts = COG.extend({
+    opts = _extend({
         easing: 'sine.out',
         duration: 1000,
         progress: null,
@@ -5008,7 +4994,7 @@ function animateDrawable(target, fnName, argsStart, argsEnd, opts) {
         argsCount = animateValid ? argsStart.length : 0,
         argsChange = new Array(argsCount),
         argsCurrent = new Array(argsCount),
-        easingFn = COG.easing(opts.easing),
+        easingFn = _easing(opts.easing),
         duration = opts.duration,
         callback = opts.progress,
         ii,
@@ -5089,7 +5075,7 @@ accept the following:
 
 */
 function Marker(params) {
-    params = COG.extend({
+    params = _extend({
         fill: true,
         stroke: false,
         markerStyle: 'simple',
@@ -5100,7 +5086,7 @@ function Marker(params) {
     Drawable.call(this, params);
 };
 
-Marker.prototype = COG.extend(Drawable.prototype, {
+Marker.prototype = _extend(Drawable.prototype, {
     constructor: Marker
 });
 /**
@@ -5125,7 +5111,7 @@ is specified then the style of the T5.PolyLayer is used.
 ## Methods
 */
 function Poly(points, params) {
-    params = COG.extend({
+    params = _extend({
         simplify: false,
         fill: true,
         typeName: 'Poly'
@@ -5150,10 +5136,10 @@ function Poly(points, params) {
             x = drawPoints[ii].x;
             y = drawPoints[ii].y;
 
-            minX = isType(minX, typeUndefined) || x < minX ? x : minX;
-            minY = isType(minY, typeUndefined) || y < minY ? y : minY;
-            maxX = isType(maxX, typeUndefined) || x > maxX ? x : maxX;
-            maxY = isType(maxY, typeUndefined) || y > maxY ? y : maxY;
+            minX = _is(minX, typeUndefined) || x < minX ? x : minX;
+            minY = _is(minY, typeUndefined) || y < minY ? y : minY;
+            maxX = _is(maxX, typeUndefined) || x > maxX ? x : maxX;
+            maxY = _is(maxY, typeUndefined) || y > maxY ? y : maxY;
         } // for
 
         this.updateBounds(new Rect(minX, minY, maxX - minX, maxY - minY), true);
@@ -5161,7 +5147,7 @@ function Poly(points, params) {
 
     Drawable.call(this, params);
 
-    COG.extend(this, {
+    _extend(this, {
         getPoints: function() {
             return [].concat(points);
         },
@@ -5172,7 +5158,7 @@ function Poly(points, params) {
     this.haveData = points && (points.length >= 2);
 };
 
-Poly.prototype = COG.extend({}, Drawable.prototype, {
+Poly.prototype = _extend({}, Drawable.prototype, {
     constructor: Poly
 });
 /**
@@ -5184,7 +5170,7 @@ function Line(points, params) {
     Poly.call(this, points, params);
 };
 
-Line.prototype = COG.extend({}, Poly.prototype);
+Line.prototype = _extend({}, Poly.prototype);
 /**
 # T5.ImageDrawable
 _extends:_ T5.Drawable
@@ -5214,7 +5200,7 @@ offset that should be applied to the image when it is drawn by the renderer.
 ## Methods
 */
 function ImageDrawable(params) {
-    params = COG.extend({
+    params = _extend({
         image: null,
         imageUrl: null,
         centerOffset: null,
@@ -5297,7 +5283,7 @@ function ImageDrawable(params) {
 
     Drawable.call(this, params);
 
-    var _self = COG.extend(this, {
+    var _self = _extend(this, {
         changeImage: changeImage,
         getProps: getProps,
         resync: resync
@@ -5313,7 +5299,7 @@ function ImageDrawable(params) {
     } // if
 };
 
-ImageDrawable.prototype = COG.extend({}, Drawable.prototype, {
+ImageDrawable.prototype = _extend({}, Drawable.prototype, {
     constructor: ImageDrawable
 });
 /**
@@ -5325,7 +5311,7 @@ marker as an annotation for a T5.Map or T5.View
 _extends_: T5.ImageDrawable
 */
 function ImageMarker(params) {
-    params = COG.extend({
+    params = _extend({
         imageAnchor: null
     }, params);
 
@@ -5336,14 +5322,14 @@ function ImageMarker(params) {
     ImageDrawable.call(this, params);
 };
 
-ImageMarker.prototype = COG.extend({}, ImageDrawable.prototype, {
+ImageMarker.prototype = _extend({}, ImageDrawable.prototype, {
     constructor: ImageMarker
 });
 /**
 ### T5.Arc(params)
 */
 function Arc(params) {
-    params = COG.extend({
+    params = _extend({
         startAngle: 0,
         endAngle: Math.PI * 2,
         typeName: 'Arc'
@@ -5352,7 +5338,7 @@ function Arc(params) {
     Drawable.call(this, params);
 };
 
-Arc.prototype = COG.extend(Drawable.prototype, {
+Arc.prototype = _extend(Drawable.prototype, {
     constructor: Arc
 });
 
@@ -5398,8 +5384,8 @@ layer.bind('parentChange', function(evt, parent) {
 
 */
 function ViewLayer(params) {
-    params = COG.extend({
-        id: COG.objId('layer'),
+    params = _extend({
+        id: 'layer_' + layerCounter++,
         zindex: 0,
         animated: false,
         style: null,
@@ -5410,7 +5396,7 @@ function ViewLayer(params) {
     this.view = null;
     this.visible = true;
 
-    COG.observable(COG.extend(this, params));
+    COG.observable(_extend(this, params));
 }; // ViewLayer constructor
 
 ViewLayer.prototype = {
@@ -5461,7 +5447,7 @@ ViewLayer.prototype = {
 # T5.ImageLayer
 */
 var TileLayer = function(genId, params) {
-    params = COG.extend({
+    params = _extend({
         imageLoadArgs: {}
     }, params);
 
@@ -5481,7 +5467,7 @@ var TileLayer = function(genId, params) {
         if (storage) {
             genFn(view, viewport, storage, function() {
                 view.invalidate();
-                COG.info('GEN COMPLETED IN ' + (new Date().getTime() - tickCount) + ' ms');
+                _log('GEN COMPLETED IN ' + (new Date().getTime() - tickCount) + ' ms');
             });
         } // if
     } // handleViewIdle
@@ -5512,7 +5498,7 @@ var TileLayer = function(genId, params) {
 
     /* definition */
 
-    var _self = COG.extend(new ViewLayer(params), {
+    var _self = _extend(new ViewLayer(params), {
         draw: draw
     });
 
@@ -5535,7 +5521,7 @@ provide the drawables by the `loadDrawables` method.
 ## Methods
 */
 var DrawLayer = function(params) {
-    params = COG.extend({
+    params = _extend({
         zindex: 10
     }, params);
 
@@ -5692,7 +5678,7 @@ var DrawLayer = function(params) {
 
     /* initialise _self */
 
-    var _self = COG.extend(new ViewLayer(params), {
+    var _self = _extend(new ViewLayer(params), {
         itemCount: 0,
 
         /**
@@ -5811,13 +5797,113 @@ Pos.prototype = {
         return this.lat + (delimiter || ' ') + this.lon;
     }
 };
+/**
+# T5.GeoXY
 
-    COG.extend(exports, {
-        ex: COG.extend,
-        is: isType,
+The GeoXY class is used to convert a position (T5.Geo.Position) into a
+composite xy that can be used to draw on the various T5.ViewLayer implementations.
+This class provides the necessary mechanism that allows the view layers to
+assume operation using a simple vector (containing an x and y) with no need
+geospatial awareness built in.
+
+Layers are aware that particular events may require vector resynchronization
+which is facilitated by the `syncXY` method of the T5.Map.
+
+## Functions
+*/
+var GeoXY = (function() {
+
+    /* internal functions */
+
+    /* exports */
+
+    /**
+    ### init(pos, rpp)
+    */
+    function init(pos, rpp) {
+        var xy = new XY();
+
+        updatePos(xy, pos, rpp);
+
+        return xy;
+    } // init
+
+    /**
+    ### sync(xy, rpp)
+    */
+    function sync(xy, rpp) {
+        if (xy.length) {
+            var minX, minY, maxX, maxY;
+
+            for (var ii = xy.length; ii--; ) {
+                sync(xy[ii], rpp);
+
+                minX = _is(minX, typeUndefined) || xy.x < minX ? xy.x : minX;
+                minY = _is(minY, typeUndefined) || xy.y < minY ? xy.y : minY;
+
+                maxX = _is(maxX, typeUndefined) || xy.x > maxX ? xy.x : maxX;
+                maxY = _is(maxY, typeUndefined) || xy.y > maxY ? xy.y : maxY;
+            } // for
+
+            return new Rect(minX, minY, maxX - minX, maxY - minY);
+        }
+        else if (xy.mercXY) {
+            var mercXY = xy.mercXY;
+
+            xy.x = round((mercXY.x + Math.PI) / rpp);
+            xy.y = round((Math.PI - mercXY.y) / rpp);
+
+            xy.rpp = rpp;
+        } // if
+
+        return xy;
+    } // setRadsPerPixel
+
+    function syncPos(xy, rpp) {
+        if (xy.length) {
+            for (var ii = xy.length; ii--; ) {
+                syncPos(xy[ii], rpp);
+            } // for
+        }
+        else {
+            xy.mercXY = new XY(xy.x * rpp - Math.PI, Math.PI - xy.y * rpp);
+            xy.pos = Position.fromMercatorPixels(xy.mercXY.x, xy.mercXY.y);
+        } // if..else
+
+        return xy;
+    } // syncPos
+
+    function toPos(xy, rpp) {
+        rpp = rpp || xy.rpp;
+
+        return Position.fromMercatorPixels(xy.x * rpp - Math.PI, Math.PI - xy.y * rpp);
+    } // toPos
+
+    function updatePos(xy, pos, rpp) {
+        xy.pos = pos;
+        xy.mercXY = Position.toMercatorPixels(pos);
+
+        rpp = _is(rpp, typeNumber) ? rpp : xy.rpp;
+
+        if (rpp) {
+            sync(xy, rpp);
+        } // if
+    } // updatePos
+
+    /* create the module */
+
+    return {
+        init: init,
+        sync: sync,
+        syncPos: syncPos,
+        toPos: toPos,
+        updatePos: updatePos
+    };
+})();
+
+    _extend(T5, {
         ticks: ticks,
         userMessage: userMessage,
-        indexOf: indexOf,
 
         DOM: DOM,
         Rect: Rect,
@@ -5829,8 +5915,8 @@ Pos.prototype = {
         Generator: Generator,
         Service: Service,
 
-        tweenValue: COG.tweenValue,
-        easing: COG.easing,
+        tweenValue: _tweenValue,
+        easing: _easing,
 
         Tile: Tile,
         TileLayer: TileLayer,
@@ -5853,6 +5939,7 @@ Pos.prototype = {
 
         Map: Map,
 
+        GeoXY: GeoXY,
         Pos: Pos
     });
 
@@ -5998,7 +6085,7 @@ function plainTextAddressMatch(request, response, compareFns, fieldWeights) {
 
         if (fieldVal) {
             var compareFn = compareFns[fieldId],
-                matchStrength = compareFn ? compareFn(request, fieldVal) : (COG.wordExists(request, fieldVal) ? 1 : 0);
+                matchStrength = compareFn ? compareFn(request, fieldVal) : (_wordExists(request, fieldVal) ? 1 : 0);
 
             matchWeight += (matchStrength * fieldWeights[fieldId]);
         } // if
@@ -6096,7 +6183,7 @@ var Position = (function() {
 
         minDist = minDist / 1000;
 
-        COG.info("generalizing positions, must include " + requiredPositions.length + " positions");
+        _log("generalizing positions, must include " + requiredPositions.length + " positions");
 
         for (var ii = sourceLen; ii--; ) {
             if (ii === 0) {
@@ -6114,7 +6201,7 @@ var Position = (function() {
             } // if..else
         } // for
 
-        COG.info("generalized " + sourceLen + " positions into " + positions.length + " positions");
+        _log("generalized " + sourceLen + " positions into " + positions.length + " positions");
         return positions;
     } // generalize
 
@@ -6238,7 +6325,7 @@ var Position = (function() {
         var posIndex = positions.length,
             vectors = new Array(posIndex);
 
-        options = COG.extend({
+        options = _extend({
             chunkSize: VECTORIZE_PER_CYCLE,
             async: true,
             callback: null
@@ -6324,7 +6411,7 @@ var BoundingBox = (function() {
     function calcSize(min, max, normalize) {
         var size = new XY(0, max.lat - min.lat);
 
-        if ((normalize || isType(normalize, typeUndefined)) && (min.lon > max.lon)) {
+        if ((normalize || _is(normalize, typeUndefined)) && (min.lon > max.lon)) {
             size.x = 360 - min.lon + max.lon;
         }
         else {
@@ -6422,7 +6509,6 @@ var BoundingBox = (function() {
             bounds = expand(bounds, padding);
         } // if
 
-        COG.trace("calculated bounds for " + positions.length + " positions", startTicks);
         return bounds;
     } // forPositions
 
@@ -6505,7 +6591,7 @@ var Radius = function(init_dist, init_uom) {
 To be completed
 */
 var Address = function(params) {
-    params = COG.extend({
+    params = _extend({
         streetDetails: "",
         location: "",
         country: "",
@@ -6598,109 +6684,6 @@ var addrTools = (function() {
 
     return subModule;
 })(); // addrTools
-/**
-# T5.GeoXY
-
-The GeoXY class is used to convert a position (T5.Geo.Position) into a
-composite xy that can be used to draw on the various T5.ViewLayer implementations.
-This class provides the necessary mechanism that allows the view layers to
-assume operation using a simple vector (containing an x and y) with no need
-geospatial awareness built in.
-
-Layers are aware that particular events may require vector resynchronization
-which is facilitated by the `syncXY` method of the T5.Map.
-
-## Functions
-*/
-var GeoXY = exports.GeoXY = (function() {
-
-    /* internal functions */
-
-    /* exports */
-
-    /**
-    ### init(pos, rpp)
-    */
-    function init(pos, rpp) {
-        var xy = new XY();
-
-        updatePos(xy, pos, rpp);
-
-        return xy;
-    } // init
-
-    /**
-    ### sync(xy, rpp)
-    */
-    function sync(xy, rpp) {
-        if (xy.length) {
-            var minX, minY, maxX, maxY;
-
-            for (var ii = xy.length; ii--; ) {
-                sync(xy[ii], rpp);
-
-                minX = isType(minX, typeUndefined) || xy.x < minX ? xy.x : minX;
-                minY = isType(minY, typeUndefined) || xy.y < minY ? xy.y : minY;
-
-                maxX = isType(maxX, typeUndefined) || xy.x > maxX ? xy.x : maxX;
-                maxY = isType(maxY, typeUndefined) || xy.y > maxY ? xy.y : maxY;
-            } // for
-
-            return new Rect(minX, minY, maxX - minX, maxY - minY);
-        }
-        else if (xy.mercXY) {
-            var mercXY = xy.mercXY;
-
-            xy.x = round((mercXY.x + Math.PI) / rpp);
-            xy.y = round((Math.PI - mercXY.y) / rpp);
-
-            xy.rpp = rpp;
-        } // if
-
-        return xy;
-    } // setRadsPerPixel
-
-    function syncPos(xy, rpp) {
-        if (xy.length) {
-            for (var ii = xy.length; ii--; ) {
-                syncPos(xy[ii], rpp);
-            } // for
-        }
-        else {
-            xy.mercXY = new XY(xy.x * rpp - Math.PI, Math.PI - xy.y * rpp);
-            xy.pos = Position.fromMercatorPixels(xy.mercXY.x, xy.mercXY.y);
-        } // if..else
-
-        return xy;
-    } // syncPos
-
-    function toPos(xy, rpp) {
-        rpp = rpp || xy.rpp;
-
-        return Position.fromMercatorPixels(xy.x * rpp - Math.PI, Math.PI - xy.y * rpp);
-    } // toPos
-
-    function updatePos(xy, pos, rpp) {
-        xy.pos = pos;
-        xy.mercXY = Position.toMercatorPixels(pos);
-
-        rpp = isType(rpp, typeNumber) ? rpp : xy.rpp;
-
-        if (rpp) {
-            sync(xy, rpp);
-        } // if
-    } // updatePos
-
-    /* create the module */
-
-    return {
-        init: init,
-        sync: sync,
-        syncPos: syncPos,
-        toPos: toPos,
-        updatePos: updatePos
-    };
-})();
 
 var FEATURE_TYPE_COLLECTION = 'featurecollection',
     FEATURE_TYPE_FEATURE = 'feature',
@@ -6716,23 +6699,23 @@ var FEATURE_TYPE_COLLECTION = 'featurecollection',
 
 var featureDefinitions = {
 
-    point: COG.extend({}, DEFAULT_FEATUREDEF, {
+    point: _extend({}, DEFAULT_FEATUREDEF, {
         processor: processPoint,
         group: 'markers',
         layerClass: ShapeLayer
     }),
 
-    linestring: COG.extend({}, DEFAULT_FEATUREDEF, {
+    linestring: _extend({}, DEFAULT_FEATUREDEF, {
         processor: processLineString
     }),
-    multilinestring: COG.extend({}, DEFAULT_FEATUREDEF, {
+    multilinestring: _extend({}, DEFAULT_FEATUREDEF, {
         processor: processMultiLineString
     }),
 
-    polygon: COG.extend({}, DEFAULT_FEATUREDEF, {
+    polygon: _extend({}, DEFAULT_FEATUREDEF, {
         processor: processPolygon
     }),
-    multipolygon: COG.extend({}, DEFAULT_FEATUREDEF, {
+    multipolygon: _extend({}, DEFAULT_FEATUREDEF, {
         processor: processMultiPolygon
     })
 };
@@ -6812,13 +6795,13 @@ function processMultiPolygon(layer, featureData, options, builders) {
 /* define the GeoJSON parser */
 
 var GeoJSONParser = function(data, callback, options, builders) {
-    options = COG.extend({
+    options = _extend({
         rowPreParse: null,
         simplify: false,
         layerPrefix: 'geojson-'
     }, options);
 
-    builders = COG.extend({
+    builders = _extend({
         marker: function(xy, builderOpts) {
             return new Marker({
                 xy: xy
@@ -6826,11 +6809,11 @@ var GeoJSONParser = function(data, callback, options, builders) {
         },
 
         line: function(vectors, builderOpts) {
-            return new Poly(vectors, COG.extend({}, options, builderOpts));
+            return new Poly(vectors, _extend({}, options, builderOpts));
         },
 
         poly: function(vectors, builderOpts) {
-            return new Poly(vectors, COG.extend({
+            return new Poly(vectors, _extend({
                 fill: true
             }, options, builderOpts));
         }
@@ -6849,7 +6832,7 @@ var GeoJSONParser = function(data, callback, options, builders) {
         return;
     } // if
 
-    if (! isType(data, typeArray)) {
+    if (! _is(data, typeArray)) {
         data = [data];
     } // if
 
@@ -6858,7 +6841,7 @@ var GeoJSONParser = function(data, callback, options, builders) {
     function addFeature(definition, featureInfo) {
         var processor = definition.processor,
             layerId = layerPrefix + definition.group,
-            featureOpts = COG.extend({}, definition, options, {
+            featureOpts = _extend({}, definition, options, {
                 properties: featureInfo.properties
             });
 
@@ -6915,7 +6898,7 @@ var GeoJSONParser = function(data, callback, options, builders) {
 
     function processData(tickCount) {
         var cycleCount = 0,
-            childOpts = COG.extend({}, options),
+            childOpts = _extend({}, options),
             ii = featureIndex;
 
         tickCount = tickCount ? tickCount : new Date().getTime();
@@ -6974,7 +6957,7 @@ var GeoJSONParser = function(data, callback, options, builders) {
     animFrame(processData);
 };
 
-var GeoJSON = exports.GeoJSON = {
+var GeoJSON = T5.GeoJSON = {
     parse: function(data, callback, options) {
         return new GeoJSONParser(data, callback, options);
     }
@@ -7001,8 +6984,8 @@ handling both string and T5.Geo.Position values as position values are
 simply passed straight through.
 
 */
-var GeoShape = exports.GeoShape = function(positions, params) {
-    params = COG.extend({
+var GeoShape = T5.GeoShape = function(positions, params) {
+    params = _extend({
         autoParse: true
     }, params);
 
@@ -7019,7 +7002,7 @@ var GeoShape = exports.GeoShape = function(positions, params) {
     return new T5.Poly(vectors, params);
 };
 
-    exports.Geo = {
+    T5.Geo = {
         distanceToString: distanceToString,
         dist2rad: dist2rad,
         radsPerPixel: radsPerPixel,
@@ -7033,4 +7016,4 @@ var GeoShape = exports.GeoShape = function(positions, params) {
 
         GeoJSON: GeoJSON
     };
-})(T5);
+})();

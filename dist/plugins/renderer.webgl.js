@@ -1792,7 +1792,7 @@ quat4.str = function(quat) {
 
 
 T5.registerRenderer('webgl', function(view, panFrame, container, params, baseRenderer) {
-    params = COG.extend({
+    params = _extend({
     }, params);
 
     /* some shaders */
@@ -1955,7 +1955,7 @@ T5.registerRenderer('webgl', function(view, panFrame, container, params, baseRen
 
         gl.linkProgram(shaderProgram);
         if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-            COG.warn("Could not initialise shaders");
+            _log("Could not initialise shaders", 'warn');
         }
 
         gl.useProgram(shaderProgram);
@@ -2082,7 +2082,7 @@ T5.registerRenderer('webgl', function(view, panFrame, container, params, baseRen
 
     init();
 
-    var _this = COG.extend(baseRenderer, {
+    var _this = _extend(baseRenderer, {
         interactTarget: canvas,
 
         applyStyle: applyStyle,
@@ -2110,7 +2110,7 @@ T5.registerRenderer('webgl', function(view, panFrame, container, params, baseRen
         }
     });
 
-    COG.info('created webgl renderer');
+    _log('created webgl renderer');
 
     _this.bind('detach', handleDetach);
 

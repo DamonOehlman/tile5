@@ -12,67 +12,80 @@
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true */
 
 // TODO: replace with a github dependency once getjs is done
-//= require <cog/src/cog>
-//= require <cog/src/timelord>
-//= require <cog/src/objectstore>
 //= require <cani/src/cani>
 //= require <interact/src/interact>
 
-var T5 = {};
-(function(exports) {
+(function() {
+    //= require <cog/cogs/animframe>
+    //= require <cog/cogs/extend>
+    //= require <cog/cogs/log>
+    //= require <cog/cogs/stringtools>
+    //= require <cog/cogs/tween>
+    //= require <cog/cogs/observable>
+    //= require <cog/cogs/arraytools>
+    //= require <cog/cogs/typetools>
+    //= require <cog/cogs/jsonp>
+    
+    // define the tile5 namespace
+    window.T5 = {
+        // expose some cog functions
+        ex: _extend,
+        observable: _observable,
+        formatter: _formatter,
+        wordExists: _wordExists,
+        is: _is,
+        indexOf: _indexOf
+    };
+    
     // make T5 observable
-    COG.observable(exports);
+    _observable(T5);
     
-    //= require "js/animframe"
+    //= require "core/functions"
+    //= require "core/shorts"
+    //= require "core/canvasmaker"
+    //= require "core/generator"
+    //= require "core/service"
     
-    //= require "js/functions"
-    //= require "js/shorts"
-    //= require "js/canvasmaker"
-    //= require "js/generator"
-    //= require "js/service"
+    //= require "core/dom"
+    //= require "core/xy"
+    //= require "core/rect"
+    //= require "core/xyfns"
+    //= require "core/vector"
+    //= require "core/xyrect"
+    //= require "core/hits"
+    //= require "core/spatialstore"
     
-    //= require "js/core/dom"
-    //= require "js/core/xy"
-    //= require "js/core/rect"
-    //= require "js/core/xyfns"
-    //= require "js/core/vector"
-    //= require "js/core/xyrect"
-    //= require "js/core/hits"
-    //= require "js/core/spatialstore"
+    //= require "core/images/loader"
+    //= require "core/images/tile"
     
-    //= require "js/images/loader"
-    //= require "js/images/tile"
+    //= require "core/graphics/renderers/base"
+    //= require "core/graphics/renderers/canvas"
+    //= require "core/graphics/renderers/dom"
     
-    //= require "js/graphics/renderers/base"
-    //= require "js/graphics/renderers/canvas"
-    //= require "js/graphics/renderers/dom"
+    //= require "core/graphics/style"
+    //= require "core/graphics/view"
+    //= require "core/graphics/map"
     
-    //= require "js/graphics/style"
-    //= require "js/graphics/view"
-    //= require "js/graphics/map"
-    
-    //= require "js/graphics/drawables/core"
-    //= require "js/graphics/drawables/animation"
-    //= require "js/graphics/drawables/marker"
-    //= require "js/graphics/drawables/poly"
-    //= require "js/graphics/drawables/line"
-    //= require "js/graphics/drawables/image"
-    //= require "js/graphics/drawables/imagemarker"
-    //= require "js/graphics/drawables/arc"
+    //= require "core/graphics/drawables/core"
+    //= require "core/graphics/drawables/animation"
+    //= require "core/graphics/drawables/marker"
+    //= require "core/graphics/drawables/poly"
+    //= require "core/graphics/drawables/line"
+    //= require "core/graphics/drawables/image"
+    //= require "core/graphics/drawables/imagemarker"
+    //= require "core/graphics/drawables/arc"
 
-    //= require "js/graphics/layers/viewlayer"
-    //= require "js/graphics/layers/tilelayer"
-    //= require "js/graphics/layers/drawlayer"
-    //= require "js/graphics/layers/shapelayer"
+    //= require "core/graphics/layers/viewlayer"
+    //= require "core/graphics/layers/tilelayer"
+    //= require "core/graphics/layers/drawlayer"
+    //= require "core/graphics/layers/shapelayer"
     
-    //= require "js/geo/types/pos"
+    //= require "core/geo/types/pos"
+    //= require "core/geo/types/geoxy"
     
-    COG.extend(exports, {
-        ex: COG.extend,
-        is: isType,
+    _extend(T5, {
         ticks: ticks,
         userMessage: userMessage,
-        indexOf: indexOf,
         
         DOM: DOM,
         Rect: Rect,
@@ -85,8 +98,8 @@ var T5 = {};
         Service: Service,
         
         // animation functions and modules
-        tweenValue: COG.tweenValue,
-        easing: COG.easing,
+        tweenValue: _tweenValue,
+        easing: _easing,
         
         // images
         Tile: Tile,
@@ -113,24 +126,24 @@ var T5 = {};
         Map: Map,
         
         // some of the geo types starting to move up...
+        GeoXY: GeoXY,
         Pos: Pos
     });
     
-    //= require "js/geo/constants"
-    //= require "js/geo/functions"
+    //= require "core/geo/constants"
+    //= require "core/geo/functions"
 
-    //= require "js/geo/types/position"
-    //= require "js/geo/types/boundingbox"
-    //= require "js/geo/types/radius"
-    //= require "js/geo/types/address"
-    //= require "js/geo/types/geoxy"
+    //= require "core/geo/types/position"
+    //= require "core/geo/types/boundingbox"
+    //= require "core/geo/types/radius"
+    //= require "core/geo/types/address"
     
-    //= require "js/geo/geojson"
+    //= require "core/geo/geojson"
 
-    //= require "js/geo/ui/geopoly"
+    //= require "core/geo/ui/geopoly"
     
     // define the geo functionality
-    exports.Geo = {
+    T5.Geo = {
         distanceToString: distanceToString,
         dist2rad: dist2rad,
         radsPerPixel: radsPerPixel,
@@ -144,4 +157,4 @@ var T5 = {};
         
         GeoJSON: GeoJSON
     };
-})(T5);
+})();
