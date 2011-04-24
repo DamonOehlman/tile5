@@ -1,102 +1,4 @@
-/**
-# T5.View
-The View is the fundamental building block for tiling and 
-mapping interface.  Which this class does not implement any of 
-the logic required for tiling, it does handle the redraw logic.  
-Applications implementing Tile5 maps will not need to be aware of 
-the implementation specifics of the View, but for those interested 
-in building extensions or customizations should definitely take a look.  
-Additionally, it is worth being familiar with the core methods that 
-are implemented here around the layering as these are used extensively 
-when creating overlays and the like for the map implementations.
-
-## Constructor
-
-<pre>
-var view = new T5.View(params);
-</pre>
-
-#### Initialization Parameters
-
-- `container` (required)
-
-- `id`
-
-- `captureHover` - whether or not hover events should be intercepted by the View.  
-If you are building an application for mobile devices then you may want to set this to 
-false, but it's overheads are minimals given no events will be generated.
-
-- `inertia`
-
-- `pannable`
-
-- `scalable`
-
-- `fps` - (int, default = 25) - the frame rate of the view, by default this is set to 
-25 frames per second but can be increased or decreased to compensate for device 
-performance.  In reality though on slower devices, the framerate will scale back 
-automatically, but it can be prudent to set a lower framerate to leave some cpu for 
-other processes :)
-
-## Events
-
-### tapHit
-This event is fired when the view has been tapped (or the left
-mouse button has been pressed)
-<pre>
-view.bind('tapHit', function(evt, elements, absXY, relXY, offsetXY) {
-});
-</pre>
-
-- elements ([]) - an array of elements that were "hit"
-- absXY (T5.Vector) - the absolute position of the tap
-- relXY (T5.Vector) - the position of the tap relative to the top left position of the view.
-- gridXY (T5.Vector) - the xy coordinates of the tap relative to the scrolling grid offset.
-
-
-### hoverHit
-As per the tapHit event, but triggered through a mouse-over event.
-
-### refresh
-<pre>
-view.bind('refresh', function(evt) {
-});
-</pre>
-
-### drawComplete
-Triggered when drawing the view has been completed (who would have thought).
-<pre>
-view.bind('drawComplete', function(evt, viewport, tickCount) {
-});
-</pre>
-
-- viewport - the current viewport of the view
-- tickCount - the tick count at the start of the draw operation.
-
-
-### enterFrame
-Triggered on the view cycling.
-<pre>
-view.bind('enterFrame', function(evt, tickCount, frameData) {
-});
-</pre>
-
-### zoomLevelChange
-Triggered when the zoom level of the view has changed.  Given that Tile5 was primarily
-built to serve as a mapping platform zoom levels are critical to the design so a view
-has this functionality.
-
-<pre>
-view.bind('zoomLevelChange', function(evt, zoomLevel) {
-});
-</pre>
-
-- zoomLevel (int) - the new zoom level
-
-
-## Methods
-*/
-var View = function(params) {
+reg('view', 'view', function(params) {
     // initialise defaults
     params = _extend({
         container: "",
@@ -301,33 +203,6 @@ var View = function(params) {
         // attach interaction handlers
         captureInteractionEvents();
     } // createRenderer
-    
-    function addLayer(id, value) {
-        // make sure the layer has the correct id
-        value.id = id;
-        value.added = ticks();
-        
-        // tell the layer that I'm going to take care of it
-        value.view = _self;
-        value.trigger('parentChange', _self, viewpane, mainContext);
-        
-        // add the new layer
-        layers.push(value);
-        
-        // sort the layers
-        layers.sort(function(itemA, itemB) {
-            var result = itemB.zindex - itemA.zindex;
-            if (result === 0) {
-                result = itemB.added - itemA.added;
-            } // if
-            
-            return result;
-        });
-        
-        // update the layer count
-        layerCount = layers.length;
-        return value;
-    } // addLayer
     
     function captureInteractionEvents() {
         if (eventMonitor) {
@@ -783,21 +658,6 @@ var View = function(params) {
     } // eachLayer
     
     /**
-    ### getLayer(id: String): T5.ViewLayer
-    Get the ViewLayer with the specified id, return null if not found
-    */
-    function getLayer(id) {
-        // look for the matching layer, and return when found
-        for (var ii = 0; ii < layerCount; ii++) {
-            if (layers[ii].id === id) {
-                return layers[ii];
-            } // if
-        } // for
-        
-        return null;
-    } // getLayer
-    
-    /**
     ### getOffset(): T5.XY
     Return a T5.XY containing the current view offset
     */
@@ -862,6 +722,51 @@ var View = function(params) {
         return viewport;
     } // getViewport
     
+    function layer(id, layerType, settings) {
+        // if the layer type is undefined, then assume we are doing a get
+        if (_is(layerType, typeUndefined)) {
+            // look for the matching layer, and return when found
+            for (var ii = 0; ii < layerCount; ii++) {
+                if (layers[ii].id === id) {
+                    return layers[ii];
+                } // if
+            } // for
+            
+            return undefined;
+        }
+        // otherwise, let's create the layer and add it to the view
+        // TODO: handle when an existing view is passed via the second arg
+        else {
+            // create the layer using the registry
+            var layer = regCreate('layer', layerType, settings);
+            
+            // initialise the layer attributes
+            layer.added = ticks();
+            layers[layers.length] = layer;
+            
+            // resort the layers
+            // sort the layers
+            layers.sort(function(itemA, itemB) {
+                return itemB.zindex - itemA.zindex || itemB.added - itemA.added;
+            });
+            
+            // update the layer count
+            layerCount = layers.length;                
+
+            // trigger a refresh on the layer
+            value.trigger('refresh', _self, getViewport());
+
+            // trigger a layer changed event
+            _self.trigger('layerChange', _self, value);
+
+            // invalidate the map
+            invalidate();
+
+            // return the layer so we can chain if we want
+            return layer;
+        } // if..else
+    } // layer
+    
     /**
     ### pan(x: int, y: int)
     
@@ -874,36 +779,6 @@ var View = function(params) {
         viewChanges++;
     } // pan
     
-    /**
-    ### setLayer(id: String, value: T5.ViewLayer)
-    Either add or update the specified view layer
-    */
-    function setLayer(id, value) {
-        // if the layer already exists, then remove it
-        for (var ii = 0; ii < layerCount; ii++) {
-            if (layers[ii].id === id) {
-                layers.splice(ii, 1);
-                break;
-            } // if
-        } // for
-        
-        if (value) {
-            addLayer(id, value);
-            
-            // trigger a refresh on the layer
-            value.trigger('refresh', _self, getViewport());
-            
-            // trigger a layer changed event
-            _self.trigger('layerChange', _self, value);
-        } // if
-
-        // invalidate the map
-        invalidate();
-        
-        // return the layer so we can chain if we want
-        return value;
-    } // setLayer
-
     /**
     ### refresh()
     Manually trigger a refresh on the view.  Child view layers will likely be listening for `refresh`
@@ -1128,9 +1003,7 @@ var View = function(params) {
         attachFrame: attachFrame,
         detach: detach,
         eachLayer: eachLayer,
-        getLayer: getLayer,
         getZoomLevel: getZoomLevel,
-        setLayer: setLayer,
         invalidate: invalidate,
         refresh: refresh,
         resetScale: resetScale,
@@ -1187,9 +1060,7 @@ var View = function(params) {
 
     CANI.init(function(testResults) {
         // add the markers layer
-        _self.markers = addLayer('markers', new ShapeLayer({
-            zindex: 20
-        }));
+        _self.markers = layer('markers', 'draw', { zindex: 20 });
         
         // create the renderer
         caps = testResults;
@@ -1209,4 +1080,4 @@ var View = function(params) {
     animFrame(cycle);
 
     return _self;
-}; // T5.View
+});

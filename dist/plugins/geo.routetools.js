@@ -221,37 +221,14 @@ T5.RouteTools = (function() {
     To be completed
     */
     function createMapOverlay(map, routeData) {
-        var routeOverlay = new T5.ShapeLayer();
-
-        /*
-        TODO: put instruction markers back on the route - maybe markers
-        if (routeData.instructions) {
-            var instructions = routeData.instructions,
-                positions = new Array(instructions.length);
-
-            for (var ii = instructions.length; ii--; ) {
-                positions[ii] = instructions[ii].position;
-            } // for
-
-            Position.vectorize(positions, {
-                callback: function(coords) {
-                    routeOverlay.add(new T5.Points(coords, {
-                        zIndex: 1
-                    }));
-                }
-            });
-        } // if
-        */
-
         if (routeData.geometry) {
             T5.Geo.Position.vectorize(routeData.geometry, {
                 callback: function(coords) {
-                    routeOverlay.add(new T5.Line(coords, {
+                    map.layer('route', 'draw').create(typeDrawable, 'line', {
+                        points: coords,
                         style: 'waypoints',
                         simplify: true
-                    }));
-
-                    map.setLayer("route", routeOverlay);
+                    });
                 }
             });
         } // if

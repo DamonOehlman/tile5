@@ -1,7 +1,7 @@
 /**
 # T5.GeoXY
 
-The GeoXY class is used to convert a position (T5.Geo.Position) into a
+The GeoXY class is used to convert a position into a
 composite xy that can be used to draw on the various T5.ViewLayer implementations.
 This class provides the necessary mechanism that allows the view layers to 
 assume operation using a simple vector (containing an x and y) with no need

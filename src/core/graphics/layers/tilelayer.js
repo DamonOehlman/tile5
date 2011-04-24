@@ -1,7 +1,7 @@
 /**
-# T5.ImageLayer
+# LAYER: tile
 */
-var TileLayer = function(genId, params) {
+reg('layer', 'tile', function(view, params) {
     params = _extend({
         imageLoadArgs: {}
     }, params);
@@ -61,8 +61,7 @@ var TileLayer = function(genId, params) {
     });
     
     _self.bind('refresh', handleRefresh);
-    _self.bind('parentChange', handleResync);
     _self.bind('resync', handleResync);
     
     return _self;
-};
+});

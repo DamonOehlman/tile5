@@ -1,17 +1,13 @@
 /**
-# T5.Drawable
-The T5.Shape class is simply a template class that provides placeholder methods
-that need to be implemented for shapes that can be drawn in a T5.ShapeLayer.
+DRAWABLE
 
 ## Constructor
-`new T5.Drawable(params);`
+`new T5.Drawable(view, layer, params);`
 
-
-#### Initialization Parameters
-
+## Settings
 - 
 */
-var Drawable = function(params) {
+var Drawable = function(view, layer, params) {
     params = _extend({
         style: null,
         xy: null,
@@ -30,7 +26,8 @@ var Drawable = function(params) {
     // initialise the id
     this.id = 'drawable_' + drawableCounter++;
     this.bounds = null;
-    this.view = null;
+    this.view = view;
+    this.layer = layer;
     
     // initialise transform variables
     this.animations = 0;

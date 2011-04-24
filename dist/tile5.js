@@ -11,6 +11,8 @@
 
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true */
 
+
+(function(exports) {
 var CANI = {};
 (function(exports) {
     var tests = [],
@@ -100,1131 +102,6 @@ register('canvas', function(results, callback) {
     callback();
 });
 })(CANI);
-/*!
- * Sidelab COG Javascript Library v0.2.0
- * http://www.sidelab.com/
- *
- * Copyright 2011, Damon Oehlman <damon.oehlman@sidelab.com>
- * Licensed under the MIT licence
- * https://github.com/sidelab/cog
- *
- */
-
-COG = typeof COG !== 'undefined' ? COG : {};
-
-/**
-# COG.extend
-*/
-COG.extend = function() {
-    var target = arguments[0] || {},
-        source;
-
-    for (var ii = 1, argCount = arguments.length; ii < argCount; ii++) {
-        if ((source = arguments[ii]) !== null) {
-            for (var name in source) {
-                var copy = source[name];
-
-                if (target === copy) {
-                    continue;
-                } // if
-
-                if (copy !== undefined) {
-                    target[name] = copy;
-                } // if
-            } // for
-        } // if
-    } // for
-
-    return target;
-}; // extend
-
-(function() {
-    var callbackCounter = 0;
-
-    function getHandlers(target) {
-        return target.hasOwnProperty('obsHandlers') ?
-                target.obsHandlers :
-                null;
-    } // getHandlers
-
-    function getHandlersForName(target, eventName) {
-        var handlers = getHandlers(target);
-        if (! handlers[eventName]) {
-            handlers[eventName] = [];
-        } // if
-
-        return handlers[eventName];
-    } // getHandlersForName
-
-    /**
-    # COG.observable
-    */
-    COG.observable = function(target) {
-        if (! target) { return null; }
-
-        /* initialization code */
-
-        if (! getHandlers(target)) {
-            target.obsHandlers = {};
-        } // if
-
-        var attached = target.hasOwnProperty('bind');
-        if (! attached) {
-            target.bind = function(eventName, callback) {
-                var callbackId = "callback" + (callbackCounter++);
-                getHandlersForName(target, eventName).unshift({
-                    fn: callback,
-                    id: callbackId
-                });
-
-                return callbackId;
-            }; // bind
-
-            target.triggerCustom = function(eventName, args) {
-                var eventCallbacks = getHandlersForName(target, eventName),
-                    evt = {
-                        cancel: false,
-                        name: eventName,
-                        source: this
-                    },
-                    eventArgs;
-
-                if (args) {
-                    COG.extend(evt, args);
-                } // if
-
-                if (! eventCallbacks) {
-                    return null;
-                } // if
-
-                eventArgs = Array.prototype.slice.call(arguments, 2);
-
-                if (target.eventInterceptor) {
-                    target.eventInterceptor(eventName, evt, eventArgs);
-                } // if
-
-                eventArgs.unshift(evt);
-
-                for (var ii = eventCallbacks.length; ii-- && (! evt.cancel); ) {
-                    eventCallbacks[ii].fn.apply(this, eventArgs);
-                } // for
-
-                return evt;
-            };
-
-            target.trigger = function(eventName) {
-                var eventArgs = Array.prototype.slice.call(arguments, 1);
-                eventArgs.splice(0, 0, eventName, null);
-
-                return target.triggerCustom.apply(this, eventArgs);
-            }; // trigger
-
-            target.unbind = function(eventName, callbackId) {
-                if (typeof eventName === 'undefined') {
-                    target.obsHandlers = {};
-                }
-                else {
-                    var eventCallbacks = getHandlersForName(target, eventName);
-                    for (var ii = 0; eventCallbacks && (ii < eventCallbacks.length); ii++) {
-                        if (eventCallbacks[ii].id === callbackId) {
-                            eventCallbacks.splice(ii, 1);
-                            break;
-                        } // if
-                    } // for
-                } // if..else
-
-                return target;
-            }; // unbind
-        } // if
-
-        return target;
-    };
-})();
-
-(function() {
-    var BACK_S = 1.70158,
-        HALF_PI = Math.PI / 2,
-        TWO_PI = Math.PI * 2,
-        ANI_WAIT = 1000 / 60 | 0,
-
-        abs = Math.abs,
-        pow = Math.pow,
-        sin = Math.sin,
-        asin = Math.asin,
-        cos = Math.cos,
-
-        tweenWorker = null,
-        updatingTweens = false;
-
-    /*
-    Easing functions
-
-    sourced from Robert Penner's excellent work:
-    http://www.robertpenner.com/easing/
-
-    Functions follow the function format of fn(t, b, c, d, s) where:
-    - t = time
-    - b = beginning position
-    - c = change
-    - d = duration
-    */
-    var easingFns = {
-        linear: function(t, b, c, d) {
-            return c*t/d + b;
-        },
-
-        /* back easing functions */
-
-        backin: function(t, b, c, d) {
-            return c*(t/=d)*t*((BACK_S+1)*t - BACK_S) + b;
-        },
-
-        backout: function(t, b, c, d) {
-            return c*((t=t/d-1)*t*((BACK_S+1)*t + BACK_S) + 1) + b;
-        },
-
-        backinout: function(t, b, c, d) {
-            return ((t/=d/2)<1) ? c/2*(t*t*(((BACK_S*=(1.525))+1)*t-BACK_S))+b : c/2*((t-=2)*t*(((BACK_S*=(1.525))+1)*t+BACK_S)+2)+b;
-        },
-
-        /* bounce easing functions */
-
-        bouncein: function(t, b, c, d) {
-            return c - easingFns.bounceout(d-t, 0, c, d) + b;
-        },
-
-        bounceout: function(t, b, c, d) {
-            if ((t/=d) < (1/2.75)) {
-                return c*(7.5625*t*t) + b;
-            } else if (t < (2/2.75)) {
-                return c*(7.5625*(t-=(1.5/2.75))*t + 0.75) + b;
-            } else if (t < (2.5/2.75)) {
-                return c*(7.5625*(t-=(2.25/2.75))*t + 0.9375) + b;
-            } else {
-                return c*(7.5625*(t-=(2.625/2.75))*t + 0.984375) + b;
-            }
-        },
-
-        bounceinout: function(t, b, c, d) {
-            if (t < d/2) return easingFns.bouncein(t*2, 0, c, d) / 2 + b;
-            else return easingFns.bounceout(t*2-d, 0, c, d) / 2 + c/2 + b;
-        },
-
-        /* cubic easing functions */
-
-        cubicin: function(t, b, c, d) {
-            return c*(t/=d)*t*t + b;
-        },
-
-        cubicout: function(t, b, c, d) {
-            return c*((t=t/d-1)*t*t + 1) + b;
-        },
-
-        cubicinout: function(t, b, c, d) {
-            if ((t/=d/2) < 1) return c/2*t*t*t + b;
-            return c/2*((t-=2)*t*t + 2) + b;
-        },
-
-        /* elastic easing functions */
-
-        elasticin: function(t, b, c, d, a, p) {
-            var s;
-
-            if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*0.3;
-            if (!a || a < abs(c)) { a=c; s=p/4; }
-            else s = p/TWO_PI * asin (c/a);
-            return -(a*pow(2,10*(t-=1)) * sin( (t*d-s)*TWO_PI/p )) + b;
-        },
-
-        elasticout: function(t, b, c, d, a, p) {
-            var s;
-
-            if (t==0) return b;  if ((t/=d)==1) return b+c;  if (!p) p=d*0.3;
-            if (!a || a < abs(c)) { a=c; s=p/4; }
-            else s = p/TWO_PI * asin (c/a);
-            return (a*pow(2,-10*t) * sin( (t*d-s)*TWO_PI/p ) + c + b);
-        },
-
-        elasticinout: function(t, b, c, d, a, p) {
-            var s;
-
-            if (t==0) return b;  if ((t/=d/2)==2) return b+c;  if (!p) p=d*(0.3*1.5);
-            if (!a || a < abs(c)) { a=c; s=p/4; }
-            else s = p/TWO_PI * asin (c/a);
-            if (t < 1) return -0.5*(a*pow(2,10*(t-=1)) * sin( (t*d-s)*TWO_PI/p )) + b;
-            return a*pow(2,-10*(t-=1)) * sin( (t*d-s)*TWO_PI/p )*0.5 + c + b;
-        },
-
-        /* quad easing */
-
-        quadin: function(t, b, c, d) {
-            return c*(t/=d)*t + b;
-        },
-
-        quadout: function(t, b, c, d) {
-            return -c *(t/=d)*(t-2) + b;
-        },
-
-        quadinout: function(t, b, c, d) {
-            if ((t/=d/2) < 1) return c/2*t*t + b;
-            return -c/2 * ((--t)*(t-2) - 1) + b;
-        },
-
-        /* sine easing */
-
-        sinein: function(t, b, c, d) {
-            return -c * cos(t/d * HALF_PI) + c + b;
-        },
-
-        sineout: function(t, b, c, d) {
-            return c * sin(t/d * HALF_PI) + b;
-        },
-
-        sineinout: function(t, b, c, d) {
-            return -c/2 * (cos(Math.PI*t/d) - 1) + b;
-        }
-    };
-
-    /* animation internals */
-
-    function simpleTypeName(typeName) {
-        return typeName.replace(/[\-\_\s\.]/g, '').toLowerCase();
-    } // simpleTypeName
-
-    /* tween exports */
-
-    /**
-    # COG.tweenValue
-    */
-    COG.tweenValue = function(startValue, endValue, fn, duration, callback) {
-
-        var startTicks = new Date().getTime(),
-            lastTicks = 0,
-            change = endValue - startValue,
-            tween = {};
-
-        function runTween(tickCount) {
-            tickCount = tickCount ? tickCount : new Date().getTime();
-
-            if (lastTicks + ANI_WAIT < tickCount) {
-                var elapsed = tickCount - startTicks,
-                    updatedValue = fn(elapsed, startValue, change, duration),
-                    complete = startTicks + duration <= tickCount,
-                    cont = !complete,
-                    retVal;
-
-                if (callback) {
-                    retVal = callback(updatedValue, complete, elapsed);
-
-                    cont = typeof retVal != 'undefined' ? retVal && cont : cont;
-                } // if
-
-                if (cont) {
-                    animFrame(runTween);
-                } // if
-            } // if
-        } // runTween
-
-        animFrame(runTween);
-
-        return tween;
-    }; // T5.tweenValue
-
-    /**
-    # COG.easing
-    */
-    var easing = COG.easing = function(typeName) {
-        return easingFns[simpleTypeName(typeName)];
-    }; // easing
-
-    /**
-    # COG.registerEasingType
-    */
-    COG.registerEasingType = function(typeName, callback) {
-        easingFns[simpleTypeName(typeName)] = callback;
-    }; // registerEasingType
-})();
-
-(function() {
-    var traceAvailable = window.console && window.console.markTimeline,
-        logError = writer('error'),
-        logInfo = writer('info');
-
-    /* internal functions */
-
-    function writer(level) {
-        if (typeof console !== 'undefined') {
-            return function() {
-                console[level](Array.prototype.slice.call(arguments, 0).join(' '));
-
-                return true;
-            };
-        }
-        else {
-            return function() {
-                return false;
-            };
-        } // if..else
-    } // writer
-
-    /* exports */
-
-    var trace = (function() {
-        if (traceAvailable) {
-            return function(message, startTicks) {
-                console.markTimeline(message + (startTicks ? ": " +
-                    (new Date().getTime() - startTicks) + "ms" : ""));
-            };
-        }
-        else {
-            return function() {};
-        } // if..else
-    })();
-
-    COG.extend(COG, {
-        trace: trace,
-        debug: writer('debug'),
-        info: logInfo,
-        warn: writer('warn'),
-        error: logError,
-
-        exception: function(error) {
-            if (logError) {
-                for (var keyname in error) {
-                    logInfo("ERROR DETAIL: " + keyname + ": " + error[keyname]);
-                } // for
-            }
-        }
-
-    });
-})();
-
-
-/**
-# INTERACT
-*/
-INTERACT = (function() {
-    var interactors = [];
-
-var EventMonitor = function(target, handlers, params) {
-    params = COG.extend({
-        binder: null,
-        unbinder: null,
-        observable: null
-    }, params);
-
-    var MAXMOVE_TAP = 20, // pixels
-        INERTIA_DURATION = 500, // ms
-        INERTIA_MAXDIST = 300, // pixels
-        INERTIA_TIMEOUT = 50, // ms
-        INERTIA_IDLE_DISTANCE = 15; // pixels
-
-    var observable = params.observable,
-        handlerInstances = [],
-        totalDeltaX,
-        totalDeltaY;
-
-
-    /* internals */
-
-    function deltaGreaterThan(value) {
-        return Math.abs(totalDeltaX) > value || Math.abs(totalDeltaY) > value;
-    } // deltaGreaterThan
-
-    function handlePointerMove(evt, absXY, relXY, deltaXY) {
-        totalDeltaX += deltaXY.x || 0;
-        totalDeltaY += deltaXY.y || 0;
-    } // handlePanMove
-
-    function handlePointerDown(evt, absXY, relXY) {
-        totalDeltaX = 0;
-        totalDeltaY = 0;
-    } // handlePointerDown
-
-    function handlePointerUp(evt, absXY, relXY) {
-        if (! deltaGreaterThan(MAXMOVE_TAP)) {
-            observable.triggerCustom('tap', evt, absXY, relXY);
-        } // if
-    } // handlePointerUP
-
-    /* exports */
-
-    function bind() {
-        return observable.bind.apply(null, arguments);
-    } // bind
-
-    function unbind() {
-        observable.unbind();
-
-        for (ii = 0; ii < handlerInstances.length; ii++) {
-            handlerInstances[ii].unbind();
-        } // for
-
-        return self;
-    } // unbind
-
-    /* define the object */
-
-    var self = {
-        bind: bind,
-        unbind: unbind
-    };
-
-    for (var ii = 0; ii < handlers.length; ii++) {
-        handlerInstances.push(handlers[ii](target, observable, params));
-    } // for
-
-    observable.bind('pointerDown', handlePointerDown);
-    observable.bind('pointerMove', handlePointerMove);
-    observable.bind('pointerUp', handlePointerUp);
-
-    return self;
-};
-
-    /* internal functions */
-
-    function genBinder(target) {
-        return function(evtName, callback) {
-            target.addEventListener(evtName, callback, false);
-        };
-    } // bindDoc
-
-    function genUnbinder(target) {
-        return function(evtName, callback, customTarget) {
-            target.removeEventListener(evtName, callback, false);
-        };
-    } // unbindDoc
-
-    function genIEBinder(target) {
-        return function(evtName, callback) {
-            target.attachEvent('on' + evtName, callback);
-        };
-    } // genIEBinder
-
-    function genIEUnbinder(target) {
-        return function(evtName, callback) {
-            target.detachEvent('on' + evtName, callback);
-        };
-    } // genIEUnbinder
-
-    function getHandlers(types, capabilities) {
-        var handlers = [];
-
-        for (var ii = interactors.length; ii--; ) {
-            var interactor = interactors[ii],
-                selected = (! types) || (types.indexOf(interactor.type) >= 0),
-                checksPass = true;
-
-            for (var checkKey in interactor.checks) {
-                var check = interactor.checks[checkKey];
-                COG.info('checking ' + checkKey + ' capability. require: ' + check + ', capability = ' + capabilities[checkKey]);
-
-                checksPass = checksPass && (check === capabilities[checkKey]);
-            } // for
-
-            if (selected && checksPass) {
-                handlers[handlers.length] = interactor.handler;
-            } // if
-        } // for
-
-        return handlers;
-    } // getHandlers
-
-    function point(x, y) {
-        return {
-            x: x ? x : 0,
-            y: y ? y : 0,
-            count: 1
-        };
-    } // point
-
-    /* exports */
-
-    function register(typeName, opts) {
-        interactors.push(COG.extend({
-            handler: null,
-            checks: {},
-            type: typeName
-        }, opts));
-    } // register
-
-    /**
-    ### watch(target, opts, caps)
-    */
-    function watch(target, opts, caps) {
-        opts = COG.extend({
-            bindTarget: null,
-            observable: null,
-            isIE: typeof window.attachEvent != 'undefined',
-            types: null
-        }, opts);
-
-        capabilities = COG.extend({
-            touch: 'ontouchstart' in window
-        }, caps);
-
-        if (! opts.observable) {
-            COG.info('creating observable');
-            opts.observable = COG.observable({});
-            globalOpts = opts;
-        } // if
-
-        opts.binder = (opts.isIE ? genIEBinder : genBinder)(opts.bindTarget || document);
-        opts.unbinder = (opts.isIE ? genIEBinder : genUnbinder)(opts.bindTarget || document);
-
-        return new EventMonitor(target, getHandlers(opts.types, capabilities), opts);
-    } // watch
-
-/* common pointer (mouse, touch, etc) functions */
-
-function getOffset(obj) {
-    var calcLeft = 0,
-        calcTop = 0;
-
-    if (obj.offsetParent) {
-        do {
-            calcLeft += obj.offsetLeft;
-            calcTop += obj.offsetTop;
-
-            obj = obj.offsetParent;
-        } while (obj);
-    } // if
-
-    return {
-        left: calcLeft,
-        top: calcTop
-    };
-} // getOffset
-
-function genEventProps(source, evt) {
-    return {
-        source: source,
-        target: evt.target ? evt.target : evt.srcElement
-    };
-} // genEventProps
-
-function matchTarget(evt, targetElement) {
-    var targ = evt.target ? evt.target : evt.srcElement,
-        targClass = targ.className;
-
-    while (targ && (targ !== targetElement)) {
-        targ = targ.parentNode;
-    } // while
-
-    return targ && (targ === targetElement);
-} // matchTarget
-
-function pointerOffset(absPoint, offset) {
-    return {
-        x: absPoint.x - (offset ? offset.left : 0),
-        y: absPoint.y - (offset ? offset.top : 0)
-    };
-} // triggerPositionEvent
-
-function preventDefault(evt, immediate) {
-    if (evt.preventDefault) {
-        evt.preventDefault();
-        evt.stopPropagation();
-    }
-    else if (typeof evt.cancelBubble != 'undefined') {
-        evt.cancelBubble = true;
-    } // if..else
-
-    if (immediate && evt.stopImmediatePropagation) {
-        evt.stopImmediatePropagation();
-    } // if
-} // preventDefault
-var MouseHandler = function(targetElement, observable, opts) {
-    opts = COG.extend({
-    }, opts);
-
-    var WHEEL_DELTA_STEP = 120,
-        WHEEL_DELTA_LEVEL = WHEEL_DELTA_STEP * 8;
-
-    var ignoreButton = opts.isIE,
-        isFlashCanvas = typeof FlashCanvas != 'undefined',
-        buttonDown = false,
-        start,
-        currentX,
-        currentY,
-        lastX,
-        lastY;
-
-    /* internal functions */
-
-    function getPagePos(evt) {
-        if (evt.pageX && evt.pageY) {
-            return point(evt.pageX, evt.pageY);
-        }
-        else {
-            var doc = document.documentElement,
-    			body = document.body;
-
-            return point(
-                evt.clientX +
-                    (doc && doc.scrollLeft || body && body.scrollLeft || 0) -
-                    (doc && doc.clientLeft || body && body.clientLeft || 0),
-                evt.clientY +
-                    (doc && doc.scrollTop  || body && body.scrollTop  || 0) -
-                    (doc && doc.clientTop  || body && body.clientTop  || 0)
-            );
-        } // if
-    } // getPagePos
-
-    function handleDoubleClick(evt) {
-        COG.info('captured double click');
-
-        if (matchTarget(evt, targetElement)) {
-            var clickXY = getPagePos(evt);
-
-            observable.triggerCustom(
-                'doubleTap',
-                genEventProps('mouse', evt),
-                clickXY,
-                pointerOffset(clickXY, getOffset(targetElement))
-            );
-        } // if
-    } // handleDoubleClick
-
-    function handleMouseDown(evt) {
-        if (matchTarget(evt, targetElement)) {
-            buttonDown = isLeftButton(evt);
-
-            if (buttonDown) {
-                var pagePos = getPagePos(evt);
-
-                targetElement.style.cursor = 'move';
-                preventDefault(evt, true);
-
-                lastX = pagePos.x;
-                lastY = pagePos.y;
-                start = point(lastX, lastY);
-
-                observable.triggerCustom(
-                    'pointerDown',
-                    genEventProps('mouse', evt),
-                    start,
-                    pointerOffset(start, getOffset(targetElement))
-                );
-            }
-        } // if
-    } // mouseDown
-
-    function handleMouseMove(evt) {
-        var pagePos = getPagePos(evt);
-
-        currentX = pagePos.x;
-        currentY = pagePos.y;
-
-        if (matchTarget(evt, targetElement)) {
-            triggerCurrent(evt, buttonDown ? 'pointerMove' : 'pointerHover');
-        } // if
-    } // mouseMove
-
-    function handleMouseUp(evt) {
-        if (buttonDown && isLeftButton(evt)) {
-            buttonDown = false;
-
-            if (matchTarget(evt, targetElement)) {
-                targetElement.style.cursor = 'default';
-                triggerCurrent(evt, 'pointerUp');
-            } // if
-        } // if
-    } // mouseUp
-
-    function handleWheel(evt) {
-        if (matchTarget(evt, targetElement)) {
-            var deltaY;
-
-            evt = evt || window.event;
-
-            if (evt.detail) {
-                deltaY = evt.axis === 2 ? -evt.detail * WHEEL_DELTA_STEP : 0;
-            }
-            else {
-                deltaY = evt.wheelDeltaY ? evt.wheelDeltaY : evt.wheelDelta;
-                if (window.opera) {
-                    deltaY = -deltaY;
-                } // if
-            } // if..else
-
-            if (deltaY !== 0) {
-                var current = point(currentX, currentY);
-
-                observable.triggerCustom(
-                    'zoom',
-                    genEventProps('mouse', evt),
-                    current,
-                    pointerOffset(current, getOffset(targetElement)),
-                    deltaY / WHEEL_DELTA_LEVEL,
-                    'wheel'
-                );
-
-                preventDefault(evt);
-                evt.returnValue = false;
-            } // if
-        } // if
-    } // handleWheel
-
-    function isLeftButton(evt) {
-        evt = evt || window.event;
-        var button = evt.which || evt.button;
-        return button == 1;
-    } // leftPressed
-
-    function triggerCurrent(evt, eventName, overrideX, overrideY, updateLast) {
-        var evtX = typeof overrideX != 'undefined' ? overrideX : currentX,
-            evtY = typeof overrideY != 'undefined' ? overrideY : currentY,
-            deltaX = evtX - lastX,
-            deltaY = evtY - lastY,
-            current = point(evtX, evtY);
-
-        observable.triggerCustom(
-            eventName,
-            genEventProps('mouse', evt),
-            current,
-            pointerOffset(current, getOffset(targetElement)),
-            point(deltaX, deltaY)
-        );
-
-        if (typeof updateLast == 'undefined' || updateLast) {
-            lastX = evtX;
-            lastY = evtY;
-        } // if
-    } // triggerCurrent
-
-    /* exports */
-
-    function unbind() {
-        opts.unbinder('mousedown', handleMouseDown);
-        opts.unbinder('mousemove', handleMouseMove);
-        opts.unbinder('mouseup', handleMouseUp);
-
-        opts.unbinder("mousewheel", handleWheel);
-        opts.unbinder("DOMMouseScroll", handleWheel);
-    } // unbind
-
-    opts.binder('mousedown', handleMouseDown);
-    opts.binder('mousemove', handleMouseMove);
-    opts.binder('mouseup', handleMouseUp);
-    opts.binder('dblclick', handleDoubleClick);
-
-    opts.binder('mousewheel', handleWheel);
-    opts.binder('DOMMouseScroll', handleWheel);
-
-    return {
-        unbind: unbind
-    };
-}; // MouseHandler
-
-register('pointer', {
-    handler: MouseHandler,
-    checks: {
-        touch: false
-    }
-});
-var TouchHandler = function(targetElement, observable, opts) {
-    opts = COG.extend({
-        detailed: false,
-        inertia: false
-    }, opts);
-
-    var DEFAULT_INERTIA_MAX = 500,
-        INERTIA_TIMEOUT_MOUSE = 100,
-        INERTIA_TIMEOUT_TOUCH = 250,
-        THRESHOLD_DOUBLETAP = 300,
-        THRESHOLD_PINCHZOOM = 20,
-        MIN_MOVEDIST = 7,
-        EMPTY_TOUCH_DATA = {
-            x: 0,
-            y: 0
-        };
-
-    var TOUCH_MODE_UNKNOWN = 0,
-        TOUCH_MODE_TAP = 1,
-        TOUCH_MODE_MOVE = 2,
-        TOUCH_MODE_PINCH = 3;
-
-    var offset,
-        touchMode,
-        touchDown = false,
-        touchesStart,
-        touchesCurrent,
-        startDistance,
-        touchesLast,
-        detailedEvents = opts.detailed,
-        scaling = 1;
-
-    /* internal functions */
-
-    function calcChange(first, second) {
-        var srcVector = (first && (first.count > 0)) ? first.touches[0] : null;
-        if (srcVector && second && (second.count > 0)) {
-            return calcDiff(srcVector, second.touches[0]);
-        } // if
-
-        return null;
-    } // calcChange
-
-    function calcTouchDistance(touchData) {
-        if (touchData.count < 2) {
-            return 0;
-        } // if
-
-        var xDist = touchData.x - touchData.next.x,
-            yDist = touchData.y - touchData.next.y;
-
-        return ~~Math.sqrt(xDist * xDist + yDist * yDist);
-    } // touches
-
-    function copyTouches(src, adjustX, adjustY) {
-        adjustX = adjustX ? adjustX : 0;
-        adjustY = adjustY ? adjustY : 0;
-
-        var firstTouch = {
-                x: src.x - adjustX,
-                y: src.y - adjustY,
-                id: src.id,
-                count: src.count
-            },
-            touchData = firstTouch;
-
-        while (src.next) {
-            src = src.next;
-
-            touchData = touchData.next = {
-                x: src.x - adjustX,
-                y: src.y - adjustY,
-                id: src.id
-            };
-        } // while
-
-        return firstTouch;
-    } // copyTouches
-
-    function getTouchCenter(touchData) {
-        var x1 = touchData.x,
-            x2 = touchData.next.x,
-            y1 = touchData.y,
-            y2 = touchData.next.y,
-            minX = x1 < x2 ? x1 : x2,
-            minY = y1 < y2 ? y1 : y2,
-            width = Math.abs(x1 - x2),
-            height = Math.abs(y1 - y2);
-
-        return {
-            x: minX + (width >> 1),
-            y: minY + (height >> 1)
-        };
-    } // getTouchCenter
-
-    function getTouchData(evt, evtProp) {
-        var touches = evt[evtProp ? evtProp : 'touches'],
-            firstTouch, touchData;
-
-        if (touches.length === 0) {
-            return null;
-        } // if
-
-        touchData = firstTouch = {
-                x: touches[0].pageX,
-                y: touches[0].pageY,
-                id: touches[0].identifier,
-                count: touches.length
-        };
-
-        for (var ii = 1, touchCount = touches.length; ii < touchCount; ii++) {
-            touchData = touchData.next = {
-                x: touches[ii].pageX,
-                y: touches[ii].pageY,
-                id: touches[ii].identifier
-            };
-        } // for
-
-        return firstTouch;
-    } // fillTouchData
-
-    function handleTouchStart(evt) {
-        if (matchTarget(evt, targetElement)) {
-            offset = getOffset(targetElement);
-
-            var changedTouches = getTouchData(evt, 'changedTouches'),
-                relTouches = copyTouches(changedTouches, offset.left, offset.top);
-
-            if (! touchesStart) {
-                touchMode = TOUCH_MODE_TAP;
-
-                observable.triggerCustom(
-                    'pointerDown',
-                    genEventProps('touch', evt),
-                    changedTouches,
-                    relTouches);
-            } // if
-
-            if (detailedEvents) {
-                observable.triggerCustom(
-                    'pointerDownMulti',
-                    genEventProps('touch', evt),
-                    changedTouches,
-                    relTouches);
-            } // if
-
-            touchesStart = getTouchData(evt);
-
-            if (touchesStart.count > 1) {
-                startDistance = calcTouchDistance(touchesStart);
-            } // if
-
-            scaling = 1;
-
-            touchesLast = copyTouches(touchesStart);
-        } // if
-    } // handleTouchStart
-
-    function handleTouchMove(evt) {
-        if (matchTarget(evt, targetElement)) {
-            preventDefault(evt);
-
-            touchesCurrent = getTouchData(evt);
-
-            if (touchMode == TOUCH_MODE_TAP) {
-                var cancelTap =
-                        Math.abs(touchesStart.x - touchesCurrent.x) > MIN_MOVEDIST ||
-                        Math.abs(touchesStart.y - touchesCurrent.y) > MIN_MOVEDIST;
-
-                touchMode = cancelTap ? TOUCH_MODE_UNKNOWN : TOUCH_MODE_TAP;
-            } // if
-
-            if (touchMode != TOUCH_MODE_TAP) {
-                touchMode = touchesCurrent.count > 1 ? TOUCH_MODE_PINCH : TOUCH_MODE_MOVE;
-
-                if (touchMode == TOUCH_MODE_PINCH) {
-                    if (touchesStart.count === 1) {
-                        touchesStart = copyTouches(touchesCurrent);
-                        startDistance = calcTouchDistance(touchesStart);
-                    }
-                    else {
-                        var touchDistance = calcTouchDistance(touchesCurrent),
-                            distanceDelta = Math.abs(startDistance - touchDistance);
-
-                        if (distanceDelta < THRESHOLD_PINCHZOOM) {
-                            touchMode = TOUCH_MODE_MOVE;
-                        }
-                        else {
-                            var current = getTouchCenter(touchesCurrent),
-                                currentScaling = touchDistance / startDistance,
-                                scaleChange = currentScaling - scaling;
-
-                            observable.triggerCustom(
-                                'zoom',
-                                genEventProps('touch', evt),
-                                current,
-                                pointerOffset(current, offset),
-                                scaleChange,
-                                'pinch'
-                            );
-
-                            scaling = currentScaling;
-                        } // if..else
-                    } // if..else
-                } // if
-
-                if (touchMode == TOUCH_MODE_MOVE) {
-                    observable.triggerCustom(
-                        'pointerMove',
-                        genEventProps('touch', evt),
-                        touchesCurrent,
-                        copyTouches(touchesCurrent, offset.left, offset.top),
-                        point(
-                            touchesCurrent.x - touchesLast.x,
-                            touchesCurrent.y - touchesLast.y)
-                    );
-                } // if
-
-                if (detailedEvents) {
-                    observable.triggerCustom(
-                        'pointerMoveMulti',
-                        genEventProps('touch', evt),
-                        touchesCurrent,
-                        copyTouches(touchesCurrent, offset.left, offset.top)
-                    );
-                } // if
-            } // if
-
-            touchesLast = copyTouches(touchesCurrent);
-        } // if
-    } // handleTouchMove
-
-    function handleTouchEnd(evt) {
-        if (matchTarget(evt, targetElement)) {
-            var changedTouches = getTouchData(evt, 'changedTouches'),
-                offsetTouches = copyTouches(changedTouches, offset.left, offset.top);
-
-            touchesCurrent = getTouchData(evt);
-
-            if (! touchesCurrent) {
-                observable.triggerCustom(
-                    'pointerUp',
-                    genEventProps('touch', evt),
-                    changedTouches,
-                    offsetTouches
-                );
-
-                touchesStart = null;
-            } // if
-
-            if (detailedEvents) {
-                observable.triggerCustom(
-                    'pointerUpMulti',
-                    genEventProps('touch', evt),
-                    changedTouches,
-                    offsetTouches
-                );
-            } // if..else
-        } // if
-    } // handleTouchEnd
-
-    function initTouchData() {
-        return {
-            x: 0,
-            y: 0,
-            next: null
-        };
-    } // initTouchData
-
-    /* exports */
-
-    function unbind() {
-        opts.unbinder('touchstart', handleTouchStart);
-        opts.unbinder('touchmove', handleTouchMove);
-        opts.unbinder('touchend', handleTouchEnd);
-    } // unbind
-
-    opts.binder('touchstart', handleTouchStart);
-    opts.binder('touchmove', handleTouchMove);
-    opts.binder('touchend', handleTouchEnd);
-
-    COG.info('initialized touch handler');
-
-    return {
-        unbind: unbind
-    };
-}; // TouchHandler
-
-register('pointer', {
-    handler: TouchHandler,
-    checks: {
-        touch: true
-    }
-});
-
-    return {
-        register: register,
-        watch: watch
-    };
-})();
-
-(function() {
 window.animFrame = (function() {
     return  window.requestAnimationFrame       ||
             window.webkitRequestAnimationFrame ||
@@ -1669,9 +546,734 @@ var _jsonp = (function(){
         return jsonp;
     }; // jsonp
 }());
+/**
+# INTERACT
+*/
+INTERACT = (function() {
+    var interactors = [];
 
-    window.T5 = {
+
+var EventMonitor = function(target, handlers, params) {
+    params = _extend({
+        binder: null,
+        unbinder: null,
+        observable: null
+    }, params);
+
+    var MAXMOVE_TAP = 20, // pixels
+        INERTIA_DURATION = 500, // ms
+        INERTIA_MAXDIST = 300, // pixels
+        INERTIA_TIMEOUT = 50, // ms
+        INERTIA_IDLE_DISTANCE = 15; // pixels
+
+    var observable = params.observable,
+        handlerInstances = [],
+        totalDeltaX,
+        totalDeltaY;
+
+
+    /* internals */
+
+    function deltaGreaterThan(value) {
+        return Math.abs(totalDeltaX) > value || Math.abs(totalDeltaY) > value;
+    } // deltaGreaterThan
+
+    function handlePointerMove(evt, absXY, relXY, deltaXY) {
+        totalDeltaX += deltaXY.x || 0;
+        totalDeltaY += deltaXY.y || 0;
+    } // handlePanMove
+
+    function handlePointerDown(evt, absXY, relXY) {
+        totalDeltaX = 0;
+        totalDeltaY = 0;
+    } // handlePointerDown
+
+    function handlePointerUp(evt, absXY, relXY) {
+        if (! deltaGreaterThan(MAXMOVE_TAP)) {
+            observable.triggerCustom('tap', evt, absXY, relXY);
+        } // if
+    } // handlePointerUP
+
+    /* exports */
+
+    function bind() {
+        return observable.bind.apply(null, arguments);
+    } // bind
+
+    function unbind() {
+        observable.unbind();
+
+        for (ii = 0; ii < handlerInstances.length; ii++) {
+            handlerInstances[ii].unbind();
+        } // for
+
+        return self;
+    } // unbind
+
+    /* define the object */
+
+    var self = {
+        bind: bind,
+        unbind: unbind
+    };
+
+    for (var ii = 0; ii < handlers.length; ii++) {
+        handlerInstances.push(handlers[ii](target, observable, params));
+    } // for
+
+    observable.bind('pointerDown', handlePointerDown);
+    observable.bind('pointerMove', handlePointerMove);
+    observable.bind('pointerUp', handlePointerUp);
+
+    return self;
+};
+
+    /* internal functions */
+
+    function genBinder(target) {
+        return function(evtName, callback) {
+            target.addEventListener(evtName, callback, false);
+        };
+    } // bindDoc
+
+    function genUnbinder(target) {
+        return function(evtName, callback, customTarget) {
+            target.removeEventListener(evtName, callback, false);
+        };
+    } // unbindDoc
+
+    function genIEBinder(target) {
+        return function(evtName, callback) {
+            target.attachEvent('on' + evtName, callback);
+        };
+    } // genIEBinder
+
+    function genIEUnbinder(target) {
+        return function(evtName, callback) {
+            target.detachEvent('on' + evtName, callback);
+        };
+    } // genIEUnbinder
+
+    function getHandlers(types, capabilities) {
+        var handlers = [];
+
+        for (var ii = interactors.length; ii--; ) {
+            var interactor = interactors[ii],
+                selected = (! types) || (types.indexOf(interactor.type) >= 0),
+                checksPass = true;
+
+            for (var checkKey in interactor.checks) {
+                var check = interactor.checks[checkKey];
+                _log('checking ' + checkKey + ' capability. require: ' + check + ', capability = ' + capabilities[checkKey]);
+
+                checksPass = checksPass && (check === capabilities[checkKey]);
+            } // for
+
+            if (selected && checksPass) {
+                handlers[handlers.length] = interactor.handler;
+            } // if
+        } // for
+
+        return handlers;
+    } // getHandlers
+
+    function point(x, y) {
+        return {
+            x: x ? x : 0,
+            y: y ? y : 0,
+            count: 1
+        };
+    } // point
+
+    /* exports */
+
+    function register(typeName, opts) {
+        interactors.push(_extend({
+            handler: null,
+            checks: {},
+            type: typeName
+        }, opts));
+    } // register
+
+    /**
+    ### watch(target, opts, caps)
+    */
+    function watch(target, opts, caps) {
+        opts = _extend({
+            bindTarget: null,
+            observable: null,
+            isIE: typeof window.attachEvent != 'undefined',
+            types: null
+        }, opts);
+
+        capabilities = _extend({
+            touch: 'ontouchstart' in window
+        }, caps);
+
+        if (! opts.observable) {
+            _log('creating observable');
+            opts.observable = _observable({});
+            globalOpts = opts;
+        } // if
+
+        opts.binder = (opts.isIE ? genIEBinder : genBinder)(opts.bindTarget || document);
+        opts.unbinder = (opts.isIE ? genIEBinder : genUnbinder)(opts.bindTarget || document);
+
+        return new EventMonitor(target, getHandlers(opts.types, capabilities), opts);
+    } // watch
+
+/* common pointer (mouse, touch, etc) functions */
+
+function getOffset(obj) {
+    var calcLeft = 0,
+        calcTop = 0;
+
+    if (obj.offsetParent) {
+        do {
+            calcLeft += obj.offsetLeft;
+            calcTop += obj.offsetTop;
+
+            obj = obj.offsetParent;
+        } while (obj);
+    } // if
+
+    return {
+        left: calcLeft,
+        top: calcTop
+    };
+} // getOffset
+
+function genEventProps(source, evt) {
+    return {
+        source: source,
+        target: evt.target ? evt.target : evt.srcElement
+    };
+} // genEventProps
+
+function matchTarget(evt, targetElement) {
+    var targ = evt.target ? evt.target : evt.srcElement,
+        targClass = targ.className;
+
+    while (targ && (targ !== targetElement)) {
+        targ = targ.parentNode;
+    } // while
+
+    return targ && (targ === targetElement);
+} // matchTarget
+
+function pointerOffset(absPoint, offset) {
+    return {
+        x: absPoint.x - (offset ? offset.left : 0),
+        y: absPoint.y - (offset ? offset.top : 0)
+    };
+} // triggerPositionEvent
+
+function preventDefault(evt, immediate) {
+    if (evt.preventDefault) {
+        evt.preventDefault();
+        evt.stopPropagation();
+    }
+    else if (typeof evt.cancelBubble != 'undefined') {
+        evt.cancelBubble = true;
+    } // if..else
+
+    if (immediate && evt.stopImmediatePropagation) {
+        evt.stopImmediatePropagation();
+    } // if
+} // preventDefault
+var MouseHandler = function(targetElement, observable, opts) {
+    opts = _extend({
+    }, opts);
+
+    var WHEEL_DELTA_STEP = 120,
+        WHEEL_DELTA_LEVEL = WHEEL_DELTA_STEP * 8;
+
+    var ignoreButton = opts.isIE,
+        isFlashCanvas = typeof FlashCanvas != 'undefined',
+        buttonDown = false,
+        start,
+        currentX,
+        currentY,
+        lastX,
+        lastY;
+
+    /* internal functions */
+
+    function getPagePos(evt) {
+        if (evt.pageX && evt.pageY) {
+            return point(evt.pageX, evt.pageY);
+        }
+        else {
+            var doc = document.documentElement,
+    			body = document.body;
+
+            return point(
+                evt.clientX +
+                    (doc && doc.scrollLeft || body && body.scrollLeft || 0) -
+                    (doc && doc.clientLeft || body && body.clientLeft || 0),
+                evt.clientY +
+                    (doc && doc.scrollTop  || body && body.scrollTop  || 0) -
+                    (doc && doc.clientTop  || body && body.clientTop  || 0)
+            );
+        } // if
+    } // getPagePos
+
+    function handleDoubleClick(evt) {
+        _log('captured double click');
+
+        if (matchTarget(evt, targetElement)) {
+            var clickXY = getPagePos(evt);
+
+            observable.triggerCustom(
+                'doubleTap',
+                genEventProps('mouse', evt),
+                clickXY,
+                pointerOffset(clickXY, getOffset(targetElement))
+            );
+        } // if
+    } // handleDoubleClick
+
+    function handleMouseDown(evt) {
+        if (matchTarget(evt, targetElement)) {
+            buttonDown = isLeftButton(evt);
+
+            if (buttonDown) {
+                var pagePos = getPagePos(evt);
+
+                targetElement.style.cursor = 'move';
+                preventDefault(evt, true);
+
+                lastX = pagePos.x;
+                lastY = pagePos.y;
+                start = point(lastX, lastY);
+
+                observable.triggerCustom(
+                    'pointerDown',
+                    genEventProps('mouse', evt),
+                    start,
+                    pointerOffset(start, getOffset(targetElement))
+                );
+            }
+        } // if
+    } // mouseDown
+
+    function handleMouseMove(evt) {
+        var pagePos = getPagePos(evt);
+
+        currentX = pagePos.x;
+        currentY = pagePos.y;
+
+        if (matchTarget(evt, targetElement)) {
+            triggerCurrent(evt, buttonDown ? 'pointerMove' : 'pointerHover');
+        } // if
+    } // mouseMove
+
+    function handleMouseUp(evt) {
+        if (buttonDown && isLeftButton(evt)) {
+            buttonDown = false;
+
+            if (matchTarget(evt, targetElement)) {
+                targetElement.style.cursor = 'default';
+                triggerCurrent(evt, 'pointerUp');
+            } // if
+        } // if
+    } // mouseUp
+
+    function handleWheel(evt) {
+        if (matchTarget(evt, targetElement)) {
+            var deltaY;
+
+            evt = evt || window.event;
+
+            if (evt.detail) {
+                deltaY = evt.axis === 2 ? -evt.detail * WHEEL_DELTA_STEP : 0;
+            }
+            else {
+                deltaY = evt.wheelDeltaY ? evt.wheelDeltaY : evt.wheelDelta;
+                if (window.opera) {
+                    deltaY = -deltaY;
+                } // if
+            } // if..else
+
+            if (deltaY !== 0) {
+                var current = point(currentX, currentY);
+
+                observable.triggerCustom(
+                    'zoom',
+                    genEventProps('mouse', evt),
+                    current,
+                    pointerOffset(current, getOffset(targetElement)),
+                    deltaY / WHEEL_DELTA_LEVEL,
+                    'wheel'
+                );
+
+                preventDefault(evt);
+                evt.returnValue = false;
+            } // if
+        } // if
+    } // handleWheel
+
+    function isLeftButton(evt) {
+        evt = evt || window.event;
+        var button = evt.which || evt.button;
+        return button == 1;
+    } // leftPressed
+
+    function triggerCurrent(evt, eventName, overrideX, overrideY, updateLast) {
+        var evtX = typeof overrideX != 'undefined' ? overrideX : currentX,
+            evtY = typeof overrideY != 'undefined' ? overrideY : currentY,
+            deltaX = evtX - lastX,
+            deltaY = evtY - lastY,
+            current = point(evtX, evtY);
+
+        observable.triggerCustom(
+            eventName,
+            genEventProps('mouse', evt),
+            current,
+            pointerOffset(current, getOffset(targetElement)),
+            point(deltaX, deltaY)
+        );
+
+        if (typeof updateLast == 'undefined' || updateLast) {
+            lastX = evtX;
+            lastY = evtY;
+        } // if
+    } // triggerCurrent
+
+    /* exports */
+
+    function unbind() {
+        opts.unbinder('mousedown', handleMouseDown);
+        opts.unbinder('mousemove', handleMouseMove);
+        opts.unbinder('mouseup', handleMouseUp);
+
+        opts.unbinder("mousewheel", handleWheel);
+        opts.unbinder("DOMMouseScroll", handleWheel);
+    } // unbind
+
+    opts.binder('mousedown', handleMouseDown);
+    opts.binder('mousemove', handleMouseMove);
+    opts.binder('mouseup', handleMouseUp);
+    opts.binder('dblclick', handleDoubleClick);
+
+    opts.binder('mousewheel', handleWheel);
+    opts.binder('DOMMouseScroll', handleWheel);
+
+    return {
+        unbind: unbind
+    };
+}; // MouseHandler
+
+register('pointer', {
+    handler: MouseHandler,
+    checks: {
+        touch: false
+    }
+});
+var TouchHandler = function(targetElement, observable, opts) {
+    opts = _extend({
+        detailed: false,
+        inertia: false
+    }, opts);
+
+    var DEFAULT_INERTIA_MAX = 500,
+        INERTIA_TIMEOUT_MOUSE = 100,
+        INERTIA_TIMEOUT_TOUCH = 250,
+        THRESHOLD_DOUBLETAP = 300,
+        THRESHOLD_PINCHZOOM = 20,
+        MIN_MOVEDIST = 7,
+        EMPTY_TOUCH_DATA = {
+            x: 0,
+            y: 0
+        };
+
+    var TOUCH_MODE_UNKNOWN = 0,
+        TOUCH_MODE_TAP = 1,
+        TOUCH_MODE_MOVE = 2,
+        TOUCH_MODE_PINCH = 3;
+
+    var offset,
+        touchMode,
+        touchDown = false,
+        touchesStart,
+        touchesCurrent,
+        startDistance,
+        touchesLast,
+        detailedEvents = opts.detailed,
+        scaling = 1;
+
+    /* internal functions */
+
+    function calcChange(first, second) {
+        var srcVector = (first && (first.count > 0)) ? first.touches[0] : null;
+        if (srcVector && second && (second.count > 0)) {
+            return calcDiff(srcVector, second.touches[0]);
+        } // if
+
+        return null;
+    } // calcChange
+
+    function calcTouchDistance(touchData) {
+        if (touchData.count < 2) {
+            return 0;
+        } // if
+
+        var xDist = touchData.x - touchData.next.x,
+            yDist = touchData.y - touchData.next.y;
+
+        return ~~Math.sqrt(xDist * xDist + yDist * yDist);
+    } // touches
+
+    function copyTouches(src, adjustX, adjustY) {
+        adjustX = adjustX ? adjustX : 0;
+        adjustY = adjustY ? adjustY : 0;
+
+        var firstTouch = {
+                x: src.x - adjustX,
+                y: src.y - adjustY,
+                id: src.id,
+                count: src.count
+            },
+            touchData = firstTouch;
+
+        while (src.next) {
+            src = src.next;
+
+            touchData = touchData.next = {
+                x: src.x - adjustX,
+                y: src.y - adjustY,
+                id: src.id
+            };
+        } // while
+
+        return firstTouch;
+    } // copyTouches
+
+    function getTouchCenter(touchData) {
+        var x1 = touchData.x,
+            x2 = touchData.next.x,
+            y1 = touchData.y,
+            y2 = touchData.next.y,
+            minX = x1 < x2 ? x1 : x2,
+            minY = y1 < y2 ? y1 : y2,
+            width = Math.abs(x1 - x2),
+            height = Math.abs(y1 - y2);
+
+        return {
+            x: minX + (width >> 1),
+            y: minY + (height >> 1)
+        };
+    } // getTouchCenter
+
+    function getTouchData(evt, evtProp) {
+        var touches = evt[evtProp ? evtProp : 'touches'],
+            firstTouch, touchData;
+
+        if (touches.length === 0) {
+            return null;
+        } // if
+
+        touchData = firstTouch = {
+                x: touches[0].pageX,
+                y: touches[0].pageY,
+                id: touches[0].identifier,
+                count: touches.length
+        };
+
+        for (var ii = 1, touchCount = touches.length; ii < touchCount; ii++) {
+            touchData = touchData.next = {
+                x: touches[ii].pageX,
+                y: touches[ii].pageY,
+                id: touches[ii].identifier
+            };
+        } // for
+
+        return firstTouch;
+    } // fillTouchData
+
+    function handleTouchStart(evt) {
+        if (matchTarget(evt, targetElement)) {
+            offset = getOffset(targetElement);
+
+            var changedTouches = getTouchData(evt, 'changedTouches'),
+                relTouches = copyTouches(changedTouches, offset.left, offset.top);
+
+            if (! touchesStart) {
+                touchMode = TOUCH_MODE_TAP;
+
+                observable.triggerCustom(
+                    'pointerDown',
+                    genEventProps('touch', evt),
+                    changedTouches,
+                    relTouches);
+            } // if
+
+            if (detailedEvents) {
+                observable.triggerCustom(
+                    'pointerDownMulti',
+                    genEventProps('touch', evt),
+                    changedTouches,
+                    relTouches);
+            } // if
+
+            touchesStart = getTouchData(evt);
+
+            if (touchesStart.count > 1) {
+                startDistance = calcTouchDistance(touchesStart);
+            } // if
+
+            scaling = 1;
+
+            touchesLast = copyTouches(touchesStart);
+        } // if
+    } // handleTouchStart
+
+    function handleTouchMove(evt) {
+        if (matchTarget(evt, targetElement)) {
+            preventDefault(evt);
+
+            touchesCurrent = getTouchData(evt);
+
+            if (touchMode == TOUCH_MODE_TAP) {
+                var cancelTap =
+                        Math.abs(touchesStart.x - touchesCurrent.x) > MIN_MOVEDIST ||
+                        Math.abs(touchesStart.y - touchesCurrent.y) > MIN_MOVEDIST;
+
+                touchMode = cancelTap ? TOUCH_MODE_UNKNOWN : TOUCH_MODE_TAP;
+            } // if
+
+            if (touchMode != TOUCH_MODE_TAP) {
+                touchMode = touchesCurrent.count > 1 ? TOUCH_MODE_PINCH : TOUCH_MODE_MOVE;
+
+                if (touchMode == TOUCH_MODE_PINCH) {
+                    if (touchesStart.count === 1) {
+                        touchesStart = copyTouches(touchesCurrent);
+                        startDistance = calcTouchDistance(touchesStart);
+                    }
+                    else {
+                        var touchDistance = calcTouchDistance(touchesCurrent),
+                            distanceDelta = Math.abs(startDistance - touchDistance);
+
+                        if (distanceDelta < THRESHOLD_PINCHZOOM) {
+                            touchMode = TOUCH_MODE_MOVE;
+                        }
+                        else {
+                            var current = getTouchCenter(touchesCurrent),
+                                currentScaling = touchDistance / startDistance,
+                                scaleChange = currentScaling - scaling;
+
+                            observable.triggerCustom(
+                                'zoom',
+                                genEventProps('touch', evt),
+                                current,
+                                pointerOffset(current, offset),
+                                scaleChange,
+                                'pinch'
+                            );
+
+                            scaling = currentScaling;
+                        } // if..else
+                    } // if..else
+                } // if
+
+                if (touchMode == TOUCH_MODE_MOVE) {
+                    observable.triggerCustom(
+                        'pointerMove',
+                        genEventProps('touch', evt),
+                        touchesCurrent,
+                        copyTouches(touchesCurrent, offset.left, offset.top),
+                        point(
+                            touchesCurrent.x - touchesLast.x,
+                            touchesCurrent.y - touchesLast.y)
+                    );
+                } // if
+
+                if (detailedEvents) {
+                    observable.triggerCustom(
+                        'pointerMoveMulti',
+                        genEventProps('touch', evt),
+                        touchesCurrent,
+                        copyTouches(touchesCurrent, offset.left, offset.top)
+                    );
+                } // if
+            } // if
+
+            touchesLast = copyTouches(touchesCurrent);
+        } // if
+    } // handleTouchMove
+
+    function handleTouchEnd(evt) {
+        if (matchTarget(evt, targetElement)) {
+            var changedTouches = getTouchData(evt, 'changedTouches'),
+                offsetTouches = copyTouches(changedTouches, offset.left, offset.top);
+
+            touchesCurrent = getTouchData(evt);
+
+            if (! touchesCurrent) {
+                observable.triggerCustom(
+                    'pointerUp',
+                    genEventProps('touch', evt),
+                    changedTouches,
+                    offsetTouches
+                );
+
+                touchesStart = null;
+            } // if
+
+            if (detailedEvents) {
+                observable.triggerCustom(
+                    'pointerUpMulti',
+                    genEventProps('touch', evt),
+                    changedTouches,
+                    offsetTouches
+                );
+            } // if..else
+        } // if
+    } // handleTouchEnd
+
+    function initTouchData() {
+        return {
+            x: 0,
+            y: 0,
+            next: null
+        };
+    } // initTouchData
+
+    /* exports */
+
+    function unbind() {
+        opts.unbinder('touchstart', handleTouchStart);
+        opts.unbinder('touchmove', handleTouchMove);
+        opts.unbinder('touchend', handleTouchEnd);
+    } // unbind
+
+    opts.binder('touchstart', handleTouchStart);
+    opts.binder('touchmove', handleTouchMove);
+    opts.binder('touchend', handleTouchEnd);
+
+    _log('initialized touch handler');
+
+    return {
+        unbind: unbind
+    };
+}; // TouchHandler
+
+register('pointer', {
+    handler: TouchHandler,
+    checks: {
+        touch: true
+    }
+});
+
+    return {
+        register: register,
+        watch: watch
+    };
+})();
+
+    var T5 = {
         ex: _extend,
+        log: _log,
         observable: _observable,
         formatter: _formatter,
         wordExists: _wordExists,
@@ -1681,6 +1283,38 @@ var _jsonp = (function(){
 
     _observable(T5);
 
+var Registry = (function() {
+    /* internals */
+
+    var types = {};
+
+    /* exports */
+
+    function create(type, name) {
+        if (types[type][name]) {
+            types[type][name].apply(null, Array.prototype.slice.call(arguments, 2));
+        } // if
+    } // create
+
+    function register(type, name, initFn) {
+        if (! types[type]) {
+            types[type] = {};
+        } // if
+
+        if (types[type][name]) {
+            _log(WARN_REGOVERRIDE(type, name), 'warn');
+        } // if
+
+        types[type][name] = initFn;
+    } // register
+
+    return {
+        create: create,
+        register: register
+    };
+})();
+
+var WARN_REGOVERRIDE = _formatter('Registration of {0}: {1} will override existing definition');
 /**
 # T5
 The T5 core module contains classes and functionality that support basic drawing
@@ -1739,6 +1373,12 @@ var abs = Math.abs,
     typeNumber = 'number',
     typeArray = 'array',
 
+    typeDrawable = 'drawable',
+    typeLayer = 'layer',
+
+    reg = Registry.register,
+    regCreate = Registry.create,
+
     drawableCounter = 0,
     layerCounter = 0,
 
@@ -1756,41 +1396,6 @@ var newCanvas = T5.newCanvas = function(width, height) {
 
     return tmpCanvas;
 };
-/**
-# T5.Generator
-The generator module is used to manage the registration and creation
-of generators.  Image generators, etc
-*/
-var Generator = (function() {
-
-    var generatorRegistry = {};
-
-    /* private internal functions */
-
-    /* exports */
-
-    function init(id, params) {
-        var generatorType = generatorRegistry[id],
-            generator;
-
-        if (! generatorType) {
-            throw new Error('Unable to locate requested generator: ' + id);
-        } // if
-
-        return new generatorType(params);
-    } // init
-
-    function register(id, creatorFn) {
-        generatorRegistry[id] = creatorFn;
-    } // register
-
-    /* module definition */
-
-    return {
-        init: init,
-        register: register
-    };
-})();
 /**
 # T5.Service
 This is a module of Tile5 that supports registration of services that provide capabilities
@@ -2161,7 +1766,7 @@ var XYFns = (function() {
             return null;
         } // if
 
-        generalization = generalization ? generalization : XYFns.VECTOR_SIMPLIFICATION;
+        generalization = generalization || XYFns.VECTOR_SIMPLIFICATION;
 
         var tidied = [],
             last = null;
@@ -2890,15 +2495,6 @@ var Renderer = function(view, container, outer, params) {
     return _observable(_this);
 };
 
-var rendererRegistry = {};
-
-/**
-# T5.registerRenderer(id, creatorFn)
-*/
-var registerRenderer = T5.registerRenderer = function(id, creatorFn) {
-    rendererRegistry[id] = creatorFn;
-};
-
 /**
 # T5.attachRenderer(id, view, container, params)
 */
@@ -2907,18 +2503,15 @@ var attachRenderer = T5.attachRenderer = function(id, view, container, outer, pa
         renderer = new Renderer(view, container, outer, params);
 
     for (var ii = 0; ii < ids.length; ii++) {
-        var rClass = rendererRegistry[ids[ii]];
-        if (rClass) {
-            renderer = new rClass(view, container, outer, params, renderer);
-        } // if
+        renderer = regCreate('renderer', ids[ii], view, container, outer, params, renderer);
     } // for
 
     return renderer;
 };
 /**
-# Tile5 Renderer: Canvas
+# RENDERER: canvas
 */
-registerRenderer('canvas', function(view, panFrame, container, params, baseRenderer) {
+reg('renderer', 'canvas', function(view, panFrame, container, params, baseRenderer) {
     params = _extend({
     }, params);
 
@@ -3316,7 +2909,10 @@ registerRenderer('canvas', function(view, panFrame, container, params, baseRende
 
     return _this;
 });
-registerRenderer('dom', function(view, panFrame, container, params, baseRenderer) {
+/**
+# RENDERER: dom
+*/
+reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer) {
 
     /* internals */
 
@@ -3500,105 +3096,8 @@ defineStyles({
         fill: '#ffffff'
     }
 });
-/**
-# T5.View
-The View is the fundamental building block for tiling and
-mapping interface.  Which this class does not implement any of
-the logic required for tiling, it does handle the redraw logic.
-Applications implementing Tile5 maps will not need to be aware of
-the implementation specifics of the View, but for those interested
-in building extensions or customizations should definitely take a look.
-Additionally, it is worth being familiar with the core methods that
-are implemented here around the layering as these are used extensively
-when creating overlays and the like for the map implementations.
 
-## Constructor
-
-<pre>
-var view = new T5.View(params);
-</pre>
-
-#### Initialization Parameters
-
-- `container` (required)
-
-- `id`
-
-- `captureHover` - whether or not hover events should be intercepted by the View.
-If you are building an application for mobile devices then you may want to set this to
-false, but it's overheads are minimals given no events will be generated.
-
-- `inertia`
-
-- `pannable`
-
-- `scalable`
-
-- `fps` - (int, default = 25) - the frame rate of the view, by default this is set to
-25 frames per second but can be increased or decreased to compensate for device
-performance.  In reality though on slower devices, the framerate will scale back
-automatically, but it can be prudent to set a lower framerate to leave some cpu for
-other processes :)
-
-## Events
-
-### tapHit
-This event is fired when the view has been tapped (or the left
-mouse button has been pressed)
-<pre>
-view.bind('tapHit', function(evt, elements, absXY, relXY, offsetXY) {
-});
-</pre>
-
-- elements ([]) - an array of elements that were "hit"
-- absXY (T5.Vector) - the absolute position of the tap
-- relXY (T5.Vector) - the position of the tap relative to the top left position of the view.
-- gridXY (T5.Vector) - the xy coordinates of the tap relative to the scrolling grid offset.
-
-
-### hoverHit
-As per the tapHit event, but triggered through a mouse-over event.
-
-### refresh
-<pre>
-view.bind('refresh', function(evt) {
-});
-</pre>
-
-### drawComplete
-Triggered when drawing the view has been completed (who would have thought).
-<pre>
-view.bind('drawComplete', function(evt, viewport, tickCount) {
-});
-</pre>
-
-- viewport - the current viewport of the view
-- tickCount - the tick count at the start of the draw operation.
-
-
-### enterFrame
-Triggered on the view cycling.
-<pre>
-view.bind('enterFrame', function(evt, tickCount, frameData) {
-});
-</pre>
-
-### zoomLevelChange
-Triggered when the zoom level of the view has changed.  Given that Tile5 was primarily
-built to serve as a mapping platform zoom levels are critical to the design so a view
-has this functionality.
-
-<pre>
-view.bind('zoomLevelChange', function(evt, zoomLevel) {
-});
-</pre>
-
-- zoomLevel (int) - the new zoom level
-
-
-## Methods
-*/
-var View = function(params) {
+reg('view', 'view', function(params) {
     params = _extend({
         container: "",
         captureHover: true,
@@ -3783,28 +3282,6 @@ var View = function(params) {
 
         captureInteractionEvents();
     } // createRenderer
-
-    function addLayer(id, value) {
-        value.id = id;
-        value.added = ticks();
-
-        value.view = _self;
-        value.trigger('parentChange', _self, viewpane, mainContext);
-
-        layers.push(value);
-
-        layers.sort(function(itemA, itemB) {
-            var result = itemB.zindex - itemA.zindex;
-            if (result === 0) {
-                result = itemB.added - itemA.added;
-            } // if
-
-            return result;
-        });
-
-        layerCount = layers.length;
-        return value;
-    } // addLayer
 
     function captureInteractionEvents() {
         if (eventMonitor) {
@@ -4191,20 +3668,6 @@ var View = function(params) {
     } // eachLayer
 
     /**
-    ### getLayer(id: String): T5.ViewLayer
-    Get the ViewLayer with the specified id, return null if not found
-    */
-    function getLayer(id) {
-        for (var ii = 0; ii < layerCount; ii++) {
-            if (layers[ii].id === id) {
-                return layers[ii];
-            } // if
-        } // for
-
-        return null;
-    } // getLayer
-
-    /**
     ### getOffset(): T5.XY
     Return a T5.XY containing the current view offset
     */
@@ -4265,6 +3728,38 @@ var View = function(params) {
         return viewport;
     } // getViewport
 
+    function layer(id, layerType, settings) {
+        if (_is(layerType, typeUndefined)) {
+            for (var ii = 0; ii < layerCount; ii++) {
+                if (layers[ii].id === id) {
+                    return layers[ii];
+                } // if
+            } // for
+
+            return undefined;
+        }
+        else {
+            var layer = regCreate('layer', layerType, settings);
+
+            layer.added = ticks();
+            layers[layers.length] = layer;
+
+            layers.sort(function(itemA, itemB) {
+                return itemB.zindex - itemA.zindex || itemB.added - itemA.added;
+            });
+
+            layerCount = layers.length;
+
+            value.trigger('refresh', _self, getViewport());
+
+            _self.trigger('layerChange', _self, value);
+
+            invalidate();
+
+            return layer;
+        } // if..else
+    } // layer
+
     /**
     ### pan(x: int, y: int)
 
@@ -4276,31 +3771,6 @@ var View = function(params) {
 
         viewChanges++;
     } // pan
-
-    /**
-    ### setLayer(id: String, value: T5.ViewLayer)
-    Either add or update the specified view layer
-    */
-    function setLayer(id, value) {
-        for (var ii = 0; ii < layerCount; ii++) {
-            if (layers[ii].id === id) {
-                layers.splice(ii, 1);
-                break;
-            } // if
-        } // for
-
-        if (value) {
-            addLayer(id, value);
-
-            value.trigger('refresh', _self, getViewport());
-
-            _self.trigger('layerChange', _self, value);
-        } // if
-
-        invalidate();
-
-        return value;
-    } // setLayer
 
     /**
     ### refresh()
@@ -4502,9 +3972,7 @@ var View = function(params) {
         attachFrame: attachFrame,
         detach: detach,
         eachLayer: eachLayer,
-        getLayer: getLayer,
         getZoomLevel: getZoomLevel,
-        setLayer: setLayer,
         invalidate: invalidate,
         refresh: refresh,
         resetScale: resetScale,
@@ -4557,9 +4025,7 @@ var View = function(params) {
     */
 
     CANI.init(function(testResults) {
-        _self.markers = addLayer('markers', new ShapeLayer({
-            zindex: 20
-        }));
+        _self.markers = layer('markers', 'draw', { zindex: 20 });
 
         caps = testResults;
         updateContainer(null, params.container);
@@ -4575,7 +4041,7 @@ var View = function(params) {
     animFrame(cycle);
 
     return _self;
-}; // T5.View
+});
 /**
 # T5.Map
 _extends:_ T5.Tiler
@@ -4696,7 +4162,7 @@ var Map = function(params) {
     /**
     ### getBoundingBox()
 
-    Return a T5.Geo.BoundingBox for the current map view area
+    Return a boundingbox for the current map view area
     */
     function getBoundingBox() {
         var viewport = _self.getViewport();
@@ -4724,7 +4190,7 @@ var Map = function(params) {
 
     /**
     ### gotoBounds(bounds, callback)
-    Calculates the optimal display bounds for the specified T5.Geo.BoundingBox and
+    Calculates the optimal display bounds for the specified boundingbox and
     then goes to the center position and zoom level best suited.
     */
     function gotoBounds(bounds, callback) {
@@ -4809,19 +4275,15 @@ var Map = function(params) {
 }; // T5.Map
 
 /**
-# T5.Drawable
-The T5.Shape class is simply a template class that provides placeholder methods
-that need to be implemented for shapes that can be drawn in a T5.ShapeLayer.
+DRAWABLE
 
 ## Constructor
-`new T5.Drawable(params);`
+`new T5.Drawable(view, layer, params);`
 
-
-#### Initialization Parameters
-
+## Settings
 -
 */
-var Drawable = function(params) {
+var Drawable = function(view, layer, params) {
     params = _extend({
         style: null,
         xy: null,
@@ -4838,7 +4300,8 @@ var Drawable = function(params) {
 
     this.id = 'drawable_' + drawableCounter++;
     this.bounds = null;
-    this.view = null;
+    this.view = view;
+    this.layer = layer;
 
     this.animations = 0;
     this.rotation = 0;
@@ -5055,7 +4518,7 @@ function animateDrawable(target, fnName, argsStart, argsEnd, opts) {
     } // if
 } // animate
 /**
-# T5.Marker
+# DRAWABLE: marker
 The T5.Marker class represents a generic marker for annotating an underlying view.
 Originally the marker class did very little, and in most instances a T5.ImageMarker
 was used instead to generate a marker that looked more visually appealing, however,
@@ -5074,7 +4537,7 @@ accept the following:
     by each renderer individually.
 
 */
-function Marker(params) {
+reg(typeDrawable, 'marker', function(view, layer, params) {
     params = _extend({
         fill: true,
         stroke: false,
@@ -5083,25 +4546,12 @@ function Marker(params) {
         typeName: 'Marker'
     }, params);
 
-    Drawable.call(this, params);
-};
-
-Marker.prototype = _extend(Drawable.prototype, {
-    constructor: Marker
+    return new Drawable(view, layer, params);
 });
 /**
-# T5.Poly
-__extends__: T5.Shape
+# DRAWABLE: poly
 
-## Constructor
-
-`new T5.Poly(points, params)`
-
-The constructor requires an array of vectors that represent the poly and
-also accepts optional initialization parameters (see below).
-
-
-#### Initialization Parameters
+## Settings
 
 - `fill` (default = true) - whether or not the poly should be filled.
 - `style` (default = null) - the style override for this poly.  If none
@@ -5110,14 +4560,16 @@ is specified then the style of the T5.PolyLayer is used.
 
 ## Methods
 */
-function Poly(points, params) {
+reg(typeDrawable, 'poly', function(view, layer, params) {
     params = _extend({
         simplify: false,
         fill: true,
+        points: [],
         typeName: 'Poly'
     }, params);
 
-    var simplify = params.simplify;
+    var points = params.points,
+        simplify = params.simplify;
 
     /* exported functions */
 
@@ -5156,50 +4608,18 @@ function Poly(points, params) {
     });
 
     this.haveData = points && (points.length >= 2);
-};
-
-Poly.prototype = _extend({}, Drawable.prototype, {
-    constructor: Poly
 });
 /**
-### T5.Line(points, params)
+# DRAWABLE: line
 */
-function Line(points, params) {
+reg(typeDrawable, 'line', function(view, layer, params) {
     params.fill = false;
-
-    Poly.call(this, points, params);
-};
-
-Line.prototype = _extend({}, Poly.prototype);
-/**
-# T5.ImageDrawable
-_extends:_ T5.Drawable
-
-
-An image drawable is the class that provides support for drawing images to a T5.DrawLayer.
-
-## TODO
-
-- currently hits on animated markers not working as well as they should, need to
-tweak touch handling to get this better...
-
-
-## Initialization Parameters
-
-- `image` (HTMLImage, default = null) - one of either this or the `imageUrl` parameter
-is required and the specified image is used to display the annotation.
-
-- `imageUrl` (String, default = null) - one of either this of the `image` parameter is
-required.  If specified, the image is obtained using T5.Images module and then drawn
-to the canvas.
-
-- `centerOffset` (T5.XY, default = null) - a XY composite that optionally specifies the
-offset that should be applied to the image when it is drawn by the renderer.
-
-
-## Methods
+    return regCreate(typeDrawable, 'poly', view, layer, params);
+});
+/*
+# DRAWABLE: image
 */
-function ImageDrawable(params) {
+reg(typeDrawable, 'image', function(view, layer, params) {
     params = _extend({
         image: null,
         imageUrl: null,
@@ -5281,9 +4701,7 @@ function ImageDrawable(params) {
         checkOffsetAndBounds.call(this);
     } // resync
 
-    Drawable.call(this, params);
-
-    var _self = _extend(this, {
+    var _self = _extend(new Drawable(view, layer, params), {
         changeImage: changeImage,
         getProps: getProps,
         resync: resync
@@ -5297,62 +4715,28 @@ function ImageDrawable(params) {
         imgOffsetX = this.centerOffset.x;
         imgOffsetY = this.centerOffset.y;
     } // if
-};
-
-ImageDrawable.prototype = _extend({}, Drawable.prototype, {
-    constructor: ImageDrawable
 });
 /**
-# T5.ImageMarker
-The T5.ImageMarker is a class that provides a mechanism for displaying an image
-marker as an annotation for a T5.Map or T5.View
-
-
-_extends_: T5.ImageDrawable
+# DRAWABLE: arc
 */
-function ImageMarker(params) {
-    params = _extend({
-        imageAnchor: null
-    }, params);
-
-    if (params.imageAnchor) {
-        params.centerOffset = XYFns.invert(params.imageAnchor);
-    } // if
-
-    ImageDrawable.call(this, params);
-};
-
-ImageMarker.prototype = _extend({}, ImageDrawable.prototype, {
-    constructor: ImageMarker
-});
-/**
-### T5.Arc(params)
-*/
-function Arc(params) {
+reg(typeDrawable, 'arc', function(view, layer, params) {
     params = _extend({
         startAngle: 0,
         endAngle: Math.PI * 2,
         typeName: 'Arc'
     }, params);
 
-    Drawable.call(this, params);
-};
-
-Arc.prototype = _extend(Drawable.prototype, {
-    constructor: Arc
+    return new Drawable(view, layer, params);
 });
 
 /**
-# T5.ViewLayer
+# LAYER
 
 In and of it_self, a View does nothing.  Not without a
 ViewLayer at least.  A view is made up of one or more of these
 layers and they are drawn in order of *zindex*.
 
-## Constructor
-`T5.ViewLayer(params)`
-
-### Initialization Parameters
+## Settings
 
 - `id` - the id that has been assigned to the layer, this value
 can be used when later accessing the layer from a View.
@@ -5372,18 +4756,10 @@ can do this by binding to the change method
 ~   // do your updates here...
 ~ });
 
-### parentChange
-This event is fired with the parent of the layer has been changed
-
-<pre>
-layer.bind('parentChange', function(evt, parent) {
-);
-</pre>
-
 ## Methods
 
 */
-function ViewLayer(params) {
+function ViewLayer(view, params) {
     params = _extend({
         id: 'layer_' + layerCounter++,
         zindex: 0,
@@ -5393,10 +4769,9 @@ function ViewLayer(params) {
         maxXY: null
     }, params);
 
-    this.view = null;
     this.visible = true;
 
-    COG.observable(_extend(this, params));
+    _observable(_extend(this, params));
 }; // ViewLayer constructor
 
 ViewLayer.prototype = {
@@ -5444,9 +4819,9 @@ ViewLayer.prototype = {
     hitGuess: null
 }; // ViewLayer.prototype
 /**
-# T5.ImageLayer
+# LAYER: tile
 */
-var TileLayer = function(genId, params) {
+reg('layer', 'tile', function(view, params) {
     params = _extend({
         imageLoadArgs: {}
     }, params);
@@ -5503,24 +4878,14 @@ var TileLayer = function(genId, params) {
     });
 
     _self.bind('refresh', handleRefresh);
-    _self.bind('parentChange', handleResync);
     _self.bind('resync', handleResync);
 
     return _self;
-};
+});
 /**
-# T5.DrawLayer
-_extends:_ T5.ViewLayer
-
-
-The DrawLayer is a generic layer that handles drawing, hit testing and syncing a list
-of drawables.  A T5.DrawLayer itself is never meant to be implemented as it has no
-internal `T5.Drawable` storage, but rather relies on descendants to implement storage and
-provide the drawables by the `loadDrawables` method.
-
-## Methods
+# LAYER: Draw
 */
-var DrawLayer = function(params) {
+reg('layer', 'draw', function(view, params) {
     params = _extend({
         zindex: 10
     }, params);
@@ -5547,12 +4912,8 @@ var DrawLayer = function(params) {
         if (drop) {
             delete this.dragOffset;
 
-
-            var view = _self.view;
-            if (view) {
-                view.syncXY([this.xy], true);
-                view.invalidate();
-            } // if
+            view.syncXY([this.xy], true);
+            view.invalidate();
 
             this.trigger('dragDrop');
         } // if
@@ -5599,6 +4960,44 @@ var DrawLayer = function(params) {
 
     /* exports */
 
+    /**
+    ### clear()
+    */
+    function clear() {
+        storage = new SpatialStore();
+
+        drawables = [];
+        _self.itemCount = 0;
+    } // clear
+
+    /**
+    ### create(type, settings, prepend)
+    */
+    function create(type, settings, prepend) {
+        var drawable = regCreate(typeDrawable, type, _self, settings);
+
+        if (prepend) {
+            drawables.unshift(drawable);
+        }
+        else {
+            drawables[drawables.length] = drawable;
+        } // if..else
+
+        drawable.resync(view);
+        if (storage && drawable.bounds) {
+            storage.insert(drawable.bounds, drawable);
+        } // if
+
+        triggerSort(view);
+
+        drawable.bind('move', handleItemMove);
+
+        _self.itemCount = drawables.length;
+    } // create
+
+    /**
+    ### draw(renderer, viewport, view, tickCount, hitData)
+    */
     function draw(renderer, viewport, view, tickCount, hitData) {
         var emptyProps = {
             },
@@ -5681,73 +5080,20 @@ var DrawLayer = function(params) {
     var _self = _extend(new ViewLayer(params), {
         itemCount: 0,
 
-        /**
-        ### add(poly)
-        Used to add a T5.Poly to the layer
-        */
-        add: function(drawable, prepend) {
-            if (drawable) {
-                drawable.layer = _self;
-
-                if (prepend) {
-                    drawables.unshift(drawable);
-                }
-                else {
-                    drawables[drawables.length] = drawable;
-                } // if..else
-
-                var view = _self.view;
-                if (view) {
-                    drawable.resync(view);
-                    if (storage && drawable.bounds) {
-                        storage.insert(drawable.bounds, drawable);
-                    } // if
-
-                    triggerSort(view);
-                } // if
-
-                drawable.bind('move', handleItemMove);
-            } // if
-
-            _self.itemCount = drawables.length;
-        },
-
-        clear: function() {
-            storage = new SpatialStore();
-
-            drawables = [];
-            _self.itemCount = 0;
-        },
-
+        clear: clear,
+        create: create,
         draw: draw,
         find: find,
         hitGuess: hitGuess
     });
 
-    _self.bind('parentChange', handleResync);
     _self.bind('resync', handleResync);
 
     return _self;
-};
-/**
-# T5.ShapeLayer
-_extends:_ T5.DrawLayer
-
-
-The ShapeLayer is designed to facilitate the storage and display of multiple
-geometric shapes.  This is particularly useful for displaying [GeoJSON](http://geojson.org)
-data and the like.
-
-## Methods
-*/
-var ShapeLayer = function(params) {
-    return new DrawLayer(params);
-};
+});
 
 /**
-# T5.Pos (internal class)
-The T5.Pos class is a currently an internal class that is used by the `T5.Geo.Position` module.
-This is currently a little obscure and is due to a change in the way Tile5 is structured internally.
+# T5.Pos
 
 # Methods
 */
@@ -5774,7 +5120,7 @@ Pos.prototype = {
 
     /**
     ### offset(latOffset, lonOffset)
-    Return a new T5.Geo.Position which is the original `pos` offset by
+    Return a new position which is the original `pos` offset by
     the specified `latOffset` and `lonOffset` (which are specified in
     km distance)
     */
@@ -5800,7 +5146,7 @@ Pos.prototype = {
 /**
 # T5.GeoXY
 
-The GeoXY class is used to convert a position (T5.Geo.Position) into a
+The GeoXY class is used to convert a position into a
 composite xy that can be used to draw on the various T5.ViewLayer implementations.
 This class provides the necessary mechanism that allows the view layers to
 assume operation using a simple vector (containing an x and y) with no need
@@ -5912,32 +5258,13 @@ var GeoXY = (function() {
         Vector: Vector,
         Hits: Hits,
 
-        Generator: Generator,
         Service: Service,
 
         tweenValue: _tweenValue,
         easing: _easing,
 
         Tile: Tile,
-        TileLayer: TileLayer,
         getImage: getImage,
-
-        View: View,
-        ViewLayer: ViewLayer,
-        ImageLayer: TileLayer,
-
-        Drawable: Drawable,
-        Marker: Marker,
-        Poly: Poly,
-        Line: Line,
-        Arc: Arc,
-        ImageDrawable: ImageDrawable,
-        ImageMarker: ImageMarker,
-
-        DrawLayer: DrawLayer,
-        ShapeLayer: ShapeLayer,
-
-        Map: Map,
 
         GeoXY: GeoXY,
         Pos: Pos
@@ -6098,14 +5425,6 @@ function toRad(value) {
     return value * DEGREES_TO_RADIANS;
 } // toRad
 
-/**
-# T5.Geo.Position
-
-The Geo.Position submodule is used to perform operations on Geo.Position objects rather
-than have those operations bundled with the object.
-
-## Functions
-*/
 var Position = (function() {
     var DEFAULT_VECTORIZE_CHUNK_SIZE = 100,
         VECTORIZE_PER_CYCLE = 500;
@@ -6114,7 +5433,7 @@ var Position = (function() {
 
     /**
     ### calcDistance(pos1, pos2)
-    Calculate the distance between two T5.Geo.Position objects, pos1 and pos2.  The
+    Calculate the distance between two position objects, pos1 and pos2.  The
     distance returned is measured in kilometers.
     */
     function calcDistance(pos1, pos2) {
@@ -6135,7 +5454,7 @@ var Position = (function() {
 
     /**
     ### copy(src)
-    Create a copy of the specified T5.Geo.Position object.
+    Create a copy of the specified position object.
     */
     function copy(src) {
         return src ? init(src.lat, src.lon) : null;
@@ -6143,7 +5462,7 @@ var Position = (function() {
 
     /**
     ### empty(pos)
-    Returns true if the T5.Geo.Position object is empty, false if not.
+    Returns true if the position object is empty, false if not.
     */
     function empty(pos) {
         return (! pos) || ((pos.lat === 0) && (pos.lon === 0));
@@ -6151,7 +5470,7 @@ var Position = (function() {
 
     /**
     ### equal(pos1, pos2)
-    Compares to T5.Geo.Position objects and returns true if they
+    Compares to positions objects and returns true if they
     have the same latitude and longitude values
     */
     function equal(pos1, pos2) {
@@ -6207,7 +5526,7 @@ var Position = (function() {
 
     /**
     ### inArray(pos, testArray)
-    Checks to see whether the specified T5.Geo.Position is contained within
+    Checks to see whether the specified position is contained within
     the array of position objects passed in the testArray.
     */
     function inArray(pos, testArray) {
@@ -6226,7 +5545,7 @@ var Position = (function() {
     /**
     ### inBounds(pos, bounds)
     Returns true if the specified Geo.Position object is within the
-    T5.Geo.BoundingBox specified by the bounds argument.
+    boundingbox specified by the bounds argument.
     */
     function inBounds(pos, bounds) {
         var fnresult = ! (Position.empty(pos) || Position.empty(bounds));
@@ -6246,23 +5565,11 @@ var Position = (function() {
     } // init
 
     /**
-    ### offset(pos, latOffset, lonOffset)
-    __deprecated:__ will be replaced by direct access to `T5.Pos.offset()`
-
-    Return a new T5.Geo.Position which is the original `pos` offset by
-    the specified `latOffset` and `lonOffset` (which are specified in
-    km distance)
-    */
-    function offset(pos, latOffset, lonOffset) {
-        return pos.offset(latOffset, lonOffset);
-    } // offset
-
-    /**
     ### parse(object)
     This function is used to take a latitude and longitude String
-    pair (either space or comma delimited) and return a new T5.Geo.Position
+    pair (either space or comma delimited) and return a new position
     value.  The function is also tolerant of being passed an existing
-    T5.Geo.Position object as the object argument, and in these cases
+    position as the object argument, and in these cases
     returns a copy of the position.
     */
     function parse(pos) {
@@ -6291,7 +5598,7 @@ var Position = (function() {
     with x and y mercator pixel values back.
     */
     function toMercatorPixels(pos) {
-        return T5.XY.init(lon2pix(pos.lon), lat2pix(pos.lat));
+        return new XY(lon2pix(pos.lon), lat2pix(pos.lat));
     } // toMercatorPixels
 
     /**
@@ -6311,15 +5618,6 @@ var Position = (function() {
     in an efficient way.  It is, however, possible to specify that the conversion should
     happen synchronously and in this case the array of vectors is returned rather
     than a worker instance.
-
-    #### Example Usage (Asyncronous)
-    ~ // default options are used (async + 500 conversions per cycle)
-    ~ T5.Geo.Position.vectorize(positions);
-    ~
-    #### Example Usage (Synchronous)
-    ~ var vectors = T5.Geo.Position.vectorize(positions, {
-    ~     async: false
-    ~ });
     */
     function vectorize(positions, options) {
         var posIndex = positions.length,
@@ -6379,7 +5677,6 @@ var Position = (function() {
         inArray: inArray,
         inBounds: inBounds,
         init: init,
-        offset: offset,
         parse: parse,
         parseArray: parseArray,
         toMercatorPixels: toMercatorPixels,
@@ -6387,15 +5684,6 @@ var Position = (function() {
         vectorize: vectorize
     };
 })();
-/**
-# T5.Geo.BoundingBox
-
-A collection of utilities that are primarily designed to help with working
-with Geo.BoundingBox objects.  The functions are implemented here rather
-than with the actual object it_self to ensure that the object remains lightweight.
-
-## Functions
-*/
 var BoundingBox = (function() {
 
     /* exports */
@@ -6472,7 +5760,7 @@ var BoundingBox = (function() {
     ### forPositions(positions, padding)
 
     This function is very useful when you need to create a
-    Geo.BoundingBox to contain an array of T5.Geo.Position.
+    Geo.BoundingBox to contain an array of T5.Pos.
     The optional second parameter allows you to specify an amount of
     padding (in degrees) to apply to the bounding box that is created.
     */
@@ -6527,7 +5815,7 @@ var BoundingBox = (function() {
 
     This function is used to return the zoom level (seems consistent across
     mapping providers at this stage) that is required to properly display
-    the specified T5.Geo.BoundingBox given the screen dimensions (specified as
+    the specified boundingbox given the screen dimensions (specified as
     a Dimensions object) of the map display. Adapted from
     [this code](http://groups.google.com/group/google-maps-js-api-v3/browse_thread/thread/43958790eafe037f/66e889029c555bee)
     */
@@ -6553,7 +5841,7 @@ var BoundingBox = (function() {
 
     /**
     ### isEmpty(bounds)
-    Returns true if the specified T5.Geo.BoundingBox is empty.
+    Returns true if the specified boundingbox is empty.
     */
     function isEmpty(bounds) {
         return (! bounds) || Position.empty(bounds.min) || Position.empty(bounds.max);
@@ -6579,17 +5867,6 @@ var BoundingBox = (function() {
         toString: toString
     };
 })();
-var Radius = function(init_dist, init_uom) {
-    return {
-        distance: parseInt(init_dist, 10),
-        uom: init_uom
-    };
-}; // Radius
-
-/**
-# T5.Geo.Address
-To be completed
-*/
 var Address = function(params) {
     params = _extend({
         streetDetails: "",
@@ -6675,7 +5952,7 @@ var addrTools = (function() {
 
         /**
         ### toString(address)
-        Returns a string representation of the T5.Geo.Address object
+        Returns a string representation of the address object
         */
         toString: function(address) {
             return address.streetDetails + " " + address.location;
@@ -6685,6 +5962,157 @@ var addrTools = (function() {
     return subModule;
 })(); // addrTools
 
+/**
+# GENERATOR: osm
+*/
+reg('generator', 'osm', function(params) {
+    params = T5.ex({
+        flipY: false,
+        tileSize: 256,
+        tilePath: '{0}/{1}/{2}.png',
+        osmDataAck: true
+    }, params);
+
+    var DEGREES_TO_RADIANS = Math.PI / 180,
+        RADIANS_TO_DEGREES = 180 / Math.PI,
+        serverDetails = null,
+        subDomains = [],
+        subdomainFormatter,
+        pathFormatter = T5.formatter(params.tilePath);
+
+    /* internal functions */
+
+    /*
+    Function:  calculateTileOffset
+    This function calculates the tile offset for a mapping tile in the cloudmade API.  Code is adapted
+    from the pseudocode that can be found on the cloudemade site at the following location:
+
+    http://developers.cloudmade.com/projects/tiles/examples/convert-coordinates-to-tile-numbers
+    */
+    function calculateTileOffset(lat, lon, numTiles) {
+        var tileX, tileY;
+
+        tileX = (lon+180) / 360 * numTiles;
+        tileY = ((1-Math.log(Math.tan(lat*DEGREES_TO_RADIANS) + 1/Math.cos(lat*DEGREES_TO_RADIANS))/Math.PI)/2 * numTiles) % numTiles;
+
+        return T5.XY.init(tileX | 0, tileY | 0);
+    } // calculateTileOffset
+
+    function calculatePosition(x, y, numTiles) {
+        var n = Math.PI - 2*Math.PI * y / numTiles,
+            lon = x / numTiles * 360 - 180,
+            lat = RADIANS_TO_DEGREES * Math.atan(0.5*(Math.exp(n)-Math.exp(-n)));
+
+        return new T5.Pos(lat, lon);
+    } // calculatePosition
+
+    function getTileXY(x, y, numTiles, radsPerPixel) {
+        var tilePos = calculatePosition(x, y, numTiles);
+
+        return T5.GeoXY.init(tilePos, radsPerPixel);
+    } // getTileXY
+
+    /* exports */
+
+    function buildTileUrl(tileX, tileY, zoomLevel, numTiles, flipY) {
+        if (tileY >= 0 && tileY < numTiles) {
+            tileX = (tileX % numTiles + numTiles) % numTiles;
+
+            var tileUrl = pathFormatter(
+                zoomLevel,
+                tileX,
+                flipY ? Math.abs(tileY - numTiles + 1) : tileY);
+
+            if (serverDetails) {
+                tileUrl = subdomainFormatter(subDomains[tileX % (subDomains.length || 1)]) + tileUrl;
+            } // if
+
+            return tileUrl;
+        } // if
+    } // buildTileUrl
+
+    function run(view, viewport, store, callback) {
+        var zoomLevel = view.getZoomLevel ? view.getZoomLevel() : 0;
+
+        if (zoomLevel) {
+            var numTiles = 2 << (zoomLevel - 1),
+                tileSize = params.tileSize,
+                radsPerPixel = (Math.PI * 2) / (tileSize << zoomLevel),
+                minX = viewport.x,
+                minY = viewport.y,
+                xTiles = (viewport.w  / tileSize | 0) + 1,
+                yTiles = (viewport.h / tileSize | 0) + 1,
+                position = T5.GeoXY.toPos(T5.XY.init(minX, minY), radsPerPixel),
+                tileOffset = calculateTileOffset(position.lat, position.lon, numTiles),
+                tilePixels = getTileXY(tileOffset.x, tileOffset.y, numTiles, radsPerPixel),
+                flipY = params.flipY,
+                tiles = store.search({
+                    x: tilePixels.x,
+                    y: tilePixels.y,
+                    w: xTiles * tileSize,
+                    h: yTiles * tileSize
+                }),
+                tileIds = {},
+                ii;
+
+            for (ii = tiles.length; ii--; ) {
+                tileIds[tiles[ii].id] = true;
+            } // for
+
+
+            serverDetails = _self.getServerDetails ? _self.getServerDetails() : null;
+            subDomains = serverDetails && serverDetails.subDomains ?
+                serverDetails.subDomains : [];
+            subdomainFormatter = T5.formatter(serverDetails ? serverDetails.baseUrl : '');
+
+            for (var xx = 0; xx <= xTiles; xx++) {
+                for (var yy = 0; yy <= yTiles; yy++) {
+                    var tileX = tileOffset.x + xx,
+                        tileY = tileOffset.y + yy,
+                        tileId = tileX + '_' + tileY,
+                        tile;
+
+                    if (! tileIds[tileId]) {
+                        tileUrl = _self.buildTileUrl(
+                            tileX,
+                            tileY,
+                            zoomLevel,
+                            numTiles,
+                            flipY);
+
+                        tile = new T5.Tile(
+                            tilePixels.x + xx * tileSize,
+                            tilePixels.y + yy * tileSize,
+                            tileUrl,
+                            tileSize,
+                            tileSize,
+                            tileId);
+
+                        store.insert(tile, tile);
+                    } // if
+                } // for
+            } // for
+
+            if (callback) {
+                callback();
+            } // if
+        } // if
+    } // callback
+
+    /* define the generator */
+
+    var _self = {
+        buildTileUrl: buildTileUrl,
+        run: run
+    };
+
+    if (params.osmDataAck) {
+        T5.userMessage('ack', 'osm', 'Map data (c) <a href="http://openstreetmap.org/" target="_blank">OpenStreetMap</a> (and) contributors, CC-BY-SA');
+    } // if
+
+
+    return _self;
+});
 var FEATURE_TYPE_COLLECTION = 'featurecollection',
     FEATURE_TYPE_FEATURE = 'feature',
     VECTORIZE_OPTIONS = {
@@ -6694,7 +6122,7 @@ var FEATURE_TYPE_COLLECTION = 'featurecollection',
     DEFAULT_FEATUREDEF = {
         processor: null,
         group: 'shapes',
-        layerClass: ShapeLayer
+        layer: 'draw'
     };
 
 var featureDefinitions = {
@@ -6702,7 +6130,7 @@ var featureDefinitions = {
     point: _extend({}, DEFAULT_FEATUREDEF, {
         processor: processPoint,
         group: 'markers',
-        layerClass: ShapeLayer
+        layer: 'draw'
     }),
 
     linestring: _extend({}, DEFAULT_FEATUREDEF, {
@@ -6803,18 +6231,20 @@ var GeoJSONParser = function(data, callback, options, builders) {
 
     builders = _extend({
         marker: function(xy, builderOpts) {
-            return new Marker({
+            return regCreate(typeDrawable, 'marker', {
                 xy: xy
             });
         },
 
         line: function(vectors, builderOpts) {
-            return new Poly(vectors, _extend({}, options, builderOpts));
+            return regCreate(typeDrawable, 'line', _extend({
+                points: vectors
+            }, options, builderOpts));
         },
 
         poly: function(vectors, builderOpts) {
-            return new Poly(vectors, _extend({
-                fill: true
+            return regCreate(typeDrawable, 'poly', _extend({
+                points: vectors
             }, options, builderOpts));
         }
     }, builders);
@@ -6963,57 +6393,33 @@ var GeoJSON = T5.GeoJSON = {
     }
 };
 
-/**
-# T5.GeoShape
-_extends:_ T5.Shape
-
-
-This is a special type of T5.Poly that will take positions for the first
-argument of the constructor rather than vectors.  If the initialization
-parameter `autoParse` is set to true (which it is by default), this will
-parsed by the T5.Geo.Position.parse function and converted into a GeoXY.
-
-## Constructor
-`new T5.GeoShape(positions, params);`
-
-### Initialization Parameters
-- autoParse (boolean, default = true) - whether or not the values in the
-positions array that is the first constructor argument should be run through
-the T5.Geo.Position.parse function or not.  Note that this function is capable of
-handling both string and T5.Geo.Position values as position values are
-simply passed straight through.
-
-*/
-var GeoShape = T5.GeoShape = function(positions, params) {
-    params = _extend({
-        autoParse: true
-    }, params);
-
-    var vectors = new Array(positions.length),
-        autoParse = params.autoParse,
-        parse = T5.Geo.Position.parse;
-
-    for (var ii = positions.length; ii--; ) {
-        vectors[ii] = T5.GeoXY.init(
-            autoParse ? parse(positions[ii]) : positions[ii]
-        );
-    } // for
-
-    return new T5.Poly(vectors, params);
-};
-
     T5.Geo = {
-        distanceToString: distanceToString,
-        dist2rad: dist2rad,
-        radsPerPixel: radsPerPixel,
-
-        Position: Position,
-        BoundingBox: BoundingBox,
-        Radius: Radius,
-
         Address: Address,
         A: addrTools,
 
         GeoJSON: GeoJSON
     };
-})();
+
+/**
+# Tile5(target, settings, viewId)
+*/
+function Tile5(target, settings, viewId) {
+    settings = _extend({
+        type: 'map',
+        renderer: 'canvas',
+        starpos: null,
+        zoom: 1,
+        fastpan: false,
+        drawOnScale: true,
+        zoombar: {}
+    }, settings);
+
+    var view = regCreate('view', settings.type, settings);
+
+    view.id = viewId || _objId('view');
+
+    return view;
+} // Tile5
+    exports.T5 = T5;
+    exports.Tile5 = Tile5;
+})(window);

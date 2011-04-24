@@ -1,11 +1,3 @@
-/**
-# T5.Geo.Position
-
-The Geo.Position submodule is used to perform operations on Geo.Position objects rather 
-than have those operations bundled with the object.
-
-## Functions
-*/
 var Position = (function() {
     var DEFAULT_VECTORIZE_CHUNK_SIZE = 100,
         VECTORIZE_PER_CYCLE = 500;
@@ -14,7 +6,7 @@ var Position = (function() {
     
     /**
     ### calcDistance(pos1, pos2)
-    Calculate the distance between two T5.Geo.Position objects, pos1 and pos2.  The 
+    Calculate the distance between two position objects, pos1 and pos2.  The 
     distance returned is measured in kilometers.
     */
     function calcDistance(pos1, pos2) {
@@ -37,7 +29,7 @@ var Position = (function() {
     
     /**
     ### copy(src)
-    Create a copy of the specified T5.Geo.Position object.
+    Create a copy of the specified position object.
     */
     function copy(src) {
         return src ? init(src.lat, src.lon) : null;
@@ -45,7 +37,7 @@ var Position = (function() {
     
     /**
     ### empty(pos)
-    Returns true if the T5.Geo.Position object is empty, false if not.
+    Returns true if the position object is empty, false if not.
     */
     function empty(pos) {
         return (! pos) || ((pos.lat === 0) && (pos.lon === 0));
@@ -53,7 +45,7 @@ var Position = (function() {
     
     /**
     ### equal(pos1, pos2)
-    Compares to T5.Geo.Position objects and returns true if they 
+    Compares to positions objects and returns true if they 
     have the same latitude and longitude values
     */
     function equal(pos1, pos2) {
@@ -115,7 +107,7 @@ var Position = (function() {
     
     /**
     ### inArray(pos, testArray)
-    Checks to see whether the specified T5.Geo.Position is contained within 
+    Checks to see whether the specified position is contained within 
     the array of position objects passed in the testArray.
     */
     function inArray(pos, testArray) {
@@ -134,7 +126,7 @@ var Position = (function() {
     /**
     ### inBounds(pos, bounds)
     Returns true if the specified Geo.Position object is within the 
-    T5.Geo.BoundingBox specified by the bounds argument.
+    boundingbox specified by the bounds argument.
     */
     function inBounds(pos, bounds) {
         // initialise variables
@@ -157,23 +149,11 @@ var Position = (function() {
     } // init
     
     /**
-    ### offset(pos, latOffset, lonOffset)
-    __deprecated:__ will be replaced by direct access to `T5.Pos.offset()`
-    
-    Return a new T5.Geo.Position which is the original `pos` offset by
-    the specified `latOffset` and `lonOffset` (which are specified in 
-    km distance)
-    */
-    function offset(pos, latOffset, lonOffset) {
-        return pos.offset(latOffset, lonOffset);
-    } // offset
-    
-    /**
     ### parse(object)
     This function is used to take a latitude and longitude String 
-    pair (either space or comma delimited) and return a new T5.Geo.Position 
+    pair (either space or comma delimited) and return a new position
     value.  The function is also tolerant of being passed an existing 
-    T5.Geo.Position object as the object argument, and in these cases 
+    position as the object argument, and in these cases 
     returns a copy of the position.
     */
     function parse(pos) {
@@ -203,7 +183,7 @@ var Position = (function() {
     with x and y mercator pixel values back.
     */
     function toMercatorPixels(pos) {
-        return T5.XY.init(lon2pix(pos.lon), lat2pix(pos.lat));
+        return new XY(lon2pix(pos.lon), lat2pix(pos.lat));
     } // toMercatorPixels
     
     /**
@@ -223,15 +203,6 @@ var Position = (function() {
     in an efficient way.  It is, however, possible to specify that the conversion should
     happen synchronously and in this case the array of vectors is returned rather
     than a worker instance.
-    
-    #### Example Usage (Asyncronous)
-    ~ // default options are used (async + 500 conversions per cycle)
-    ~ T5.Geo.Position.vectorize(positions);
-    ~ 
-    #### Example Usage (Synchronous)
-    ~ var vectors = T5.Geo.Position.vectorize(positions, {
-    ~     async: false
-    ~ });
     */
     function vectorize(positions, options) {
         var posIndex = positions.length,
@@ -297,7 +268,6 @@ var Position = (function() {
         inArray: inArray,
         inBounds: inBounds,
         init: init,
-        offset: offset,
         parse: parse,
         parseArray: parseArray,
         toMercatorPixels: toMercatorPixels,

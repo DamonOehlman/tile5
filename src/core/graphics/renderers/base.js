@@ -95,15 +95,6 @@ var Renderer = function(view, container, outer, params) {
     return _observable(_this);
 };
 
-var rendererRegistry = {};
-
-/**
-# T5.registerRenderer(id, creatorFn)
-*/
-var registerRenderer = T5.registerRenderer = function(id, creatorFn) {
-    rendererRegistry[id] = creatorFn;
-};
-
 /**
 # T5.attachRenderer(id, view, container, params)
 */
@@ -114,10 +105,7 @@ var attachRenderer = T5.attachRenderer = function(id, view, container, outer, pa
     
     // iterate through the renderers and create the resulting renderer
     for (var ii = 0; ii < ids.length; ii++) {
-        var rClass = rendererRegistry[ids[ii]];
-        if (rClass) {
-            renderer = new rClass(view, container, outer, params, renderer);
-        } // if
+        renderer = regCreate('renderer', ids[ii], view, container, outer, params, renderer);
     } // for
     
     // return the result of combining each of the renderers in order

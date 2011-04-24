@@ -220,13 +220,6 @@ var Address = function(params) {
                 return "";
             }
         };
-    },
-    
-    CenterContext = function(jsonData) {
-        return {
-            centerPos: new T5.Pos(jsonData.CenterPoint ? jsonData.CenterPoint.pos.content : ""),
-            radius: new T5.Geo.Radius(jsonData.Radius ? jsonData.Radius.content : 0, jsonData.Radius ? jsonData.Radius.unit : null)
-        }; // _self
     };
 
 /* request types and functions */

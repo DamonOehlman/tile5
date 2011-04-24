@@ -390,13 +390,6 @@ var Address = function(params) {
                 return "";
             }
         };
-    },
-
-    CenterContext = function(jsonData) {
-        return {
-            centerPos: new T5.Pos(jsonData.CenterPoint ? jsonData.CenterPoint.pos.content : ""),
-            radius: new T5.Geo.Radius(jsonData.Radius ? jsonData.Radius.content : 0, jsonData.Radius ? jsonData.Radius.unit : null)
-        }; // _self
     };
 
 /* request types and functions */
@@ -506,7 +499,7 @@ var RUOKRequest = function(params) {
         }
     });
 }; // RUOKRequest
-T5.Generator.register('decarta', function(params) {
+T5.Registry.register('generator', 'decarta', function(params) {
     params = T5.ex({
         tileSize: 256
     }, params);

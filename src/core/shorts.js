@@ -37,6 +37,14 @@ var abs = Math.abs,
     typeNumber = 'number',
     typeArray = 'array',
     
+    // type references for internal types
+    typeDrawable = 'drawable',
+    typeLayer = 'layer',
+    
+    // shortcuts to the registry functions
+    reg = Registry.register,
+    regCreate = Registry.create,
+    
     drawableCounter = 0,
     layerCounter = 0,
     

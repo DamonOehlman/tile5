@@ -1,7 +1,7 @@
 /**
-# Tile5 Renderer: Canvas
+# RENDERER: canvas
 */
-registerRenderer('canvas', function(view, panFrame, container, params, baseRenderer) {
+reg('renderer', 'canvas', function(view, panFrame, container, params, baseRenderer) {
     params = _extend({
     }, params);
     

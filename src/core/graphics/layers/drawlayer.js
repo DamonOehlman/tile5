@@ -1,16 +1,7 @@
 /**
-# T5.DrawLayer
-_extends:_ T5.ViewLayer
-
-
-The DrawLayer is a generic layer that handles drawing, hit testing and syncing a list
-of drawables.  A T5.DrawLayer itself is never meant to be implemented as it has no
-internal `T5.Drawable` storage, but rather relies on descendants to implement storage and
-provide the drawables by the `loadDrawables` method.
-
-## Methods
+# LAYER: Draw
 */
-var DrawLayer = function(params) {
+reg('layer', 'draw', function(view, params) {
     params = _extend({
         zindex: 10
     }, params);
@@ -41,12 +32,8 @@ var DrawLayer = function(params) {
             delete this.dragOffset;
             
             // TODO: reset scale
-            
-            var view = _self.view;
-            if (view) {
-                view.syncXY([this.xy], true);
-                view.invalidate();
-            } // if
+            view.syncXY([this.xy], true);
+            view.invalidate();
             
             this.trigger('dragDrop');
         } // if
@@ -99,6 +86,50 @@ var DrawLayer = function(params) {
     
     /* exports */
     
+    /**
+    ### clear()
+    */
+    function clear() {
+        // reset the storage
+        storage = new SpatialStore();
+        
+        // reset the drawables
+        drawables = [];
+        _self.itemCount = 0;
+    } // clear
+    
+    /**
+    ### create(type, settings, prepend)
+    */
+    function create(type, settings, prepend) {
+        var drawable = regCreate(typeDrawable, type, _self, settings);
+        
+        // add the the shapes array
+        if (prepend) {
+            drawables.unshift(drawable);
+        }
+        else {
+            drawables[drawables.length] = drawable;
+        } // if..else
+        
+        // sync this shape with the parent view
+        drawable.resync(view);
+        if (storage && drawable.bounds) {
+            storage.insert(drawable.bounds, drawable);
+        } // if
+        
+        triggerSort(view);
+        
+        // attach a move event handler
+        drawable.bind('move', handleItemMove);
+        
+        // update the item count
+        _self.itemCount = drawables.length;
+    } // create
+    
+    /**
+    ### draw(renderer, viewport, view, tickCount, hitData)
+    */
     function draw(renderer, viewport, view, tickCount, hitData) {
         var emptyProps = {
             },
@@ -191,58 +222,15 @@ var DrawLayer = function(params) {
     var _self = _extend(new ViewLayer(params), {
         itemCount: 0,
         
-        /**
-        ### add(poly)
-        Used to add a T5.Poly to the layer
-        */
-        add: function(drawable, prepend) {
-            if (drawable) {
-                drawable.layer = _self;
-                
-                // add the the shapes array
-                if (prepend) {
-                    drawables.unshift(drawable);
-                }
-                else {
-                    drawables[drawables.length] = drawable;
-                } // if..else
-                
-                // sync this shape with the parent view
-                var view = _self.view;
-                if (view) {
-                    drawable.resync(view);
-                    if (storage && drawable.bounds) {
-                        storage.insert(drawable.bounds, drawable);
-                    } // if
-                    
-                    triggerSort(view);
-                } // if
-                
-                // attach a move event handler
-                drawable.bind('move', handleItemMove);
-            } // if
-            
-            // update the item count
-            _self.itemCount = drawables.length;
-        },
-        
-        clear: function() {
-            // reset the storage
-            storage = new SpatialStore();
-            
-            // reset the drawables
-            drawables = [];
-            _self.itemCount = 0;
-        },
-        
+        clear: clear,
+        create: create,
         draw: draw,
         find: find,
         hitGuess: hitGuess
     });
     
     // bind to refresh events as we will use those to populate the items to be drawn
-    _self.bind('parentChange', handleResync);
     _self.bind('resync', handleResync);
     
     return _self;
-};
+});

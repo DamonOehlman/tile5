@@ -12,10 +12,9 @@
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true */
 
 // TODO: replace with a github dependency once getjs is done
-//= require <cani/src/cani>
-//= require <interact/src/interact>
 
-(function() {
+(function(exports) {
+    //= require <cani/src/cani>
     //= require <cog/cogs/animframe>
     //= require <cog/cogs/extend>
     //= require <cog/cogs/log>
@@ -25,11 +24,13 @@
     //= require <cog/cogs/arraytools>
     //= require <cog/cogs/typetools>
     //= require <cog/cogs/jsonp>
+    //= require <interact/src/interact>
     
     // define the tile5 namespace
-    window.T5 = {
+    var T5 = {
         // expose some cog functions
         ex: _extend,
+        log: _log,
         observable: _observable,
         formatter: _formatter,
         wordExists: _wordExists,
@@ -40,10 +41,11 @@
     // make T5 observable
     _observable(T5);
     
+    //= require "core/registry"
+    //= require "core/messages"
     //= require "core/functions"
     //= require "core/shorts"
     //= require "core/canvasmaker"
-    //= require "core/generator"
     //= require "core/service"
     
     //= require "core/dom"
@@ -63,8 +65,9 @@
     //= require "core/graphics/renderers/dom"
     
     //= require "core/graphics/style"
-    //= require "core/graphics/view"
-    //= require "core/graphics/map"
+    
+    //= require "core/graphics/views/view"
+    //= require "core/graphics/views/map"
     
     //= require "core/graphics/drawables/core"
     //= require "core/graphics/drawables/animation"
@@ -72,16 +75,14 @@
     //= require "core/graphics/drawables/poly"
     //= require "core/graphics/drawables/line"
     //= require "core/graphics/drawables/image"
-    //= require "core/graphics/drawables/imagemarker"
     //= require "core/graphics/drawables/arc"
 
     //= require "core/graphics/layers/viewlayer"
     //= require "core/graphics/layers/tilelayer"
     //= require "core/graphics/layers/drawlayer"
-    //= require "core/graphics/layers/shapelayer"
     
-    //= require "core/geo/types/pos"
-    //= require "core/geo/types/geoxy"
+    //= require "core/geo/pos"
+    //= require "core/geo/geoxy"
     
     _extend(T5, {
         ticks: ticks,
@@ -94,7 +95,6 @@
         Vector: Vector,
         Hits: Hits,
         
-        Generator: Generator,
         Service: Service,
         
         // animation functions and modules
@@ -103,27 +103,7 @@
         
         // images
         Tile: Tile,
-        TileLayer: TileLayer,
         getImage: getImage,
-        
-        // core graphics modules
-        View: View,
-        ViewLayer: ViewLayer,
-        ImageLayer: TileLayer,
-        
-        // shapes
-        Drawable: Drawable,
-        Marker: Marker,
-        Poly: Poly,
-        Line: Line,
-        Arc: Arc,
-        ImageDrawable: ImageDrawable,
-        ImageMarker: ImageMarker,
-        
-        DrawLayer: DrawLayer,
-        ShapeLayer: ShapeLayer,
-        
-        Map: Map,
         
         // some of the geo types starting to move up...
         GeoXY: GeoXY,
@@ -133,28 +113,22 @@
     //= require "core/geo/constants"
     //= require "core/geo/functions"
 
-    //= require "core/geo/types/position"
-    //= require "core/geo/types/boundingbox"
-    //= require "core/geo/types/radius"
-    //= require "core/geo/types/address"
+    //= require "core/geo/position"
+    //= require "core/geo/boundingbox"
+    //= require "core/geo/address"
     
+    //= require "core/geo/osm"
     //= require "core/geo/geojson"
 
-    //= require "core/geo/ui/geopoly"
-    
     // define the geo functionality
     T5.Geo = {
-        distanceToString: distanceToString,
-        dist2rad: dist2rad,
-        radsPerPixel: radsPerPixel,
-
-        Position: Position,
-        BoundingBox: BoundingBox,
-        Radius: Radius,
-        
         Address: Address,
         A: addrTools,
         
         GeoJSON: GeoJSON
     };
-})();
+    
+    //= require "core/factory"
+    exports.T5 = T5;
+    exports.Tile5 = Tile5;
+})(window);

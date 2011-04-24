@@ -109,5 +109,5 @@ T5.Geo.Bing = (function() {
     };
     
     // register the generator
-    T5.Generator.register('bing', BingGenerator);
+    T5.Registry.register('generator', 'bing', BingGenerator);
 })();

@@ -1,12 +1,3 @@
-/**
-# T5.Geo.BoundingBox
-
-A collection of utilities that are primarily designed to help with working 
-with Geo.BoundingBox objects.  The functions are implemented here rather 
-than with the actual object it_self to ensure that the object remains lightweight.
-
-## Functions
-*/
 var BoundingBox = (function() {
     
     /* exports */
@@ -87,7 +78,7 @@ var BoundingBox = (function() {
     ### forPositions(positions, padding)
 
     This function is very useful when you need to create a 
-    Geo.BoundingBox to contain an array of T5.Geo.Position.  
+    Geo.BoundingBox to contain an array of T5.Pos.  
     The optional second parameter allows you to specify an amount of 
     padding (in degrees) to apply to the bounding box that is created.
     */
@@ -147,7 +138,7 @@ var BoundingBox = (function() {
 
     This function is used to return the zoom level (seems consistent across 
     mapping providers at this stage) that is required to properly display 
-    the specified T5.Geo.BoundingBox given the screen dimensions (specified as 
+    the specified boundingbox given the screen dimensions (specified as 
     a Dimensions object) of the map display. Adapted from 
     [this code](http://groups.google.com/group/google-maps-js-api-v3/browse_thread/thread/43958790eafe037f/66e889029c555bee)
     */
@@ -181,7 +172,7 @@ var BoundingBox = (function() {
     
     /**
     ### isEmpty(bounds)
-    Returns true if the specified T5.Geo.BoundingBox is empty.
+    Returns true if the specified boundingbox is empty.
     */
     function isEmpty(bounds) {
         return (! bounds) || Position.empty(bounds.min) || Position.empty(bounds.max);

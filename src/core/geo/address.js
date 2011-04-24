@@ -1,7 +1,3 @@
-/**
-# T5.Geo.Address
-To be completed
-*/
 var Address = function(params) {
     params = _extend({
         streetDetails: "",
@@ -93,7 +89,7 @@ var addrTools = (function() {
         
         /**
         ### toString(address)
-        Returns a string representation of the T5.Geo.Address object
+        Returns a string representation of the address object
         */
         toString: function(address) {
             return address.streetDetails + " " + address.location;

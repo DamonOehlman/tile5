@@ -15,7 +15,7 @@ task :compile => [] do
   files.each do |src|
     secretary = Sprockets::Secretary.new(
       :asset_root   => "dist",
-      :load_path    => ["build", "lib", "/development/projects/github/sidelab/", "/development/projects/github/"],
+      :load_path    => ["/development/projects/github/sidelab/", "/development/projects/github/", "build", "lib"],
       :source_files => ["src/%s" % src]
     )
 
@@ -28,5 +28,17 @@ task :compile => [] do
 end
 
 task :minify => [:compile] do
-  
+  basepath = 'dist'
+  files = FileList.new
+    .include("%s/**/*.js" % basepath)
+    .exclude(/min\.js$/)
+    .sub(basepath, '')
+    .sub('.js', '')
+    
+  files.each do |src|
+    sh "java -jar build/google-compiler-20100629.jar \
+           --compilation_level SIMPLE_OPTIMIZATIONS \
+           --js_output_file dist/%s.min.js \
+           --js dist/%s.js" % [src, src]
+  end
 end

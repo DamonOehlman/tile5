@@ -1,10 +1,7 @@
 /**
-### T5.Line(points, params)
+# DRAWABLE: line
 */
-function Line(points, params) {
+reg(typeDrawable, 'line', function(view, layer, params) {
     params.fill = false;
-    
-    Poly.call(this, points, params);
-};
-
-Line.prototype = _extend({}, Poly.prototype);
+    return regCreate(typeDrawable, 'poly', view, layer, params);
+});

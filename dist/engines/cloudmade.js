@@ -1,5 +1,5 @@
 T5.Cloudmade = (function() {
-T5.Generator.register('osm.cloudmade', function(params) {
+T5.Registry.register('generator', 'osm.cloudmade', function(params) {
     params = T5.ex({
         apikey: null,
         styleid: 1

@@ -8,7 +8,7 @@ var FEATURE_TYPE_COLLECTION = 'featurecollection',
     DEFAULT_FEATUREDEF = {
         processor: null,
         group: 'shapes',
-        layerClass: ShapeLayer
+        layer: 'draw'
     };
 
 // initialise feature definitions
@@ -17,7 +17,7 @@ var featureDefinitions = {
     point: _extend({}, DEFAULT_FEATUREDEF, {
         processor: processPoint,
         group: 'markers',
-        layerClass: ShapeLayer
+        layer: 'draw'
     }),
 
     linestring: _extend({}, DEFAULT_FEATUREDEF, {
@@ -121,18 +121,20 @@ var GeoJSONParser = function(data, callback, options, builders) {
     // initialise the builders
     builders = _extend({
         marker: function(xy, builderOpts) {
-            return new Marker({
+            return regCreate(typeDrawable, 'marker', {
                 xy: xy
             });
         },
 
         line: function(vectors, builderOpts) {
-            return new Poly(vectors, _extend({}, options, builderOpts));
+            return regCreate(typeDrawable, 'line', _extend({
+                points: vectors
+            }, options, builderOpts));
         },
 
         poly: function(vectors, builderOpts) {
-            return new Poly(vectors, _extend({
-                fill: true
+            return regCreate(typeDrawable, 'poly', _extend({
+                points: vectors
             }, options, builderOpts));
         }
     }, builders);

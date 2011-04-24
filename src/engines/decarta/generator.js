@@ -1,4 +1,4 @@
-T5.Generator.register('decarta', function(params) {
+T5.Registry.register('generator', 'decarta', function(params) {
     params = T5.ex({
         tileSize: 256
     }, params);

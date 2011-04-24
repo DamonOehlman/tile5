@@ -1,7 +1,5 @@
 /**
-# T5.Pos (internal class)
-The T5.Pos class is a currently an internal class that is used by the `T5.Geo.Position` module.
-This is currently a little obscure and is due to a change in the way Tile5 is structured internally.
+# T5.Pos 
 
 # Methods
 */
@@ -32,7 +30,7 @@ Pos.prototype = {
     
     /**
     ### offset(latOffset, lonOffset)
-    Return a new T5.Geo.Position which is the original `pos` offset by
+    Return a new position which is the original `pos` offset by
     the specified `latOffset` and `lonOffset` (which are specified in 
     km distance)
     */

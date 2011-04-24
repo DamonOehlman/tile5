@@ -211,7 +211,7 @@ var XYFns = (function() {
         } // if
 
         // set the the default generalization
-        generalization = generalization ? generalization : XYFns.VECTOR_SIMPLIFICATION;
+        generalization = generalization || XYFns.VECTOR_SIMPLIFICATION;
 
         var tidied = [],
             last = null;

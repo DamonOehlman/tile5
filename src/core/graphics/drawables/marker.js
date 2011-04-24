@@ -1,5 +1,5 @@
 /**
-# T5.Marker
+# DRAWABLE: marker
 The T5.Marker class represents a generic marker for annotating an underlying view.
 Originally the marker class did very little, and in most instances a T5.ImageMarker
 was used instead to generate a marker that looked more visually appealing, however, 
@@ -18,7 +18,7 @@ accept the following:
     by each renderer individually.
 
 */
-function Marker(params) {
+reg(typeDrawable, 'marker', function(view, layer, params) {
     params = _extend({
         fill: true,
         stroke: false,
@@ -27,9 +27,5 @@ function Marker(params) {
         typeName: 'Marker'
     }, params);
 
-    Drawable.call(this, params);
-};
-
-Marker.prototype = _extend(Drawable.prototype, {
-    constructor: Marker
+    return new Drawable(view, layer, params);
 });

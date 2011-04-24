@@ -1,16 +1,7 @@
 /**
-# T5.Poly
-__extends__: T5.Shape
+# DRAWABLE: poly
 
-## Constructor
-
-`new T5.Poly(points, params)`
-
-The constructor requires an array of vectors that represent the poly and 
-also accepts optional initialization parameters (see below).
-
-
-#### Initialization Parameters
+## Settings
 
 - `fill` (default = true) - whether or not the poly should be filled.
 - `style` (default = null) - the style override for this poly.  If none
@@ -19,15 +10,17 @@ is specified then the style of the T5.PolyLayer is used.
 
 ## Methods
 */
-function Poly(points, params) {
+reg(typeDrawable, 'poly', function(view, layer, params) {
     params = _extend({
         simplify: false,
         fill: true,
+        points: [],
         typeName: 'Poly'
     }, params);
 
     // initialise variables
-    var simplify = params.simplify;
+    var points = params.points,
+        simplify = params.simplify;
         
     /* exported functions */
     
@@ -73,8 +66,4 @@ function Poly(points, params) {
     
     // initialise the first item to the first element in the array
     this.haveData = points && (points.length >= 2);
-};
-
-Poly.prototype = _extend({}, Drawable.prototype, {
-    constructor: Poly
 });

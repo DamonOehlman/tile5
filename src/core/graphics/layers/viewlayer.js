@@ -1,14 +1,11 @@
 /**
-# T5.ViewLayer
+# LAYER
 
 In and of it_self, a View does nothing.  Not without a 
 ViewLayer at least.  A view is made up of one or more of these 
 layers and they are drawn in order of *zindex*.
 
-## Constructor
-`T5.ViewLayer(params)`
-
-### Initialization Parameters
+## Settings
 
 - `id` - the id that has been assigned to the layer, this value
 can be used when later accessing the layer from a View.
@@ -28,18 +25,10 @@ can do this by binding to the change method
 ~   // do your updates here...
 ~ });
 
-### parentChange
-This event is fired with the parent of the layer has been changed
-
-<pre>
-layer.bind('parentChange', function(evt, parent) {
-);
-</pre>
-
 ## Methods
 
 */
-function ViewLayer(params) {
+function ViewLayer(view, params) {
     params = _extend({
         id: 'layer_' + layerCounter++,
         zindex: 0,
@@ -50,11 +39,10 @@ function ViewLayer(params) {
     }, params);
     
     // initialise members
-    this.view = null;
     this.visible = true;
 
     // make view layers observable
-    COG.observable(_extend(this, params));
+    _observable(_extend(this, params));
 }; // ViewLayer constructor
 
 ViewLayer.prototype = {

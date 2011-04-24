@@ -1,32 +1,7 @@
-/**
-# T5.ImageDrawable
-_extends:_ T5.Drawable
-
-
-An image drawable is the class that provides support for drawing images to a T5.DrawLayer. 
-
-## TODO
-
-- currently hits on animated markers not working as well as they should, need to 
-tweak touch handling to get this better...
-
-
-## Initialization Parameters
-
-- `image` (HTMLImage, default = null) - one of either this or the `imageUrl` parameter
-is required and the specified image is used to display the annotation.
-
-- `imageUrl` (String, default = null) - one of either this of the `image` parameter is
-required.  If specified, the image is obtained using T5.Images module and then drawn
-to the canvas.
-
-- `centerOffset` (T5.XY, default = null) - a XY composite that optionally specifies the 
-offset that should be applied to the image when it is drawn by the renderer.
-
-
-## Methods
+/*
+# DRAWABLE: image
 */
-function ImageDrawable(params) {
+reg(typeDrawable, 'image', function(view, layer, params) {
     params = _extend({
         image: null,
         imageUrl: null,
@@ -115,9 +90,7 @@ function ImageDrawable(params) {
     } // resync
     
     // call the inherited constructor
-    Drawable.call(this, params);
-    
-    var _self = _extend(this, {
+    var _self = _extend(new Drawable(view, layer, params), {
         changeImage: changeImage,
         getProps: getProps,
         resync: resync
@@ -133,8 +106,4 @@ function ImageDrawable(params) {
         imgOffsetX = this.centerOffset.x;
         imgOffsetY = this.centerOffset.y;
     } // if
-};
-
-ImageDrawable.prototype = _extend({}, Drawable.prototype, {
-    constructor: ImageDrawable
 });

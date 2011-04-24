@@ -128,7 +128,7 @@ var Map = function(params) {
     /** 
     ### getBoundingBox()
     
-    Return a T5.Geo.BoundingBox for the current map view area
+    Return a boundingbox for the current map view area
     */
     function getBoundingBox() {
         var viewport = _self.getViewport();
@@ -156,7 +156,7 @@ var Map = function(params) {
     
     /**
     ### gotoBounds(bounds, callback)
-    Calculates the optimal display bounds for the specified T5.Geo.BoundingBox and
+    Calculates the optimal display bounds for the specified boundingbox and
     then goes to the center position and zoom level best suited.
     */
     function gotoBounds(bounds, callback) {
