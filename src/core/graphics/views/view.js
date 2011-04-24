@@ -1,4 +1,7 @@
-reg('view', 'view', function(params) {
+/**
+# VIEW: simple
+*/
+reg('view', 'simple', function(params) {
     // initialise defaults
     params = _extend({
         container: "",
@@ -102,7 +105,7 @@ reg('view', 'view', function(params) {
             // _log('scale factor = ' + scaleFactor + ', exp = ' + scaleFactorExp);
             if (scaleFactorExp !== 0) {
                 scaleFactor = pow(2, scaleFactorExp);
-                setZoomLevel(zoomLevel + scaleFactorExp, zoomX, zoomY);
+                zoomlevel(zoomLevel + scaleFactorExp, zoomX, zoomY);
             } // ifg
 
             // invalidate the view
@@ -180,9 +183,6 @@ reg('view', 'view', function(params) {
             renderer.checkSize();
         }, 250);
     } // handleResize
-    
-    function handleResync(evt, view) {
-    } // handleResync
     
     function handlePointerTap(evt, absXY, relXY) {
         // initialise the hit data
@@ -682,11 +682,44 @@ reg('view', 'view', function(params) {
     } // getScaleFactor
     
     /**
-    ### getZoomLevel(): int
-    Return the current zoom level of the view, for views that do not support
-    zooming, this will always return a value of 1
+    ### zoomlevel(int): int
+    Either update or simply return the current zoomlevel.
     */
-    function getZoomLevel() {
+    function zoomlevel(value, zoomX, zoomY) {
+        if (_is(value, typeNumber)) {
+            value = max(params.minZoom, min(params.maxZoom, value));
+            if (value !== zoomLevel) {
+                var scaling = pow(2, value - zoomLevel),
+                    scaledHalfWidth = halfWidth / scaling | 0,
+                    scaledHalfHeight = halfHeight / scaling | 0;
+
+                // update the zoom level
+                zoomLevel = value;
+
+                // update the offset
+                updateOffset(
+                    ((zoomX || offsetX + halfWidth) - scaledHalfWidth) * scaling,
+                    ((zoomY || offsetY + halfHeight) - scaledHalfHeight) * scaling
+                );
+
+                // reset the last offset
+                refreshX = 0;
+                refreshY = 0;
+
+                // trigger the change
+                triggerAll('zoomLevelChange', value);
+
+                // reset the scale factor
+                scaleFactor = 1;
+
+                // reset the renderer
+                renderer.trigger('reset');
+
+                // refresh the display
+                refresh();
+            } // if            
+        } // if
+        
         return zoomLevel;
     }
     
@@ -738,7 +771,7 @@ reg('view', 'view', function(params) {
         // TODO: handle when an existing view is passed via the second arg
         else {
             // create the layer using the registry
-            var layer = regCreate('layer', layerType, settings);
+            var layer = regCreate('layer', layerType, _self, settings);
             
             // initialise the layer attributes
             layer.added = ticks();
@@ -754,10 +787,11 @@ reg('view', 'view', function(params) {
             layerCount = layers.length;                
 
             // trigger a refresh on the layer
-            value.trigger('refresh', _self, getViewport());
+            layer.trigger('resync');
+            layer.trigger('refresh', _self, getViewport());
 
             // trigger a layer changed event
-            _self.trigger('layerChange', _self, value);
+            _self.trigger('layerChange', _self, layer);
 
             // invalidate the map
             invalidate();
@@ -874,47 +908,6 @@ reg('view', 'view', function(params) {
     } // scale
     
     /**
-    ### setZoomLevel(value: int, zoomXY: T5.XY): boolean
-    This function is used to update the zoom level of the view.  The zoom level 
-    is checked to ensure that it falls within the `minZoom` and `maxZoom` values.  Then
-    if the requested zoom level is different from the current the zoom level is updated
-    and a `zoomLevelChange` event is triggered
-    */
-    function setZoomLevel(value, zoomX, zoomY) {
-        value = max(params.minZoom, min(params.maxZoom, value));
-        if (value !== zoomLevel) {
-            var scaling = pow(2, value - zoomLevel),
-                scaledHalfWidth = halfWidth / scaling | 0,
-                scaledHalfHeight = halfHeight / scaling | 0;
-                
-            // update the zoom level
-            zoomLevel = value;
-            
-            // update the offset
-            updateOffset(
-                ((zoomX ? zoomX : offsetX + halfWidth) - scaledHalfWidth) * scaling,
-                ((zoomY ? zoomY : offsetY + halfHeight) - scaledHalfHeight) * scaling
-            );
-            
-            // reset the last offset
-            refreshX = 0;
-            refreshY = 0;
-
-            // trigger the change
-            triggerAll('zoomLevelChange', value);
-            
-            // reset the scale factor
-            scaleFactor = 1;
-            
-            // reset the renderer
-            renderer.trigger('reset');
-            
-            // refresh the display
-            refresh();
-        } // if
-    } // setZoomLevel
-    
-    /**
     ### syncXY(points, reverse)
     This function is used to keep a T5.XY derivative x and y position in sync
     with it's real world location (if it has one).  T5.GeoXY are a good example 
@@ -1003,12 +996,11 @@ reg('view', 'view', function(params) {
         attachFrame: attachFrame,
         detach: detach,
         eachLayer: eachLayer,
-        getZoomLevel: getZoomLevel,
+        layer: layer,
         invalidate: invalidate,
         refresh: refresh,
         resetScale: resetScale,
         scale: scale,
-        setZoomLevel: setZoomLevel,
         syncXY: syncXY,
         triggerAll: triggerAll,
         removeLayer: removeLayer,
@@ -1022,14 +1014,14 @@ reg('view', 'view', function(params) {
         setMaxOffset: setMaxOffset,
         getViewport: getViewport,
         updateOffset: updateOffset,
-        pan: pan
+        pan: pan,
+        zoomlevel: zoomlevel
     };
 
     // make the view observable
     _observable(_self);
     
     // handle the view being resynced
-    _self.bind('resync', handleResync);
     _self.bind('resize', function() {
         renderer.checkSize();
     });

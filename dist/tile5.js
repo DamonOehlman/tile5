@@ -1292,7 +1292,7 @@ var Registry = (function() {
 
     function create(type, name) {
         if (types[type][name]) {
-            types[type][name].apply(null, Array.prototype.slice.call(arguments, 2));
+            return types[type][name].apply(null, Array.prototype.slice.call(arguments, 2));
         } // if
     } // create
 
@@ -3097,7 +3097,10 @@ defineStyles({
     }
 });
 
-reg('view', 'view', function(params) {
+/**
+# VIEW: simple
+*/
+reg('view', 'simple', function(params) {
     params = _extend({
         container: "",
         captureHover: true,
@@ -3193,7 +3196,7 @@ reg('view', 'view', function(params) {
 
             if (scaleFactorExp !== 0) {
                 scaleFactor = pow(2, scaleFactorExp);
-                setZoomLevel(zoomLevel + scaleFactorExp, zoomX, zoomY);
+                zoomlevel(zoomLevel + scaleFactorExp, zoomX, zoomY);
             } // ifg
 
             viewChanges++;
@@ -3263,9 +3266,6 @@ reg('view', 'view', function(params) {
             renderer.checkSize();
         }, 250);
     } // handleResize
-
-    function handleResync(evt, view) {
-    } // handleResync
 
     function handlePointerTap(evt, absXY, relXY) {
         initHitData('tap', absXY, relXY);
@@ -3691,11 +3691,37 @@ reg('view', 'view', function(params) {
     } // getScaleFactor
 
     /**
-    ### getZoomLevel(): int
-    Return the current zoom level of the view, for views that do not support
-    zooming, this will always return a value of 1
+    ### zoomlevel(int): int
+    Either update or simply return the current zoomlevel.
     */
-    function getZoomLevel() {
+    function zoomlevel(value, zoomX, zoomY) {
+        if (_is(value, typeNumber)) {
+            value = max(params.minZoom, min(params.maxZoom, value));
+            if (value !== zoomLevel) {
+                var scaling = pow(2, value - zoomLevel),
+                    scaledHalfWidth = halfWidth / scaling | 0,
+                    scaledHalfHeight = halfHeight / scaling | 0;
+
+                zoomLevel = value;
+
+                updateOffset(
+                    ((zoomX || offsetX + halfWidth) - scaledHalfWidth) * scaling,
+                    ((zoomY || offsetY + halfHeight) - scaledHalfHeight) * scaling
+                );
+
+                refreshX = 0;
+                refreshY = 0;
+
+                triggerAll('zoomLevelChange', value);
+
+                scaleFactor = 1;
+
+                renderer.trigger('reset');
+
+                refresh();
+            } // if
+        } // if
+
         return zoomLevel;
     }
 
@@ -3739,7 +3765,7 @@ reg('view', 'view', function(params) {
             return undefined;
         }
         else {
-            var layer = regCreate('layer', layerType, settings);
+            var layer = regCreate('layer', layerType, _self, settings);
 
             layer.added = ticks();
             layers[layers.length] = layer;
@@ -3750,9 +3776,10 @@ reg('view', 'view', function(params) {
 
             layerCount = layers.length;
 
-            value.trigger('refresh', _self, getViewport());
+            layer.trigger('resync');
+            layer.trigger('refresh', _self, getViewport());
 
-            _self.trigger('layerChange', _self, value);
+            _self.trigger('layerChange', _self, layer);
 
             invalidate();
 
@@ -3853,40 +3880,6 @@ reg('view', 'view', function(params) {
     } // scale
 
     /**
-    ### setZoomLevel(value: int, zoomXY: T5.XY): boolean
-    This function is used to update the zoom level of the view.  The zoom level
-    is checked to ensure that it falls within the `minZoom` and `maxZoom` values.  Then
-    if the requested zoom level is different from the current the zoom level is updated
-    and a `zoomLevelChange` event is triggered
-    */
-    function setZoomLevel(value, zoomX, zoomY) {
-        value = max(params.minZoom, min(params.maxZoom, value));
-        if (value !== zoomLevel) {
-            var scaling = pow(2, value - zoomLevel),
-                scaledHalfWidth = halfWidth / scaling | 0,
-                scaledHalfHeight = halfHeight / scaling | 0;
-
-            zoomLevel = value;
-
-            updateOffset(
-                ((zoomX ? zoomX : offsetX + halfWidth) - scaledHalfWidth) * scaling,
-                ((zoomY ? zoomY : offsetY + halfHeight) - scaledHalfHeight) * scaling
-            );
-
-            refreshX = 0;
-            refreshY = 0;
-
-            triggerAll('zoomLevelChange', value);
-
-            scaleFactor = 1;
-
-            renderer.trigger('reset');
-
-            refresh();
-        } // if
-    } // setZoomLevel
-
-    /**
     ### syncXY(points, reverse)
     This function is used to keep a T5.XY derivative x and y position in sync
     with it's real world location (if it has one).  T5.GeoXY are a good example
@@ -3972,12 +3965,11 @@ reg('view', 'view', function(params) {
         attachFrame: attachFrame,
         detach: detach,
         eachLayer: eachLayer,
-        getZoomLevel: getZoomLevel,
+        layer: layer,
         invalidate: invalidate,
         refresh: refresh,
         resetScale: resetScale,
         scale: scale,
-        setZoomLevel: setZoomLevel,
         syncXY: syncXY,
         triggerAll: triggerAll,
         removeLayer: removeLayer,
@@ -3991,12 +3983,12 @@ reg('view', 'view', function(params) {
         setMaxOffset: setMaxOffset,
         getViewport: getViewport,
         updateOffset: updateOffset,
-        pan: pan
+        pan: pan,
+        zoomlevel: zoomlevel
     };
 
     _observable(_self);
 
-    _self.bind('resync', handleResync);
     _self.bind('resize', function() {
         renderer.checkSize();
     });
@@ -4043,10 +4035,7 @@ reg('view', 'view', function(params) {
     return _self;
 });
 /**
-# T5.Map
-_extends:_ T5.Tiler
-
-
+# VIEW: map
 The Map class is the entry point for creating a tiling map.  Creating a
 map is quite simple and requires two things to operate.  A containing HTML5 canvas
 that will be used to display the map and a T5.Geo.MapProvider that will populate
@@ -4084,7 +4073,7 @@ map.bind('boundsChange', function(evt, bounds) {
 
 ## Methods
 */
-var Map = function(params) {
+reg('view', 'map', function(params) {
     params = _extend({
         zoomLevel: 1,
         minZoom: 1,
@@ -4148,7 +4137,7 @@ var Map = function(params) {
 
 
         _self.resetScale();
-        _self.triggerAll('resync', _self);
+        _self.triggerAll('resync');
     } // handleZoomLevel
 
     /* internal functions */
@@ -4212,7 +4201,7 @@ var Map = function(params) {
     the position of the map has been updated.
     */
     function gotoPosition(position, newZoomLevel, callback) {
-        _self.setZoomLevel(newZoomLevel);
+        _self.zoomlevel(newZoomLevel);
 
         panToPosition(position, callback);
     } // gotoPosition
@@ -4225,7 +4214,7 @@ var Map = function(params) {
     __NOTE:__ callback, easingFn & easingDuration parameters removed
     */
     function panToPosition(position, callback, easingFn, easingDuration) {
-        var centerXY = GeoXY.init(position, radsPerPixel(_self.getZoomLevel())),
+        var centerXY = GeoXY.init(position, radsPerPixel(_self.zoomlevel())),
             viewport = _self.getViewport(),
             offsetX = centerXY.x - (viewport.w >> 1),
             offsetY = centerXY.y - (viewport.h >> 1);
@@ -4254,7 +4243,7 @@ var Map = function(params) {
         return Math.pow(2, roundFn(Math.log(scaleFactor)));
     };
 
-    var _self = _extend(new View(params), {
+    var _self = _extend(regCreate('view', 'simple', params), {
 
         getBoundingBox: getBoundingBox,
         getCenterPosition: getCenterPosition,
@@ -4272,7 +4261,7 @@ var Map = function(params) {
     _self.bind('zoomLevelChange', handleZoomLevelChange);
 
     return _self;
-}; // T5.Map
+});
 
 /**
 DRAWABLE
@@ -4823,11 +4812,12 @@ ViewLayer.prototype = {
 */
 reg('layer', 'tile', function(view, params) {
     params = _extend({
+        generator: 'osm',
         imageLoadArgs: {}
     }, params);
 
     var TILELOAD_MAX_PANSPEED = 2,
-        genFn = genId ? Generator.init(genId, params).run : null,
+        genFn = regCreate('generator', params.generator, params).run,
         generating = false,
         storage = null,
         zoomTrees = [],
@@ -4847,8 +4837,8 @@ reg('layer', 'tile', function(view, params) {
         } // if
     } // handleViewIdle
 
-    function handleResync(evt, view) {
-        var zoomLevel = view && view.getZoomLevel ? view.getZoomLevel() : 0;
+    function handleResync(evt) {
+        var zoomLevel = view && view.zoomlevel ? view.zoomlevel() : 0;
 
         if (! zoomTrees[zoomLevel]) {
             zoomTrees[zoomLevel] = createStoreForZoomLevel(zoomLevel);
@@ -4947,8 +4937,8 @@ reg('layer', 'draw', function(view, params) {
         storage.insert(newBounds, drawable);
     } // handleItemMove
 
-    function handleResync(evt, view) {
-        storage = createStoreForZoomLevel(view.getZoomLevel(), storage); // TODO: populate with the previous storage
+    function handleResync(evt) {
+        storage = createStoreForZoomLevel(view.zoomlevel(), storage); // TODO: populate with the previous storage
 
         for (var ii = drawables.length; ii--; ) {
             var drawable = drawables[ii];
@@ -5251,6 +5241,7 @@ var GeoXY = (function() {
         ticks: ticks,
         userMessage: userMessage,
 
+        Registry: Registry,
         DOM: DOM,
         Rect: Rect,
         XY: XYFns,
@@ -6032,7 +6023,7 @@ reg('generator', 'osm', function(params) {
     } // buildTileUrl
 
     function run(view, viewport, store, callback) {
-        var zoomLevel = view.getZoomLevel ? view.getZoomLevel() : 0;
+        var zoomLevel = view.zoomlevel ? view.zoomlevel() : 0;
 
         if (zoomLevel) {
             var numTiles = 2 << (zoomLevel - 1),
@@ -6403,8 +6394,9 @@ var GeoJSON = T5.GeoJSON = {
 /**
 # Tile5(target, settings, viewId)
 */
-function Tile5(target, settings, viewId) {
+function Tile5(target, settings) {
     settings = _extend({
+        container: target,
         type: 'map',
         renderer: 'canvas',
         starpos: null,
@@ -6414,11 +6406,7 @@ function Tile5(target, settings, viewId) {
         zoombar: {}
     }, settings);
 
-    var view = regCreate('view', settings.type, settings);
-
-    view.id = viewId || _objId('view');
-
-    return view;
+    return regCreate('view', settings.type, settings);
 } // Tile5
     exports.T5 = T5;
     exports.Tile5 = Tile5;

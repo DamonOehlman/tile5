@@ -1,8 +1,9 @@
 /**
 # Tile5(target, settings, viewId)
 */
-function Tile5(target, settings, viewId) {
+function Tile5(target, settings) {
     settings = _extend({
+        container: target,
         type: 'map',
         renderer: 'canvas',
         starpos: null,
@@ -13,11 +14,5 @@ function Tile5(target, settings, viewId) {
     }, settings);
     
     // create the view
-    var view = regCreate('view', settings.type, settings);
-    
-    // initialise the view id
-    view.id = viewId || _objId('view');
-    
-    // return the newly created view
-    return view;
+    return regCreate('view', settings.type, settings);
 } // Tile5

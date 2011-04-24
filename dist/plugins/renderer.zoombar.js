@@ -46,11 +46,11 @@ T5.registerRenderer('zoombar', function(view, panFrame, container, params, baseR
         zoomTimeout = 0,
         tapHandlers = {
             button0: function() {
-                view.setZoomLevel(view.getZoomLevel() + 1);
+                view.zoomlevel(view.zoomlevel() + 1);
             },
 
             button1: function() {
-                view.setZoomLevel(view.getZoomLevel() - 1);
+                view.zoomlevel(view.zoomlevel() - 1);
             }
         };
 
@@ -207,7 +207,7 @@ T5.registerRenderer('zoombar', function(view, panFrame, container, params, baseR
 
             clearTimeout(zoomTimeout);
             zoomTimeout = setTimeout(function() {
-                view.setZoomLevel(thumbVal);
+                view.zoomlevel(thumbVal);
             }, 500);
         } // if
     } // if
@@ -223,7 +223,7 @@ T5.registerRenderer('zoombar', function(view, panFrame, container, params, baseR
 
     view.bind('zoomLevelChange', handleZoomLevelChange);
 
-    setThumbVal(view.getZoomLevel());
+    setThumbVal(view.zoomlevel());
 
     return _this;
 });

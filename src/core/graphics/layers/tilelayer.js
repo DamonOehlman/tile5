@@ -3,12 +3,13 @@
 */
 reg('layer', 'tile', function(view, params) {
     params = _extend({
+        generator: 'osm',
         imageLoadArgs: {}
     }, params);
     
     // initialise variables
     var TILELOAD_MAX_PANSPEED = 2,
-        genFn = genId ? Generator.init(genId, params).run : null,
+        genFn = regCreate('generator', params.generator, params).run,
         generating = false,
         storage = null,
         zoomTrees = [],
@@ -29,9 +30,9 @@ reg('layer', 'tile', function(view, params) {
         } // if
     } // handleViewIdle
     
-    function handleResync(evt, view) {
+    function handleResync(evt) {
         // get the zoom level for the view
-        var zoomLevel = view && view.getZoomLevel ? view.getZoomLevel() : 0;
+        var zoomLevel = view && view.zoomlevel ? view.zoomlevel() : 0;
         
         if (! zoomTrees[zoomLevel]) {
             zoomTrees[zoomLevel] = createStoreForZoomLevel(zoomLevel);

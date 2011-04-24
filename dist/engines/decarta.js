@@ -535,7 +535,7 @@ T5.Registry.register('generator', 'decarta', function(params) {
     /* internals */
 
     function createTiles(view, viewRect, store, callback) {
-        var zoomLevel = view.getZoomLevel ? view.getZoomLevel() : 0;
+        var zoomLevel = view.zoomlevel ? view.zoomlevel() : 0;
 
         if (zoomLevel) {
             var numTiles = 2 << (zoomLevel - 1),

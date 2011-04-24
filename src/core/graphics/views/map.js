@@ -1,8 +1,5 @@
 /**
-# T5.Map
-_extends:_ T5.Tiler
-
-
+# VIEW: map
 The Map class is the entry point for creating a tiling map.  Creating a 
 map is quite simple and requires two things to operate.  A containing HTML5 canvas
 that will be used to display the map and a T5.Geo.MapProvider that will populate 
@@ -41,7 +38,7 @@ map.bind('boundsChange', function(evt, bounds) {
 
 ## Methods
 */
-var Map = function(params) {
+reg('view', 'map', function(params) {
     params = _extend({
         zoomLevel: 1,
         minZoom: 1,
@@ -114,7 +111,7 @@ var Map = function(params) {
         
         // reset scaling and resync the map
         _self.resetScale();
-        _self.triggerAll('resync', _self);
+        _self.triggerAll('resync');
     } // handleZoomLevel
     
     /* internal functions */
@@ -183,7 +180,7 @@ var Map = function(params) {
     */
     function gotoPosition(position, newZoomLevel, callback) {
         // update the zoom level
-        _self.setZoomLevel(newZoomLevel);
+        _self.zoomlevel(newZoomLevel);
         
         // pan to Position
         panToPosition(position, callback);
@@ -199,7 +196,7 @@ var Map = function(params) {
     function panToPosition(position, callback, easingFn, easingDuration) {
         // determine the tile offset for the 
         // requested position
-        var centerXY = GeoXY.init(position, radsPerPixel(_self.getZoomLevel())),
+        var centerXY = GeoXY.init(position, radsPerPixel(_self.zoomlevel())),
             viewport = _self.getViewport(),
             offsetX = centerXY.x - (viewport.w >> 1),
             offsetY = centerXY.y - (viewport.h >> 1);
@@ -232,7 +229,7 @@ var Map = function(params) {
     };
     
     // initialise _self
-    var _self = _extend(new View(params), {
+    var _self = _extend(regCreate('view', 'simple', params), {
         
         getBoundingBox: getBoundingBox,
         getCenterPosition: getCenterPosition,
@@ -253,4 +250,4 @@ var Map = function(params) {
     _self.bind('zoomLevelChange', handleZoomLevelChange);
 
     return _self;
-}; // T5.Map
+});

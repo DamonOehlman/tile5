@@ -7,7 +7,7 @@ var Registry = (function() {
     
     function create(type, name) {
         if (types[type][name]) {
-            types[type][name].apply(null, Array.prototype.slice.call(arguments, 2));
+            return types[type][name].apply(null, Array.prototype.slice.call(arguments, 2));
         } // if
     } // create
     

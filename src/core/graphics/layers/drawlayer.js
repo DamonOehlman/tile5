@@ -70,9 +70,9 @@ reg('layer', 'draw', function(view, params) {
         storage.insert(newBounds, drawable);
     } // handleItemMove
     
-    function handleResync(evt, view) {
+    function handleResync(evt) {
         // create the storage with an appropriate cell size
-        storage = createStoreForZoomLevel(view.getZoomLevel(), storage); // TODO: populate with the previous storage
+        storage = createStoreForZoomLevel(view.zoomlevel(), storage); // TODO: populate with the previous storage
         
         // iterate through the shapes and resync to the grid
         for (var ii = drawables.length; ii--; ) {

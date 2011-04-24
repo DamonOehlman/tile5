@@ -88,6 +88,7 @@
         ticks: ticks,
         userMessage: userMessage,
         
+        Registry: Registry,
         DOM: DOM,
         Rect: Rect,
         XY: XYFns,

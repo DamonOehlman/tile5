@@ -72,7 +72,7 @@ reg('generator', 'osm', function(params) {
     } // buildTileUrl
     
     function run(view, viewport, store, callback) {
-        var zoomLevel = view.getZoomLevel ? view.getZoomLevel() : 0;
+        var zoomLevel = view.zoomlevel ? view.zoomlevel() : 0;
         
         if (zoomLevel) {
             var numTiles = 2 << (zoomLevel - 1),
