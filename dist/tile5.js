@@ -2889,8 +2889,7 @@ reg('view', 'simple', function(params) {
         container: "",
         captureHover: true,
         drawOnScale: true,
-        fastpan: false,
-        fastpanPadding: 128,
+        padding: 128,
         inertia: true,
         refreshDistance: 256,
         pannable: false,
@@ -2898,7 +2897,7 @@ reg('view', 'simple', function(params) {
 
         minZoom: 1,
         maxZoom: 1,
-        renderer: 'canvas',
+        renderer: 'canvas/dom',
         zoom: 1
     }, params);
 
@@ -2931,7 +2930,7 @@ reg('view', 'simple', function(params) {
         offsetMaxY = null,
         offsetWrapX = false,
         offsetWrapY = false,
-        padding = 0, // params.fastpan ? params.fastpanPadding : 0,
+        padding = params.padding,
         panFrames = [],
         hitData = null,
         lastHitData = null,
@@ -3060,7 +3059,7 @@ reg('view', 'simple', function(params) {
     function createRenderer(typeName) {
         renderer = attachRenderer(typeName || params.renderer, _self, viewpane, outer, params);
 
-        fastpan = params.fastpan && renderer.fastpan;
+        fastpan = renderer.fastpan;
 
         captureInteractionEvents();
     } // createRenderer

@@ -1,9 +1,267 @@
-# About Tile5
+# Tile5 1.0 API Proposal
 
-Tile5 is a HTML5 mobile-optimized mapping and tiling library, that has
-been built from the ground up to support multiple mapping providers. 
+This is the evolving specification for the Tile5 1.0 API.  Tile5 is released under an opensource MIT license.
 
-If you are interested in mapping, I would start by having a look at the T5.Map
-class and if you are looking for more generic applications of the library then either at the T5.Tiler or T5.View classes.
+## Overview
 
-For more information see the tile5 website: [www.tile5.org](http://www.tile5.org/)
+In previous versions of Tile5, many different classes were managed through a single `T5` namespace.  In the 1.0 API I propose the following:
+
+- A `T5` namespace to contain exported classes and functions as per earlier versions.
+- Creation of new views and maps moved to a single global function `Tile5`.  This is very similar to the way RaphaelJS works.
+
+### Some Design Considerations
+
+- Tile5 is a mapping library, while my early design supported the creation of more generic tiling interfaces, version 1.0 will be geared to support mapping as it's first and foremost purpose.  Building tiling interfaces will still be possible, but it will take more work than using Tile5 for mapping.
+
+- Less classes, more useful methods.
+
+- Investigating a switch to [Eve](http://dmitry.baranovskiy.com/eve/) for eventing.
+
+- Continue to use [Interact](http://github.com/sidelab/interact) for touch / mouse events.
+
+- Some rethinking on the `GeoXY` concept, and how the process can be made simpler (notes below).
+
+### Development transition to 1.0
+
+In terms of the transition to 1.0 we are are going to manage this using three branches in the repo:
+
+- master (the _stable_ `0.9.x` series)
+- dev - unstable (the development `0.9.x` series)
+- 1.0 - unstable (the `1.x` development series)
+
+Once `1.0` is ready for release the repositories will be reset to:
+
+- master (the _stable_ `1.x` series)
+- dev (the development `1.x` series) 
+
+## Core vs Plugin
+
+Core `tile5.js` JS file should contain only the core functionality required to:
+
+- Display map tiles using the canvas or dom renderers.
+- Display markers on a map / view.
+- Display shapes and lines on a map / view
+
+Functionality that goes beyond this core functionality, should be implemented as plugins (details later in doc).
+
+## Release Schedule
+
+We are currently targeting a RC1 release of Tile5 1.0 for around the middle of the year.
+
+## API Operations
+
+### Creating a Map / View
+
+```js
+var map = Tile5('mapContainer', settings /* a settings hash */);
+```
+
+#### EXAMPLE: Initializing a Map
+
+```js
+var map = Tile5('mapContainer')
+	.zoom(3) // set the zoom level
+	.center('-27 133'); // set the center position
+```
+
+### Creating / Updating a Layer
+```js
+var layer = map.layer(
+	'layerId', 
+	'layerTypeName', 
+	layerSettings
+);
+```
+
+#### EXAMPLE: Creating a Markers Layer
+This is actually done by default in a view so is not required, but serves as a good example.
+
+```js
+var markers = map.layer('markers', 'draw');
+```
+
+#### EXAMPLE: Creating a Tile Layer
+A more common example is the creation of your tile layer for map tiles.
+
+```js
+map.layer('tiles', 'tile', {
+	generator: 'osm.cloudmade',
+	apikey: 'YOUR KEY GOES HERE'
+});
+```
+
+### Retrieving a layer
+
+```js
+var layer = map.layer('layerId');
+```
+
+### Adding Drawables
+
+When creating drawables (on `draw` layers) the `create` method is used.  The first parameter to the method specifies the type of drawable to create and the second parameter specifies either: 
+
+- an object of the settings of the drawable, _or_
+- an array of object settings
+
+In the first case, a single drawable is created and in the second case, a drawable is created of the specified type is created for each of settings objects that are passed through.  In the first case, a single drawable reference is returned and in the second, an array of those objects is returned.
+
+#### Example: Creating Markers
+
+```js
+// first let's get a reference to the marker layer
+var markers = map.layer('markers');
+
+// now let's create a single marker
+markers.create('marker', {
+	xy: 'lat lon'
+});
+
+// now let's create a bunch of markers (well two)
+markers.create('marker', [
+	{ xy: 'lat lon' },
+	{ xy: 'lat lon' }
+]);
+
+// remember as the marker layer is an draw layer, 
+// other drawables can be added to
+markers.create('poly', {
+	
+});
+```
+
+## Method Chaining
+
+Where possible method chaining has been implemented to make operating with Tile5 as terse as possible.
+
+### Chainable View Methods
+
+- `zoom`
+- `center`
+
+## Settings Hashes
+
+### Map / View
+
+The map settings are treated kind of like global settings in the context of that view.  For instance, as there no opportunities to specify properties for a plugin as it is loaded, then settings can be provided through the map settings and the plugin will reference these on creation.
+
+```js
+{
+	type: 'map', /* other possibilities view (or other custom view types) */
+	renderer: 'canvas/dom', /* available renderers described later in doc */
+	controls: null, /* available controls described later in doc */
+	fastpan: false, /* performance panning for mobile */,
+	drawOnScale: true, /* set to false for increased performance */
+	zoombar: {}, /* zoombar configuration settings */
+}
+```
+
+### Layer
+
+```js
+{
+  zindex: 0,
+  style: null
+}
+```
+
+#### Tile Layer Settings
+
+```js
+{
+	generator: 'generatorid'
+}
+```
+
+### Drawable (Generic)
+
+```js
+{
+  fill: false,
+  stroke: true
+}
+```
+
+Additionally, all drawable objects can be passed arbitrary properties in the settings that can be accessed from the object.  For instance, a marker could for a city could be created and have population data associated with the marker:
+
+```js
+var marker = map.layer('markers').create('marker', {
+	xy: '-34.4333333 150.8833333',
+	placeName: 'Gold Coast',
+	population: 260914
+});
+```
+
+### Drawable (Marker)
+
+```js
+{
+	markerType: 'simple', /* other values: image */
+	imageUrl: '/path/to/image.png', /* for image markers */
+	size: 10
+}
+```
+
+## Animation in Tile5 1.0
+
+Custom animation in Tile5 has previously been handled in a number of different ways.  Firstly, you can choose to implement your own `setInterval` or `setTimeout` handling to animate objects in Tile5.  In many instances, this is the method that current Tile5 demos use.  
+
+Additionally, a Tile5 view used to also support an `enterFrame` event.  Ideally this event will be removed as it may not be the most efficient place to handle animation (however, it does allow you to override draw functionality so for the moment it may stay).
+
+Despite the above techniques being valid ways to implement your own animation, a better option is now available in Tile5 1.0 - the `T5.Animator` component.
+
+__TO BE COMPLETED__
+
+## Appendix A: Position to XY Translation
+
+The previous implementation of a position to XY translation was provided by the GeoXY class.  While effective it requires knowledge of the GeoXY class.  In the 1.0 version I would prefer to see something simpler.
+
+
+I'm thinking something along the lines of a string that is parsed (__NOTE__: check overheads) and converted appropriately.  The `GeoXY` classes would still remain but would be mainly used internally and specific of them knowledge would not be required.
+
+
+Basically, anywhere an `xy` property can be set (marker, drawable, etc) the following formats will be used to determine how that object should be treated.  By default an xy property is expected to be a string (or an array of strings).
+
+- `'lat lon'`: This is a latitude and longitude pair that will be managed internally, and translated into an XY coordinate for display within Tile5.  Given Tile5 is a mapping library, defining a lat and lon should be the simplest thing to do.
+
+- `'xy(x,y)'`: A specific x and y coordinate.
+
+## Appendix B: Plugins
+
+### Control: Zoombar
+TO BE COMPLETED.
+
+### Renderer: Raphael
+TO BE COMPLETED.
+
+### Renderer: WebGL (via three.js)
+TO BE COMPLETED.
+
+### Parser: GeoJSON
+TO BE COMPLETED
+
+### Extension: Search Tools
+TO BE COMPLETED.
+
+### Extension: Route Tools
+TO BE COMPLETED.
+
+## Appendix C: About Renderers
+
+## Appendix D: Tile5 Registry
+
+With the way that the Tile5 API is designed in 1.0, a generic registry has been implemented to make the process of defining various different types and then creating those types has been simplified.  New 'things' are registered with the registry via their "class", typename and initialization function.  For instance the below would register a new `layer` class of type "wooble" with the specified initialization function.
+
+```js
+Registry.register('layer', 'wooble', function(view, settings) {
+})
+```
+
+A "wooble" layer could then be created with the following request to the registry:
+
+```js
+var layer = Registry.create('layer', 'wooble', view, {
+	zindex: 20
+});
+```
+
+The first two parameters of the `Registry.create` function specify the class and type of the thing we want to create, then all remaining arguments being passed onto the initialization function.
