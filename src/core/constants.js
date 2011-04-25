@@ -7,7 +7,11 @@ var LAT_VARIABILITIES = [
 ];
 
 // define some constants
-var DEGREES_TO_RADIANS = Math.PI / 180,
+var TWO_PI = Math.PI * 2,
+    HALF_PI = Math.PI / 2,
+    PROP_WK_TRANSFORM = '-webkit-transform',
+    VECTOR_SIMPLIFICATION = 3,
+    DEGREES_TO_RADIANS = Math.PI / 180,
     RADIANS_TO_DEGREES = 180 / Math.PI,
     MAX_LAT = HALF_PI, //  85.0511 * DEGREES_TO_RADIANS, // TODO: validate this instead of using HALF_PI
     MIN_LAT = -MAX_LAT,

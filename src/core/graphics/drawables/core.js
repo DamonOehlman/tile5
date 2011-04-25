@@ -23,6 +23,11 @@ var Drawable = function(view, layer, params) {
     // copy the parameters to this
     _extend(this, params);
     
+    // if the xy is a string, then parse it
+    if (_is(this.xy, typeString)) {
+        this.xy = new XY(this.xy);
+    } // if
+    
     // initialise the id
     this.id = 'drawable_' + drawableCounter++;
     this.bounds = null;
@@ -78,14 +83,19 @@ Drawable.prototype = {
     /**
     ### resync(view)
     */
-    resync: function(view) {
+    resync: function() {
         if (this.xy) {
-            view.syncXY([this.xy]);
+            this.xy.sync(view.rpp);
             
-            // if we have a size, then update the bounds
+            // if we have a size, update the bounds
             if (this.size) {
-                this.updateBounds(XYRect.fromCenter(
-                    this.xy.x, this.xy.y, this.size, this.size));
+                var halfSize = this.size >> 1;
+
+                this.updateBounds(new Rect(
+                    this.xy.x - halfSize,
+                    this.xy.y - halfSize,
+                    this.size,
+                    this.size));
             } // if
         } // if
     },
@@ -131,7 +141,7 @@ Drawable.prototype = {
         this.bounds = bounds;
         
         if (updateXY) {
-            this.xy = XYRect.center(this.bounds);
+            this.xy = this.bounds.center();
         } // if
     }
 };

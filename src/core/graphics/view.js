@@ -13,18 +13,16 @@ reg('view', 'simple', function(params) {
         refreshDistance: 256,
         pannable: false,
         scalable: false,
-        fps: 60,
         
         // zoom parameters
         minZoom: 1,
         maxZoom: 1,
         renderer: 'canvas',
-        zoomLevel: 1
+        zoom: 1
     }, params);
     
     // initialise constants
-    var TURBO_CLEAR_INTERVAL = 500,
-        PANSPEED_THRESHOLD_REFRESH = 2,
+    var PANSPEED_THRESHOLD_REFRESH = 2,
         PANSPEED_THRESHOLD_FASTPAN = 5,
     
         // get the container context
@@ -75,7 +73,7 @@ reg('view', 'simple', function(params) {
         halfWidth, halfHeight,
         halfOuterWidth, halfOuterHeight,
         zoomX, zoomY,
-        zoomLevel = params.zoomLevel,
+        zoomLevel = params.zoom || params.zoomLevel,
         zoomEasing = _easing('quad.out'),
         zoomDuration = 300;
         
@@ -105,7 +103,7 @@ reg('view', 'simple', function(params) {
             // _log('scale factor = ' + scaleFactor + ', exp = ' + scaleFactorExp);
             if (scaleFactorExp !== 0) {
                 scaleFactor = pow(2, scaleFactorExp);
-                zoomlevel(zoomLevel + scaleFactorExp, zoomX, zoomY);
+                zoom(zoomLevel + scaleFactorExp, zoomX, zoomY);
             } // ifg
 
             // invalidate the view
@@ -410,52 +408,37 @@ reg('view', 'simple', function(params) {
             panning,
             scaleChanged,
             rerender,
-            newFrame = false,
-            refreshValid,
             viewpaneX,
             viewpaneY,
             viewport;
             
-        // initialise the tick count if it isn't already defined
-        // not all browsers pass through the ticks with the requestAnimationFrame :/
-        tickCount = tickCount || new Date().getTime();
+        // calculate the current pan speed
+        self.panSpeed = panSpeed = abs(dx) + abs(dy);
         
-        // set the new frame flag
-        newFrame = tickCount - lastCycleTicks > cycleDelay;
+        // update the panning flag
+        scaleChanged = scaleFactor !== lastScaleFactor;
         
-        // if we have a new frame, then fire the enterFrame event
-        if (newFrame) {
-            // calculate the current pan speed
-            self.panSpeed = panSpeed = abs(dx) + abs(dy);
+        if (panSpeed > 0 || scaleChanged) {
+            viewChanges++;
+        } // if
             
-            refreshValid = abs(offsetX - refreshX) >= refreshDist ||
-                abs(offsetY - refreshY) >= refreshDist;
-                
-            // update the panning flag
-            scaleChanged = scaleFactor !== lastScaleFactor;
-            
-            if (panSpeed > 0 || scaleChanged) {
-                viewChanges++;
-            } // if
-                
-            // determine whether a refresh is required
-            if (refreshValid && panSpeed < PANSPEED_THRESHOLD_REFRESH) {
-                refresh();
-            } // if
-            
-            // initialise the frame data
-            frameData.index++;
-            frameData.draw = viewChanges || panSpeed || totalDX || totalDY;
+        // determine whether a refresh is required
+        if (panSpeed < PANSPEED_THRESHOLD_REFRESH && 
+                (abs(offsetX - refreshX) >= refreshDist ||
+                abs(offsetY - refreshY) >= refreshDist)) {
+            refresh();
+        } // if
+        
+        // initialise the frame data
+        frameData.index++;
+        frameData.draw = viewChanges || panSpeed || totalDX || totalDY;
 
-            // trigger the enter frame event
-            _self.trigger('enterFrame', tickCount, frameData);
+        // trigger the enter frame event
+        // TODO: investigate whether this can be removed...
+        // _self.trigger('enterFrame', tickCount, frameData);
             
-            // update the last cycle ticks
-            lastCycleTicks = tickCount;
-        }
-        
         // if we a due for a redraw then do on
-        if (renderer && newFrame && frameData.draw) {
+        if (renderer && frameData.draw) {
             // update the pan x and y
             panX += dx;
             panY += dy;
@@ -571,8 +554,6 @@ reg('view', 'simple', function(params) {
                 hitData = null;
             } // if
         } // if
-        
-        animFrame(cycle);
     } // cycle
     
     function initHitData(hitType, absXY, relXY) {
@@ -617,6 +598,27 @@ reg('view', 'simple', function(params) {
         } // if
     } // attachFrame
     
+    function center(p1, p2, tween) {
+        // if we have been passed a string argument, then parse
+        if (_is(p1, typeString)) {
+            var centerXY = Parser.parseXY(p1);
+            p1 = centerXY.x;
+            p2 = centerXY.y;
+        } // if
+        
+        // update if appropriate
+        if (_is(p1, typeNumber)) {
+            offset(p1 - halfOuterWidth, p2 - halfOuterWidth, tween);
+            
+            // return the view so we can chain methods
+            return _self;
+        }
+        // otherwise, return the center 
+        else {
+            return offset().offset(halfOuterWidth, halfOuterHeight);
+        } // if..else
+    } // center
+    
     /**
     ### detach
     If you plan on reusing a single canvas element to display different views then you 
@@ -646,27 +648,6 @@ reg('view', 'simple', function(params) {
     } // detach
     
     /**
-    ### eachLayer(callback)
-    Iterate through each of the ViewLayers and pass each to the callback function 
-    supplied.
-    */
-    function eachLayer(callback) {
-        // iterate through each of the layers and fire the callback for each
-        for (var ii = layerCount; ii--; ) {
-            callback(layers[ii]);
-        } // for
-    } // eachLayer
-    
-    /**
-    ### getOffset(): T5.XY
-    Return a T5.XY containing the current view offset
-    */
-    function getOffset() {
-        // return the last calculated cycle offset
-        return new XY(offsetX, offsetY);
-    } // getOffset
-    
-    /**
     ### getRenderer(): T5.Renderer
     */
     function getRenderer() {
@@ -682,10 +663,10 @@ reg('view', 'simple', function(params) {
     } // getScaleFactor
     
     /**
-    ### zoomlevel(int): int
+    ### zoom(int): int
     Either update or simply return the current zoomlevel.
     */
-    function zoomlevel(value, zoomX, zoomY) {
+    function zoom(value, zoomX, zoomY) {
         if (_is(value, typeNumber)) {
             value = max(params.minZoom, min(params.maxZoom, value));
             if (value !== zoomLevel) {
@@ -697,7 +678,7 @@ reg('view', 'simple', function(params) {
                 zoomLevel = value;
 
                 // update the offset
-                updateOffset(
+                offset(
                     ((zoomX || offsetX + halfWidth) - scaledHalfWidth) * scaling,
                     ((zoomY || offsetY + halfHeight) - scaledHalfHeight) * scaling
                 );
@@ -707,7 +688,7 @@ reg('view', 'simple', function(params) {
                 refreshY = 0;
 
                 // trigger the change
-                triggerAll('zoomLevelChange', value);
+                triggerAll('zoom', value);
 
                 // reset the scale factor
                 scaleFactor = 1;
@@ -717,11 +698,15 @@ reg('view', 'simple', function(params) {
 
                 // refresh the display
                 refresh();
-            } // if            
-        } // if
-        
-        return zoomLevel;
-    }
+            } // if
+            
+            // return the view so we can chain
+            return _self; 
+        }
+        else {
+            return zoomLevel;
+        } // if..else
+    } // zoom
     
     function invalidate() {
         viewChanges++;
@@ -755,6 +740,36 @@ reg('view', 'simple', function(params) {
         return viewport;
     } // getViewport
     
+    /**
+    ### layer()
+    
+    The `layer` method of a view is a very poweful function and can be 
+    used in a number of ways:
+    
+    __To retrieve an existing layer:__
+    When called with a single string argument, the method will aim to 
+    return the layer that has that id:
+    
+    ```
+    var layer = view.layer('markers');
+    ```
+    
+    __To create a layer:__
+    Supply three arguments to the method and a new layer will be created
+    of the specified type and using the settings passed through in the 3rd
+    argument:
+    
+    ```
+    var layer = view.layer('markers', 'draw', { ... });
+    ```
+    
+    __To retrieve all view layers:__
+    Omit all arguments, and the method will return all the layers in the view:
+    
+    ```
+    var layers = view.layer();
+    ```
+    */
     function layer(id, layerType, settings) {
         // if the layer type is undefined, then assume we are doing a get
         if (_is(layerType, typeUndefined)) {
@@ -769,7 +784,7 @@ reg('view', 'simple', function(params) {
         }
         // otherwise, let's create the layer and add it to the view
         // TODO: handle when an existing view is passed via the second arg
-        else {
+        else if (_is(id, typeString)) {
             // create the layer using the registry
             var layer = regCreate('layer', layerType, _self, settings);
             
@@ -798,6 +813,10 @@ reg('view', 'simple', function(params) {
 
             // return the layer so we can chain if we want
             return layer;
+        }
+        // otherwise, return the view layers
+        else {
+            return [].concat(layers);
         } // if..else
     } // layer
     
@@ -908,18 +927,6 @@ reg('view', 'simple', function(params) {
     } // scale
     
     /**
-    ### syncXY(points, reverse)
-    This function is used to keep a T5.XY derivative x and y position in sync
-    with it's real world location (if it has one).  T5.GeoXY are a good example 
-    of this.
-    
-    If the `reverse` argument is specified and true, then the virtual world 
-    coordinate will be updated to match the current x and y offsets.
-    */
-    function syncXY(points, reverse) {
-    } // syncXY
-    
-    /**
     ### triggerAll(eventName: string, args*)
     Trigger an event on the view and all layers currently contained in the view
     */
@@ -934,56 +941,32 @@ reg('view', 'simple', function(params) {
     
     
     /**
-    ### updateOffset(x: int, y: int, tweenFn: EasingFn, tweenDuration: int, callback: fn)
+    ### offset(x: int, y: int, tween: TweenOpts)
 
     This function allows you to specified the absolute x and y offset that should 
     become the top-left corner of the view.  As per the `pan` function documentation, tween and
     callback arguments can be supplied to animate the transition.
     */
-    function updateOffset(x, y, tweenFn, tweenDuration, callback) {
+    function offset(x, y, tween) {
         
-        // initialise variables
-        var tweensComplete = 0;
-        
-        function endTween() {
-            tweensComplete += 1;
-            
-            if (tweensComplete >= 2) {
-                tweeningOffset = false;
-                
-                if (callback) {
-                    callback();
-                } // if
-            } // if
-        } // endOffsetUpdate
-        
-        if (tweenFn && (panSpeed === 0)) {
-            _tweenValue(offsetX, x, tweenFn, tweenDuration, function(val, complete){
-                offsetX = val | 0;
-                
-                (complete ? endTween : invalidate)();
-                return panSpeed === 0;
-            });
-            
-            _tweenValue(offsetY, y, tweenFn, tweenDuration, function(val, complete) {
-                offsetY = val | 0;
-
-                (complete ? endTween : invalidate)();
-                return panSpeed === 0;
-            });
-            
-            tweeningOffset = true;
+        // if we have arguments update the offset
+        if (_is(x, typeNumber)) {
+            if (tween && (panSpeed === 0)) {
+                // TODO: implement the tweening
+            }
+            else {
+                offsetX = x | 0;
+                offsetY = y | 0;
+            } // if..else
         }
+        // otherwise, simply return it
         else {
-            offsetX = x | 0;
-            offsetY = y | 0;
-            
-            // trigger the callback
-            if (callback) {
-                callback();
-            } // if
+            // return the last calculated cycle offset
+            return new XY(offsetX, offsetY);
         } // if..else
-    } // updateOffset
+        
+        return undefined;
+    } // offset
     
     /* object definition */
     
@@ -994,28 +977,25 @@ reg('view', 'simple', function(params) {
         panSpeed: 0,
         
         attachFrame: attachFrame,
+        center: center,
         detach: detach,
-        eachLayer: eachLayer,
         layer: layer,
         invalidate: invalidate,
         refresh: refresh,
         resetScale: resetScale,
         scale: scale,
-        syncXY: syncXY,
         triggerAll: triggerAll,
         removeLayer: removeLayer,
         
         /* offset methods */
         
-        getOffset: getOffset,
-        
         getRenderer: getRenderer,
         getScaleFactor: getScaleFactor,
         setMaxOffset: setMaxOffset,
         getViewport: getViewport,
-        updateOffset: updateOffset,
+        offset: offset,
         pan: pan,
-        zoomlevel: zoomlevel
+        zoom: zoom
     };
 
     // make the view observable
@@ -1069,7 +1049,7 @@ reg('view', 'simple', function(params) {
     
     // start the animation frame
     // setInterval(cycle, 1000 / 60);
-    animFrame(cycle);
-
+    Animator.attach(cycle);
+    
     return _self;
 });

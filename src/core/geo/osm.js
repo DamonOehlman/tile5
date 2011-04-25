@@ -2,7 +2,7 @@
 # GENERATOR: osm
 */
 reg('generator', 'osm', function(params) {
-    params = T5.ex({
+    params = _extend({
         flipY: false,
         tileSize: 256,
         tilePath: '{0}/{1}/{2}.png',
@@ -15,7 +15,7 @@ reg('generator', 'osm', function(params) {
         serverDetails = null,
         subDomains = [],
         subdomainFormatter,
-        pathFormatter = T5.formatter(params.tilePath);
+        pathFormatter = _formatter(params.tilePath);
     
     /* internal functions */
     
@@ -32,7 +32,7 @@ reg('generator', 'osm', function(params) {
         tileX = (lon+180) / 360 * numTiles;
         tileY = ((1-Math.log(Math.tan(lat*DEGREES_TO_RADIANS) + 1/Math.cos(lat*DEGREES_TO_RADIANS))/Math.PI)/2 * numTiles) % numTiles;
         
-        return T5.XY.init(tileX | 0, tileY | 0);
+        return new XY(tileX | 0, tileY | 0);
     } // calculateTileOffset
     
     function calculatePosition(x, y, numTiles) {
@@ -40,13 +40,15 @@ reg('generator', 'osm', function(params) {
             lon = x / numTiles * 360 - 180,
             lat = RADIANS_TO_DEGREES * Math.atan(0.5*(Math.exp(n)-Math.exp(-n)));
         
-        return new T5.Pos(lat, lon);
+        return new Pos(lat, lon);
     } // calculatePosition
     
     function getTileXY(x, y, numTiles, radsPerPixel) {
-        var tilePos = calculatePosition(x, y, numTiles);
+        var xy = new XY(calculatePosition(x, y, numTiles));
         
-        return T5.GeoXY.init(tilePos, radsPerPixel);
+        // sync the xy using the rpp
+        xy.sync(radsPerPixel);
+        return xy;
     } // getTileXY
     
     /* exports */
@@ -72,7 +74,7 @@ reg('generator', 'osm', function(params) {
     } // buildTileUrl
     
     function run(view, viewport, store, callback) {
-        var zoomLevel = view.zoomlevel ? view.zoomlevel() : 0;
+        var zoomLevel = view.zoom ? view.zoom() : 0;
         
         if (zoomLevel) {
             var numTiles = 2 << (zoomLevel - 1),
@@ -82,7 +84,7 @@ reg('generator', 'osm', function(params) {
                 minY = viewport.y,
                 xTiles = (viewport.w  / tileSize | 0) + 1,
                 yTiles = (viewport.h / tileSize | 0) + 1,
-                position = T5.GeoXY.toPos(T5.XY.init(minX, minY), radsPerPixel),
+                position = new XY(minX, minY).toPos(radsPerPixel),
                 tileOffset = calculateTileOffset(position.lat, position.lon, numTiles),
                 tilePixels = getTileXY(tileOffset.x, tileOffset.y, numTiles, radsPerPixel),
                 flipY = params.flipY,
@@ -101,13 +103,13 @@ reg('generator', 'osm', function(params) {
                 tileIds[tiles[ii].id] = true;
             } // for
             
-            // _log('tile pixels = ' + T5.XY.toString(tilePixels) + ', viewrect.x1 = ' + viewport.x);
+            // _log('tile pixels = ' + tilePixels + ', viewrect.x1 = ' + viewport.x);
                 
             // initialise the server details
             serverDetails = _self.getServerDetails ? _self.getServerDetails() : null;
             subDomains = serverDetails && serverDetails.subDomains ? 
                 serverDetails.subDomains : [];
-            subdomainFormatter = T5.formatter(serverDetails ? serverDetails.baseUrl : ''); 
+            subdomainFormatter = _formatter(serverDetails ? serverDetails.baseUrl : ''); 
                 
             for (var xx = 0; xx <= xTiles; xx++) {
                 for (var yy = 0; yy <= yTiles; yy++) {
@@ -127,7 +129,7 @@ reg('generator', 'osm', function(params) {
                             flipY);
                             
                         // create the tile
-                        tile = new T5.Tile(
+                        tile = new Tile(
                             tilePixels.x + xx * tileSize,
                             tilePixels.y + yy * tileSize,
                             tileUrl, 
@@ -158,7 +160,7 @@ reg('generator', 'osm', function(params) {
     
     // trigger an attribution requirement
     if (params.osmDataAck) {
-        T5.userMessage('ack', 'osm', 'Map data (c) <a href="http://openstreetmap.org/" target="_blank">OpenStreetMap</a> (and) contributors, CC-BY-SA');
+        userMessage('ack', 'osm', 'Map data (c) <a href="http://openstreetmap.org/" target="_blank">OpenStreetMap</a> (and) contributors, CC-BY-SA');
     } // if
     
     // bind to generator events

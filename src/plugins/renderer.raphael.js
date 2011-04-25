@@ -1,4 +1,4 @@
-T5.registerRenderer('raphael', function(view, panFrame, container, params, baseRenderer) {
+T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, params, baseRenderer) {
     params = _extend({
     }, params);
     

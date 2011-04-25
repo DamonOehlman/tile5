@@ -30,9 +30,6 @@ reg('layer', 'draw', function(view, params) {
         
         if (drop) {
             delete this.dragOffset;
-            
-            // TODO: reset scale
-            view.syncXY([this.xy], true);
             view.invalidate();
             
             this.trigger('dragDrop');
@@ -72,13 +69,11 @@ reg('layer', 'draw', function(view, params) {
     
     function handleResync(evt) {
         // create the storage with an appropriate cell size
-        storage = createStoreForZoomLevel(view.zoomlevel(), storage); // TODO: populate with the previous storage
+        storage = createStoreForZoomLevel(view.zoom(), storage); // TODO: populate with the previous storage
         
         // iterate through the shapes and resync to the grid
         for (var ii = drawables.length; ii--; ) {
-            var drawable = drawables[ii];
-            
-            drawable.resync(view);
+            drawables[ii].resync();
         } // for
         
         // triggerSort(view);
@@ -113,7 +108,7 @@ reg('layer', 'draw', function(view, params) {
         } // if..else
         
         // sync this shape with the parent view
-        drawable.resync(view);
+        drawable.resync();
         if (storage && drawable.bounds) {
             storage.insert(drawable.bounds, drawable);
         } // if

@@ -535,7 +535,7 @@ T5.Registry.register('generator', 'decarta', function(params) {
     /* internals */
 
     function createTiles(view, viewRect, store, callback) {
-        var zoomLevel = view.zoomlevel ? view.zoomlevel() : 0;
+        var zoomLevel = view.zoom ? view.zoom() : 0;
 
         if (zoomLevel) {
             var numTiles = 2 << (zoomLevel - 1),
@@ -630,7 +630,7 @@ T5.Registry.register('generator', 'decarta', function(params) {
         run: run
     };
 });
-T5.Service.register('geocoder', function() {
+T5.Registry.register('service', 'geocoder', function() {
 
     /* internals */
 
@@ -830,7 +830,7 @@ T5.Service.register('geocoder', function() {
         reverse: reverse
     };
 });
-T5.Service.register('routing', function() {
+T5.Registry.register('service', 'routing', function() {
     var RouteRequest = function(params) {
         params = T5.ex({
             waypoints: [],
@@ -916,7 +916,7 @@ T5.Service.register('routing', function() {
             parseResponse: function(response) {
 
                 return new T5.RouteTools.RouteData({
-                    geometry: T5.Geo.Position.parseArray(response.RouteGeometry.LineString.pos),
+                    geometry: T5.Geo.PosFns.parseArray(response.RouteGeometry.LineString.pos),
                     instructions: parseInstructions(response.RouteInstructionsList)
                 });
             }

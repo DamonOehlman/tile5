@@ -77,7 +77,7 @@ function ColorParser(color_string) {
     };
 }
 
-T5.registerRenderer('three:webgl', function(view, panFrame, container, params, baseRenderer) {
+T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, container, params, baseRenderer) {
     params = _extend({
         guides: false
     }, params);

@@ -53,13 +53,6 @@ var Renderer = function(view, container, outer, params) {
         },
 
         /**
-        ### getOffset()
-        */
-        getOffset: function() {
-            return new XY();
-        },
-
-        /**
         ### getViewport()
         */
         getViewport: function() {

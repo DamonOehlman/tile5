@@ -1,8 +1,3 @@
-// define some constants
-var TWO_PI = Math.PI * 2,
-    HALF_PI = Math.PI / 2,
-    PROP_WK_TRANSFORM = '-webkit-transform';
-
 // some math functions     
 var abs = Math.abs,
     ceil = Math.ceil,

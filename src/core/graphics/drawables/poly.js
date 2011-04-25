@@ -28,16 +28,18 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
     ### resync(view)
     Used to synchronize the points of the poly to the grid.
     */
-    function resync(view) {
-        var x, y, maxX, maxY, minX, minY, drawPoints;
+    function resync() {
+        var ii, x, y, maxX, maxY, minX, minY, drawPoints;
         
-        view.syncXY(points);
-        
+        for (ii = points.length; ii--; ) {
+            points[ii].sync(view.rpp);
+        } // for
+
         // simplify the vectors for drawing (if required)
-        drawPoints = this.points = XYFns.floor(simplify ? XYFns.simplify(points) : points);
+        drawPoints = this.points = simplify ? simplify(points) : points;
 
         // determine the bounds of the shape
-        for (var ii = drawPoints.length; ii--; ) {
+        for (ii = drawPoints.length; ii--; ) {
             x = drawPoints[ii].x;
             y = drawPoints[ii].y;
                 

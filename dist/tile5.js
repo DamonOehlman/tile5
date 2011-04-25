@@ -1326,9 +1326,6 @@ that are provided in the Tile5 library.
 
 /* exports */
 
-/**
-### ticks()
-*/
 function ticks() {
     return new Date().getTime();
 } // getTicks
@@ -1339,10 +1336,165 @@ function ticks() {
 function userMessage(msgType, msgKey, msgHtml) {
     T5.trigger('userMessage', msgType, msgKey, msgHtml);
 } // userMessage
+
+/* exports */
+
+/**
+### distanceToString(distance)
+This function simply formats a distance value (in meters) into a human readable string.
+
+#### TODO
+- Add internationalization and other formatting support to this function
+*/
+function distanceToString(distance) {
+    if (distance > 1000) {
+        return (~~(distance / 10) / 100) + " km";
+    } // if
+
+    return distance ? distance + " m" : '';
+} // distanceToString
+
+/**
+### dist2rad(distance)
+To be completed
+*/
+function dist2rad(distance) {
+    return distance / KM_PER_RAD;
+} // dist2rad
+
+/**
+### lat2pix(lat)
+To be completed
+*/
+function lat2pix(lat) {
+    var radLat = parseFloat(lat) * DEGREES_TO_RADIANS,
+        sinPhi = sin(radLat),
+        eSinPhi = ECC * sinPhi,
+        retVal = log(((1.0 + sinPhi) / (1.0 - sinPhi)) * pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
+
+    return retVal;
+} // lat2Pix
+
+/**
+### lon2pix(lon)
+To be completed
+*/
+function lon2pix(lon) {
+    return parseFloat(lon) * DEGREES_TO_RADIANS;
+} // lon2pix
+
+/**
+### pix2lat(mercY)
+To be completed
+*/
+function pix2lat(mercY) {
+    var t = pow(Math.E, -mercY),
+        prevPhi = mercatorUnproject(t),
+        newPhi = findRadPhi(prevPhi, t),
+        iterCount = 0;
+
+    while (iterCount < PHI_MAXITER && abs(prevPhi - newPhi) > PHI_EPSILON) {
+        prevPhi = newPhi;
+        newPhi = findRadPhi(prevPhi, t);
+        iterCount++;
+    } // while
+
+    return newPhi * RADIANS_TO_DEGREES;
+} // pix2lat
+
+/**
+### pix2lon(mercX)
+To be completed
+*/
+function pix2lon(mercX) {
+    return (mercX % 360) * RADIANS_TO_DEGREES;
+} // pix2lon
+
+/**
+### radsPerPixel(zoomLevel)
+*/
+function radsPerPixel(zoomLevel) {
+    return TWO_PI / (256 << zoomLevel);
+} // radsPerPixel
+
+
+/* internal functions */
+
+function findRadPhi(phi, t) {
+    var eSinPhi = ECC * sin(phi);
+
+    return HALF_PI - (2 * atan (t * pow((1 - eSinPhi) / (1 + eSinPhi), ECC / 2)));
+} // findRadPhi
+
+function mercatorUnproject(t) {
+    return HALF_PI - 2 * atan(t);
+} // mercatorUnproject
+
+/*
+This function is used to determine the match weight between a freeform geocoding
+request and it's structured response.
+*/
+function plainTextAddressMatch(request, response, compareFns, fieldWeights) {
+    var matchWeight = 0;
+
+    request = request.toUpperCase();
+
+
+    for (var fieldId in fieldWeights) {
+        var fieldVal = response[fieldId];
+
+        if (fieldVal) {
+            var compareFn = compareFns[fieldId],
+                matchStrength = compareFn ? compareFn(request, fieldVal) : (_wordExists(request, fieldVal) ? 1 : 0);
+
+            matchWeight += (matchStrength * fieldWeights[fieldId]);
+        } // if
+    } // for
+
+    return matchWeight;
+} // plainTextAddressMatch
+
+function toRad(value) {
+    return value * DEGREES_TO_RADIANS;
+} // toRad
+var LAT_VARIABILITIES = [
+    1.406245461070741,
+    1.321415085624082,
+    1.077179995861952,
+    0.703119412486786,
+    0.488332580888611
+];
+
 var TWO_PI = Math.PI * 2,
     HALF_PI = Math.PI / 2,
-    PROP_WK_TRANSFORM = '-webkit-transform';
+    PROP_WK_TRANSFORM = '-webkit-transform',
+    VECTOR_SIMPLIFICATION = 3,
+    DEGREES_TO_RADIANS = Math.PI / 180,
+    RADIANS_TO_DEGREES = 180 / Math.PI,
+    MAX_LAT = HALF_PI, //  85.0511 * DEGREES_TO_RADIANS, // TODO: validate this instead of using HALF_PI
+    MIN_LAT = -MAX_LAT,
+    MAX_LON = TWO_PI,
+    MIN_LON = -MAX_LON,
+    M_PER_KM = 1000,
+    KM_PER_RAD = 6371,
+    ECC = 0.08181919084262157,
+    PHI_EPSILON = 1E-7,
+    PHI_MAXITER = 12,
 
+    ROADTYPE_REGEX = null,
+
+    ROADTYPE_REPLACEMENTS = {
+        RD: "ROAD",
+        ST: "STREET",
+        CR: "CRESCENT",
+        CRES: "CRESCENT",
+        CT: "COURT",
+        LN: "LANE",
+        HWY: "HIGHWAY",
+        MWY: "MOTORWAY"
+    },
+
+    DEFAULT_GENERALIZATION_DISTANCE = 250;
 var abs = Math.abs,
     ceil = Math.ceil,
     floor = Math.floor,
@@ -1396,41 +1548,76 @@ var newCanvas = T5.newCanvas = function(width, height) {
 
     return tmpCanvas;
 };
-/**
-# T5.Service
-This is a module of Tile5 that supports registration of services that provide capabilities
-to Tile5.  For instance an engine for a GIS backend might provide `route` or `geocode` service
-*/
-var Service = (function() {
-    var registry = {};
+var Animator = (function() {
+
+    /* internals */
+
+    var FRAME_RATE = 1000 / 60,
+        callbacks = [],
+        frameIndex = 0;
+
+    function frame(tickCount) {
+        frameIndex++;
+
+        tickCount = tickCount || new Date().getTime();
+
+        for (var ii = callbacks.length; ii--; ) {
+            var cbData = callbacks[ii];
+
+            if (frameIndex % cbData.every === 0) {
+                cbData.cb(tickCount);
+            } // if
+        } // for
+
+        animFrame(frame);
+    } // frame
 
     /* exports */
 
-    /**
-    ### find(serviceType)
-    */
-    function find(serviceType) {
-        return (registry[serviceType] || [])[0];
-    } // find
+    function attach(callback, every) {
+        callbacks[callbacks.length] = {
+            cb: callback,
+            every: every ? round(every / FRAME_RATE) : 1
+        };
+    } // attach
 
-    /**
-    ### register(serviceType, initFn)
-    */
-    function register(serviceType, initFn) {
-        if (! registry[serviceType]) {
-            registry[serviceType] = [];
-        } // if
+    function detach(callback) {
+    } // detach
 
-        registry[serviceType].push(initFn());
-    } // register
+    animFrame(frame);
 
     return {
-        find: find,
-        register: register
+        attach: attach,
+        detact: detach
     };
 })();
+var Parser = (function() {
 
+    /* internals */
+    var REGEX_XYRAW = /^xy\((.*)\).*$/i;
 
+    /* exports */
+
+    function parseXY(xyStr, target) {
+        target = target || new XY();
+
+        if (REGEX_XYRAW.test(xyStr)) {
+
+        }
+        else {
+            var xyVals = xyStr.split(reDelimitedSplit);
+
+            target.mercX = lon2pix(xyVals[1]);
+            target.mercY = lat2pix(xyVals[0]);
+        } // if..else
+
+        return target;
+    } // parseXY
+
+    return {
+        parseXY: parseXY
+    };
+})();
 var DOM = (function() {
     /* internals */
 
@@ -1439,10 +1626,8 @@ var DOM = (function() {
             position: 'absolute',
             overflow: 'hidden'
         },
-        css3dTransformProps = ['WebkitPerspective', 'MozPerspective'],
         testTransformProps = ['-webkit-transform', 'MozTransform'],
-        transformProp,
-        css3dTransformProp;
+        transformProp;
 
     function checkCaps(testProps) {
         for (var ii = 0; ii < testProps.length; ii++) {
@@ -1474,12 +1659,9 @@ var DOM = (function() {
     } // create
 
     function move(element, x, y, extraTransforms) {
-        if (css3dTransformProp || transformProp) {
-            var translate = css3dTransformProp ?
-                    'translate3d(' + x +'px, ' + y + 'px, 0px)' :
-                    'translate(' + x + 'px, ' + y + 'px)';
-
-            element.style[transformProp] = translate + ' ' + (extraTransforms || []).join(' ');
+        if (transformProp) {
+            element.style[transformProp] = 'translate(' + x + 'px, ' + y + 'px) translateZ(0) ' +
+                (extraTransforms || []).join(' ');
         }
         else {
             element.style.left = x + 'px';
@@ -1494,7 +1676,6 @@ var DOM = (function() {
     /* initialization */
 
     transformProp = checkCaps(testTransformProps);
-    css3DTransformProp = checkCaps(css3dTransformProps);
 
     return {
         supportTransforms: transformProp,
@@ -1504,17 +1685,31 @@ var DOM = (function() {
         styles: styles
     };
 })();
+
 /**
-# T5.XY (Internal Class)
+# T5.XY
 The internal XY class is currently created by making a call to `T5.XY.init` rather than `new T5.XY`.
 This will seem strange, and it is strange, and is a result of migrating from a closure based pattern
 to a prototypal pattern in areas of the Tile5 library.
 
 ## Methods
 */
-function XY(x, y) {
-    this.x = x || 0;
-    this.y = y || 0;
+function XY(p1, p2) {
+    this.mercX = null;
+    this.mercY = null;
+
+    if (_is(p1, typeString)) {
+        Parser.parseXY(p1, this);
+    }
+    else if (p1 && p1.toPixels) {
+        var pix = p1.toPixels();
+        this.mercX = pix.x;
+        this.mercY = pix.y;
+    }
+    else {
+        this.x = p1 || 0;
+        this.y = p2 || 0;
+    } // if..else
 } // XY constructor
 
 XY.prototype = {
@@ -1545,8 +1740,43 @@ XY.prototype = {
     */
     equals: function(xy) {
         return this.x === xy.x && this.y === xy.y;
+    },
+
+    /**
+    ### offset(x, y)
+    Return a new T5.XY object which is offset from the current xy by the specified arguments.
+    */
+    offset: function(x, y) {
+        return new XY(this.x + x, this.y + y);
+    },
+
+    /**
+    ### sync(rpp)
+    */
+    sync: function(rpp) {
+        if (this.mercX || this.mercY) {
+            this.x = round((this.mercX + Math.PI) / rpp);
+            this.y = round((Math.PI - this.mercY) / rpp);
+        } // if
+    },
+
+    /**
+    ### toPos(rpp)
+    */
+    toPos: function(rpp) {
+        return new Pos(pix2lat(Math.PI - this.y * rpp), pix2lon(this.x * rpp - Math.PI));
+    },
+
+    /**
+    ### toString()
+    */
+    toString: function() {
+        return this.x + ', ' + this.y;
     }
 };
+/**
+# T5.Rect
+*/
 function Rect(x, y, width, height) {
     this.x = x || 0;
     this.y = y || 0;
@@ -1558,498 +1788,59 @@ function Rect(x, y, width, height) {
 } // Rect
 
 Rect.prototype = {
-    constructor: Rect
-};
-/**
-# T5.XY
-This module contains simple functions for creating and manipulating an object literal that
-contains an `x` and `y` value.  Previously this functionaliy lived in the T5.V module but has
-been moved to communicate it's more generic implementation.  The T5.V module still exists, however,
-and also exposes the functions of this module for the sake of backward compatibility.
-*/
-var XYFns = (function() {
-    /* internal functions */
-
-    /* exports */
+    constructor: Rect,
 
     /**
-    ### add(xy*)
-    Return a new xy composite that is the value of all the xy values added together.
+    ### buffer(amountX, amountY)
     */
-    function add() {
-        var sumX = 0, sumY = 0;
-        for (var ii = arguments.length; ii--; ) {
-            sumX += arguments[ii].x;
-            sumY += arguments[ii].y;
-        } // for
-
-        return init(sumX, sumY);
-    } // add
-
-    /**
-    ### absSize(vector)
-    */
-    function absSize(xy) {
-        return max(abs(xy.x), abs(xy.y));
-    } // absSize
-
-    /**
-    ### copy(src)
-    Return a new xy composite that is a copy of the one passed to the function
-    */
-    function copy(src) {
-        return src ? init(src.x, src.y) : null;
-    } // copy
-
-    /**
-    ### diff(pt1, pt2)
-    Return a point that is difference between the x and y values of `xy1` and `xy2`.
-    */
-    function difference(xy1, xy2) {
-        return init(xy1.x - xy2.x, xy1.y - xy2.y);
-    } // difference
-
-    /**
-    ### distance(xy*)
-    Return the total euclidean distance between all the xy values passed to the
-    function.
-    */
-    function distance(xy, count) {
-        return edges(xy, count).total;
-    } // distance
-
-    /**
-    ### edges(points, count)
-    */
-    function edges(points, count) {
-        count = count || points.length;
-        if (count <= 1) {
-            return null;
-        } // if
-
-        var edgeData = new Array(count - 1),
-            accrued = new Array(count - 1),
-            total = 0,
-            diff;
-
-        for (var ii = 0; ii < count - 1; ii++) {
-            diff = difference(points[ii], points[ii + 1]);
-
-            edgeData[ii] = sqrt(diff.x * diff.x + diff.y * diff.y);
-
-            accrued[ii] = total += edgeData[ii];
-        } // for
-
-        return {
-            edges: edgeData,
-            accrued: accrued,
-            tota: total
-        };
-    } // edges
-
-    /**
-    ### equals(pt1, pt2)
-    Return true if the two points are equal, false otherwise.  __NOTE:__ This function
-    does not automatically floor the values so if the point values are floating point
-    then floating point precision errors will likely occur.
-    */
-    function equals(pt1, pt2) {
-        return pt1.equals(pt2);
-    } // equals
-
-    /**
-    ### extendBy(xy, theta, delta)
-    */
-    function extendBy(xy, theta, delta) {
-        var xDelta = cos(theta) * delta | 0,
-            yDelta = sin(theta) * delta | 0;
-
-        return init(xy.x - xDelta, xy.y - yDelta);
-    } // extendBy
-
-    /**
-    ### floor(pt*)
-    This function is used to take all the points in the array and convert them to
-    integer values
-    */
-    function floorXY(points) {
-        var results = new Array(points.length);
-        for (var ii = points.length; ii--; ) {
-            results[ii] = init(points[ii].x | 0, points[ii].y | 0);
-        } // for
-
-        return results;
-    } // floor
-
-    /**
-    ### getRect(xy*)
-    Get a XYRect composite that is large enough to contain the xy values passed
-    to the function.
-    */
-    function getRect(points) {
-        var minX, minY, maxX, maxY;
-
-        for (var ii = points.length; ii--; ) {
-            var xy = points[ii];
-
-            minX = _is(minX, typeUndefined) || xy.x < minX ? xy.x : minX;
-            minY = _is(minY, typeUndefined) || xy.y < minY ? xy.y : minY;
-
-            maxX = _is(maxX, typeUndefined) || xy.x > maxX ? xy.x : maxX;
-            maxY = _is(maxY, typeUndefined) || xy.y > maxY ? xy.y : maxY;
-        } // for
-
-        return new Rect(minX, minY, maxX - minX, maxY - minY);
-    } // getRect
-
-    /**
-    ### init(x, y)
-    Initialize a new point that can be used in Tile5.  A point is simply an
-    object literal with the attributes `x` and `y`.  If initial values are passed
-    through when creating the point these will be used, otherwise 0 values will
-    be used.
-    */
-    function init(initX, initY) {
-        return new XY(initX, initY);
-    } // init
-
-    /**
-    ### invert(xy)
-    Return a new composite xy value that is the inverted value of the one passed
-    to the function.
-    */
-    function invert(xy) {
-        return init(-xy.x, -xy.y);
-    } // invert
-
-    /**
-    ### max(xy1, xy2)
-    */
-    function maxXY(xy1, xy2) {
-        return init(
-            xy1.x > xy2.x ? xy1.x : xy2.x,
-            xy1.y > xy2.y ? xy1.y : xy2.y);
-    } // max
-
-    /**
-    ### min(xy1, xy2)
-    */
-    function minXY(xy1, xy2) {
-        return init(
-            xy1.x < xy2.x ? xy1.x : xy2.x,
-            xy1.y < xy2.y ? xy1.y : xy2.y);
-    } // min
-
-    /**
-    ### offset(xy, offsetX, offsetY)
-    Return a new composite xy which is offset by the specified amount.
-    */
-    function offset(xy, offsetX, offsetY) {
-        return init(xy.x + offsetX, xy.y + (offsetY || offsetX));
-    } // offset
-
-    /**
-    ### scale(xy, scaleFactor)
-    Returns a new composite xy that has been scaled by the specified scale factor
-    */
-    function scale(xy, scaleFactor) {
-        return init(xy.x / scaleFactor | 0, xy.y / scaleFactor | 0);
-    } // scale
-
-    /**
-    ### simplify(xy*, generalization)
-    This function is used to simplify a xy array by removing what would be considered
-    'redundant' xy positions by elimitating at a similar position.
-    */
-    function simplify(points, generalization) {
-        if (! points) {
-            return null;
-        } // if
-
-        generalization = generalization || XYFns.VECTOR_SIMPLIFICATION;
-
-        var tidied = [],
-            last = null;
-
-        for (var ii = points.length; ii--; ) {
-            var current = points[ii];
-
-            include = !last || ii === 0 ||
-                (abs(current.x - last.x) +
-                    abs(current.y - last.y) >
-                    generalization);
-
-            if (include) {
-                tidied.unshift(current);
-                last = current;
-            }
-        } // for
-
-        return tidied;
-    } // simplify
-
-    /**
-    ### theta (xy1, xy2, distance)
-    */
-    function theta(xy1, xy2, distance) {
-        var theta = asin((xy1.y - xy2.y) / distance);
-        return xy1.x > xy2.x ? theta : Math.PI - theta;
-    } // theta
-
-    /**
-    ### toString(xy)
-    Return the string representation of the xy
-    */
-    function toString(xy) {
-        return xy ? xy.x + ', ' + xy.y : '';
-    } // toString
-
-    /* module export */
-
-    return {
-        VECTOR_SIMPLIFICATION: 3,
-        SIMPLIFICATION_MIN_VECTORS: 25,
-
-        add: add,
-        absSize: absSize,
-        copy: copy,
-        diff: difference,
-        distance: distance,
-        edges: edges,
-        equals: equals,
-        extendBy: extendBy,
-        floor: floorXY,
-        getRect: getRect,
-        init: init,
-        invert: invert,
-        min: minXY,
-        max: maxXY,
-        offset: offset,
-        scale: scale,
-        simplify: simplify,
-        theta: theta,
-        toString: toString
-    };
-})();
-/**
-# T5.Vector
-This module defines functions that are used to maintain T5.Vector objects and this
-is removed from the actual Vector class to keep the Vector object lightweight.
-
-## Functions
-*/
-var Vector = (function() {
-
-    /* exports */
-
-    function dotProduct(v1, v2) {
-        return v1.x * v2.x + v1.y * v2.y;
-    } // dotProduct
-
-    /*
-    This method implements the Ramer–Douglas–Peucker algorithm for simplification instead.
-    */
-    function simplifyRDP(vectors, epsilon) {
-        if ((! vectors) || (vectors.length <= 2)) {
-            return vectors;
-        } // if
-
-        epsilon = epsilon ? epsilon : XYFns.VECTOR_SIMPLIFICATION;
-
-        var distanceMax = 0,
-            index = 0,
-            lastIndex = vectors.length - 1,
-            u,
-            tailItem,
-            results;
-
-        u = unitize(vectors[0], vectors[lastIndex]);
-
-        for (var ii = 1; ii < lastIndex; ii++) {
-            var diffVector = difference(vectors[ii], vectors[0]),
-                orthDist = dotProduct(diffVector, u);
-
-            if (orthDist > distanceMax) {
-                index = ii;
-                distanceMax = orthDist;
-            } // if
-        } // for
-
-        _log('max distance = ' + distanceMax + ', unitized distance vector = ', u);
-
-        if (distanceMax >= epsilon) {
-            var r1 = simplify(vectors.slice(0, index), epsilon),
-                r2 = simplify(vectors.slice(index, lastIndex), epsilon);
-
-            results = r1.slice(0, -1).concat(r2);
-        }
-        else {
-            results = vectors;
-        } // if..else
-
-        if (tailItem) {
-            results[results.length] = tailItem;
-        } // if
-
-        return results;
-    } // simplify
-
-    function unitize(v1, v2) {
-        var unitLength = edges([v1, v2]).total,
-            absX = unitLength !== 0 ? (v2.x - v1.x) / unitLength : 0,
-            absY = unitLength !== 0 ? (v2.y - v1.y) / unitLength : 0;
-
-        return new XY(absX, absY);
-    } // unitize
-
-    /* define module */
-
-    return {
-        dotProduct: dotProduct
-    };
-})(); // vectorTools
-/**
-# T5.XYRect
-This module provides helper functions for working with an object literal that represents a set of xy
-values that represent the top-left and bottom-right corners of a rectangle respectively.
-
-## XYRect Attributes
-Calling the `T5.XYRect.init` function produces an object literal with the following
-properties:
-
-
-- `x1` - The x value for the top left corner
-- `y1` - The y value for the top left corner
-- `x2` - The x value for the bottom right corner
-- `y2` - The y value for the bottom right corner
-- `width` - The width of the rect
-- `height` - The height of the rect
-
-
-## Functions
-*/
-var XYRect = (function() {
-
-    /* exports */
-
-    /**
-    ### buffer(rect, bufferX, bufferY)
-    */
-    function buffer(rect, bufferX, bufferY) {
-        return XYRect.init(
-            rect.x - bufferX,
-            rect.y - (bufferY || bufferX),
-            rect.x2 + bufferX,
-            rect.y2 + (bufferY || bufferX)
+    buffer: function(amountX, amountY) {
+        return new Rect(
+            this.x - amountX,
+            this.y - (amountY || amountX),
+            this.w + amountX * 2,
+            this.h + (amountY || amountX) * 2
         );
-    } // buffer
+    },
 
     /**
-    ### center(rect)
-    Return a xy composite for the center of the rect
+    ### center()
     */
-    function center(rect) {
-        return new XY(rect.x + (rect.w >> 1), rect.y + (rect.h >> 1));
-    } // center
+    center: function() {
+        return new XY(this.x + (this.w >> 1), this.y + (this.h >> 1));
+    }
+};
 
-    /**
-    ### copy(rect)
-    Return a duplicate of the XYRect
-    */
-    function copy(rect) {
-        return init(rect.x, rect.y, rect.x2, rect.y2);
-    } // copy
+/**
+### simplify(xy*, generalization)
+This function is used to simplify a xy array by removing what would be considered
+'redundant' xy positions by elimitating at a similar position.
+*/
+function simplify(points, generalization) {
+    if (! points) {
+        return null;
+    } // if
 
-    /**
-    ### diagonalSize(rect)
-    Return the distance from corner to corner of the rect
-    */
-    function diagonalSize(rect) {
-        return sqrt(rect.w * rect.w + rect.h * rect.h);
-    } // diagonalSize
+    generalization = generalization || VECTOR_SIMPLIFICATION;
 
-    /**
-    ### fromCenter(centerX, centerY, width, height)
-    An alternative to the `init` function, this function can create a T5.XYRect
-    given a center x and y position, width and height.
-    */
-    function fromCenter(centerX, centerY, width, height) {
-        var halfWidth = width >> 1,
-            halfHeight = height >> 1;
+    var tidied = [],
+        last = null;
 
-        return init(
-            centerX - halfWidth,
-            centerY - halfHeight,
-            centerX + halfWidth,
-            centerY + halfHeight);
-    } // fromCenter
+    for (var ii = points.length; ii--; ) {
+        var current = points[ii];
 
-    /**
-    ### init(x1, y1, x2, y2)
-    Create a new XYRect composite object
-    */
-    function init(x1, y1, x2, y2) {
-        return new Rect(x1, y1, (x2 || x1) - x1, (y2 || y1) - y1);
-    } // init
+        include = !last || ii === 0 ||
+            (abs(current.x - last.x) +
+                abs(current.y - last.y) >
+                generalization);
 
-    /**
-    ### intersect(rect1, rect2)
-    Returns the intersecting rect between the two specified XYRect composites
-    */
-    function intersect(rect1, rect2) {
-        var x1 = max(rect1.x, rect2.x),
-            y1 = max(rect1.y, rect2.y),
-            x2 = min(rect1.x2, rect2.x2),
-            y2 = min(rect1.y2, rect2.y2),
-            r = init(x1, y1, x2, y2);
-
-        return ((r.w > 0) && (r.h > 0)) ? r : null;
-    } // intersect
-
-    /**
-    ### toString(rect)
-    Return the string representation of the rect
-    */
-    function toString(rect) {
-        return rect ? ('[' + rect.x + ', ' + rect.y + ', ' + rect.x2 + ', ' + rect.y2 + ']') : '';
-    } // toString
-
-    /**
-    ### union(rect1, rect2)
-    Return the minimum rect required to contain both of the supplied rects
-    */
-    function union(rect1, rect2) {
-        if (rect1.w === 0 || rect1.h === 0) {
-            return copy(rect2);
+        if (include) {
+            tidied.unshift(current);
+            last = current;
         }
-        else if (rect2.w === 0 || rect2.h === 0) {
-            return copy(rect1);
-        }
-        else {
-            var x1 = min(rect1.x, rect2.x),
-                y1 = min(rect1.y, rect2.y),
-                x2 = max(rect1.x2, rect2.x2),
-                y2 = max(rect1.y2, rect2.y2),
-                r = init(x1, y1, x2, y2);
+    } // for
 
-            return ((r.w > 0) && (r.h > 0)) ? r : null;
-        } // if..else
-    } // union
-
-    /* module definition */
-
-    return {
-        buffer: buffer,
-        center: center,
-        copy: copy,
-        diagonalSize: diagonalSize,
-        fromCenter: fromCenter,
-        init: init,
-        intersect: intersect,
-        toString: toString,
-        union: union
-    };
-})();
+    return tidied;
+} // simplify
 /**
 # T5.Hits
 
@@ -2450,13 +2241,6 @@ var Renderer = function(view, container, outer, params) {
                 width: 0,
                 height: 0
             };
-        },
-
-        /**
-        ### getOffset()
-        */
-        getOffset: function() {
-            return new XY();
         },
 
         /**
@@ -3111,16 +2895,14 @@ reg('view', 'simple', function(params) {
         refreshDistance: 256,
         pannable: false,
         scalable: false,
-        fps: 60,
 
         minZoom: 1,
         maxZoom: 1,
         renderer: 'canvas',
-        zoomLevel: 1
+        zoom: 1
     }, params);
 
-    var TURBO_CLEAR_INTERVAL = 500,
-        PANSPEED_THRESHOLD_REFRESH = 2,
+    var PANSPEED_THRESHOLD_REFRESH = 2,
         PANSPEED_THRESHOLD_FASTPAN = 5,
 
         caps = {},
@@ -3170,7 +2952,7 @@ reg('view', 'simple', function(params) {
         halfWidth, halfHeight,
         halfOuterWidth, halfOuterHeight,
         zoomX, zoomY,
-        zoomLevel = params.zoomLevel,
+        zoomLevel = params.zoom || params.zoomLevel,
         zoomEasing = _easing('quad.out'),
         zoomDuration = 300;
 
@@ -3196,7 +2978,7 @@ reg('view', 'simple', function(params) {
 
             if (scaleFactorExp !== 0) {
                 scaleFactor = pow(2, scaleFactorExp);
-                zoomlevel(zoomLevel + scaleFactorExp, zoomX, zoomY);
+                zoom(zoomLevel + scaleFactorExp, zoomX, zoomY);
             } // ifg
 
             viewChanges++;
@@ -3471,41 +3253,29 @@ reg('view', 'simple', function(params) {
             panning,
             scaleChanged,
             rerender,
-            newFrame = false,
-            refreshValid,
             viewpaneX,
             viewpaneY,
             viewport;
 
-        tickCount = tickCount || new Date().getTime();
+        self.panSpeed = panSpeed = abs(dx) + abs(dy);
 
-        newFrame = tickCount - lastCycleTicks > cycleDelay;
+        scaleChanged = scaleFactor !== lastScaleFactor;
 
-        if (newFrame) {
-            self.panSpeed = panSpeed = abs(dx) + abs(dy);
+        if (panSpeed > 0 || scaleChanged) {
+            viewChanges++;
+        } // if
 
-            refreshValid = abs(offsetX - refreshX) >= refreshDist ||
-                abs(offsetY - refreshY) >= refreshDist;
+        if (panSpeed < PANSPEED_THRESHOLD_REFRESH &&
+                (abs(offsetX - refreshX) >= refreshDist ||
+                abs(offsetY - refreshY) >= refreshDist)) {
+            refresh();
+        } // if
 
-            scaleChanged = scaleFactor !== lastScaleFactor;
+        frameData.index++;
+        frameData.draw = viewChanges || panSpeed || totalDX || totalDY;
 
-            if (panSpeed > 0 || scaleChanged) {
-                viewChanges++;
-            } // if
 
-            if (refreshValid && panSpeed < PANSPEED_THRESHOLD_REFRESH) {
-                refresh();
-            } // if
-
-            frameData.index++;
-            frameData.draw = viewChanges || panSpeed || totalDX || totalDY;
-
-            _self.trigger('enterFrame', tickCount, frameData);
-
-            lastCycleTicks = tickCount;
-        }
-
-        if (renderer && newFrame && frameData.draw) {
+        if (renderer && frameData.draw) {
             panX += dx;
             panY += dy;
 
@@ -3598,8 +3368,6 @@ reg('view', 'simple', function(params) {
                 hitData = null;
             } // if
         } // if
-
-        animFrame(cycle);
     } // cycle
 
     function initHitData(hitType, absXY, relXY) {
@@ -3632,6 +3400,23 @@ reg('view', 'simple', function(params) {
         } // if
     } // attachFrame
 
+    function center(p1, p2, tween) {
+        if (_is(p1, typeString)) {
+            var centerXY = Parser.parseXY(p1);
+            p1 = centerXY.x;
+            p2 = centerXY.y;
+        } // if
+
+        if (_is(p1, typeNumber)) {
+            offset(p1 - halfOuterWidth, p2 - halfOuterWidth, tween);
+
+            return _self;
+        }
+        else {
+            return offset().offset(halfOuterWidth, halfOuterHeight);
+        } // if..else
+    } // center
+
     /**
     ### detach
     If you plan on reusing a single canvas element to display different views then you
@@ -3657,25 +3442,6 @@ reg('view', 'simple', function(params) {
     } // detach
 
     /**
-    ### eachLayer(callback)
-    Iterate through each of the ViewLayers and pass each to the callback function
-    supplied.
-    */
-    function eachLayer(callback) {
-        for (var ii = layerCount; ii--; ) {
-            callback(layers[ii]);
-        } // for
-    } // eachLayer
-
-    /**
-    ### getOffset(): T5.XY
-    Return a T5.XY containing the current view offset
-    */
-    function getOffset() {
-        return new XY(offsetX, offsetY);
-    } // getOffset
-
-    /**
     ### getRenderer(): T5.Renderer
     */
     function getRenderer() {
@@ -3691,10 +3457,10 @@ reg('view', 'simple', function(params) {
     } // getScaleFactor
 
     /**
-    ### zoomlevel(int): int
+    ### zoom(int): int
     Either update or simply return the current zoomlevel.
     */
-    function zoomlevel(value, zoomX, zoomY) {
+    function zoom(value, zoomX, zoomY) {
         if (_is(value, typeNumber)) {
             value = max(params.minZoom, min(params.maxZoom, value));
             if (value !== zoomLevel) {
@@ -3704,7 +3470,7 @@ reg('view', 'simple', function(params) {
 
                 zoomLevel = value;
 
-                updateOffset(
+                offset(
                     ((zoomX || offsetX + halfWidth) - scaledHalfWidth) * scaling,
                     ((zoomY || offsetY + halfHeight) - scaledHalfHeight) * scaling
                 );
@@ -3712,7 +3478,7 @@ reg('view', 'simple', function(params) {
                 refreshX = 0;
                 refreshY = 0;
 
-                triggerAll('zoomLevelChange', value);
+                triggerAll('zoom', value);
 
                 scaleFactor = 1;
 
@@ -3720,10 +3486,13 @@ reg('view', 'simple', function(params) {
 
                 refresh();
             } // if
-        } // if
 
-        return zoomLevel;
-    }
+            return _self;
+        }
+        else {
+            return zoomLevel;
+        } // if..else
+    } // zoom
 
     function invalidate() {
         viewChanges++;
@@ -3754,6 +3523,36 @@ reg('view', 'simple', function(params) {
         return viewport;
     } // getViewport
 
+    /**
+    ### layer()
+
+    The `layer` method of a view is a very poweful function and can be
+    used in a number of ways:
+
+    __To retrieve an existing layer:__
+    When called with a single string argument, the method will aim to
+    return the layer that has that id:
+
+    ```
+    var layer = view.layer('markers');
+    ```
+
+    __To create a layer:__
+    Supply three arguments to the method and a new layer will be created
+    of the specified type and using the settings passed through in the 3rd
+    argument:
+
+    ```
+    var layer = view.layer('markers', 'draw', { ... });
+    ```
+
+    __To retrieve all view layers:__
+    Omit all arguments, and the method will return all the layers in the view:
+
+    ```
+    var layers = view.layer();
+    ```
+    */
     function layer(id, layerType, settings) {
         if (_is(layerType, typeUndefined)) {
             for (var ii = 0; ii < layerCount; ii++) {
@@ -3764,7 +3563,7 @@ reg('view', 'simple', function(params) {
 
             return undefined;
         }
-        else {
+        else if (_is(id, typeString)) {
             var layer = regCreate('layer', layerType, _self, settings);
 
             layer.added = ticks();
@@ -3784,6 +3583,9 @@ reg('view', 'simple', function(params) {
             invalidate();
 
             return layer;
+        }
+        else {
+            return [].concat(layers);
         } // if..else
     } // layer
 
@@ -3880,18 +3682,6 @@ reg('view', 'simple', function(params) {
     } // scale
 
     /**
-    ### syncXY(points, reverse)
-    This function is used to keep a T5.XY derivative x and y position in sync
-    with it's real world location (if it has one).  T5.GeoXY are a good example
-    of this.
-
-    If the `reverse` argument is specified and true, then the virtual world
-    coordinate will be updated to match the current x and y offsets.
-    */
-    function syncXY(points, reverse) {
-    } // syncXY
-
-    /**
     ### triggerAll(eventName: string, args*)
     Trigger an event on the view and all layers currently contained in the view
     */
@@ -3906,54 +3696,28 @@ reg('view', 'simple', function(params) {
 
 
     /**
-    ### updateOffset(x: int, y: int, tweenFn: EasingFn, tweenDuration: int, callback: fn)
+    ### offset(x: int, y: int, tween: TweenOpts)
 
     This function allows you to specified the absolute x and y offset that should
     become the top-left corner of the view.  As per the `pan` function documentation, tween and
     callback arguments can be supplied to animate the transition.
     */
-    function updateOffset(x, y, tweenFn, tweenDuration, callback) {
+    function offset(x, y, tween) {
 
-        var tweensComplete = 0;
-
-        function endTween() {
-            tweensComplete += 1;
-
-            if (tweensComplete >= 2) {
-                tweeningOffset = false;
-
-                if (callback) {
-                    callback();
-                } // if
-            } // if
-        } // endOffsetUpdate
-
-        if (tweenFn && (panSpeed === 0)) {
-            _tweenValue(offsetX, x, tweenFn, tweenDuration, function(val, complete){
-                offsetX = val | 0;
-
-                (complete ? endTween : invalidate)();
-                return panSpeed === 0;
-            });
-
-            _tweenValue(offsetY, y, tweenFn, tweenDuration, function(val, complete) {
-                offsetY = val | 0;
-
-                (complete ? endTween : invalidate)();
-                return panSpeed === 0;
-            });
-
-            tweeningOffset = true;
+        if (_is(x, typeNumber)) {
+            if (tween && (panSpeed === 0)) {
+            }
+            else {
+                offsetX = x | 0;
+                offsetY = y | 0;
+            } // if..else
         }
         else {
-            offsetX = x | 0;
-            offsetY = y | 0;
-
-            if (callback) {
-                callback();
-            } // if
+            return new XY(offsetX, offsetY);
         } // if..else
-    } // updateOffset
+
+        return undefined;
+    } // offset
 
     /* object definition */
 
@@ -3963,28 +3727,25 @@ reg('view', 'simple', function(params) {
         panSpeed: 0,
 
         attachFrame: attachFrame,
+        center: center,
         detach: detach,
-        eachLayer: eachLayer,
         layer: layer,
         invalidate: invalidate,
         refresh: refresh,
         resetScale: resetScale,
         scale: scale,
-        syncXY: syncXY,
         triggerAll: triggerAll,
         removeLayer: removeLayer,
 
         /* offset methods */
 
-        getOffset: getOffset,
-
         getRenderer: getRenderer,
         getScaleFactor: getScaleFactor,
         setMaxOffset: setMaxOffset,
         getViewport: getViewport,
-        updateOffset: updateOffset,
+        offset: offset,
         pan: pan,
-        zoomlevel: zoomlevel
+        zoom: zoom
     };
 
     _observable(_self);
@@ -4030,7 +3791,7 @@ reg('view', 'simple', function(params) {
         }
     });
 
-    animFrame(cycle);
+    Animator.attach(cycle);
 
     return _self;
 });
@@ -4055,11 +3816,11 @@ more information on view level features check out the View documentation.
 
 ## Events
 
-### zoomLevelChange
+### zoom
 This event is triggered when the zoom level has been updated
 
 <pre>
-map.bind('zoomLevelChange', function(evt, newZoomLevel) {
+map.bind('zoom', function(evt, newZoomLevel) {
 });
 </pre>
 
@@ -4096,20 +3857,16 @@ reg('view', 'map', function(params) {
     /* event handlers */
 
     function handleTap(evt, absXY, relXY, offsetXY) {
-        var tapPos = GeoXY.toPos(offsetXY, rpp),
-            minPos = GeoXY.toPos(
-                XYFns.offset(offsetXY, -tapExtent, tapExtent),
-                rpp),
-            maxPos = GeoXY.toPos(
-                XYFns.offset(offsetXY, tapExtent, -tapExtent),
-                rpp);
+        var tapPos = offsetXY.toPos(rpp),
+            minPos = offsetXY.offset(-tapExtent, tapExtent).toPos(rpp),
+            maxPos = offsetXY.offset(tapExtent, -tapExtent).toPos(rpp);
 
         _self.trigger(
             'geotap',
             absXY,
             relXY,
             tapPos,
-            BoundingBox.init(minPos, maxPos)
+            new BBox(minPos, maxPos)
         );
     } // handleTap
 
@@ -4122,15 +3879,10 @@ reg('view', 'map', function(params) {
         } // if
     } // handleWork
 
-    function handleProviderUpdate(name, value) {
-        _self.cleanup();
-        initialized = false;
-    } // handleProviderUpdate
-
     function handleZoomLevelChange(evt, zoomLevel) {
         var gridSize;
 
-        rpp = radsPerPixel(zoomLevel);
+        rpp = _self.rpp = radsPerPixel(zoomLevel);
 
         gridSize = TWO_PI / rpp | 0;
         _self.setMaxOffset(gridSize, gridSize, true, false);
@@ -4157,21 +3909,20 @@ reg('view', 'map', function(params) {
         var viewport = _self.getViewport();
 
         return viewport ?
-            BoundingBox.init(
-                GeoXY.toPos(new XY(viewport.x, viewport.y2), rpp),
-                GeoXY.toPos(new XY(viewport.x2, viewport.y), rpp)) :
+            new BBox(
+                new XY(viewport.x, viewport.y2).toPos(rpp),
+                new XY(viewport.x2, viewport.y).toPos(rpp)) :
             null;
     } // getBoundingBox
 
     /**
     ### getCenterPosition()`
-    Return a T5.GeoXY composite for the center position of the map
+    Return a T5.XY composite for the center position of the map
     */
     function getCenterPosition() {
         var viewport = _self.getViewport();
         if (viewport) {
-            var xy = new XY(viewport.x + (viewport.w >> 1), viewport.y + (viewport.h >> 1));
-            return GeoXY.toPos(xy, rpp);
+            return new XY(viewport.x + (viewport.w >> 1), viewport.y + (viewport.h >> 1)).toPos(rpp);
         } // if
 
         return null;
@@ -4183,13 +3934,9 @@ reg('view', 'map', function(params) {
     then goes to the center position and zoom level best suited.
     */
     function gotoBounds(bounds, callback) {
-        var zoomLevel = BoundingBox.getZoomLevel(
-                            bounds,
-                            _self.getViewport());
-
         gotoPosition(
-            BoundingBox.getCenter(bounds),
-            zoomLevel,
+            bounds.center(),
+            bounds.bestZoomLevel(_self.getViewport()),
             callback);
     } // gotoBounds
 
@@ -4201,40 +3948,25 @@ reg('view', 'map', function(params) {
     the position of the map has been updated.
     */
     function gotoPosition(position, newZoomLevel, callback) {
-        _self.zoomlevel(newZoomLevel);
+        _self.zoom(newZoomLevel);
 
         panToPosition(position, callback);
     } // gotoPosition
 
     /**
     ### panToPosition(position)
-    This method is used to tell the map to pan (not zoom) to the specified
-    T5.GeoXY.
-
-    __NOTE:__ callback, easingFn & easingDuration parameters removed
+    This method is used to tell the map to pan (not zoom) to the specified position
     */
     function panToPosition(position, callback, easingFn, easingDuration) {
-        var centerXY = GeoXY.init(position, radsPerPixel(_self.zoomlevel())),
-            viewport = _self.getViewport(),
-            offsetX = centerXY.x - (viewport.w >> 1),
-            offsetY = centerXY.y - (viewport.h >> 1);
+        var centerXY = new XY(position);
+        centerXY.sync(radsPerPixel(_self.zoom()));
 
-        _self.updateOffset(offsetX, offsetY, easingFn, easingDuration, function() {
+        _self.center(centerXY.x, centerXY.y, easingFn, easingDuration, function() {
             if (callback) {
                 callback(_self);
             } // if
         });
     } // panToPosition
-
-    /**
-    ### syncXY(points)
-    This function iterates through the specified vectors and if they are
-    of type GeoXY composite they are provided the rads per pixel of the
-    grid so they can perform their calculations
-    */
-    function syncXY(points, reverse) {
-        return (reverse ? GeoXY.syncPos : GeoXY.sync)(points, rpp);
-    } // syncXY
 
     /* public object definition */
 
@@ -4250,15 +3982,14 @@ reg('view', 'map', function(params) {
 
         gotoBounds: gotoBounds,
         gotoPosition: gotoPosition,
-        panToPosition: panToPosition,
-        syncXY: syncXY
+        panToPosition: panToPosition
     });
 
     _self.bind('tap', handleTap);
 
     _self.bind('refresh', handleRefresh);
 
-    _self.bind('zoomLevelChange', handleZoomLevelChange);
+    _self.bind('zoom', handleZoomLevelChange);
 
     return _self;
 });
@@ -4286,6 +4017,10 @@ var Drawable = function(view, layer, params) {
     }, params);
 
     _extend(this, params);
+
+    if (_is(this.xy, typeString)) {
+        this.xy = new XY(this.xy);
+    } // if
 
     this.id = 'drawable_' + drawableCounter++;
     this.bounds = null;
@@ -4339,13 +4074,18 @@ Drawable.prototype = {
     /**
     ### resync(view)
     */
-    resync: function(view) {
+    resync: function() {
         if (this.xy) {
-            view.syncXY([this.xy]);
+            this.xy.sync(view.rpp);
 
             if (this.size) {
-                this.updateBounds(XYRect.fromCenter(
-                    this.xy.x, this.xy.y, this.size, this.size));
+                var halfSize = this.size >> 1;
+
+                this.updateBounds(new Rect(
+                    this.xy.x - halfSize,
+                    this.xy.y - halfSize,
+                    this.size,
+                    this.size));
             } // if
         } // if
     },
@@ -4390,7 +4130,7 @@ Drawable.prototype = {
         this.bounds = bounds;
 
         if (updateXY) {
-            this.xy = XYRect.center(this.bounds);
+            this.xy = this.bounds.center();
         } // if
     }
 };
@@ -4566,14 +4306,16 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
     ### resync(view)
     Used to synchronize the points of the poly to the grid.
     */
-    function resync(view) {
-        var x, y, maxX, maxY, minX, minY, drawPoints;
+    function resync() {
+        var ii, x, y, maxX, maxY, minX, minY, drawPoints;
 
-        view.syncXY(points);
+        for (ii = points.length; ii--; ) {
+            points[ii].sync(view.rpp);
+        } // for
 
-        drawPoints = this.points = XYFns.floor(simplify ? XYFns.simplify(points) : points);
+        drawPoints = this.points = simplify ? simplify(points) : points;
 
-        for (var ii = drawPoints.length; ii--; ) {
+        for (ii = drawPoints.length; ii--; ) {
             x = drawPoints[ii].x;
             y = drawPoints[ii].y;
 
@@ -4838,7 +4580,7 @@ reg('layer', 'tile', function(view, params) {
     } // handleViewIdle
 
     function handleResync(evt) {
-        var zoomLevel = view && view.zoomlevel ? view.zoomlevel() : 0;
+        var zoomLevel = view && view.zoom ? view.zoom() : 0;
 
         if (! zoomTrees[zoomLevel]) {
             zoomTrees[zoomLevel] = createStoreForZoomLevel(zoomLevel);
@@ -4856,7 +4598,7 @@ reg('layer', 'tile', function(view, params) {
         if (renderer.drawTiles) {
             renderer.drawTiles(
                 viewport,
-                storage.search(XYRect.buffer(viewport, 128)),
+                storage.search(viewport.buffer(128)),
                 view.panSpeed < TILELOAD_MAX_PANSPEED);
         } // if
     } // draw
@@ -4901,8 +4643,6 @@ reg('layer', 'draw', function(view, params) {
 
         if (drop) {
             delete this.dragOffset;
-
-            view.syncXY([this.xy], true);
             view.invalidate();
 
             this.trigger('dragDrop');
@@ -4938,12 +4678,10 @@ reg('layer', 'draw', function(view, params) {
     } // handleItemMove
 
     function handleResync(evt) {
-        storage = createStoreForZoomLevel(view.zoomlevel(), storage); // TODO: populate with the previous storage
+        storage = createStoreForZoomLevel(view.zoom(), storage); // TODO: populate with the previous storage
 
         for (var ii = drawables.length; ii--; ) {
-            var drawable = drawables[ii];
-
-            drawable.resync(view);
+            drawables[ii].resync();
         } // for
 
     } // handleParentChange
@@ -4973,7 +4711,7 @@ reg('layer', 'draw', function(view, params) {
             drawables[drawables.length] = drawable;
         } // if..else
 
-        drawable.resync(view);
+        drawable.resync();
         if (storage && drawable.bounds) {
             storage.insert(drawable.bounds, drawable);
         } // if
@@ -5109,6 +4847,52 @@ Pos.prototype = {
     constructor: Pos,
 
     /**
+    ### distanceTo(targetPos)
+    */
+    distanceTo: function(pos) {
+        if ((! targetPos) || this.empty() || targetPos.empty()) {
+            return 0;
+        } // if
+
+        var halfdelta_lat = toRad(targetPos.lat - this.lat) >> 1;
+        var halfdelta_lon = toRad(targetPos.lon - this.lon) >> 1;
+
+        var a = sin(halfdelta_lat) * sin(halfdelta_lat) +
+                (cos(toRad(this.lat)) * cos(toRad(targetPos.lat))) *
+                (sin(halfdelta_lon) * sin(halfdelta_lon)),
+            c = 2 * atan2(sqrt(a), sqrt(1 - a));
+
+        return KM_PER_RAD * c;
+    },
+
+    /**
+    ### equalTo(testPos)
+    */
+    equalTo: function(testPos) {
+        return pos && (this.lat === testPos.lat) && (this.lon === testPos.lon);
+    },
+
+    /**
+    ### empty()
+    */
+    empty: function() {
+        return this.lat === 0 && this.lon === 0;
+    },
+
+    /**
+    ### inArray(testArray)
+    */
+    inArray: function(testArray) {
+        for (var ii = testArray.length; ii--; ) {
+            if (this.equal(testArray[ii])) {
+                return true;
+            } // if
+        } // for
+
+        return false;
+    },
+
+    /**
     ### offset(latOffset, lonOffset)
     Return a new position which is the original `pos` offset by
     the specified `latOffset` and `lonOffset` (which are specified in
@@ -5129,354 +4913,26 @@ Pos.prototype = {
         return new Pos(newLat * RADIANS_TO_DEGREES, newLon * RADIANS_TO_DEGREES);
     },
 
+    /**
+    ### toPixels()
+    Return an xy of the mercator pixel value for the position
+    */
+    toPixels: function() {
+        return new XY(lon2pix(this.lon), lat2pix(this.lat));
+    },
+
+    /**
+    ### toString()
+    */
     toString: function(delimiter) {
         return this.lat + (delimiter || ' ') + this.lon;
     }
 };
-/**
-# T5.GeoXY
-
-The GeoXY class is used to convert a position into a
-composite xy that can be used to draw on the various T5.ViewLayer implementations.
-This class provides the necessary mechanism that allows the view layers to
-assume operation using a simple vector (containing an x and y) with no need
-geospatial awareness built in.
-
-Layers are aware that particular events may require vector resynchronization
-which is facilitated by the `syncXY` method of the T5.Map.
-
-## Functions
-*/
-var GeoXY = (function() {
-
-    /* internal functions */
-
-    /* exports */
-
-    /**
-    ### init(pos, rpp)
-    */
-    function init(pos, rpp) {
-        var xy = new XY();
-
-        updatePos(xy, pos, rpp);
-
-        return xy;
-    } // init
-
-    /**
-    ### sync(xy, rpp)
-    */
-    function sync(xy, rpp) {
-        if (xy.length) {
-            var minX, minY, maxX, maxY;
-
-            for (var ii = xy.length; ii--; ) {
-                sync(xy[ii], rpp);
-
-                minX = _is(minX, typeUndefined) || xy.x < minX ? xy.x : minX;
-                minY = _is(minY, typeUndefined) || xy.y < minY ? xy.y : minY;
-
-                maxX = _is(maxX, typeUndefined) || xy.x > maxX ? xy.x : maxX;
-                maxY = _is(maxY, typeUndefined) || xy.y > maxY ? xy.y : maxY;
-            } // for
-
-            return new Rect(minX, minY, maxX - minX, maxY - minY);
-        }
-        else if (xy.mercXY) {
-            var mercXY = xy.mercXY;
-
-            xy.x = round((mercXY.x + Math.PI) / rpp);
-            xy.y = round((Math.PI - mercXY.y) / rpp);
-
-            xy.rpp = rpp;
-        } // if
-
-        return xy;
-    } // setRadsPerPixel
-
-    function syncPos(xy, rpp) {
-        if (xy.length) {
-            for (var ii = xy.length; ii--; ) {
-                syncPos(xy[ii], rpp);
-            } // for
-        }
-        else {
-            xy.mercXY = new XY(xy.x * rpp - Math.PI, Math.PI - xy.y * rpp);
-            xy.pos = Position.fromMercatorPixels(xy.mercXY.x, xy.mercXY.y);
-        } // if..else
-
-        return xy;
-    } // syncPos
-
-    function toPos(xy, rpp) {
-        rpp = rpp || xy.rpp;
-
-        return Position.fromMercatorPixels(xy.x * rpp - Math.PI, Math.PI - xy.y * rpp);
-    } // toPos
-
-    function updatePos(xy, pos, rpp) {
-        xy.pos = pos;
-        xy.mercXY = Position.toMercatorPixels(pos);
-
-        rpp = _is(rpp, typeNumber) ? rpp : xy.rpp;
-
-        if (rpp) {
-            sync(xy, rpp);
-        } // if
-    } // updatePos
-
-    /* create the module */
-
-    return {
-        init: init,
-        sync: sync,
-        syncPos: syncPos,
-        toPos: toPos,
-        updatePos: updatePos
-    };
-})();
-
-    _extend(T5, {
-        ticks: ticks,
-        userMessage: userMessage,
-
-        Registry: Registry,
-        DOM: DOM,
-        Rect: Rect,
-        XY: XYFns,
-        XYRect: XYRect,
-        Vector: Vector,
-        Hits: Hits,
-
-        Service: Service,
-
-        tweenValue: _tweenValue,
-        easing: _easing,
-
-        Tile: Tile,
-        getImage: getImage,
-
-        GeoXY: GeoXY,
-        Pos: Pos
-    });
-
-var LAT_VARIABILITIES = [
-    1.406245461070741,
-    1.321415085624082,
-    1.077179995861952,
-    0.703119412486786,
-    0.488332580888611
-];
-
-var DEGREES_TO_RADIANS = Math.PI / 180,
-    RADIANS_TO_DEGREES = 180 / Math.PI,
-    MAX_LAT = HALF_PI, //  85.0511 * DEGREES_TO_RADIANS, // TODO: validate this instead of using HALF_PI
-    MIN_LAT = -MAX_LAT,
-    MAX_LON = TWO_PI,
-    MIN_LON = -MAX_LON,
-    M_PER_KM = 1000,
-    KM_PER_RAD = 6371,
-    ECC = 0.08181919084262157,
-    PHI_EPSILON = 1E-7,
-    PHI_MAXITER = 12,
-
-    ROADTYPE_REGEX = null,
-
-    ROADTYPE_REPLACEMENTS = {
-        RD: "ROAD",
-        ST: "STREET",
-        CR: "CRESCENT",
-        CRES: "CRESCENT",
-        CT: "COURT",
-        LN: "LANE",
-        HWY: "HIGHWAY",
-        MWY: "MOTORWAY"
-    },
-
-    DEFAULT_GENERALIZATION_DISTANCE = 250;
-/* exports */
-
-/**
-### distanceToString(distance)
-This function simply formats a distance value (in meters) into a human readable string.
-
-#### TODO
-- Add internationalization and other formatting support to this function
-*/
-function distanceToString(distance) {
-    if (distance > 1000) {
-        return (~~(distance / 10) / 100) + " km";
-    } // if
-
-    return distance ? distance + " m" : '';
-} // distanceToString
-
-/**
-### dist2rad(distance)
-To be completed
-*/
-function dist2rad(distance) {
-    return distance / KM_PER_RAD;
-} // dist2rad
-
-/**
-### lat2pix(lat)
-To be completed
-*/
-function lat2pix(lat) {
-    var radLat = parseFloat(lat) * DEGREES_TO_RADIANS,
-        sinPhi = sin(radLat),
-        eSinPhi = ECC * sinPhi,
-        retVal = log(((1.0 + sinPhi) / (1.0 - sinPhi)) * pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
-
-    return retVal;
-} // lat2Pix
-
-/**
-### lon2pix(lon)
-To be completed
-*/
-function lon2pix(lon) {
-    return parseFloat(lon) * DEGREES_TO_RADIANS;
-} // lon2pix
-
-/**
-### pix2lat(mercY)
-To be completed
-*/
-function pix2lat(mercY) {
-    var t = pow(Math.E, -mercY),
-        prevPhi = mercatorUnproject(t),
-        newPhi = findRadPhi(prevPhi, t),
-        iterCount = 0;
-
-    while (iterCount < PHI_MAXITER && abs(prevPhi - newPhi) > PHI_EPSILON) {
-        prevPhi = newPhi;
-        newPhi = findRadPhi(prevPhi, t);
-        iterCount++;
-    } // while
-
-    return newPhi * RADIANS_TO_DEGREES;
-} // pix2lat
-
-/**
-### pix2lon(mercX)
-To be completed
-*/
-function pix2lon(mercX) {
-    return (mercX % 360) * RADIANS_TO_DEGREES;
-} // pix2lon
-
-/**
-### radsPerPixel(zoomLevel)
-*/
-function radsPerPixel(zoomLevel) {
-    return TWO_PI / (256 << zoomLevel);
-} // radsPerPixel
-
-
-/* internal functions */
-
-function findRadPhi(phi, t) {
-    var eSinPhi = ECC * sin(phi);
-
-    return HALF_PI - (2 * atan (t * pow((1 - eSinPhi) / (1 + eSinPhi), ECC / 2)));
-} // findRadPhi
-
-function mercatorUnproject(t) {
-    return HALF_PI - 2 * atan(t);
-} // mercatorUnproject
-
-/*
-This function is used to determine the match weight between a freeform geocoding
-request and it's structured response.
-*/
-function plainTextAddressMatch(request, response, compareFns, fieldWeights) {
-    var matchWeight = 0;
-
-    request = request.toUpperCase();
-
-
-    for (var fieldId in fieldWeights) {
-        var fieldVal = response[fieldId];
-
-        if (fieldVal) {
-            var compareFn = compareFns[fieldId],
-                matchStrength = compareFn ? compareFn(request, fieldVal) : (_wordExists(request, fieldVal) ? 1 : 0);
-
-            matchWeight += (matchStrength * fieldWeights[fieldId]);
-        } // if
-    } // for
-
-    return matchWeight;
-} // plainTextAddressMatch
-
-function toRad(value) {
-    return value * DEGREES_TO_RADIANS;
-} // toRad
-
-var Position = (function() {
+var PosFns = (function() {
     var DEFAULT_VECTORIZE_CHUNK_SIZE = 100,
         VECTORIZE_PER_CYCLE = 500;
 
     /* exports */
-
-    /**
-    ### calcDistance(pos1, pos2)
-    Calculate the distance between two position objects, pos1 and pos2.  The
-    distance returned is measured in kilometers.
-    */
-    function calcDistance(pos1, pos2) {
-        if (empty(pos1) || empty(pos2)) {
-            return 0;
-        } // if
-
-        var halfdelta_lat = toRad(pos2.lat - pos1.lat) >> 1;
-        var halfdelta_lon = toRad(pos2.lon - pos1.lon) >> 1;
-
-        var a = sin(halfdelta_lat) * sin(halfdelta_lat) +
-                (cos(toRad(pos1.lat)) * cos(toRad(pos2.lat))) *
-                (sin(halfdelta_lon) * sin(halfdelta_lon)),
-            c = 2 * atan2(sqrt(a), sqrt(1 - a));
-
-        return KM_PER_RAD * c;
-    } // calcDistance
-
-    /**
-    ### copy(src)
-    Create a copy of the specified position object.
-    */
-    function copy(src) {
-        return src ? init(src.lat, src.lon) : null;
-    } // copy
-
-    /**
-    ### empty(pos)
-    Returns true if the position object is empty, false if not.
-    */
-    function empty(pos) {
-        return (! pos) || ((pos.lat === 0) && (pos.lon === 0));
-    } // empty
-
-    /**
-    ### equal(pos1, pos2)
-    Compares to positions objects and returns true if they
-    have the same latitude and longitude values
-    */
-    function equal(pos1, pos2) {
-        return pos1 && pos2 && (pos1.lat == pos2.lat) && (pos1.lon == pos2.lon);
-    } // equal
-
-    /**
-    ### fromMercatorPixels(x, y)
-    This function is used to take x and y mercator pixels values,
-    and using the value passed in the radsPerPixel value convert
-    that to a Geo.Position object.
-    */
-    function fromMercatorPixels(mercX, mercY) {
-        return init(pix2lat(mercY), pix2lon(mercX));
-    } // fromMercatorPixel
 
     /**
     ### generalize(sourceData, requiredPositions, minDist)
@@ -5500,8 +4956,8 @@ var Position = (function() {
                 positions.unshift(sourceData[ii]);
             }
             else {
-                var include = (! lastPosition) || Position.inArray(sourceData[ii], requiredPositions),
-                    posDiff = include ? minDist : Position.calcDistance(lastPosition, sourceData[ii]);
+                var include = (! lastPosition) || sourceData[ii].inArray(requiredPositions),
+                    posDiff = include ? minDist : lastPosition.distanceTo(sourceData[ii]);
 
                 if (sourceData[ii] && (posDiff >= minDist)) {
                     positions.unshift(sourceData[ii]);
@@ -5514,58 +4970,6 @@ var Position = (function() {
         _log("generalized " + sourceLen + " positions into " + positions.length + " positions");
         return positions;
     } // generalize
-
-    /**
-    ### inArray(pos, testArray)
-    Checks to see whether the specified position is contained within
-    the array of position objects passed in the testArray.
-    */
-    function inArray(pos, testArray) {
-        var arrayLen = testArray.length,
-            testFn = Position.equal;
-
-        for (var ii = arrayLen; ii--; ) {
-            if (testFn(pos, testArray[ii])) {
-                return true;
-            } // if
-        } // for
-
-        return false;
-    } // inArray
-
-    /**
-    ### inBounds(pos, bounds)
-    Returns true if the specified Geo.Position object is within the
-    boundingbox specified by the bounds argument.
-    */
-    function inBounds(pos, bounds) {
-        var fnresult = ! (Position.empty(pos) || Position.empty(bounds));
-
-        fnresult = fnresult && (pos.lat >= bounds.min.lat) && (pos.lat <= bounds.max.lat);
-
-        fnresult = fnresult && (pos.lon >= bounds.min.lon) && (pos.lon <= bounds.max.lon);
-
-        return fnresult;
-    } // inBounds
-
-    /**
-    ### init(initLat, initLon)
-    */
-    function init(initLat, initLon) {
-        return new Pos(initLat, initLon);
-    } // init
-
-    /**
-    ### parse(object)
-    This function is used to take a latitude and longitude String
-    pair (either space or comma delimited) and return a new position
-    value.  The function is also tolerant of being passed an existing
-    position as the object argument, and in these cases
-    returns a copy of the position.
-    */
-    function parse(pos) {
-        return new Pos(pos);
-    } // parse
 
     /**
     ### parseArray(sourceData)
@@ -5583,27 +4987,9 @@ var Position = (function() {
     } // parseArray
 
     /**
-    ### toMercatorPixels(pos, radsPerPixel)
-    Basically, the reverse of the fromMercatorPixels function -
-    pass it a Geo.Position object and get a Vector object back
-    with x and y mercator pixel values back.
-    */
-    function toMercatorPixels(pos) {
-        return new XY(lon2pix(pos.lon), lat2pix(pos.lat));
-    } // toMercatorPixels
-
-    /**
-    ### toString(pos)
-    Return a string representation of the Geo.Position object
-    */
-    function toString(pos) {
-        return pos ? pos.toString() : "";
-    } // toString
-
-    /**
     ### vectorize(positions, options)
     The vectorize function is used to take an array of positions specified in the
-    `positions` argument and convert these into GeoXY composites. By default
+    `positions` argument and convert these into xy values. By default
     the vectorize function will process these asyncronously and will return a
     COG Worker that will be taking care of chunking up and processing the request
     in an efficient way.  It is, however, possible to specify that the conversion should
@@ -5626,7 +5012,7 @@ var Position = (function() {
                 ii = posIndex;
 
             for (; ii--;) {
-                vectors[ii] = T5.GeoXY.init(positions[ii]);
+                vectors[ii] = new XY(positions[ii]);
 
                 chunkCounter += 1;
 
@@ -5648,7 +5034,7 @@ var Position = (function() {
 
         if (! options.async) {
             for (var ii = posIndex; ii--; ) {
-                vectors[ii] = T5.GeoXY.init(positions[ii]);
+                vectors[ii] = new XY(positions[ii]);
             } // for
 
             return vectors;
@@ -5659,205 +5045,136 @@ var Position = (function() {
     } // vectorize
 
     return {
-        calcDistance: calcDistance,
-        copy: copy,
-        empty: empty,
-        equal: equal,
-        fromMercatorPixels: fromMercatorPixels,
         generalize: generalize,
-        inArray: inArray,
-        inBounds: inBounds,
-        init: init,
-        parse: parse,
         parseArray: parseArray,
-        toMercatorPixels: toMercatorPixels,
-        toString: toString,
         vectorize: vectorize
     };
 })();
-var BoundingBox = (function() {
+/**
+# T5.BBox
+*/
+function BBox(p1, p2) {
+    if (_is(p1, typeArray)) {
+        var padding = p2,
+            minPos = this.min = new Pos(MAX_LAT, MAX_LON),
+            maxPos = this.max = new Pos(MIN_LAT, MIN_LON);
 
-    /* exports */
+        for (var ii = p1.length; ii--; ) {
+            var testPos = p1[ii];
 
-    /**
-    ### calcSize(min, max, normalize)
-    The calcSize function is used to determine the size of a Geo.BoundingBox given
-    a minimum position (relates to the bottom-left / south-western corner) and
-    maximum position (top-right / north-eastern corner) of the bounding box.
-    The 3rd parameter specifies whether the size calculations should normalize the
-    calculation in cases where the bounding box crosses the 360 degree boundary.
-    */
-    function calcSize(min, max, normalize) {
-        var size = new XY(0, max.lat - min.lat);
-
-        if ((normalize || _is(normalize, typeUndefined)) && (min.lon > max.lon)) {
-            size.x = 360 - min.lon + max.lon;
-        }
-        else {
-            size.x = max.lon - min.lon;
-        } // if..else
-
-        return size;
-    } // calcSize
-
-    /**
-    ### createBoundsFromCenter(centerPos, distance)
-    This function is very useful for creating a Geo.BoundingBox given a
-    center position and a radial distance (specified in KM) from the center
-    position.  Basically, imagine a circle is drawn around the center
-    position with a radius of distance from the center position, and then
-    a box is drawn to surround that circle.  Adapted from the [functions written
-    in Java by Jan Philip Matuschek](http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates)
-    */
-    function createBoundsFromCenter(centerPos, distance) {
-        var radDist = distance / KM_PER_RAD,
-            radLat = centerPos.lat * DEGREES_TO_RADIANS,
-            radLon = centerPos.lon * DEGREES_TO_RADIANS,
-            minLat = radLat - radDist,
-            maxLat = radLat + radDist,
-            minLon, maxLon;
-
-
-        if ((minLat > MIN_LAT) && (maxLat < MAX_LAT)) {
-            var deltaLon = asin(sin(radDist) / cos(radLat));
-
-            minLon = (radLon - deltaLon) % TWO_PI;
-            maxLon = (radLon + deltaLon) % TWO_PI;
-        }
-        else {
-            minLat = max(minLat, MIN_LAT);
-            maxLat = min(maxLat, MAX_LAT);
-            minLon = MIN_LON;
-            maxLon = MAX_LON;
-        } // if..else
-
-        return BoundingBox.init(
-            new Pos(minLat * RADIANS_TO_DEGREES, minLon * RADIANS_TO_DEGREES),
-            new Pos(maxLat * RADIANS_TO_DEGREES, maxLon * RADIANS_TO_DEGREES));
-    } // createBoundsFromCenter
-
-    /**
-    ### expand(bounds, amount)
-    A simple function that is used to expand a Geo.BoundingBox
-    by the specified amount (in degrees).
-    */
-    function expand(bounds, amount) {
-        return BoundingBox.init(
-            new Pos(bounds.min.lat - amount, bounds.min.lon - amount % 360),
-            new Pos(bounds.max.lat + amount, bounds.max.lon + amount % 360));
-    } // expand
-
-    /**
-    ### forPositions(positions, padding)
-
-    This function is very useful when you need to create a
-    Geo.BoundingBox to contain an array of T5.Pos.
-    The optional second parameter allows you to specify an amount of
-    padding (in degrees) to apply to the bounding box that is created.
-    */
-    function forPositions(positions, padding) {
-        var bounds = null,
-            startTicks = T5.ticks();
-
-        if (! padding) {
-            padding = "auto";
-        } // if
-
-        for (var ii = positions.length; ii--; ) {
-            if (! bounds) {
-                bounds = init(positions[ii], positions[ii]);
-            }
-            else {
-                var minDiff = calcSize(bounds.min, positions[ii], false),
-                    maxDiff = calcSize(positions[ii], bounds.max, false);
-
-                if (minDiff.x < 0) { bounds.min.lon = positions[ii].lon; }
-                if (minDiff.y < 0) { bounds.min.lat = positions[ii].lat; }
-                if (maxDiff.x < 0) { bounds.max.lon = positions[ii].lon; }
-                if (maxDiff.y < 0) { bounds.max.lat = positions[ii].lat; }
-            } // if..else
-        } // for
-
-        if (padding) {
-            if (padding == "auto") {
-                var size = calcSize(bounds.min, bounds.max);
-
-                padding = max(size.x, size.y) * 0.3;
+            if (testPos.lat < minPos.lat) {
+                minPos.lat = testPos.lat;
             } // if
 
-            bounds = expand(bounds, padding);
+            if (testPos.lat > maxPos.lat) {
+                maxPos.lat = testPos.lat;
+            } // if
+
+            if (testPos.lon < minPos.lon) {
+                minPos.lon = testPos.lon;
+            } // if
+
+            if (testPos.lon > maxPos.lon) {
+                maxPos.lon = testPos.lon;
+            } // if
+        } // for
+
+        if (_is(padding, typeUndefined)) {
+            var size = calcSize(bounds.min, bounds.max);
+
+            padding = max(size.x, size.y) * 0.3;
         } // if
 
-        return bounds;
-    } // forPositions
+        this.expand(padding);
+    }
+    else {
+        this.min = p1;
+        this.max = p2;
+    } // if..else
+} // BoundingBox
+
+BBox.prototype = {
+    constructor: BBox,
 
     /**
-    ### getCenter(bounds)
-    Returns a Geo.Position for the center position of the bounding box.
+    ### bestZoomLevel(viewport)
     */
-    function getCenter(bounds) {
-        var size = calcSize(bounds.min, bounds.max);
-
-        return new Pos(bounds.min.lat + (size.y >> 1), bounds.min.lon + (size.x >> 1));
-    } // getCenter
-
-    /**
-    ### getZoomLevel(bounds, viewport)
-
-    This function is used to return the zoom level (seems consistent across
-    mapping providers at this stage) that is required to properly display
-    the specified boundingbox given the screen dimensions (specified as
-    a Dimensions object) of the map display. Adapted from
-    [this code](http://groups.google.com/group/google-maps-js-api-v3/browse_thread/thread/43958790eafe037f/66e889029c555bee)
-    */
-    function getZoomLevel(bounds, viewport) {
-        var boundsCenter = getCenter(bounds),
+    bestZoomLevel: function(viewport) {
+        var boundsCenter = this.center(),
             maxZoom = 1000,
             variabilityIndex = min(round(abs(boundsCenter.lat) * 0.05), LAT_VARIABILITIES.length),
             variability = LAT_VARIABILITIES[variabilityIndex],
-            delta = calcSize(bounds.min, bounds.max),
+            delta = this.size(),
             bestZoomH = ceil(log(LAT_VARIABILITIES[3] * viewport.h / delta.y) / log(2)),
             bestZoomW = ceil(log(variability * viewport.w / delta.x) / log(2));
 
 
         return min(isNaN(bestZoomH) ? maxZoom : bestZoomH, isNaN(bestZoomW) ? maxZoom : bestZoomW);
-    } // getZoomLevel
-
-    function init(initMin, initMax) {
-        return {
-            min: new Pos(initMin),
-            max: new Pos(initMax)
-        };
-    } // init
+    },
 
     /**
-    ### isEmpty(bounds)
-    Returns true if the specified boundingbox is empty.
+    ### center()
     */
-    function isEmpty(bounds) {
-        return (! bounds) || Position.empty(bounds.min) || Position.empty(bounds.max);
-    } // isEmpty
+    center: function() {
+        var size = this.size();
+
+        return new Pos(this.min.lat + (size.y >> 1), this.min.lon + (size.x >> 1));
+    },
 
     /**
-    ### toString(bounds)
-    Returns a string representation of a Geo.BoundingBox
+    ### expand(amount)
     */
-    function toString(bounds) {
-        return "min: " + Position.toString(bounds.min) + ", max: " + Position.toString(bounds.max);
-    } // toString
+    expand: function(amount) {
+        this.min.lat -= amount;
+        this.max.lat += amount;
+        this.min.lon -= amount % 360;
+        this.max.lon += amount % 360;
+    },
 
-    return {
-        calcSize: calcSize,
-        createBoundsFromCenter: createBoundsFromCenter,
-        expand: expand,
-        forPositions: forPositions,
-        getCenter: getCenter,
-        getZoomLevel: getZoomLevel,
-        init: init,
-        isEmpty: isEmpty,
-        toString: toString
-    };
-})();
+    /**
+    ### size(normalize)
+    */
+    size: function(normalize) {
+        var size = new XY(0, this.max.lat - this.min.lat);
+
+        if ((normalize || isType(normalize, typeUndefined)) && (this.min.lon > this.max.lon)) {
+            size.x = 360 - this.min.lon + this.max.lon;
+        }
+        else {
+            size.x = this.max.lon - this.min.lon;
+        } // if..else
+
+        return size;
+    },
+
+    /**
+    ### toString()
+    */
+    toString: function() {
+        return "min: " + this.min + ", max: " + this.max;
+    }
+};
+
+    _extend(T5, {
+        userMessage: userMessage,
+
+        Registry: Registry,
+        DOM: DOM,
+        Rect: Rect,
+        XY: XY,
+        Hits: Hits,
+
+        tweenValue: _tweenValue,
+        easing: _easing,
+
+        Tile: Tile,
+        getImage: getImage,
+
+        Pos: Pos,
+        PosFns: PosFns,
+        BBox: BBox
+    });
+
 var Address = function(params) {
     params = _extend({
         streetDetails: "",
@@ -5952,12 +5269,11 @@ var addrTools = (function() {
 
     return subModule;
 })(); // addrTools
-
 /**
 # GENERATOR: osm
 */
 reg('generator', 'osm', function(params) {
-    params = T5.ex({
+    params = _extend({
         flipY: false,
         tileSize: 256,
         tilePath: '{0}/{1}/{2}.png',
@@ -5969,7 +5285,7 @@ reg('generator', 'osm', function(params) {
         serverDetails = null,
         subDomains = [],
         subdomainFormatter,
-        pathFormatter = T5.formatter(params.tilePath);
+        pathFormatter = _formatter(params.tilePath);
 
     /* internal functions */
 
@@ -5986,7 +5302,7 @@ reg('generator', 'osm', function(params) {
         tileX = (lon+180) / 360 * numTiles;
         tileY = ((1-Math.log(Math.tan(lat*DEGREES_TO_RADIANS) + 1/Math.cos(lat*DEGREES_TO_RADIANS))/Math.PI)/2 * numTiles) % numTiles;
 
-        return T5.XY.init(tileX | 0, tileY | 0);
+        return new XY(tileX | 0, tileY | 0);
     } // calculateTileOffset
 
     function calculatePosition(x, y, numTiles) {
@@ -5994,13 +5310,14 @@ reg('generator', 'osm', function(params) {
             lon = x / numTiles * 360 - 180,
             lat = RADIANS_TO_DEGREES * Math.atan(0.5*(Math.exp(n)-Math.exp(-n)));
 
-        return new T5.Pos(lat, lon);
+        return new Pos(lat, lon);
     } // calculatePosition
 
     function getTileXY(x, y, numTiles, radsPerPixel) {
-        var tilePos = calculatePosition(x, y, numTiles);
+        var xy = new XY(calculatePosition(x, y, numTiles));
 
-        return T5.GeoXY.init(tilePos, radsPerPixel);
+        xy.sync(radsPerPixel);
+        return xy;
     } // getTileXY
 
     /* exports */
@@ -6023,7 +5340,7 @@ reg('generator', 'osm', function(params) {
     } // buildTileUrl
 
     function run(view, viewport, store, callback) {
-        var zoomLevel = view.zoomlevel ? view.zoomlevel() : 0;
+        var zoomLevel = view.zoom ? view.zoom() : 0;
 
         if (zoomLevel) {
             var numTiles = 2 << (zoomLevel - 1),
@@ -6033,7 +5350,7 @@ reg('generator', 'osm', function(params) {
                 minY = viewport.y,
                 xTiles = (viewport.w  / tileSize | 0) + 1,
                 yTiles = (viewport.h / tileSize | 0) + 1,
-                position = T5.GeoXY.toPos(T5.XY.init(minX, minY), radsPerPixel),
+                position = new XY(minX, minY).toPos(radsPerPixel),
                 tileOffset = calculateTileOffset(position.lat, position.lon, numTiles),
                 tilePixels = getTileXY(tileOffset.x, tileOffset.y, numTiles, radsPerPixel),
                 flipY = params.flipY,
@@ -6054,7 +5371,7 @@ reg('generator', 'osm', function(params) {
             serverDetails = _self.getServerDetails ? _self.getServerDetails() : null;
             subDomains = serverDetails && serverDetails.subDomains ?
                 serverDetails.subDomains : [];
-            subdomainFormatter = T5.formatter(serverDetails ? serverDetails.baseUrl : '');
+            subdomainFormatter = _formatter(serverDetails ? serverDetails.baseUrl : '');
 
             for (var xx = 0; xx <= xTiles; xx++) {
                 for (var yy = 0; yy <= yTiles; yy++) {
@@ -6071,7 +5388,7 @@ reg('generator', 'osm', function(params) {
                             numTiles,
                             flipY);
 
-                        tile = new T5.Tile(
+                        tile = new Tile(
                             tilePixels.x + xx * tileSize,
                             tilePixels.y + yy * tileSize,
                             tileUrl,
@@ -6098,297 +5415,16 @@ reg('generator', 'osm', function(params) {
     };
 
     if (params.osmDataAck) {
-        T5.userMessage('ack', 'osm', 'Map data (c) <a href="http://openstreetmap.org/" target="_blank">OpenStreetMap</a> (and) contributors, CC-BY-SA');
+        userMessage('ack', 'osm', 'Map data (c) <a href="http://openstreetmap.org/" target="_blank">OpenStreetMap</a> (and) contributors, CC-BY-SA');
     } // if
 
 
     return _self;
 });
-var FEATURE_TYPE_COLLECTION = 'featurecollection',
-    FEATURE_TYPE_FEATURE = 'feature',
-    VECTORIZE_OPTIONS = {
-        async: false
-    },
-
-    DEFAULT_FEATUREDEF = {
-        processor: null,
-        group: 'shapes',
-        layer: 'draw'
-    };
-
-var featureDefinitions = {
-
-    point: _extend({}, DEFAULT_FEATUREDEF, {
-        processor: processPoint,
-        group: 'markers',
-        layer: 'draw'
-    }),
-
-    linestring: _extend({}, DEFAULT_FEATUREDEF, {
-        processor: processLineString
-    }),
-    multilinestring: _extend({}, DEFAULT_FEATUREDEF, {
-        processor: processMultiLineString
-    }),
-
-    polygon: _extend({}, DEFAULT_FEATUREDEF, {
-        processor: processPolygon
-    }),
-    multipolygon: _extend({}, DEFAULT_FEATUREDEF, {
-        processor: processMultiPolygon
-    })
-};
-
-/* feature processor utilities */
-
-function createShape(layer, coordinates, options, builder) {
-    var vectors = readVectors(coordinates);
-    layer.add(builder(vectors, options));
-
-    return vectors.length;
-} // createShape
-
-function readVectors(coordinates) {
-    var count = coordinates ? coordinates.length : 0,
-        positions = new Array(count);
-
-    for (var ii = count; ii--; ) {
-        positions[ii] = new Pos(coordinates[ii][1], coordinates[ii][0]);
-    } // for
-
-    return Position.vectorize(positions, VECTORIZE_OPTIONS);
-} // getLineStringVectors
-
-/* feature processor functions */
-
-function processLineString(layer, featureData, options, builders) {
-    var vectors = readVectors(featureData && featureData.coordinates ? featureData.coordinates : []);
-
-    return createShape(layer, vectors, options, builders.line);
-} // processLineString
-
-function processMultiLineString(layer, featureData, options, builders) {
-    var coordinates = featureData && featureData.coordinates ? featureData.coordinates : [],
-        pointsProcessed = 0;
-
-    for (var ii = coordinates.length; ii--; ) {
-        pointsProcessed += createShape(layer, coordinates[ii], options, builders.line);
-    } // for
-
-    return pointsProcessed;
-} // processMultiLineString
-
-function processPoint(layer, featureData, options, builders) {
-    var points = readVectors([featureData.coordinates], VECTORIZE_OPTIONS);
-
-    if (points.length > 0) {
-        var marker = builders.marker(points[0], options);
-
-        if (marker) {
-            layer.add(marker);
-            return points.length;
-        } // if
-    } // if
-} // processPoint
-
-function processPolygon(layer, featureData, options, builders) {
-    var coordinates = featureData && featureData.coordinates ? featureData.coordinates : [];
-    if (coordinates.length > 0) {
-        return createShape(layer, coordinates[0], options, builders.poly);
-    } // if
-
-    return 0;
-} // processPolygon
-
-function processMultiPolygon(layer, featureData, options, builders) {
-    var coordinates = featureData && featureData.coordinates ? featureData.coordinates : [],
-        pointsProcessed = 0;
-
-    for (var ii = 0; ii < coordinates.length; ii++) {
-        pointsProcessed += createShape(layer, coordinates[ii][0], options, builders.poly);
-    } // for
-
-    return pointsProcessed;
-} // processMultiPolygon
-
-/* define the GeoJSON parser */
-
-var GeoJSONParser = function(data, callback, options, builders) {
-    options = _extend({
-        rowPreParse: null,
-        simplify: false,
-        layerPrefix: 'geojson-'
-    }, options);
-
-    builders = _extend({
-        marker: function(xy, builderOpts) {
-            return regCreate(typeDrawable, 'marker', {
-                xy: xy
-            });
-        },
-
-        line: function(vectors, builderOpts) {
-            return regCreate(typeDrawable, 'line', _extend({
-                points: vectors
-            }, options, builderOpts));
-        },
-
-        poly: function(vectors, builderOpts) {
-            return regCreate(typeDrawable, 'poly', _extend({
-                points: vectors
-            }, options, builderOpts));
-        }
-    }, builders);
-
-    var VECTORS_PER_CYCLE = 500,
-        rowPreParse = options.rowPreParse,
-        layerPrefix = options.layerPrefix,
-        featureIndex = 0,
-        totalFeatures = 0,
-        childParser = null,
-        childCount = 0,
-        layers = {};
-
-    if (! data) {
-        return;
-    } // if
-
-    if (! _is(data, typeArray)) {
-        data = [data];
-    } // if
-
-    /* parser functions */
-
-    function addFeature(definition, featureInfo) {
-        var processor = definition.processor,
-            layerId = layerPrefix + definition.group,
-            featureOpts = _extend({}, definition, options, {
-                properties: featureInfo.properties
-            });
-
-        if (processor) {
-            return processor(
-                getLayer(layerId, definition.layerClass),
-                featureInfo.data,
-                featureOpts,
-                builders);
-        } // if
-
-        return 0;
-    } // addFeature
-
-    function extractFeatureInfo(featureData, properties) {
-        var featureType = featureData && featureData.type ? featureData.type.toLowerCase() : null;
-
-        if (featureType && featureType === FEATURE_TYPE_FEATURE) {
-            return extractFeatureInfo(featureData.geometry, featureData.properties);
-        }
-        else {
-            return {
-                type: featureType,
-                isCollection: (featureType ? featureType === FEATURE_TYPE_COLLECTION : false),
-                definition: featureDefinitions[featureType],
-                data: featureData,
-                properties: properties ? properties : featureData.properties
-            };
-        } // if..else
-    } // extractFeatureInfo
-
-    function featureToPoly(feature, callback) {
-    } // featureToPrimitives
-
-    function getLayer(layerId, layerClass) {
-        var layer = layers[layerId];
-
-        if (! layer) {
-            layer = new layerClass({
-                id: layerId
-            });
-
-            layers[layerId] = layer;
-        } // if
-
-        return layer;
-    } // getLayer
-
-    function parseComplete(evt) {
-        if (callback) {
-            callback(layers);
-        } // if
-    } // parseComplete
-
-    function processData(tickCount) {
-        var cycleCount = 0,
-            childOpts = _extend({}, options),
-            ii = featureIndex;
-
-        tickCount = tickCount ? tickCount : new Date().getTime();
-
-        if (childParser) {
-            return;
-        }
-
-        for (; ii < totalFeatures; ii++) {
-            var featureInfo = extractFeatureInfo(rowPreParse ? rowPreParse(data[ii]) : data[ii]),
-                processedCount = null;
-
-            if (featureInfo.isCollection) {
-                childOpts.layerPrefix = layerPrefix + (childCount++) + '-';
-
-                childParser = new GeoJSONParser(
-                    featureInfo.data.features,
-                    function(childLayers) {
-                        childParser = null;
-
-                        for (var layerId in childLayers) {
-                            layers[layerId] = childLayers[layerId];
-                        } // for
-
-                        if (featureIndex >= totalFeatures) {
-                            parseComplete();
-                        } // if
-                    }, childOpts);
-
-                processedCount += 1;
-            }
-            else if (featureInfo.definition) {
-                processedCount = addFeature(featureInfo.definition, featureInfo);
-            } // if..else
-
-            cycleCount += processedCount ? processedCount : 1;
-
-            if (cycleCount >= VECTORS_PER_CYCLE) {
-                break;
-            } // if
-        } // for
-
-        featureIndex = ii + 1;
-
-        if (childParser || (featureIndex < totalFeatures)) {
-            animFrame(processData);
-        }
-        else {
-            parseComplete();
-        }
-    } // processData
-
-    /* run the parser */
-
-    totalFeatures = data.length;
-    animFrame(processData);
-};
-
-var GeoJSON = T5.GeoJSON = {
-    parse: function(data, callback, options) {
-        return new GeoJSONParser(data, callback, options);
-    }
-};
 
     T5.Geo = {
         Address: Address,
-        A: addrTools,
-
-        GeoJSON: GeoJSON
+        A: addrTools
     };
 
 /**

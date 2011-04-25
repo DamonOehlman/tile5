@@ -10,7 +10,7 @@ TO BE COMPLETED
 ## Customizing the Zoombar
 TO BE COMPLETED
 */
-T5.registerRenderer('zoombar', function(view, panFrame, container, params, baseRenderer) {
+T5.Registry.register('control', 'zoombar', function(view, panFrame, container, params, baseRenderer) {
     params = _extend({
         width: 24,
         height: 200,
@@ -46,11 +46,11 @@ T5.registerRenderer('zoombar', function(view, panFrame, container, params, baseR
         zoomTimeout = 0,
         tapHandlers = {
             button0: function() {
-                view.zoomlevel(view.zoomlevel() + 1);
+                view.zoom(view.zoom() + 1);
             },
             
             button1: function() {
-                view.zoomlevel(view.zoomlevel() - 1);
+                view.zoom(view.zoom() - 1);
             }
         };
         
@@ -220,7 +220,7 @@ T5.registerRenderer('zoombar', function(view, panFrame, container, params, baseR
             clearTimeout(zoomTimeout);
             zoomTimeout = setTimeout(function() {
                 // set the zoom level for the map
-                view.zoomlevel(thumbVal);
+                view.zoom(thumbVal);
             }, 500);
         } // if
     } // if
@@ -237,10 +237,10 @@ T5.registerRenderer('zoombar', function(view, panFrame, container, params, baseR
     _this.bind('detach', handleDetach);
     
     // bind to the view zoom level change event
-    view.bind('zoomLevelChange', handleZoomLevelChange);
+    view.bind('zoom', handleZoomLevelChange);
     
     // set the zoom level to the current zoom level of the view
-    setThumbVal(view.zoomlevel());
+    setThumbVal(view.zoom());
     
     return _this;
 });

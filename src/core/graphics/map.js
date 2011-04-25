@@ -20,11 +20,11 @@ more information on view level features check out the View documentation.
 
 ## Events
 
-### zoomLevelChange
+### zoom
 This event is triggered when the zoom level has been updated
 
 <pre>
-map.bind('zoomLevelChange', function(evt, newZoomLevel) {
+map.bind('zoom', function(evt, newZoomLevel) {
 });
 </pre>
 
@@ -62,20 +62,16 @@ reg('view', 'map', function(params) {
     /* event handlers */
     
     function handleTap(evt, absXY, relXY, offsetXY) {
-        var tapPos = GeoXY.toPos(offsetXY, rpp),
-            minPos = GeoXY.toPos(
-                XYFns.offset(offsetXY, -tapExtent, tapExtent),
-                rpp),
-            maxPos = GeoXY.toPos(
-                XYFns.offset(offsetXY, tapExtent, -tapExtent),
-                rpp);
+        var tapPos = offsetXY.toPos(rpp),
+            minPos = offsetXY.offset(-tapExtent, tapExtent).toPos(rpp),
+            maxPos = offsetXY.offset(tapExtent, -tapExtent).toPos(rpp);
                 
         _self.trigger(
             'geotap', 
             absXY, 
             relXY, 
             tapPos,
-            BoundingBox.init(minPos, maxPos)
+            new BBox(minPos, maxPos)
         );
     } // handleTap
     
@@ -91,16 +87,11 @@ reg('view', 'map', function(params) {
         } // if
     } // handleWork
     
-    function handleProviderUpdate(name, value) {
-        _self.cleanup();
-        initialized = false;
-    } // handleProviderUpdate
-    
     function handleZoomLevelChange(evt, zoomLevel) {
         var gridSize;
         
         // update the rads per pixel to reflect the zoom level change
-        rpp = radsPerPixel(zoomLevel);
+        rpp = _self.rpp = radsPerPixel(zoomLevel);
         
         // calculate the grid size
         gridSize = TWO_PI / rpp | 0;
@@ -131,21 +122,20 @@ reg('view', 'map', function(params) {
         var viewport = _self.getViewport();
         
         return viewport ? 
-            BoundingBox.init(
-                GeoXY.toPos(new XY(viewport.x, viewport.y2), rpp),
-                GeoXY.toPos(new XY(viewport.x2, viewport.y), rpp)) : 
+            new BBox(
+                new XY(viewport.x, viewport.y2).toPos(rpp),
+                new XY(viewport.x2, viewport.y).toPos(rpp)) : 
             null;
     } // getBoundingBox
 
     /**
     ### getCenterPosition()`
-    Return a T5.GeoXY composite for the center position of the map
+    Return a T5.XY composite for the center position of the map
     */
     function getCenterPosition() {
         var viewport = _self.getViewport();
         if (viewport) {
-            var xy = new XY(viewport.x + (viewport.w >> 1), viewport.y + (viewport.h >> 1));
-            return GeoXY.toPos(xy, rpp);
+            return new XY(viewport.x + (viewport.w >> 1), viewport.y + (viewport.h >> 1)).toPos(rpp);
         } // if
         
         return null;
@@ -157,17 +147,11 @@ reg('view', 'map', function(params) {
     then goes to the center position and zoom level best suited.
     */
     function gotoBounds(bounds, callback) {
-        // calculate the zoom level required for the 
-        // specified bounds
-        var zoomLevel = BoundingBox.getZoomLevel(
-                            bounds, 
-                            _self.getViewport());
-        
         // goto the center position of the bounding box 
         // with the calculated zoom level
         gotoPosition(
-            BoundingBox.getCenter(bounds), 
-            zoomLevel, 
+            bounds.center(),
+            bounds.bestZoomLevel(_self.getViewport()), 
             callback);
     } // gotoBounds
     
@@ -180,7 +164,7 @@ reg('view', 'map', function(params) {
     */
     function gotoPosition(position, newZoomLevel, callback) {
         // update the zoom level
-        _self.zoomlevel(newZoomLevel);
+        _self.zoom(newZoomLevel);
         
         // pan to Position
         panToPosition(position, callback);
@@ -188,37 +172,21 @@ reg('view', 'map', function(params) {
     
     /**
     ### panToPosition(position)
-    This method is used to tell the map to pan (not zoom) to the specified 
-    T5.GeoXY. 
-    
-    __NOTE:__ callback, easingFn & easingDuration parameters removed
+    This method is used to tell the map to pan (not zoom) to the specified position
     */
     function panToPosition(position, callback, easingFn, easingDuration) {
         // determine the tile offset for the 
         // requested position
-        var centerXY = GeoXY.init(position, radsPerPixel(_self.zoomlevel())),
-            viewport = _self.getViewport(),
-            offsetX = centerXY.x - (viewport.w >> 1),
-            offsetY = centerXY.y - (viewport.h >> 1);
-            
-        // _log('panning to center xy: ', centerXY);
-        _self.updateOffset(offsetX, offsetY, easingFn, easingDuration, function() {
+        var centerXY = new XY(position);
+        centerXY.sync(radsPerPixel(_self.zoom()));
+        
+        _self.center(centerXY.x, centerXY.y, easingFn, easingDuration, function() {
             // if a callback is defined, then pass that on
             if (callback) {
                 callback(_self); 
             } // if
         });
     } // panToPosition
-    
-    /**
-    ### syncXY(points)
-    This function iterates through the specified vectors and if they are
-    of type GeoXY composite they are provided the rads per pixel of the
-    grid so they can perform their calculations
-    */
-    function syncXY(points, reverse) {
-        return (reverse ? GeoXY.syncPos : GeoXY.sync)(points, rpp);
-    } // syncXY
     
     /* public object definition */
     
@@ -236,8 +204,7 @@ reg('view', 'map', function(params) {
 
         gotoBounds: gotoBounds,
         gotoPosition: gotoPosition,
-        panToPosition: panToPosition,
-        syncXY: syncXY
+        panToPosition: panToPosition
     });
     
     // bind some event handlers
@@ -247,7 +214,7 @@ reg('view', 'map', function(params) {
     _self.bind('refresh', handleRefresh);
     
     // listen for zoom level changes
-    _self.bind('zoomLevelChange', handleZoomLevelChange);
+    _self.bind('zoom', handleZoomLevelChange);
 
     return _self;
 });

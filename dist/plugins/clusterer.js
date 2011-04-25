@@ -45,37 +45,30 @@ T5.Clusterer = function(view, params) {
         } // avg
 
         var xValues = [],
-            yValues = [],
-            shouldSync = false,
-            xy;
+            yValues = [];
 
         for (var ii = markers.length; ii--; ) {
             xValues[ii] = markers[ii].xy.x;
             yValues[ii] = markers[ii].xy.y;
-
-            shouldSync = shouldSync || markers[ii].xy.mercXY;
         } // for
 
-        xy = T5.XY.init(avg.apply(null, xValues), avg.apply(null, yValues));
-
-        if (shouldSync && syncer) {
-            syncer.syncXY([xy], true);
-        } // if
-
-        return xy;
+        return new T5.XY(avg.apply(null, xValues), avg.apply(null, yValues));
     } // calcAverageXY
 
     function checkForClusters() {
+        var layers = view.layer();
+
         _log('checking for clusters');
 
-        view.eachLayer(function(layer) {
+        for (var ii = layers.length; ii--; ) {
+            var layer = layers[ii];
             if (! T5.is(layer.itemCount, 'undefined')) {
                 var clusterLayer = checkLayer(layer, true);
                 layer.visible = !clusterLayer;
             } // if
 
             layerCounts[layer.id] = layer.itemCount;
-        });
+        } // for
     } // checkForClusters
 
     function checkClusterLayer(layer, clusterLayer, hash) {
@@ -104,14 +97,18 @@ T5.Clusterer = function(view, params) {
     } // checkClusterLayer
 
     function checkForChanges(checkRequired) {
-        var checkLayers = [];
+        var checkLayers = [],
+            layers = view.layer();
 
-        view.eachLayer(function(layer) {
+        for (var ii = layers.length; ii--; ) {
+            var layer = layers[ii];
+
             checkRequired = checkRequired || (
                 layer.id.indexOf(CLUSTER_LAYER_PREFIX) < 0 &&
                 layer.itemCount && layer.itemCount !== layerCounts[layer.id]
             );
-        });
+        } // for
+
 
         if (checkRequired) {
             checkForClusters();
@@ -276,7 +273,7 @@ T5.Clusterer = function(view, params) {
         view.bind('drawComplete', handleDrawComplete);
         view.bind('layerChange', handleLayerChange);
         view.bind('layerRemove', handleLayerChange);
-        view.bind('zoomLevelChange', handleZoomLevelChange);
+        view.bind('zoom', handleZoomLevelChange);
     } // if
 
     return {

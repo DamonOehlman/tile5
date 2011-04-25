@@ -29,6 +29,54 @@ Pos.prototype = {
     constructor: Pos,
     
     /**
+    ### distanceTo(targetPos)
+    */
+    distanceTo: function(pos) {
+        if ((! targetPos) || this.empty() || targetPos.empty()) {
+            return 0;
+        } // if
+        
+        var halfdelta_lat = toRad(targetPos.lat - this.lat) >> 1;
+        var halfdelta_lon = toRad(targetPos.lon - this.lon) >> 1;
+
+        // TODO: find out what a stands for, I don't like single char variables in code (same goes for c)
+        var a = sin(halfdelta_lat) * sin(halfdelta_lat) + 
+                (cos(toRad(this.lat)) * cos(toRad(targetPos.lat))) * 
+                (sin(halfdelta_lon) * sin(halfdelta_lon)),
+            c = 2 * atan2(sqrt(a), sqrt(1 - a));
+
+        // calculate the distance
+        return KM_PER_RAD * c;
+    },
+    
+    /**
+    ### equalTo(testPos)
+    */
+    equalTo: function(testPos) {
+        return pos && (this.lat === testPos.lat) && (this.lon === testPos.lon);
+    },
+    
+    /**
+    ### empty()
+    */
+    empty: function() {
+        return this.lat === 0 && this.lon === 0;
+    },
+    
+    /**
+    ### inArray(testArray)
+    */
+    inArray: function(testArray) {
+        for (var ii = testArray.length; ii--; ) {
+            if (this.equal(testArray[ii])) {
+                return true;
+            } // if
+        } // for
+        
+        return false;
+    },
+    
+    /**
     ### offset(latOffset, lonOffset)
     Return a new position which is the original `pos` offset by
     the specified `latOffset` and `lonOffset` (which are specified in 
@@ -50,6 +98,17 @@ Pos.prototype = {
         return new Pos(newLat * RADIANS_TO_DEGREES, newLon * RADIANS_TO_DEGREES);
     },
     
+    /**
+    ### toPixels()
+    Return an xy of the mercator pixel value for the position
+    */
+    toPixels: function() {
+        return new XY(lon2pix(this.lon), lat2pix(this.lat));
+    },
+    
+    /**
+    ### toString()
+    */
     toString: function(delimiter) {
         return this.lat + (delimiter || ' ') + this.lon;
     }

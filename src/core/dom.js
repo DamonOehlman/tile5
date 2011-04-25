@@ -6,10 +6,8 @@ var DOM = (function() {
             position: 'absolute',
             overflow: 'hidden'
         },
-        css3dTransformProps = ['WebkitPerspective', 'MozPerspective'],
         testTransformProps = ['-webkit-transform', 'MozTransform'],
-        transformProp,
-        css3dTransformProp;
+        transformProp;
         
     function checkCaps(testProps) {
         for (var ii = 0; ii < testProps.length; ii++) {
@@ -46,12 +44,9 @@ var DOM = (function() {
     } // create
 
     function move(element, x, y, extraTransforms) {
-        if (css3dTransformProp || transformProp) {
-            var translate = css3dTransformProp ? 
-                    'translate3d(' + x +'px, ' + y + 'px, 0px)' : 
-                    'translate(' + x + 'px, ' + y + 'px)';
-            
-            element.style[transformProp] = translate + ' ' + (extraTransforms || []).join(' ');
+        if (transformProp) {
+            element.style[transformProp] = 'translate(' + x + 'px, ' + y + 'px) translateZ(0) ' + 
+                (extraTransforms || []).join(' ');
         }
         else {
             element.style.left = x + 'px';
@@ -66,7 +61,6 @@ var DOM = (function() {
     /* initialization */
     
     transformProp = checkCaps(testTransformProps);
-    css3DTransformProp = checkCaps(css3dTransformProps);
     
     return {
         supportTransforms: transformProp,

@@ -44,16 +44,17 @@
     //= require "core/registry"
     //= require "core/messages"
     //= require "core/functions"
+    //= require "core/constants"
     //= require "core/shorts"
     //= require "core/canvasmaker"
-    //= require "core/service"
-    
+    //= require "core/animator"
+    //= require "core/parser"
     //= require "core/dom"
-    //= require "core/xy"
-    //= require "core/rect"
+
+    //= require "core/types/xy"
+    //= require "core/types/rect"
+    
     //= require "core/xyfns"
-    //= require "core/vector"
-    //= require "core/xyrect"
     //= require "core/hits"
     //= require "core/spatialstore"
     
@@ -66,8 +67,8 @@
     
     //= require "core/graphics/style"
     
-    //= require "core/graphics/views/view"
-    //= require "core/graphics/views/map"
+    //= require "core/graphics/view"
+    //= require "core/graphics/map"
     
     //= require "core/graphics/drawables/core"
     //= require "core/graphics/drawables/animation"
@@ -82,21 +83,17 @@
     //= require "core/graphics/layers/drawlayer"
     
     //= require "core/geo/pos"
-    //= require "core/geo/geoxy"
+    //= require "core/geo/posfns"
+    //= require "core/geo/bbox"
     
     _extend(T5, {
-        ticks: ticks,
         userMessage: userMessage,
         
         Registry: Registry,
         DOM: DOM,
         Rect: Rect,
-        XY: XYFns,
-        XYRect: XYRect,
-        Vector: Vector,
+        XY: XY,
         Hits: Hits,
-        
-        Service: Service,
         
         // animation functions and modules
         tweenValue: _tweenValue,
@@ -107,26 +104,18 @@
         getImage: getImage,
         
         // some of the geo types starting to move up...
-        GeoXY: GeoXY,
-        Pos: Pos
+        Pos: Pos,
+        PosFns: PosFns,
+        BBox: BBox
     });
     
-    //= require "core/geo/constants"
-    //= require "core/geo/functions"
-
-    //= require "core/geo/position"
-    //= require "core/geo/boundingbox"
     //= require "core/geo/address"
-    
     //= require "core/geo/osm"
-    //= require "core/geo/geojson"
 
     // define the geo functionality
     T5.Geo = {
         Address: Address,
-        A: addrTools,
-        
-        GeoJSON: GeoJSON
+        A: addrTools
     };
     
     //= require "core/factory"

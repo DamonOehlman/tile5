@@ -32,7 +32,7 @@ reg('layer', 'tile', function(view, params) {
     
     function handleResync(evt) {
         // get the zoom level for the view
-        var zoomLevel = view && view.zoomlevel ? view.zoomlevel() : 0;
+        var zoomLevel = view && view.zoom ? view.zoom() : 0;
         
         if (! zoomTrees[zoomLevel]) {
             zoomTrees[zoomLevel] = createStoreForZoomLevel(zoomLevel);
@@ -50,7 +50,7 @@ reg('layer', 'tile', function(view, params) {
         if (renderer.drawTiles) {
             renderer.drawTiles(
                 viewport, 
-                storage.search(XYRect.buffer(viewport, 128)),
+                storage.search(viewport.buffer(128)),
                 view.panSpeed < TILELOAD_MAX_PANSPEED);
         } // if
     } // draw    

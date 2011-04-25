@@ -1,4 +1,4 @@
-T5.Service.register('geocoder', function() {
+T5.Registry.register('service', 'geocoder', function() {
     
     /* internals */
     

@@ -1,4 +1,4 @@
-T5.Service.register('routing', function() {
+T5.Registry.register('service', 'routing', function() {
     var RouteRequest = function(params) {
         params = T5.ex({
             waypoints: [],
@@ -105,7 +105,7 @@ T5.Service.register('routing', function() {
                 
                 // create a new route data object and map items 
                 return new T5.RouteTools.RouteData({
-                    geometry: T5.Geo.Position.parseArray(response.RouteGeometry.LineString.pos),
+                    geometry: T5.Geo.PosFns.parseArray(response.RouteGeometry.LineString.pos),
                     instructions: parseInstructions(response.RouteInstructionsList)
                 });
             }

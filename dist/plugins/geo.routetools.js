@@ -111,7 +111,7 @@ T5.RouteTools = (function() {
         }, params);
 
         if (! params.boundingBox) {
-            params.boundingBox = T5.Geo.BoundingBox.forPositions(params.geometry);
+            params.boundingBox = new T5.BBox(params.geometry);
         } // if
 
         var _self = _extend({
@@ -194,11 +194,11 @@ T5.RouteTools = (function() {
             generalize: false
         }, args);
 
-        var service = T5.Service.find('routing');
+        var service = T5.Registry.create('service', 'routing');
         if (service) {
             service.calculate(args, function(routeData) {
                 if (args.generalize) {
-                    routeData.geometry = T5.Geo.Position.generalize(routeData.geometry, routeData.getInstructionPositions());
+                    routeData.geometry = T5.Geo.PosFns.generalize(routeData.geometry, routeData.getInstructionPositions());
                 } // if
 
                 if (args.map) {
@@ -222,7 +222,7 @@ T5.RouteTools = (function() {
     */
     function createMapOverlay(map, routeData) {
         if (routeData.geometry) {
-            T5.Geo.Position.vectorize(routeData.geometry, {
+            T5.Geo.PosFns.vectorize(routeData.geometry, {
                 callback: function(coords) {
                     map.layer('route', 'draw').create(typeDrawable, 'line', {
                         points: coords,

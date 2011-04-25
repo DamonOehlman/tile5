@@ -1791,7 +1791,7 @@ quat4.str = function(quat) {
 }
 
 
-T5.registerRenderer('webgl', function(view, panFrame, container, params, baseRenderer) {
+T5.Registry.register('renderer', 'webgl', function(view, panFrame, container, params, baseRenderer) {
     params = _extend({
     }, params);
 
