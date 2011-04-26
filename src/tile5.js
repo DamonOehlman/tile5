@@ -7,32 +7,17 @@
 //= require <cog/cogs/stringtools>
 //= require <cog/cogs/tween>
 //= require <cog/cogs/observable>
+//= require <cog/cogs/configurable>
 //= require <cog/cogs/arraytools>
 //= require <cog/cogs/typetools>
 //= require <cog/cogs/jsonp>
 //= require <interact/src/interact>
-
-// define the tile5 namespace
-var T5 = {
-    // expose some cog functions
-    ex: _extend,
-    log: _log,
-    observable: _observable,
-    formatter: _formatter,
-    wordExists: _wordExists,
-    is: _is,
-    indexOf: _indexOf
-};
-
-// make T5 observable
-_observable(T5);
 
 //= require "core/registry"
 //= require "core/messages"
 //= require "core/functions"
 //= require "core/constants"
 //= require "core/shorts"
-//= require "core/canvasmaker"
 //= require "core/animator"
 //= require "core/parser"
 //= require "core/dom"
@@ -52,7 +37,6 @@ _observable(T5);
 //= require "core/renderers/dom"
 
 //= require "core/graphics/style"
-
 //= require "core/graphics/view"
 //= require "core/graphics/map"
 
@@ -68,14 +52,28 @@ _observable(T5);
 //= require "core/graphics/layers/tilelayer"
 //= require "core/graphics/layers/drawlayer"
 
+//= require "core/controls/base"
+//= require "core/controls/zoombar"
+
 //= require "core/geo/pos"
 //= require "core/geo/posfns"
 //= require "core/geo/bbox"
 
-_extend(T5, {
+// define the tile5 namespace
+var T5 = {
+    // expose some cog functions
+    ex: _extend,
+    log: _log,
+    observable: _observable,
+    formatter: _formatter,
+    wordExists: _wordExists,
+    is: _is,
+    indexOf: _indexOf,
+    
     userMessage: userMessage,
     
     Registry: Registry,
+    Style: Style,
     DOM: DOM,
     Rect: Rect,
     XY: XY,
@@ -84,15 +82,18 @@ _extend(T5, {
     // animation functions and modules
     tweenValue: _tweenValue,
     easing: _easing,
-    
-    // images
+
+    Control: Control,
     Tile: Tile,
     getImage: getImage,
     
     // some of the geo types starting to move up...
     Pos: Pos,
     PosFns: PosFns,
-    BBox: BBox
-});
+    BBox: BBox    
+};
+
+// make T5 observable
+_observable(T5);
 
 //= require "core/factory"

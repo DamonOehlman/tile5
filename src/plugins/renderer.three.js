@@ -240,7 +240,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
         } // for
         
         // capture style defined events so we know about new styles
-        T5.bind('styleDefined', handleStyleDefined);
+        T5.Style.bind('defined', handleStyleDefined);
     } // loadStyles
     
     function loadTexture(imageUrl, mapping, callback) {

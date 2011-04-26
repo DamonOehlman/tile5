@@ -7,6 +7,7 @@ task :compile => [] do
   files = FileList.new
     .include("src/engines/*.js")
     .include("src/plugins/*.js")
+    .include("src/plugins/controls/*.js")
     .include("src/style/*.js")
     .include("builds/*.js")
   

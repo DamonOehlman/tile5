@@ -46,7 +46,6 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
             'globalAlpha'
         ];
         
-    // TODO (0.9.7): remove the canvas detection and assume that we have been passed a div
     function createCanvas() {
         if (panFrame) {
             // initialise the viewport height and width
@@ -54,8 +53,13 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
             vpHeight = panFrame.offsetHeight;
             
             // create the canvas
-            canvas = newCanvas(vpWidth, vpHeight);
-            canvas.style.cssText = 'position: absolute; z-index: 1;';
+            canvas = DOM.create('canvas', null, {
+                position: 'absolute',
+                'z-index': 1
+            });
+            
+            canvas.width = vpWidth;
+            canvas.height = vpHeight;
 
             // attach the frame to the view
             view.attachFrame(canvas, true);
@@ -124,7 +128,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         } // for
         
         // capture style defined events so we know about new styles
-        T5.bind('styleDefined', handleStyleDefined);
+        Style.bind('defined', handleStyleDefined);
     } // loadStyles
     
     /* exports */

@@ -1,0 +1,2 @@
+describe('map.drawables', function() {
+});

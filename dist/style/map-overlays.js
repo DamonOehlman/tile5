@@ -1,4 +1,4 @@
-T5.defineStyles({
+T5.Style.define({
     'path.bike': {
         lineWidth: 3,
         stroke: '#007ee8'

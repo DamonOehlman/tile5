@@ -6,6 +6,7 @@ reg('view', 'simple', function(params) {
     params = _extend({
         container: "",
         captureHover: true,
+        controls: ['zoombar'],
         drawOnScale: true,
         padding: 0, // 128
         inertia: true,
@@ -17,7 +18,9 @@ reg('view', 'simple', function(params) {
         minZoom: 1,
         maxZoom: 1,
         renderer: 'canvas/dom',
-        zoom: 1
+        zoom: 1,
+        
+        zoombar: {}
     }, params);
     
     // initialise constants
@@ -26,6 +29,7 @@ reg('view', 'simple', function(params) {
     
         // get the container context
         caps = {},
+        controls = [],
         layers = [],
         layerCount = 0,
         viewpane = null,
@@ -230,7 +234,7 @@ reg('view', 'simple', function(params) {
         } // if
     } // captureInteractionEvents
     
-    function changeRenderer(name, value) {
+    function changeRenderer(value) {
         // if we have a renderer, then detach it
         if (renderer) {
             renderer.trigger('detach');
@@ -289,6 +293,24 @@ reg('view', 'simple', function(params) {
             } // if..else
         } // if
     } // constrainOffset
+    
+    function createControls(controlTypes) {
+        // clear the controls array
+        // TODO: detach controls
+        controls = [];
+        
+        // iterate through the specified control types and create the controls
+        for (var ii = 0; ii < controlTypes.length; ii++) {
+            controls[controls.length] = regCreate(
+                'control', 
+                controlTypes[ii],
+                _self,
+                panContainer,
+                outer,
+                params[controlTypes[ii]]
+            );
+        } // for
+    } // createControls
     
     function dragSelected(absXY, relXY, drop) {
         if (dragObject) {
@@ -359,7 +381,7 @@ reg('view', 'simple', function(params) {
         })));
     } // initContainer
     
-    function updateContainer(name, value) {
+    function updateContainer(value) {
         initContainer(outer = document.getElementById(value));
         createRenderer();
     } // updateContainer
@@ -1017,6 +1039,15 @@ reg('view', 'simple', function(params) {
         renderer.checkSize();
     });
     
+    // route auto configuration methods
+    _configurable(_self, params, {
+        container: updateContainer,
+        captureHover: captureInteractionEvents,
+        scalable: captureInteractionEvents,
+        pannable: captureInteractionEvents,
+        renderer: changeRenderer
+    });
+    
     /*
     // make the view configurable
     COG.configurable(
@@ -1047,7 +1078,7 @@ reg('view', 'simple', function(params) {
         
         // create the renderer
         caps = testResults;
-        updateContainer(null, params.container);
+        updateContainer(params.container);
 
         // if autosized, then listen for resize events
         if (isIE) {
@@ -1061,6 +1092,9 @@ reg('view', 'simple', function(params) {
     // start the animation frame
     // setInterval(cycle, 1000 / 60);
     Animator.attach(cycle);
+    
+    // create the controls
+    createControls(params.controls);
     
     return _self;
 });

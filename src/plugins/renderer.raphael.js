@@ -63,7 +63,7 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
         } // for
         
         // capture style defined events so we know about new styles
-        T5.bind('styleDefined', handleStyleDefined);
+        T5.Style.bind('defined', handleStyleDefined);
     } // loadStyles
     
     function objInit(rObject, drawable) {

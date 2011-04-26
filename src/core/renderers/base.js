@@ -89,9 +89,9 @@ var Renderer = function(view, container, outer, params) {
 };
 
 /**
-# T5.attachRenderer(id, view, container, params)
+# attachRenderer(id, view, container, params)
 */
-var attachRenderer = T5.attachRenderer = function(id, view, container, outer, params) {
+function attachRenderer(id, view, container, outer, params) {
     // split the id on slashes as multiple renderers may have been requested
     var ids = id.split('/'),
         renderer = new Renderer(view, container, outer, params);

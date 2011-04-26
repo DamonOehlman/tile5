@@ -468,6 +468,34 @@ var _observable = (function() {
         return target;
     };
 })();
+var _configurable = (function() {
+
+    function attach(target, settings, watchlist, key) {
+        if (typeof target[key] == 'undefined') {
+            target[key] = function(value) {
+                if (typeof value != 'undefined') {
+                    settings[key] = value;
+
+                    if (watchlist[key]) {
+                        watchlist[key](value);
+                    } // if
+
+                    return target;
+                }
+                else {
+                    return settings[key];
+                }
+            };
+        } // if
+    } // attach
+
+    return function(target, settings, watchlist) {
+        for (var key in settings) {
+            attach(target, settings, watchlist, key);
+        } // for
+    }; // _configurable
+})();
+
 var _indexOf = Array.prototype.indexOf || function(target) {
     for (var ii = 0; ii < this.length; ii++) {
         if (this[ii] === target) {
@@ -1270,18 +1298,6 @@ register('pointer', {
     };
 })();
 
-var T5 = {
-    ex: _extend,
-    log: _log,
-    observable: _observable,
-    formatter: _formatter,
-    wordExists: _wordExists,
-    is: _is,
-    indexOf: _indexOf
-};
-
-_observable(T5);
-
 var Registry = (function() {
     /* internals */
 
@@ -1534,19 +1550,6 @@ var abs = Math.abs,
     layerCounter = 0,
 
     reDelimitedSplit = /[\,\s]+/;
-/**
-# T5.newCanvas(width, height)
-*/
-var newCanvas = T5.newCanvas = function(width, height) {
-    var tmpCanvas = document.createElement('canvas');
-
-    tmpCanvas.width = width ? width : 0;
-    tmpCanvas.height = height ? height : 0;
-
-    T5.trigger('createCanvas', tmpCanvas);
-
-    return tmpCanvas;
-};
 var Animator = (function() {
 
     /* internals */
@@ -2284,9 +2287,9 @@ var Renderer = function(view, container, outer, params) {
 };
 
 /**
-# T5.attachRenderer(id, view, container, params)
+# attachRenderer(id, view, container, params)
 */
-var attachRenderer = T5.attachRenderer = function(id, view, container, outer, params) {
+function attachRenderer(id, view, container, outer, params) {
     var ids = id.split('/'),
         renderer = new Renderer(view, container, outer, params);
 
@@ -2349,8 +2352,13 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
             vpWidth = panFrame.offsetWidth;
             vpHeight = panFrame.offsetHeight;
 
-            canvas = newCanvas(vpWidth, vpHeight);
-            canvas.style.cssText = 'position: absolute; z-index: 1;';
+            canvas = DOM.create('canvas', null, {
+                position: 'absolute',
+                'z-index': 1
+            });
+
+            canvas.width = vpWidth;
+            canvas.height = vpHeight;
 
             view.attachFrame(canvas, true);
 
@@ -2409,7 +2417,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
             handleStyleDefined(null, styleId, T5.styles[styleId]);
         } // for
 
-        T5.bind('styleDefined', handleStyleDefined);
+        Style.bind('defined', handleStyleDefined);
     } // loadStyles
 
     /* exports */
@@ -2824,67 +2832,65 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
     return _this;
 });
 
-var styleRegistry = T5.styles = {};
-
 /**
-# T5.defineStyle(id, data)
+# T5.Style
 */
-var defineStyle = T5.defineStyle = function(id, data) {
-    styleRegistry[id] = data;
+var Style = (function() {
 
-    T5.trigger('styleDefined', id, styleRegistry[id]);
+    /* internals */
 
-    return id;
-};
+    var styles = {};
 
-/**
-# T5.defineStyles(data)
-*/
-var defineStyles = T5.defineStyles = function(data) {
-    for (var styleId in data) {
-        defineStyle(styleId, data[styleId]);
-    } // for
-};
+    function define(p1, p2) {
+        if (_is(p1, typeString)) {
+            _self.trigger('defined', p1, styles[p1] = p2);
 
-/**
-# T5.getStyle(id)
-*/
-var getStyle = T5.getStyle = function(id) {
-    return styleRegistry[id];
-}; // getStyle
+            return p1;
+        }
+        else {
+            var ids = [];
 
-/**
-# T5.loadStyles(path, callback)
-*/
-var loadStyles = T5.loadStyles = function(path) {
-    _jsonp(path, function(data) {
-        defineStyles(data);
+            for (var styleId in p1) {
+                ids[ids.length] = define(styleId, p1[styleId]);
+            } // for
+
+            return ids;
+        } // if..else
+    } // define
+
+    function get(id) {
+        return styles[id];
+    } // get
+
+    var _self = _observable({
+        get: get,
+        define: define
     });
-}; // loadStyles
 
+    define({
+        basic: {
+            fill: '#ffffff'
+        },
 
-defineStyles({
-    basic: {
-        fill: '#ffffff'
-    },
+        highlight: {
+            fill: '#ff0000'
+        },
 
-    highlight: {
-        fill: '#ff0000'
-    },
+        waypoints: {
+            lineWidth: 4,
+            stroke: '#003377',
+            fill: '#ffffff'
+        },
 
-    waypoints: {
-        lineWidth: 4,
-        stroke: '#003377',
-        fill: '#ffffff'
-    },
+        waypointsHover: {
+            lineWidth: 4,
+            stroke: '#ff0000',
+            fill: '#ffffff'
+        }
+    });
 
-    waypointsHover: {
-        lineWidth: 4,
-        stroke: '#ff0000',
-        fill: '#ffffff'
-    }
-});
-
+    return _self;
+})();
 /**
 # VIEW: simple
 */
@@ -2892,6 +2898,7 @@ reg('view', 'simple', function(params) {
     params = _extend({
         container: "",
         captureHover: true,
+        controls: ['zoombar'],
         drawOnScale: true,
         padding: 0, // 128
         inertia: true,
@@ -2902,13 +2909,16 @@ reg('view', 'simple', function(params) {
         minZoom: 1,
         maxZoom: 1,
         renderer: 'canvas/dom',
-        zoom: 1
+        zoom: 1,
+
+        zoombar: {}
     }, params);
 
     var PANSPEED_THRESHOLD_REFRESH = 2,
         PANSPEED_THRESHOLD_FASTPAN = 5,
 
         caps = {},
+        controls = [],
         layers = [],
         layerCount = 0,
         viewpane = null,
@@ -3093,7 +3103,7 @@ reg('view', 'simple', function(params) {
         } // if
     } // captureInteractionEvents
 
-    function changeRenderer(name, value) {
+    function changeRenderer(value) {
         if (renderer) {
             renderer.trigger('detach');
             renderer = null;
@@ -3147,6 +3157,21 @@ reg('view', 'simple', function(params) {
             } // if..else
         } // if
     } // constrainOffset
+
+    function createControls(controlTypes) {
+        controls = [];
+
+        for (var ii = 0; ii < controlTypes.length; ii++) {
+            controls[controls.length] = regCreate(
+                'control',
+                controlTypes[ii],
+                _self,
+                panContainer,
+                outer,
+                params[controlTypes[ii]]
+            );
+        } // for
+    } // createControls
 
     function dragSelected(absXY, relXY, drop) {
         if (dragObject) {
@@ -3214,7 +3239,7 @@ reg('view', 'simple', function(params) {
         })));
     } // initContainer
 
-    function updateContainer(name, value) {
+    function updateContainer(value) {
         initContainer(outer = document.getElementById(value));
         createRenderer();
     } // updateContainer
@@ -3768,6 +3793,14 @@ reg('view', 'simple', function(params) {
         renderer.checkSize();
     });
 
+    _configurable(_self, params, {
+        container: updateContainer,
+        captureHover: captureInteractionEvents,
+        scalable: captureInteractionEvents,
+        pannable: captureInteractionEvents,
+        renderer: changeRenderer
+    });
+
     /*
     COG.configurable(
         _self, [
@@ -3795,7 +3828,7 @@ reg('view', 'simple', function(params) {
         layer('markers', 'draw', { zindex: 20 });
 
         caps = testResults;
-        updateContainer(null, params.container);
+        updateContainer(params.container);
 
         if (isIE) {
             window.attachEvent('onresize', handleResize);
@@ -3806,6 +3839,8 @@ reg('view', 'simple', function(params) {
     });
 
     Animator.attach(cycle);
+
+    createControls(params.controls);
 
     return _self;
 });
@@ -4836,6 +4871,233 @@ reg('layer', 'draw', function(view, params) {
     return _self;
 });
 
+function Control(view) {
+    _observable(this);
+};
+
+Control.prototype = {
+    constructor: Control
+};
+/**
+# CONTROL: Zoombar
+*/
+reg('control', 'zoombar', function(view, panFrame, container, params) {
+    params = _extend({
+        width: 24,
+        height: 200,
+        images: 'img/zoom.png',
+        align: 'right',
+        marginTop: 10,
+        spacing: 10,
+        thumbHeight: 16,
+        buttonHeight: 16
+    }, params.zoombar);
+
+    /* internals */
+
+    var STATE_STATIC = 0,
+        STATE_HOVER = 1,
+        STATE_DOWN = 2,
+        buttonHeight = params.buttonHeight,
+        eventMonitor,
+        spriteStart = params.height,
+        thumb,
+        thumbHeight = params.thumbHeight,
+        thumbMin = params.spacing + buttonHeight - (thumbHeight >> 1),
+        thumbMax = params.height - buttonHeight - (thumbHeight >> 1),
+        thumbPos = thumbMin,
+        thumbVal = -1,
+        thumbResetTimeout = 0,
+        zoomMin = view.minZoom(),
+        zoomMax = view.maxZoom(),
+        zoomSteps = zoomMax - zoomMin + 1,
+        zoomStepSpacing = (thumbMax - thumbMin) / zoomSteps | 0,
+        buttons = [],
+        zoomBar,
+        zoomTimeout = 0,
+        tapHandlers = {
+            button0: function() {
+                view.zoom(view.zoom() + 1);
+            },
+
+            button1: function() {
+                view.zoom(view.zoom() - 1);
+            }
+        };
+
+    function bindEvents() {
+        eventMonitor = INTERACT.watch(zoomBar, {
+            bindTarget: zoomBar
+        });
+
+        eventMonitor.bind('pointerMove', handlePointerMove);
+        eventMonitor.bind('pointerDown', handlePointerDown);
+        eventMonitor.bind('pointerUp', handlePointerUp);
+        eventMonitor.bind('tap', handlePointerTap);
+    } // bindEvents
+
+    function createButton(btnIndex, marginTop) {
+        var button = buttons[btnIndex] = DOM.create('div', 't5-zoombar-button', {
+            position: 'absolute',
+            background: getButtonBackground(btnIndex),
+            'z-index': 51,
+            width: params.width + 'px',
+            height: params.buttonHeight + 'px',
+            'margin-top': (marginTop || 0) + 'px'
+        });
+
+        zoomBar.appendChild(button);
+    } // createButton
+
+    function createThumb() {
+        zoomBar.appendChild(thumb = DOM.create('div', 't5-zoombar-thumb', {
+            position: 'absolute',
+            background: getThumbBackground(),
+            'z-index': 51,
+            width: params.width + 'px',
+            height: params.thumbHeight + 'px',
+            margin: '10px 0 0 0',
+            top: (thumbPos - thumbMin) + 'px'
+        }));
+    } // createThumb
+
+    function createZoomBar() {
+        zoomBar = DOM.create('div', 't5-zoombar', {
+            position: 'absolute',
+            background: getBackground(),
+            'z-index': 50,
+            overflow: 'hidden',
+            width: params.width + 'px',
+            height: params.height + 'px',
+            margin: getMargin()
+        });
+
+        if (container.childNodes[0]) {
+            container.insertBefore(zoomBar, container.childNodes[0]);
+        }
+        else {
+            container.appendChild(zoomBar);
+        } // if..else
+
+        createThumb();
+
+        createButton(0);
+        createButton(1, params.height - params.buttonHeight);
+
+        bindEvents();
+    } // createImageContainer
+
+    function getBackground() {
+        return 'url(' + params.images + ')';
+    } // getBackground
+
+    function getButtonBackground(buttonIndex, state) {
+        var spriteOffset = spriteStart + thumbHeight * 3 +
+                (buttonIndex || 0) * buttonHeight * 3 +
+                (state || 0) * buttonHeight;
+
+        return 'url(' + params.images + ') 0 -' + spriteOffset + 'px';
+    }
+
+    function getMargin() {
+        var marginLeft = params.spacing,
+            formatter = _formatter('{0}px 0 0 {1}px');
+
+        if (params.align === 'right') {
+            marginLeft = container.offsetWidth - params.width - params.spacing;
+        } // if
+
+        return formatter(params.marginTop, marginLeft);
+    } // getMargin
+
+    function getThumbBackground(state) {
+        var spriteOffset = spriteStart + (state || 0) * thumbHeight;
+
+        return 'url(' + params.images + ') 0 -' + spriteOffset + 'px';
+    } // getThumbBackground
+
+    function handleDetach() {
+        eventMonitor.unbind();
+
+        container.removeChild(zoomBar);
+    } // handleDetach
+
+    function handlePointerDown(evt, absXY, relXY) {
+        updateSpriteState(evt.target, STATE_DOWN);
+    } // handlePointerDown
+
+    function handlePointerMove(evt, absXY, relXY) {
+        thumbPos = Math.min(Math.max(thumbMin, relXY.y - (thumbHeight >> 1)), thumbMax);
+
+        setThumbVal(zoomSteps - ((thumbPos - thumbMin) / thumbMax) * zoomSteps | 0);
+    } // handlePointerMove
+
+    function handlePointerTap(evt, absXY, relXY) {
+        var handler = tapHandlers[updateSpriteState(evt.target, STATE_DOWN)];
+        if (handler) {
+            handler();
+        } // if
+    }
+
+    function handlePointerUp(evt, absXY, relXY) {
+        updateSpriteState(evt.target, STATE_STATIC);
+    } // handlePointerUp
+
+    function handleZoomLevelChange(evt, zoomLevel) {
+        setThumbVal(zoomLevel);
+    } // handleZoomLevelChange
+
+    function updateSpriteState(target, state) {
+        var targetCode;
+
+        if (target === thumb) {
+            thumb.style.background = getThumbBackground(state);
+            targetCode = 'thumb';
+        }
+        else {
+            for (var ii = 0; ii < buttons.length; ii++) {
+                if (target === buttons[ii]) {
+                    targetCode = 'button' + ii;
+                    buttons[ii].style.background = getButtonBackground(ii, state);
+                    break;
+                } // if
+            } // for
+        } // if..else
+
+        return targetCode;
+    } // updateSpriteState
+
+    /* exports */
+
+    function setThumbVal(value) {
+        if (value !== thumbVal) {
+            thumbVal = value;
+
+            thumbPos = thumbMax - (thumbVal / zoomSteps * (thumbMax - thumbMin)) | 0;
+            DOM.move(thumb, 0, thumbPos - thumbMin);
+
+            clearTimeout(zoomTimeout);
+            zoomTimeout = setTimeout(function() {
+                view.zoom(thumbVal);
+            }, 500);
+        } // if
+    } // if
+
+    /* initialization */
+
+    createZoomBar();
+
+    var _this = new Control(view);
+
+    _this.bind('detach', handleDetach);
+
+    view.bind('zoom', handleZoomLevelChange);
+
+    setThumbVal(view.zoom());
+
+    return _this;
+});
+
 /**
 # T5.Pos
 
@@ -5171,10 +5433,19 @@ BBox.prototype = {
     }
 };
 
-_extend(T5, {
+var T5 = {
+    ex: _extend,
+    log: _log,
+    observable: _observable,
+    formatter: _formatter,
+    wordExists: _wordExists,
+    is: _is,
+    indexOf: _indexOf,
+
     userMessage: userMessage,
 
     Registry: Registry,
+    Style: Style,
     DOM: DOM,
     Rect: Rect,
     XY: XY,
@@ -5183,13 +5454,16 @@ _extend(T5, {
     tweenValue: _tweenValue,
     easing: _easing,
 
+    Control: Control,
     Tile: Tile,
     getImage: getImage,
 
     Pos: Pos,
     PosFns: PosFns,
     BBox: BBox
-});
+};
+
+_observable(T5);
 
 /**
 # Tile5(target, settings, viewId)

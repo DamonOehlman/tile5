@@ -56,7 +56,7 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
             handleStyleDefined(null, styleId, T5.styles[styleId]);
         } // for
 
-        T5.bind('styleDefined', handleStyleDefined);
+        T5.Style.bind('defined', handleStyleDefined);
     } // loadStyles
 
     function objInit(rObject, drawable) {

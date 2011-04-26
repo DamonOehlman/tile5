@@ -1,62 +1,60 @@
-var styleRegistry = T5.styles = {};
-
 /**
-# T5.defineStyle(id, data)
+# T5.Style
 */
-var defineStyle = T5.defineStyle = function(id, data) {
-    styleRegistry[id] = data;
+var Style = (function() {
     
-    // fire the define style event
-    T5.trigger('styleDefined', id, styleRegistry[id]);
+    /* internals */
     
-    return id;
-};
-
-/**
-# T5.defineStyles(data)
-*/
-var defineStyles = T5.defineStyles = function(data) {
-    for (var styleId in data) {
-        defineStyle(styleId, data[styleId]);
-    } // for
-};
-
-/**
-# T5.getStyle(id)
-*/
-var getStyle = T5.getStyle = function(id) {
-    return styleRegistry[id];
-}; // getStyle
-
-/**
-# T5.loadStyles(path, callback)
-*/
-var loadStyles = T5.loadStyles = function(path) {
-    _jsonp(path, function(data) {
-        defineStyles(data);
+    var styles = {};
+    
+    function define(p1, p2) {
+        if (_is(p1, typeString)) {
+            _self.trigger('defined', p1, styles[p1] = p2);
+            
+            return p1;
+        }
+        else {
+            var ids = [];
+            
+            for (var styleId in p1) {
+                ids[ids.length] = define(styleId, p1[styleId]);
+            } // for            
+            
+            return ids;
+        } // if..else
+    } // define
+    
+    function get(id) {
+        return styles[id];
+    } // get
+    
+    var _self = _observable({
+        get: get,
+        define: define
     });
-}; // loadStyles
+    
+    // define the core styles
+    define({
+        basic: {
+            fill: '#ffffff'
+        },
 
+        highlight: {
+            fill: '#ff0000'
+        },
+
+        waypoints: {
+            lineWidth: 4,
+            stroke: '#003377',
+            fill: '#ffffff'
+        },
+
+        waypointsHover: {
+            lineWidth: 4,
+            stroke: '#ff0000',
+            fill: '#ffffff'
+        }       
+    });    
     
-// define the core styles
-defineStyles({
-    basic: {
-        fill: '#ffffff'
-    },
-    
-    highlight: {
-        fill: '#ff0000'
-    },
-    
-    waypoints: {
-        lineWidth: 4,
-        stroke: '#003377',
-        fill: '#ffffff'
-    },
-    
-    waypointsHover: {
-        lineWidth: 4,
-        stroke: '#ff0000',
-        fill: '#ffffff'
-    }       
-});
+    return _self;
+})();

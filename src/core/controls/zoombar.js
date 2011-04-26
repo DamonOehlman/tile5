@@ -1,20 +1,11 @@
 /**
-# Tile5 Plugin: Zoombar
-The tile5 zoombar provides a zoom control for a Tile5 map. The zoombar is implemented
-as a series of DOM elements which draw images from a sprite sheet supplied in the 
-`images` parameter.
-
-## Using the Zoombar
-TO BE COMPLETED
-
-## Customizing the Zoombar
-TO BE COMPLETED
+# CONTROL: Zoombar
 */
-T5.Registry.register('control', 'zoombar', function(view, panFrame, container, params, baseRenderer) {
+reg('control', 'zoombar', function(view, panFrame, container, params) {
     params = _extend({
         width: 24,
         height: 200,
-        images: '/img/zoom.png',
+        images: 'img/zoom.png',
         align: 'right',
         marginTop: 10,
         spacing: 10,
@@ -69,7 +60,7 @@ T5.Registry.register('control', 'zoombar', function(view, panFrame, container, p
     
     function createButton(btnIndex, marginTop) {
         // create the zoom in button
-        var button = buttons[btnIndex] = T5.DOM.create('div', 't5-zoombar-button', {
+        var button = buttons[btnIndex] = DOM.create('div', 't5-zoombar-button', {
             position: 'absolute',
             background: getButtonBackground(btnIndex),
             'z-index': 51,
@@ -83,7 +74,7 @@ T5.Registry.register('control', 'zoombar', function(view, panFrame, container, p
     } // createButton
         
     function createThumb() {
-        zoomBar.appendChild(thumb = T5.DOM.create('div', 't5-zoombar-thumb', {
+        zoomBar.appendChild(thumb = DOM.create('div', 't5-zoombar-thumb', {
             position: 'absolute',
             background: getThumbBackground(),
             'z-index': 51,
@@ -95,7 +86,7 @@ T5.Registry.register('control', 'zoombar', function(view, panFrame, container, p
     } // createThumb
     
     function createZoomBar() {
-        zoomBar = T5.DOM.create('div', 't5-zoombar', {
+        zoomBar = DOM.create('div', 't5-zoombar', {
             position: 'absolute',
             background: getBackground(),
             'z-index': 50,
@@ -215,7 +206,7 @@ T5.Registry.register('control', 'zoombar', function(view, panFrame, container, p
 
             // if we are snapping then calculate the snapped thumbpos
             thumbPos = thumbMax - (thumbVal / zoomSteps * (thumbMax - thumbMin)) | 0;
-            T5.DOM.move(thumb, 0, thumbPos - thumbMin);
+            DOM.move(thumb, 0, thumbPos - thumbMin);
             
             clearTimeout(zoomTimeout);
             zoomTimeout = setTimeout(function() {
@@ -230,8 +221,7 @@ T5.Registry.register('control', 'zoombar', function(view, panFrame, container, p
     // attach the background image display
     createZoomBar();
     
-    var _this = _extend(baseRenderer, {
-    });
+    var _this = new Control(view);
     
     // handle the predraw
     _this.bind('detach', handleDetach);

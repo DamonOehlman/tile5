@@ -118,8 +118,13 @@ T5.Registry.register('renderer', 'webgl', function(view, panFrame, container, pa
             ySeg = (vpHeight / TILE_SIZE | 0) + 2;
 
             // create the canvas
-            canvas = T5.newCanvas(vpWidth, vpHeight);
-            canvas.style.cssText = 'position: absolute; z-index: 1;';
+            canvas = T5.DOM.create('canvas', null, {
+                position: 'absolute',
+                'z-index': 1
+            });
+            
+            canvas.width = vpWidth;
+            canvas.height = vpHeight;
             
             // get the webgl context
             gl = canvas.getContext('experimental-webgl');
@@ -201,7 +206,7 @@ T5.Registry.register('renderer', 'webgl', function(view, panFrame, container, pa
     /* exports */
     
     function applyStyle(styleId) {
-        var nextStyle = getStyle(styleId);
+        var nextStyle = T5.Style.get(styleId);
 
         if (nextStyle) {
         } // if
