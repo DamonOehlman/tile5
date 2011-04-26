@@ -7,25 +7,8 @@ to a prototypal pattern in areas of the Tile5 library.
 ## Methods
 */
 function XY(p1, p2) {
-    // initialise the mercator x and y
-    this.mercX = null;
-    this.mercY = null;
-    
-    // if the first parameter is a string, then parse
-    if (_is(p1, typeString)) {
-        Parser.parseXY(p1, this);
-    }
-    // otherwise if the first parameter is a position
-    else if (p1 && p1.toPixels) {
-        var pix = p1.toPixels();
-        this.mercX = pix.x;
-        this.mercY = pix.y;
-    }
-    // otherwise assign to the x and y values
-    else {
-        this.x = p1 || 0;
-        this.y = p2 || 0;
-    } // if..else
+    this.x = p1 || 0;
+    this.y = p2 || 0;
 } // XY constructor
 
 XY.prototype = {
@@ -45,8 +28,15 @@ XY.prototype = {
             sumY += arguments[ii].y;
         } // for
         
-        return new XY(sumX, sumY);
+        return this.copy(sumX, sumY);
     }, // add
+    
+    /**
+    ### copy(x, y)
+    */
+    copy: function(x, y) {
+        return new this.constructor(x || this.x, y || this.y);
+    },
     
     /**
     ### equals(xy)
@@ -63,30 +53,14 @@ XY.prototype = {
     Return a new T5.XY object which is offset from the current xy by the specified arguments.
     */
     offset: function(x, y) {
-        return new XY(this.x + x, this.y + y);
+        return this.copy(this.x + x, this.y + y);
     },
     
     /**
-    ### sync(rpp)
+    ### sync(view, reverse)
     */
-    sync: function(rpp, reverse) {
-        if (reverse) {
-            this.mercX = this.x * rpp - Math.PI;
-            this.mercY = Math.PI - this.y * rpp;
-        }
-        else if (this.mercX || this.mercY) {
-            this.x = round((this.mercX + Math.PI) / rpp);
-            this.y = round((Math.PI - this.mercY) / rpp);
-        } // if
-        
+    sync: function(view, reverse) {
         return this;
-    },
-    
-    /**
-    ### pos()
-    */
-    pos: function() {
-        return new Pos(pix2lat(this.mercY), pix2lon(this.mercX));
     },
     
     /**

@@ -32,7 +32,7 @@ reg('generator', 'osm', function(params) {
         tileX = (lon+180) / 360 * numTiles;
         tileY = ((1-Math.log(Math.tan(lat*DEGREES_TO_RADIANS) + 1/Math.cos(lat*DEGREES_TO_RADIANS))/Math.PI)/2 * numTiles) % numTiles;
         
-        return new XY(tileX | 0, tileY | 0);
+        return new GeoXY(tileX | 0, tileY | 0);
     } // calculateTileOffset
     
     function calculatePosition(x, y, numTiles) {
@@ -43,11 +43,11 @@ reg('generator', 'osm', function(params) {
         return new Pos(lat, lon);
     } // calculatePosition
     
-    function getTileXY(x, y, numTiles, radsPerPixel) {
-        var xy = new XY(calculatePosition(x, y, numTiles));
+    function getTileXY(x, y, numTiles, view) {
+        var xy = new GeoXY(calculatePosition(x, y, numTiles));
         
         // sync the xy using the rpp
-        xy.sync(radsPerPixel);
+        xy.sync(view);
         return xy;
     } // getTileXY
     
@@ -84,9 +84,9 @@ reg('generator', 'osm', function(params) {
                 minY = viewport.y,
                 xTiles = (viewport.w  / tileSize | 0) + 1,
                 yTiles = (viewport.h / tileSize | 0) + 1,
-                position = new XY(minX, minY).sync(radsPerPixel, true).pos(),
+                position = new GeoXY(minX, minY).sync(view, true).pos(),
                 tileOffset = calculateTileOffset(position.lat, position.lon, numTiles),
-                tilePixels = getTileXY(tileOffset.x, tileOffset.y, numTiles, radsPerPixel),
+                tilePixels = getTileXY(tileOffset.x, tileOffset.y, numTiles, view),
                 flipY = params.flipY,
                 // get the current tiles in the tree
                 tiles = store.search({

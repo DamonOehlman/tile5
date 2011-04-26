@@ -1378,54 +1378,6 @@ function dist2rad(distance) {
 } // dist2rad
 
 /**
-### lat2pix(lat)
-To be completed
-*/
-function lat2pix(lat) {
-    var radLat = parseFloat(lat) * DEGREES_TO_RADIANS,
-        sinPhi = sin(radLat),
-        eSinPhi = ECC * sinPhi,
-        retVal = log(((1.0 + sinPhi) / (1.0 - sinPhi)) * pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
-
-    return retVal;
-} // lat2Pix
-
-/**
-### lon2pix(lon)
-To be completed
-*/
-function lon2pix(lon) {
-    return parseFloat(lon) * DEGREES_TO_RADIANS;
-} // lon2pix
-
-/**
-### pix2lat(mercY)
-To be completed
-*/
-function pix2lat(mercY) {
-    var t = pow(Math.E, -mercY),
-        prevPhi = mercatorUnproject(t),
-        newPhi = findRadPhi(prevPhi, t),
-        iterCount = 0;
-
-    while (iterCount < PHI_MAXITER && abs(prevPhi - newPhi) > PHI_EPSILON) {
-        prevPhi = newPhi;
-        newPhi = findRadPhi(prevPhi, t);
-        iterCount++;
-    } // while
-
-    return newPhi * RADIANS_TO_DEGREES;
-} // pix2lat
-
-/**
-### pix2lon(mercX)
-To be completed
-*/
-function pix2lon(mercX) {
-    return (mercX % 360) * RADIANS_TO_DEGREES;
-} // pix2lon
-
-/**
 ### radsPerPixel(zoomLevel)
 */
 function radsPerPixel(zoomLevel) {
@@ -1509,7 +1461,9 @@ var TWO_PI = Math.PI * 2,
         MWY: "MOTORWAY"
     },
 
-    DEFAULT_GENERALIZATION_DISTANCE = 250;
+    DEFAULT_GENERALIZATION_DISTANCE = 250,
+
+    EVT_REMOVELAYER = 'layerRemove';
 var abs = Math.abs,
     ceil = Math.ceil,
     floor = Math.floor,
@@ -1601,16 +1555,17 @@ var Parser = (function() {
     /* exports */
 
     function parseXY(xyStr, target) {
-        target = target || new XY();
+        target = target || new GeoXY();
 
         if (REGEX_XYRAW.test(xyStr)) {
 
         }
         else {
-            var xyVals = xyStr.split(reDelimitedSplit);
+            var xyVals = xyStr.split(reDelimitedSplit),
+                mercXY = _project(xyVals[1], xyVals[0]);
 
-            target.mercX = lon2pix(xyVals[1]);
-            target.mercY = lat2pix(xyVals[0]);
+            target.mercX = mercXY.x;
+            target.mercY = mercXY.y;
         } // if..else
 
         return target;
@@ -1687,6 +1642,29 @@ var DOM = (function() {
     };
 })();
 
+var _project = _project || function(lon, lat) {
+    var radLat = parseFloat(lat) * DEGREES_TO_RADIANS,
+        sinPhi = sin(radLat),
+        eSinPhi = ECC * sinPhi,
+        retVal = log(((1.0 + sinPhi) / (1.0 - sinPhi)) * pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
+
+    return new GeoXY(parseFloat(lon) * DEGREES_TO_RADIANS, retVal);
+}; // _project
+
+var _unproject = _unproject || function(x, y) {
+    var t = pow(Math.E, -y),
+        prevPhi = mercatorUnproject(t),
+        newPhi = findRadPhi(prevPhi, t),
+        iterCount = 0;
+
+    while (iterCount < PHI_MAXITER && abs(prevPhi - newPhi) > PHI_EPSILON) {
+        prevPhi = newPhi;
+        newPhi = findRadPhi(prevPhi, t);
+        iterCount++;
+    } // while
+
+    return new Pos(newPhi * RADIANS_TO_DEGREES, (x % 360) * RADIANS_TO_DEGREES);
+}; // _unproject
 /**
 # T5.XY
 The internal XY class is currently created by making a call to `T5.XY.init` rather than `new T5.XY`.
@@ -1696,21 +1674,8 @@ to a prototypal pattern in areas of the Tile5 library.
 ## Methods
 */
 function XY(p1, p2) {
-    this.mercX = null;
-    this.mercY = null;
-
-    if (_is(p1, typeString)) {
-        Parser.parseXY(p1, this);
-    }
-    else if (p1 && p1.toPixels) {
-        var pix = p1.toPixels();
-        this.mercX = pix.x;
-        this.mercY = pix.y;
-    }
-    else {
-        this.x = p1 || 0;
-        this.y = p2 || 0;
-    } // if..else
+    this.x = p1 || 0;
+    this.y = p2 || 0;
 } // XY constructor
 
 XY.prototype = {
@@ -1730,8 +1695,15 @@ XY.prototype = {
             sumY += arguments[ii].y;
         } // for
 
-        return new XY(sumX, sumY);
+        return this.copy(sumX, sumY);
     }, // add
+
+    /**
+    ### copy(x, y)
+    */
+    copy: function(x, y) {
+        return new this.constructor(x || this.x, y || this.y);
+    },
 
     /**
     ### equals(xy)
@@ -1748,13 +1720,61 @@ XY.prototype = {
     Return a new T5.XY object which is offset from the current xy by the specified arguments.
     */
     offset: function(x, y) {
-        return new XY(this.x + x, this.y + y);
+        return this.copy(this.x + x, this.y + y);
     },
 
     /**
-    ### sync(rpp)
+    ### sync(view, reverse)
     */
-    sync: function(rpp, reverse) {
+    sync: function(view, reverse) {
+        return this;
+    },
+
+    /**
+    ### toString()
+    */
+    toString: function() {
+        return this.x + ', ' + this.y;
+    }
+};
+/**
+# T5.GeoXY
+
+## Methods
+*/
+function GeoXY(p1, p2) {
+    this.mercX = null;
+    this.mercY = null;
+
+    if (_is(p1, typeString)) {
+        Parser.parseXY(p1, this);
+    }
+    else if (p1 && p1.toPixels) {
+        var pix = p1.toPixels();
+        this.mercX = pix.x;
+        this.mercY = pix.y;
+    }
+    else {
+        XY.call(this, p1, p2);
+    }
+} // GeoXY
+
+GeoXY.prototype = _extend(new XY(), {
+    constructor: GeoXY,
+
+    /**
+    ### pos()
+    */
+    pos: function() {
+        return _unproject(this.mercX, this.mercY);
+    },
+
+    /**
+    ### sync(view, reverse)
+    */
+    sync: function(view, reverse) {
+        var rpp = view.rpp || radsPerPixel(view.zoom());
+
         if (reverse) {
             this.mercX = this.x * rpp - Math.PI;
             this.mercY = Math.PI - this.y * rpp;
@@ -1765,22 +1785,8 @@ XY.prototype = {
         } // if
 
         return this;
-    },
-
-    /**
-    ### pos()
-    */
-    pos: function() {
-        return new Pos(pix2lat(this.mercY), pix2lon(this.mercX));
-    },
-
-    /**
-    ### toString()
-    */
-    toString: function() {
-        return this.x + ', ' + this.y;
     }
-};
+});
 /**
 # T5.Rect
 */
@@ -1918,7 +1924,7 @@ Hits = (function() {
             elements ? elements : hitData.elements,
             hitData.absXY,
             hitData.relXY,
-            new XY(hitData.x, hitData.y)
+            new GeoXY(hitData.x, hitData.y)
         );
     } // triggerEvent
 
@@ -2894,7 +2900,7 @@ var Style = (function() {
 /**
 # VIEW: simple
 */
-reg('view', 'simple', function(params) {
+reg('view', 'map', function(params) {
     params = _extend({
         container: "",
         captureHover: true,
@@ -2903,11 +2909,11 @@ reg('view', 'simple', function(params) {
         padding: 0, // 128
         inertia: true,
         refreshDistance: 256,
-        pannable: false,
-        scalable: false,
+        pannable: true,
+        scalable: true,
 
         minZoom: 1,
-        maxZoom: 1,
+        maxZoom: 18,
         renderer: 'canvas/dom',
         zoom: 1,
 
@@ -2951,6 +2957,7 @@ reg('view', 'simple', function(params) {
         resizeCanvasTimeout = 0,
         scaleFactor = 1,
         lastScaleFactor = 1,
+        lastBoundsChangeOffset = new GeoXY(),
         lastCycleTicks = 0,
         eventMonitor = null,
         frameData = {
@@ -3007,10 +3014,10 @@ reg('view', 'simple', function(params) {
                 scaledX = viewport ? (viewport.x + srcX * invScaleFactor) : srcX,
                 scaledY = viewport ? (viewport.y + srcY * invScaleFactor) : srcY;
 
-            projectedXY = new XY(scaledX, scaledY);
+            projectedXY = new GeoXY(scaledX, scaledY);
         } // if
 
-        return projectedXY;
+        return projectedXY.sync(_self, true);
     } // getProjectedXY
 
     function handleDoubleTap(evt, absXY, relXY) {
@@ -3054,6 +3061,16 @@ reg('view', 'simple', function(params) {
         dragSelected(absXY, relXY, true);
         pointerDown = false;
     } // handlePointerUp
+
+    function handleRemoveLayer(evt, layer) {
+        var layerIndex = _indexOf(layers, layer.id);
+        if ((layerIndex >= 0) && (layerIndex < layerCount)) {
+            layers.splice(layerIndex, 1);
+            invalidate();
+        } // if
+
+        layerCount = layers.length;
+    } // handleRemoveLayer
 
     function handleResize(evt) {
         clearTimeout(resizeCanvasTimeout);
@@ -3206,16 +3223,6 @@ reg('view', 'simple', function(params) {
 
         return canDrag;
     } // dragStart
-
-    function getLayerIndex(id) {
-        for (var ii = layerCount; ii--; ) {
-            if (layers[ii].id === id) {
-                return ii;
-            } // if
-        } // for
-
-        return -1;
-    } // getLayerIndex
 
     function initContainer() {
         outer.appendChild(panContainer = DOM.create('div', '', DOM.styles({
@@ -3429,11 +3436,25 @@ reg('view', 'simple', function(params) {
         } // if
     } // attachFrame
 
+    function bounds(newBounds) {
+        var viewport = getViewport();
+
+        if (newBounds) {
+            return zoom(newBounds.bestZoomLevel(viewport)).center(newBounds.center());
+        }
+        else {
+            return new BBox(
+                new GeoXY(viewport.x, viewport.y2).sync(_self, true).pos(),
+                new GeoXY(viewport.x2, viewport.y).sync(_self, true).pos()
+            );
+        } // if..else
+    } // bounds
+
     function center(p1, p2, tween) {
         var centerXY;
 
         if (_is(p1, typeString)) {
-            centerXY = Parser.parseXY(p1).sync(_self.rpp);
+            centerXY = Parser.parseXY(p1).sync(_self);
 
             p1 = centerXY.x;
             p2 = centerXY.y;
@@ -3448,7 +3469,7 @@ reg('view', 'simple', function(params) {
             centerXY = offset().offset(halfOuterWidth, halfOuterHeight);
 
             if (_self.rpp) {
-                centerXY.sync(_self.rpp, true);
+                centerXY.sync(_self, true);
             } // if
 
             return centerXY;
@@ -3480,21 +3501,6 @@ reg('view', 'simple', function(params) {
     } // detach
 
     /**
-    ### getRenderer(): T5.Renderer
-    */
-    function getRenderer() {
-        return renderer;
-    } // getRenderer
-
-    /**
-    ### getScaleFactor(): float
-    Return the current scaling factor
-    */
-    function getScaleFactor() {
-        return scaleFactor;
-    } // getScaleFactor
-
-    /**
     ### zoom(int): int
     Either update or simply return the current zoomlevel.
     */
@@ -3518,7 +3524,15 @@ reg('view', 'simple', function(params) {
 
                 triggerAll('zoom', value);
 
+                var gridSize;
+
+                rpp = _self.rpp = radsPerPixel(zoomLevel);
+
+                setMaxOffset(TWO_PI / rpp | 0, TWO_PI / rpp | 0, true, false);
+
                 scaleFactor = 1;
+
+                triggerAll('resync');
 
                 renderer.trigger('reset');
 
@@ -3629,18 +3643,6 @@ reg('view', 'simple', function(params) {
     } // layer
 
     /**
-    ### pan(x: int, y: int)
-
-    Used to pan the view by the specified x and y
-    */
-    function pan(x, y) {
-        dx = x;
-        dy = y;
-
-        viewChanges++;
-    } // pan
-
-    /**
     ### refresh()
     Manually trigger a refresh on the view.  Child view layers will likely be listening for `refresh`
     events and will do some of their recalculations when this is called.
@@ -3655,27 +3657,18 @@ reg('view', 'simple', function(params) {
             refreshX = offsetX;
             refreshY = offsetY;
 
+            if (lastBoundsChangeOffset.x != viewport.x || lastBoundsChangeOffset.y != viewport.y) {
+                _self.trigger('boundsChange', bounds());
+
+                lastBoundsChangeOffset.x = viewport.x;
+                lastBoundsChangeOffset.y = viewport.y;
+            } // if
+
             triggerAll('refresh', _self, viewport);
 
             viewChanges++;
         } // if
     } // refresh
-
-    /**
-    ### removeLayer(id: String)
-    Remove the T5.ViewLayer specified by the id
-    */
-    function removeLayer(id) {
-        var layerIndex = getLayerIndex(id);
-        if ((layerIndex >= 0) && (layerIndex < layerCount)) {
-            _self.trigger('layerRemove', _self, layers[layerIndex]);
-
-            layers.splice(layerIndex, 1);
-            invalidate();
-        } // if
-
-        layerCount = layers.length;
-    } // removeLayer
 
     function resetScale() {
         scaleFactor = 1;
@@ -3742,7 +3735,6 @@ reg('view', 'simple', function(params) {
     callback arguments can be supplied to animate the transition.
     */
     function offset(x, y, tween) {
-
         if (_is(x, typeNumber)) {
             if (tween && (panSpeed === 0)) {
             }
@@ -3750,22 +3742,25 @@ reg('view', 'simple', function(params) {
                 offsetX = x | 0;
                 offsetY = y | 0;
             } // if..else
+
+            return _self;
         }
         else {
-            return new XY(offsetX, offsetY);
+            return new GeoXY(offsetX, offsetY);
         } // if..else
-
-        return undefined;
     } // offset
 
     /* object definition */
 
     var _self = {
+        XY: GeoXY, // TODO: abstract back down for to a view
+
         id: params.id,
         padding: padding,
         panSpeed: 0,
 
         attachFrame: attachFrame,
+        bounds: bounds,
         center: center,
         detach: detach,
         layer: layer,
@@ -3774,16 +3769,12 @@ reg('view', 'simple', function(params) {
         resetScale: resetScale,
         scale: scale,
         triggerAll: triggerAll,
-        removeLayer: removeLayer,
 
         /* offset methods */
 
-        getRenderer: getRenderer,
-        getScaleFactor: getScaleFactor,
         setMaxOffset: setMaxOffset,
         getViewport: getViewport,
         offset: offset,
-        pan: pan,
         zoom: zoom
     };
 
@@ -3793,6 +3784,8 @@ reg('view', 'simple', function(params) {
         renderer.checkSize();
     });
 
+    _self.bind(EVT_REMOVELAYER, handleRemoveLayer);
+
     _configurable(_self, params, {
         container: updateContainer,
         captureHover: captureInteractionEvents,
@@ -3800,29 +3793,6 @@ reg('view', 'simple', function(params) {
         pannable: captureInteractionEvents,
         renderer: changeRenderer
     });
-
-    /*
-    COG.configurable(
-        _self, [
-            'container',
-            'captureHover',
-            'scalable',
-            'pannable',
-            'inertia',
-            'minZoom',
-            'maxZoom',
-            'renderer',
-            'zoom'
-        ],
-        COG.paramTweaker(params, null, {
-            'container': updateContainer,
-            'captureHover': captureInteractionEvents,
-            'scalable': captureInteractionEvents,
-            'pannable': captureInteractionEvents,
-            'renderer': changeRenderer
-        }),
-        true);
-    */
 
     CANI.init(function(testResults) {
         layer('markers', 'draw', { zindex: 20 });
@@ -3841,204 +3811,6 @@ reg('view', 'simple', function(params) {
     Animator.attach(cycle);
 
     createControls(params.controls);
-
-    return _self;
-});
-/**
-# VIEW: map
-The Map class is the entry point for creating a tiling map.  Creating a
-map is quite simple and requires two things to operate.  A containing HTML5 canvas
-that will be used to display the map and a T5.Geo.MapProvider that will populate
-the map.
-
-## Example Usage: Creating a Map
-
-<pre lang='javascript'>
-map = new T5.Map({
-    container: 'mapContainer'
-});
-</pre>
-
-Like all View descendants the map supports features such as intertial scrolling and
-the like and is configurable through implementing the configurable interface. For
-more information on view level features check out the View documentation.
-
-## Events
-
-### zoom
-This event is triggered when the zoom level has been updated
-
-<pre>
-map.bind('zoom', function(evt, newZoomLevel) {
-});
-</pre>
-
-### boundsChange
-This event is triggered when the bounds of the map have changed
-
-<pre>
-map.bind('boundsChange', function(evt, bounds) {
-});
-</pre>
-
-## Methods
-*/
-reg('view', 'map', function(params) {
-    params = _extend({
-        zoomLevel: 1,
-        minZoom: 1,
-        maxZoom: 18,
-        pannable: true,
-        scalable: true
-    }, params);
-
-    var lastBoundsChangeOffset = new XY(),
-        initialized = false,
-        tappedPOIs = [],
-        annotations = null, // annotations layer
-        guideOffset = null,
-        initialTrackingUpdate = true,
-        rpp = 0,
-        tapExtent = params.tapExtent;
-
-    /* internal functions */
-
-    /* event handlers */
-
-    function handleTap(evt, absXY, relXY, offsetXY) {
-        var tapPos = offsetXY.sync(rpp, true).pos(),
-            minPos = offsetXY.offset(-tapExtent, tapExtent).sync(rpp, true).pos(),
-            maxPos = offsetXY.offset(tapExtent, -tapExtent).sync(rpp, true).pos();
-
-        _self.trigger(
-            'geotap',
-            absXY,
-            relXY,
-            tapPos,
-            new BBox(minPos, maxPos)
-        );
-    } // handleTap
-
-    function handleRefresh(evt, view, viewport) {
-        if (lastBoundsChangeOffset.x != viewport.x || lastBoundsChangeOffset.y != viewport.y) {
-            _self.trigger('boundsChange', _self.getBoundingBox());
-
-            lastBoundsChangeOffset.x = viewport.x;
-            lastBoundsChangeOffset.y = viewport.y;
-        } // if
-    } // handleWork
-
-    function handleZoomLevelChange(evt, zoomLevel) {
-        var gridSize;
-
-        rpp = _self.rpp = radsPerPixel(zoomLevel);
-
-        gridSize = TWO_PI / rpp | 0;
-        _self.setMaxOffset(gridSize, gridSize, true, false);
-
-
-        _self.resetScale();
-        _self.triggerAll('resync');
-    } // handleZoomLevel
-
-    /* internal functions */
-
-    function getLayerScaling(oldZoom, newZoom) {
-        return radsPerPixel(oldZoom) / radsPerPixel(newZoom);
-    } // getLayerScaling
-
-    /* public methods */
-
-    /**
-    ### getBoundingBox()
-
-    Return a boundingbox for the current map view area
-    */
-    function getBoundingBox() {
-        var viewport = _self.getViewport();
-
-        return viewport ?
-            new BBox(
-                new XY(viewport.x, viewport.y2).sync(rpp, true).pos(),
-                new XY(viewport.x2, viewport.y).sync(rpp, true).pos()) :
-            null;
-    } // getBoundingBox
-
-    /**
-    ### getCenterPosition()`
-    Return a T5.XY composite for the center position of the map
-    */
-    function getCenterPosition() {
-        var viewport = _self.getViewport();
-        if (viewport) {
-            return new XY(viewport.x + (viewport.w >> 1), viewport.y + (viewport.h >> 1)).sync(rpp, true).pos();
-        } // if
-
-        return null;
-    } // getCenterPosition
-
-    /**
-    ### gotoBounds(bounds, callback)
-    Calculates the optimal display bounds for the specified boundingbox and
-    then goes to the center position and zoom level best suited.
-    */
-    function gotoBounds(bounds, callback) {
-        gotoPosition(
-            bounds.center(),
-            bounds.bestZoomLevel(_self.getViewport()),
-            callback);
-    } // gotoBounds
-
-    /**
-    ### gotoPosition(position, newZoomLevel, callback)
-    This function is used to tell the map to go to the specified position.  The
-    newZoomLevel parameter is optional and updates the map zoom level if supplied.
-    An optional callback argument is provided to receieve a notification once
-    the position of the map has been updated.
-    */
-    function gotoPosition(position, newZoomLevel, callback) {
-        _self.zoom(newZoomLevel);
-
-        panToPosition(position, callback);
-    } // gotoPosition
-
-    /**
-    ### panToPosition(position)
-    This method is used to tell the map to pan (not zoom) to the specified position
-    */
-    function panToPosition(position, callback, easingFn, easingDuration) {
-        var centerXY = new XY(position);
-        centerXY.sync(radsPerPixel(_self.zoom()));
-
-        _self.center(centerXY.x, centerXY.y, easingFn, easingDuration, function() {
-            if (callback) {
-                callback(_self);
-            } // if
-        });
-    } // panToPosition
-
-    /* public object definition */
-
-    params.adjustScaleFactor = function(scaleFactor) {
-        var roundFn = scaleFactor < 1 ? Math.floor : Math.ceil;
-        return Math.pow(2, roundFn(Math.log(scaleFactor)));
-    };
-
-    var _self = _extend(regCreate('view', 'simple', params), {
-
-        getBoundingBox: getBoundingBox,
-        getCenterPosition: getCenterPosition,
-
-        gotoBounds: gotoBounds,
-        gotoPosition: gotoPosition,
-        panToPosition: panToPosition
-    });
-
-    _self.bind('tap', handleTap);
-
-    _self.bind('refresh', handleRefresh);
-
-    _self.bind('zoom', handleZoomLevelChange);
 
     return _self;
 });
@@ -4068,7 +3840,7 @@ var Drawable = function(view, layer, params) {
     _extend(this, params);
 
     if (_is(this.xy, typeString)) {
-        this.xy = new XY(this.xy);
+        this.xy = new view.XY(this.xy);
     } // if
 
     this.id = 'drawable_' + drawableCounter++;
@@ -4125,7 +3897,7 @@ Drawable.prototype = {
     */
     resync: function() {
         if (this.xy) {
-            this.xy.sync(this.view.rpp);
+            this.xy.sync(this.view);
 
             if (this.size) {
                 var halfSize = this.size >> 1;
@@ -4359,7 +4131,7 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
         var ii, x, y, maxX, maxY, minX, minY, drawPoints;
 
         for (ii = points.length; ii--; ) {
-            points[ii].sync(view.rpp);
+            points[ii].sync(view);
         } // for
 
         drawPoints = this.points = simplify ? simplify(points) : points;
@@ -4596,7 +4368,14 @@ ViewLayer.prototype = {
     and then make use of canvas functions such as `isPointInPath` to do most of the heavy
     lifting for us
     */
-    hitGuess: null
+    hitGuess: null,
+
+    /**
+    ### remove()
+    */
+    remove: function() {
+        this.view.trigger(EVT_REMOVELAYER, this);
+    }
 }; // ViewLayer.prototype
 /**
 # LAYER: tile
@@ -4681,7 +4460,7 @@ reg('layer', 'draw', function(view, params) {
         var dragOffset = this.dragOffset;
 
         if (! dragOffset) {
-            dragOffset = this.dragOffset = new XY(
+            dragOffset = this.dragOffset = new view.XY(
                 dragData.startX - this.xy.x,
                 dragData.startY - this.xy.y
             );
@@ -5196,7 +4975,7 @@ Pos.prototype = {
     Return an xy of the mercator pixel value for the position
     */
     toPixels: function() {
-        return new XY(lon2pix(this.lon), lat2pix(this.lat));
+        return _project(this.lon, this.lat);
     },
 
     /**
@@ -5290,7 +5069,7 @@ var PosFns = (function() {
                 ii = posIndex;
 
             for (; ii--;) {
-                vectors[ii] = new XY(positions[ii]);
+                vectors[ii] = new GeoXY(positions[ii]);
 
                 chunkCounter += 1;
 
@@ -5312,7 +5091,7 @@ var PosFns = (function() {
 
         if (! options.async) {
             for (var ii = posIndex; ii--; ) {
-                vectors[ii] = new XY(positions[ii]);
+                vectors[ii] = new GeoXY(positions[ii]);
             } // for
 
             return vectors;
@@ -5441,6 +5220,9 @@ var T5 = {
     wordExists: _wordExists,
     is: _is,
     indexOf: _indexOf,
+
+    project: _project,
+    unproject: _unproject,
 
     userMessage: userMessage,
 

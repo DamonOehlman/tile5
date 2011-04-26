@@ -18,7 +18,7 @@ reg('layer', 'draw', function(view, params) {
         
         // if the drag offset is unknown then calculate
         if (! dragOffset) {
-            dragOffset = this.dragOffset = new XY(
+            dragOffset = this.dragOffset = new view.XY(
                 dragData.startX - this.xy.x, 
                 dragData.startY - this.xy.y
             );

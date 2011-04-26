@@ -287,7 +287,7 @@ T5.Clusterer = function(view, params) {
         // remove the cluster layers from the view
         for (var layerId in clusterLayers) {
             // find the original layer
-            var originalLayer = view.getLayer(layerId.slice(CLUSTER_LAYER_PREFIX.length));
+            var originalLayer = view.layer(layerId.slice(CLUSTER_LAYER_PREFIX.length));
             if (originalLayer) {
                 originalLayer.visible = true;
             } // if

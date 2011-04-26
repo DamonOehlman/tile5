@@ -32,7 +32,7 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
         var ii, x, y, maxX, maxY, minX, minY, drawPoints;
         
         for (ii = points.length; ii--; ) {
-            points[ii].sync(view.rpp);
+            points[ii].sync(view);
         } // for
 
         // simplify the vectors for drawing (if required)

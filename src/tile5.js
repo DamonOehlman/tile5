@@ -22,7 +22,9 @@
 //= require "core/parser"
 //= require "core/dom"
 
+//= require "core/geo/projections/default"
 //= require "core/types/xy"
+//= require "core/types/geoxy"
 //= require "core/types/rect"
 
 //= require "core/xyfns"
@@ -37,7 +39,6 @@
 //= require "core/renderers/dom"
 
 //= require "core/graphics/style"
-//= require "core/graphics/view"
 //= require "core/graphics/map"
 
 //= require "core/graphics/drawables/core"
@@ -69,6 +70,9 @@ var T5 = {
     wordExists: _wordExists,
     is: _is,
     indexOf: _indexOf,
+    
+    project: _project,
+    unproject: _unproject,
     
     userMessage: userMessage,
     

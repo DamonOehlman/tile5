@@ -25,7 +25,7 @@ var Drawable = function(view, layer, params) {
     
     // if the xy is a string, then parse it
     if (_is(this.xy, typeString)) {
-        this.xy = new XY(this.xy);
+        this.xy = new view.XY(this.xy);
     } // if
     
     // initialise the id
@@ -85,7 +85,7 @@ Drawable.prototype = {
     */
     resync: function() {
         if (this.xy) {
-            this.xy.sync(this.view.rpp);
+            this.xy.sync(this.view);
             
             // if we have a size, update the bounds
             if (this.size) {

@@ -46,54 +46,6 @@ function dist2rad(distance) {
 } // dist2rad
 
 /**
-### lat2pix(lat)
-To be completed
-*/
-function lat2pix(lat) {
-    var radLat = parseFloat(lat) * DEGREES_TO_RADIANS,
-        sinPhi = sin(radLat),
-        eSinPhi = ECC * sinPhi,
-        retVal = log(((1.0 + sinPhi) / (1.0 - sinPhi)) * pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
-
-    return retVal;
-} // lat2Pix
-
-/**
-### lon2pix(lon)
-To be completed
-*/
-function lon2pix(lon) {
-    return parseFloat(lon) * DEGREES_TO_RADIANS;
-} // lon2pix
-
-/**
-### pix2lat(mercY)
-To be completed
-*/
-function pix2lat(mercY) {
-    var t = pow(Math.E, -mercY),
-        prevPhi = mercatorUnproject(t),
-        newPhi = findRadPhi(prevPhi, t),
-        iterCount = 0;
-
-    while (iterCount < PHI_MAXITER && abs(prevPhi - newPhi) > PHI_EPSILON) {
-        prevPhi = newPhi;
-        newPhi = findRadPhi(prevPhi, t);
-        iterCount++;
-    } // while
-
-    return newPhi * RADIANS_TO_DEGREES;
-} // pix2lat
-
-/**
-### pix2lon(mercX)
-To be completed
-*/
-function pix2lon(mercX) {
-    return (mercX % 360) * RADIANS_TO_DEGREES;
-} // pix2lon
-
-/**
 ### radsPerPixel(zoomLevel)
 */
 function radsPerPixel(zoomLevel) {

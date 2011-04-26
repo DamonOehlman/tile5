@@ -87,5 +87,12 @@ ViewLayer.prototype = {
     and then make use of canvas functions such as `isPointInPath` to do most of the heavy
     lifting for us
     */
-    hitGuess: null
+    hitGuess: null,
+    
+    /**
+    ### remove()
+    */
+    remove: function() {
+        this.view.trigger(EVT_REMOVELAYER, this);
+    }
 }; // ViewLayer.prototype

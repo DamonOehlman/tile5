@@ -71,7 +71,7 @@ Hits = (function() {
             elements ? elements : hitData.elements, 
             hitData.absXY,
             hitData.relXY,
-            new XY(hitData.x, hitData.y)
+            new GeoXY(hitData.x, hitData.y)
         );                
     } // triggerEvent
     

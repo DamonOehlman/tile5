@@ -96,6 +96,12 @@ map.layer('tiles', 'tile', {
 var layer = map.layer('layerId');
 ```
 
+### Removing a layer
+
+```js
+map.layer('layerId').remove();
+```
+
 ### Adding Drawables
 
 When creating drawables (on `draw` layers) the `create` method is used.  The first parameter to the method specifies the type of drawable to create and the second parameter specifies either: 

@@ -91,7 +91,7 @@ var PosFns = (function() {
                 
             // process from the last position index
             for (; ii--;) {
-                vectors[ii] = new XY(positions[ii]);
+                vectors[ii] = new GeoXY(positions[ii]);
                 
                 // increase the chunk counter
                 chunkCounter += 1;
@@ -116,7 +116,7 @@ var PosFns = (function() {
         // if we are not processing async, then do it right now
         if (! options.async) {
             for (var ii = posIndex; ii--; ) {
-                vectors[ii] = new XY(positions[ii]);
+                vectors[ii] = new GeoXY(positions[ii]);
             } // for
             
             return vectors;

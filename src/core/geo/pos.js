@@ -103,7 +103,7 @@ Pos.prototype = {
     Return an xy of the mercator pixel value for the position
     */
     toPixels: function() {
-        return new XY(lon2pix(this.lon), lat2pix(this.lat));
+        return _project(this.lon, this.lat);
     },
     
     /**
