@@ -84,12 +84,9 @@ var T5 = {
     XY: XY,
     Hits: Hits,
     
-    // animation functions and modules
-    tweenValue: _tweenValue,
-    easing: _easing,
-
     Control: Control,
     Tile: Tile,
+    Tweener: Tweener,
     getImage: getImage,
     
     // some of the geo types starting to move up...

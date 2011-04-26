@@ -2956,7 +2956,10 @@ reg('view', 'map', function(params) {
         hitData = null,
         lastHitData = null,
         resizeCanvasTimeout = 0,
+        rotation = 0,
+        rotateTween = null,
         scaleFactor = 1,
+        scaleTween = null,
         lastScaleFactor = 1,
         lastBoundsChangeOffset = new GeoXY(),
         lastCycleTicks = 0,
@@ -2973,9 +2976,7 @@ reg('view', 'map', function(params) {
         halfWidth, halfHeight,
         halfOuterWidth, halfOuterHeight,
         zoomX, zoomY,
-        zoomLevel = params.zoom || params.zoomLevel,
-        zoomEasing = _easing('quad.out'),
-        zoomDuration = 300;
+        zoomLevel = params.zoom || params.zoomLevel;
 
     /* event handlers */
 
@@ -2984,27 +2985,6 @@ reg('view', 'map', function(params) {
     function handleZoom(evt, absXY, relXY, scaleChange, source) {
         scale(min(max(scaleFactor + pow(2, scaleChange) - 1, 0.5), 2));
     } // handleWheelZoom
-
-    function scaleView(newScaleFactor) {
-        var scaleFactorExp,
-            flooredScaleFactor = newScaleFactor | 0,
-            fraction = newScaleFactor - flooredScaleFactor;
-
-        newScaleFactor = flooredScaleFactor + Math.round(fraction * 50) / 50;
-
-        if (newScaleFactor !== scaleFactor) {
-            scaleFactor = newScaleFactor;
-
-            scaleFactorExp = log(scaleFactor) / Math.LN2 | 0;
-
-            if (scaleFactorExp !== 0) {
-                scaleFactor = pow(2, scaleFactorExp);
-                zoom(zoomLevel + scaleFactorExp, zoomX, zoomY);
-            } // ifg
-
-            viewChanges++;
-        } // if
-    } // scaleView
 
     function getProjectedXY(srcX, srcY) {
         var projectedXY = renderer && renderer.projectXY ? renderer.projectXY(srcX, srcY) : null;
@@ -3029,12 +3009,10 @@ reg('view', 'map', function(params) {
             getProjectedXY(relXY.x, relXY.y));
 
         if (params.scalable) {
-            scale(
-                2,
-                getProjectedXY(relXY.x, relXY.y),
-                zoomEasing,
-                null,
-                zoomDuration);
+            scale(2, {
+                easing: 'quad.out',
+                duration: 300
+            });
         } // if
     } // handleDoubleTap
 
@@ -3087,6 +3065,15 @@ reg('view', 'map', function(params) {
     } // handlePointerTap
 
     /* private functions */
+
+    function checkScaling() {
+        var scaleFactorExp = log(scaleFactor) / Math.LN2 | 0;
+
+        if (scaleFactorExp !== 0) {
+            scaleFactor = pow(2, scaleFactorExp);
+            zoom(zoomLevel + scaleFactorExp, zoomX, zoomY);
+        } // ifg
+    } // checkScaling
 
     function createRenderer(typeName) {
         renderer = attachRenderer(typeName || params.renderer, _self, viewpane, outer, params);
@@ -3298,7 +3285,7 @@ reg('view', 'map', function(params) {
 
         scaleChanged = scaleFactor !== lastScaleFactor;
 
-        if (panSpeed > 0 || scaleChanged || offsetTween) {
+        if (panSpeed > 0 || scaleChanged || offsetTween || scaleTween || rotateTween) {
             viewChanges++;
 
             if (offsetTween && panSpeed > 0) {
@@ -3318,6 +3305,14 @@ reg('view', 'map', function(params) {
 
 
         if (renderer && frameData.draw) {
+            if (scaleTween) {
+                scaleFactor = scaleTween()[0];
+            } // if
+
+            if (rotateTween) {
+                rotation = rotateTween()[0];
+            } // if
+
             panX += dx;
             panY += dy;
 
@@ -3325,8 +3320,14 @@ reg('view', 'map', function(params) {
                 _self.trigger('pan');
             } // if
 
-            if ((scaleFactor !== 1) && DOM.supportTransforms) {
-                extraTransforms[extraTransforms.length] = 'scale(' + scaleFactor + ')';
+            if (DOM.supportTransforms) {
+                if (scaleFactor !== 1) {
+                    extraTransforms[extraTransforms.length] = 'scale(' + scaleFactor + ')';
+                } // if
+
+                if (rotation !== 0) {
+                    extraTransforms[extraTransforms.length] = 'rotate(' + rotation + 'deg)';
+                } // if
             } // if
 
             rerender = (! fastpan) || (
@@ -3338,8 +3339,8 @@ reg('view', 'map', function(params) {
                 if (offsetTween) {
                     var values = offsetTween();
 
-                    offsetX = values[0];
-                    offsetY = values[1];
+                    offsetX = values[0] | 0;
+                    offsetY = values[1] | 0;
                 }
                 else {
                     offsetX = (offsetX - panX / scaleFactor) | 0;
@@ -3417,6 +3418,8 @@ reg('view', 'map', function(params) {
                 checkHits();
                 hitData = null;
             } // if
+
+            checkScaling();
         } // if
     } // cycle
 
@@ -3691,47 +3694,60 @@ reg('view', 'map', function(params) {
         } // if
     } // refresh
 
-    function resetScale() {
-        scaleFactor = 1;
-    } // resetScale
-
     /**
-    ### scale(targetScaling: float, targetXY: T5.XY, tweenFn: EasingFn, callback: fn)
-    Scale the view to the specified `targetScaling` (1 = normal, 2 = double-size and 0.5 = half-size).
+    ### rotate(value, tween)
     */
-    function scale(targetScaling, targetXY, tweenFn, callback, duration) {
-        var scaleFactorExp;
+    function rotate(value, tween) {
+        if (_is(value, typeNumber)) {
+            if (tween) {
+                rotateTween = Tweener.tween([rotation], [rotation + value], tween, function() {
+                    rotation = round(rotation) % 360;
+                    rotateTween = null;
+                });
+            }
+            else {
+                rotation += value;
+            } // if..else
 
-        if (! partialScaling) {
-            tweenFn = false;
-
-            scaleFactorExp = round(log(targetScaling) / Math.LN2);
-
-            targetScaling = pow(2, scaleFactorExp);
-        } // if
-
-        if (tweenFn) {
-            _tweenValue(scaleFactor, targetScaling, tweenFn, duration, function(val, completed) {
-                targetScaling = val;
-
-                if (completed) {
-                    scaleFactorExp = round(log(targetScaling) / Math.LN2);
-
-                    targetScaling = pow(2, scaleFactorExp);
-
-                    if (callback) {
-                        callback();
-                    } // if
-                } // if
-
-                scaleView(targetScaling);
-            });
+            return _self;
         }
         else {
-            scaleView(targetScaling);
-        }  // if..else
+            return rotation;
+        } // if..else
+    } // rotate
 
-        return _self;
+    /**
+    ### scale(value, tween)
+    */
+    function scale(value, tween) {
+        if (_is(value, typeNumber)) {
+            var scaleFactorExp;
+
+            if (! partialScaling) {
+                tween = null;
+
+                scaleFactorExp = round(log(targetScaling) / Math.LN2);
+
+                targetScaling = pow(2, scaleFactorExp);
+            } // if
+
+            if (tween) {
+                scaleTween = Tweener.tween([scaleFactor], [value], tween, function() {
+                    scaleFactor = round(scaleFactor);
+
+                    scaleTween = null;
+                });
+            }
+            else {
+                scaleFactor = value;
+                viewChanges++;
+            }
+
+            return _self;
+        } // if
+        else {
+            return scaleFactor;
+        }
     } // scale
 
     /**
@@ -3796,7 +3812,7 @@ reg('view', 'map', function(params) {
         invalidate: invalidate,
         pan: pan,
         refresh: refresh,
-        resetScale: resetScale,
+        rotate: rotate,
         scale: scale,
         triggerAll: triggerAll,
 
@@ -3872,7 +3888,7 @@ var Tweener = (function() {
                     if (complete) {
                         finishedCount++;
 
-                        if (finishedCount >= expectedCount) {
+                        if (continueTween && finishedCount >= expectedCount) {
                             var fireCB = callback ? callback() : true;
 
                             if (params.callback && (_is(fireCB, typeUndefined) || fireCB)) {
@@ -5324,11 +5340,9 @@ var T5 = {
     XY: XY,
     Hits: Hits,
 
-    tweenValue: _tweenValue,
-    easing: _easing,
-
     Control: Control,
     Tile: Tile,
+    Tweener: Tweener,
     getImage: getImage,
 
     Pos: Pos,

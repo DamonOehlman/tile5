@@ -61,7 +61,10 @@ reg('view', 'map', function(params) {
         hitData = null,
         lastHitData = null,
         resizeCanvasTimeout = 0,
+        rotation = 0,
+        rotateTween = null,
         scaleFactor = 1,
+        scaleTween = null,
         lastScaleFactor = 1,
         lastBoundsChangeOffset = new GeoXY(),
         lastCycleTicks = 0,
@@ -78,9 +81,7 @@ reg('view', 'map', function(params) {
         halfWidth, halfHeight,
         halfOuterWidth, halfOuterHeight,
         zoomX, zoomY,
-        zoomLevel = params.zoom || params.zoomLevel,
-        zoomEasing = _easing('quad.out'),
-        zoomDuration = 300;
+        zoomLevel = params.zoom || params.zoomLevel;
         
     /* event handlers */
     
@@ -89,32 +90,6 @@ reg('view', 'map', function(params) {
     function handleZoom(evt, absXY, relXY, scaleChange, source) {
         scale(min(max(scaleFactor + pow(2, scaleChange) - 1, 0.5), 2));
     } // handleWheelZoom
-    
-    function scaleView(newScaleFactor) {
-        var scaleFactorExp,
-            flooredScaleFactor = newScaleFactor | 0,
-            fraction = newScaleFactor - flooredScaleFactor;
-        
-        // round to the nearest 0.125
-        newScaleFactor = flooredScaleFactor + Math.round(fraction * 50) / 50;
-        
-        if (newScaleFactor !== scaleFactor) {
-            // update the scale factor
-            scaleFactor = newScaleFactor;
-            
-            // calculate the scale factor exponent
-            scaleFactorExp = log(scaleFactor) / Math.LN2 | 0;
-
-            // _log('scale factor = ' + scaleFactor + ', exp = ' + scaleFactorExp);
-            if (scaleFactorExp !== 0) {
-                scaleFactor = pow(2, scaleFactorExp);
-                zoom(zoomLevel + scaleFactorExp, zoomX, zoomY);
-            } // ifg
-
-            // invalidate the view
-            viewChanges++;
-        } // if
-    } // scaleView
     
     function getProjectedXY(srcX, srcY) {
         // first see if the renderer will determine the projected xy
@@ -142,12 +117,10 @@ reg('view', 'map', function(params) {
             
         if (params.scalable) {
             // animate the scaling
-            scale(
-                2, 
-                getProjectedXY(relXY.x, relXY.y), 
-                zoomEasing, 
-                null, 
-                zoomDuration);
+            scale(2, {
+                easing: 'quad.out',
+                duration: 300
+            });
         } // if
     } // handleDoubleTap
     
@@ -207,6 +180,17 @@ reg('view', 'map', function(params) {
     } // handlePointerTap
     
     /* private functions */
+    
+    function checkScaling() {
+        // calculate the scale factor exponent
+        var scaleFactorExp = log(scaleFactor) / Math.LN2 | 0;
+
+        // _log('scale factor = ' + scaleFactor + ', exp = ' + scaleFactorExp);
+        if (scaleFactorExp !== 0) {
+            scaleFactor = pow(2, scaleFactorExp);
+            zoom(zoomLevel + scaleFactorExp, zoomX, zoomY);
+        } // ifg
+    } // checkScaling
     
     function createRenderer(typeName) {
         renderer = attachRenderer(typeName || params.renderer, _self, viewpane, outer, params);
@@ -443,7 +427,7 @@ reg('view', 'map', function(params) {
         // update the panning flag
         scaleChanged = scaleFactor !== lastScaleFactor;
         
-        if (panSpeed > 0 || scaleChanged || offsetTween) {
+        if (panSpeed > 0 || scaleChanged || offsetTween || scaleTween || rotateTween) {
             viewChanges++;
             
             // if we have an offset tween and a pan speed, then cancel the tween
@@ -467,9 +451,19 @@ reg('view', 'map', function(params) {
         // trigger the enter frame event
         // TODO: investigate whether this can be removed...
         // _self.trigger('enterFrame', tickCount, frameData);
-            
+        
         // if we a due for a redraw then do on
         if (renderer && frameData.draw) {
+            // if we have a scale tween, then get the updated scale factor
+            if (scaleTween) {
+                scaleFactor = scaleTween()[0];
+            } // if
+
+            // if we have a rotation twee, then get the updated rotation
+            if (rotateTween) {
+                rotation = rotateTween()[0];
+            } // if
+
             // update the pan x and y
             panX += dx;
             panY += dy;
@@ -478,9 +472,15 @@ reg('view', 'map', function(params) {
                 _self.trigger('pan');
             } // if
             
-            // if transforms are supported, then scale using transforms
-            if ((scaleFactor !== 1) && DOM.supportTransforms) {
-                extraTransforms[extraTransforms.length] = 'scale(' + scaleFactor + ')';
+            // if transforms are supported, then scale and rotate as approprate
+            if (DOM.supportTransforms) {
+                if (scaleFactor !== 1) {
+                    extraTransforms[extraTransforms.length] = 'scale(' + scaleFactor + ')';
+                } // if
+                
+                if (rotation !== 0) {
+                    extraTransforms[extraTransforms.length] = 'rotate(' + rotation + 'deg)';
+                } // if
             } // if
             
             // determine whether we should rerender or not
@@ -495,8 +495,8 @@ reg('view', 'map', function(params) {
                     var values = offsetTween();
 
                     // get the current offset values from the tween
-                    offsetX = values[0];
-                    offsetY = values[1];
+                    offsetX = values[0] | 0;
+                    offsetY = values[1] | 0;
                 }
                 else {
                     offsetX = (offsetX - panX / scaleFactor) | 0;
@@ -593,6 +593,9 @@ reg('view', 'map', function(params) {
                 checkHits();
                 hitData = null;
             } // if
+            
+            // check the scale factor
+            checkScaling();
         } // if
     } // cycle
     
@@ -923,56 +926,65 @@ reg('view', 'map', function(params) {
         } // if
     } // refresh
     
-    function resetScale() {
-        scaleFactor = 1;
-    } // resetScale
+    /**
+    ### rotate(value, tween)
+    */
+    function rotate(value, tween) {
+        if (_is(value, typeNumber)) {
+            if (tween) {
+                rotateTween = Tweener.tween([rotation], [rotation + value], tween, function() {
+                    rotation = round(rotation) % 360;
+                    rotateTween = null;
+                });
+            }
+            else {
+                rotation += value;
+            } // if..else
+            
+            return _self;
+        }
+        else {
+            return rotation;
+        } // if..else
+    } // rotate
     
     /**
-    ### scale(targetScaling: float, targetXY: T5.XY, tweenFn: EasingFn, callback: fn)
-    Scale the view to the specified `targetScaling` (1 = normal, 2 = double-size and 0.5 = half-size).
+    ### scale(value, tween)
     */
-    function scale(targetScaling, targetXY, tweenFn, callback, duration) {
-        var scaleFactorExp;
-                
-        // if partial scrolling is disabled handle it
-        if (! partialScaling) {
-            tweenFn = false;
+    function scale(value, tween) {
+        // if we are setting the scale,
+        if (_is(value, typeNumber)) {
+            var scaleFactorExp;
 
-            scaleFactorExp = round(log(targetScaling) / Math.LN2);
+            // if partial scrolling is disabled handle it
+            if (! partialScaling) {
+                tween = null;
 
-            // round the scale factor to the nearest power of 2
-            targetScaling = pow(2, scaleFactorExp);
+                scaleFactorExp = round(log(targetScaling) / Math.LN2);
+
+                // round the scale factor to the nearest power of 2
+                targetScaling = pow(2, scaleFactorExp);
+            } // if
+
+            if (tween) {
+                scaleTween = Tweener.tween([scaleFactor], [value], tween, function() {
+                    // TODO: remove the rounding
+                    scaleFactor = round(scaleFactor);
+                    
+                    // reset the scale tween to null
+                    scaleTween = null;
+                });
+            }
+            else {
+                scaleFactor = value;
+                viewChanges++;
+            }
+            
+            return _self;
         } // if
-        
-        // if tweening then update the targetXY
-        if (tweenFn) {
-            _tweenValue(scaleFactor, targetScaling, tweenFn, duration, function(val, completed) {
-                // update the scale factor
-                targetScaling = val;
-                
-                if (completed) {
-                    scaleFactorExp = round(log(targetScaling) / Math.LN2);
-
-                    // round the scale factor to the nearest power of 2
-                    targetScaling = pow(2, scaleFactorExp);
-
-                    // if we have a callback to complete, then call it
-                    if (callback) {
-                        callback();
-                    } // if
-                } // if
-
-                // trigger the on animate handler
-                scaleView(targetScaling);
-            });
-        }
-        // otherwise, update the scale factor and fire the callback
         else {
-            // update the zoom center
-            scaleView(targetScaling);
-        }  // if..else        
-
-        return _self;
+            return scaleFactor;
+        }
     } // scale
     
     /**
@@ -1041,7 +1053,7 @@ reg('view', 'map', function(params) {
         invalidate: invalidate,
         pan: pan,
         refresh: refresh,
-        resetScale: resetScale,
+        rotate: rotate,
         scale: scale,
         triggerAll: triggerAll,
         

@@ -31,7 +31,7 @@ var Tweener = (function() {
                         finishedCount++;
                         
                         // if the tween has finished, then check a few things
-                        if (finishedCount >= expectedCount) {
+                        if (continueTween && finishedCount >= expectedCount) {
                             var fireCB = callback ? callback() : true;
                             
                             if (params.callback && (_is(fireCB, typeUndefined) || fireCB)) {
