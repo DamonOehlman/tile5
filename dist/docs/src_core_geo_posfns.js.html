@@ -1,0 +1,22 @@
+---
+layout: apidoc
+title: Tile5 API Documentation
+---
+
+<h3>generalize(sourceData, requiredPositions, minDist)</h3>
+
+<p>To be completed</p>
+
+<h3>parseArray(sourceData)</h3>
+
+<p>Just like parse, but with lots of em'</p>
+
+<h3>vectorize(positions, options)</h3>
+
+<p>The vectorize function is used to take an array of positions specified in the 
+<code>positions</code> argument and convert these into xy values. By default
+the vectorize function will process these asyncronously and will return a 
+COG Worker that will be taking care of chunking up and processing the request
+in an efficient way.  It is, however, possible to specify that the conversion should
+happen synchronously and in this case the array of vectors is returned rather
+than a worker instance.</p>

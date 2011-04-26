@@ -1,0 +1,28 @@
+---
+layout: apidoc
+title: Tile5 API Documentation
+---
+
+<h1><a name="T5.SearchTools">T5.SearchTools</a></h1>
+
+<p><strong>PLUGIN</strong>: <code>plugins/geo.searchtools.js</code>
+The <a href="docs_T5_overview.mdown.html#Tile5">Tile5</a> search tools plugin is an extraction of some of the core search
+functionality that was originally implemented in the core <a href="docs_T5_overview.mdown.html#Tile5">Tile5</a> library. Basically
+the goal is to create a suite of tools that assist with the rationalization of 
+multiple search results across a number of disparate stores and help aggregate 
+those into a single meaningful set of results.
+Depending on the capabilities of the current browser the search tools module is 
+capable of taking forward geocoding requests, reverse geocoding requests, direction
+requests and 'Current Location' requests and attempting to provide results based
+on the geo engines that are currently available in the <a href="docs_T5_overview.mdown.html#Tile5">Tile5</a> application.</p>
+
+<h2>Events</h2>
+
+<h3>locationDetected</h3>
+
+<h2>Module <a href="src_core_geo_pos.js.html#Methods">Methods</a></h2>
+
+<h3>search(args, callback)</h3>
+
+<p>The search method represents the guts of the SearchTools module. The args parameter accepts 
+either a simple string or an object literal which is then passed onto suitable search agents.</p>

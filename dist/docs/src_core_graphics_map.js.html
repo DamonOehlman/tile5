@@ -1,0 +1,70 @@
+---
+layout: apidoc
+title: Tile5 API Documentation
+---
+
+<h1><a name="VIEW: map">VIEW: map</a></h1>
+
+<p>The Map class is the entry point for creating a tiling map.  Creating a 
+map is quite simple and requires two things to operate.  A containing HTML5 canvas
+that will be used to display the map and a <a href="src_core_functions.js.html#T5">T5</a>.Geo.MapProvider that will populate 
+the map.</p>
+
+<h2>Example Usage: Creating a Map</h2>
+
+<pre lang='javascript'>
+// create the map
+map = new <a href="src_core_functions.js.html#T5">T5</a>.Map({
+container: 'mapContainer'
+});
+</pre>
+
+<p>Like all View descendants the map supports features such as intertial scrolling and
+the like and is configurable through implementing the configurable interface. For 
+more information on view level features check out the View documentation.</p>
+
+<h2>Events</h2>
+
+<h3>zoom</h3>
+
+<p>This event is triggered when the zoom level has been updated</p>
+
+<pre>
+map.bind('zoom', function(evt, newZoomLevel) {
+});
+</pre>
+
+<h3>boundsChange</h3>
+
+<p>This event is triggered when the bounds of the map have changed</p>
+
+<pre>
+map.bind('boundsChange', function(evt, bounds) {
+});
+</pre>
+
+<h2><a href="src_core_geo_pos.js.html#Methods">Methods</a></h2>
+
+<h3>getBoundingBox()</h3>
+
+<p>Return a boundingbox for the current map view area</p>
+
+<h3>getCenterPosition()`</h3>
+
+<p>Return a <a href="src_core_types_xy.js.html#T5.XY">T5.XY</a> composite for the center position of the map</p>
+
+<h3>gotoBounds(bounds, callback)</h3>
+
+<p>Calculates the optimal display bounds for the specified boundingbox and
+then goes to the center position and zoom level best suited.</p>
+
+<h3>gotoPosition(position, newZoomLevel, callback)</h3>
+
+<p>This function is used to tell the map to go to the specified position.  The 
+newZoomLevel parameter is optional and updates the map zoom level if supplied.
+An optional callback argument is provided to receieve a notification once
+the position of the map has been updated.</p>
+
+<h3>panToPosition(position)</h3>
+
+<p>This method is used to tell the map to pan (not zoom) to the specified position</p>

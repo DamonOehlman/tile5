@@ -1,0 +1,39 @@
+---
+layout: apidoc
+title: Tile5 API Documentation
+---
+
+<p>DRAWABLE</p>
+
+<h2>Constructor</h2>
+
+<p><code>new <a href="src_core_functions.js.html#T5">T5</a>.Drawable(view, layer, params);</code></p>
+
+<h2>## Settings</h2>
+
+<h3>animate(fn, argsStart, argsEnd, opts)</h3>
+
+<h3>drag(dragData, dragX, dragY, drop)</h3>
+
+<h3>draw(renderer, drawData)</h3>
+
+<p>The draw method is provided for custom drawables. Internal drawables will delegate
+their drawing to the function that is returned from the various prep* methods of the
+renderer, however, when building some applications this really isn't suitable and
+more is required.  Thus if required a custom draw method can be implemented to implement
+the required functionality.</p>
+
+<h3>getProps(renderer)</h3>
+
+<p>Get the drawable item properties that will be passed to the renderer during
+the prepare and draw phase</p>
+
+<h3>resync(view)</h3>
+
+<h3>rotate(value)</h3>
+
+<h3>scale(value)</h3>
+
+<h3>translate(x, y)</h3>
+
+<h3>updateBounds(bounds: XYRect, updateXY: boolean)</h3>

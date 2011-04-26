@@ -3,8 +3,7 @@ var DOM = (function() {
     
     var CORE_STYLES = {
             '-webkit-user-select': 'none',
-            position: 'absolute',
-            overflow: 'hidden'
+            position: 'absolute'
         },
         testTransformProps = ['-webkit-transform', 'MozTransform'],
         transformProp;

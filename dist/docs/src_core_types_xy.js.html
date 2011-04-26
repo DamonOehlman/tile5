@@ -1,0 +1,33 @@
+---
+layout: apidoc
+title: Tile5 API Documentation
+---
+
+<h1><a name="T5.XY">T5.XY</a></h1>
+
+<p>The internal XY class is currently created by making a call to <code><a href="src_core_types_xy.js.html#T5.XY">T5.XY</a>.init</code> rather than <code>new <a href="src_core_types_xy.js.html#T5.XY">T5.XY</a></code>.
+This will seem strange, and it is strange, and is a result of migrating from a closure based pattern
+to a prototypal pattern in areas of the <a href="docs_T5_overview.mdown.html#Tile5">Tile5</a> library.</p>
+
+<h2><a href="src_core_geo_pos.js.html#Methods">Methods</a></h2>
+
+<h3>add(xy*)</h3>
+
+<p>Return a <strong>new</strong> xy composite that is adds the current value of this xy value with the other xy 
+values that have been passed to the function.  The actual value of this XY value remain unchanged.</p>
+
+<h3>equals(xy)</h3>
+
+<p>Return true if the two points are equal, false otherwise.  <strong>NOTE:</strong> This function
+does not automatically floor the values so if the point values are floating point
+then floating point precision errors will likely occur.</p>
+
+<h3>offset(x, y)</h3>
+
+<p>Return a new <a href="src_core_types_xy.js.html#T5.XY">T5.XY</a> object which is offset from the current xy by the specified arguments.</p>
+
+<h3>sync(rpp)</h3>
+
+<h3>toPos(rpp)</h3>
+
+<h3>toString()</h3>

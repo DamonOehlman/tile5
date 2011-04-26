@@ -36,9 +36,19 @@ task :minify => [:compile] do
     .sub('.js', '')
     
   files.each do |src|
-    sh "java -jar build/google-compiler-20100629.jar \
+    sh "java -jar /development/tools/javascript/closure/compiler.jar \
            --compilation_level SIMPLE_OPTIMIZATIONS \
            --js_output_file dist/%s.min.js \
            --js dist/%s.js" % [src, src]
   end
+end
+
+task :docs => [] do
+  sh "perl /development/projects/github/sidelab/joDoc/joDoc \
+       --output dist/docs \
+       --markdown /development/tools/perl/Markdown.pl \
+       --smartypants /development/tools/perl/SmartyPants.pl \
+       --title \"Tile5 API Documentation\" \
+       --template docs/html/template.html \
+       docs/ src/"
 end

@@ -7,7 +7,7 @@ reg('view', 'simple', function(params) {
         container: "",
         captureHover: true,
         drawOnScale: true,
-        padding: 128,
+        padding: 0, // 128
         inertia: true,
         refreshDistance: 256,
         pannable: false,

@@ -61,9 +61,9 @@
     //= require "core/images/loader"
     //= require "core/images/tile"
     
-    //= require "core/graphics/renderers/base"
-    //= require "core/graphics/renderers/canvas"
-    //= require "core/graphics/renderers/dom"
+    //= require "core/renderers/base"
+    //= require "core/renderers/canvas"
+    //= require "core/renderers/dom"
     
     //= require "core/graphics/style"
     
@@ -109,15 +109,7 @@
         BBox: BBox
     });
     
-    //= require "core/geo/address"
     //= require "core/geo/osm"
-
-    // define the geo functionality
-    T5.Geo = {
-        Address: Address,
-        A: addrTools
-    };
-    
     //= require "core/factory"
     exports.T5 = T5;
     exports.Tile5 = Tile5;
