@@ -190,7 +190,7 @@ T5.SearchTools = (function() {
         }
     };
 
-    _observable(module);
+    T5.observable(module);
 
     return module;
 })();

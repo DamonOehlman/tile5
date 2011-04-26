@@ -3,7 +3,7 @@
 T5.Decarta = (function() {
     // initialise the default configuration parameters
     var currentConfig = {
-        sessionID: T5.ticks(),
+        sessionID: new Date().getTime(),
         server: "",
         clientName: "",
         clientPassword: "",

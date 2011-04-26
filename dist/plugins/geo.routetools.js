@@ -270,7 +270,7 @@ T5.RouteTools = (function() {
         RouteData: RouteData
     };
 
-    _observable(module);
+    T5.observable(module);
 
     return module;
 })();

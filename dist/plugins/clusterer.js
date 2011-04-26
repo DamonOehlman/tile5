@@ -18,7 +18,7 @@ have the clustering operate on:
 
 */
 T5.Clusterer = function(view, params) {
-    params = _extend({
+    params = T5.ex({
         dist: 32,
         checkInterval: 100
     }, params);
@@ -81,7 +81,7 @@ T5.Clusterer = function(view, params) {
                 var cluster = findNearestCluster(clusterLayer);
 
                 if (! cluster) {
-                    cluster = new T5.Marker(_extend({}, markers[ii], {
+                    cluster = new T5.Marker(T5.ex({}, markers[ii], {
                         children: []
                     }));
 
@@ -124,7 +124,7 @@ T5.Clusterer = function(view, params) {
         for (var quad in hash) {
             var childMarkers = hash[quad],
                 markerXY = calcAverageXY(childMarkers, view || layer.view),
-                clusterMarker = new T5.Marker(_extend({}, childMarkers[0], {
+                clusterMarker = new T5.Marker(T5.ex({}, childMarkers[0], {
                     xy: markerXY,
                     size: childMarkers[0].size + childMarkers.length,
                     children: childMarkers

@@ -292,7 +292,7 @@ T5.RouteTools = (function() {
     };
     
     // make the module observable
-    _observable(module);
+    T5.observable(module);
     
     return module;
 })();

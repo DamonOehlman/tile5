@@ -5641,7 +5641,7 @@ T5.RouteTools = (function() {
         RouteData: RouteData
     };
 
-    _observable(module);
+    T5.observable(module);
 
     return module;
 })();
@@ -5818,7 +5818,7 @@ COG.extend = function() {
 
 T5.Decarta = (function() {
     var currentConfig = {
-        sessionID: T5.ticks(),
+        sessionID: new Date().getTime(),
         server: "",
         clientName: "",
         clientPassword: "",

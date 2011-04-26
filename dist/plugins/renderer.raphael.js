@@ -1,5 +1,5 @@
 T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, params, baseRenderer) {
-    params = _extend({
+    params = T5.ex({
     }, params);
 
     /* internals */
@@ -77,7 +77,7 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
 
     function objDraw(drawData) {
         if (this.rObject) {
-            var updates = _extend({}, styles[currentStyle] || styles.basic),
+            var updates = T5.ex({}, styles[currentStyle] || styles.basic),
                 offsetX = drawOffsetX - this.translateX,
                 offsetY = drawOffsetY - this.translateY;
 
@@ -247,7 +247,7 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
 
     createPaper();
 
-    var _this = _extend(baseRenderer, {
+    var _this = T5.ex(baseRenderer, {
         applyStyle: applyStyle,
         applyTransform: applyTransform,
 

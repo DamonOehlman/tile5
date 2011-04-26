@@ -171,7 +171,7 @@ COG.extend = function() {
 
 T5.Decarta = (function() {
     var currentConfig = {
-        sessionID: T5.ticks(),
+        sessionID: new Date().getTime(),
         server: "",
         clientName: "",
         clientPassword: "",

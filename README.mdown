@@ -217,6 +217,10 @@ Despite the above techniques being valid ways to implement your own animation, a
 
 __TO BE COMPLETED__
 
+## Easing in Tile5 1.0
+
+__TO BE COMPLETED__
+
 ## Appendix A: Position to XY Translation
 
 The previous implementation of a position to XY translation was provided by the GeoXY class.  While effective it requires knowledge of the GeoXY class.  In the 1.0 version I would prefer to see something simpler.
