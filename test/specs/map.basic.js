@@ -10,7 +10,7 @@ describe('map.basic', function() {
         map.zoom(13).center(startLat + ', ' + startLon);
         
         // get the center position for the map
-        centerPos = map.center().toPos(map.rpp);
+        centerPos = map.center().pos();
         
         expect(centerPos.lat * testPrecision | 0).toEqual(startLat * testPrecision | 0);
         expect(centerPos.lon * testPrecision | 0).toEqual(startLon * testPrecision | 0);

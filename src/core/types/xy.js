@@ -83,9 +83,9 @@ XY.prototype = {
     },
     
     /**
-    ### toPos()
+    ### pos()
     */
-    toPos: function() {
+    pos: function() {
         return new Pos(pix2lat(this.mercY), pix2lon(this.mercX));
     },
     
