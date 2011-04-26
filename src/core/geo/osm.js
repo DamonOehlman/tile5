@@ -84,7 +84,7 @@ reg('generator', 'osm', function(params) {
                 minY = viewport.y,
                 xTiles = (viewport.w  / tileSize | 0) + 1,
                 yTiles = (viewport.h / tileSize | 0) + 1,
-                position = new XY(minX, minY).toPos(radsPerPixel),
+                position = new XY(minX, minY).sync(radsPerPixel, true).toPos(),
                 tileOffset = calculateTileOffset(position.lat, position.lon, numTiles),
                 tilePixels = getTileXY(tileOffset.x, tileOffset.y, numTiles, radsPerPixel),
                 flipY = params.flipY,

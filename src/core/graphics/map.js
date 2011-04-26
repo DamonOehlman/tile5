@@ -62,9 +62,9 @@ reg('view', 'map', function(params) {
     /* event handlers */
     
     function handleTap(evt, absXY, relXY, offsetXY) {
-        var tapPos = offsetXY.toPos(rpp),
-            minPos = offsetXY.offset(-tapExtent, tapExtent).toPos(rpp),
-            maxPos = offsetXY.offset(tapExtent, -tapExtent).toPos(rpp);
+        var tapPos = offsetXY.sync(rpp, true).toPos(),
+            minPos = offsetXY.offset(-tapExtent, tapExtent).sync(rpp, true).toPos(),
+            maxPos = offsetXY.offset(tapExtent, -tapExtent).sync(rpp, true).toPos();
                 
         _self.trigger(
             'geotap', 
@@ -123,8 +123,8 @@ reg('view', 'map', function(params) {
         
         return viewport ? 
             new BBox(
-                new XY(viewport.x, viewport.y2).toPos(rpp),
-                new XY(viewport.x2, viewport.y).toPos(rpp)) : 
+                new XY(viewport.x, viewport.y2).sync(rpp, true).toPos(),
+                new XY(viewport.x2, viewport.y).sync(rpp, true).toPos()) : 
             null;
     } // getBoundingBox
 
@@ -135,7 +135,7 @@ reg('view', 'map', function(params) {
     function getCenterPosition() {
         var viewport = _self.getViewport();
         if (viewport) {
-            return new XY(viewport.x + (viewport.w >> 1), viewport.y + (viewport.h >> 1)).toPos(rpp);
+            return new XY(viewport.x + (viewport.w >> 1), viewport.y + (viewport.h >> 1)).sync(rpp, true).toPos();
         } // if
         
         return null;

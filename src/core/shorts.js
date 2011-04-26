@@ -43,4 +43,4 @@ var abs = Math.abs,
     drawableCounter = 0,
     layerCounter = 0,
     
-    reDelimitedSplit = /[\,\s]/;
+    reDelimitedSplit = /[\,\s]+/;

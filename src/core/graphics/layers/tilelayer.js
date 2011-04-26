@@ -57,7 +57,7 @@ reg('layer', 'tile', function(view, params) {
     
     /* definition */
     
-    var _self = _extend(new ViewLayer(params), {
+    var _self = _extend(new ViewLayer(view, params), {
         draw: draw
     });
     

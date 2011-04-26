@@ -97,7 +97,7 @@ reg('layer', 'draw', function(view, params) {
     ### create(type, settings, prepend)
     */
     function create(type, settings, prepend) {
-        var drawable = regCreate(typeDrawable, type, _self, settings);
+        var drawable = regCreate(typeDrawable, type, view, _self, settings);
         
         // add the the shapes array
         if (prepend) {
@@ -120,6 +120,9 @@ reg('layer', 'draw', function(view, params) {
         
         // update the item count
         _self.itemCount = drawables.length;
+        
+        // return the drawable
+        return drawable;
     } // create
     
     /**
@@ -214,7 +217,7 @@ reg('layer', 'draw', function(view, params) {
     
     /* initialise _self */
     
-    var _self = _extend(new ViewLayer(params), {
+    var _self = _extend(new ViewLayer(view, params), {
         itemCount: 0,
         
         clear: clear,

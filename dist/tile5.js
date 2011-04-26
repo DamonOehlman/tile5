@@ -1534,7 +1534,7 @@ var abs = Math.abs,
     drawableCounter = 0,
     layerCounter = 0,
 
-    reDelimitedSplit = /[\,\s]/;
+    reDelimitedSplit = /[\,\s]+/;
 /**
 # T5.newCanvas(width, height)
 */
@@ -1752,18 +1752,24 @@ XY.prototype = {
     /**
     ### sync(rpp)
     */
-    sync: function(rpp) {
-        if (this.mercX || this.mercY) {
+    sync: function(rpp, reverse) {
+        if (reverse) {
+            this.mercX = this.x * rpp - Math.PI;
+            this.mercY = Math.PI - this.y * rpp;
+        }
+        else if (this.mercX || this.mercY) {
             this.x = round((this.mercX + Math.PI) / rpp);
             this.y = round((Math.PI - this.mercY) / rpp);
         } // if
+
+        return this;
     },
 
     /**
-    ### toPos(rpp)
+    ### toPos()
     */
-    toPos: function(rpp) {
-        return new Pos(pix2lat(Math.PI - this.y * rpp), pix2lon(this.x * rpp - Math.PI));
+    toPos: function() {
+        return new Pos(pix2lat(this.mercY), pix2lon(this.mercX));
     },
 
     /**
@@ -3189,6 +3195,7 @@ reg('view', 'simple', function(params) {
 
     function initContainer() {
         outer.appendChild(panContainer = DOM.create('div', '', DOM.styles({
+            overflow: 'hidden',
             width: outer.offsetWidth + 'px',
             height: outer.offsetHeight + 'px'
         })));
@@ -3399,19 +3406,28 @@ reg('view', 'simple', function(params) {
     } // attachFrame
 
     function center(p1, p2, tween) {
+        var centerXY;
+
         if (_is(p1, typeString)) {
-            var centerXY = Parser.parseXY(p1);
+            centerXY = Parser.parseXY(p1).sync(_self.rpp);
+
             p1 = centerXY.x;
             p2 = centerXY.y;
         } // if
 
         if (_is(p1, typeNumber)) {
-            offset(p1 - halfOuterWidth, p2 - halfOuterWidth, tween);
+            offset(p1 - halfOuterWidth, p2 - halfOuterHeight, tween);
 
             return _self;
         }
         else {
-            return offset().offset(halfOuterWidth, halfOuterHeight);
+            centerXY = offset().offset(halfOuterWidth, halfOuterHeight);
+
+            if (_self.rpp) {
+                centerXY.sync(_self.rpp, true);
+            } // if
+
+            return centerXY;
         } // if..else
     } // center
 
@@ -3460,7 +3476,7 @@ reg('view', 'simple', function(params) {
     */
     function zoom(value, zoomX, zoomY) {
         if (_is(value, typeNumber)) {
-            value = max(params.minZoom, min(params.maxZoom, value));
+            value = max(params.minZoom, min(params.maxZoom, value | 0));
             if (value !== zoomLevel) {
                 var scaling = pow(2, value - zoomLevel),
                     scaledHalfWidth = halfWidth / scaling | 0,
@@ -3565,6 +3581,7 @@ reg('view', 'simple', function(params) {
             var layer = regCreate('layer', layerType, _self, settings);
 
             layer.added = ticks();
+            layer.id = id;
             layers[layers.length] = layer;
 
             layers.sort(function(itemA, itemB) {
@@ -3776,7 +3793,7 @@ reg('view', 'simple', function(params) {
     */
 
     CANI.init(function(testResults) {
-        _self.markers = layer('markers', 'draw', { zindex: 20 });
+        layer('markers', 'draw', { zindex: 20 });
 
         caps = testResults;
         updateContainer(null, params.container);
@@ -3855,9 +3872,9 @@ reg('view', 'map', function(params) {
     /* event handlers */
 
     function handleTap(evt, absXY, relXY, offsetXY) {
-        var tapPos = offsetXY.toPos(rpp),
-            minPos = offsetXY.offset(-tapExtent, tapExtent).toPos(rpp),
-            maxPos = offsetXY.offset(tapExtent, -tapExtent).toPos(rpp);
+        var tapPos = offsetXY.sync(rpp, true).toPos(),
+            minPos = offsetXY.offset(-tapExtent, tapExtent).sync(rpp, true).toPos(),
+            maxPos = offsetXY.offset(tapExtent, -tapExtent).sync(rpp, true).toPos();
 
         _self.trigger(
             'geotap',
@@ -3908,8 +3925,8 @@ reg('view', 'map', function(params) {
 
         return viewport ?
             new BBox(
-                new XY(viewport.x, viewport.y2).toPos(rpp),
-                new XY(viewport.x2, viewport.y).toPos(rpp)) :
+                new XY(viewport.x, viewport.y2).sync(rpp, true).toPos(),
+                new XY(viewport.x2, viewport.y).sync(rpp, true).toPos()) :
             null;
     } // getBoundingBox
 
@@ -3920,7 +3937,7 @@ reg('view', 'map', function(params) {
     function getCenterPosition() {
         var viewport = _self.getViewport();
         if (viewport) {
-            return new XY(viewport.x + (viewport.w >> 1), viewport.y + (viewport.h >> 1)).toPos(rpp);
+            return new XY(viewport.x + (viewport.w >> 1), viewport.y + (viewport.h >> 1)).sync(rpp, true).toPos();
         } // if
 
         return null;
@@ -4005,7 +4022,7 @@ var Drawable = function(view, layer, params) {
     params = _extend({
         style: null,
         xy: null,
-        size: 10,
+        size: 20,
         fill: false,
         stroke: true,
         draggable: false,
@@ -4074,7 +4091,7 @@ Drawable.prototype = {
     */
     resync: function() {
         if (this.xy) {
-            this.xy.sync(view.rpp);
+            this.xy.sync(this.view.rpp);
 
             if (this.size) {
                 var halfSize = this.size >> 1;
@@ -4603,7 +4620,7 @@ reg('layer', 'tile', function(view, params) {
 
     /* definition */
 
-    var _self = _extend(new ViewLayer(params), {
+    var _self = _extend(new ViewLayer(view, params), {
         draw: draw
     });
 
@@ -4700,7 +4717,7 @@ reg('layer', 'draw', function(view, params) {
     ### create(type, settings, prepend)
     */
     function create(type, settings, prepend) {
-        var drawable = regCreate(typeDrawable, type, _self, settings);
+        var drawable = regCreate(typeDrawable, type, view, _self, settings);
 
         if (prepend) {
             drawables.unshift(drawable);
@@ -4719,6 +4736,8 @@ reg('layer', 'draw', function(view, params) {
         drawable.bind('move', handleItemMove);
 
         _self.itemCount = drawables.length;
+
+        return drawable;
     } // create
 
     /**
@@ -4803,7 +4822,7 @@ reg('layer', 'draw', function(view, params) {
 
     /* initialise _self */
 
-    var _self = _extend(new ViewLayer(params), {
+    var _self = _extend(new ViewLayer(view, params), {
         itemCount: 0,
 
         clear: clear,
@@ -5254,7 +5273,7 @@ reg('generator', 'osm', function(params) {
                 minY = viewport.y,
                 xTiles = (viewport.w  / tileSize | 0) + 1,
                 yTiles = (viewport.h / tileSize | 0) + 1,
-                position = new XY(minX, minY).toPos(radsPerPixel),
+                position = new XY(minX, minY).sync(radsPerPixel, true).toPos(),
                 tileOffset = calculateTileOffset(position.lat, position.lon, numTiles),
                 tilePixels = getTileXY(tileOffset.x, tileOffset.y, numTiles, radsPerPixel),
                 flipY = params.flipY,

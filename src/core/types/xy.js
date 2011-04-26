@@ -69,18 +69,24 @@ XY.prototype = {
     /**
     ### sync(rpp)
     */
-    sync: function(rpp) {
-        if (this.mercX || this.mercY) {
+    sync: function(rpp, reverse) {
+        if (reverse) {
+            this.mercX = this.x * rpp - Math.PI;
+            this.mercY = Math.PI - this.y * rpp;
+        }
+        else if (this.mercX || this.mercY) {
             this.x = round((this.mercX + Math.PI) / rpp);
             this.y = round((Math.PI - this.mercY) / rpp);
         } // if
+        
+        return this;
     },
     
     /**
-    ### toPos(rpp)
+    ### toPos()
     */
-    toPos: function(rpp) {
-        return new Pos(pix2lat(Math.PI - this.y * rpp), pix2lon(this.x * rpp - Math.PI));
+    toPos: function() {
+        return new Pos(pix2lat(this.mercY), pix2lon(this.mercX));
     },
     
     /**

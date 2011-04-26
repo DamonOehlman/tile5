@@ -1,0 +1,41 @@
+<!doctype html>  
+<html>
+<head> 
+<title>Tile5 Tests</title> 
+<meta charset="utf-8"> 
+ 
+<!--  Mobile viewport optimized: j.mp/bplateviewport --> 
+<meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+ 
+<!-- Place favicon.ico & apple-touch-icon.png in the root of your domain and delete these references --> 
+<link rel="stylesheet" href="css/tests.css"> 
+<link rel="stylesheet" type="text/css" href="lib/jasmine-1.0.2/jasmine.css">
+<script type="text/javascript" src="lib/jasmine-1.0.2/jasmine.js"></script>
+<script type="text/javascript" src="lib/jasmine-1.0.2/jasmine-html.js"></script>
+</head> 
+<body>
+	<div id="mapContainer">
+		<div id="testControls"></div>
+	</div>
+	<script src="../dist/tile5.js"></script> 
+	<script src="../dist/engines/cloudmade.js"></script>
+	<script src="js/testenv.js"></script>
+	
+	<script src="specs/map.basic.js"></script>
+	<script src="specs/map.markers.js"></script>
+	
+	<script>
+	var map = Tile5('mapContainer');
+	
+	map.layer('tiles', 'tile', {
+		generator: 'osm.cloudmade',
+        // demo api key, register for an API key at http://dev.cloudmade.com/
+        apikey: '7960daaf55f84bfdb166014d0b9f8d41'
+	});
+	</script>
+	<script defer="true" type="text/javascript">
+	jasmine.getEnv().addReporter(new jasmine.TrivialReporter());
+	jasmine.getEnv().execute();
+	</script>
+</body>
+</html>

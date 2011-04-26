@@ -11,7 +11,7 @@ var Drawable = function(view, layer, params) {
     params = _extend({
         style: null,
         xy: null,
-        size: 10,
+        size: 20,
         fill: false,
         stroke: true,
         draggable: false,
@@ -85,7 +85,7 @@ Drawable.prototype = {
     */
     resync: function() {
         if (this.xy) {
-            this.xy.sync(view.rpp);
+            this.xy.sync(this.view.rpp);
             
             // if we have a size, update the bounds
             if (this.size) {

@@ -337,6 +337,7 @@ reg('view', 'simple', function(params) {
     
     function initContainer() {
         outer.appendChild(panContainer = DOM.create('div', '', DOM.styles({
+            overflow: 'hidden',
             width: outer.offsetWidth + 'px',
             height: outer.offsetHeight + 'px'
         })));
@@ -598,23 +599,33 @@ reg('view', 'simple', function(params) {
     } // attachFrame
     
     function center(p1, p2, tween) {
+        var centerXY;
+        
         // if we have been passed a string argument, then parse
         if (_is(p1, typeString)) {
-            var centerXY = Parser.parseXY(p1);
+            centerXY = Parser.parseXY(p1).sync(_self.rpp);
+            
             p1 = centerXY.x;
             p2 = centerXY.y;
         } // if
         
         // update if appropriate
         if (_is(p1, typeNumber)) {
-            offset(p1 - halfOuterWidth, p2 - halfOuterWidth, tween);
+            offset(p1 - halfOuterWidth, p2 - halfOuterHeight, tween);
             
             // return the view so we can chain methods
             return _self;
         }
         // otherwise, return the center 
         else {
-            return offset().offset(halfOuterWidth, halfOuterHeight);
+            centerXY = offset().offset(halfOuterWidth, halfOuterHeight);
+
+            // if we have radians per pixel defined, then add that information
+            if (_self.rpp) {
+                centerXY.sync(_self.rpp, true);
+            } // if
+            
+            return centerXY;
         } // if..else
     } // center
     
@@ -667,7 +678,7 @@ reg('view', 'simple', function(params) {
     */
     function zoom(value, zoomX, zoomY) {
         if (_is(value, typeNumber)) {
-            value = max(params.minZoom, min(params.maxZoom, value));
+            value = max(params.minZoom, min(params.maxZoom, value | 0));
             if (value !== zoomLevel) {
                 var scaling = pow(2, value - zoomLevel),
                     scaledHalfWidth = halfWidth / scaling | 0,
@@ -789,6 +800,7 @@ reg('view', 'simple', function(params) {
             
             // initialise the layer attributes
             layer.added = ticks();
+            layer.id = id;
             layers[layers.length] = layer;
             
             // resort the layers
@@ -1031,7 +1043,7 @@ reg('view', 'simple', function(params) {
 
     CANI.init(function(testResults) {
         // add the markers layer
-        _self.markers = layer('markers', 'draw', { zindex: 20 });
+        layer('markers', 'draw', { zindex: 20 });
         
         // create the renderer
         caps = testResults;
