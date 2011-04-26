@@ -55,6 +55,7 @@ reg('view', 'map', function(params) {
         offsetMaxY = null,
         offsetWrapX = false,
         offsetWrapY = false,
+        offsetTween = null,
         padding = params.padding,
         panFrames = [],
         hitData = null,
@@ -442,8 +443,14 @@ reg('view', 'map', function(params) {
         // update the panning flag
         scaleChanged = scaleFactor !== lastScaleFactor;
         
-        if (panSpeed > 0 || scaleChanged) {
+        if (panSpeed > 0 || scaleChanged || offsetTween) {
             viewChanges++;
+            
+            // if we have an offset tween and a pan speed, then cancel the tween
+            if (offsetTween && panSpeed > 0) {
+                offsetTween(true);
+                offsetTween = null;
+            } // if
         } // if
             
         // determine whether a refresh is required
@@ -484,8 +491,17 @@ reg('view', 'map', function(params) {
             
             // otherwise, reset the view pane position and refire the renderer
             if (rerender) {
-                offsetX = (offsetX - panX / scaleFactor) | 0;
-                offsetY = (offsetY - panY / scaleFactor) | 0;
+                if (offsetTween) {
+                    var values = offsetTween();
+
+                    // get the current offset values from the tween
+                    offsetX = values[0];
+                    offsetY = values[1];
+                }
+                else {
+                    offsetX = (offsetX - panX / scaleFactor) | 0;
+                    offsetY = (offsetY - panY / scaleFactor) | 0;
+                } // if..else
 
                 // initialise the viewport
                 viewport = getViewport();
@@ -864,6 +880,13 @@ reg('view', 'map', function(params) {
             return [].concat(layers);
         } // if..else
     } // layer
+
+    /**
+    ### pan(x, y, tween)
+    */
+    function pan(x, y, tween) {
+        offset(offsetX + x, offsetY + y, tween);
+    } // pan
     
     /**
     ### refresh()
@@ -976,8 +999,15 @@ reg('view', 'map', function(params) {
     function offset(x, y, tween) {
         // if we have arguments update the offset
         if (_is(x, typeNumber)) {
-            if (tween && (panSpeed === 0)) {
-                // TODO: implement the tweening
+            if (tween) {
+                offsetTween = Tweener.tween(
+                    [offsetX, offsetY],
+                    [x, y], 
+                    tween,
+                    function() {
+                        offsetTween = null;
+                    }
+                );
             }
             else {
                 offsetX = x | 0;
@@ -1009,6 +1039,7 @@ reg('view', 'map', function(params) {
         detach: detach,
         layer: layer,
         invalidate: invalidate,
+        pan: pan,
         refresh: refresh,
         resetScale: resetScale,
         scale: scale,

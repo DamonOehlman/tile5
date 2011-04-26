@@ -25,7 +25,6 @@ reg('layer', 'tile', function(view, params) {
             // fire the generator
             genFn(view, viewport, storage, function() {
                 view.invalidate();
-                _log('GEN COMPLETED IN ' + (new Date().getTime() - tickCount) + ' ms');
             });
         } // if
     } // handleViewIdle

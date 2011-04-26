@@ -2950,6 +2950,7 @@ reg('view', 'map', function(params) {
         offsetMaxY = null,
         offsetWrapX = false,
         offsetWrapY = false,
+        offsetTween = null,
         padding = params.padding,
         panFrames = [],
         hitData = null,
@@ -3297,8 +3298,13 @@ reg('view', 'map', function(params) {
 
         scaleChanged = scaleFactor !== lastScaleFactor;
 
-        if (panSpeed > 0 || scaleChanged) {
+        if (panSpeed > 0 || scaleChanged || offsetTween) {
             viewChanges++;
+
+            if (offsetTween && panSpeed > 0) {
+                offsetTween(true);
+                offsetTween = null;
+            } // if
         } // if
 
         if (panSpeed < PANSPEED_THRESHOLD_REFRESH &&
@@ -3329,8 +3335,16 @@ reg('view', 'map', function(params) {
             );
 
             if (rerender) {
-                offsetX = (offsetX - panX / scaleFactor) | 0;
-                offsetY = (offsetY - panY / scaleFactor) | 0;
+                if (offsetTween) {
+                    var values = offsetTween();
+
+                    offsetX = values[0];
+                    offsetY = values[1];
+                }
+                else {
+                    offsetX = (offsetX - panX / scaleFactor) | 0;
+                    offsetY = (offsetY - panY / scaleFactor) | 0;
+                } // if..else
 
                 viewport = getViewport();
 
@@ -3643,6 +3657,13 @@ reg('view', 'map', function(params) {
     } // layer
 
     /**
+    ### pan(x, y, tween)
+    */
+    function pan(x, y, tween) {
+        offset(offsetX + x, offsetY + y, tween);
+    } // pan
+
+    /**
     ### refresh()
     Manually trigger a refresh on the view.  Child view layers will likely be listening for `refresh`
     events and will do some of their recalculations when this is called.
@@ -3736,7 +3757,15 @@ reg('view', 'map', function(params) {
     */
     function offset(x, y, tween) {
         if (_is(x, typeNumber)) {
-            if (tween && (panSpeed === 0)) {
+            if (tween) {
+                offsetTween = Tweener.tween(
+                    [offsetX, offsetY],
+                    [x, y],
+                    tween,
+                    function() {
+                        offsetTween = null;
+                    }
+                );
             }
             else {
                 offsetX = x | 0;
@@ -3765,6 +3794,7 @@ reg('view', 'map', function(params) {
         detach: detach,
         layer: layer,
         invalidate: invalidate,
+        pan: pan,
         refresh: refresh,
         resetScale: resetScale,
         scale: scale,
@@ -3814,6 +3844,68 @@ reg('view', 'map', function(params) {
 
     return _self;
 });
+var Tweener = (function() {
+
+    /* internals */
+
+    /* exports */
+
+    function tween(valuesStart, valuesEnd, params, callback) {
+        params = _extend({
+            easing: 'sine.out',
+            duration: 1000,
+            callback: callback
+        }, params);
+
+        function startTween(index) {
+            _tweenValue(
+                valuesStart[index],
+                valuesEnd[index],
+
+                _easing(params.easing),
+
+                params.duration,
+
+                function(updatedValue, complete) {
+                    valuesCurrent[index] = updatedValue;
+
+                    if (complete) {
+                        finishedCount++;
+
+                        if (finishedCount >= expectedCount) {
+                            var fireCB = callback ? callback() : true;
+
+                            if (params.callback && (_is(fireCB, typeUndefined) || fireCB)) {
+                                params.callback();
+                            } // if
+                        } // if
+                    } // if
+
+                    return continueTween;
+                }
+            );
+        } // startTween
+
+        var expectedCount = valuesStart.length,
+            valuesCurrent = [].concat(valuesStart),
+            finishedCount = 0,
+            continueTween = true,
+            ii;
+
+        for (ii = expectedCount; ii--; ) {
+            startTween(ii);
+        } // for
+
+        return function(cancel) {
+            continueTween = !cancel;
+            return valuesCurrent;
+        }; // function
+    } // tween
+
+    return {
+        tween: tween
+    };
+})();
 
 /**
 DRAWABLE
@@ -4402,7 +4494,6 @@ reg('layer', 'tile', function(view, params) {
         if (storage) {
             genFn(view, viewport, storage, function() {
                 view.invalidate();
-                _log('GEN COMPLETED IN ' + (new Date().getTime() - tickCount) + ' ms');
             });
         } // if
     } // handleViewIdle

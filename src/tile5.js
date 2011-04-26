@@ -40,6 +40,7 @@
 
 //= require "core/graphics/style"
 //= require "core/graphics/map"
+//= require "core/graphics/tweener"
 
 //= require "core/graphics/drawables/core"
 //= require "core/graphics/drawables/animation"
