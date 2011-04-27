@@ -177,7 +177,7 @@ reg('view', 'map', function(params) {
         initHitData('tap', absXY, relXY);
 
         // trigger the tap on all layers
-        triggerAll('tap', absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
+        _self.trigger('tap', absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
     } // handlePointerTap
     
     /* private functions */
@@ -344,6 +344,17 @@ reg('view', 'map', function(params) {
 
         return canDrag;
     } // dragStart
+    
+    function getLayerIndex(id) {
+        // iterate through the layers
+        for (var ii = layerCount; ii--; ) {
+            if (layers[ii].id === id) {
+                return ii;
+            } // if
+        } // for
+        
+        return layerCount;
+    } // getLayerIndex
     
     function initContainer() {
         outer.appendChild(panContainer = DOM.create('div', '', DOM.styles({
@@ -737,7 +748,7 @@ reg('view', 'map', function(params) {
                 refreshY = 0;
 
                 // trigger the change
-                triggerAll('zoom', value);
+                _self.trigger('zoom', value);
                 
                 var gridSize;
 
@@ -751,7 +762,7 @@ reg('view', 'map', function(params) {
                 scaleFactor = 1;
 
                 // reset scaling and resync the map
-                triggerAll('resync');
+                _self.trigger('resync');
 
                 // reset the renderer
                 renderer.trigger('reset');
@@ -832,7 +843,7 @@ reg('view', 'map', function(params) {
     */
     function layer(id, layerType, settings) {
         // if the layer type is undefined, then assume we are doing a get
-        if (_is(layerType, typeUndefined)) {
+        if (_is(id, typeString) && _is(layerType, typeUndefined)) {
             // look for the matching layer, and return when found
             for (var ii = 0; ii < layerCount; ii++) {
                 if (layers[ii].id === id) {
@@ -851,7 +862,7 @@ reg('view', 'map', function(params) {
             // initialise the layer attributes
             layer.added = ticks();
             layer.id = id;
-            layers[layers.length] = layer;
+            layers[getLayerIndex(id)] = layer;
             
             // resort the layers
             // sort the layers
@@ -863,8 +874,8 @@ reg('view', 'map', function(params) {
             layerCount = layers.length;                
 
             // trigger a refresh on the layer
-            layer.trigger('resync');
-            layer.trigger('refresh', _self, getViewport());
+            _self.trigger('resync');
+            refresh();
 
             // trigger a layer changed event
             _self.trigger('layerChange', _self, layer);
@@ -916,7 +927,7 @@ reg('view', 'map', function(params) {
             } // if
             
             // trigger the refresh event
-            triggerAll('refresh', _self, viewport);
+            _self.trigger('refresh', _self, viewport);
 
             // invalidate
             viewChanges++;

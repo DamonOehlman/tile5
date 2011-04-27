@@ -8,6 +8,7 @@ task :compile => [] do
     .include("src/engines/*.js")
     .include("src/plugins/*.js")
     .include("src/plugins/controls/*.js")
+    .include("src/plugins/layers/*.js")
     .include("src/style/*.js")
     .include("builds/*.js")
   

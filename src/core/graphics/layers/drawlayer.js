@@ -90,6 +90,7 @@ reg('layer', 'draw', function(view, params) {
         
         // reset the drawables
         drawables = [];
+        _self.trigger('cleared');
         _self.itemCount = 0;
     } // clear
     
@@ -120,6 +121,7 @@ reg('layer', 'draw', function(view, params) {
         
         // update the item count
         _self.itemCount = drawables.length;
+        _self.trigger(type + 'Added', drawable);
         
         // return the drawable
         return drawable;
@@ -234,7 +236,7 @@ reg('layer', 'draw', function(view, params) {
     });
     
     // bind to refresh events as we will use those to populate the items to be drawn
-    _self.bind('resync', handleResync);
+    view.bind('resync', handleResync);
     
     return _self;
 });

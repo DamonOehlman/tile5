@@ -60,8 +60,8 @@ reg('layer', 'tile', function(view, params) {
         draw: draw
     });
     
-    _self.bind('refresh', handleRefresh);
-    _self.bind('resync', handleResync);
+    view.bind('resync', handleResync);
+    view.bind('refresh', handleRefresh);
     
     return _self;
 });

@@ -40,6 +40,7 @@ function ViewLayer(view, params) {
     
     // initialise members
     this.visible = true;
+    this.view = view;
 
     // make view layers observable
     _observable(_extend(this, params));

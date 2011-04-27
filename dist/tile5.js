@@ -3069,7 +3069,7 @@ reg('view', 'map', function(params) {
     function handlePointerTap(evt, absXY, relXY) {
         initHitData('tap', absXY, relXY);
 
-        triggerAll('tap', absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
+        _self.trigger('tap', absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
     } // handlePointerTap
 
     /* private functions */
@@ -3219,6 +3219,16 @@ reg('view', 'map', function(params) {
 
         return canDrag;
     } // dragStart
+
+    function getLayerIndex(id) {
+        for (var ii = layerCount; ii--; ) {
+            if (layers[ii].id === id) {
+                return ii;
+            } // if
+        } // for
+
+        return layerCount;
+    } // getLayerIndex
 
     function initContainer() {
         outer.appendChild(panContainer = DOM.create('div', '', DOM.styles({
@@ -3544,7 +3554,7 @@ reg('view', 'map', function(params) {
                 refreshX = 0;
                 refreshY = 0;
 
-                triggerAll('zoom', value);
+                _self.trigger('zoom', value);
 
                 var gridSize;
 
@@ -3554,7 +3564,7 @@ reg('view', 'map', function(params) {
 
                 scaleFactor = 1;
 
-                triggerAll('resync');
+                _self.trigger('resync');
 
                 renderer.trigger('reset');
 
@@ -3628,7 +3638,7 @@ reg('view', 'map', function(params) {
     ```
     */
     function layer(id, layerType, settings) {
-        if (_is(layerType, typeUndefined)) {
+        if (_is(id, typeString) && _is(layerType, typeUndefined)) {
             for (var ii = 0; ii < layerCount; ii++) {
                 if (layers[ii].id === id) {
                     return layers[ii];
@@ -3642,7 +3652,7 @@ reg('view', 'map', function(params) {
 
             layer.added = ticks();
             layer.id = id;
-            layers[layers.length] = layer;
+            layers[getLayerIndex(id)] = layer;
 
             layers.sort(function(itemA, itemB) {
                 return itemB.zindex - itemA.zindex || itemB.added - itemA.added;
@@ -3650,8 +3660,8 @@ reg('view', 'map', function(params) {
 
             layerCount = layers.length;
 
-            layer.trigger('resync');
-            layer.trigger('refresh', _self, getViewport());
+            _self.trigger('resync');
+            refresh();
 
             _self.trigger('layerChange', _self, layer);
 
@@ -3693,7 +3703,7 @@ reg('view', 'map', function(params) {
                 lastBoundsChangeOffset.y = viewport.y;
             } // if
 
-            triggerAll('refresh', _self, viewport);
+            _self.trigger('refresh', _self, viewport);
 
             viewChanges++;
         } // if
@@ -4430,6 +4440,7 @@ function ViewLayer(view, params) {
     }, params);
 
     this.visible = true;
+    this.view = view;
 
     _observable(_extend(this, params));
 }; // ViewLayer constructor
@@ -4544,8 +4555,8 @@ reg('layer', 'tile', function(view, params) {
         draw: draw
     });
 
-    _self.bind('refresh', handleRefresh);
-    _self.bind('resync', handleResync);
+    view.bind('resync', handleResync);
+    view.bind('refresh', handleRefresh);
 
     return _self;
 });
@@ -4630,6 +4641,7 @@ reg('layer', 'draw', function(view, params) {
         storage = new SpatialStore();
 
         drawables = [];
+        _self.trigger('cleared');
         _self.itemCount = 0;
     } // clear
 
@@ -4656,6 +4668,7 @@ reg('layer', 'draw', function(view, params) {
         drawable.bind('move', handleItemMove);
 
         _self.itemCount = drawables.length;
+        _self.trigger(type + 'Added', drawable);
 
         return drawable;
     } // create
@@ -4757,7 +4770,7 @@ reg('layer', 'draw', function(view, params) {
         hitGuess: hitGuess
     });
 
-    _self.bind('resync', handleResync);
+    view.bind('resync', handleResync);
 
     return _self;
 });
