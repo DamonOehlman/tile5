@@ -28,7 +28,8 @@ reg('view', 'map', function(params) {
     
     var lastBoundsChangeOffset = new GeoXY(),
         rpp,
-        zoomLevel = params.zoom || params.zoomLevel;
+        zoomLevel = params.zoom || params.zoomLevel,
+        zoomTimeout = 0;
     
     function checkScaling(evt, scaleFactor) {
         // calculate the scale factor exponent
@@ -37,7 +38,11 @@ reg('view', 'map', function(params) {
         // _log('scale factor = ' + scaleFactor + ', exp = ' + scaleFactorExp);
         if (scaleFactorExp !== 0) {
             scaleFactor = pow(2, scaleFactorExp);
-            zoom(zoomLevel + scaleFactorExp);
+            
+            clearTimeout(zoomTimeout);
+            zoomTimeout = setTimeout(function() {
+                zoom(zoomLevel + scaleFactorExp);
+            }, 500);
         } // ifg
     } // checkScaling
     

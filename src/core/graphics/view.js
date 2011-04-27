@@ -81,7 +81,7 @@ reg('view', 'view', function(params) {
     /* scaling functions */
     
     function handleZoom(evt, absXY, relXY, scaleChange, source) {
-        scale(min(max(scaleFactor + pow(2, scaleChange) - 1, 0.5), 2), false, true);
+        scale(max(scaleFactor + pow(2, scaleChange) - 1, 0.125), false, true);
     } // handleWheelZoom
     
     function getProjectedXY(srcX, srcY) {

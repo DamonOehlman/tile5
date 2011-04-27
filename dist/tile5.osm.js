@@ -2985,7 +2985,7 @@ reg('view', 'view', function(params) {
     /* scaling functions */
 
     function handleZoom(evt, absXY, relXY, scaleChange, source) {
-        scale(min(max(scaleFactor + pow(2, scaleChange) - 1, 0.5), 2), false, true);
+        scale(max(scaleFactor + pow(2, scaleChange) - 1, 0.125), false, true);
     } // handleWheelZoom
 
     function getProjectedXY(srcX, srcY) {
@@ -3824,14 +3824,19 @@ reg('view', 'map', function(params) {
 
     var lastBoundsChangeOffset = new GeoXY(),
         rpp,
-        zoomLevel = params.zoom || params.zoomLevel;
+        zoomLevel = params.zoom || params.zoomLevel,
+        zoomTimeout = 0;
 
     function checkScaling(evt, scaleFactor) {
         var scaleFactorExp = log(scaleFactor) / Math.LN2 | 0;
 
         if (scaleFactorExp !== 0) {
             scaleFactor = pow(2, scaleFactorExp);
-            zoom(zoomLevel + scaleFactorExp);
+
+            clearTimeout(zoomTimeout);
+            zoomTimeout = setTimeout(function() {
+                zoom(zoomLevel + scaleFactorExp);
+            }, 500);
         } // ifg
     } // checkScaling
 
