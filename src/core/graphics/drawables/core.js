@@ -34,6 +34,9 @@ var Drawable = function(view, layer, params) {
     this.view = view;
     this.layer = layer;
     
+    // tween params
+    this.tweens = [];
+    
     // initialise transform variables
     this.animations = 0;
     this.rotation = 0;
@@ -51,12 +54,13 @@ Drawable.prototype = {
     constructor: Drawable,
     
     /**
-    ### animate(fn, argsStart, argsEnd, opts)
+    ### applyTweens()
     */
-    animate: function(fn, argsStart, argsEnd, opts) {
-        animateDrawable(this, fn, argsStart, argsEnd, opts);
+    applyTweens: function() {
+        for (var ii = this.tweens.length; ii--; ) {
+            this.tweens[ii]();
+        } // for
     },
-    
     
     /**
     ### drag(dragData, dragX, dragY, drop)
@@ -101,25 +105,97 @@ Drawable.prototype = {
     },
     
     /**
-    ### rotate(value)
+    ### rotate(value, tween, isAbsolute)
     */
-    rotate: function(value) {
-        this.rotation = value;
+    rotate: function(value, tween, isAbsolute) {
+        if (_is(value, typeNumber)) {
+            // by default rotation is relative
+            var targetVal = (isAbsolute ? value : this.rotation * RADIANS_TO_DEGREES + value) * DEGREES_TO_RADIANS;
+            
+            if (tween) {
+                this.tweens.push(Tweener.tweenDrawable(
+                    this, 
+                    'rotation', 
+                    this.rotation, 
+                    targetVal, 
+                    tween
+                ));
+            }
+            else {
+                this.rotation = targetVal;
+                this.view.invalidate();
+            } // if..else
+            
+            return this;
+        }
+        else {
+            return this.rotation * RADIANS_TO_DEGREES;
+        } // if..else
     },
     
     /**
-    ### scale(value)
+    ### scale(value, tween, isAbsolute)
     */
-    scale: function(value) {
-        this.scaling = value;
+    scale: function(value, tween, isAbsolute) {
+        if (_is(value, typeNumber)) {
+            // by default rotation is relative
+            var targetVal = (isAbsolute ? value : this.scaling * value);
+            
+            if (tween) {
+                this.tweens.push(Tweener.tweenDrawable(
+                    this, 
+                    'scaling', 
+                    this.scaling, 
+                    targetVal, 
+                    tween
+                ));
+            }
+            else {
+                this.scaling = targetVal;
+            } // if..else
+            
+            return this;
+        }
+        else {
+            return this.scaling;
+        }
     },
     
     /**
-    ### translate(x, y)
+    ### translate(x, y, tween, isAbsolute)
     */
-    translate: function(x, y) {
-        this.translateX = x;
-        this.translateY = y;
+    translate: function(x, y, tween, isAbsolute) {
+        if (_is(x, typeNumber)) {
+            var targetX = isAbsolute ? x : this.translateX + x,
+                targetY = isAbsolute ? y : this.translateY + y;
+            
+            if (tween) {
+                this.tweens.push(Tweener.tweenDrawable(
+                    this, 
+                    'translateX', 
+                    this.translateX, 
+                    targetX, 
+                    tween
+                ));
+
+                this.tweens.push(Tweener.tweenDrawable(
+                    this, 
+                    'translateY', 
+                    this.translateY, 
+                    targetY, 
+                    tween
+                ));
+            }
+            else {
+                this.translateX = targetX;
+                this.translateY = targetY;
+            } // if..else
+            
+            return this;
+        }
+        else {
+            return new XY(this.translateX, this.translateY);
+        } // if..else
     },
     
     

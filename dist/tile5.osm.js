@@ -335,29 +335,26 @@ function _easing(typeName) {
 function _tweenValue(startValue, endValue, fn, duration, callback) {
 
     var startTicks = new Date().getTime(),
-        lastTicks = 0,
         change = endValue - startValue,
         tween = {};
 
     function runTween(tickCount) {
         tickCount = tickCount ? tickCount : new Date().getTime();
 
-        if (lastTicks + ANI_WAIT < tickCount) {
-            var elapsed = tickCount - startTicks,
-                updatedValue = fn(elapsed, startValue, change, duration),
-                complete = startTicks + duration <= tickCount,
-                cont = !complete,
-                retVal;
+        var elapsed = tickCount - startTicks,
+            updatedValue = fn(elapsed, startValue, change, duration),
+            complete = startTicks + duration <= tickCount,
+            cont = !complete,
+            retVal;
 
-            if (callback) {
-                retVal = callback(updatedValue, complete, elapsed);
+        if (callback) {
+            retVal = callback(updatedValue, complete, elapsed);
 
-                cont = typeof retVal != 'undefined' ? retVal && cont : cont;
-            } // if
+            cont = typeof retVal != 'undefined' ? retVal && cont : cont;
+        } // if
 
-            if (cont) {
-                animFrame(runTween);
-            } // if
+        if (cont) {
+            animFrame(runTween);
         } // if
     } // runTween
 
@@ -2989,7 +2986,7 @@ reg('view', 'map', function(params) {
     /* scaling functions */
 
     function handleZoom(evt, absXY, relXY, scaleChange, source) {
-        scale(min(max(scaleFactor + pow(2, scaleChange) - 1, 0.5), 2));
+        scale(min(max(scaleFactor + pow(2, scaleChange) - 1, 0.5), 2), false, true);
     } // handleWheelZoom
 
     function getProjectedXY(srcX, srcY) {
@@ -3018,7 +3015,7 @@ reg('view', 'map', function(params) {
             scale(2, {
                 easing: 'quad.out',
                 duration: 300
-            });
+            }, true);
         } // if
     } // handleDoubleTap
 
@@ -3701,18 +3698,20 @@ reg('view', 'map', function(params) {
     } // refresh
 
     /**
-    ### rotate(value, tween)
+    ### rotate(value, tween, isAbsolute)
     */
-    function rotate(value, tween) {
+    function rotate(value, tween, isAbsolute) {
         if (_is(value, typeNumber)) {
+            var targetVal = isAbsolute ? value : rotation + value;
+
             if (tween) {
-                rotateTween = Tweener.tween([rotation], [rotation + value], tween, function() {
-                    rotation = round(rotation) % 360;
+                rotateTween = Tweener.tween([rotation], [targetVal], tween, function() {
+                    rotation = targetVal % 360;
                     rotateTween = null;
                 });
             }
             else {
-                rotation += value;
+                rotation = targetVal % 360;
             } // if..else
 
             return _self;
@@ -3723,29 +3722,29 @@ reg('view', 'map', function(params) {
     } // rotate
 
     /**
-    ### scale(value, tween)
+    ### scale(value, tween, isAbsolute)
     */
-    function scale(value, tween) {
+    function scale(value, tween, isAbsolute) {
         if (_is(value, typeNumber)) {
-            var scaleFactorExp;
+            var scaleFactorExp,
+                targetVal = isAbsolute ? value : scaleFactor * value;
 
             if (! partialScaling) {
                 tween = null;
 
-                scaleFactorExp = round(log(targetScaling) / Math.LN2);
+                scaleFactorExp = round(log(targetVal) / Math.LN2);
 
-                targetScaling = pow(2, scaleFactorExp);
+                targetVal = pow(2, scaleFactorExp);
             } // if
 
             if (tween) {
-                scaleTween = Tweener.tween([scaleFactor], [value], tween, function() {
-                    scaleFactor = round(scaleFactor);
-
+                scaleTween = Tweener.tween([scaleFactor], [targetVal], tween, function() {
+                    scaleFactor = targetVal;
                     scaleTween = null;
                 });
             }
             else {
-                scaleFactor = value;
+                scaleFactor = targetVal;
                 viewChanges++;
             }
 
@@ -3872,7 +3871,7 @@ var Tweener = (function() {
 
     /* exports */
 
-    function tween(valuesStart, valuesEnd, params, callback) {
+    function tween(valuesStart, valuesEnd, params, callback, viewToInvalidate) {
         params = _extend({
             easing: 'sine.out',
             duration: 1000,
@@ -3903,6 +3902,10 @@ var Tweener = (function() {
                         } // if
                     } // if
 
+                    if (viewToInvalidate) {
+                        viewToInvalidate.invalidate();
+                    } // if
+
                     return continueTween;
                 }
             );
@@ -3924,8 +3927,33 @@ var Tweener = (function() {
         }; // function
     } // tween
 
+    function tweenDrawable(drawable, prop, startVal, endVal, tween) {
+        var tweenFn = Tweener.tween(
+                [startVal],
+                [endVal],
+                tween,
+                function() {
+                    drawable[prop] = endVal;
+
+                    for (var ii = drawable.tweens.length; ii--; ) {
+                        if (drawable.tweens[ii] === applicator) {
+                            drawable.tweens.splice(ii, 1);
+                            break;
+                        } // if
+                    } // for
+                },
+                drawable.view
+            ),
+            applicator = function() {
+                drawable[prop] = tweenFn()[0];
+            };
+
+        return applicator;
+    } // tweenDrawable
+
     return {
-        tween: tween
+        tween: tween,
+        tweenDrawable: tweenDrawable
     };
 })();
 
@@ -3962,6 +3990,8 @@ var Drawable = function(view, layer, params) {
     this.view = view;
     this.layer = layer;
 
+    this.tweens = [];
+
     this.animations = 0;
     this.rotation = 0;
     this.scaling = 1;
@@ -3977,12 +4007,13 @@ Drawable.prototype = {
     constructor: Drawable,
 
     /**
-    ### animate(fn, argsStart, argsEnd, opts)
+    ### applyTweens()
     */
-    animate: function(fn, argsStart, argsEnd, opts) {
-        animateDrawable(this, fn, argsStart, argsEnd, opts);
+    applyTweens: function() {
+        for (var ii = this.tweens.length; ii--; ) {
+            this.tweens[ii]();
+        } // for
     },
-
 
     /**
     ### drag(dragData, dragX, dragY, drop)
@@ -4026,25 +4057,95 @@ Drawable.prototype = {
     },
 
     /**
-    ### rotate(value)
+    ### rotate(value, tween, isAbsolute)
     */
-    rotate: function(value) {
-        this.rotation = value;
+    rotate: function(value, tween, isAbsolute) {
+        if (_is(value, typeNumber)) {
+            var targetVal = (isAbsolute ? value : this.rotation * RADIANS_TO_DEGREES + value) * DEGREES_TO_RADIANS;
+
+            if (tween) {
+                this.tweens.push(Tweener.tweenDrawable(
+                    this,
+                    'rotation',
+                    this.rotation,
+                    targetVal,
+                    tween
+                ));
+            }
+            else {
+                this.rotation = targetVal;
+                this.view.invalidate();
+            } // if..else
+
+            return this;
+        }
+        else {
+            return this.rotation * RADIANS_TO_DEGREES;
+        } // if..else
     },
 
     /**
-    ### scale(value)
+    ### scale(value, tween, isAbsolute)
     */
-    scale: function(value) {
-        this.scaling = value;
+    scale: function(value, tween, isAbsolute) {
+        if (_is(value, typeNumber)) {
+            var targetVal = (isAbsolute ? value : this.scaling * value);
+
+            if (tween) {
+                this.tweens.push(Tweener.tweenDrawable(
+                    this,
+                    'scaling',
+                    this.scaling,
+                    targetVal,
+                    tween
+                ));
+            }
+            else {
+                this.scaling = targetVal;
+            } // if..else
+
+            return this;
+        }
+        else {
+            return this.scaling;
+        }
     },
 
     /**
-    ### translate(x, y)
+    ### translate(x, y, tween, isAbsolute)
     */
-    translate: function(x, y) {
-        this.translateX = x;
-        this.translateY = y;
+    translate: function(x, y, tween, isAbsolute) {
+        if (_is(x, typeNumber)) {
+            var targetX = isAbsolute ? x : this.translateX + x,
+                targetY = isAbsolute ? y : this.translateY + y;
+
+            if (tween) {
+                this.tweens.push(Tweener.tweenDrawable(
+                    this,
+                    'translateX',
+                    this.translateX,
+                    targetX,
+                    tween
+                ));
+
+                this.tweens.push(Tweener.tweenDrawable(
+                    this,
+                    'translateY',
+                    this.translateY,
+                    targetY,
+                    tween
+                ));
+            }
+            else {
+                this.translateX = targetX;
+                this.translateY = targetY;
+            } // if..else
+
+            return this;
+        }
+        else {
+            return new XY(this.translateX, this.translateY);
+        } // if..else
     },
 
 
@@ -4069,118 +4170,6 @@ Drawable.prototype = {
         } // if
     }
 };
-var ANI_WAIT = 1000 / 60 | 0,
-    animateCallbacks = [],
-    lastAniTicks = 0;
-
-function runAnimationCallbacks(tickCount) {
-    tickCount = tickCount ? tickCount : new Date().getTime();
-
-    if (tickCount - lastAniTicks > ANI_WAIT) {
-        var callbacks = animateCallbacks.splice(0);
-
-        for (var ii = callbacks.length; ii--; ) {
-            callbacks[ii](tickCount);
-        } // for
-
-        lastAniTicks = tickCount;
-    } // if
-
-    if (animateCallbacks.length) {
-        animFrame(runAnimationCallbacks);
-    } // if
-} // runAnimationCallback
-
-function registerAnimationCallback(fn) {
-    var scheduleCallbacks = animateCallbacks.length == 0;
-
-    animateCallbacks[animateCallbacks.length] = fn;
-
-    if (scheduleCallbacks) {
-        animFrame(runAnimationCallbacks);
-    } // if
-} // registerAnimationCallback
-
-function animateDrawable(target, fnName, argsStart, argsEnd, opts) {
-    opts = _extend({
-        easing: 'sine.out',
-        duration: 1000,
-        progress: null,
-        complete: null,
-        autoInvalidate: true
-    }, opts);
-
-    var startTicks = new Date().getTime(),
-        lastTicks = 0,
-        targetFn = target[fnName],
-        floorValue = fnName == 'translate',
-        argsComplete = 0,
-        autoInvalidate = opts.autoInvalidate,
-        animateValid = argsStart.length && argsEnd.length &&
-            argsStart.length == argsEnd.length,
-        argsCount = animateValid ? argsStart.length : 0,
-        argsChange = new Array(argsCount),
-        argsCurrent = new Array(argsCount),
-        easingFn = _easing(opts.easing),
-        duration = opts.duration,
-        callback = opts.progress,
-        ii,
-
-        runTween = function(tickCount) {
-            var elapsed = tickCount - startTicks,
-                complete = startTicks + duration <= tickCount,
-                view = target.layer ? target.layer.view : null,
-                easedValue;
-
-            for (var ii = argsCount; ii--; ) {
-                easedValue = easingFn(
-                    elapsed,
-                    argsStart[ii],
-                    argsChange[ii],
-                    duration);
-
-                argsCurrent[ii] = floorValue ? easedValue | 0 : easedValue;
-            } // for
-
-            targetFn.apply(target, argsCurrent);
-
-            if (autoInvalidate && view) {
-                view.invalidate();
-            } // if
-
-            if (callback) {
-                var cbArgs = [].concat(complete ? argsEnd : argsCurrent);
-
-                cbArgs.unshift(complete);
-
-                callback.apply(target, cbArgs);
-            } // if
-
-            if (! complete) {
-                registerAnimationCallback(runTween);
-            }
-            else {
-                target.animations--;
-                targetFn.apply(target, argsEnd);
-
-                if (opts.complete) {
-                    opts.complete.apply(target, argsEnd);
-                } // if
-            } // if..else
-        };
-
-    if (targetFn && targetFn.apply && argsCount > 0) {
-        duration = duration ? duration : DEFAULT_DURATION;
-
-        for (ii = argsCount; ii--; ) {
-            argsChange[ii] = argsEnd[ii] - argsStart[ii];
-        } // for
-
-        target.animations++;
-
-        registerAnimationCallback(runTween);
-    } // if
-} // animate
 /**
 # DRAWABLE: marker
 The T5.Marker class represents a generic marker for annotating an underlying view.
@@ -4679,17 +4668,22 @@ reg('layer', 'draw', function(view, params) {
                 overrideStyle = drawable.style || _self.style,
                 styleType,
                 previousStyle,
-                transform = renderer.applyTransform(drawable),
+                transform,
                 drawProps = drawable.getProps ? drawable.getProps(renderer) : emptyProps,
-
                 prepFn = renderer['prep' + drawable.typeName],
                 drawFn,
+                drawData;
 
-                drawData = prepFn ? prepFn.call(renderer,
-                    drawable,
-                    viewport,
-                    hitData,
-                    drawProps) : null;
+            if (drawable.tweens.length > 0) {
+                drawable.applyTweens();
+            } // if
+
+            transform = renderer.applyTransform(drawable);
+            drawData = prepFn ? prepFn.call(renderer,
+                drawable,
+                viewport,
+                hitData,
+                drawProps) : null;
 
             if (drawData) {
                 if (hitData && drawData.hit) {

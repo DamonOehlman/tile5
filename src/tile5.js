@@ -43,7 +43,6 @@
 //= require "core/graphics/tweener"
 
 //= require "core/graphics/drawables/core"
-//= require "core/graphics/drawables/animation"
 //= require "core/graphics/drawables/marker"
 //= require "core/graphics/drawables/poly"
 //= require "core/graphics/drawables/line"

@@ -36,7 +36,7 @@ describe('map.movement', function() {
         });
         
         waits(1200);
-        map.scale(1);
+        map.scale(1, false, true);
     });
     
     it('should be able to rotate a map', function() {

@@ -88,7 +88,7 @@ reg('view', 'map', function(params) {
     /* scaling functions */
     
     function handleZoom(evt, absXY, relXY, scaleChange, source) {
-        scale(min(max(scaleFactor + pow(2, scaleChange) - 1, 0.5), 2));
+        scale(min(max(scaleFactor + pow(2, scaleChange) - 1, 0.5), 2), false, true);
     } // handleWheelZoom
     
     function getProjectedXY(srcX, srcY) {
@@ -120,7 +120,7 @@ reg('view', 'map', function(params) {
             scale(2, {
                 easing: 'quad.out',
                 duration: 300
-            });
+            }, true);
         } // if
     } // handleDoubleTap
     
@@ -927,18 +927,20 @@ reg('view', 'map', function(params) {
     } // refresh
     
     /**
-    ### rotate(value, tween)
+    ### rotate(value, tween, isAbsolute)
     */
-    function rotate(value, tween) {
+    function rotate(value, tween, isAbsolute) {
         if (_is(value, typeNumber)) {
+            var targetVal = isAbsolute ? value : rotation + value;
+
             if (tween) {
-                rotateTween = Tweener.tween([rotation], [rotation + value], tween, function() {
-                    rotation = round(rotation) % 360;
+                rotateTween = Tweener.tween([rotation], [targetVal], tween, function() {
+                    rotation = targetVal % 360;
                     rotateTween = null;
                 });
             }
             else {
-                rotation += value;
+                rotation = targetVal % 360;
             } // if..else
             
             return _self;
@@ -949,34 +951,32 @@ reg('view', 'map', function(params) {
     } // rotate
     
     /**
-    ### scale(value, tween)
+    ### scale(value, tween, isAbsolute)
     */
-    function scale(value, tween) {
+    function scale(value, tween, isAbsolute) {
         // if we are setting the scale,
         if (_is(value, typeNumber)) {
-            var scaleFactorExp;
+            var scaleFactorExp,
+                targetVal = isAbsolute ? value : scaleFactor * value;
 
             // if partial scrolling is disabled handle it
             if (! partialScaling) {
                 tween = null;
 
-                scaleFactorExp = round(log(targetScaling) / Math.LN2);
+                scaleFactorExp = round(log(targetVal) / Math.LN2);
 
                 // round the scale factor to the nearest power of 2
-                targetScaling = pow(2, scaleFactorExp);
+                targetVal = pow(2, scaleFactorExp);
             } // if
 
             if (tween) {
-                scaleTween = Tweener.tween([scaleFactor], [value], tween, function() {
-                    // TODO: remove the rounding
-                    scaleFactor = round(scaleFactor);
-                    
-                    // reset the scale tween to null
+                scaleTween = Tweener.tween([scaleFactor], [targetVal], tween, function() {
+                    scaleFactor = targetVal;
                     scaleTween = null;
                 });
             }
             else {
-                scaleFactor = value;
+                scaleFactor = targetVal;
                 viewChanges++;
             }
             

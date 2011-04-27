@@ -139,17 +139,23 @@ reg('layer', 'draw', function(view, params) {
                 overrideStyle = drawable.style || _self.style, 
                 styleType,
                 previousStyle,
-                transform = renderer.applyTransform(drawable),
+                transform,
                 drawProps = drawable.getProps ? drawable.getProps(renderer) : emptyProps,
-                
                 prepFn = renderer['prep' + drawable.typeName],
                 drawFn,
-                
-                drawData = prepFn ? prepFn.call(renderer, 
-                    drawable,
-                    viewport,
-                    hitData,
-                    drawProps) : null;
+                drawData;
+
+            // if the drawable has tweens, then apply them
+            if (drawable.tweens.length > 0) {
+                drawable.applyTweens();
+            } // if
+            
+            transform = renderer.applyTransform(drawable);
+            drawData = prepFn ? prepFn.call(renderer, 
+                drawable,
+                viewport,
+                hitData,
+                drawProps) : null;
                     
             // prep the path for the child
             if (drawData) {

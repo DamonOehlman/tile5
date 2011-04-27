@@ -4,7 +4,7 @@ var Tweener = (function() {
     
     /* exports */
 
-    function tween(valuesStart, valuesEnd, params, callback) {
+    function tween(valuesStart, valuesEnd, params, callback, viewToInvalidate) {
         params = _extend({
             easing: 'sine.out',
             duration: 1000,
@@ -40,6 +40,11 @@ var Tweener = (function() {
                         } // if
                     } // if
                     
+                    // if a view to invalidate has been specified, then invalidate it
+                    if (viewToInvalidate) {
+                        viewToInvalidate.invalidate();
+                    } // if
+                    
                     return continueTween;
                 }
             );
@@ -63,7 +68,33 @@ var Tweener = (function() {
         }; // function
     } // tween
     
+    function tweenDrawable(drawable, prop, startVal, endVal, tween) {
+        var tweenFn = Tweener.tween(
+                [startVal],
+                [endVal],
+                tween,
+                function() {
+                    drawable[prop] = endVal;
+                
+                    // remove the tween fn
+                    for (var ii = drawable.tweens.length; ii--; ) {
+                        if (drawable.tweens[ii] === applicator) {
+                            drawable.tweens.splice(ii, 1);
+                            break;
+                        } // if
+                    } // for
+                },
+                drawable.view
+            ),
+            applicator = function() {
+                drawable[prop] = tweenFn()[0];
+            };
+            
+        return applicator;
+    } // tweenDrawable
+    
     return {
-        tween: tween
+        tween: tween,
+        tweenDrawable: tweenDrawable
     };
 })();
