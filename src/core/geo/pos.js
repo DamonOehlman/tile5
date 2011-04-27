@@ -1,7 +1,7 @@
 /**
 # T5.Pos 
 
-# Methods
+## Methods
 */
 function Pos(p1, p2) {
     // if the first parameter is a string, then parse the value

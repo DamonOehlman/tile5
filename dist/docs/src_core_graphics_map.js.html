@@ -3,68 +3,77 @@ layout: apidoc
 title: Tile5 API Documentation
 ---
 
-<h1><a name="VIEW: map">VIEW: map</a></h1>
+<h1><a name="VIEW: simple">VIEW: simple</a></h1>
 
-<p>The Map class is the entry point for creating a tiling map.  Creating a 
-map is quite simple and requires two things to operate.  A containing HTML5 canvas
-that will be used to display the map and a <a href="src_core_functions.js.html#T5">T5</a>.Geo.MapProvider that will populate 
-the map.</p>
+<h3>attachFrame(element)</h3>
 
-<h2>Example Usage: Creating a Map</h2>
+<p>The attachFrame method is used to attach a dom element that will be panned around along with
+the view.</p>
 
-<pre lang='javascript'>
-// create the map
-map = new <a href="src_core_functions.js.html#T5">T5</a>.Map({
-container: 'mapContainer'
-});
-</pre>
+<h3>detach</h3>
 
-<p>Like all View descendants the map supports features such as intertial scrolling and
-the like and is configurable through implementing the configurable interface. For 
-more information on view level features check out the View documentation.</p>
+<p>If you plan on reusing a single canvas element to display different views then you 
+will definitely want to call the detach method between usages.</p>
 
-<h2>Events</h2>
+<h3>zoom(int): int</h3>
 
-<h3>zoom</h3>
+<p>Either update or simply return the current zoomlevel.</p>
 
-<p>This event is triggered when the zoom level has been updated</p>
+<h3>setMaxOffset(maxX: int, maxY: int, wrapX: bool, wrapY: bool)</h3>
 
-<pre>
-map.bind('zoom', function(evt, newZoomLevel) {
-});
-</pre>
+<p>Set the bounds of the display to the specified area, if wrapX or wrapY parameters
+are set, then the bounds will be wrapped automatically.</p>
 
-<h3>boundsChange</h3>
+<h3>getViewport(): <a href="src_core_functions.js.html#T5">T5</a>.XYRect</h3>
 
-<p>This event is triggered when the bounds of the map have changed</p>
+<p>Return a <a href="src_core_functions.js.html#T5">T5</a>.XYRect for the last drawn view rect</p>
 
-<pre>
-map.bind('boundsChange', function(evt, bounds) {
-});
-</pre>
+<h3>layer()</h3>
 
-<h2><a href="src_core_geo_pos.js.html#Methods">Methods</a></h2>
+<p>The <code>layer</code> method of a view is a very poweful function and can be 
+used in a number of ways:</p>
 
-<h3>getBoundingBox()</h3>
+<p><strong>To retrieve an existing layer:</strong>
+When called with a single string argument, the method will aim to 
+return the layer that has that id:</p>
 
-<p>Return a boundingbox for the current map view area</p>
+<p><code>
+var layer = view.layer('markers');
+</code></p>
 
-<h3>getCenterPosition()`</h3>
+<p><strong>To create a layer:</strong>
+Supply three arguments to the method and a new layer will be created
+of the specified type and using the settings passed through in the 3rd
+argument:</p>
 
-<p>Return a <a href="src_core_types_xy.js.html#T5.XY">T5.XY</a> composite for the center position of the map</p>
+<p><code>
+var layer = view.layer('markers', 'draw', { ... });
+</code></p>
 
-<h3>gotoBounds(bounds, callback)</h3>
+<p><strong>To retrieve all view layers:</strong>
+Omit all arguments, and the method will return all the layers in the view:</p>
 
-<p>Calculates the optimal display bounds for the specified boundingbox and
-then goes to the center position and zoom level best suited.</p>
+<p><code>
+var layers = view.layer();
+</code></p>
 
-<h3>gotoPosition(position, newZoomLevel, callback)</h3>
+<h3>pan(x, y, tween)</h3>
 
-<p>This function is used to tell the map to go to the specified position.  The 
-newZoomLevel parameter is optional and updates the map zoom level if supplied.
-An optional callback argument is provided to receieve a notification once
-the position of the map has been updated.</p>
+<h3>refresh()</h3>
 
-<h3>panToPosition(position)</h3>
+<p>Manually trigger a refresh on the view.  Child view layers will likely be listening for <code>refresh</code>
+events and will do some of their recalculations when this is called.</p>
 
-<p>This method is used to tell the map to pan (not zoom) to the specified position</p>
+<h3>rotate(value, tween, isAbsolute)</h3>
+
+<h3>scale(value, tween, isAbsolute)</h3>
+
+<h3>triggerAll(eventName: string, args*)</h3>
+
+<p>Trigger an event on the view and all layers currently contained in the view</p>
+
+<h3>offset(x: int, y: int, tween: TweenOpts)</h3>
+
+<p>This function allows you to specified the absolute x and y offset that should 
+become the top-left corner of the view.  As per the <code>pan</code> function documentation, tween and
+callback arguments can be supplied to animate the transition.</p>

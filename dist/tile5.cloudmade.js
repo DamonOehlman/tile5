@@ -4992,7 +4992,7 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
 /**
 # T5.Pos
 
-# Methods
+## Methods
 */
 function Pos(p1, p2) {
     if (p1 && p1.split) {

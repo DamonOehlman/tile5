@@ -78,7 +78,7 @@ function ColorParser(color_string) {
 }
 
 T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, container, params, baseRenderer) {
-    params = _extend({
+    params = T5.ex({
         guides: false
     }, params);
 
@@ -157,7 +157,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
 
     function createCube(size) {
         var realSize = size >> 1;
-        return cubes[size] = new Cube(realSize, realSize, realSize);
+        return cubes[size] = new THREE.Cube(realSize, realSize, realSize);
     } // createCube
 
     function getCachedMaterials(materialKey, creator) {
@@ -247,7 +247,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
             */
 
             tileBg = new THREE.Mesh(
-                new Plane(xSeg * TILE_SIZE, ySeg * TILE_SIZE, xSeg, ySeg),
+                new THREE.Plane(xSeg * TILE_SIZE, ySeg * TILE_SIZE, xSeg, ySeg),
                 new THREE.MeshBasicMaterial({
                     color: 0xdddddd,
                     wireframe: true
@@ -264,14 +264,13 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
 
             globalCamera = camera = new THREE.Camera(45, vpWidth / vpHeight, 1, 2000, tileBg);
 
-            tilePlane = new Plane(TILE_SIZE, TILE_SIZE, 4, 4);
+            tilePlane = new THREE.Plane(TILE_SIZE, TILE_SIZE, 4, 4);
 
             tileMaterials = [];
 
             renderer = new THREE.WebGLRenderer();
             renderer.setSize(vpWidth, vpHeight);
 
-            renderer.domElement.style.margin = _formatter('{0}px 0 0 {0}px')(view.padding);
 
             container.appendChild(renderer.domElement);
         } // if
@@ -282,7 +281,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
     } // createCanvas
 
     function initGeometries() {
-        defaultMarker = new Cube(5, 5, 5);
+        defaultMarker = new THREE.Cube(5, 5, 5);
     } // initGeometries
 
     function initMaterials() {
@@ -437,7 +436,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
 
         if (mesh) {
             var styleMaterials = mesh instanceof THREE.Line ? lineMaterials : meshMaterials,
-                materials = styleMaterials[currentStyle] || styleMaterials.basic;
+                materials = styleMaterials[currentStyle] || styleMaterials.basic || [];
 
             currentObjects[this.id] = this;
 
@@ -469,8 +468,8 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
     } // meshInit
 
     function prepare(layers, viewport, tickCount, hitData) {
-        drawOffsetX = viewport.x + view.padding;
-        drawOffsetY = viewport.y + view.padding;
+        drawOffsetX = viewport.x;
+        drawOffsetY = viewport.y;
 
         shiftViewport(
             drawOffsetX + (vpWidth >> 1),
@@ -513,7 +512,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
         var image = opts.image || drawable.image;
 
         if (image && (! drawable.mesh)) {
-            var plane = new Plane(image.width, image.height),
+            var plane = new THREE.Plane(image.width, image.height),
                 drawX = (opts.x || drawable.xy.x) + image.width / 2,
                 drawY = (opts.y || drawable.xy.y) + image.height / 2,
                 texture = new THREE.Texture(image),
@@ -550,7 +549,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
                     drawable.materials = getCachedMaterials(materialKey, function() {
                         return [
                             new THREE.MeshBasicMaterial({
-                                map: ImageUtils.loadTexture(drawable.imageUrl)
+                                map: THREE.ImageUtils.loadTexture(drawable.imageUrl)
                             })
                         ];
                     });
@@ -629,7 +628,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
 
     initThree();
 
-    var _this = _extend(baseRenderer, {
+    var _this = T5.ex(baseRenderer, {
         fastpan: false,
 
         applyStyle: applyStyle,
@@ -657,7 +656,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
     _this.bind('reset', handleReset);
 
     loadStyles();
-    _log('created three:webgl renderer');
+    T5.log('created three:webgl renderer');
 
     return _this;
 });
