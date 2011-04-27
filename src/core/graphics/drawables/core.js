@@ -152,6 +152,7 @@ Drawable.prototype = {
             }
             else {
                 this.scaling = targetVal;
+                this.view.invalidate();
             } // if..else
             
             return this;
@@ -189,6 +190,7 @@ Drawable.prototype = {
             else {
                 this.translateX = targetX;
                 this.translateY = targetY;
+                this.view.invalidate();
             } // if..else
             
             return this;

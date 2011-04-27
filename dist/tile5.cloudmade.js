@@ -1677,8 +1677,16 @@ to a prototypal pattern in areas of the Tile5 library.
 ## Methods
 */
 function XY(p1, p2) {
-    this.x = p1 || 0;
-    this.y = p2 || 0;
+    if (_is(p1, typeString)) {
+        var xyVals = p1.split(reDelimitedSplit);
+
+        this.x = parseInt(xyVals[0], 10);
+        this.y = parseInt(xyVals[1], 10);
+    }
+    else {
+        this.x = p1 || 0;
+        this.y = p2 || 0;
+    } // if..else
 } // XY constructor
 
 XY.prototype = {
@@ -2486,7 +2494,6 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
 
     function drawTiles(viewport, tiles, okToLoad) {
         var tile,
-            inViewport,
             minX = drawOffsetX - 256,
             minY = drawOffsetY - 256,
             maxX = viewport.x2,
@@ -2495,20 +2502,15 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         for (var ii = tiles.length; ii--; ) {
             tile = tiles[ii];
 
-            inViewport = tile.x >= minX && tile.x <= maxX &&
-                tile.y >= minY && tile.y <= maxY;
-
-            if (inViewport) {
-                if ((! tile.loaded) && okToLoad) {
-                    tile.load(view.invalidate);
-                }
-                else if (tile.image) {
-                    context.drawImage(
-                        tile.image,
-                        tile.x - drawOffsetX,
-                        tile.y - drawOffsetY);
-                } // if..else
-            } // if
+            if ((! tile.loaded) && okToLoad) {
+                tile.load(view.invalidate);
+            }
+            else if (tile.image) {
+                context.drawImage(
+                    tile.image,
+                    tile.x - drawOffsetX,
+                    tile.y - drawOffsetY);
+            } // if..else
         } // for
     } // drawTiles
 
@@ -2908,24 +2910,19 @@ var Style = (function() {
 /**
 # VIEW: simple
 */
-reg('view', 'map', function(params) {
+reg('view', 'view', function(params) {
     params = _extend({
         container: "",
         captureHover: true,
-        controls: ['zoombar'],
+        controls: [],
         drawOnScale: true,
-        padding: 50,
+        padding: 0,
         inertia: true,
         refreshDistance: 256,
         pannable: true,
         scalable: true,
 
-        minZoom: 1,
-        maxZoom: 18,
-        renderer: 'canvas/dom',
-        zoom: 1,
-
-        zoombar: {}
+        renderer: 'canvas'
     }, params);
 
     var PANSPEED_THRESHOLD_REFRESH = 2,
@@ -2969,7 +2966,6 @@ reg('view', 'map', function(params) {
         scaleFactor = 1,
         scaleTween = null,
         lastScaleFactor = 1,
-        lastBoundsChangeOffset = new GeoXY(),
         lastCycleTicks = 0,
         eventMonitor = null,
         frameData = {
@@ -2982,9 +2978,7 @@ reg('view', 'map', function(params) {
         viewChanges = 0,
         width, height,
         halfWidth, halfHeight,
-        halfOuterWidth, halfOuterHeight,
-        zoomX, zoomY,
-        zoomLevel = params.zoom || params.zoomLevel;
+        halfOuterWidth, halfOuterHeight;
 
     /* event handlers */
 
@@ -3003,7 +2997,7 @@ reg('view', 'map', function(params) {
                 scaledX = viewport ? (viewport.x + srcX * invScaleFactor) : srcX,
                 scaledY = viewport ? (viewport.y + srcY * invScaleFactor) : srcY;
 
-            projectedXY = new GeoXY(scaledX, scaledY);
+            projectedXY = new _self.XY(scaledX, scaledY);
         } // if
 
         return projectedXY.sync(_self, true);
@@ -3074,17 +3068,8 @@ reg('view', 'map', function(params) {
 
     /* private functions */
 
-    function checkScaling() {
-        var scaleFactorExp = log(scaleFactor) / Math.LN2 | 0;
-
-        if (scaleFactorExp !== 0) {
-            scaleFactor = pow(2, scaleFactorExp);
-            zoom(zoomLevel + scaleFactorExp, zoomX, zoomY);
-        } // ifg
-    } // checkScaling
-
     function createRenderer(typeName) {
-        renderer = attachRenderer(typeName || params.renderer, _self, viewpane, outer, params);
+        renderer = _self.renderer = attachRenderer(typeName || params.renderer, _self, viewpane, outer, params);
 
         fastpan = renderer.fastpan && DOM.transforms;
 
@@ -3406,8 +3391,6 @@ reg('view', 'map', function(params) {
 
                     _self.trigger('drawComplete', viewport, tickCount);
 
-                    lastScaleFactor = scaleFactor;
-
                     DOM.move(viewpane, viewpaneX, viewpaneY, extraTransforms);
                 } // if
             }
@@ -3437,7 +3420,10 @@ reg('view', 'map', function(params) {
                 hitData = null;
             } // if
 
-            checkScaling();
+            if (lastScaleFactor !== scaleFactor) {
+                _self.trigger('scaleChanged', scaleFactor);
+                lastScaleFactor = scaleFactor;
+            };
         } // if
     } // cycle
 
@@ -3470,20 +3456,6 @@ reg('view', 'map', function(params) {
             viewpane.appendChild(element);
         } // if
     } // attachFrame
-
-    function bounds(newBounds) {
-        var viewport = getViewport();
-
-        if (newBounds) {
-            return zoom(newBounds.bestZoomLevel(viewport)).center(newBounds.center());
-        }
-        else {
-            return new BBox(
-                new GeoXY(viewport.x, viewport.y2).sync(_self, true).pos(),
-                new GeoXY(viewport.x2, viewport.y).sync(_self, true).pos()
-            );
-        } // if..else
-    } // bounds
 
     function center(p1, p2, tween) {
         var centerXY;
@@ -3531,52 +3503,6 @@ reg('view', 'map', function(params) {
 
         panFrames = [];
     } // detach
-
-    /**
-    ### zoom(int): int
-    Either update or simply return the current zoomlevel.
-    */
-    function zoom(value, zoomX, zoomY) {
-        if (_is(value, typeNumber)) {
-            value = max(params.minZoom, min(params.maxZoom, value | 0));
-            if (value !== zoomLevel) {
-                var scaling = pow(2, value - zoomLevel),
-                    scaledHalfWidth = halfWidth / scaling | 0,
-                    scaledHalfHeight = halfHeight / scaling | 0;
-
-                zoomLevel = value;
-
-                offset(
-                    ((zoomX || offsetX + halfWidth) - scaledHalfWidth) * scaling,
-                    ((zoomY || offsetY + halfHeight) - scaledHalfHeight) * scaling
-                );
-
-                refreshX = 0;
-                refreshY = 0;
-
-                _self.trigger('zoom', value);
-
-                var gridSize;
-
-                rpp = _self.rpp = radsPerPixel(zoomLevel);
-
-                setMaxOffset(TWO_PI / rpp | 0, TWO_PI / rpp | 0, true, false);
-
-                scaleFactor = 1;
-
-                _self.trigger('resync');
-
-                renderer.trigger('reset');
-
-                refresh();
-            } // if
-
-            return _self;
-        }
-        else {
-            return zoomLevel;
-        } // if..else
-    } // zoom
 
     function invalidate() {
         viewChanges++;
@@ -3696,13 +3622,6 @@ reg('view', 'map', function(params) {
             refreshX = offsetX;
             refreshY = offsetY;
 
-            if (lastBoundsChangeOffset.x != viewport.x || lastBoundsChangeOffset.y != viewport.y) {
-                _self.trigger('boundsChange', bounds());
-
-                lastBoundsChangeOffset.x = viewport.x;
-                lastBoundsChangeOffset.y = viewport.y;
-            } // if
-
             _self.trigger('refresh', _self, viewport);
 
             viewChanges++;
@@ -3811,21 +3730,20 @@ reg('view', 'map', function(params) {
             return _self;
         }
         else {
-            return new GeoXY(offsetX, offsetY).sync(_self, true);
+            return new _self.XY(offsetX, offsetY).sync(_self, true);
         } // if..else
     } // offset
 
     /* object definition */
 
     var _self = {
-        XY: GeoXY, // TODO: abstract back down for to a view
+        XY: XY,
 
         id: params.id,
         padding: padding,
         panSpeed: 0,
 
         attachFrame: attachFrame,
-        bounds: bounds,
         center: center,
         detach: detach,
         layer: layer,
@@ -3840,8 +3758,7 @@ reg('view', 'map', function(params) {
 
         setMaxOffset: setMaxOffset,
         getViewport: getViewport,
-        offset: offset,
-        zoom: zoom
+        offset: offset
     };
 
     _observable(_self);
@@ -3877,6 +3794,136 @@ reg('view', 'map', function(params) {
     Animator.attach(cycle);
 
     createControls(params.controls);
+
+    return _self;
+});
+/**
+# VIEW: simple
+*/
+reg('view', 'map', function(params) {
+    params = _extend({
+        container: "",
+        captureHover: true,
+        controls: ['zoombar'],
+        drawOnScale: true,
+        padding: 50,
+        inertia: true,
+        refreshDistance: 256,
+        pannable: true,
+        scalable: true,
+
+        minZoom: 1,
+        maxZoom: 18,
+        renderer: 'canvas/dom',
+        zoom: 1,
+
+        zoombar: {}
+    }, params);
+
+    /* internals */
+
+    var lastBoundsChangeOffset = new GeoXY(),
+        rpp,
+        zoomLevel = params.zoom || params.zoomLevel;
+
+    function checkScaling(evt, scaleFactor) {
+        var scaleFactorExp = log(scaleFactor) / Math.LN2 | 0;
+
+        if (scaleFactorExp !== 0) {
+            scaleFactor = pow(2, scaleFactorExp);
+            zoom(zoomLevel + scaleFactorExp);
+        } // ifg
+    } // checkScaling
+
+    function handleRefresh(evt) {
+        var viewport = _self.getViewport();
+
+        if (lastBoundsChangeOffset.x != viewport.x || lastBoundsChangeOffset.y != viewport.y) {
+            _self.trigger('boundsChange', bounds());
+
+            lastBoundsChangeOffset.x = viewport.x;
+            lastBoundsChangeOffset.y = viewport.y;
+        } // if
+    } // handleRefresh
+
+    /* exports */
+
+    /**
+    ### bounds(newBounds)
+    */
+    function bounds(newBounds) {
+        var viewport = _self.getViewport();
+
+        if (newBounds) {
+            return zoom(newBounds.bestZoomLevel(viewport)).center(newBounds.center());
+        }
+        else {
+            return new BBox(
+                new GeoXY(viewport.x, viewport.y2).sync(_self, true).pos(),
+                new GeoXY(viewport.x2, viewport.y).sync(_self, true).pos()
+            );
+        } // if..else
+    } // bounds
+
+    /**
+    ### zoom(int): int
+    Either update or simply return the current zoomlevel.
+    */
+    function zoom(value, zoomX, zoomY) {
+        if (_is(value, typeNumber)) {
+            value = max(params.minZoom, min(params.maxZoom, value | 0));
+            if (value !== zoomLevel) {
+                var viewport = _self.getViewport(),
+                    offset = _self.offset(),
+                    halfWidth = viewport.w / 2,
+                    halfHeight = viewport.h / 2,
+                    scaling = pow(2, value - zoomLevel),
+                    scaledHalfWidth = halfWidth / scaling | 0,
+                    scaledHalfHeight = halfHeight / scaling | 0;
+
+                zoomLevel = value;
+
+                _self.offset(
+                    ((zoomX || offset.x + halfWidth) - scaledHalfWidth) * scaling,
+                    ((zoomY || offset.y + halfHeight) - scaledHalfHeight) * scaling
+                );
+
+                refreshX = 0;
+                refreshY = 0;
+
+                _self.trigger('zoom', value);
+
+                var gridSize;
+
+                rpp = _self.rpp = radsPerPixel(zoomLevel);
+
+                _self.setMaxOffset(TWO_PI / rpp | 0, TWO_PI / rpp | 0, true, false);
+
+                _self.scale(1, false, true);
+
+                _self.trigger('resync');
+
+                _self.renderer.trigger('reset');
+
+                _self.refresh();
+            } // if
+
+            return _self;
+        }
+        else {
+            return zoomLevel;
+        } // if..else
+    } // zoom
+
+    var _self = _extend(regCreate('view', 'view', params), {
+        XY: GeoXY,
+
+        bounds: bounds,
+        zoom: zoom
+    });
+
+    _self.bind('refresh', handleRefresh);
+    _self.bind('scaleChanged', checkScaling);
 
     return _self;
 });
@@ -4117,6 +4164,7 @@ Drawable.prototype = {
             }
             else {
                 this.scaling = targetVal;
+                this.view.invalidate();
             } // if..else
 
             return this;
@@ -4154,6 +4202,7 @@ Drawable.prototype = {
             else {
                 this.translateX = targetX;
                 this.translateY = targetY;
+                this.view.invalidate();
             } // if..else
 
             return this;
@@ -4510,14 +4559,11 @@ reg('layer', 'tile', function(view, params) {
         generating = false,
         storage = null,
         zoomTrees = [],
-        tiles = [],
         loadArgs = params.imageLoadArgs;
 
     /* event handlers */
 
     function handleRefresh(evt, view, viewport) {
-        var tickCount = new Date().getTime();
-
         if (storage) {
             genFn(view, viewport, storage, function() {
                 view.invalidate();

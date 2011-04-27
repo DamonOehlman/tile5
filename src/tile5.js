@@ -39,6 +39,7 @@
 //= require "core/renderers/dom"
 
 //= require "core/graphics/style"
+//= require "core/graphics/view"
 //= require "core/graphics/map"
 //= require "core/graphics/tweener"
 

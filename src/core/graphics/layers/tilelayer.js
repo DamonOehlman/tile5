@@ -13,14 +13,11 @@ reg('layer', 'tile', function(view, params) {
         generating = false,
         storage = null,
         zoomTrees = [],
-        tiles = [],
         loadArgs = params.imageLoadArgs;
     
     /* event handlers */
 
     function handleRefresh(evt, view, viewport) {
-        var tickCount = new Date().getTime();
-        
         if (storage) {
             // fire the generator
             genFn(view, viewport, storage, function() {

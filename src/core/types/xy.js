@@ -7,8 +7,17 @@ to a prototypal pattern in areas of the Tile5 library.
 ## Methods
 */
 function XY(p1, p2) {
-    this.x = p1 || 0;
-    this.y = p2 || 0;
+    // if the first parameter is a string, then parse
+    if (_is(p1, typeString)) {
+        var xyVals = p1.split(reDelimitedSplit);
+        
+        this.x = parseInt(xyVals[0], 10);
+        this.y = parseInt(xyVals[1], 10);
+    }
+    else {
+        this.x = p1 || 0;
+        this.y = p2 || 0;
+    } // if..else
 } // XY constructor
 
 XY.prototype = {

@@ -187,7 +187,6 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
     
     function drawTiles(viewport, tiles, okToLoad) {
         var tile,
-            inViewport,
             minX = drawOffsetX - 256,
             minY = drawOffsetY - 256,
             maxX = viewport.x2,
@@ -196,22 +195,15 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         for (var ii = tiles.length; ii--; ) {
             tile = tiles[ii];
             
-            // check whether the image is in the viewport or not
-            inViewport = tile.x >= minX && tile.x <= maxX && 
-                tile.y >= minY && tile.y <= maxY;
-                
-            // show or hide the image depending on whether it is in the viewport
-            if (inViewport) {
-                if ((! tile.loaded) && okToLoad) {
-                    tile.load(view.invalidate);
-                }
-                else if (tile.image) {
-                    context.drawImage(
-                        tile.image,
-                        tile.x - drawOffsetX, 
-                        tile.y - drawOffsetY);
-                } // if..else
-            } // if
+            if ((! tile.loaded) && okToLoad) {
+                tile.load(view.invalidate);
+            }
+            else if (tile.image) {
+                context.drawImage(
+                    tile.image,
+                    tile.x - drawOffsetX, 
+                    tile.y - drawOffsetY);
+            } // if..else
         } // for
     } // drawTiles
     
