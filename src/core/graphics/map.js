@@ -8,7 +8,8 @@ reg('view', 'map', function(params) {
         captureHover: true,
         controls: ['zoombar'],
         drawOnScale: true,
-        padding: 128,
+        // TODO: automatically calculate padding to allow map rotation with no "whitespace"
+        padding: 50, 
         inertia: true,
         refreshDistance: 256,
         pannable: true,
@@ -668,21 +669,17 @@ reg('view', 'map', function(params) {
         
         // update if appropriate
         if (_is(p1, typeNumber)) {
-            offset(p1 - halfOuterWidth, p2 - halfOuterHeight, tween);
+            offset(p1 - halfOuterWidth - padding, p2 - halfOuterHeight - padding, tween);
             
             // return the view so we can chain methods
             return _self;
         }
         // otherwise, return the center 
         else {
-            centerXY = offset().offset(halfOuterWidth, halfOuterHeight);
-
-            // if we have radians per pixel defined, then add that information
-            if (_self.rpp) {
-                centerXY.sync(_self, true);
-            } // if
-            
-            return centerXY;
+            return offset().offset(
+                halfOuterWidth + padding | 0, 
+                halfOuterHeight + padding | 0
+            ).sync(_self, true);
         } // if..else
     } // center
     
@@ -937,10 +934,12 @@ reg('view', 'map', function(params) {
                 rotateTween = Tweener.tween([rotation], [targetVal], tween, function() {
                     rotation = targetVal % 360;
                     rotateTween = null;
+                    viewChanges++;
                 });
             }
             else {
                 rotation = targetVal % 360;
+                viewChanges++;
             } // if..else
             
             return _self;
@@ -973,6 +972,7 @@ reg('view', 'map', function(params) {
                 scaleTween = Tweener.tween([scaleFactor], [targetVal], tween, function() {
                     scaleFactor = targetVal;
                     scaleTween = null;
+                    viewChanges++;
                 });
             }
             else {
@@ -1031,7 +1031,7 @@ reg('view', 'map', function(params) {
         // otherwise, simply return it
         else {
             // return the last calculated cycle offset
-            return new GeoXY(offsetX, offsetY);
+            return new GeoXY(offsetX, offsetY).sync(_self, true);
         } // if..else
     } // offset
     

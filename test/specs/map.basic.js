@@ -15,4 +15,8 @@ describe('map.basic', function() {
         expect(centerPos.lat * testPrecision | 0).toEqual(startLat * testPrecision | 0);
         expect(centerPos.lon * testPrecision | 0).toEqual(startLon * testPrecision | 0);
     });
+    
+    it('should not have a center value and offset value equal', function() {
+        expect(map.center().equals(map.offset())).toBeFalsy();
+    });
 });

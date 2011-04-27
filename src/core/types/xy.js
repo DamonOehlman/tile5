@@ -35,7 +35,13 @@ XY.prototype = {
     ### copy(x, y)
     */
     copy: function(x, y) {
-        return new this.constructor(x || this.x, y || this.y);
+        var copy = _extend({}, this);
+        
+        // override the x and y positions with the updated values
+        copy.x = x || copy.x;
+        copy.y = y || copy.y;
+        
+        return copy;
     },
     
     /**
