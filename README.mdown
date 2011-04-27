@@ -207,17 +207,37 @@ var marker = map.layer('markers').create('marker', {
 }
 ```
 
-## Animation in Tile5 1.0
+## Easing in Tile5 1.0
+
+Easing and animation within Tile5 has had a number of different implementations.  The proposed format for the 1.0 release involves supplying an additional `tween` parameter to modifier functions.  For instance, if we want to tween a `pan` of the map, we can do the following:
+
+```js
+map.pan(500, 500, {
+	easing: 'sine.out',
+	duration: 1000,
+	callback: function() {
+		alert('All done');
+	}
+});
+```
+
+The function then checks for the presence of this tween argument, and if exists passes it on to the internal [Tweener](https://github.com/sidelab/tile5/blob/1.0/src/core/graphics/tweener.js) to appropriately deal with.  The nifty part here is that the `Tweener` is called in any case where a _truthy_ tween argument is detected.  Which means that the following code will also cause the map to animate the pan (albeit with default values - easing: sine.out and duration: 1000):
+
+```js
+map.pan(500, 500, true);
+```
+
+The new function format is in comparison to previous "tweenable functions" which took three additional parameters specifying the easing effect, duration and callback (in varying order depending on the function...).  While this was nice in some regards, my personal preference is for the above.
+
+Drawables will also be modified to use the above format, so where previously you would make a call to `drawable.animate` specifying the property to animate with animation parameters, you will now make a call to `rotate`, `scale` or `translate` of the drawable passing a tween parameter as per the above.
+
+## Custom Animation in Tile5 1.0
 
 Custom animation in Tile5 has previously been handled in a number of different ways.  Firstly, you can choose to implement your own `setInterval` or `setTimeout` handling to animate objects in Tile5.  In many instances, this is the method that current Tile5 demos use.  
 
 Additionally, a Tile5 view used to also support an `enterFrame` event.  Ideally this event will be removed as it may not be the most efficient place to handle animation (however, it does allow you to override draw functionality so for the moment it may stay).
 
 Despite the above techniques being valid ways to implement your own animation, a better option is now available in Tile5 1.0 - the `T5.Animator` component.
-
-__TO BE COMPLETED__
-
-## Easing in Tile5 1.0
 
 __TO BE COMPLETED__
 

@@ -2912,7 +2912,7 @@ reg('view', 'map', function(params) {
         captureHover: true,
         controls: ['zoombar'],
         drawOnScale: true,
-        padding: 0, // 128
+        padding: 128,
         inertia: true,
         refreshDistance: 256,
         pannable: true,
