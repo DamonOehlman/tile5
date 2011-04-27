@@ -165,7 +165,12 @@ function _formatter(format) {
         var output = format;
 
         for (ii = 0; ii < regexCount; ii++) {
-            output = output.replace(regexes[ii], arguments[ii] || '');
+            var argValue = arguments[ii];
+            if (typeof argValue == 'undefined') {
+                argValue = '';
+            } // if
+
+            output = output.replace(regexes[ii], argValue);
         } // for
 
         return output;
@@ -1680,8 +1685,8 @@ function XY(p1, p2) {
     if (_is(p1, typeString)) {
         var xyVals = p1.split(reDelimitedSplit);
 
-        this.x = parseInt(xyVals[0], 10);
-        this.y = parseInt(xyVals[1], 10);
+        this.x = parseFloat(xyVals[0]);
+        this.y = parseFloat(xyVals[1]);
     }
     else {
         this.x = p1 || 0;
@@ -2701,18 +2706,6 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         getContext: function() {
             return context;
         }
-
-
-        /*
-        render: function(viewport) {
-            context.strokeStyle = '#F00';
-            context.moveTo(0, viewport.h >> 1);
-            context.lineTo(viewport.w, viewport.h >> 1);
-            context.moveTo(viewport.w >> 1, 0);
-            context.lineTo(viewport.w >> 1, viewport.h);
-            context.stroke();
-        }
-        */
     });
 
     loadStyles();

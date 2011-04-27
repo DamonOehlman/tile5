@@ -11,8 +11,8 @@ function XY(p1, p2) {
     if (_is(p1, typeString)) {
         var xyVals = p1.split(reDelimitedSplit);
         
-        this.x = parseInt(xyVals[0], 10);
-        this.y = parseInt(xyVals[1], 10);
+        this.x = parseFloat(xyVals[0]);
+        this.y = parseFloat(xyVals[1]);
     }
     else {
         this.x = p1 || 0;

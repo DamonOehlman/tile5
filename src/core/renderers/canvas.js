@@ -409,18 +409,6 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         getContext: function() { 
             return context;
         }
-        
-        
-        /*
-        render: function(viewport) {
-            context.strokeStyle = '#F00';
-            context.moveTo(0, viewport.h >> 1);
-            context.lineTo(viewport.w, viewport.h >> 1);
-            context.moveTo(viewport.w >> 1, 0);
-            context.lineTo(viewport.w >> 1, viewport.h);
-            context.stroke();
-        }
-        */
     });
     
     // load the styles
