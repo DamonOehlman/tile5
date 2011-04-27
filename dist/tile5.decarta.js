@@ -1582,8 +1582,10 @@ var DOM = (function() {
             '-webkit-user-select': 'none',
             position: 'absolute'
         },
+        css3dTransformProps = ['WebkitPerspective', 'MozPerspective'],
         testTransformProps = ['-webkit-transform', 'MozTransform'],
-        transformProp;
+        transformProp,
+        css3dTransformProp;
 
     function checkCaps(testProps) {
         for (var ii = 0; ii < testProps.length; ii++) {
@@ -1615,9 +1617,12 @@ var DOM = (function() {
     } // create
 
     function move(element, x, y, extraTransforms) {
-        if (transformProp) {
-            element.style[transformProp] = 'translate(' + x + 'px, ' + y + 'px) translateZ(0) ' +
-                (extraTransforms || []).join(' ');
+        if (css3dTransformProp || transformProp) {
+            var translate = css3dTransformProp ?
+                    'translate3d(' + x +'px, ' + y + 'px, 0)' :
+                    'translate(' + x + 'px, ' + y + 'px)';
+
+            element.style[transformProp] = translate + ' ' + (extraTransforms || []).join(' ');
         }
         else {
             element.style.left = x + 'px';
@@ -1632,9 +1637,10 @@ var DOM = (function() {
     /* initialization */
 
     transformProp = checkCaps(testTransformProps);
+    css3DTransformProp = checkCaps(css3dTransformProps);
 
     return {
-        supportTransforms: transformProp,
+        transforms: _is(transformProp, typeString),
 
         create: create,
         move: move,
@@ -3078,7 +3084,7 @@ reg('view', 'map', function(params) {
     function createRenderer(typeName) {
         renderer = attachRenderer(typeName || params.renderer, _self, viewpane, outer, params);
 
-        fastpan = renderer.fastpan;
+        fastpan = renderer.fastpan && DOM.transforms;
 
         captureInteractionEvents();
     } // createRenderer
@@ -3320,7 +3326,7 @@ reg('view', 'map', function(params) {
                 _self.trigger('pan');
             } // if
 
-            if (DOM.supportTransforms) {
+            if (DOM.transforms) {
                 if (scaleFactor !== 1) {
                     extraTransforms[extraTransforms.length] = 'scale(' + scaleFactor + ')';
                 } // if

@@ -5,9 +5,13 @@ var DOM = (function() {
             '-webkit-user-select': 'none',
             position: 'absolute'
         },
+        css3dTransformProps = ['WebkitPerspective', 'MozPerspective'],
         testTransformProps = ['-webkit-transform', 'MozTransform'],
-        transformProp;
+        transformProp,
+        css3dTransformProp;
         
+    // detect for style based capabilities
+    // code adapted from Modernizr: https://github.com/Modernizr/Modernizr
     function checkCaps(testProps) {
         for (var ii = 0; ii < testProps.length; ii++) {
             var propName = testProps[ii];
@@ -43,9 +47,12 @@ var DOM = (function() {
     } // create
 
     function move(element, x, y, extraTransforms) {
-        if (transformProp) {
-            element.style[transformProp] = 'translate(' + x + 'px, ' + y + 'px) translateZ(0) ' + 
-                (extraTransforms || []).join(' ');
+        if (css3dTransformProp || transformProp) {
+            var translate = css3dTransformProp ? 
+                    'translate3d(' + x +'px, ' + y + 'px, 0)' : 
+                    'translate(' + x + 'px, ' + y + 'px)';
+            
+            element.style[transformProp] = translate + ' ' + (extraTransforms || []).join(' ');
         }
         else {
             element.style.left = x + 'px';
@@ -60,9 +67,10 @@ var DOM = (function() {
     /* initialization */
     
     transformProp = checkCaps(testTransformProps);
+    css3DTransformProp = checkCaps(css3dTransformProps);
     
     return {
-        supportTransforms: transformProp,
+        transforms: _is(transformProp, typeString),
         
         create: create,
         move: move,

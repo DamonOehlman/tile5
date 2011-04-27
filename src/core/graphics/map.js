@@ -196,7 +196,7 @@ reg('view', 'map', function(params) {
         renderer = attachRenderer(typeName || params.renderer, _self, viewpane, outer, params);
         
         // determine whether partial scaling is supporter
-        fastpan = renderer.fastpan;
+        fastpan = renderer.fastpan && DOM.transforms;
         
         // attach interaction handlers
         captureInteractionEvents();
@@ -473,7 +473,7 @@ reg('view', 'map', function(params) {
             } // if
             
             // if transforms are supported, then scale and rotate as approprate
-            if (DOM.supportTransforms) {
+            if (DOM.transforms) {
                 if (scaleFactor !== 1) {
                     extraTransforms[extraTransforms.length] = 'scale(' + scaleFactor + ')';
                 } // if
