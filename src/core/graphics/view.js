@@ -938,6 +938,8 @@ reg('view', 'view', function(params) {
             else {
                 offsetX = x | 0;
                 offsetY = y | 0;
+                
+                viewChanges++;
             } // if..else
             
             return _self;

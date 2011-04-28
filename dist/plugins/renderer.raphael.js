@@ -191,7 +191,7 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
                 markerY = drawable.xy.y - drawOffsetY,
                 size = drawable.size;
 
-            switch (drawable.markerStyle.toLowerCase()) {
+            switch (drawable.markerType.toLowerCase()) {
                 case 'image':
                     objInit(drawable.rObject = paper.image(
                         drawable.imageUrl,

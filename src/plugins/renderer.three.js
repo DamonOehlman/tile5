@@ -532,7 +532,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
                 size = drawable.size,
                 mesh;
 
-            switch (drawable.markerStyle.toLowerCase()) {
+            switch (drawable.markerType.toLowerCase()) {
                 case 'image':
                     // look for the image texture
                     var materialKey = 'marker_image_' + drawable.imageUrl;

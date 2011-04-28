@@ -304,7 +304,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         
         context.beginPath();
         
-        switch (drawable.markerStyle.toLowerCase()) {
+        switch (drawable.markerType.toLowerCase()) {
             case 'image':
                 // update the draw override to the draw nothing handler
                 drawOverride = drawNothing;

@@ -12,7 +12,7 @@ In addition to the standard T5.Drawable initialization parameters, a Marker can
 accept the following:
 
 
-- `markerStyle` - (default = simple)
+- `markerType` - (default = simple)
 
     The style of marker that will be displayed for the marker.  This is interpreted
     by each renderer individually.
@@ -22,7 +22,7 @@ reg(typeDrawable, 'marker', function(view, layer, params) {
     params = _extend({
         fill: true,
         stroke: false,
-        markerStyle: 'simple',
+        markerType: 'simple',
         hoverStyle: 'highlight',
         typeName: 'Marker'
     }, params);

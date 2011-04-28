@@ -11,7 +11,20 @@ T5.Registry.register('layer', 'geolocation', function(view, params) {
 
     /* internals */
     
-    var ACCURACY_TOLERANCE = 0.5,
+    var LOCATOR_IMAGE = 
+        'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAA' +
+        'BHNCSVQICAgIfAhkiAAAAAlwSFlzAAACIQAAAiEBPhEQkwAAABl0RVh0U29mdHdhcmUAd3' +
+        'd3Lmlua3NjYXBlLm9yZ5vuPBoAAAG+SURBVCiRlZHNahNRAIW/O7mTTJPahLZBA1YUyriI' +
+        'NRAE3bQIKm40m8K8gLj0CRQkO32ELHUlKbgoIu4EqeJPgtCaoBuNtjXt5LeTMZk0mbmuWi' +
+        'uuPLsD3+HAOUIpxf9IHjWmaUbEyWv5ROrsVULhcHP761rUfnN3Y2Otc8CIg4YT85lzuVsP' +
+        'P+Qupw1vpPjRCvhS9ymvV0e77x7nNj+uvADQAIQQ+uLyvdfLV9JGZi7EdEwQlqBpEJ019f' +
+        '0z1mo2u5Q8DMydv25lshemmj1FueZTawbs7inarqLbV7Qjab1upB9YlhWSAHLavLHZCvg1' +
+        'VEhN0PMU9W7At4bPVidg7CtkLLXkut+lBPD6/Ub155jJiADAHSpaLmx3ApyBQoYEUd0PBo' +
+        'OBkAC6+3llvda/YxgGgYL+UNHf/zN3KiExGlsvTdP0NYDkhPdWrz35ZDsBzV5wCMuQwEyF' +
+        'mXFeeadjzfuFQmGkAZRKpdGC/n7x+M6jqvA9Zo6FWDhlcHE+wqT93J1tP7vpOE7rrx8ALM' +
+        'uasPf8S12St4WmJ6bYWTUC52k8Hm8Vi0X/nwBAPp/XKpWKdF1X2LYdlMvlsToC/QYTls7D' +
+        'LFr/PAAAAABJRU5ErkJggg%3D%3D',
+        ACCURACY_TOLERANCE = 0.5,
         overlays = [],
         lastAccuracy = Infinity,
         watchId,
@@ -33,8 +46,17 @@ T5.Registry.register('layer', 'geolocation', function(view, params) {
 
             // if this is the initial update, then create the overlayes
             if (initialUpdate) {
+                overlays[overlays.length] = _self.create('arc', {
+                    xy: posXY,
+                    fill: true,
+                    size: 100 // TODO: calculate this based on accuracy
+                });
+
                 overlays[overlays.length] = _self.create('marker', {
-                    xy: posXY
+                    xy: posXY,
+                    markerType: 'image',
+                    imageUrl: LOCATOR_IMAGE,
+                    size: 10
                 });
 
                 // if we should zoom to location, then do that now
