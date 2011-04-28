@@ -31,3 +31,5 @@ function simplify(points, generalization) {
 
     return tidied;
 } // simplify
+
+reg('fn', 'simplify', simplify);

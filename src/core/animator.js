@@ -37,7 +37,13 @@ var Animator = (function() {
     } // attach
     
     function detach(callback) {
-        // TODO: remove from the list of callbacks
+        // iterate through the callbacks and remove the specified one
+        for (var ii = callbacks.length; ii--; ) {
+            if (callbacks[ii] === callback) {
+                callbacks.splice(ii, 1);
+                break;
+            } // if
+        } // for
     } // detach
     
     // bind to the animframe callback
@@ -45,6 +51,6 @@ var Animator = (function() {
     
     return {
         attach: attach,
-        detact: detach
+        detach: detach
     };
 })();

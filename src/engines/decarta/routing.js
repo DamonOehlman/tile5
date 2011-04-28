@@ -1,4 +1,16 @@
 T5.Registry.register('service', 'routing', function() {
+    
+    function parsePositions(sourceData) {
+        var sourceLen = sourceData.length,
+            positions = new Array(sourceLen);
+
+        for (var ii = sourceLen; ii--; ) {
+            positions[ii] = new Pos(sourceData[ii]);
+        } // for
+
+        return positions;
+    } // parsePositions
+    
     var RouteRequest = function(params) {
         params = T5.ex({
             waypoints: [],
@@ -12,8 +24,8 @@ T5.Registry.register('service', 'routing', function() {
         
         // define the base request
         var parent = new Request(),
-            routeHeaderFormatter = _formatter('<xls:DetermineRouteRequest provideRouteHandle="{0}" distanceUnit="{1}" routeQueryType="{2}">'),
-            waypointFormatter = _formatter('<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>');
+            routeHeaderFormatter = T5.formatter('<xls:DetermineRouteRequest provideRouteHandle="{0}" distanceUnit="{1}" routeQueryType="{2}">'),
+            waypointFormatter = T5.formatter('<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>');
         
         function parseInstructions(instructionList) {
             var fnresult = [],
@@ -105,7 +117,7 @@ T5.Registry.register('service', 'routing', function() {
                 
                 // create a new route data object and map items 
                 return new T5.RouteTools.RouteData({
-                    geometry: T5.Geo.PosFns.parseArray(response.RouteGeometry.LineString.pos),
+                    geometry: parsePositions(response.RouteGeometry.LineString.pos),
                     instructions: parseInstructions(response.RouteInstructionsList)
                 });
             }

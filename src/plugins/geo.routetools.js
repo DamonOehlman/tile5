@@ -12,6 +12,7 @@ T5.RouteTools = (function() {
     /* internals */
     
     var customTurnTypeRules = undefined,
+        generalize = T5.fn('generalize'),
     
         // predefined regexes
         REGEX_BEAR = /bear/i,
@@ -210,7 +211,7 @@ T5.RouteTools = (function() {
         if (service) {
             service.calculate(args, function(routeData) {
                 if (args.generalize) {
-                    routeData.geometry = T5.Geo.PosFns.generalize(routeData.geometry, routeData.getInstructionPositions());
+                    routeData.geometry = generalize(routeData.geometry, routeData.getInstructionPositions());
                 } // if
                 
                 // firstly, if we have a map defined, then let's place the route on the map
@@ -221,7 +222,7 @@ T5.RouteTools = (function() {
                     // if we are to auto fit the map to the bounds, then do that now
                     if (args.autoFit) {
                         // _log("AUTOFITTING MAP TO ROUTE: bounds = " + routeData.boundingBox);
-                        args.map.gotoBounds(routeData.boundingBox);
+                        args.map.bounds(routeData.boundingBox);
                     } // if
                 } // if
                 
@@ -239,14 +240,10 @@ T5.RouteTools = (function() {
     */
     function createMapOverlay(map, routeData) {
         if (routeData.geometry) {
-            T5.Geo.PosFns.vectorize(routeData.geometry, {
-                callback: function(coords) {
-                    map.layer('route', 'draw').create(typeDrawable, 'line', {
-                        points: coords,
-                        style: 'waypoints',
-                        simplify: true
-                    });
-                }
+            map.layer('route', 'draw').create('line', {
+                points: routeData.geometry,
+                style: 'waypoints',
+                simplify: true
             });
         } // if
     } // createMapOverlay

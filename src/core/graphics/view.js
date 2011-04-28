@@ -8,6 +8,7 @@ reg('view', 'view', function(params) {
         captureHover: true,
         controls: [],
         drawOnScale: true,
+        fastpan: true,
         // TODO: automatically calculate padding to allow map rotation with no "whitespace"
         padding: 0, 
         inertia: true,
@@ -35,7 +36,7 @@ reg('view', 'view', function(params) {
         mainContext = null,
         isIE = !_is(window.attachEvent, typeUndefined),
         hitFlagged = false,
-        fastpan = true,
+        fastpan,
         pointerDown = false,
         dx = 0, dy = 0,
         totalDX = 0,
@@ -178,7 +179,7 @@ reg('view', 'view', function(params) {
         renderer = _self.renderer = attachRenderer(typeName || params.renderer, _self, viewpane, outer, params);
         
         // determine whether partial scaling is supporter
-        fastpan = renderer.fastpan && DOM.transforms;
+        fastpan = params.fastpan && renderer.fastpan && DOM.transforms;
         
         // attach interaction handlers
         captureInteractionEvents();

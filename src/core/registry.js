@@ -11,6 +11,10 @@ var Registry = (function() {
         } // if
     } // create
     
+    function get(type, name) {
+        return types[type] ? types[type][name] : null;
+    } // get
+    
     function register(type, name, initFn) {
         // initialise the type of not defined
         if (! types[type]) {
@@ -28,6 +32,7 @@ var Registry = (function() {
     
     return {
         create: create,
+        get: get,
         register: register
     };
 })();

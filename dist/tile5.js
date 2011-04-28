@@ -120,7 +120,7 @@ function _extend() {
         source,
         ii;
 
-    for (ii = length; ii--; ) {
+    for (ii = 0; ii < length; ii++) {
         if ((source = sources[ii]) !== null) {
             for (var name in source) {
                 var copy = source[name];
@@ -1313,6 +1313,10 @@ var Registry = (function() {
         } // if
     } // create
 
+    function get(type, name) {
+        return types[type] ? types[type][name] : null;
+    } // get
+
     function register(type, name, initFn) {
         if (! types[type]) {
             types[type] = {};
@@ -1327,11 +1331,13 @@ var Registry = (function() {
 
     return {
         create: create,
+        get: get,
         register: register
     };
 })();
 
-var WARN_REGOVERRIDE = _formatter('Registration of {0}: {1} will override existing definition');
+var WARN_REGOVERRIDE = _formatter('Registration of {0}: {1} will override existing definition'),
+    NO_DRAWABLE = _formatter('Could not create drawable of type: {0}');
 /**
 # T5
 The T5 core module contains classes and functionality that support basic drawing
@@ -1463,8 +1469,6 @@ var TWO_PI = Math.PI * 2,
         MWY: "MOTORWAY"
     },
 
-    DEFAULT_GENERALIZATION_DISTANCE = 250,
-
     EVT_REMOVELAYER = 'layerRemove';
 var abs = Math.abs,
     ceil = Math.ceil,
@@ -1501,6 +1505,7 @@ var abs = Math.abs,
 
     reg = Registry.register,
     regCreate = Registry.create,
+    regGet = Registry.get,
 
     drawableCounter = 0,
     layerCounter = 0,
@@ -1540,13 +1545,19 @@ var Animator = (function() {
     } // attach
 
     function detach(callback) {
+        for (var ii = callbacks.length; ii--; ) {
+            if (callbacks[ii] === callback) {
+                callbacks.splice(ii, 1);
+                break;
+            } // if
+        } // for
     } // detach
 
     animFrame(frame);
 
     return {
         attach: attach,
-        detact: detach
+        detach: detach
     };
 })();
 var Parser = (function() {
@@ -1647,6 +1658,82 @@ var DOM = (function() {
         create: create,
         move: move,
         styles: styles
+    };
+})();
+/**
+# T5.Runner
+*/
+var Runner = (function() {
+
+    /* internals */
+
+    var TARGET_CYCLETIME = 20,
+        DEFAULT_SLICESIZE = 50,
+        processes = [];
+
+    function runLoop() {
+        var processCount = processes.length;
+
+        for (var ii = processCount; ii--; ) {
+            processes[ii](processCount);
+        } // for
+    } // runLoop
+
+    /* exports */
+
+    /**
+    ### process(items, sliceCallback, completeCallback)
+    */
+    function process(items, sliceCallback, completeCallback) {
+        var itemsPerCycle,
+            itemIndex = 0;
+
+        function processSlice(processesActive) {
+            var currentSliceItems = (itemsPerCycle || DEFAULT_SLICESIZE) / processesActive;
+
+            if (itemIndex < items.length) {
+                var slice = items.slice(itemIndex, itemIndex + currentSliceItems),
+                    sliceLen = slice.length,
+                    startTicks = itemsPerCycle ? 0 : new Date().getTime();
+
+                sliceCallback(slice, sliceLen);
+
+                if (! itemsPerCycle) {
+                    var elapsed = new Date().getTime() - startTicks,
+                        itemProcessTime = elapsed / sliceLen;
+
+                    itemsPerCycle = itemProcessTime ? (TARGET_CYCLETIME / itemProcessTime | 0) : items.length;
+                    _log('calculated that we can process ' + itemsPerCycle + ' items per cycle');
+                } // if
+
+                itemIndex += sliceLen;
+            }
+            else {
+                for (var ii = processes.length; ii--; ) {
+                    if (processes[ii] === processSlice) {
+                        processes.splice(ii, 1);
+                        break;
+                    } // if
+                } // for
+
+                if (processes.length === 0) {
+                    Animator.detach(runLoop);
+                } // if
+
+                if (completeCallback) {
+                    completeCallback();
+                } // if
+
+            } // if..else
+        } // processSlice
+
+        if (processes.push(processSlice) === 1) {
+            Animator.attach(runLoop);
+        } // if
+    } // process
+
+    return {
+        process: process
     };
 })();
 
@@ -1875,6 +1962,8 @@ function simplify(points, generalization) {
 
     return tidied;
 } // simplify
+
+reg('fn', 'simplify', simplify);
 /**
 # T5.Hits
 
@@ -2909,6 +2998,7 @@ reg('view', 'view', function(params) {
         captureHover: true,
         controls: [],
         drawOnScale: true,
+        fastpan: true,
         padding: 0,
         inertia: true,
         refreshDistance: 256,
@@ -2932,7 +3022,7 @@ reg('view', 'view', function(params) {
         mainContext = null,
         isIE = !_is(window.attachEvent, typeUndefined),
         hitFlagged = false,
-        fastpan = true,
+        fastpan,
         pointerDown = false,
         dx = 0, dy = 0,
         totalDX = 0,
@@ -3064,7 +3154,7 @@ reg('view', 'view', function(params) {
     function createRenderer(typeName) {
         renderer = _self.renderer = attachRenderer(typeName || params.renderer, _self, viewpane, outer, params);
 
-        fastpan = renderer.fastpan && DOM.transforms;
+        fastpan = params.fastpan && renderer.fastpan && DOM.transforms;
 
         captureInteractionEvents();
     } // createRenderer
@@ -4283,23 +4373,15 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
         typeName: 'Poly'
     }, params);
 
-    var points = params.points,
-        simplify = params.simplify;
+    /* internals */
 
-    /* exported functions */
+    var points = [],
+        pointsToParse;
 
-    /**
-    ### resync(view)
-    Used to synchronize the points of the poly to the grid.
-    */
-    function resync() {
+    function updateDrawPoints() {
         var ii, x, y, maxX, maxY, minX, minY, drawPoints;
 
-        for (ii = points.length; ii--; ) {
-            points[ii].sync(view);
-        } // for
-
-        drawPoints = this.points = simplify ? simplify(points) : points;
+        drawPoints = _self.points = params.simplify ? simplify(points) : points;
 
         for (ii = drawPoints.length; ii--; ) {
             x = drawPoints[ii].x;
@@ -4311,12 +4393,38 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
             maxY = _is(maxY, typeUndefined) || y > maxY ? y : maxY;
         } // for
 
-        this.updateBounds(new Rect(minX, minY, maxX - minX, maxY - minY), true);
+        _self.updateBounds(new Rect(minX, minY, maxX - minX, maxY - minY), true);
+    } // updateDrawPoints
+
+    function updatePoints(input) {
+        if (_is(input, typeArray)) {
+            Runner.process(input, function(slice, sliceLen) {
+                for (var ii = 0; ii < sliceLen; ii++) {
+                    points[ii] = new view.XY(slice[ii]);
+                } // for
+            }, resync);
+        } // if
+    } // updatePoints
+
+    /* exported functions */
+
+    /**
+    ### resync(view)
+    Used to synchronize the points of the poly to the grid.
+    */
+    function resync() {
+        if (points.length) {
+            Runner.process(points, function(slice, sliceLen) {
+                for (var ii = sliceLen; ii--; ) {
+                    slice[ii].sync(view);
+                } // for
+            }, updateDrawPoints);
+        } // if
     } // resync
 
-    Drawable.call(this, params);
+    var _self = _extend(new Drawable(view, layer, params), {
+        points: [],
 
-    _extend(this, {
         getPoints: function() {
             return [].concat(points);
         },
@@ -4324,7 +4432,13 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
         resync: resync
     });
 
-    this.haveData = points && (points.length >= 2);
+    _configurable(_self, params, {
+        points: updatePoints
+    });
+
+    updatePoints(params.points);
+
+    return _self;
 });
 /**
 # DRAWABLE: line
@@ -4694,6 +4808,9 @@ reg('layer', 'draw', function(view, params) {
     */
     function create(type, settings, prepend) {
         var drawable = regCreate(typeDrawable, type, view, _self, settings);
+        if (! drawable) {
+            throw NO_DRAWABLE(type);
+        } // if
 
         if (prepend) {
             drawables.unshift(drawable);
@@ -4839,7 +4956,7 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
         spacing: 10,
         thumbHeight: 16,
         buttonHeight: 16
-    }, params.zoombar);
+    }, params);
 
     /* internals */
 
@@ -5154,9 +5271,10 @@ Pos.prototype = {
         return this.lat + (delimiter || ' ') + this.lon;
     }
 };
-var PosFns = (function() {
+(function() {
     var DEFAULT_VECTORIZE_CHUNK_SIZE = 100,
-        VECTORIZE_PER_CYCLE = 500;
+        VECTORIZE_PER_CYCLE = 500,
+        DEFAULT_GENERALIZATION_DISTANCE = 250;
 
     /* exports */
 
@@ -5169,13 +5287,8 @@ var PosFns = (function() {
             positions = [],
             lastPosition = null;
 
-        if (! minDist) {
-            minDist = DEFAULT_GENERALIZATION_DISTANCE;
-        } // if
 
-        minDist = minDist / 1000;
-
-        _log("generalizing positions, must include " + requiredPositions.length + " positions");
+        minDist = (minDist || DEFAULT_GENERALIZATION_DISTANCE) / 1000;
 
         for (var ii = sourceLen; ii--; ) {
             if (ii === 0) {
@@ -5193,88 +5306,11 @@ var PosFns = (function() {
             } // if..else
         } // for
 
-        _log("generalized " + sourceLen + " positions into " + positions.length + " positions");
         return positions;
     } // generalize
 
-    /**
-    ### parseArray(sourceData)
-    Just like parse, but with lots of em'
-    */
-    function parseArray(sourceData) {
-        var sourceLen = sourceData.length,
-            positions = new Array(sourceLen);
 
-        for (var ii = sourceLen; ii--; ) {
-            positions[ii] = new Pos(sourceData[ii]);
-        } // for
-
-        return positions;
-    } // parseArray
-
-    /**
-    ### vectorize(positions, options)
-    The vectorize function is used to take an array of positions specified in the
-    `positions` argument and convert these into xy values. By default
-    the vectorize function will process these asyncronously and will return a
-    COG Worker that will be taking care of chunking up and processing the request
-    in an efficient way.  It is, however, possible to specify that the conversion should
-    happen synchronously and in this case the array of vectors is returned rather
-    than a worker instance.
-    */
-    function vectorize(positions, options) {
-        var posIndex = positions.length,
-            vectors = new Array(posIndex);
-
-        options = _extend({
-            chunkSize: VECTORIZE_PER_CYCLE,
-            async: true,
-            callback: null
-        }, options);
-
-        function processPositions(tickCount) {
-            var chunkCounter = 0,
-                chunkSize = options.chunkSize,
-                ii = posIndex;
-
-            for (; ii--;) {
-                vectors[ii] = new GeoXY(positions[ii]);
-
-                chunkCounter += 1;
-
-                if (chunkCounter > chunkSize) {
-                    break;
-                } // if
-            } // for
-
-            posIndex = ii;
-            if (posIndex <= 0) {
-                if (options.callback) {
-                    options.callback(vectors);
-                }
-            }
-            else {
-                animFrame(processPositions);
-            } // if..else
-        } // processPositions
-
-        if (! options.async) {
-            for (var ii = posIndex; ii--; ) {
-                vectors[ii] = new GeoXY(positions[ii]);
-            } // for
-
-            return vectors;
-        } // if
-
-        animFrame(processPositions);
-        return null;
-    } // vectorize
-
-    return {
-        generalize: generalize,
-        parseArray: parseArray,
-        vectorize: vectorize
-    };
+    reg('fn', 'generalize', generalize);
 })();
 /**
 # T5.BBox
@@ -5282,8 +5318,8 @@ var PosFns = (function() {
 function BBox(p1, p2) {
     if (_is(p1, typeArray)) {
         var padding = p2,
-            minPos = this.min = new Pos(MAX_LAT, MAX_LON),
-            maxPos = this.max = new Pos(MIN_LAT, MIN_LON);
+            minPos = new Pos(MAX_LAT, MAX_LON),
+            maxPos = new Pos(MIN_LAT, MIN_LON);
 
         for (var ii = p1.length; ii--; ) {
             var testPos = p1[ii];
@@ -5305,8 +5341,11 @@ function BBox(p1, p2) {
             } // if
         } // for
 
+        this.min = minPos;
+        this.max = maxPos;
+
         if (_is(padding, typeUndefined)) {
-            var size = calcSize(bounds.min, bounds.max);
+            var size = this.size();
 
             padding = max(size.x, size.y) * 0.3;
         } // if
@@ -5363,7 +5402,7 @@ BBox.prototype = {
     size: function(normalize) {
         var size = new XY(0, this.max.lat - this.min.lat);
 
-        if ((normalize || isType(normalize, typeUndefined)) && (this.min.lon > this.max.lon)) {
+        if ((normalize || _is(normalize, typeUndefined)) && (this.min.lon > this.max.lon)) {
             size.x = 360 - this.min.lon + this.max.lon;
         }
         else {
@@ -5381,6 +5420,11 @@ BBox.prototype = {
     }
 };
 
+/**
+# T5
+
+## Methods
+*/
 var T5 = {
     ex: _extend,
     log: _log,
@@ -5389,6 +5433,13 @@ var T5 = {
     wordExists: _wordExists,
     is: _is,
     indexOf: _indexOf,
+
+    /**
+    ### fn(name)
+    */
+    fn: function(name) {
+        return regGet('fn', name);
+    },
 
     project: _project,
     unproject: _unproject,
@@ -5408,7 +5459,6 @@ var T5 = {
     getImage: getImage,
 
     Pos: Pos,
-    PosFns: PosFns,
     BBox: BBox
 };
 

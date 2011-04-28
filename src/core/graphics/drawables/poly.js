@@ -17,26 +17,19 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
         points: [],
         typeName: 'Poly'
     }, params);
+    
+    /* internals */
 
     // initialise variables
-    var points = params.points,
-        simplify = params.simplify;
+    var points = [],
+        pointsToParse;
         
-    /* exported functions */
-    
-    /**
-    ### resync(view)
-    Used to synchronize the points of the poly to the grid.
-    */
-    function resync() {
+    function updateDrawPoints() {
         var ii, x, y, maxX, maxY, minX, minY, drawPoints;
         
-        for (ii = points.length; ii--; ) {
-            points[ii].sync(view);
-        } // for
-
         // simplify the vectors for drawing (if required)
-        drawPoints = this.points = simplify ? simplify(points) : points;
+        // TODO: move simplification to the runner as well
+        drawPoints = _self.points = params.simplify ? simplify(points) : points;
 
         // determine the bounds of the shape
         for (ii = drawPoints.length; ii--; ) {
@@ -51,14 +44,39 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
         } // for
         
         // update the width
-        this.updateBounds(new Rect(minX, minY, maxX - minX, maxY - minY), true);
+        _self.updateBounds(new Rect(minX, minY, maxX - minX, maxY - minY), true);        
+    } // updateDrawPoints
+        
+    function updatePoints(input) {
+        if (_is(input, typeArray)) {
+            Runner.process(input, function(slice, sliceLen) {
+                for (var ii = 0; ii < sliceLen; ii++) {
+                    points[ii] = new view.XY(slice[ii]);
+                } // for
+            }, resync);
+        } // if
+    } // updatePoints
+    
+    /* exported functions */
+    
+    /**
+    ### resync(view)
+    Used to synchronize the points of the poly to the grid.
+    */
+    function resync() {
+        if (points.length) {
+            Runner.process(points, function(slice, sliceLen) {
+                for (var ii = sliceLen; ii--; ) {
+                    slice[ii].sync(view);
+                } // for
+            }, updateDrawPoints);
+        } // if
     } // resync
     
-    // call the inherited constructor
-    Drawable.call(this, params);
-    
     // extend this
-    _extend(this, {
+    var _self = _extend(new Drawable(view, layer, params), {
+        points: [],
+        
         getPoints: function() {
             return [].concat(points);
         },
@@ -66,6 +84,14 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
         resync: resync
     });
     
+    // route auto configuration methods
+    _configurable(_self, params, {
+        points: updatePoints
+    });
+
+    // if we have points to parse
+    updatePoints(params.points);
+    
     // initialise the first item to the first element in the array
-    this.haveData = points && (points.length >= 2);
+    return _self;
 });

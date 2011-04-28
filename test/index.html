@@ -26,14 +26,22 @@
 	<script src="js/testenv.js"></script>
 	
 	<script src="specs/types.xy.js"></script>
+
 	<script src="specs/map.basic.js"></script>
 	<script src="specs/map.markers.js"></script>
+	
+	<script src="specs/drawables/line.js"></script>
+	
+	<!--
 	<script src="specs/map.movement.js"></script>
+	-->
 	
 	<script>
 	var map = Tile5('mapContainer', {
-		renderer: 'canvas'
-	});
+			renderer: 'canvas'
+		}),
+		startLat = -27.469592089206213,
+        startLon = 153.0201530456543;
 	
 	map.layer('tiles', 'tile', {
 		generator: 'osm.cloudmade',

@@ -1,10 +1,6 @@
 T5.Registry.register('parser', 'geojson', function() {
     var FEATURE_TYPE_COLLECTION = 'featurecollection',
         FEATURE_TYPE_FEATURE = 'feature',
-        VECTORIZE_OPTIONS = {
-            async: false
-        },
-
         DEFAULT_FEATUREDEF = {
             processor: null,
             group: 'shapes',
@@ -12,27 +8,26 @@ T5.Registry.register('parser', 'geojson', function() {
         };
 
     var featureDefinitions = {
+            point: _extend({}, DEFAULT_FEATUREDEF, {
+                processor: processPoint,
+                group: 'markers',
+                layer: 'draw'
+            }),
 
-        point: _extend({}, DEFAULT_FEATUREDEF, {
-            processor: processPoint,
-            group: 'markers',
-            layer: 'draw'
-        }),
+            linestring: _extend({}, DEFAULT_FEATUREDEF, {
+                processor: processLineString
+            }),
+            multilinestring: _extend({}, DEFAULT_FEATUREDEF, {
+                processor: processMultiLineString
+            }),
 
-        linestring: _extend({}, DEFAULT_FEATUREDEF, {
-            processor: processLineString
-        }),
-        multilinestring: _extend({}, DEFAULT_FEATUREDEF, {
-            processor: processMultiLineString
-        }),
-
-        polygon: _extend({}, DEFAULT_FEATUREDEF, {
-            processor: processPolygon
-        }),
-        multipolygon: _extend({}, DEFAULT_FEATUREDEF, {
-            processor: processMultiPolygon
-        })
-    };
+            polygon: _extend({}, DEFAULT_FEATUREDEF, {
+                processor: processPolygon
+            }),
+            multipolygon: _extend({}, DEFAULT_FEATUREDEF, {
+                processor: processMultiPolygon
+            })
+        };
 
     /* feature processor utilities */
 
@@ -51,7 +46,7 @@ T5.Registry.register('parser', 'geojson', function() {
             positions[ii] = new Pos(coordinates[ii][1], coordinates[ii][0]);
         } // for
 
-        return PosFns.vectorize(positions, VECTORIZE_OPTIONS);
+        return positions;
     } // getLineStringVectors
 
     /* feature processor functions */
@@ -74,7 +69,7 @@ T5.Registry.register('parser', 'geojson', function() {
     } // processMultiLineString
 
     function processPoint(layer, featureData, options, builders) {
-        var points = readVectors([featureData.coordinates], VECTORIZE_OPTIONS);
+        var points = readVectors([featureData.coordinates]);
 
         if (points.length > 0) {
             var marker = builders.marker(points[0], options);

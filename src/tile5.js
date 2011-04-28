@@ -21,6 +21,7 @@
 //= require "core/animator"
 //= require "core/parser"
 //= require "core/dom"
+//= require "core/runner"
 
 //= require "core/geo/projections/default"
 //= require "core/types/xy"
@@ -61,7 +62,11 @@
 //= require "core/geo/posfns"
 //= require "core/geo/bbox"
 
-// define the tile5 namespace
+/**
+# T5
+
+## Methods
+*/
 var T5 = {
     // expose some cog functions
     ex: _extend,
@@ -71,6 +76,13 @@ var T5 = {
     wordExists: _wordExists,
     is: _is,
     indexOf: _indexOf,
+    
+    /**
+    ### fn(name)
+    */
+    fn: function(name) {
+        return regGet('fn', name);
+    },
     
     project: _project,
     unproject: _unproject,
@@ -91,7 +103,6 @@ var T5 = {
     
     // some of the geo types starting to move up...
     Pos: Pos,
-    PosFns: PosFns,
     BBox: BBox    
 };
 

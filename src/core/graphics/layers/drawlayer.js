@@ -99,7 +99,10 @@ reg('layer', 'draw', function(view, params) {
     */
     function create(type, settings, prepend) {
         var drawable = regCreate(typeDrawable, type, view, _self, settings);
-        
+        if (! drawable) {
+            throw NO_DRAWABLE(type);
+        } // if
+
         // add the the shapes array
         if (prepend) {
             drawables.unshift(drawable);
@@ -107,18 +110,18 @@ reg('layer', 'draw', function(view, params) {
         else {
             drawables[drawables.length] = drawable;
         } // if..else
-        
+
         // sync this shape with the parent view
         drawable.resync();
         if (storage && drawable.bounds) {
             storage.insert(drawable.bounds, drawable);
         } // if
-        
+
         triggerSort(view);
-        
+
         // attach a move event handler
         drawable.bind('move', handleItemMove);
-        
+
         // update the item count
         _self.itemCount = drawables.length;
         _self.trigger(type + 'Added', drawable);

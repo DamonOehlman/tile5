@@ -12,6 +12,7 @@ T5.RouteTools = (function() {
     /* internals */
 
     var customTurnTypeRules = undefined,
+        generalize = T5.fn('generalize'),
 
         REGEX_BEAR = /bear/i,
         REGEX_DIR_RIGHT = /right/i,
@@ -198,14 +199,14 @@ T5.RouteTools = (function() {
         if (service) {
             service.calculate(args, function(routeData) {
                 if (args.generalize) {
-                    routeData.geometry = T5.Geo.PosFns.generalize(routeData.geometry, routeData.getInstructionPositions());
+                    routeData.geometry = generalize(routeData.geometry, routeData.getInstructionPositions());
                 } // if
 
                 if (args.map) {
                     createMapOverlay(args.map, routeData);
 
                     if (args.autoFit) {
-                        args.map.gotoBounds(routeData.boundingBox);
+                        args.map.bounds(routeData.boundingBox);
                     } // if
                 } // if
 
@@ -222,14 +223,10 @@ T5.RouteTools = (function() {
     */
     function createMapOverlay(map, routeData) {
         if (routeData.geometry) {
-            T5.Geo.PosFns.vectorize(routeData.geometry, {
-                callback: function(coords) {
-                    map.layer('route', 'draw').create(typeDrawable, 'line', {
-                        points: coords,
-                        style: 'waypoints',
-                        simplify: true
-                    });
-                }
+            map.layer('route', 'draw').create('line', {
+                points: routeData.geometry,
+                style: 'waypoints',
+                simplify: true
             });
         } // if
     } // createMapOverlay

@@ -5,8 +5,8 @@ function BBox(p1, p2) {
     // if p1 is an array, then calculate the bounding box for the positions supplied
     if (_is(p1, typeArray)) {
         var padding = p2,
-            minPos = this.min = new Pos(MAX_LAT, MAX_LON),
-            maxPos = this.max = new Pos(MIN_LAT, MIN_LON);
+            minPos = new Pos(MAX_LAT, MAX_LON),
+            maxPos = new Pos(MIN_LAT, MIN_LON);
 
         for (var ii = p1.length; ii--; ) {
             var testPos = p1[ii];
@@ -27,15 +27,20 @@ function BBox(p1, p2) {
                 maxPos.lon = testPos.lon;
             } // if
         } // for
+        
+        // initialise the min and max positions
+        this.min = minPos;
+        this.max = maxPos;
 
-        // expand the bounds to give us some padding
+        // if the amount of padding is undefined, then calculate
         if (_is(padding, typeUndefined)) {
-            var size = calcSize(bounds.min, bounds.max);
+            var size = this.size();
 
             // update padding to be a third of the max size
             padding = max(size.x, size.y) * 0.3;
         } // if
 
+        // expand the bounds to give us some padding
         this.expand(padding);
     }
     // otherwise, assign p1 to the min pos and p2 to the max
@@ -99,7 +104,7 @@ BBox.prototype = {
     size: function(normalize) {
         var size = new XY(0, this.max.lat - this.min.lat);
         
-        if ((normalize || isType(normalize, typeUndefined)) && (this.min.lon > this.max.lon)) {
+        if ((normalize || _is(normalize, typeUndefined)) && (this.min.lon > this.max.lon)) {
             size.x = 360 - this.min.lon + this.max.lon;
         }
         else {

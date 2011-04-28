@@ -11,7 +11,7 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
         spacing: 10,
         thumbHeight: 16,
         buttonHeight: 16
-    }, params.zoombar);
+    }, params);
     
     /* internals */
     

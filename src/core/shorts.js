@@ -39,6 +39,7 @@ var abs = Math.abs,
     // shortcuts to the registry functions
     reg = Registry.register,
     regCreate = Registry.create,
+    regGet = Registry.get,
     
     drawableCounter = 0,
     layerCounter = 0,

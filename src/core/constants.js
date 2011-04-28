@@ -37,7 +37,5 @@ var TWO_PI = Math.PI * 2,
         MWY: "MOTORWAY"
     },
     
-    DEFAULT_GENERALIZATION_DISTANCE = 250,
-    
     // some event names
     EVT_REMOVELAYER = 'layerRemove';
