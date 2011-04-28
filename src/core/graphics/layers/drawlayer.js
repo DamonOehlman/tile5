@@ -96,6 +96,9 @@ reg('layer', 'draw', function(view, params) {
         drawables = [];
         _self.trigger('cleared');
         _self.itemCount = 0;
+        
+        // invalidate the view
+        view.invalidate();
     } // clear
     
     /**

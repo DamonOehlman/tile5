@@ -1857,9 +1857,9 @@ GeoXY.prototype = _extend(new XY(), {
             this.mercX = this.x * rpp - Math.PI;
             this.mercY = Math.PI - this.y * rpp;
         }
-        else if (this.mercX || this.mercY) {
-            this.x = round((this.mercX + Math.PI) / rpp);
-            this.y = round((Math.PI - this.mercY) / rpp);
+        else {
+            this.x = round(((this.mercX || 0) + Math.PI) / rpp);
+            this.y = round((Math.PI - (this.mercY || 0)) / rpp);
         } // if
 
         return this;
@@ -4774,6 +4774,8 @@ reg('layer', 'draw', function(view, params) {
         drawables = [];
         _self.trigger('cleared');
         _self.itemCount = 0;
+
+        view.invalidate();
     } // clear
 
     /**
