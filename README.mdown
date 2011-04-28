@@ -258,8 +258,29 @@ Basically, anywhere an `xy` property can be set (marker, drawable, etc) the foll
 
 ## Appendix B: Plugins
 
-### Control: Zoombar
-TO BE COMPLETED.
+### Layer: Cluster Layer
+TO BE COMPLETED
+
+### Layer: Geolocation
+
+__FILE:__ `plugins/layers/geolocation.js`
+
+The geolocation layer plugin makes it extremely simple to add geolocation support to your Tile5 mapping application.  In earlier versions of Tile5 geolocation detection was implemented using methods of a map, however, this felt pretty clunky.
+
+In 1.0 you simply include the plugin file and then you can add a new geolocation layer to the map using the view `layer` method:
+
+```js
+map.layer('sensor', 'geolocation', {
+    once: false, // whether detection should run just once or monitor
+    follow: true, // move the map with location changes
+    zoomToLocation: true, // zoom to location on initial detection
+    maxZoom: 15 // max zoom for initial detection
+});
+```
+
+Once the layer has been added the Geolocation API [watchPosition](http://dev.w3.org/geo/api/spec-source.html#watch-position) method is used to track for location changes.  If the `once` parameter is set to false, then the watch will be cancelled once a position of sufficient accuracy has been determined.
+
+The watch is also cancelled if the layer is removed.
 
 ### Renderer: Raphael
 TO BE COMPLETED.

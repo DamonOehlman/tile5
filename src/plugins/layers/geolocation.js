@@ -3,6 +3,7 @@
 */
 T5.Registry.register('layer', 'geolocation', function(view, params) {
     params = T5.ex({
+        once: false,
         follow: true,
         zoomToLocation: true,
         maxZoom: 15
@@ -57,6 +58,11 @@ T5.Registry.register('layer', 'geolocation', function(view, params) {
 
             // flag the initial update as false
             initialUpdate = false;
+            
+            // if we are only doing the one update then clear the watch
+            if (params.once) {
+                navigator.geolocation.clearWatch(watchId);
+            } // if
             
             // update the last accuracy
             lastAccuracy = accuracy;
