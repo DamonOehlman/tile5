@@ -65,11 +65,15 @@ reg('view', 'map', function(params) {
     /**
     ### bounds(newBounds)
     */
-    function bounds(newBounds) {
+    function bounds(newBounds, maxZoomLevel) {
         var viewport = _self.getViewport();
         
         if (newBounds) {
-            return zoom(newBounds.bestZoomLevel(viewport)).center(newBounds.center());
+            // calculate the zoom level we are going to
+            var zoomLevel = max(newBounds.bestZoomLevel(viewport), maxZoomLevel || 0);
+            
+            // move the map
+            return zoom(zoomLevel).center(newBounds.center());
         }
         else {
             return new BBox(

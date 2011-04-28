@@ -443,9 +443,15 @@ var _configurable = (function() {
     } // attach
 
     return function(target, settings, watchlist) {
+        settings = settings || target;
+
         for (var key in settings) {
-            attach(target, settings, watchlist, key);
+            if (typeof settings[key] != 'function') {
+                attach(target, settings, watchlist, key);
+            } // if
         } // for
+
+        return target;
     }; // _configurable
 })();
 
@@ -1401,6 +1407,10 @@ var TWO_PI = Math.PI * 2,
     MIN_LAT = -MAX_LAT,
     MAX_LON = 180,
     MIN_LON = -MAX_LON,
+    MAX_LAT_RAD = MAX_LAT * DEGREES_TO_RADIANS,
+    MIN_LAT_RAD = -MAX_LAT_RAD,
+    MAX_LON_RAD = MAX_LON * DEGREES_TO_RADIANS,
+    MIN_LON_RAD = -MAX_LON_RAD,
     M_PER_KM = 1000,
     KM_PER_RAD = 6371,
     ECC = 0.08181919084262157,
@@ -3508,10 +3518,10 @@ reg('view', 'view', function(params) {
     } // attachFrame
 
     function center(p1, p2, tween) {
-        var centerXY;
+        if (_is(p1, typeString) || _is(p1, typeObject)) {
+            var centerXY = new _self.XY(p1);
 
-        if (_is(p1, typeString)) {
-            centerXY = Parser.parseXY(p1).sync(_self);
+            centerXY.sync(_self);
 
             p1 = centerXY.x;
             p2 = centerXY.y;
@@ -3906,11 +3916,13 @@ reg('view', 'map', function(params) {
     /**
     ### bounds(newBounds)
     */
-    function bounds(newBounds) {
+    function bounds(newBounds, maxZoomLevel) {
         var viewport = _self.getViewport();
 
         if (newBounds) {
-            return zoom(newBounds.bestZoomLevel(viewport)).center(newBounds.center());
+            var zoomLevel = max(newBounds.bestZoomLevel(viewport), maxZoomLevel || 0);
+
+            return zoom(zoomLevel).center(newBounds.center());
         }
         else {
             return new BBox(
@@ -5237,6 +5249,49 @@ Pos.prototype = {
     */
     toPixels: function() {
         return _project(this.lon, this.lat);
+    },
+
+    /**
+    ### toBounds(size)
+    This function is very useful for creating a Geo.BoundingBox given a
+    center position and a radial distance (specified in KM) from the center
+    position.  Basically, imagine a circle is drawn around the center
+    position with a radius of distance from the center position, and then
+    a box is drawn to surround that circle.  Adapted from the [functions written
+    in Java by Jan Philip Matuschek](http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates)
+    */
+    toBounds: function(size) {
+        var radDist = size / KM_PER_RAD,
+            radLat = this.lat * DEGREES_TO_RADIANS,
+            radLon = this.lon * DEGREES_TO_RADIANS,
+            minLat = radLat - radDist,
+            maxLat = radLat + radDist,
+            minLon, maxLon;
+
+
+        if ((minLat > MIN_LAT_RAD) && (maxLat < MAX_LAT_RAD)) {
+            var deltaLon = asin(sin(radDist) / cos(radLat));
+
+            minLon = radLon - deltaLon;
+            if (minLon < MIN_LON_RAD) {
+                minLon += TWO_PI;
+            } // if
+
+            maxLon = radLon + deltaLon;
+            if (maxLon > MAX_LON_RAD) {
+                maxLon -= TWO_PI;
+            } // if
+        }
+        else {
+            minLat = max(minLat, MIN_LAT_RAD);
+            maxLat = min(maxLat, MAX_LAT_RAD);
+            minLon = MIN_LON;
+            maxLon = MAX_LON;
+        } // if..else
+
+        return new BBox(
+            new Pos(minLat * RADIANS_TO_DEGREES, minLon * RADIANS_TO_DEGREES),
+            new Pos(maxLat * RADIANS_TO_DEGREES, maxLon * RADIANS_TO_DEGREES));
     },
 
     /**

@@ -107,6 +107,54 @@ Pos.prototype = {
     },
     
     /**
+    ### toBounds(size)
+    This function is very useful for creating a Geo.BoundingBox given a 
+    center position and a radial distance (specified in KM) from the center 
+    position.  Basically, imagine a circle is drawn around the center 
+    position with a radius of distance from the center position, and then 
+    a box is drawn to surround that circle.  Adapted from the [functions written 
+    in Java by Jan Philip Matuschek](http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates)
+    */
+    toBounds: function(size) {
+        var radDist = size / KM_PER_RAD,
+            radLat = this.lat * DEGREES_TO_RADIANS,
+            radLon = this.lon * DEGREES_TO_RADIANS,
+            minLat = radLat - radDist,
+            maxLat = radLat + radDist,
+            minLon, maxLon;
+
+        // COG.Log.info("rad distance = " + radDist);
+        // COG.Log.info("rad lat = " + radLat + ", lon = " + radLon);
+        // COG.Log.info("min lat = " + minLat + ", max lat = " + maxLat);
+
+        if ((minLat > MIN_LAT_RAD) && (maxLat < MAX_LAT_RAD)) {
+            var deltaLon = asin(sin(radDist) / cos(radLat));
+
+            // determine the min longitude
+            minLon = radLon - deltaLon;
+            if (minLon < MIN_LON_RAD) {
+                minLon += TWO_PI;
+            } // if
+
+            // determine the max longitude
+            maxLon = radLon + deltaLon;
+            if (maxLon > MAX_LON_RAD) {
+                maxLon -= TWO_PI;
+            } // if
+        }
+        else {
+            minLat = max(minLat, MIN_LAT_RAD);
+            maxLat = min(maxLat, MAX_LAT_RAD);
+            minLon = MIN_LON;
+            maxLon = MAX_LON;
+        } // if..else
+
+        return new BBox(
+            new Pos(minLat * RADIANS_TO_DEGREES, minLon * RADIANS_TO_DEGREES), 
+            new Pos(maxLat * RADIANS_TO_DEGREES, maxLon * RADIANS_TO_DEGREES));
+    },
+    
+    /**
     ### toString()
     */
     toString: function(delimiter) {

@@ -636,12 +636,14 @@ reg('view', 'view', function(params) {
     } // attachFrame
     
     function center(p1, p2, tween) {
-        var centerXY;
-        
         // if we have been passed a string argument, then parse
-        if (_is(p1, typeString)) {
-            centerXY = Parser.parseXY(p1).sync(_self);
+        if (_is(p1, typeString) || _is(p1, typeObject)) {
+            var centerXY = new _self.XY(p1);
             
+            // sync
+            centerXY.sync(_self);
+
+            // push the x and y parameters to the arguments
             p1 = centerXY.x;
             p2 = centerXY.y;
         } // if
