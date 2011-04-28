@@ -11,59 +11,51 @@ var Tweener = (function() {
             callback: callback
         }, params);
         
-        function startTween(index) {
-            _tweenValue(
-                // start and end value
-                valuesStart[index],
-                valuesEnd[index],
-                
-                // easing equation
-                _easing(params.easing),
-                
-                // duration 
-                params.duration,
-                
-                // easing callback
-                function(updatedValue, complete) {
-                    valuesCurrent[index] = updatedValue;
-                    
-                    if (complete) {
-                        finishedCount++;
-                        
-                        // if the tween has finished, then check a few things
-                        if (continueTween && finishedCount >= expectedCount) {
-                            var fireCB = callback ? callback() : true;
-                            
-                            if (params.callback && (_is(fireCB, typeUndefined) || fireCB)) {
-                                params.callback();
-                            } // if
-                        } // if
-                    } // if
-                    
-                    // if a view to invalidate has been specified, then invalidate it
-                    if (viewToInvalidate) {
-                        viewToInvalidate.invalidate();
-                    } // if
-                    
-                    return continueTween;
-                }
-            );
-        } // startTween
-        
-        var expectedCount = valuesStart.length,
+        var valueCount = valuesStart.length,
             valuesCurrent = [].concat(valuesStart),
+            easingFn = _easing(params.easing),
+            valuesChange = [],
             finishedCount = 0,
-            continueTween = true,
-            ii;
-
-        for (ii = expectedCount; ii--; ) {
-            startTween(ii);
+            cancelTween = false,
+            duration = params.duration,
+            ii,
+            startTicks = new Date().getTime();
+            
+        function tweenStep(tickCount) {
+            // calculate the updated value
+            var elapsed = tickCount - startTicks,
+                complete = startTicks + duration <= tickCount,
+                retVal;
+                
+            // iterate through the values and update
+            for (var ii = valueCount; ii--; ) {
+                valuesCurrent[ii] = easingFn(
+                    elapsed, 
+                    valuesStart[ii], 
+                    valuesChange[ii], 
+                    duration);
+            } // for
+            
+            if (complete || cancelTween) {
+                 Animator.detach(tweenStep);
+                 
+                 if (callback) {
+                     callback(valuesCurrent, elapsed, cancelTween);
+                 } // if
+            } // if
+        } // function
+        
+        // determine the changed values
+        for (ii = valueCount; ii--; ) {
+            valuesChange[ii] = valuesEnd[ii] - valuesStart[ii];
         } // for
+        
+        Animator.attach(tweenStep);
         
         // return a function that the caller can use to get the updated values
         // and cancel the tween too :)
         return function(cancel) {
-            continueTween = !cancel;
+            cancelTween = cancel;
             return valuesCurrent;
         }; // function
     } // tween

@@ -4,7 +4,7 @@ var _project = _project || function(lon, lat) {
         eSinPhi = ECC * sinPhi,
         retVal = log(((1.0 + sinPhi) / (1.0 - sinPhi)) * pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
     
-    return new GeoXY(parseFloat(lon) * DEGREES_TO_RADIANS, retVal);
+    return new GeoXY(0, 0, parseFloat(lon) * DEGREES_TO_RADIANS, retVal);
 }; // _project
 
 var _unproject = _unproject || function(x, y) {

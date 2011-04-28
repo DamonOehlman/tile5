@@ -32,6 +32,10 @@ reg('layer', 'draw', function(view, params) {
             delete this.dragOffset;
             view.invalidate();
             
+            // resyncronize the xy of the dropped object
+            this.xy.sync(view, true);
+            
+            // trigger the drag drop operation
             this.trigger('dragDrop');
         } // if
         

@@ -101,18 +101,6 @@ register('canvas', function(results, callback) {
     callback();
 });
 })(CANI);
-window.animFrame = (function() {
-    return  window.requestAnimationFrame       ||
-            window.webkitRequestAnimationFrame ||
-            window.mozRequestAnimationFrame    ||
-            window.oRequestAnimationFrame      ||
-            window.msRequestAnimationFrame     ||
-            function(callback){
-                setTimeout(function() {
-                    callback(new Date().getTime());
-                }, 1000 / 60);
-            };
-})();
 function _extend() {
     var target = arguments[0] || {},
         sources = Array.prototype.slice.call(arguments, 1),
@@ -187,7 +175,7 @@ function _wordExists(string, word) {
 
     return false;
 } // _wordExists
-var easingFns = (function() {
+var _easing = (function() {
     var BACK_S = 1.70158,
         HALF_PI = Math.PI / 2,
         ANI_WAIT = 1000 / 60 | 0,
@@ -198,7 +186,6 @@ var easingFns = (function() {
         asin = Math.asin,
         cos = Math.cos,
 
-        tweenWorker = null,
         updatingTweens = false;
 
     /*
@@ -213,7 +200,7 @@ var easingFns = (function() {
     - c = change
     - d = duration
     */
-    return {
+    var easingFns = {
         linear: function(t, b, c, d) {
             return c*t/d + b;
         },
@@ -329,48 +316,12 @@ var easingFns = (function() {
             return -c/2 * (cos(Math.PI*t/d) - 1) + b;
         }
     };
+
+    return function(typeName) {
+        typeName = typeName.replace(/[\-\_\s\.]/g, '').toLowerCase();
+        return easingFns[typeName] || easingFns.linear;
+    };
 })();
-
-function _easing(typeName) {
-    typeName = typeName.replace(/[\-\_\s\.]/g, '').toLowerCase();
-
-    return easingFns[typeName] || easingFns.linear;
-} // _easing
-
-function _tweenValue(startValue, endValue, fn, duration, callback) {
-
-    var startTicks = new Date().getTime(),
-        change = endValue - startValue,
-        tween = {};
-
-    function runTween(tickCount) {
-        tickCount = tickCount ? tickCount : new Date().getTime();
-
-        var elapsed = tickCount - startTicks,
-            updatedValue = fn(elapsed, startValue, change, duration),
-            complete = startTicks + duration <= tickCount,
-            cont = !complete,
-            retVal;
-
-        if (callback) {
-            retVal = callback(updatedValue, complete, elapsed);
-
-            cont = typeof retVal != 'undefined' ? retVal && cont : cont;
-        } // if
-
-        if (cont) {
-            animFrame(runTween);
-        } // if
-    } // runTween
-
-    animFrame(runTween);
-
-    return tween;
-}; // tweenValue
-
-if (typeof animFrame === 'undefined') {
-    throw new Error('animFrame COG required for tweening support');
-} // if
 var _observable = (function() {
     var callbackCounter = 0;
 
@@ -1446,9 +1397,9 @@ var TWO_PI = Math.PI * 2,
     VECTOR_SIMPLIFICATION = 3,
     DEGREES_TO_RADIANS = Math.PI / 180,
     RADIANS_TO_DEGREES = 180 / Math.PI,
-    MAX_LAT = HALF_PI, //  85.0511 * DEGREES_TO_RADIANS, // TODO: validate this instead of using HALF_PI
+    MAX_LAT = 90, //  85.0511 * DEGREES_TO_RADIANS, // TODO: validate this instead of using HALF_PI
     MIN_LAT = -MAX_LAT,
-    MAX_LON = TWO_PI,
+    MAX_LON = 180,
     MIN_LON = -MAX_LON,
     M_PER_KM = 1000,
     KM_PER_RAD = 6371,
@@ -1516,8 +1467,26 @@ var Animator = (function() {
     /* internals */
 
     var FRAME_RATE = 1000 / 60,
+        TEST_PROPS = [
+            'r',
+            'webkitR',
+            'mozR',
+            'oR',
+            'msR'
+        ],
         callbacks = [],
-        frameIndex = 0;
+        frameIndex = 0,
+        useAnimFrame = (function() {
+            for (var ii = 0; ii < TEST_PROPS.length; ii++) {
+                window.animFrame = window.animFrame || window[TEST_PROPS[ii] + 'equestAnimationFrame'];
+            } // for
+
+            if (window.animFrame) {
+                _log('Using request animation frame');
+            } // if
+
+            return animFrame;
+        })();
 
     function frame(tickCount) {
         frameIndex++;
@@ -1532,7 +1501,9 @@ var Animator = (function() {
             } // if
         } // for
 
-        animFrame(frame);
+        if (useAnimFrame) {
+            animFrame(frame);
+        } // if
     } // frame
 
     /* exports */
@@ -1546,14 +1517,14 @@ var Animator = (function() {
 
     function detach(callback) {
         for (var ii = callbacks.length; ii--; ) {
-            if (callbacks[ii] === callback) {
+            if (callbacks[ii].cb === callback) {
                 callbacks.splice(ii, 1);
                 break;
             } // if
         } // for
     } // detach
 
-    animFrame(frame);
+    useAnimFrame ? animFrame(frame) : setInterval(frame, 1000 / 60);
 
     return {
         attach: attach,
@@ -1567,21 +1538,17 @@ var Parser = (function() {
 
     /* exports */
 
-    function parseXY(xyStr, target) {
-        target = target || new GeoXY();
-
+    function parseXY(xyStr) {
         if (REGEX_XYRAW.test(xyStr)) {
 
         }
         else {
-            var xyVals = xyStr.split(reDelimitedSplit),
-                mercXY = _project(xyVals[1], xyVals[0]);
+            var xyVals = xyStr.split(reDelimitedSplit);
 
-            target.mercX = mercXY.x;
-            target.mercY = mercXY.y;
+            return _project(xyVals[1], xyVals[0]);
         } // if..else
 
-        return target;
+        return undefined;
     } // parseXY
 
     return {
@@ -1675,7 +1642,12 @@ var Runner = (function() {
         var processCount = processes.length;
 
         for (var ii = processCount; ii--; ) {
-            processes[ii](processCount);
+            try {
+                processes[ii](processCount);
+            }
+            catch (e) {
+                _log(e.toString(), 'error');
+            } // try..catch
         } // for
     } // runLoop
 
@@ -1743,7 +1715,7 @@ var _project = _project || function(lon, lat) {
         eSinPhi = ECC * sinPhi,
         retVal = log(((1.0 + sinPhi) / (1.0 - sinPhi)) * pow((1.0 - eSinPhi) / (1.0 + eSinPhi), ECC)) / 2.0;
 
-    return new GeoXY(parseFloat(lon) * DEGREES_TO_RADIANS, retVal);
+    return new GeoXY(0, 0, parseFloat(lon) * DEGREES_TO_RADIANS, retVal);
 }; // _project
 
 var _unproject = _unproject || function(x, y) {
@@ -1850,17 +1822,16 @@ XY.prototype = {
 
 ## Methods
 */
-function GeoXY(p1, p2) {
-    this.mercX = null;
-    this.mercY = null;
+function GeoXY(p1, p2, mercX, mercY) {
+    this.mercX = mercX;
+    this.mercY = mercY;
 
     if (_is(p1, typeString)) {
-        Parser.parseXY(p1, this);
-    }
-    else if (p1 && p1.toPixels) {
-        var pix = p1.toPixels();
-        this.mercX = pix.x;
-        this.mercY = pix.y;
+        p1 = Parser.parseXY(p1);
+    } // if
+
+    if (p1 && p1.toPixels) {
+        _extend(this, p1.toPixels());
     }
     else {
         XY.call(this, p1, p2);
@@ -2184,100 +2155,97 @@ var SpatialStore = function(cellsize) {
     };
 };
 
-var INTERVAL_LOADCHECK = 10,
-    INTERVAL_CACHECHECK = 10000,
-    LOAD_TIMEOUT = 30000,
-    imageCache = {},
-    imageCount = 0,
-    lastCacheCheck = new Date().getTime(),
-    loadingData = {},
-    loadingUrls = [];
+var getImage = (function() {
+    var INTERVAL_LOADCHECK = 5000,
+        INTERVAL_CACHECHECK = 10000,
+        LOAD_TIMEOUT = 30000,
+        imageCache = {},
+        imageCount = 0,
+        lastCacheCheck = new Date().getTime(),
+        loadingData = {},
+        loadingUrls = [];
 
-/* internals */
+    /* internals */
 
-function checkImageLoads(tickCount) {
-    tickCount = tickCount || new Date().getTime();
+    function checkImageLoads(tickCount) {
+        tickCount = tickCount || new Date().getTime();
 
-    var ii = 0;
-    while (ii < loadingUrls.length) {
-        var url = loadingUrls[ii],
-            imageData = loadingData[url],
-            imageToCheck = loadingData[url].image,
-            imageLoaded = isLoaded(imageToCheck),
-            requestAge = tickCount - imageData.start,
-            removeItem = imageLoaded || requestAge >= LOAD_TIMEOUT,
-            callbacks;
+        var ii = 0;
+        while (ii < loadingUrls.length) {
+            var url = loadingUrls[ii],
+                imageData = loadingData[url],
+                imageToCheck = loadingData[url].image,
+                imageLoaded = isLoaded(imageToCheck),
+                requestAge = tickCount - imageData.start,
+                removeItem = imageLoaded || requestAge >= LOAD_TIMEOUT,
+                callbacks;
 
-        if (imageLoaded) {
-            callbacks = imageData.callbacks;
+            if (imageLoaded) {
+                callbacks = imageData.callbacks;
 
-            imageCache[url] = imageData.image;
+                imageCache[url] = imageData.image;
 
-            for (var cbIdx = 0; cbIdx < callbacks.length; cbIdx++) {
-                callbacks[cbIdx](imageData.image, true);
-            } // for
-        } // if
+                for (var cbIdx = 0; cbIdx < callbacks.length; cbIdx++) {
+                    callbacks[cbIdx](imageData.image, true);
+                } // for
+            } // if
 
-        if (removeItem) {
-            loadingUrls.splice(ii, 1);
-            delete loadingData[url];
+            if (removeItem) {
+                loadingUrls.splice(ii, 1);
+                delete loadingData[url];
+            }
+            else {
+                ii++;
+            } // if..else
+        } // while
+    } // imageLoadWorker
+
+    function isLoaded(image) {
+        return image && image.complete && image.width > 0;
+    } // isLoaded
+
+    function loadImage(url, callback) {
+        var data = loadingData[url];
+
+        if (data) {
+            data.callbacks.push(callback);
         }
         else {
-            ii++;
+            var imageToLoad = new Image();
+
+            imageToLoad.id = '_ldimg' + (++imageCount);
+
+            loadingData[url] = {
+                start: new Date().getTime(),
+                image: imageToLoad,
+                callbacks: [callback]
+            };
+
+            imageToLoad.src = url;
+
+            loadingUrls[loadingUrls.length] = url;
         } // if..else
-    } // while
+    } // loadImage
 
-    if (loadingUrls.length > 0) {
-        animFrame(checkImageLoads);
-    } // if
-} // imageLoadWorker
+    Animator.attach(checkImageLoads, INTERVAL_LOADCHECK);
 
-function isLoaded(image) {
-    return image && image.complete && image.width > 0;
-} // isLoaded
+    /**
+    # T5.getImage(url, callback)
+    This function is used to load an image and fire a callback when the image
+    is loaded.  The callback fires when the image is _really_ loaded (not
+    when the onload event handler fires).
+    */
+    return function(url, callback) {
+        var image = url && callback ? imageCache[url] : null;
 
-function loadImage(url, callback) {
-    var data = loadingData[url];
-
-    if (data) {
-        data.callbacks.push(callback);
-    }
-    else {
-        var imageToLoad = new Image();
-
-        imageToLoad.id = '_ldimg' + (++imageCount);
-
-        loadingData[url] = {
-            start: new Date().getTime(),
-            image: imageToLoad,
-            callbacks: [callback]
-        };
-
-        imageToLoad.src = url;
-
-        loadingUrls[loadingUrls.length] = url;
-    } // if..else
-
-
-    animFrame(checkImageLoads);
-} // loadImage
-
-/**
-# T5.getImage(url, callback)
-This function is used to load an image and fire a callback when the image
-is loaded.  The callback fires when the image is _really_ loaded (not
-when the onload event handler fires).
-*/
-function getImage(url, callback) {
-    var image = url && callback ? imageCache[url] : null;
-
-    if (image && isLoaded(image)) {
-        callback(image);
-    }
-    else {
-        loadImage(url, callback);
-    } // if..else
-};
+        if (image && isLoaded(image)) {
+            callback(image);
+        }
+        else {
+            loadImage(url, callback);
+        } // if..else
+    };
+})();
 function Tile(x, y, url, width, height, id) {
     this.x = x;
     this.y = y;
@@ -4028,51 +3996,46 @@ var Tweener = (function() {
             callback: callback
         }, params);
 
-        function startTween(index) {
-            _tweenValue(
-                valuesStart[index],
-                valuesEnd[index],
-
-                _easing(params.easing),
-
-                params.duration,
-
-                function(updatedValue, complete) {
-                    valuesCurrent[index] = updatedValue;
-
-                    if (complete) {
-                        finishedCount++;
-
-                        if (continueTween && finishedCount >= expectedCount) {
-                            var fireCB = callback ? callback() : true;
-
-                            if (params.callback && (_is(fireCB, typeUndefined) || fireCB)) {
-                                params.callback();
-                            } // if
-                        } // if
-                    } // if
-
-                    if (viewToInvalidate) {
-                        viewToInvalidate.invalidate();
-                    } // if
-
-                    return continueTween;
-                }
-            );
-        } // startTween
-
-        var expectedCount = valuesStart.length,
+        var valueCount = valuesStart.length,
             valuesCurrent = [].concat(valuesStart),
+            easingFn = _easing(params.easing),
+            valuesChange = [],
             finishedCount = 0,
-            continueTween = true,
-            ii;
+            cancelTween = false,
+            duration = params.duration,
+            ii,
+            startTicks = new Date().getTime();
 
-        for (ii = expectedCount; ii--; ) {
-            startTween(ii);
+        function tweenStep(tickCount) {
+            var elapsed = tickCount - startTicks,
+                complete = startTicks + duration <= tickCount,
+                retVal;
+
+            for (var ii = valueCount; ii--; ) {
+                valuesCurrent[ii] = easingFn(
+                    elapsed,
+                    valuesStart[ii],
+                    valuesChange[ii],
+                    duration);
+            } // for
+
+            if (complete || cancelTween) {
+                 Animator.detach(tweenStep);
+
+                 if (callback) {
+                     callback(valuesCurrent, elapsed, cancelTween);
+                 } // if
+            } // if
+        } // function
+
+        for (ii = valueCount; ii--; ) {
+            valuesChange[ii] = valuesEnd[ii] - valuesStart[ii];
         } // for
 
+        Animator.attach(tweenStep);
+
         return function(cancel) {
-            continueTween = !cancel;
+            cancelTween = cancel;
             return valuesCurrent;
         }; // function
     } // tween
@@ -4398,9 +4361,11 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
 
     function updatePoints(input) {
         if (_is(input, typeArray)) {
+            points = [];
+
             Runner.process(input, function(slice, sliceLen) {
                 for (var ii = 0; ii < sliceLen; ii++) {
-                    points[ii] = new view.XY(slice[ii]);
+                    points[points.length] = new view.XY(slice[ii]);
                 } // for
             }, resync);
         } // if
@@ -4748,6 +4713,8 @@ reg('layer', 'draw', function(view, params) {
         if (drop) {
             delete this.dragOffset;
             view.invalidate();
+
+            this.xy.sync(view, true);
 
             this.trigger('dragDrop');
         } // if

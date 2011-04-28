@@ -49,9 +49,11 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
         
     function updatePoints(input) {
         if (_is(input, typeArray)) {
+            points = [];
+            
             Runner.process(input, function(slice, sliceLen) {
                 for (var ii = 0; ii < sliceLen; ii++) {
-                    points[ii] = new view.XY(slice[ii]);
+                    points[points.length] = new view.XY(slice[ii]);
                 } // for
             }, resync);
         } // if

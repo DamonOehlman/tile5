@@ -3,20 +3,19 @@
 
 ## Methods
 */
-function GeoXY(p1, p2) {
+function GeoXY(p1, p2, mercX, mercY) {
     // initialise the mercator x and y
-    this.mercX = null;
-    this.mercY = null;
+    this.mercX = mercX;
+    this.mercY = mercY;
     
     // if the first parameter is a string, then parse
     if (_is(p1, typeString)) {
-        Parser.parseXY(p1, this);
-    }
-    // otherwise if the first parameter is a position
-    else if (p1 && p1.toPixels) {
-        var pix = p1.toPixels();
-        this.mercX = pix.x;
-        this.mercY = pix.y;
+        p1 = Parser.parseXY(p1);
+    } // if
+    
+    // if the first parameter is a position, then convert to pixels
+    if (p1 && p1.toPixels) {
+        _extend(this, p1.toPixels());
     }
     else {
         XY.call(this, p1, p2);

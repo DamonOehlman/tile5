@@ -3,8 +3,26 @@ var Animator = (function() {
     /* internals */
     
     var FRAME_RATE = 1000 / 60,
+        TEST_PROPS = [
+            'r',
+            'webkitR',
+            'mozR',
+            'oR',
+            'msR'
+        ],
         callbacks = [],
-        frameIndex = 0;
+        frameIndex = 0,
+        useAnimFrame = (function() {
+            for (var ii = 0; ii < TEST_PROPS.length; ii++) {
+                window.animFrame = window.animFrame || window[TEST_PROPS[ii] + 'equestAnimationFrame'];
+            } // for
+            
+            if (window.animFrame) {
+                _log('Using request animation frame');
+            } // if
+            
+            return animFrame;
+        })();
     
     function frame(tickCount) {
         // increment the frame index
@@ -24,7 +42,9 @@ var Animator = (function() {
         } // for
         
         // schedule the animator for another call
-        animFrame(frame);
+        if (useAnimFrame) {
+            animFrame(frame);
+        } // if
     } // frame
     
     /* exports */
@@ -39,7 +59,7 @@ var Animator = (function() {
     function detach(callback) {
         // iterate through the callbacks and remove the specified one
         for (var ii = callbacks.length; ii--; ) {
-            if (callbacks[ii] === callback) {
+            if (callbacks[ii].cb === callback) {
                 callbacks.splice(ii, 1);
                 break;
             } // if
@@ -47,7 +67,7 @@ var Animator = (function() {
     } // detach
     
     // bind to the animframe callback
-    animFrame(frame);
+    useAnimFrame ? animFrame(frame) : setInterval(frame, 1000 / 60);
     
     return {
         attach: attach,

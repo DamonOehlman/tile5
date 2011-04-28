@@ -14,7 +14,12 @@ var Runner = (function() {
         
         // iterate through the processes and run each of them
         for (var ii = processCount; ii--; ) {
-            processes[ii](processCount);
+            try {
+                processes[ii](processCount);
+            }
+            catch (e) {
+                _log(e.toString(), 'error');
+            } // try..catch
         } // for
     } // runLoop
     

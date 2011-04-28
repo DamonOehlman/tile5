@@ -1,11 +1,10 @@
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true */
 
 //= require <cani/src/cani>
-//= require <cog/cogs/animframe>
 //= require <cog/cogs/extend>
 //= require <cog/cogs/log>
 //= require <cog/cogs/stringtools>
-//= require <cog/cogs/tween>
+//= require <cog/cogs/easing>
 //= require <cog/cogs/observable>
 //= require <cog/cogs/configurable>
 //= require <cog/cogs/arraytools>

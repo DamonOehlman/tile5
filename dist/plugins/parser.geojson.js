@@ -255,7 +255,7 @@ T5.Registry.register('parser', 'geojson', function() {
             featureIndex = ii + 1;
 
             if (childParser || (featureIndex < totalFeatures)) {
-                animFrame(processData);
+                setTimeout(processData, 0);
             }
             else {
                 parseComplete();
@@ -265,7 +265,7 @@ T5.Registry.register('parser', 'geojson', function() {
         /* run the parser */
 
         totalFeatures = data.length;
-        animFrame(processData);
+        setTimeout(processData, 0);
     };
 
     return {
