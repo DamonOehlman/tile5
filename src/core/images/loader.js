@@ -86,7 +86,7 @@ var getImage = (function() {
     } // loadImage
     
     // check for image loads every 5 seconds
-    Animator.attach(checkImageLoads, INTERVAL_LOADCHECK);
+    Animator.attach(checkImageLoads, 250);
 
     /**
     # T5.getImage(url, callback)

@@ -215,8 +215,9 @@ Easing and animation within Tile5 has had a number of different implementations.
 map.pan(500, 500, {
 	easing: 'sine.out',
 	duration: 1000,
-	callback: function() {
-		alert('All done');
+	complete: function() {
+		// pan back (truthy value will trigger standard easing)
+		map.pan(-500, -500, 1);
 	}
 });
 ```

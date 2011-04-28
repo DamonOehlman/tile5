@@ -1827,10 +1827,9 @@ function GeoXY(p1, p2, mercX, mercY) {
     this.mercY = mercY;
 
     if (_is(p1, typeString)) {
-        p1 = Parser.parseXY(p1);
+        _extend(this, Parser.parseXY(p1));
     } // if
-
-    if (p1 && p1.toPixels) {
+    else if (p1 && p1.toPixels) {
         _extend(this, p1.toPixels());
     }
     else {
@@ -2227,7 +2226,7 @@ var getImage = (function() {
         } // if..else
     } // loadImage
 
-    Animator.attach(checkImageLoads, INTERVAL_LOADCHECK);
+    Animator.attach(checkImageLoads, 250);
 
     /**
     # T5.getImage(url, callback)
@@ -3993,11 +3992,12 @@ var Tweener = (function() {
         params = _extend({
             easing: 'sine.out',
             duration: 1000,
-            callback: callback
+            complete: null
         }, params);
 
         var valueCount = valuesStart.length,
             valuesCurrent = [].concat(valuesStart),
+            callbacks = [callback, params.complete],
             easingFn = _easing(params.easing),
             valuesChange = [],
             finishedCount = 0,
@@ -4017,14 +4017,20 @@ var Tweener = (function() {
                     valuesStart[ii],
                     valuesChange[ii],
                     duration);
+
+                if (viewToInvalidate) {
+                    viewToInvalidate.invalidate();
+                } // if
             } // for
 
             if (complete || cancelTween) {
                  Animator.detach(tweenStep);
 
-                 if (callback) {
-                     callback(valuesCurrent, elapsed, cancelTween);
-                 } // if
+                 for (ii = 0; ii < callbacks.length; ii++) {
+                     if (callbacks[ii]) {
+                         callbacks[ii](valuesCurrent, elapsed, cancelTween);
+                     } // if
+                 } // // for
             } // if
         } // function
 

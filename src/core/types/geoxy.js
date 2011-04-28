@@ -10,11 +10,10 @@ function GeoXY(p1, p2, mercX, mercY) {
     
     // if the first parameter is a string, then parse
     if (_is(p1, typeString)) {
-        p1 = Parser.parseXY(p1);
+        _extend(this, Parser.parseXY(p1));
     } // if
-    
-    // if the first parameter is a position, then convert to pixels
-    if (p1 && p1.toPixels) {
+    // otherwise, if the first parameter is a position, then convert to pixels
+    else if (p1 && p1.toPixels) {
         _extend(this, p1.toPixels());
     }
     else {

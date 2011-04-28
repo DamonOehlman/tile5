@@ -8,11 +8,12 @@ var Tweener = (function() {
         params = _extend({
             easing: 'sine.out',
             duration: 1000,
-            callback: callback
+            complete: null
         }, params);
         
         var valueCount = valuesStart.length,
             valuesCurrent = [].concat(valuesStart),
+            callbacks = [callback, params.complete],
             easingFn = _easing(params.easing),
             valuesChange = [],
             finishedCount = 0,
@@ -34,14 +35,20 @@ var Tweener = (function() {
                     valuesStart[ii], 
                     valuesChange[ii], 
                     duration);
+                    
+                if (viewToInvalidate) {
+                    viewToInvalidate.invalidate();
+                } // if
             } // for
             
             if (complete || cancelTween) {
                  Animator.detach(tweenStep);
                  
-                 if (callback) {
-                     callback(valuesCurrent, elapsed, cancelTween);
-                 } // if
+                 for (ii = 0; ii < callbacks.length; ii++) {
+                     if (callbacks[ii]) {
+                         callbacks[ii](valuesCurrent, elapsed, cancelTween);
+                     } // if
+                 } // // for
             } // if
         } // function
         
