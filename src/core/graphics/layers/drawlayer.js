@@ -106,9 +106,6 @@ reg('layer', 'draw', function(view, params) {
     */
     function create(type, settings, prepend) {
         var drawable = regCreate(typeDrawable, type, view, _self, settings);
-        if (! drawable) {
-            throw NO_DRAWABLE(type);
-        } // if
 
         // add the the shapes array
         if (prepend) {

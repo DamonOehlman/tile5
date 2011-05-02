@@ -76,7 +76,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         } // if
         
         // pop the previous style from the style stack
-        return previousStyles[canvasId].pop() || 'basic';
+        return previousStyles[canvasId].pop() || STYLE_RESET;
     } // getPreviousStyle
     
     function handleDetach() {
@@ -123,12 +123,12 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
     } // initDrawData
     
     function loadStyles() {
-        for (var styleId in T5.styles) {
-            handleStyleDefined(null, styleId, T5.styles[styleId]);
-        } // for
+        Style.each(function(id, data) {
+            handleStyleDefined(null, id, data);
+        });
         
         // capture style defined events so we know about new styles
-        Style.bind('defined', handleStyleDefined);
+        T5.bind('styleDefined', handleStyleDefined);
     } // loadStyles
     
     /* exports */

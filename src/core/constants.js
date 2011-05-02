@@ -23,23 +23,13 @@ var TWO_PI = Math.PI * 2,
     MIN_LON_RAD = -MAX_LON_RAD,
     M_PER_KM = 1000,
     KM_PER_RAD = 6371,
+    M_PER_RAD = KM_PER_RAD * M_PER_KM,
     ECC = 0.08181919084262157,
     PHI_EPSILON = 1E-7,
     PHI_MAXITER = 12,
 
-    ROADTYPE_REGEX = null,
-    
-    // TODO: I think these need to move to the provider level..
-    ROADTYPE_REPLACEMENTS = {
-        RD: "ROAD",
-        ST: "STREET",
-        CR: "CRESCENT",
-        CRES: "CRESCENT",
-        CT: "COURT",
-        LN: "LANE",
-        HWY: "HIGHWAY",
-        MWY: "MOTORWAY"
-    },
-    
     // some event names
-    EVT_REMOVELAYER = 'layerRemove';
+    EVT_REMOVELAYER = 'layerRemove',
+    
+    // some style constants
+    STYLE_RESET = 'reset';

@@ -9,6 +9,8 @@ var Registry = (function() {
         if (types[type][name]) {
             return types[type][name].apply(null, Array.prototype.slice.call(arguments, 2));
         } // if
+        
+        throw NO_TYPE(type, name);
     } // create
     
     function get(type, name) {

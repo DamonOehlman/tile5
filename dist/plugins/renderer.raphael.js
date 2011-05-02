@@ -56,7 +56,7 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
             handleStyleDefined(null, styleId, T5.styles[styleId]);
         } // for
 
-        T5.Style.bind('defined', handleStyleDefined);
+        T5.bind('styleDefined', handleStyleDefined);
     } // loadStyles
 
     function objInit(rObject, drawable) {
@@ -143,7 +143,7 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
             currentStyle = styleId;
         } // if
 
-        return previousStyle || 'basic';
+        return previousStyle || T5.Style.resetStyle;
     } // applyStyle
 
     function applyTransform(drawable) {
@@ -207,7 +207,7 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
                     objInit(drawable.rObject = paper.circle(
                         markerX,
                         markerY,
-                        size
+                        size >> 1
                     ), drawable);
             } // switch
         } // if
@@ -260,7 +260,7 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
 
     _this.bind('predraw', handlePredraw);
     _this.bind('detach', handleDetach);
-    _this.bind('reset', handleReset);
+    view.bind('zoom', handleReset);
 
     loadStyles();
 

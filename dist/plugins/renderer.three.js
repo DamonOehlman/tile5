@@ -92,7 +92,8 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
         activeTiles = {},
         currentObjects = {},
         currentTiles = {},
-        currentStyle = 'basic',
+        resetStyle = T5.Style.resetStyle,
+        currentStyle = resetStyle,
         lastTiles = [],
         jsonLoader = new THREE.JSONLoader(),
         tileBg,
@@ -173,7 +174,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
             previousStyles[canvasId] = [];
         } // if
 
-        return previousStyles[canvasId].pop() || 'basic';
+        return previousStyles[canvasId].pop() || resetStyle;
     } // getPreviousStyle
 
     function handleDetach() {
@@ -271,7 +272,6 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
             renderer = new THREE.WebGLRenderer();
             renderer.setSize(vpWidth, vpHeight);
 
-
             container.appendChild(renderer.domElement);
         } // if
 
@@ -292,7 +292,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
             handleStyleDefined(null, styleId, T5.styles[styleId]);
         } // for
 
-        T5.Style.bind('defined', handleStyleDefined);
+        T5.bind('styleDefined', handleStyleDefined);
     } // loadStyles
 
     function loadTexture(imageUrl, mapping, callback) {
@@ -383,7 +383,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
             currentStyle = styleId;
         } // if
 
-        return previousStyle || 'basic';
+        return previousStyle || resetStyle;
     } // applyStyle
 
     function applyTransform(drawable) {
@@ -653,7 +653,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
 
     _this.bind('detach', handleDetach);
     _this.bind('render', handleRender);
-    _this.bind('reset', handleReset);
+    view.bind('zoom', handleReset);
 
     loadStyles();
     T5.log('created three:webgl renderer');

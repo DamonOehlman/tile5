@@ -16,14 +16,6 @@ var abs = Math.abs,
     atan = Math.atan,
     atan2 = Math.atan2,
     
-    // some other function shorts
-    // most straight from Raphael: https://github.com/DmitryBaranovskiy/raphael
-    proto = 'prototype',
-    has = 'hasOwnProperty',
-    isnan = {'NaN': 1, 'Infinity': 1, '-Infinity': 1},
-    lowerCase = String[proto].toLowerCase,
-    objectToString = Object[proto].toString,
-    
     // some type references
     typeUndefined = 'undefined',
     typeFunction = 'function',

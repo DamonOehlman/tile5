@@ -1,5 +1,7 @@
 /**
 # T5.Style
+
+## Methods
 */
 var Style = (function() {
     
@@ -7,9 +9,35 @@ var Style = (function() {
     
     var styles = {};
     
+    /**
+    ### define()
+    
+    The define method can be used in two ways.  Firstly, you can use the
+    method to define a single new style:
+    
+    ```js
+    var styleId = T5.Style.define('new-style', {
+        fill: '#FF0000',
+        opacity: 0.8
+    });
+    ```
+    
+    Additionally, instead of passing through a single style definition you 
+    can pass through multiple definitions in a single hit:
+    
+    ```js
+    T5.Style.define({
+        blueStyle: {
+            fill: '#0000FF'
+        },
+        greenStyle: {
+            fill: '#00FF00'
+        }
+    });
+    */
     function define(p1, p2) {
         if (_is(p1, typeString)) {
-            _self.trigger('defined', p1, styles[p1] = p2);
+            T5.trigger('styleDefined', p1, styles[p1] = p2);
             
             return p1;
         }
@@ -24,19 +52,27 @@ var Style = (function() {
         } // if..else
     } // define
     
+    /**
+    ### each(callback)
+    */
+    function each(callback) {
+        for (var id in styles) {
+            callback(id, styles[id]);
+        } // for
+    } // each
+    
+    /** 
+    ### get(id)
+    */
     function get(id) {
         return styles[id];
     } // get
     
-    var _self = _observable({
-        get: get,
-        define: define
-    });
-    
     // define the core styles
     define({
-        basic: {
-            fill: '#ffffff'
+        reset: {
+            fill: '#ffffff',
+            opacity: 1.0
         },
 
         highlight: {
@@ -56,5 +92,11 @@ var Style = (function() {
         }       
     });    
     
-    return _self;
+    return {
+        resetStyle: STYLE_RESET,
+        
+        each: each,
+        get: get,
+        define: define
+    };
 })();

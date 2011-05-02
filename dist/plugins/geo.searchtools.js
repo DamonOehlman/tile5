@@ -23,6 +23,30 @@ T5.SearchTools = (function() {
 
     /* internals */
 
+    /*
+    This function is used to determine the match weight between a freeform geocoding
+    request and it's structured response.
+    */
+    function plainTextAddressMatch(request, response, compareFns, fieldWeights) {
+        var matchWeight = 0;
+
+        request = request.toUpperCase();
+
+
+        for (var fieldId in fieldWeights) {
+            var fieldVal = response[fieldId];
+
+            if (fieldVal) {
+                var compareFn = compareFns[fieldId],
+                    matchStrength = compareFn ? compareFn(request, fieldVal) : (_wordExists(request, fieldVal) ? 1 : 0);
+
+                matchWeight += (matchStrength * fieldWeights[fieldId]);
+            } // if
+        } // for
+
+        return matchWeight;
+    } // plainTextAddressMatch
+
     var GeoSearchResult = function(params) {
         params = _extend({
             id: null,
@@ -153,12 +177,12 @@ T5.SearchTools = (function() {
             compareFns = {};
 
         if (engine && engine.compareFns) {
-            compareFns = _extend({}, compareFns, engine.compareFns);
+            compareFns = T5.ex({}, compareFns, engine.compareFns);
         } // if
 
         for (var ii = 0; ii < responseAddresses.length; ii++) {
-            matches.push(new module.GeoSearchResult({
-                caption: addrTools.toString(responseAddresses[ii]),
+            matches.push(new GeoSearchResult({
+                caption: responseAddresses[ii].toString(),
                 data: responseAddresses[ii],
                 pos: responseAddresses[ii].pos,
                 matchWeight: plainTextAddressMatch(requestAddress, responseAddresses[ii], compareFns, module.GeocodeFieldWeights)
@@ -179,6 +203,8 @@ T5.SearchTools = (function() {
             streetDetails: 50,
             location: 50
         },
+
+        rankGeocodeResponses: rankGeocodeResponses,
 
         /**
         ### search(args, callback)

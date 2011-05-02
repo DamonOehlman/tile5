@@ -366,11 +366,11 @@ var Address = function(params) {
 
             calcMatchPercentage: function(input) {
                 var fnresult = 0,
-                    test1 = T5.Geo.A.normalize(input),
-                    test2 = T5.Geo.A.normalize(street);
+                    test1 = T5.Addressing.normalize(input),
+                    test2 = T5.Addressing.normalize(street);
 
                 if (params.json.Building) {
-                    if (T5.Geo.A.buildingMatch(input, params.json.Building.number.toString())) {
+                    if (T5.Addressing.buildingMatch(input, params.json.Building.number.toString())) {
                         fnresult += 0.2;
                     } // if
                 } // if
@@ -465,7 +465,7 @@ function parseAddress(address, position) {
         pos: position
     };
 
-    return new T5.Geo.Address(addressParams);
+    return new T5.Addressing.Address(addressParams);
 } // parseAddress
 
 var Request = function() {
@@ -767,28 +767,17 @@ T5.Registry.register('service', 'geocoder', function() {
 
     /* exports */
 
-    function forward(args) {
-        args = T5.ex({
-            addresses: [],
-            complete: null
-        }, args);
-
+    function forward(address, callback) {
         var ii, requestAddresses = [];
 
-        if (args.addresses && (! T5.is(args.addresses, 'array'))) {
-            args.addresses = [args.addresses];
-        } // if
-
-        for (ii = 0; ii < args.addresses.length; ii++) {
-            if (T5.is(args.addresses[ii], 'object')) {
-                _log("attempting to geocode a simple object - not implemented", 'warn');
-            }
-            else {
-                requestAddresses.push(new types.Address({
-                    freeform: args.addresses[ii]
-                }));
-            }
-        } // if
+        if (T5.is(address, 'object')) {
+            T5.log("attempting to geocode a simple object - not implemented", 'warn');
+        }
+        else {
+            requestAddresses.push(new Address({
+                freeform: address
+            }));
+        }
 
         if (requestAddresses.length > 0) {
             var request = new GeocodeRequest({
@@ -796,32 +785,22 @@ T5.Registry.register('service', 'geocoder', function() {
             });
 
             makeServerRequest(request, function(geocodeResponses) {
-                if (args.complete) {
-                    for (ii = 0; ii < geocodeResponses.length; ii++) {
-                        args.complete(args.addresses[ii], geocodeResponses[ii]);
-                    } // for
-                } // if
-
+                for (ii = 0; callback && ii < geocodeResponses.length; ii++) {
+                    callback(address, geocodeResponses[ii]);
+                } // for
             });
         } // if
     } // forward
 
-    function reverse(args) {
-        args = T5.ex({
-            position: null,
-            complete: null
-        }, args);
-
-        if (! args.position) {
-            throw new Error("Cannot reverse geocode without a position");
-        } // if
-
-        var request = new ReverseGeocodeRequest(args);
+    function reverse(pos, callback) {
+        var request = new ReverseGeocodeRequest({
+            position: pos
+        });
 
         makeServerRequest(request, function(matchingAddress) {
-            if (args.complete) {
-                args.complete(matchingAddress);
-            }
+            if (callback) {
+                callback(matchingAddress);
+            } // if
         });
     } // reverse
 

@@ -15,7 +15,8 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
         activeTiles = {},
         currentObjects = {},
         currentTiles = {},
-        currentStyle = 'basic',
+        resetStyle = T5.Style.resetStyle,
+        currentStyle = resetStyle,
         lastTiles = [],
         jsonLoader = new THREE.JSONLoader(),
         tileBg,
@@ -102,7 +103,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
         } // if
         
         // pop the previous style from the style stack
-        return previousStyles[canvasId].pop() || 'basic';
+        return previousStyles[canvasId].pop() || resetStyle;
     } // getPreviousStyle
     
     function handleDetach() {
@@ -212,10 +213,6 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
             renderer = new THREE.WebGLRenderer();
             renderer.setSize(vpWidth, vpHeight);
             
-            // add an appropriate margin to the dom element to counteract the view padding for 
-            // the 2d renderers
-            // renderer.domElement.style.margin = T5.formatter('{0}px 0 0 {0}px')(view.padding);
-            
             // add the canvas to the panFrame
             container.appendChild(renderer.domElement);
         } // if
@@ -240,7 +237,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
         } // for
         
         // capture style defined events so we know about new styles
-        T5.Style.bind('defined', handleStyleDefined);
+        T5.bind('styleDefined', handleStyleDefined);
     } // loadStyles
     
     function loadTexture(imageUrl, mapping, callback) {
@@ -351,7 +348,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
             currentStyle = styleId;
         } // if
         
-        return previousStyle || 'basic';    
+        return previousStyle || resetStyle;
     } // applyStyle
     
     function applyTransform(drawable) {
@@ -651,7 +648,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
     // handle cleanup
     _this.bind('detach', handleDetach);
     _this.bind('render', handleRender);
-    _this.bind('reset', handleReset);
+    view.bind('zoom', handleReset);
     
     loadStyles();
     T5.log('created three:webgl renderer');

@@ -12,6 +12,9 @@
 //= require <cog/cogs/jsonp>
 //= require <interact/src/interact>
 
+// define T5
+var T5 = _observable({});
+
 //= require "core/registry"
 //= require "core/messages"
 //= require "core/functions"
@@ -60,17 +63,19 @@
 //= require "core/geo/pos"
 //= require "core/geo/posfns"
 //= require "core/geo/bbox"
+//= require "core/geo/distance"
 
 /**
 # T5
 
 ## Methods
 */
-var T5 = {
+_extend(T5, {
     // expose some cog functions
     ex: _extend,
     log: _log,
     observable: _observable,
+    configurable: _configurable,
     formatter: _formatter,
     wordExists: _wordExists,
     is: _is,
@@ -86,6 +91,7 @@ var T5 = {
     project: _project,
     unproject: _unproject,
     
+    getImage: getImage,
     userMessage: userMessage,
     
     Registry: Registry,
@@ -93,19 +99,14 @@ var T5 = {
     DOM: DOM,
     Rect: Rect,
     XY: XY,
+    Pos: Pos,
+    BBox: BBox,
+    Distance: Distance,
     Hits: Hits,
     
     Control: Control,
     Tile: Tile,
-    Tweener: Tweener,
-    getImage: getImage,
-    
-    // some of the geo types starting to move up...
-    Pos: Pos,
-    BBox: BBox    
-};
-
-// make T5 observable
-_observable(T5);
+    Tweener: Tweener
+});
 
 //= require "core/factory"

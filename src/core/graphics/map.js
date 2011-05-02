@@ -4,16 +4,7 @@
 reg('view', 'map', function(params) {
     // initialise defaults
     params = _extend({
-        container: "",
-        captureHover: true,
         controls: ['zoombar'],
-        drawOnScale: true,
-        // TODO: automatically calculate padding to allow map rotation with no "whitespace"
-        padding: 50, 
-        inertia: true,
-        refreshDistance: 256,
-        pannable: true,
-        scalable: true,
         
         // zoom parameters
         minZoom: 1,
@@ -47,7 +38,7 @@ reg('view', 'map', function(params) {
     } // checkScaling
     
     function handleRefresh(evt) {
-        var viewport = _self.getViewport();
+        var viewport = _self.viewport();
         
         // check the offset has changed (refreshes can happen for other reasons)
         if (lastBoundsChangeOffset.x != viewport.x || lastBoundsChangeOffset.y != viewport.y) {
@@ -66,7 +57,7 @@ reg('view', 'map', function(params) {
     ### bounds(newBounds)
     */
     function bounds(newBounds, maxZoomLevel) {
-        var viewport = _self.getViewport();
+        var viewport = _self.viewport();
         
         if (newBounds) {
             // calculate the zoom level we are going to
@@ -91,7 +82,7 @@ reg('view', 'map', function(params) {
         if (_is(value, typeNumber)) {
             value = max(params.minZoom, min(params.maxZoom, value | 0));
             if (value !== zoomLevel) {
-                var viewport = _self.getViewport(),
+                var viewport = _self.viewport(),
                     offset = _self.offset(),
                     halfWidth = viewport.w / 2,
                     halfHeight = viewport.h / 2,
@@ -128,9 +119,6 @@ reg('view', 'map', function(params) {
 
                 // reset scaling and resync the map
                 _self.trigger('resync');
-
-                // reset the renderer
-                _self.renderer.trigger('reset');
 
                 // refresh the display
                 _self.refresh();

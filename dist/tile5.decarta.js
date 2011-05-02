@@ -465,6 +465,13 @@ var _indexOf = Array.prototype.indexOf || function(target) {
     return -1;
 };
 var _is = (function() {
+
+    var has = 'hasOwnProperty',
+        isnan = {'NaN': 1, 'Infinity': 1, '-Infinity': 1},
+        proto = 'prototype',
+        lowerCase = String[proto].toLowerCase,
+        objectToString = Object[proto].toString;
+
     /*
     Dmitry Baranovskiy's wonderful is function, sourced from RaphaelJS:
     https://github.com/DmitryBaranovskiy/raphael
@@ -1257,6 +1264,8 @@ register('pointer', {
     };
 })();
 
+var T5 = _observable({});
+
 var Registry = (function() {
     /* internals */
 
@@ -1268,6 +1277,8 @@ var Registry = (function() {
         if (types[type][name]) {
             return types[type][name].apply(null, Array.prototype.slice.call(arguments, 2));
         } // if
+
+        throw NO_TYPE(type, name);
     } // create
 
     function get(type, name) {
@@ -1294,6 +1305,7 @@ var Registry = (function() {
 })();
 
 var WARN_REGOVERRIDE = _formatter('Registration of {0}: {1} will override existing definition'),
+    NO_TYPE = _formatter('Could not create {0} of type: {1}'),
     NO_DRAWABLE = _formatter('Could not create drawable of type: {0}');
 /**
 # T5
@@ -1320,29 +1332,6 @@ function userMessage(msgType, msgKey, msgHtml) {
 /* exports */
 
 /**
-### distanceToString(distance)
-This function simply formats a distance value (in meters) into a human readable string.
-
-#### TODO
-- Add internationalization and other formatting support to this function
-*/
-function distanceToString(distance) {
-    if (distance > 1000) {
-        return (~~(distance / 10) / 100) + " km";
-    } // if
-
-    return distance ? distance + " m" : '';
-} // distanceToString
-
-/**
-### dist2rad(distance)
-To be completed
-*/
-function dist2rad(distance) {
-    return distance / KM_PER_RAD;
-} // dist2rad
-
-/**
 ### radsPerPixel(zoomLevel)
 */
 function radsPerPixel(zoomLevel) {
@@ -1361,30 +1350,6 @@ function findRadPhi(phi, t) {
 function mercatorUnproject(t) {
     return HALF_PI - 2 * atan(t);
 } // mercatorUnproject
-
-/*
-This function is used to determine the match weight between a freeform geocoding
-request and it's structured response.
-*/
-function plainTextAddressMatch(request, response, compareFns, fieldWeights) {
-    var matchWeight = 0;
-
-    request = request.toUpperCase();
-
-
-    for (var fieldId in fieldWeights) {
-        var fieldVal = response[fieldId];
-
-        if (fieldVal) {
-            var compareFn = compareFns[fieldId],
-                matchStrength = compareFn ? compareFn(request, fieldVal) : (_wordExists(request, fieldVal) ? 1 : 0);
-
-            matchWeight += (matchStrength * fieldWeights[fieldId]);
-        } // if
-    } // for
-
-    return matchWeight;
-} // plainTextAddressMatch
 
 function toRad(value) {
     return value * DEGREES_TO_RADIANS;
@@ -1413,24 +1378,14 @@ var TWO_PI = Math.PI * 2,
     MIN_LON_RAD = -MAX_LON_RAD,
     M_PER_KM = 1000,
     KM_PER_RAD = 6371,
+    M_PER_RAD = KM_PER_RAD * M_PER_KM,
     ECC = 0.08181919084262157,
     PHI_EPSILON = 1E-7,
     PHI_MAXITER = 12,
 
-    ROADTYPE_REGEX = null,
+    EVT_REMOVELAYER = 'layerRemove',
 
-    ROADTYPE_REPLACEMENTS = {
-        RD: "ROAD",
-        ST: "STREET",
-        CR: "CRESCENT",
-        CRES: "CRESCENT",
-        CT: "COURT",
-        LN: "LANE",
-        HWY: "HIGHWAY",
-        MWY: "MOTORWAY"
-    },
-
-    EVT_REMOVELAYER = 'layerRemove';
+    STYLE_RESET = 'reset';
 var abs = Math.abs,
     ceil = Math.ceil,
     floor = Math.floor,
@@ -1447,12 +1402,6 @@ var abs = Math.abs,
     tan = Math.tan,
     atan = Math.atan,
     atan2 = Math.atan2,
-
-    proto = 'prototype',
-    has = 'hasOwnProperty',
-    isnan = {'NaN': 1, 'Infinity': 1, '-Infinity': 1},
-    lowerCase = String[proto].toLowerCase,
-    objectToString = Object[proto].toString,
 
     typeUndefined = 'undefined',
     typeFunction = 'function',
@@ -1811,6 +1760,20 @@ XY.prototype = {
     */
     offset: function(x, y) {
         return this.copy(this.x + x, this.y + y);
+    },
+
+    /**
+    ### relative(view)
+    This method is used to return xy coordinates that are relative to the view, rather
+    than to the current view frame.
+    */
+    relative: function(view) {
+        var viewport = view.viewport();
+
+        return this.copy(
+            this.x - viewport.x - viewport.padding.x,
+            this.y - viewport.y - viewport.padding.y
+        );
     },
 
     /**
@@ -2464,7 +2427,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
             previousStyles[canvasId] = [];
         } // if
 
-        return previousStyles[canvasId].pop() || 'basic';
+        return previousStyles[canvasId].pop() || STYLE_RESET;
     } // getPreviousStyle
 
     function handleDetach() {
@@ -2506,11 +2469,11 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
     } // initDrawData
 
     function loadStyles() {
-        for (var styleId in T5.styles) {
-            handleStyleDefined(null, styleId, T5.styles[styleId]);
-        } // for
+        Style.each(function(id, data) {
+            handleStyleDefined(null, id, data);
+        });
 
-        Style.bind('defined', handleStyleDefined);
+        T5.bind('styleDefined', handleStyleDefined);
     } // loadStyles
 
     /* exports */
@@ -2902,13 +2865,15 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
 
     _this.bind('predraw', handlePredraw);
     _this.bind('detach', handleDetach);
-    _this.bind('reset', handleReset);
+    view.bind('zoom', handleReset);
 
     return _this;
 });
 
 /**
 # T5.Style
+
+## Methods
 */
 var Style = (function() {
 
@@ -2916,9 +2881,35 @@ var Style = (function() {
 
     var styles = {};
 
+    /**
+    ### define()
+
+    The define method can be used in two ways.  Firstly, you can use the
+    method to define a single new style:
+
+    ```js
+    var styleId = T5.Style.define('new-style', {
+        fill: '#FF0000',
+        opacity: 0.8
+    });
+    ```
+
+    Additionally, instead of passing through a single style definition you
+    can pass through multiple definitions in a single hit:
+
+    ```js
+    T5.Style.define({
+        blueStyle: {
+            fill: '#0000FF'
+        },
+        greenStyle: {
+            fill: '#00FF00'
+        }
+    });
+    */
     function define(p1, p2) {
         if (_is(p1, typeString)) {
-            _self.trigger('defined', p1, styles[p1] = p2);
+            T5.trigger('styleDefined', p1, styles[p1] = p2);
 
             return p1;
         }
@@ -2933,18 +2924,26 @@ var Style = (function() {
         } // if..else
     } // define
 
+    /**
+    ### each(callback)
+    */
+    function each(callback) {
+        for (var id in styles) {
+            callback(id, styles[id]);
+        } // for
+    } // each
+
+    /**
+    ### get(id)
+    */
     function get(id) {
         return styles[id];
     } // get
 
-    var _self = _observable({
-        get: get,
-        define: define
-    });
-
     define({
-        basic: {
-            fill: '#ffffff'
+        reset: {
+            fill: '#ffffff',
+            opacity: 1.0
         },
 
         highlight: {
@@ -2964,7 +2963,13 @@ var Style = (function() {
         }
     });
 
-    return _self;
+    return {
+        resetStyle: STYLE_RESET,
+
+        each: each,
+        get: get,
+        define: define
+    };
 })();
 /**
 # VIEW: simple
@@ -2976,7 +2981,7 @@ reg('view', 'view', function(params) {
         controls: [],
         drawOnScale: true,
         fastpan: true,
-        padding: 0,
+        padding: 128, // other values 'auto'
         inertia: true,
         refreshDistance: 256,
         pannable: true,
@@ -2987,6 +2992,7 @@ reg('view', 'view', function(params) {
 
     var PANSPEED_THRESHOLD_REFRESH = 2,
         PANSPEED_THRESHOLD_FASTPAN = 5,
+        PADDING_AUTO = 'auto',
 
         caps = {},
         controls = [],
@@ -3016,7 +3022,7 @@ reg('view', 'view', function(params) {
         offsetWrapX = false,
         offsetWrapY = false,
         offsetTween = null,
-        padding = params.padding,
+        padding,
         panFrames = [],
         hitData = null,
         lastHitData = null,
@@ -3052,10 +3058,10 @@ reg('view', 'view', function(params) {
         var projectedXY = renderer && renderer.projectXY ? renderer.projectXY(srcX, srcY) : null;
 
         if (! projectedXY) {
-            var viewport = _self.getViewport(),
+            var vp = viewport(),
                 invScaleFactor = 1 / scaleFactor,
-                scaledX = viewport ? (viewport.x + srcX * invScaleFactor) : srcX,
-                scaledY = viewport ? (viewport.y + srcY * invScaleFactor) : srcY;
+                scaledX = vp ? (vp.x + srcX * invScaleFactor) : srcX,
+                scaledY = vp ? (vp.y + srcY * invScaleFactor) : srcY;
 
             projectedXY = new _self.XY(scaledX, scaledY);
         } // if
@@ -3129,7 +3135,7 @@ reg('view', 'view', function(params) {
     /* private functions */
 
     function createRenderer(typeName) {
-        renderer = _self.renderer = attachRenderer(typeName || params.renderer, _self, viewpane, outer, params);
+        renderer = attachRenderer(typeName || params.renderer, _self, viewpane, outer, params);
 
         fastpan = params.fastpan && renderer.fastpan && DOM.transforms;
 
@@ -3177,15 +3183,15 @@ reg('view', 'view', function(params) {
     offset using wrapping if allowed.  The function is much more 'if / then / elsey'
     than I would like, and might be optimized at some stage, but it does what it needs to
     */
-    function constrainOffset(viewport, allowWrap) {
-        if (! viewport) {
+    function constrainOffset(vp, allowWrap) {
+        if (! vp) {
             return;
         } // if
 
-        var testX = offsetWrapX ? offsetX + (viewport.w >> 1) : offsetX,
-            testY = offsetWrapY ? offsetY + (viewport.h >> 1) : offsetY,
-            viewWidth = viewport.w,
-            viewHeight = viewport.h;
+        var testX = offsetWrapX ? offsetX + (vp.w >> 1) : offsetX,
+            testY = offsetWrapY ? offsetY + (vp.h >> 1) : offsetY,
+            viewWidth = vp.w,
+            viewHeight = vp.h;
 
         if (offsetMaxX && offsetMaxX > viewWidth) {
             if (testX + viewWidth > offsetMaxX) {
@@ -3282,8 +3288,10 @@ reg('view', 'view', function(params) {
             height: outer.offsetHeight + 'px'
         })));
 
-        width = panContainer.offsetWidth + padding * 2;
-        height = panContainer.offsetHeight + padding * 2;
+        initPadding(params.padding);
+
+        width = panContainer.offsetWidth + padding.x * 2;
+        height = panContainer.offsetHeight + padding.y * 2;
         halfWidth = width / 2;
         halfHeight = height / 2;
         halfOuterWidth = outer.offsetWidth / 2;
@@ -3293,7 +3301,7 @@ reg('view', 'view', function(params) {
             width: width + 'px',
             height: height + 'px',
             'z-index': 2,
-            margin: (-padding) + 'px 0 0 ' + (-padding) + 'px'
+            margin: (-padding.y) + 'px 0 0 ' + (-padding.x) + 'px'
         })));
     } // initContainer
 
@@ -3342,7 +3350,7 @@ reg('view', 'view', function(params) {
             rerender,
             viewpaneX,
             viewpaneY,
-            viewport;
+            vp;
 
         self.panSpeed = panSpeed = abs(dx) + abs(dy);
 
@@ -3410,7 +3418,7 @@ reg('view', 'view', function(params) {
                     offsetY = (offsetY - panY / scaleFactor) | 0;
                 } // if..else
 
-                viewport = getViewport();
+                vp = viewport();
 
                 /*
                 if (offsetMaxX || offsetMaxY) {
@@ -3419,9 +3427,9 @@ reg('view', 'view', function(params) {
                 */
 
 
-                renderer.trigger('predraw', viewport);
+                renderer.trigger('predraw', vp);
 
-                if (renderer.prepare(layers, viewport, tickCount, hitData)) {
+                if (renderer.prepare(layers, vp, tickCount, hitData)) {
                     viewChanges = 0;
                     viewpaneX = panX = 0;
                     viewpaneY = panY = 0;
@@ -3436,7 +3444,7 @@ reg('view', 'view', function(params) {
 
                             drawLayer.draw(
                                 renderer,
-                                viewport,
+                                vp,
                                 _self,
                                 tickCount,
                                 hitData);
@@ -3447,9 +3455,9 @@ reg('view', 'view', function(params) {
                         } // if
                     } // for
 
-                    renderer.trigger('render', viewport);
+                    renderer.trigger('render', vp);
 
-                    _self.trigger('drawComplete', viewport, tickCount);
+                    _self.trigger('drawComplete', vp, tickCount);
 
                     DOM.move(viewpane, viewpaneX, viewpaneY, extraTransforms);
                 } // if
@@ -3491,15 +3499,30 @@ reg('view', 'view', function(params) {
         hitData = Hits.init(hitType, absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
 
         for (var ii = layerCount; ii--; ) {
-            hitFlagged = hitFlagged || (layers[ii].hitGuess ?
-                layers[ii].hitGuess(hitData.x, hitData.y, _self) :
-                false);
+            if (layers[ii].visible) {
+                hitFlagged = hitFlagged || (layers[ii].hitGuess ?
+                    layers[ii].hitGuess(hitData.x, hitData.y, _self) :
+                    false);
+            } // if
         } // for
 
         if (hitFlagged) {
             viewChanges++;
         } // if
     } // initHitData
+
+    function initPadding(input) {
+        if (input === PADDING_AUTO) {
+            var oWidth = outer.offsetWidth,
+                oHeight = outer.offsetHeight,
+                diagonal = sqrt(oWidth * oWidth + oHeight * oHeight);
+
+            padding = new XY((diagonal - oWidth) >> 1, (diagonal - oHeight) >> 1);
+        }
+        else {
+            padding = new XY(input, input);
+        } // if..else
+    } // initPadding
 
     /* exports */
 
@@ -3528,14 +3551,14 @@ reg('view', 'view', function(params) {
         } // if
 
         if (_is(p1, typeNumber)) {
-            offset(p1 - halfOuterWidth - padding, p2 - halfOuterHeight - padding, tween);
+            offset(p1 - halfOuterWidth - padding.x, p2 - halfOuterHeight - padding.y, tween);
 
             return _self;
         }
         else {
             return offset().offset(
-                halfOuterWidth + padding | 0,
-                halfOuterHeight + padding | 0
+                halfOuterWidth + padding.x | 0,
+                halfOuterHeight + padding.y | 0
             ).sync(_self, true);
         } // if..else
     } // center
@@ -3582,16 +3605,19 @@ reg('view', 'view', function(params) {
     } // setMaxOffset
 
     /**
-    ### getViewport(): T5.XYRect
-    Return a T5.XYRect for the last drawn view rect
+    ### viewport()
+    Return a T5.XYRect (annotated with scale factor and padding) for the
+    current offset rect of the view
     */
-    function getViewport() {
-        var viewport = new Rect(offsetX, offsetY, width, height);
+    function viewport() {
+        var vp = new Rect(offsetX, offsetY, width, height);
 
-        viewport.scaleFactor = scaleFactor;
+        vp.scaleFactor = scaleFactor;
 
-        return viewport;
-    } // getViewport
+        vp.padding = padding ? padding.copy() : new XY();
+
+        return vp;
+    } // viewport
 
     /**
     ### layer()
@@ -3673,16 +3699,16 @@ reg('view', 'view', function(params) {
     events and will do some of their recalculations when this is called.
     */
     function refresh() {
-        var viewport = getViewport();
-        if (viewport) {
+        var vp = viewport();
+        if (vp) {
             if (offsetMaxX || offsetMaxY) {
-                constrainOffset(viewport);
+                constrainOffset(vp);
             } // if
 
             refreshX = offsetX;
             refreshY = offsetY;
 
-            _self.trigger('refresh', _self, viewport);
+            _self.trigger('refresh', _self, vp);
 
             viewChanges++;
         } // if
@@ -3802,7 +3828,6 @@ reg('view', 'view', function(params) {
         XY: XY,
 
         id: params.id,
-        padding: padding,
         panSpeed: 0,
 
         attachFrame: attachFrame,
@@ -3819,8 +3844,8 @@ reg('view', 'view', function(params) {
         /* offset methods */
 
         setMaxOffset: setMaxOffset,
-        getViewport: getViewport,
-        offset: offset
+        offset: offset,
+        viewport: viewport
     };
 
     _observable(_self);
@@ -3864,15 +3889,7 @@ reg('view', 'view', function(params) {
 */
 reg('view', 'map', function(params) {
     params = _extend({
-        container: "",
-        captureHover: true,
         controls: ['zoombar'],
-        drawOnScale: true,
-        padding: 50,
-        inertia: true,
-        refreshDistance: 256,
-        pannable: true,
-        scalable: true,
 
         minZoom: 1,
         maxZoom: 18,
@@ -3903,7 +3920,7 @@ reg('view', 'map', function(params) {
     } // checkScaling
 
     function handleRefresh(evt) {
-        var viewport = _self.getViewport();
+        var viewport = _self.viewport();
 
         if (lastBoundsChangeOffset.x != viewport.x || lastBoundsChangeOffset.y != viewport.y) {
             _self.trigger('boundsChange', bounds());
@@ -3919,7 +3936,7 @@ reg('view', 'map', function(params) {
     ### bounds(newBounds)
     */
     function bounds(newBounds, maxZoomLevel) {
-        var viewport = _self.getViewport();
+        var viewport = _self.viewport();
 
         if (newBounds) {
             var zoomLevel = max(newBounds.bestZoomLevel(viewport), maxZoomLevel || 0);
@@ -3942,7 +3959,7 @@ reg('view', 'map', function(params) {
         if (_is(value, typeNumber)) {
             value = max(params.minZoom, min(params.maxZoom, value | 0));
             if (value !== zoomLevel) {
-                var viewport = _self.getViewport(),
+                var viewport = _self.viewport(),
                     offset = _self.offset(),
                     halfWidth = viewport.w / 2,
                     halfHeight = viewport.h / 2,
@@ -3971,8 +3988,6 @@ reg('view', 'map', function(params) {
                 _self.scale(1, false, true);
 
                 _self.trigger('resync');
-
-                _self.renderer.trigger('reset');
 
                 _self.refresh();
             } // if
@@ -4797,9 +4812,6 @@ reg('layer', 'draw', function(view, params) {
     */
     function create(type, settings, prepend) {
         var drawable = regCreate(typeDrawable, type, view, _self, settings);
-        if (! drawable) {
-            throw NO_DRAWABLE(type);
-        } // if
 
         if (prepend) {
             drawables.unshift(drawable);
@@ -5254,7 +5266,7 @@ Pos.prototype = {
     },
 
     /**
-    ### toBounds(size)
+    ### toBounds(distance)
     This function is very useful for creating a Geo.BoundingBox given a
     center position and a radial distance (specified in KM) from the center
     position.  Basically, imagine a circle is drawn around the center
@@ -5262,8 +5274,8 @@ Pos.prototype = {
     a box is drawn to surround that circle.  Adapted from the [functions written
     in Java by Jan Philip Matuschek](http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates)
     */
-    toBounds: function(size) {
-        var radDist = size / KM_PER_RAD,
+    toBounds: function(distance) {
+        var radDist = distance.radians(),
             radLat = this.lat * DEGREES_TO_RADIANS,
             radLon = this.lon * DEGREES_TO_RADIANS,
             minLat = radLat - radDist,
@@ -5451,16 +5463,59 @@ BBox.prototype = {
         return "min: " + this.min + ", max: " + this.max;
     }
 };
+/**
+# T5.Distance
+
+## Methods
+*/
+function Distance(value) {
+    if (_is(value, typeString)) {
+
+    }
+    else {
+        this.meters = value;
+    } // if..else
+} // Distance
+
+Distance.prototype = {
+    constructor: Distance,
+
+    /**
+    ### radians(value)
+    */
+    radians: function(value) {
+        if (_is(value, typeNumber)) {
+            this.meters = value * M_PER_RAD;
+
+            return this;
+        }
+        else {
+            return this.meters / M_PER_RAD;
+        } // if..else
+    },
+
+    /**
+    ### toString()
+    */
+    toString: function() {
+        if (this.meters > M_PER_KM) {
+            return ((this.meters / 10 | 0) / 100) + 'km';
+        } // if
+
+        return this.meters + 'm';
+    }
+};
 
 /**
 # T5
 
 ## Methods
 */
-var T5 = {
+_extend(T5, {
     ex: _extend,
     log: _log,
     observable: _observable,
+    configurable: _configurable,
     formatter: _formatter,
     wordExists: _wordExists,
     is: _is,
@@ -5476,6 +5531,7 @@ var T5 = {
     project: _project,
     unproject: _unproject,
 
+    getImage: getImage,
     userMessage: userMessage,
 
     Registry: Registry,
@@ -5483,18 +5539,15 @@ var T5 = {
     DOM: DOM,
     Rect: Rect,
     XY: XY,
+    Pos: Pos,
+    BBox: BBox,
+    Distance: Distance,
     Hits: Hits,
 
     Control: Control,
     Tile: Tile,
-    Tweener: Tweener,
-    getImage: getImage,
-
-    Pos: Pos,
-    BBox: BBox
-};
-
-_observable(T5);
+    Tweener: Tweener
+});
 
 /**
 # Tile5(target, settings, viewId)
@@ -6154,11 +6207,11 @@ var Address = function(params) {
 
             calcMatchPercentage: function(input) {
                 var fnresult = 0,
-                    test1 = T5.Geo.A.normalize(input),
-                    test2 = T5.Geo.A.normalize(street);
+                    test1 = T5.Addressing.normalize(input),
+                    test2 = T5.Addressing.normalize(street);
 
                 if (params.json.Building) {
-                    if (T5.Geo.A.buildingMatch(input, params.json.Building.number.toString())) {
+                    if (T5.Addressing.buildingMatch(input, params.json.Building.number.toString())) {
                         fnresult += 0.2;
                     } // if
                 } // if
@@ -6253,7 +6306,7 @@ function parseAddress(address, position) {
         pos: position
     };
 
-    return new T5.Geo.Address(addressParams);
+    return new T5.Addressing.Address(addressParams);
 } // parseAddress
 
 var Request = function() {
@@ -6555,28 +6608,17 @@ T5.Registry.register('service', 'geocoder', function() {
 
     /* exports */
 
-    function forward(args) {
-        args = T5.ex({
-            addresses: [],
-            complete: null
-        }, args);
-
+    function forward(address, callback) {
         var ii, requestAddresses = [];
 
-        if (args.addresses && (! T5.is(args.addresses, 'array'))) {
-            args.addresses = [args.addresses];
-        } // if
-
-        for (ii = 0; ii < args.addresses.length; ii++) {
-            if (T5.is(args.addresses[ii], 'object')) {
-                _log("attempting to geocode a simple object - not implemented", 'warn');
-            }
-            else {
-                requestAddresses.push(new types.Address({
-                    freeform: args.addresses[ii]
-                }));
-            }
-        } // if
+        if (T5.is(address, 'object')) {
+            T5.log("attempting to geocode a simple object - not implemented", 'warn');
+        }
+        else {
+            requestAddresses.push(new Address({
+                freeform: address
+            }));
+        }
 
         if (requestAddresses.length > 0) {
             var request = new GeocodeRequest({
@@ -6584,32 +6626,22 @@ T5.Registry.register('service', 'geocoder', function() {
             });
 
             makeServerRequest(request, function(geocodeResponses) {
-                if (args.complete) {
-                    for (ii = 0; ii < geocodeResponses.length; ii++) {
-                        args.complete(args.addresses[ii], geocodeResponses[ii]);
-                    } // for
-                } // if
-
+                for (ii = 0; callback && ii < geocodeResponses.length; ii++) {
+                    callback(address, geocodeResponses[ii]);
+                } // for
             });
         } // if
     } // forward
 
-    function reverse(args) {
-        args = T5.ex({
-            position: null,
-            complete: null
-        }, args);
-
-        if (! args.position) {
-            throw new Error("Cannot reverse geocode without a position");
-        } // if
-
-        var request = new ReverseGeocodeRequest(args);
+    function reverse(pos, callback) {
+        var request = new ReverseGeocodeRequest({
+            position: pos
+        });
 
         makeServerRequest(request, function(matchingAddress) {
-            if (args.complete) {
-                args.complete(matchingAddress);
-            }
+            if (callback) {
+                callback(matchingAddress);
+            } // if
         });
     } // reverse
 

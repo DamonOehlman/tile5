@@ -148,33 +148,20 @@ T5.Registry.register('service', 'geocoder', function() {
     
     /* exports */
     
-    function forward(args) {
-        args = T5.ex({
-            addresses: [],
-            complete: null
-        }, args);
-        
+    function forward(address, callback) {
         // initialise variables
         var ii, requestAddresses = [];
         
-        // coerce a simple value into an array...
-        if (args.addresses && (! T5.is(args.addresses, 'array'))) {
-            args.addresses = [args.addresses];
-        } // if
-        
-        // iterate through the addresses supplied and issue geocoding requests for them
-        for (ii = 0; ii < args.addresses.length; ii++) {
-            // TODO: if the element is a simple object, then treat as a structured geocode
-            if (T5.is(args.addresses[ii], 'object')) {
-                _log("attempting to geocode a simple object - not implemented", 'warn');
-            }
-            // else assume we are dealing with a free form routing request
-            else {
-                requestAddresses.push(new types.Address({
-                    freeform: args.addresses[ii]
-                }));
-            }
-        } // if
+        // TODO: if the element is a simple object, then treat as a structured geocode
+        if (T5.is(address, 'object')) {
+            T5.log("attempting to geocode a simple object - not implemented", 'warn');
+        }
+        // else assume we are dealing with a free form routing request
+        else {
+            requestAddresses.push(new Address({
+                freeform: address
+            }));
+        }
         
         // if we have request addresses to process, then issue a geocoding request
         // _log("attempting to geocode addresses: ", requestAddresses);
@@ -185,36 +172,25 @@ T5.Registry.register('service', 'geocoder', function() {
             });
         
             makeServerRequest(request, function(geocodeResponses) {
-                if (args.complete) {
-                    // iterate through the address matches, and fire the complete event for each
-                    for (ii = 0; ii < geocodeResponses.length; ii++) {
-                        // fire the complete event
-                        args.complete(args.addresses[ii], geocodeResponses[ii]);
-                    } // for
-                } // if
-                
+                // iterate through the address matches, and fire the complete event for each
+                for (ii = 0; callback && ii < geocodeResponses.length; ii++) {
+                    // fire the complete event
+                    callback(address, geocodeResponses[ii]);
+                } // for
             });
         } // if
     } // forward
     
-    function reverse(args) {
-        args = T5.ex({
-            position: null,
-            complete: null
-        }, args);
-        
-        // if the position has not been provided, then throw an exception
-        if (! args.position) {
-            throw new Error("Cannot reverse geocode without a position");
-        } // if
-        
+    function reverse(pos, callback) {
         // create the geocoding request and execute it
-        var request = new ReverseGeocodeRequest(args);
+        var request = new ReverseGeocodeRequest({
+            position: pos
+        });
     
         makeServerRequest(request, function(matchingAddress) {
-            if (args.complete) {
-                args.complete(matchingAddress);
-            }
+            if (callback) {
+                callback(matchingAddress);
+            } // if
         });
     } // reverse
     

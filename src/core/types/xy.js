@@ -72,6 +72,21 @@ XY.prototype = {
     },
     
     /**
+    ### relative(view)
+    This method is used to return xy coordinates that are relative to the view, rather
+    than to the current view frame.
+    */
+    relative: function(view) {
+        // get the viewport
+        var viewport = view.viewport();
+        
+        return this.copy(
+            this.x - viewport.x - viewport.padding.x, 
+            this.y - viewport.y - viewport.padding.y
+        );
+    },
+    
+    /**
     ### sync(view, reverse)
     */
     sync: function(view, reverse) {

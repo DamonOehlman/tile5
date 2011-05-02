@@ -196,11 +196,11 @@ var Address = function(params) {
             
             calcMatchPercentage: function(input) {
                 var fnresult = 0,
-                    test1 = T5.Geo.A.normalize(input), 
-                    test2 = T5.Geo.A.normalize(street);
+                    test1 = T5.Addressing.normalize(input), 
+                    test2 = T5.Addressing.normalize(street);
                     
                 if (params.json.Building) {
-                    if (T5.Geo.A.buildingMatch(input, params.json.Building.number.toString())) {
+                    if (T5.Addressing.buildingMatch(input, params.json.Building.number.toString())) {
                         fnresult += 0.2;
                     } // if
                 } // if
@@ -305,7 +305,7 @@ function parseAddress(address, position) {
         pos: position
     };
     
-    return new T5.Geo.Address(addressParams);
+    return new T5.Addressing.Address(addressParams);
 } // parseAddress
 
 // define the basic request type

@@ -9,8 +9,7 @@ reg('view', 'view', function(params) {
         controls: [],
         drawOnScale: true,
         fastpan: true,
-        // TODO: automatically calculate padding to allow map rotation with no "whitespace"
-        padding: 0, 
+        padding: 128, // other values 'auto'
         inertia: true,
         refreshDistance: 256,
         pannable: true,
@@ -23,6 +22,7 @@ reg('view', 'view', function(params) {
     // initialise constants
     var PANSPEED_THRESHOLD_REFRESH = 2,
         PANSPEED_THRESHOLD_FASTPAN = 5,
+        PADDING_AUTO = 'auto',
     
         // get the container context
         caps = {},
@@ -53,7 +53,7 @@ reg('view', 'view', function(params) {
         offsetWrapX = false,
         offsetWrapY = false,
         offsetTween = null,
-        padding = params.padding,
+        padding,
         panFrames = [],
         hitData = null,
         lastHitData = null,
@@ -91,10 +91,10 @@ reg('view', 'view', function(params) {
         
         // if not, then calculate here
         if (! projectedXY) {
-            var viewport = _self.getViewport(),
+            var vp = viewport(),
                 invScaleFactor = 1 / scaleFactor,
-                scaledX = viewport ? (viewport.x + srcX * invScaleFactor) : srcX,
-                scaledY = viewport ? (viewport.y + srcY * invScaleFactor) : srcY;
+                scaledX = vp ? (vp.x + srcX * invScaleFactor) : srcX,
+                scaledY = vp ? (vp.y + srcY * invScaleFactor) : srcY;
 
             projectedXY = new _self.XY(scaledX, scaledY);
         } // if
@@ -176,7 +176,7 @@ reg('view', 'view', function(params) {
     /* private functions */
     
     function createRenderer(typeName) {
-        renderer = _self.renderer = attachRenderer(typeName || params.renderer, _self, viewpane, outer, params);
+        renderer = attachRenderer(typeName || params.renderer, _self, viewpane, outer, params);
         
         // determine whether partial scaling is supporter
         fastpan = params.fastpan && renderer.fastpan && DOM.transforms;
@@ -233,15 +233,15 @@ reg('view', 'view', function(params) {
     offset using wrapping if allowed.  The function is much more 'if / then / elsey' 
     than I would like, and might be optimized at some stage, but it does what it needs to
     */
-    function constrainOffset(viewport, allowWrap) {
-        if (! viewport) {
+    function constrainOffset(vp, allowWrap) {
+        if (! vp) {
             return;
         } // if
         
-        var testX = offsetWrapX ? offsetX + (viewport.w >> 1) : offsetX,
-            testY = offsetWrapY ? offsetY + (viewport.h >> 1) : offsetY,
-            viewWidth = viewport.w,
-            viewHeight = viewport.h;
+        var testX = offsetWrapX ? offsetX + (vp.w >> 1) : offsetX,
+            testY = offsetWrapY ? offsetY + (vp.h >> 1) : offsetY,
+            viewWidth = vp.w,
+            viewHeight = vp.h;
         
         // check the x
         if (offsetMaxX && offsetMaxX > viewWidth) {
@@ -345,20 +345,23 @@ reg('view', 'view', function(params) {
             height: outer.offsetHeight + 'px'
         })));
         
+        // initialise the padding
+        initPadding(params.padding);
+
         // initialise the view width and height
-        width = panContainer.offsetWidth + padding * 2;
-        height = panContainer.offsetHeight + padding * 2;
+        width = panContainer.offsetWidth + padding.x * 2;
+        height = panContainer.offsetHeight + padding.y * 2;
         halfWidth = width / 2;
         halfHeight = height / 2;
         halfOuterWidth = outer.offsetWidth / 2;
         halfOuterHeight = outer.offsetHeight / 2;
-
+        
         // create the view div and append to the pan container
         panContainer.appendChild(viewpane = DOM.create('div', '', DOM.styles({
             width: width + 'px',
             height: height + 'px',
             'z-index': 2,
-            margin: (-padding) + 'px 0 0 ' + (-padding) + 'px'
+            margin: (-padding.y) + 'px 0 0 ' + (-padding.x) + 'px'
         })));
     } // initContainer
     
@@ -413,7 +416,7 @@ reg('view', 'view', function(params) {
             rerender,
             viewpaneX,
             viewpaneY,
-            viewport;
+            vp;
             
         // calculate the current pan speed
         self.panSpeed = panSpeed = abs(dx) + abs(dy);
@@ -498,7 +501,7 @@ reg('view', 'view', function(params) {
                 } // if..else
 
                 // initialise the viewport
-                viewport = getViewport();
+                vp = viewport();
 
                 /*
                 // check that the offset is within bounds
@@ -510,10 +513,10 @@ reg('view', 'view', function(params) {
                 // TODO: if we have a hover offset, check that no elements have moved under the cursor (maybe)
 
                 // trigger the predraw event
-                renderer.trigger('predraw', viewport);
+                renderer.trigger('predraw', vp);
 
                 // prepare the renderer
-                if (renderer.prepare(layers, viewport, tickCount, hitData)) {
+                if (renderer.prepare(layers, vp, tickCount, hitData)) {
                     // reset the view changes count
                     viewChanges = 0;
                     viewpaneX = panX = 0;
@@ -532,7 +535,7 @@ reg('view', 'view', function(params) {
                             // draw the layer
                             drawLayer.draw(
                                 renderer,
-                                viewport,
+                                vp,
                                 _self,
                                 tickCount,
                                 hitData);
@@ -546,10 +549,10 @@ reg('view', 'view', function(params) {
 
                     // get the renderer to render the view
                     // NB: some renderers will do absolutely nothing here...
-                    renderer.trigger('render', viewport);
+                    renderer.trigger('render', vp);
 
                     // trigger the draw complete event
-                    _self.trigger('drawComplete', viewport, tickCount);
+                    _self.trigger('drawComplete', vp, tickCount);
 
                     // reset the view pan position
                     DOM.move(viewpane, viewpaneX, viewpaneY, extraTransforms);
@@ -602,9 +605,12 @@ reg('view', 'view', function(params) {
         // to initialise hit data rather than doing it in the draw loop 
         // (T5.MarkerLayer for instance)
         for (var ii = layerCount; ii--; ) {
-            hitFlagged = hitFlagged || (layers[ii].hitGuess ? 
-                layers[ii].hitGuess(hitData.x, hitData.y, _self) :
-                false);
+            // if the layer is visible then check for hits
+            if (layers[ii].visible) {
+                hitFlagged = hitFlagged || (layers[ii].hitGuess ? 
+                    layers[ii].hitGuess(hitData.x, hitData.y, _self) :
+                    false);
+            } // if
         } // for
 
         // if we have a potential hit then invalidate the view so a more detailed
@@ -613,6 +619,21 @@ reg('view', 'view', function(params) {
             viewChanges++;
         } // if
     } // initHitData
+    
+    function initPadding(input) {
+        // if the padding is set to auto, make the view a rotatable square
+        if (input === PADDING_AUTO) {
+            // calculate the size of the diagonal
+            var oWidth = outer.offsetWidth,
+                oHeight = outer.offsetHeight,
+                diagonal = sqrt(oWidth * oWidth + oHeight * oHeight);
+            
+            padding = new XY((diagonal - oWidth) >> 1, (diagonal - oHeight) >> 1);
+        } 
+        else {
+            padding = new XY(input, input);
+        } // if..else
+    } // initPadding
     
     /* exports */
     
@@ -650,7 +671,7 @@ reg('view', 'view', function(params) {
         
         // update if appropriate
         if (_is(p1, typeNumber)) {
-            offset(p1 - halfOuterWidth - padding, p2 - halfOuterHeight - padding, tween);
+            offset(p1 - halfOuterWidth - padding.x, p2 - halfOuterHeight - padding.y, tween);
             
             // return the view so we can chain methods
             return _self;
@@ -658,8 +679,8 @@ reg('view', 'view', function(params) {
         // otherwise, return the center 
         else {
             return offset().offset(
-                halfOuterWidth + padding | 0, 
-                halfOuterHeight + padding | 0
+                halfOuterWidth + padding.x | 0, 
+                halfOuterHeight + padding.y | 0
             ).sync(_self, true);
         } // if..else
     } // center
@@ -712,17 +733,22 @@ reg('view', 'view', function(params) {
     } // setMaxOffset
     
     /**
-    ### getViewport(): T5.XYRect
-    Return a T5.XYRect for the last drawn view rect
+    ### viewport()
+    Return a T5.XYRect (annotated with scale factor and padding) for the 
+    current offset rect of the view
     */
-    function getViewport() {
-        var viewport = new Rect(offsetX, offsetY, width, height);
+    function viewport() {
+        var vp = new Rect(offsetX, offsetY, width, height);
         
         // add the scale factor information
-        viewport.scaleFactor = scaleFactor;
+        vp.scaleFactor = scaleFactor;
+        
+        // add the padding to the viewport
+        vp.padding = padding ? padding.copy() : new XY();
             
-        return viewport;
-    } // getViewport
+        // return the viewport
+        return vp;
+    } // viewport
     
     /**
     ### layer()
@@ -776,13 +802,13 @@ reg('view', 'view', function(params) {
             layer.added = ticks();
             layer.id = id;
             layers[getLayerIndex(id)] = layer;
-            
+
             // resort the layers
             // sort the layers
             layers.sort(function(itemA, itemB) {
                 return itemB.zindex - itemA.zindex || itemB.added - itemA.added;
             });
-            
+
             // update the layer count
             layerCount = layers.length;                
 
@@ -818,11 +844,11 @@ reg('view', 'view', function(params) {
     events and will do some of their recalculations when this is called.
     */
     function refresh() {
-        var viewport = getViewport();
-        if (viewport) {
+        var vp = viewport();
+        if (vp) {
             // check that the offset is within bounds
             if (offsetMaxX || offsetMaxY) {
-                constrainOffset(viewport);
+                constrainOffset(vp);
             } // if
 
             // update the last refresh x and y
@@ -830,7 +856,7 @@ reg('view', 'view', function(params) {
             refreshY = offsetY;
             
             // trigger the refresh event
-            _self.trigger('refresh', _self, viewport);
+            _self.trigger('refresh', _self, vp);
 
             // invalidate
             viewChanges++;
@@ -958,7 +984,6 @@ reg('view', 'view', function(params) {
         XY: XY, 
         
         id: params.id,
-        padding: padding,
         panSpeed: 0,
         
         attachFrame: attachFrame,
@@ -975,8 +1000,8 @@ reg('view', 'view', function(params) {
         /* offset methods */
         
         setMaxOffset: setMaxOffset,
-        getViewport: getViewport,
-        offset: offset
+        offset: offset,
+        viewport: viewport
     };
 
     // make the view observable

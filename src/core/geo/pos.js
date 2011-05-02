@@ -107,7 +107,7 @@ Pos.prototype = {
     },
     
     /**
-    ### toBounds(size)
+    ### toBounds(distance)
     This function is very useful for creating a Geo.BoundingBox given a 
     center position and a radial distance (specified in KM) from the center 
     position.  Basically, imagine a circle is drawn around the center 
@@ -115,8 +115,8 @@ Pos.prototype = {
     a box is drawn to surround that circle.  Adapted from the [functions written 
     in Java by Jan Philip Matuschek](http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates)
     */
-    toBounds: function(size) {
-        var radDist = size / KM_PER_RAD,
+    toBounds: function(distance) {
+        var radDist = distance.radians(),
             radLat = this.lat * DEGREES_TO_RADIANS,
             radLon = this.lon * DEGREES_TO_RADIANS,
             minLat = radLat - radDist,
