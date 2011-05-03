@@ -3316,15 +3316,19 @@ reg('view', 'view', function(params) {
     ### checkHits
     */
     function checkHits() {
-        var elements = hitData ? hitData.elements : [],
+        var changed = true,
+            elements = hitData ? hitData.elements : [],
             ii;
 
         if (lastHitData && lastHitData.type === 'hover') {
-            var diffElements = Hits.diffHits(lastHitData.elements, elements);
+            diffElements = Hits.diffHits(lastHitData.elements, elements);
 
             if (diffElements.length > 0) {
                 Hits.triggerEvent(lastHitData, _self, 'Out', diffElements);
-            } // if
+            }
+            else {
+                changed = false;
+            }
         } // if
 
         if (elements.length > 0) {
@@ -3337,7 +3341,9 @@ reg('view', 'view', function(params) {
                 } // if
             } // for
 
-            Hits.triggerEvent(hitData, _self);
+            if (changed) {
+                Hits.triggerEvent(hitData, _self);
+            } // if
         } // if
 
         lastHitData = elements.length > 0 ? _extend({}, hitData) : null;

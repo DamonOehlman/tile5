@@ -36,7 +36,7 @@ T5.RouteTools = (function() {
             'uturn-right': '4:1',
             'merge': '4:2',
 
-            'roundabout-enter': '5:0',
+            'roundabout': '5:0',
 
             'ramp': '6:0',
             'ramp-exit': '6:1'
@@ -53,14 +53,14 @@ T5.RouteTools = (function() {
         rules.push({
             regex: /(take|bear|turn)(.*?)left/i,
             customCheck: function(text, matches) {
-                return 'turn-left' + getTurnAngle(matches[1]);
+                return 'left' + getTurnAngle(matches[1]);
             }
         });
 
         rules.push({
             regex: /(take|bear|turn)(.*?)right/i,
             customCheck: function(text, matches) {
-                return 'turn-right' + getTurnAngle(matches[1]);
+                return 'right' + getTurnAngle(matches[1]);
             }
         });
 
@@ -232,6 +232,25 @@ T5.RouteTools = (function() {
     } // createMapOverlay
 
     /**
+    ### getSpriteOffset(turnType)
+    This is a utility function that provides the sprite offset that can be used in a `background-position`
+    CSS rule if one of the standard turn icon sprite sheets are being used.
+    */
+    function getSpriteOffset(turnType, spriteSize) {
+        var spritePos = TurnTypeSprites[turnType],
+            spriteCoords = spritePos ? spritePos.split(':') : null;
+
+        if (spriteCoords) {
+            return {
+                x: -spriteCoords[0] * (spriteSize || 16),
+                y: -spriteCoords[1] * (spriteSize || 16)
+            };
+        } // if
+
+        return null;
+    } // getSpriteOffset
+
+    /**
     ### parseTurnType(text)
     To be completed
     */
@@ -261,6 +280,7 @@ T5.RouteTools = (function() {
     var module = {
         calculate: calculate,
         createMapOverlay: createMapOverlay,
+        getSpriteOffset: getSpriteOffset,
         parseTurnType: parseTurnType,
 
         Instruction: Instruction,

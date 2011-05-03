@@ -376,20 +376,26 @@ reg('view', 'view', function(params) {
     ### checkHits
     */
     function checkHits() {
-        var elements = hitData ? hitData.elements : [],
+        var changed = true,
+            elements = hitData ? hitData.elements : [],
             ii;
         
         // if we have last hits, then check for elements
         if (lastHitData && lastHitData.type === 'hover') {
-            var diffElements = Hits.diffHits(lastHitData.elements, elements);
+            diffElements = Hits.diffHits(lastHitData.elements, elements);
             
             // if we have diff elements then trigger an out event
             if (diffElements.length > 0) {
                 Hits.triggerEvent(lastHitData, _self, 'Out', diffElements);
-            } // if
+            }
+            // otherwise, reset the changed state as we have nothing to do
+            // (that we haven't already done before)
+            else {
+                changed = false;
+            }
         } // if
-        
-        // check the hit data
+
+        // if we have elements
         if (elements.length > 0) {
             var downX = hitData.x,
                 downY = hitData.y;
@@ -400,8 +406,11 @@ reg('view', 'view', function(params) {
                     break;
                 } // if
             } // for
-            
-            Hits.triggerEvent(hitData, _self);
+
+            // if the event state has changed trigger the event
+            if (changed) {
+                Hits.triggerEvent(hitData, _self);
+            } // if
         } // if
         
         // save the last hit elements
