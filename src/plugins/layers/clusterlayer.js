@@ -4,7 +4,9 @@
 T5.Registry.register('layer', 'cluster', function(view, params) {
     params = T5.ex({
         dist: 32,
-        source: null
+        source: null,
+        maxMarkerSize: Infinity,
+        clusterImageUrl: null
     }, params);
 
     /* internals */
@@ -101,28 +103,38 @@ T5.Registry.register('layer', 'cluster', function(view, params) {
     } // handleMarkersCleared
     
     function rebuild() {
-        T5.log('marker(s) added, need to check for cluster changes');
         var hash = findBroadClusters(),
             markers = sourceLayer.find({
                 typeName: 'Marker'
-            });
-
+            }),
+            maxSize = params.maxMarkerSize,
+            clusterImageUrl = params.clusterImageUrl;
+            
         // iterate through the markers and look for markers without a cluster
         for (var ii = markers.length; ii--; ) {
             if (! markers[ii].cluster) {
                 var markerXY = markers[ii].xy,
-                    cluster = findNearestCluster(markerXY.x, markerXY.y);
+                    cluster = findNearestCluster(markerXY.x, markerXY.y),
+                    childCount;
 
                 // if we didn't find a cluster, then create a new one
                 if (! cluster) {
-                    cluster = _self.create('marker', T5.ex({}, markers[ii], {
-                        children: []
-                    }));
+                    cluster = _self.create(
+                        'marker', 
+                        T5.ex({}, markers[ii], {
+                            children: []
+                        })
+                    );
                 } // if
 
                 // add the marker to the cluster node
-                cluster.children.push(markers[ii]);
-                cluster.size += 1;
+                childCount = cluster.children.push(markers[ii]);
+                cluster.size = Math.min(maxSize, cluster.size + 1);
+                
+                // if the child count is greater than one, and we have a cluster image url
+                if (childCount > 1 && clusterImageUrl) {
+                    cluster.imageUrl = clusterImageUrl;
+                } // if
 
                 // set the markers cluster
                 markers[ii].cluster = cluster;
