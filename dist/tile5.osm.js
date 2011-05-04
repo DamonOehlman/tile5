@@ -2368,6 +2368,8 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         context,
         drawOffsetX = 0,
         drawOffsetY = 0,
+        paddingX = 0,
+        paddingY = 0,
         styleFns = {},
         transform = null,
         pipTransformed = CANI.canvas.pipTransformed,
@@ -2455,7 +2457,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
             var hitX = pipTransformed ? hitData.x - drawOffsetX : hitData.relXY.x,
                 hitY = pipTransformed ? hitData.y - drawOffsetY : hitData.relXY.y;
 
-            isHit = context.isPointInPath(hitX, hitY);
+            isHit = context.isPointInPath(hitX + paddingX, hitY + paddingY);
         } // if
 
         return {
@@ -2551,8 +2553,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
 
     function prepare(layers, viewport, tickCount, hitData) {
         var ii,
-            canClip = false,
-            targetVP = viewport.scaled || viewport;
+            canClip = false;
 
         if (context) {
             context.restore();
@@ -2565,8 +2566,10 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
             canClip = canClip || layers[ii].clip;
         } // for
 
-        drawOffsetX = targetVP.x;
-        drawOffsetY = targetVP.y;
+        drawOffsetX = viewport.x;
+        drawOffsetY = viewport.y;
+        paddingX = viewport.padding.x;
+        paddingY = viewport.padding.y;
 
         if (context) {
             if (! canClip) {
