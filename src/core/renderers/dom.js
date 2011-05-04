@@ -143,7 +143,7 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
     // handle the predraw
     _this.bind('predraw', handlePredraw);
     _this.bind('detach', handleDetach);
-    view.bind('zoom', handleReset);
+    view.bind('reset', handleReset);
     
     return _this;
 });

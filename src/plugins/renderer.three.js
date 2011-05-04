@@ -648,7 +648,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
     // handle cleanup
     _this.bind('detach', handleDetach);
     _this.bind('render', handleRender);
-    view.bind('zoom', handleReset);
+    view.bind('reset', handleReset);
     
     loadStyles();
     T5.log('created three:webgl renderer');

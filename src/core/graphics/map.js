@@ -105,6 +105,7 @@ reg('view', 'map', function(params) {
 
                 // trigger the change
                 _self.trigger('zoom', value);
+                _self.trigger('reset');
                 
                 var gridSize;
 

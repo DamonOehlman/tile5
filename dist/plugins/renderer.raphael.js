@@ -260,7 +260,7 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
 
     _this.bind('predraw', handlePredraw);
     _this.bind('detach', handleDetach);
-    view.bind('zoom', handleReset);
+    view.bind('reset', handleReset);
 
     loadStyles();
 

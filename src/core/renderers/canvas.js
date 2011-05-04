@@ -83,6 +83,10 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         panFrame.removeChild(canvas);
     } // handleDetach
     
+    function handleResize() {
+        
+    } // handleResize
+    
     function handleStyleDefined(evt, styleId, styleData) {
         var ii, data;
         
@@ -416,6 +420,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
     
     // handle detaching
     _this.bind('detach', handleDetach);
+    _this.bind('resize', handleResize);
     
     return _this;
 });

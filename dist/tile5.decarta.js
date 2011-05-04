@@ -2293,9 +2293,6 @@ var Renderer = function(view, container, outer, params) {
             };
         },
 
-        checkSize: function() {
-        },
-
         /**
         ### getDimensions()
         */
@@ -2433,6 +2430,10 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
     function handleDetach() {
         panFrame.removeChild(canvas);
     } // handleDetach
+
+    function handleResize() {
+
+    } // handleResize
 
     function handleStyleDefined(evt, styleId, styleData) {
         var ii, data;
@@ -2740,6 +2741,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
     loadStyles();
 
     _this.bind('detach', handleDetach);
+    _this.bind('resize', handleResize);
 
     return _this;
 });
@@ -2865,7 +2867,7 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
 
     _this.bind('predraw', handlePredraw);
     _this.bind('detach', handleDetach);
-    view.bind('zoom', handleReset);
+    view.bind('reset', handleReset);
 
     return _this;
 });
@@ -2980,7 +2982,6 @@ reg('view', 'view', function(params) {
         captureHover: true,
         controls: [],
         drawOnScale: true,
-        fastpan: true,
         padding: 128, // other values 'auto'
         inertia: true,
         refreshDistance: 256,
@@ -3026,6 +3027,7 @@ reg('view', 'view', function(params) {
         panFrames = [],
         hitData = null,
         lastHitData = null,
+        renderer,
         resizeCanvasTimeout = 0,
         rotation = 0,
         rotateTween = null,
@@ -3122,7 +3124,18 @@ reg('view', 'view', function(params) {
     function handleResize(evt) {
         clearTimeout(resizeCanvasTimeout);
         resizeCanvasTimeout = setTimeout(function() {
-            renderer.checkSize();
+            if (outer) {
+                var changed = outer.offsetWidth !== halfOuterWidth * 2 ||
+                    outer.offsetHeight !== halfOuterHeight * 2;
+
+                if (changed) {
+                    var oldCenter = center();
+
+                    updateContainer(params.container);
+
+                    center(oldCenter.x, oldCenter.y);
+                } // if
+            } // if
         }, 250);
     } // handleResize
 
@@ -3135,9 +3148,9 @@ reg('view', 'view', function(params) {
     /* private functions */
 
     function createRenderer(typeName) {
-        renderer = attachRenderer(typeName || params.renderer, _self, viewpane, outer, params);
+        renderer = attachRenderer(typeName, _self, viewpane, outer, params);
 
-        fastpan = params.fastpan && renderer.fastpan && DOM.transforms;
+        fastpan = renderer.fastpan && DOM.transforms;
 
         captureInteractionEvents();
     } // createRenderer
@@ -3175,7 +3188,9 @@ reg('view', 'view', function(params) {
 
         createRenderer(value);
 
-        invalidate();
+        _self.trigger('reset');
+
+        refresh();
     } // changeRenderer
 
     /*
@@ -3223,9 +3238,15 @@ reg('view', 'view', function(params) {
     } // constrainOffset
 
     function createControls(controlTypes) {
+        var ii;
+
+        for (ii = 0; ii < controls.length; ii++) {
+            controls[ii].trigger('detach');
+        } // for
+
         controls = [];
 
-        for (var ii = 0; ii < controlTypes.length; ii++) {
+        for (ii = 0; ii < controlTypes.length; ii++) {
             controls[controls.length] = regCreate(
                 'control',
                 controlTypes[ii],
@@ -3307,7 +3328,10 @@ reg('view', 'view', function(params) {
 
     function updateContainer(value) {
         initContainer(outer = document.getElementById(value));
-        createRenderer();
+
+        changeRenderer(params.renderer);
+
+        createControls(params.controls);
     } // updateContainer
 
     /* draw code */
@@ -3856,10 +3880,7 @@ reg('view', 'view', function(params) {
 
     _observable(_self);
 
-    _self.bind('resize', function() {
-        renderer.checkSize();
-    });
-
+    _self.bind('resize', handleResize);
     _self.bind(EVT_REMOVELAYER, handleRemoveLayer);
 
     _configurable(_self, params, {
@@ -3885,8 +3906,6 @@ reg('view', 'view', function(params) {
     });
 
     Animator.attach(cycle);
-
-    createControls(params.controls);
 
     return _self;
 });
@@ -3984,6 +4003,7 @@ reg('view', 'map', function(params) {
                 refreshY = 0;
 
                 _self.trigger('zoom', value);
+                _self.trigger('reset');
 
                 var gridSize;
 

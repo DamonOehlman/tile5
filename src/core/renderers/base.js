@@ -39,9 +39,6 @@ var Renderer = function(view, container, outer, params) {
             };
         },
         
-        checkSize: function() {
-        },
-
         /**
         ### getDimensions()
         */

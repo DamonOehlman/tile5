@@ -8,7 +8,6 @@ reg('view', 'view', function(params) {
         captureHover: true,
         controls: [],
         drawOnScale: true,
-        fastpan: true,
         padding: 128, // other values 'auto'
         inertia: true,
         refreshDistance: 256,
@@ -57,6 +56,7 @@ reg('view', 'view', function(params) {
         panFrames = [],
         hitData = null,
         lastHitData = null,
+        renderer,
         resizeCanvasTimeout = 0,
         rotation = 0,
         rotateTween = null,
@@ -161,7 +161,21 @@ reg('view', 'view', function(params) {
     function handleResize(evt) {
         clearTimeout(resizeCanvasTimeout);
         resizeCanvasTimeout = setTimeout(function() {
-            renderer.checkSize();
+            if (outer) {
+                var changed = outer.offsetWidth !== halfOuterWidth * 2 || 
+                    outer.offsetHeight !== halfOuterHeight * 2;
+                    
+                if (changed) {
+                    // get the current center position
+                    var oldCenter = center();
+
+                    // update the container
+                    updateContainer(params.container);
+                    
+                    // restore the center position
+                    center(oldCenter.x, oldCenter.y);
+                } // if
+            } // if
         }, 250);
     } // handleResize
     
@@ -176,10 +190,10 @@ reg('view', 'view', function(params) {
     /* private functions */
     
     function createRenderer(typeName) {
-        renderer = attachRenderer(typeName || params.renderer, _self, viewpane, outer, params);
+        renderer = attachRenderer(typeName, _self, viewpane, outer, params);
         
         // determine whether partial scaling is supporter
-        fastpan = params.fastpan && renderer.fastpan && DOM.transforms;
+        fastpan = renderer.fastpan && DOM.transforms;
         
         // attach interaction handlers
         captureInteractionEvents();
@@ -223,9 +237,12 @@ reg('view', 'view', function(params) {
         
         // now create the new renderer
         createRenderer(value);
-        
-        // invalidate the view
-        invalidate();
+
+        // reset the view (renderers will pick this up)
+        _self.trigger('reset');
+
+        // refresh the display
+        refresh();
     } // changeRenderer
     
     /*
@@ -275,12 +292,18 @@ reg('view', 'view', function(params) {
     } // constrainOffset
     
     function createControls(controlTypes) {
+        var ii;
+        
+        // if we have existing controls, then tell them to detach
+        for (ii = 0; ii < controls.length; ii++) {
+            controls[ii].trigger('detach');
+        } // for
+        
         // clear the controls array
-        // TODO: detach controls
         controls = [];
         
         // iterate through the specified control types and create the controls
-        for (var ii = 0; ii < controlTypes.length; ii++) {
+        for (ii = 0; ii < controlTypes.length; ii++) {
             controls[controls.length] = regCreate(
                 'control', 
                 controlTypes[ii],
@@ -367,7 +390,12 @@ reg('view', 'view', function(params) {
     
     function updateContainer(value) {
         initContainer(outer = document.getElementById(value));
-        createRenderer();
+        
+        // change the renderer
+        changeRenderer(params.renderer);
+        
+        // create the controls
+        createControls(params.controls);
     } // updateContainer
     
     /* draw code */
@@ -1017,10 +1045,7 @@ reg('view', 'view', function(params) {
     _observable(_self);
     
     // handle the view being resynced
-    _self.bind('resize', function() {
-        renderer.checkSize();
-    });
-    
+    _self.bind('resize', handleResize);
     _self.bind(EVT_REMOVELAYER, handleRemoveLayer);
     
     // route auto configuration methods
@@ -1052,9 +1077,6 @@ reg('view', 'view', function(params) {
     // start the animation frame
     // setInterval(cycle, 1000 / 60);
     Animator.attach(cycle);
-    
-    // create the controls
-    createControls(params.controls);
     
     return _self;
 });
