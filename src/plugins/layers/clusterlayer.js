@@ -6,7 +6,8 @@ T5.Registry.register('layer', 'cluster', function(view, params) {
         dist: 32,
         source: null,
         maxMarkerSize: Infinity,
-        clusterImageUrl: null
+        hybridImageUrl: null,
+        typeProp: null
     }, params);
 
     /* internals */
@@ -108,10 +109,18 @@ T5.Registry.register('layer', 'cluster', function(view, params) {
                 typeName: 'Marker'
             }),
             maxSize = params.maxMarkerSize,
-            clusterImageUrl = params.clusterImageUrl;
+            hybridImageUrl = params.hybridImageUrl,
+            typeProp = params.typeProp,
+            currentClusters,
+            children,
+            ii, 
+            childIdx,
+            childType,
+            lastType,
+            isHybrid;
             
         // iterate through the markers and look for markers without a cluster
-        for (var ii = markers.length; ii--; ) {
+        for (ii = markers.length; ii--; ) {
             if (! markers[ii].cluster) {
                 var markerXY = markers[ii].xy,
                     cluster = findNearestCluster(markerXY.x, markerXY.y),
@@ -131,15 +140,39 @@ T5.Registry.register('layer', 'cluster', function(view, params) {
                 childCount = cluster.children.push(markers[ii]);
                 cluster.size = Math.min(maxSize, cluster.size + 1);
                 
-                // if the child count is greater than one, and we have a cluster image url
-                if (childCount > 1 && clusterImageUrl) {
-                    cluster.imageUrl = clusterImageUrl;
-                } // if
-
                 // set the markers cluster
                 markers[ii].cluster = cluster;
             } // if
-        } // for        
+        } // for
+        
+        // if we have a cluster image url, then check for hybrid clusters
+        if (hybridImageUrl && typeProp) {
+            // check the clusters and if appropriate, assign a hybrid image type
+            currentClusters = _self.find();
+            for (ii = currentClusters.length; ii--; ) {
+                children = currentClusters[ii].children;
+                lastType = '';
+                isHybrid = false;
+                
+                for (childIdx = children.length; (! isHybrid) && childIdx--; ) {
+                    childType = children[childIdx][typeProp];
+                    
+                    // check for hybrid types
+                    isHybrid = lastType && lastType !== childType;
+                    
+                    // update the last type
+                    lastType = childType;
+                } // for
+                
+                // flag the cluster as to whether it contains hybrid types
+                currentClusters[ii].hybrid = isHybrid;
+                
+                // if the cluster is a hybrid cluster then change the image url to the hybrid image
+                if (isHybrid) {
+                    currentClusters[ii].imageUrl = hybridImageUrl;
+                } // if
+            } // for
+        } // if
     } // rebuild
     
     function shouldCluster(hash) {
