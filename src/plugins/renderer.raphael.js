@@ -5,6 +5,9 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
     /* internals */
     
     var RADIANS_TO_DEGREES = 180 / Math.PI,
+        STYLE_CONVERSION_PROPS = {
+            lineWidth: 'stroke-width'
+        },
         drawOffsetX,
         drawOffsetY,
         activeObjects = {},
@@ -25,6 +28,20 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
         view.attachFrame(paper.canvas);
     } // createCanvas
     
+    function convertStyleData(input) {
+        output = T5.ex({}, input);
+        
+        // iterate through the style conversion properties
+        for (var key in STYLE_CONVERSION_PROPS) {
+            if (output[key]) {
+                output[STYLE_CONVERSION_PROPS[key]] = output[key];
+                delete output[key];
+            } // if
+        } // for
+        
+        return output;
+    } // convertStyleData
+    
     function handleDetach() {
         // remove the canvas from the dom
         panFrame.removeChild(paper.canvas);
@@ -37,7 +54,7 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
     } // handlePredraw
     
     function handleStyleDefined(evt, styleId, styleData) {
-        styles[styleId] = styleData;
+        styles[styleId] = convertStyleData(styleData);
     } // handleStyleDefined
     
     function handleReset(evt) {
@@ -58,9 +75,9 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
     } // initDrawData
     
     function loadStyles() {
-        for (var styleId in T5.styles) {
-            handleStyleDefined(null, styleId, T5.styles[styleId]);
-        } // for
+        T5.Style.each(function(id, data) {
+            handleStyleDefined(null, id, data);
+        });
         
         // capture style defined events so we know about new styles
         T5.bind('styleDefined', handleStyleDefined);
