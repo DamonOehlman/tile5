@@ -58,6 +58,7 @@ reg('view', 'view', function(params) {
         lastHitData = null,
         renderer,
         resizeCanvasTimeout = 0,
+        txCenter = new XY(),
         rotation = 0,
         rotateTween = null,
         scaleFactor = 1,
@@ -379,6 +380,9 @@ reg('view', 'view', function(params) {
         halfOuterWidth = outer.offsetWidth / 2;
         halfOuterHeight = outer.offsetHeight / 2;
         
+        // initialise the translation center
+        txCenter = new XY(halfWidth, halfHeight);
+        
         // create the view div and append to the pan container
         panContainer.appendChild(viewpane = DOM.create('div', '', DOM.styles({
             width: width + 'px',
@@ -425,8 +429,8 @@ reg('view', 'view', function(params) {
 
         // if we have elements
         if (elements.length > 0) {
-            var downX = hitData.x,
-                downY = hitData.y;
+            var downX = hitData.gridX,
+                downY = hitData.gridY;
             
             // iterate through objects from last to first (first get drawn last so sit underneath)
             for (ii = elements.length; ii--; ) {
@@ -592,12 +596,12 @@ reg('view', 'view', function(params) {
                     _self.trigger('drawComplete', vp, tickCount);
 
                     // reset the view pan position
-                    DOM.move(viewpane, viewpaneX, viewpaneY, extraTransforms);
+                    DOM.move(viewpane, viewpaneX, viewpaneY, extraTransforms, txCenter);
                 } // if
             }
             else {
                 // move the view pane
-                DOM.move(viewpane, panX, panY, extraTransforms);
+                DOM.move(viewpane, panX, panY, extraTransforms, txCenter);
             } // if..else
             
             // apply the inertial dampeners 
@@ -634,8 +638,21 @@ reg('view', 'view', function(params) {
     } // cycle
     
     function initHitData(hitType, absXY, relXY) {
+        var txXY = new XY(
+                relXY.x - halfOuterWidth + halfWidth,
+                relXY.y - halfOuterHeight + halfHeight
+            )
+            .rotate(-rotation * DEGREES_TO_RADIANS, txCenter)
+            .scale(1/scaleFactor, txCenter);
+        
         // initialise the hit data
-        hitData = Hits.init(hitType, absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
+        hitData = Hits.init(
+            hitType, 
+            absXY, 
+            relXY, 
+            getProjectedXY(relXY.x, relXY.y, true),
+            txXY
+        );
         
         // iterate through the layers and check to see if we have hit potential
         // iterate through all layers as some layers may use the hit guess operation
@@ -645,7 +662,7 @@ reg('view', 'view', function(params) {
             // if the layer is visible then check for hits
             if (layers[ii].visible) {
                 hitFlagged = hitFlagged || (layers[ii].hitGuess ? 
-                    layers[ii].hitGuess(hitData.x, hitData.y, _self) :
+                    layers[ii].hitGuess(hitData.gridX, hitData.gridY, _self) :
                     false);
             } // if
         } // for
@@ -1057,22 +1074,19 @@ reg('view', 'view', function(params) {
         renderer: changeRenderer
     });
     
-    CANI.init(function(testResults) {
-        // add the markers layer
-        layer('markers', 'draw', { zindex: 20 });
-        
-        // create the renderer
-        caps = testResults;
-        updateContainer(params.container);
+    // add the markers layer
+    layer('markers', 'draw', { zindex: 20 });
+    
+    // create the renderer
+    updateContainer(params.container);
 
-        // if autosized, then listen for resize events
-        if (isIE) {
-            window.attachEvent('onresize', handleResize);
-        }
-        else {
-            window.addEventListener('resize', handleResize, false);
-        }
-    });
+    // if autosized, then listen for resize events
+    if (isIE) {
+        window.attachEvent('onresize', handleResize);
+    }
+    else {
+        window.addEventListener('resize', handleResize, false);
+    }
     
     // start the animation frame
     // setInterval(cycle, 1000 / 60);

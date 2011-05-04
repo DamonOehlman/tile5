@@ -60,4 +60,20 @@ describe('types.xy', function() {
         expect(testOffset.y).toEqual(20);
         expect(testOffset).not.toBe(test);
     });
+    
+    it('should be able to rotate around a specified position', function() {
+        var a = new T5.XY(10, 5),
+            b = new T5.XY(5, 5),
+            c;
+            
+        // rotate by 90 degrees
+        c = a.rotate(Math.PI / 2, b);
+        expect(c.x | 0).toEqual(5);
+        expect(c.y | 0).toEqual(10);
+        
+        // rotate by 180 degrees
+        c = a.rotate(Math.PI, b);
+        expect(c.x | 0).toEqual(0);
+        expect(c.y | 0).toEqual(5);
+    });
 });

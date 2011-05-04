@@ -1,6 +1,5 @@
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true */
 
-//= require <cani/src/cani>
 //= require <cog/cogs/extend>
 //= require <cog/cogs/log>
 //= require <cog/cogs/stringtools>

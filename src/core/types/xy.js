@@ -14,6 +14,11 @@ function XY(p1, p2) {
         this.x = parseFloat(xyVals[0]);
         this.y = parseFloat(xyVals[1]);
     }
+    // or, if we have been passed an xy composite
+    else if (p1 && p1.x) {
+        this.x = p1.x;
+        this.y = p1.y;
+    }
     else {
         this.x = p1 || 0;
         this.y = p2 || 0;
@@ -83,6 +88,43 @@ XY.prototype = {
         return this.copy(
             this.x - viewport.x - viewport.padding.x, 
             this.y - viewport.y - viewport.padding.y
+        );
+    },
+    
+    /**
+    ### rotate(angle, around)
+    This function is used to determine the xy position if the current xy element
+    was rotated by `theta` around xy position `origin`.
+    
+    The code was written after dissecting [James Coglan's](http://jcoglan.com/) excellent
+    library [Sylvester](http://sylvester.jcoglan.com/).
+    */
+    rotate: function(theta, origin) {
+        // initialise around to a default of 0, 0 if not defined
+        origin = origin || new XY(0, 0);
+        
+        // initialise the x and y positions
+        var x = this.x - origin.x,
+            y = this.y - origin.y;
+            
+        return new XY(
+            origin.x + cos(theta) * x + -sin(theta) * y,
+            origin.y + sin(theta) * x +  cos(theta) * y
+        );
+    },
+    
+    /**
+    ### scale(scaleFactor)
+    */
+    scale: function(scaleFactor, origin) {
+        origin = origin || new XY(0, 0);
+        
+        var x = this.x - origin.x,
+            y = this.y - origin.y;
+        
+        return new XY(
+            origin.x + x * scaleFactor, 
+            origin.y + y * scaleFactor
         );
     },
     

@@ -12,95 +12,6 @@
 (function(exports) {
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true */
 
-var CANI = {};
-(function(exports) {
-    var tests = [],
-        testIdx = 0,
-        publishedResults = false;
-
-    /* exports */
-
-    var register = exports.register = function(section, runFn) {
-        tests.push({
-            section: section,
-            run: runFn
-        });
-    };
-
-    var init = exports.init = function(callback) {
-
-        var tmpResults = {};
-
-        function runCurrentTest() {
-            if (testIdx < tests.length) {
-                var test = tests[testIdx++];
-
-                if (! tmpResults[test.section]) {
-                    tmpResults[test.section] = {};
-                } // if
-
-                test.run(tmpResults[test.section], runCurrentTest);
-            }
-            else {
-                for (var section in tmpResults) {
-                    exports[section] = tmpResults[section];
-                } // for
-
-                publishedResults = true;
-
-                if (callback) {
-                    callback(exports);
-                } // if
-            } // if..else
-        } // runCurrentTest
-
-        if (publishedResults && callback) {
-            callback(exports);
-        }
-        else {
-            testIdx = 0;
-            runCurrentTest();
-        } // if..else
-    }; // run
-
-register('canvas', function(results, callback) {
-
-    var testCanvas = document.createElement('canvas'),
-        isFlashCanvas = typeof FlashCanvas != 'undefined',
-        isExplorerCanvas = typeof G_vmlCanvasManager != 'undefnined';
-
-    /* define test functions */
-
-    function checkPointInPath() {
-        var transformed,
-            testContext = testCanvas.getContext('2d');
-
-        testContext.save();
-        try {
-            testContext.translate(50, 50);
-
-            testContext.beginPath();
-            testContext.rect(0, 0, 20, 20);
-
-            transformed = testContext.isPointInPath(10, 10);
-        }
-        finally {
-            testContext.restore();
-        } // try..finally
-
-        return transformed;
-    } // checkPointInPath
-
-    /* initialise and run the tests */
-
-    testCanvas.width = 200;
-    testCanvas.height = 200;
-
-    results.pipTransformed = isFlashCanvas || isExplorerCanvas ? false : checkPointInPath();
-
-    callback();
-});
-})(CANI);
 function _extend() {
     var target = arguments[0] || {},
         sources = Array.prototype.slice.call(arguments, 1),
@@ -1525,8 +1436,10 @@ var DOM = (function() {
         },
         css3dTransformProps = ['WebkitPerspective', 'MozPerspective'],
         testTransformProps = ['-webkit-transform', 'MozTransform'],
+        testTransformOriginProps = ['-webkit-transform-origin', 'MozTransformOrigin'],
         transformProp,
-        css3dTransformProp;
+        css3dTransformProp,
+        transformOriginProp;
 
     function checkCaps(testProps) {
         for (var ii = 0; ii < testProps.length; ii++) {
@@ -1557,13 +1470,17 @@ var DOM = (function() {
         return elem;
     } // create
 
-    function move(element, x, y, extraTransforms) {
+    function move(element, x, y, extraTransforms, origin) {
         if (css3dTransformProp || transformProp) {
             var translate = css3dTransformProp ?
                     'translate3d(' + x +'px, ' + y + 'px, 0)' :
                     'translate(' + x + 'px, ' + y + 'px)';
 
             element.style[transformProp] = translate + ' ' + (extraTransforms || []).join(' ');
+
+            if (origin && transformOriginProp) {
+                element.style[transformOriginProp] = origin.x + 'px ' + origin.y + 'px';
+            } // if
         }
         else {
             element.style.left = x + 'px';
@@ -1579,6 +1496,7 @@ var DOM = (function() {
 
     transformProp = checkCaps(testTransformProps);
     css3DTransformProp = checkCaps(css3dTransformProps);
+    transformOriginProp = checkCaps(testTransformOriginProps);
 
     return {
         transforms: _is(transformProp, typeString),
@@ -1708,6 +1626,10 @@ function XY(p1, p2) {
         this.x = parseFloat(xyVals[0]);
         this.y = parseFloat(xyVals[1]);
     }
+    else if (p1 && p1.x) {
+        this.x = p1.x;
+        this.y = p1.y;
+    }
     else {
         this.x = p1 || 0;
         this.y = p2 || 0;
@@ -1775,6 +1697,41 @@ XY.prototype = {
         return this.copy(
             this.x - viewport.x - viewport.padding.x,
             this.y - viewport.y - viewport.padding.y
+        );
+    },
+
+    /**
+    ### rotate(angle, around)
+    This function is used to determine the xy position if the current xy element
+    was rotated by `theta` around xy position `origin`.
+
+    The code was written after dissecting [James Coglan's](http://jcoglan.com/) excellent
+    library [Sylvester](http://sylvester.jcoglan.com/).
+    */
+    rotate: function(theta, origin) {
+        origin = origin || new XY(0, 0);
+
+        var x = this.x - origin.x,
+            y = this.y - origin.y;
+
+        return new XY(
+            origin.x + cos(theta) * x + -sin(theta) * y,
+            origin.y + sin(theta) * x +  cos(theta) * y
+        );
+    },
+
+    /**
+    ### scale(scaleFactor)
+    */
+    scale: function(scaleFactor, origin) {
+        origin = origin || new XY(0, 0);
+
+        var x = this.x - origin.x,
+            y = this.y - origin.y;
+
+        return new XY(
+            origin.x + x * scaleFactor,
+            origin.y + y * scaleFactor
         );
     },
 
@@ -1945,11 +1902,13 @@ Hits = (function() {
     /**
     ### init
     */
-    function init(hitType, absXY, relXY, scaledXY) {
+    function init(hitType, absXY, relXY, scaledXY, transformedXY) {
         return {
             type: hitType,
-            x: scaledXY.x | 0,
-            y: scaledXY.y | 0,
+            x: transformedXY.x,
+            y: transformedXY.y,
+            gridX: scaledXY.x | 0,
+            gridY: scaledXY.y | 0,
             elements: [],
 
             absXY: absXY,
@@ -1979,7 +1938,7 @@ Hits = (function() {
             elements ? elements : hitData.elements,
             hitData.absXY,
             hitData.relXY,
-            new GeoXY(hitData.x, hitData.y)
+            new GeoXY(hitData.gridX, hitData.gridY)
         );
     } // triggerEvent
 
@@ -2372,9 +2331,9 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         drawOffsetY = 0,
         paddingX = 0,
         paddingY = 0,
+        scaleFactor = 1,
         styleFns = {},
         transform = null,
-        pipTransformed = CANI.canvas.pipTransformed,
         previousStyles = {},
 
         drawNothing = function(drawData) {
@@ -2453,24 +2412,24 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
     } // handleStyleDefined
 
     function initDrawData(viewport, hitData, drawFn) {
-        var isHit = false;
-
-        if (hitData) {
-            var hitX = pipTransformed ? hitData.x - drawOffsetX : hitData.relXY.x,
-                hitY = pipTransformed ? hitData.y - drawOffsetY : hitData.relXY.y;
-
-            isHit = context.isPointInPath(hitX + paddingX, hitY + paddingY);
-        } // if
-
         return {
             draw: drawFn || defaultDrawFn,
             viewport: viewport,
-            hit: isHit,
+            hit: hitData && context.isPointInPath(hitData.x, hitData.y),
             vpX: drawOffsetX,
             vpY: drawOffsetY,
 
             context: context
         };
+
+        /*
+        DEBUGGING CODE: draw the hit point on the canvas - very useful :)
+        if (hitData) {
+            context.beginPath();
+            context.arc(hitData.x, hitData.y, 5, 0, Math.PI * 2, false);
+            context.fill();
+        } // if
+        */
     } // initDrawData
 
     function loadStyles() {
@@ -2572,6 +2531,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         drawOffsetY = viewport.y;
         paddingX = viewport.padding.x;
         paddingY = viewport.padding.y;
+        scaleFactor = viewport.scaleFactor;
 
         if (context) {
             if (! canClip) {
@@ -3034,6 +2994,7 @@ reg('view', 'view', function(params) {
         lastHitData = null,
         renderer,
         resizeCanvasTimeout = 0,
+        txCenter = new XY(),
         rotation = 0,
         rotateTween = null,
         scaleFactor = 1,
@@ -3323,6 +3284,8 @@ reg('view', 'view', function(params) {
         halfOuterWidth = outer.offsetWidth / 2;
         halfOuterHeight = outer.offsetHeight / 2;
 
+        txCenter = new XY(halfWidth, halfHeight);
+
         panContainer.appendChild(viewpane = DOM.create('div', '', DOM.styles({
             width: width + 'px',
             height: height + 'px',
@@ -3361,8 +3324,8 @@ reg('view', 'view', function(params) {
         } // if
 
         if (elements.length > 0) {
-            var downX = hitData.x,
-                downY = hitData.y;
+            var downX = hitData.gridX,
+                downY = hitData.gridY;
 
             for (ii = elements.length; ii--; ) {
                 if (dragStart(elements[ii], downX, downY)) {
@@ -3494,11 +3457,11 @@ reg('view', 'view', function(params) {
 
                     _self.trigger('drawComplete', vp, tickCount);
 
-                    DOM.move(viewpane, viewpaneX, viewpaneY, extraTransforms);
+                    DOM.move(viewpane, viewpaneX, viewpaneY, extraTransforms, txCenter);
                 } // if
             }
             else {
-                DOM.move(viewpane, panX, panY, extraTransforms);
+                DOM.move(viewpane, panX, panY, extraTransforms, txCenter);
             } // if..else
 
             if (pointerDown || (! params.inertia)) {
@@ -3531,12 +3494,25 @@ reg('view', 'view', function(params) {
     } // cycle
 
     function initHitData(hitType, absXY, relXY) {
-        hitData = Hits.init(hitType, absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
+        var txXY = new XY(
+                relXY.x - halfOuterWidth + halfWidth,
+                relXY.y - halfOuterHeight + halfHeight
+            )
+            .rotate(-rotation * DEGREES_TO_RADIANS, txCenter)
+            .scale(1/scaleFactor, txCenter);
+
+        hitData = Hits.init(
+            hitType,
+            absXY,
+            relXY,
+            getProjectedXY(relXY.x, relXY.y, true),
+            txXY
+        );
 
         for (var ii = layerCount; ii--; ) {
             if (layers[ii].visible) {
                 hitFlagged = hitFlagged || (layers[ii].hitGuess ?
-                    layers[ii].hitGuess(hitData.x, hitData.y, _self) :
+                    layers[ii].hitGuess(hitData.gridX, hitData.gridY, _self) :
                     false);
             } // if
         } // for
@@ -3896,19 +3872,16 @@ reg('view', 'view', function(params) {
         renderer: changeRenderer
     });
 
-    CANI.init(function(testResults) {
-        layer('markers', 'draw', { zindex: 20 });
+    layer('markers', 'draw', { zindex: 20 });
 
-        caps = testResults;
-        updateContainer(params.container);
+    updateContainer(params.container);
 
-        if (isIE) {
-            window.attachEvent('onresize', handleResize);
-        }
-        else {
-            window.addEventListener('resize', handleResize, false);
-        }
-    });
+    if (isIE) {
+        window.attachEvent('onresize', handleResize);
+    }
+    else {
+        window.addEventListener('resize', handleResize, false);
+    }
 
     Animator.attach(cycle);
 

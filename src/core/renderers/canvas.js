@@ -16,9 +16,9 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         drawOffsetY = 0,
         paddingX = 0,
         paddingY = 0,
+        scaleFactor = 1,
         styleFns = {},
         transform = null,
-        pipTransformed = CANI.canvas.pipTransformed,
         previousStyles = {},
         
         drawNothing = function(drawData) {
@@ -105,27 +105,26 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
     } // handleStyleDefined
         
     function initDrawData(viewport, hitData, drawFn) {
-        var isHit = false;
-        
-        // check for a hit
-        if (hitData) {
-            var hitX = pipTransformed ? hitData.x - drawOffsetX : hitData.relXY.x,
-                hitY = pipTransformed ? hitData.y - drawOffsetY : hitData.relXY.y;
-                
-            isHit = context.isPointInPath(hitX + paddingX, hitY + paddingY);
-        } // if
-        
         return {
             // initialise core draw data properties
             draw: drawFn || defaultDrawFn,
             viewport: viewport,
-            hit: isHit,
+            hit: hitData && context.isPointInPath(hitData.x, hitData.y),
             vpX: drawOffsetX,
             vpY: drawOffsetY,
             
             // and the extras given we have a canvas implementation
             context: context
         };
+        
+        /*
+        DEBUGGING CODE: draw the hit point on the canvas - very useful :)
+        if (hitData) {
+            context.beginPath();
+            context.arc(hitData.x, hitData.y, 5, 0, Math.PI * 2, false);
+            context.fill();
+        } // if
+        */
     } // initDrawData
     
     function loadStyles() {
@@ -236,6 +235,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         drawOffsetY = viewport.y;
         paddingX = viewport.padding.x;
         paddingY = viewport.padding.y;
+        scaleFactor = viewport.scaleFactor;
         
         if (context) {
             // if we can't clip then clear the context

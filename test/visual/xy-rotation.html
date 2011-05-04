@@ -1,0 +1,49 @@
+<!doctype html>  
+<html>
+<head> 
+<title>Tile5 Tests</title> 
+<meta charset="utf-8"> 
+ 
+<!--  Mobile viewport optimized: j.mp/bplateviewport --> 
+<meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+ 
+<!-- Place favicon.ico & apple-touch-icon.png in the root of your domain and delete these references --> 
+<link rel="stylesheet" href="css/tests.css"> 
+<link rel="stylesheet" type="text/css" href="lib/jasmine-1.0.2/jasmine.css">
+<script type="text/javascript" src="lib/jasmine-1.0.2/jasmine.js"></script>
+<script type="text/javascript" src="lib/jasmine-1.0.2/jasmine-html.js"></script>
+<script type="text/javascript" src="lib/jquery-1.5.2.min.js"></script>
+<script type="text/javascript" src="lib/raphael-min.js"></script>
+<script type="text/javascript" src="lib/Three.js"></script>
+</head> 
+<body>
+	<canvas id="test" height="300" width="300" />
+	<script src="../../dist/tile5.cloudmade.js"></script>
+	<script>
+	var canvas = document.getElementById('test'),
+		context = canvas.getContext('2d'),
+		center = new T5.XY(150, 150),
+		testPoint = new T5.XY(150, 10),
+		currentAngle = 0;
+		
+	setInterval(function() {
+		var drawPoint = testPoint.rotate(currentAngle, center).scale(0.45, center);
+		
+		context.clearRect(0, 0, 300, 300);
+		
+		context.fillStyle = '#f00';
+		context.beginPath();
+		context.arc(center.x, center.y, 5, 0, Math.PI * 2, false);
+		context.fill();
+		
+		context.fillStyle = '#000';
+		context.beginPath();
+		context.arc(drawPoint.x, drawPoint.y, 5, 0, Math.PI * 2, false);
+		context.fill();
+		
+		// update teh current angle
+		currentAngle = (currentAngle + Math.PI / 40) % (Math.PI * 2);
+	}, 1000 / 60);
+	</script>
+</body>
+</html>

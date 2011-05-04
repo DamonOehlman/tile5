@@ -35,12 +35,14 @@ Hits = (function() {
     /**
     ### init
     */
-    function init(hitType, absXY, relXY, scaledXY) {
+    function init(hitType, absXY, relXY, scaledXY, transformedXY) {
         return {
             // store the required hit data
             type: hitType,
-            x: scaledXY.x | 0,
-            y: scaledXY.y | 0,
+            x: transformedXY.x,
+            y: transformedXY.y,
+            gridX: scaledXY.x | 0,
+            gridY: scaledXY.y | 0,
             elements: [],
             
             // also store the original event data
@@ -71,7 +73,7 @@ Hits = (function() {
             elements ? elements : hitData.elements, 
             hitData.absXY,
             hitData.relXY,
-            new GeoXY(hitData.x, hitData.y)
+            new GeoXY(hitData.gridX, hitData.gridY)
         );                
     } // triggerEvent
     
