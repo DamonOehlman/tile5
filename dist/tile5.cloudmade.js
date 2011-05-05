@@ -1334,6 +1334,18 @@ var abs = Math.abs,
     layerCounter = 0,
 
     reDelimitedSplit = /[\,\s]+/;
+/**
+# T5.Animator
+The animator centralizes the callbacks requiring regular update intervals in Tile5.
+This simple utility module exposes `attach` and `detach` methods that allow other
+classes in Tile5 to fire callbacks on a regular basis without needing to hook into
+the likes of `setInterval` to run animation routines.
+
+The animator will intelligently use `requestAnimationFrame` if available, and if not
+will fall back to a `setInterval` call that will run optimized for 60fps.
+
+## Methods
+*/
 var Animator = (function() {
 
     /* internals */
@@ -1352,10 +1364,6 @@ var Animator = (function() {
             for (var ii = 0; ii < TEST_PROPS.length; ii++) {
                 window.animFrame = window.animFrame || window[TEST_PROPS[ii] + 'equestAnimationFrame'];
             } // for
-
-            if (window.animFrame) {
-                _log('Using request animation frame');
-            } // if
 
             return animFrame;
         })();
@@ -1380,6 +1388,13 @@ var Animator = (function() {
 
     /* exports */
 
+    /**
+    ### attach(callback, every)
+    Attach `callback` to the animation callback loop.  If specified, `every`
+    specified the regularity (in ms) with which this particular callback should be
+    fired.  If not specified, the callback is fired for every animation frame (which
+    is approximately 60 times per second).
+    */
     function attach(callback, every) {
         callbacks[callbacks.length] = {
             cb: callback,
@@ -1387,6 +1402,10 @@ var Animator = (function() {
         };
     } // attach
 
+    /**
+    ### detach(callback)
+    Remove `callback` from the animation callback loop.
+    */
     function detach(callback) {
         for (var ii = callbacks.length; ii--; ) {
             if (callbacks[ii].cb === callback) {
@@ -1427,6 +1446,13 @@ var Parser = (function() {
         parseXY: parseXY
     };
 })();
+/**
+# T5.DOM
+This is a minimal set of DOM utilities that Tile5 uses for the DOM manipulation that
+is done in the library.
+
+## Methods
+*/
 var DOM = (function() {
     /* internals */
 
@@ -1454,6 +1480,9 @@ var DOM = (function() {
 
     /* exports */
 
+    /**
+    ### create(elemType, className, cssProps)
+    */
     function create(elemType, className, cssProps) {
         var elem = document.createElement(elemType),
             cssRules = [],
@@ -1470,6 +1499,9 @@ var DOM = (function() {
         return elem;
     } // create
 
+    /**
+    ### move(element, x, y, extraTransforms, origin)
+    */
     function move(element, x, y, extraTransforms, origin) {
         if (css3dTransformProp || transformProp) {
             var translate = css3dTransformProp ?
@@ -1488,6 +1520,9 @@ var DOM = (function() {
         } // if..else
     } // move
 
+    /**
+    ### styles(extraStyles)
+    */
     function styles(extraStyles) {
         return _extend({}, CORE_STYLES, extraStyles);
     } // extraStyles
@@ -1750,6 +1785,68 @@ XY.prototype = {
     }
 };
 /**
+# T5.Line
+
+__inherits: [Array](https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Array)
+
+## Methods
+*/
+function Line() {
+};
+
+Line.prototype = _extend(new Array(), {
+    /**
+    ### cull(viewport)
+    */
+    cull: function(viewport) {
+        var minX = viewport.x,
+            minY = viewport.y,
+            maxX = viewport.x + viewport.w,
+            maxY = viewport.y + viewport.h,
+            firstIdx = Infinity,
+            lastIdx = 0,
+            inVP;
+
+        for (var ii = this.length; ii--; ) {
+            inVP = this[ii].x >= minX && this[ii].x <= maxX &&
+                this[ii].y >= minY && this[ii].y <= maxY;
+
+            if (inVP) {
+                firstIdx = ii < firstIdx ? ii : firstIdx;
+                lastIdx = ii > lastIdx ? ii : lastIdx;
+            } // if
+        } // for
+
+        return this.slice(max(firstIdx - 1, 0), min(lastIdx + 1, this.length));
+    },
+
+    /**
+    ### simplify(generalization)
+    */
+    simplify: function(generalization) {
+        generalization = generalization || VECTOR_SIMPLIFICATION;
+
+        var tidied = new Line(),
+            last = null;
+
+        for (var ii = this.length; ii--; ) {
+            var current = this[ii];
+
+            include = !last || ii === 0 ||
+                (abs(current.x - last.x) +
+                    abs(current.y - last.y) >
+                    generalization);
+
+            if (include) {
+                tidied.unshift(current);
+                last = current;
+            }
+        } // for
+
+        return tidied;
+    }
+});
+/**
 # T5.GeoXY
 
 ## Methods
@@ -1833,39 +1930,6 @@ Rect.prototype = {
     }
 };
 
-/**
-### simplify(xy*, generalization)
-This function is used to simplify a xy array by removing what would be considered
-'redundant' xy positions by elimitating at a similar position.
-*/
-function simplify(points, generalization) {
-    if (! points) {
-        return null;
-    } // if
-
-    generalization = generalization || VECTOR_SIMPLIFICATION;
-
-    var tidied = [],
-        last = null;
-
-    for (var ii = points.length; ii--; ) {
-        var current = points[ii];
-
-        include = !last || ii === 0 ||
-            (abs(current.x - last.x) +
-                abs(current.y - last.y) >
-                generalization);
-
-        if (include) {
-            tidied.unshift(current);
-            last = current;
-        }
-    } // for
-
-    return tidied;
-} // simplify
-
-reg('fn', 'simplify', simplify);
 /**
 # T5.Hits
 
@@ -2659,7 +2723,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
     */
     function prepPoly(drawable, viewport, hitData, opts) {
         var first = true,
-            points = opts.points || drawable.points,
+            points = opts.points || drawable.points(),
             offsetX = transform ? transform.x : drawOffsetX,
             offsetY = transform ? transform.y : drawOffsetY;
 
@@ -4377,17 +4441,17 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
 
     /* internals */
 
-    var points = [],
-        pointsToParse;
+    var _points = new Line(),
+        _drawPoints;
 
     function updateDrawPoints() {
         var ii, x, y, maxX, maxY, minX, minY, drawPoints;
 
-        drawPoints = _self.points = params.simplify ? simplify(points) : points;
+        _drawPoints = params.simplify ? _points.simplify() : _points;
 
-        for (ii = drawPoints.length; ii--; ) {
-            x = drawPoints[ii].x;
-            y = drawPoints[ii].y;
+        for (ii = _drawPoints.length; ii--; ) {
+            x = _drawPoints[ii].x;
+            y = _drawPoints[ii].y;
 
             minX = _is(minX, typeUndefined) || x < minX ? x : minX;
             minY = _is(minY, typeUndefined) || y < minY ? y : minY;
@@ -4398,19 +4462,24 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
         _self.updateBounds(new Rect(minX, minY, maxX - minX, maxY - minY), true);
     } // updateDrawPoints
 
-    function updatePoints(input) {
-        if (_is(input, typeArray)) {
-            points = [];
+    /* exported functions */
 
-            Runner.process(input, function(slice, sliceLen) {
+    function points(value) {
+        if (_is(value, typeArray)) {
+            _points = new Line();
+
+            Runner.process(value, function(slice, sliceLen) {
                 for (var ii = 0; ii < sliceLen; ii++) {
-                    points[points.length] = new view.XY(slice[ii]);
+                    _points.push(new view.XY(slice[ii]));
                 } // for
             }, resync);
-        } // if
-    } // updatePoints
 
-    /* exported functions */
+            return _self;
+        }
+        else {
+            return _drawPoints;
+        }
+    } // points
 
     /**
     ### resync(view)
@@ -4418,7 +4487,7 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
     */
     function resync() {
         if (points.length) {
-            Runner.process(points, function(slice, sliceLen) {
+            Runner.process(_points, function(slice, sliceLen) {
                 for (var ii = sliceLen; ii--; ) {
                     slice[ii].sync(view);
                 } // for
@@ -4427,20 +4496,11 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
     } // resync
 
     var _self = _extend(new Drawable(view, layer, params), {
-        points: [],
-
-        getPoints: function() {
-            return [].concat(points);
-        },
-
+        points: points,
         resync: resync
     });
 
-    _configurable(_self, params, {
-        points: updatePoints
-    });
-
-    updatePoints(params.points);
+    points(params.points);
 
     return _self;
 });
@@ -4449,6 +4509,7 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
 */
 reg(typeDrawable, 'line', function(view, layer, params) {
     params.fill = false;
+
     return regCreate(typeDrawable, 'poly', view, layer, params);
 });
 /*
@@ -5543,6 +5604,7 @@ _extend(T5, {
     DOM: DOM,
     Rect: Rect,
     XY: XY,
+    Line: Line,
     Pos: Pos,
     BBox: BBox,
     Distance: Distance,

@@ -26,10 +26,10 @@ var T5 = _observable({});
 
 //= require "core/geo/projections/default"
 //= require "core/types/xy"
+//= require "core/types/line"
 //= require "core/types/geoxy"
 //= require "core/types/rect"
 
-//= require "core/xyfns"
 //= require "core/hits"
 //= require "core/spatialstore"
 
@@ -98,6 +98,7 @@ _extend(T5, {
     DOM: DOM,
     Rect: Rect,
     XY: XY,
+    Line: Line,
     Pos: Pos,
     BBox: BBox,
     Distance: Distance,

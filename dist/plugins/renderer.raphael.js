@@ -105,7 +105,7 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
                     break;
 
                 case 'path':
-                    updates.path = this.path(offsetX, offsetY);
+                    updates.path = this.path(offsetX, offsetY, drawData.viewport);
 
                     break;
 
@@ -238,18 +238,19 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
 
         if (! drawable.rObject) {
             var rawPath = [],
-                points = opts.points || drawable.points;
+                points = opts.points || drawable.points();
 
-            drawable.path = function(x, y) {
-                var pathString = '';
+            drawable.path = function(x, y, vp) {
+                var pathString = '',
+                    drawPoints = points.cull(vp);
 
-                for (var ii = points.length; ii--; ) {
+                for (var ii = drawPoints.length; ii--; ) {
                     pathString = (ii > 0 ? 'L' : 'M') +
-                        (points[ii].x - x) + ' ' + (points[ii].y - y) +
+                        (drawPoints[ii].x - x) + ' ' + (drawPoints[ii].y - y) +
                         pathString;
                 } // for
 
-                return pathString;
+                return pathString || 'M0 0L0 0';
             };
 
             drawable.removeOnReset = true;

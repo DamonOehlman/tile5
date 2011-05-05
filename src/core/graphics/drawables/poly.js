@@ -21,20 +21,20 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
     /* internals */
 
     // initialise variables
-    var points = [],
-        pointsToParse;
+    var _points = new Line(),
+        _drawPoints;
         
     function updateDrawPoints() {
         var ii, x, y, maxX, maxY, minX, minY, drawPoints;
         
         // simplify the vectors for drawing (if required)
         // TODO: move simplification to the runner as well
-        drawPoints = _self.points = params.simplify ? simplify(points) : points;
+        _drawPoints = params.simplify ? _points.simplify() : _points;
 
         // determine the bounds of the shape
-        for (ii = drawPoints.length; ii--; ) {
-            x = drawPoints[ii].x;
-            y = drawPoints[ii].y;
+        for (ii = _drawPoints.length; ii--; ) {
+            x = _drawPoints[ii].x;
+            y = _drawPoints[ii].y;
                 
             // update the min and max values
             minX = _is(minX, typeUndefined) || x < minX ? x : minX;
@@ -47,19 +47,24 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
         _self.updateBounds(new Rect(minX, minY, maxX - minX, maxY - minY), true);        
     } // updateDrawPoints
         
-    function updatePoints(input) {
-        if (_is(input, typeArray)) {
-            points = [];
+    /* exported functions */
+    
+    function points(value) {
+        if (_is(value, typeArray)) {
+            _points = new Line();
             
-            Runner.process(input, function(slice, sliceLen) {
+            Runner.process(value, function(slice, sliceLen) {
                 for (var ii = 0; ii < sliceLen; ii++) {
-                    points[points.length] = new view.XY(slice[ii]);
+                    _points.push(new view.XY(slice[ii]));
                 } // for
             }, resync);
-        } // if
-    } // updatePoints
-    
-    /* exported functions */
+            
+            return _self;
+        }
+        else {
+            return _drawPoints;
+        }
+    } // points
     
     /**
     ### resync(view)
@@ -67,7 +72,7 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
     */
     function resync() {
         if (points.length) {
-            Runner.process(points, function(slice, sliceLen) {
+            Runner.process(_points, function(slice, sliceLen) {
                 for (var ii = sliceLen; ii--; ) {
                     slice[ii].sync(view);
                 } // for
@@ -77,22 +82,12 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
     
     // extend this
     var _self = _extend(new Drawable(view, layer, params), {
-        points: [],
-        
-        getPoints: function() {
-            return [].concat(points);
-        },
-        
+        points: points,
         resync: resync
     });
     
-    // route auto configuration methods
-    _configurable(_self, params, {
-        points: updatePoints
-    });
-
     // if we have points to parse
-    updatePoints(params.points);
+    points(params.points);
     
     // initialise the first item to the first element in the array
     return _self;

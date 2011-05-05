@@ -1,3 +1,15 @@
+/**
+# T5.Animator
+The animator centralizes the callbacks requiring regular update intervals in Tile5.  
+This simple utility module exposes `attach` and `detach` methods that allow other
+classes in Tile5 to fire callbacks on a regular basis without needing to hook into
+the likes of `setInterval` to run animation routines.
+
+The animator will intelligently use `requestAnimationFrame` if available, and if not
+will fall back to a `setInterval` call that will run optimized for 60fps.
+
+## Methods
+*/
 var Animator = (function() {
     
     /* internals */
@@ -16,10 +28,6 @@ var Animator = (function() {
             for (var ii = 0; ii < TEST_PROPS.length; ii++) {
                 window.animFrame = window.animFrame || window[TEST_PROPS[ii] + 'equestAnimationFrame'];
             } // for
-            
-            if (window.animFrame) {
-                _log('Using request animation frame');
-            } // if
             
             return animFrame;
         })();
@@ -49,6 +57,13 @@ var Animator = (function() {
     
     /* exports */
     
+    /**
+    ### attach(callback, every)
+    Attach `callback` to the animation callback loop.  If specified, `every` 
+    specified the regularity (in ms) with which this particular callback should be 
+    fired.  If not specified, the callback is fired for every animation frame (which
+    is approximately 60 times per second).
+    */
     function attach(callback, every) {
         callbacks[callbacks.length] = {
             cb: callback,
@@ -56,6 +71,10 @@ var Animator = (function() {
         };
     } // attach
     
+    /**
+    ### detach(callback)
+    Remove `callback` from the animation callback loop.
+    */
     function detach(callback) {
         // iterate through the callbacks and remove the specified one
         for (var ii = callbacks.length; ii--; ) {

@@ -371,7 +371,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
     */
     function prepPoly(drawable, viewport, hitData, opts) {
         var first = true,
-            points = opts.points || drawable.points,
+            points = opts.points || drawable.points(),
             offsetX = transform ? transform.x : drawOffsetX,
             offsetY = transform ? transform.y : drawOffsetY;
 

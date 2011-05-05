@@ -1,3 +1,10 @@
+/**
+# T5.DOM
+This is a minimal set of DOM utilities that Tile5 uses for the DOM manipulation that
+is done in the library.
+
+## Methods
+*/
 var DOM = (function() {
     /* internals */
     
@@ -27,6 +34,9 @@ var DOM = (function() {
 
     /* exports */
     
+    /**
+    ### create(elemType, className, cssProps)
+    */
     function create(elemType, className, cssProps) {
         // create the element
         var elem = document.createElement(elemType),
@@ -48,6 +58,9 @@ var DOM = (function() {
         return elem;
     } // create
 
+    /**
+    ### move(element, x, y, extraTransforms, origin)
+    */
     function move(element, x, y, extraTransforms, origin) {
         if (css3dTransformProp || transformProp) {
             var translate = css3dTransformProp ? 
@@ -66,6 +79,9 @@ var DOM = (function() {
         } // if..else
     } // move
     
+    /**
+    ### styles(extraStyles)
+    */
     function styles(extraStyles) {
         return _extend({}, CORE_STYLES, extraStyles);
     } // extraStyles

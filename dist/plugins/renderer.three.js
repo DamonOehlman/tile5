@@ -597,7 +597,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
     */
     function prepPoly(drawable, viewport, hitData, opts) {
         if (! drawable.mesh) {
-            var points = opts.points || drawable.points,
+            var points = opts.points || drawable.points(),
                 geometry = new THREE.Geometry(),
                 offsetX = drawable.xy.x,
                 offsetY = drawable.xy.y,
