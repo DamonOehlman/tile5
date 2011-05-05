@@ -15,24 +15,15 @@ the view.</p>
 <p>If you plan on reusing a single canvas element to display different views then you 
 will definitely want to call the detach method between usages.</p>
 
-<h3>getRenderer(): <a href="src_core_renderers_base.js.html#T5.Renderer">T5.Renderer</a></h3>
-
-<h3>getScaleFactor(): float</h3>
-
-<p>Return the current scaling factor</p>
-
-<h3>zoom(int): int</h3>
-
-<p>Either update or simply return the current zoomlevel.</p>
-
 <h3>setMaxOffset(maxX: int, maxY: int, wrapX: bool, wrapY: bool)</h3>
 
 <p>Set the bounds of the display to the specified area, if wrapX or wrapY parameters
 are set, then the bounds will be wrapped automatically.</p>
 
-<h3>getViewport(): <a href="src_core_functions.js.html#T5">T5</a>.XYRect</h3>
+<h3>viewport()</h3>
 
-<p>Return a <a href="src_core_functions.js.html#T5">T5</a>.XYRect for the last drawn view rect</p>
+<p>Return a <a href="src_core_functions.js.html#T5">T5</a>.XYRect (annotated with scale factor and padding) for the 
+current offset rect of the view</p>
 
 <h3>layer()</h3>
 
@@ -63,22 +54,16 @@ Omit all arguments, and the method will return all the layers in the view:</p>
 var layers = view.layer();
 </code></p>
 
-<h3>pan(x: int, y: int)</h3>
-
-<p>Used to pan the view by the specified x and y</p>
+<h3>pan(x, y, tween)</h3>
 
 <h3>refresh()</h3>
 
 <p>Manually trigger a refresh on the view.  Child view layers will likely be listening for <code>refresh</code>
 events and will do some of their recalculations when this is called.</p>
 
-<h3>removeLayer(id: String)</h3>
+<h3>rotate(value, tween, isAbsolute)</h3>
 
-<p>Remove the <a href="src_core_functions.js.html#T5">T5</a>.ViewLayer specified by the id</p>
-
-<h3>scale(targetScaling: float, targetXY: <a href="src_core_types_xy.js.html#T5.XY">T5.XY</a>, tweenFn: EasingFn, callback: fn)</h3>
-
-<p>Scale the view to the specified <code>targetScaling</code> (1 = normal, 2 = double-size and 0.5 = half-size).</p>
+<h3>scale(value, tween, isAbsolute)</h3>
 
 <h3>triggerAll(eventName: string, args*)</h3>
 

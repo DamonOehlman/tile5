@@ -5,7 +5,7 @@ title: Tile5 API Documentation
 
 <h1><a name="T5.Pos">T5.Pos</a></h1>
 
-<h1><a name="Methods">Methods</a></h1>
+<h2>Methods</h2>
 
 <h3>distanceTo(targetPos)</h3>
 
@@ -24,5 +24,14 @@ km distance)</p>
 <h3>toPixels()</h3>
 
 <p>Return an xy of the mercator pixel value for the position</p>
+
+<h3>toBounds(distance)</h3>
+
+<p>This function is very useful for creating a Geo.BoundingBox given a 
+center position and a radial distance (specified in KM) from the center 
+position.  Basically, imagine a circle is drawn around the center 
+position with a radius of distance from the center position, and then 
+a box is drawn to surround that circle.  Adapted from the <a class="external" href="http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates">functions written 
+in Java by Jan Philip Matuschek</a></p>
 
 <h3>toString()</h3>

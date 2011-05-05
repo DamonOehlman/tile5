@@ -9,7 +9,7 @@ title: Tile5 API Documentation
 This will seem strange, and it is strange, and is a result of migrating from a closure based pattern
 to a prototypal pattern in areas of the <a href="docs_T5_overview.mdown.html#Tile5">Tile5</a> library.</p>
 
-<h2><a href="src_core_geo_pos.js.html#Methods">Methods</a></h2>
+<h2>Methods</h2>
 
 <h3>add(xy*)</h3>
 
@@ -27,6 +27,21 @@ then floating point precision errors will likely occur.</p>
 <h3>offset(x, y)</h3>
 
 <p>Return a new <a href="src_core_types_xy.js.html#T5.XY">T5.XY</a> object which is offset from the current xy by the specified arguments.</p>
+
+<h3>relative(view)</h3>
+
+<p>This method is used to return xy coordinates that are relative to the view, rather
+than to the current view frame.</p>
+
+<h3>rotate(angle, around)</h3>
+
+<p>This function is used to determine the xy position if the current xy element
+was rotated by <code>theta</code> around xy position <code>origin</code>.</p>
+
+<p>The code was written after dissecting <a class="external" href="http://jcoglan.com/">James Coglan's</a> excellent
+library <a class="external" href="http://sylvester.jcoglan.com/">Sylvester</a>.</p>
+
+<h3>scale(scaleFactor)</h3>
 
 <h3>sync(view, reverse)</h3>
 
