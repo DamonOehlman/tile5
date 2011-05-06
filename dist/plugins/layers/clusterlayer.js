@@ -90,6 +90,7 @@ T5.Registry.register('layer', 'cluster', function(view, params) {
     } // handlerMarkerAdded
 
     function handleMarkersCleared(evt) {
+        _self.clear();
     } // handleMarkersCleared
 
     function rebuild() {

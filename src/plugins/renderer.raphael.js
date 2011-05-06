@@ -118,7 +118,12 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
                     break;
                 
                 case 'path':
-                    updates.path = this.path(offsetX, offsetY, drawData.viewport);
+                    this.rObject.remove();
+                    this.rObject = paper.path(this.path(offsetX, offsetY, drawData.viewport));
+                    
+                    // IMPROVE: this is a bit of a hack to put polys behind markers, could definitely
+                    // be done better
+                    this.rObject.toBack();
                     
                     break;
                     
@@ -277,7 +282,7 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
                         (drawPoints[ii].x - x) + ' ' + (drawPoints[ii].y - y) + 
                         pathString;
                 } // for
-
+                
                 return pathString || 'M0 0L0 0';
             };
                 

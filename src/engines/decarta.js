@@ -1,5 +1,3 @@
-//= require <cog/src/timelord>
-
 T5.Decarta = (function() {
     // initialise the default configuration parameters
     var currentConfig = {
@@ -25,6 +23,7 @@ T5.Decarta = (function() {
         }
     };
     
+    //= require <timelord/timelord>
     //= require "decarta/core"
     //= require "decarta/generator"
     //= require "decarta/geocoder"

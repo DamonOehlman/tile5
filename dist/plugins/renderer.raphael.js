@@ -105,7 +105,10 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
                     break;
 
                 case 'path':
-                    updates.path = this.path(offsetX, offsetY, drawData.viewport);
+                    this.rObject.remove();
+                    this.rObject = paper.path(this.path(offsetX, offsetY, drawData.viewport));
+
+                    this.rObject.toBack();
 
                     break;
 

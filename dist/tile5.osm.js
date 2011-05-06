@@ -1841,7 +1841,7 @@ Line.prototype = _extend(new Array(), {
     simplify: function(generalization) {
         generalization = generalization || VECTOR_SIMPLIFICATION;
 
-        var tidied = new Line(),
+        var tidied = new Line(this.allowCull),
             last = null;
 
         for (var ii = this.length; ii--; ) {
@@ -2127,7 +2127,7 @@ var SpatialStore = function(cellsize) {
         } // if
     } // remove
 
-    function search(rect, sortField) {
+    function search(rect) {
         var minX = rect.x / cellsize | 0,
             minY = rect.y / cellsize | 0,
             maxX = (rect.x + rect.w) / cellsize | 0,
@@ -2155,12 +2155,6 @@ var SpatialStore = function(cellsize) {
                 ii--;
             }
         } // for
-
-        if (sortField) {
-            results.sort(function(itemA, itemB) {
-                return itemB[sortField] - itemA[sortField];
-            });
-        } // if
 
         return results;
     } // search
@@ -3067,7 +3061,7 @@ reg('view', 'view', function(params) {
         PANSPEED_THRESHOLD_FASTPAN = 5,
         PADDING_AUTO = 'auto',
 
-        caps = {},
+        _frozen = false,
         controls = [],
         layers = [],
         layerCount = 0,
@@ -3457,6 +3451,10 @@ reg('view', 'view', function(params) {
             viewpaneY,
             vp;
 
+        if (_frozen) {
+            return;
+        }
+
         self.panSpeed = panSpeed = abs(dx) + abs(dy);
 
         scaleChanged = scaleFactor !== lastScaleFactor;
@@ -3705,6 +3703,22 @@ reg('view', 'view', function(params) {
         panFrames = [];
     } // detach
 
+    /**
+    ### frozen(value)
+    */
+    function frozen(value) {
+        if (! _is(value, typeUndefined)) {
+            _frozen = value;
+            return _self;
+        }
+        else {
+            return _frozen;
+        } // if..else
+    } // frozen
+
+    /**
+    ### invalidate()
+    */
     function invalidate() {
         viewChanges++;
     }
@@ -3951,6 +3965,7 @@ reg('view', 'view', function(params) {
         attachFrame: attachFrame,
         center: center,
         detach: detach,
+        frozen: frozen,
         layer: layer,
         invalidate: invalidate,
         pan: pan,
@@ -4506,6 +4521,7 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
         } // for
 
         _self.updateBounds(new Rect(minX, minY, maxX - minX, maxY - minY), true);
+        view.invalidate();
     } // updateDrawPoints
 
     /* exported functions */
@@ -4938,7 +4954,6 @@ reg('layer', 'draw', function(view, params) {
             storage.insert(drawable.bounds, drawable);
         } // if
 
-        triggerSort(view);
 
         drawable.bind('move', handleItemMove);
 
@@ -5591,7 +5606,19 @@ function Distance(value) {
 } // Distance
 
 Distance.prototype = {
-    constructor: Distance,
+    /**
+    ### add(args*)
+    */
+    add: function() {
+        var total = this.meters;
+
+        for (var ii = arguments.length; ii--; ) {
+            total += arguments[ii].meters;
+        } // for
+
+        return new Distance(total);
+    },
+
 
     /**
     ### radians(value)

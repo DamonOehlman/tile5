@@ -15,7 +15,19 @@ function Distance(value) {
 } // Distance
 
 Distance.prototype = {
-    constructor: Distance,
+    /**
+    ### add(args*)
+    */
+    add: function() {
+        var total = this.meters;
+        
+        for (var ii = arguments.length; ii--; ) {
+            total += arguments[ii].meters;
+        } // for
+        
+        return new Distance(total);
+    },
+    
     
     /**
     ### radians(value)

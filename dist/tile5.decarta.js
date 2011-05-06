@@ -1841,7 +1841,7 @@ Line.prototype = _extend(new Array(), {
     simplify: function(generalization) {
         generalization = generalization || VECTOR_SIMPLIFICATION;
 
-        var tidied = new Line(),
+        var tidied = new Line(this.allowCull),
             last = null;
 
         for (var ii = this.length; ii--; ) {
@@ -2127,7 +2127,7 @@ var SpatialStore = function(cellsize) {
         } // if
     } // remove
 
-    function search(rect, sortField) {
+    function search(rect) {
         var minX = rect.x / cellsize | 0,
             minY = rect.y / cellsize | 0,
             maxX = (rect.x + rect.w) / cellsize | 0,
@@ -2155,12 +2155,6 @@ var SpatialStore = function(cellsize) {
                 ii--;
             }
         } // for
-
-        if (sortField) {
-            results.sort(function(itemA, itemB) {
-                return itemB[sortField] - itemA[sortField];
-            });
-        } // if
 
         return results;
     } // search
@@ -3067,7 +3061,7 @@ reg('view', 'view', function(params) {
         PANSPEED_THRESHOLD_FASTPAN = 5,
         PADDING_AUTO = 'auto',
 
-        caps = {},
+        _frozen = false,
         controls = [],
         layers = [],
         layerCount = 0,
@@ -3457,6 +3451,10 @@ reg('view', 'view', function(params) {
             viewpaneY,
             vp;
 
+        if (_frozen) {
+            return;
+        }
+
         self.panSpeed = panSpeed = abs(dx) + abs(dy);
 
         scaleChanged = scaleFactor !== lastScaleFactor;
@@ -3705,6 +3703,22 @@ reg('view', 'view', function(params) {
         panFrames = [];
     } // detach
 
+    /**
+    ### frozen(value)
+    */
+    function frozen(value) {
+        if (! _is(value, typeUndefined)) {
+            _frozen = value;
+            return _self;
+        }
+        else {
+            return _frozen;
+        } // if..else
+    } // frozen
+
+    /**
+    ### invalidate()
+    */
     function invalidate() {
         viewChanges++;
     }
@@ -3951,6 +3965,7 @@ reg('view', 'view', function(params) {
         attachFrame: attachFrame,
         center: center,
         detach: detach,
+        frozen: frozen,
         layer: layer,
         invalidate: invalidate,
         pan: pan,
@@ -4506,6 +4521,7 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
         } // for
 
         _self.updateBounds(new Rect(minX, minY, maxX - minX, maxY - minY), true);
+        view.invalidate();
     } // updateDrawPoints
 
     /* exported functions */
@@ -4938,7 +4954,6 @@ reg('layer', 'draw', function(view, params) {
             storage.insert(drawable.bounds, drawable);
         } // if
 
-        triggerSort(view);
 
         drawable.bind('move', handleItemMove);
 
@@ -5591,7 +5606,19 @@ function Distance(value) {
 } // Distance
 
 Distance.prototype = {
-    constructor: Distance,
+    /**
+    ### add(args*)
+    */
+    add: function() {
+        var total = this.meters;
+
+        for (var ii = arguments.length; ii--; ) {
+            total += arguments[ii].meters;
+        } // for
+
+        return new Distance(total);
+    },
+
 
     /**
     ### radians(value)
@@ -5973,45 +6000,115 @@ T5.RouteTools = (function() {
 
     return module;
 })();
-/*!
- * Sidelab COG Javascript Library v0.2.0
- * http://www.sidelab.com/
- *
- * Copyright 2011, Damon Oehlman <damon.oehlman@sidelab.com>
- * Licensed under the MIT licence
- * https://github.com/sidelab/cog
- *
- */
+T5.Decarta = (function() {
+    var currentConfig = {
+        sessionID: new Date().getTime(),
+        server: "",
+        clientName: "",
+        clientPassword: "",
+        configuration: "",
+        maxResponses: 25,
+        release: "4.4.2sp03",
+        tileFormat: "PNG",
+        fixedGrid: true,
+        useCache: true,
+        tileHosts: [],
 
-COG = typeof COG !== 'undefined' ? COG : {};
+        requestTimeout: 30000,
+
+        geocoding: {
+            countryCode: "US",
+            language: "EN"
+        }
+    };
 
 /**
-# COG.extend
+# Timelord
 */
-COG.extend = function() {
-    var target = arguments[0] || {},
-        source;
+TL = (function() {
+/**
+# TL.Duration
+A Timelord duration is what IMO is a sensible and usable representation of a
+period of "human-time".  A duration value contains both days and seconds values.
 
-    for (var ii = 1, argCount = arguments.length; ii < argCount; ii++) {
-        if ((source = arguments[ii]) !== null) {
-            for (var name in source) {
-                var copy = source[name];
+## Methods
+*/
+function Duration(days, seconds) {
+    this.days = days || 0;
+    this.seconds = seconds || 0;
+} // Duration
 
-                if (target === copy) {
-                    continue;
-                } // if
+Duration.prototype = {
+    /**
+    ### add(args*)
+    The add method returns a new Duration object that is the value of the current
+    duration plus the days and seconds value provided.
+    */
+    add: function() {
+        var result = new Duration(this.days, this.seconds);
 
-                if (copy !== undefined) {
-                    target[name] = copy;
-                } // if
-            } // for
+        for (var ii = arguments.length; ii--; ) {
+            result.days += arguments[ii].days;
+            result.seconds += arguments[ii].seconds;
+        } // for
+
+        return result;
+    },
+
+    /**
+    ### toString()
+    Convert the duration to it's string represenation
+
+    __TODO__:
+    - Improve the implementation
+    - Add internationalization support
+    */
+    toString: function() {
+
+        var days, hours, minutes, totalSeconds,
+            output = '';
+
+        if (this.days) {
+            output = this.days + ' days ';
         } // if
-    } // for
 
-    return target;
-}; // extend
+        if (this.seconds) {
+            totalSeconds = this.seconds;
 
-(function() {
+            if (totalSeconds >= 3600) {
+                hours = ~~(totalSeconds / 3600);
+                totalSeconds = totalSeconds - (hours * 3600);
+            } // if
+
+            if (totalSeconds >= 60) {
+                minutes = Math.round(totalSeconds / 60);
+                totalSeconds = totalSeconds - (minutes * 60);
+            } // if
+
+            if (hours) {
+                output = output + hours +
+                    (hours > 1 ? ' hrs ' : ' hr ') +
+                    (minutes ?
+                        (minutes > 10 ?
+                            minutes :
+                            '0' + minutes) + ' min '
+                        : '');
+            }
+            else if (minutes) {
+                output = output + minutes + ' min';
+            }
+            else if (totalSeconds > 0) {
+                output = output +
+                    (totalSeconds > 10 ?
+                        totalSeconds :
+                        '0' + totalSeconds) + ' sec';
+            } // if..else
+        } // if
+
+        return output;
+    }
+};
+var parse = (function() {
     var DAY_SECONDS = 86400;
 
     var periodRegex = /^P(\d+Y)?(\d+M)?(\d+D)?$/,
@@ -6049,123 +6146,24 @@ COG.extend = function() {
         return new Duration(days, seconds);
     } // parse8601Duration
 
-    /* exports */
+    return function(duration, format) {
+        var parser = durationParsers[format];
 
-    var Duration = COG.Duration = function(days, seconds) {
-        return {
-            days: days ? days : 0,
-            seconds: seconds ? seconds : 0
-        };
+        if (! parser) {
+            throw 'No parser found for the duration format: ' + format;
+        } // if
+
+        return parser(duration);
     };
-
-    /**
-    ### addDuration(duration*)
-    This function is used to return a new duration that is the sum of the duration
-    values passed to the function.
-    */
-    var addDuration = COG.addDuration = function() {
-        var result = new Duration();
-
-        for (var ii = arguments.length; ii--; ) {
-            result.days = result.days + arguments[ii].days;
-            result.seconds = result.seconds + arguments[ii].seconds;
-        } // for
-
-        if (result.seconds >= DAY_SECONDS) {
-            result.days = result.days + ~~(result.seconds / DAY_SECONDS);
-            result.seconds = result.seconds % DAY_SECONDS;
-        } // if
-
-        return result;
-    }; // increaseDuration
-
-    /**
-    ### formatDuration(duration)
-
-    This function is used to format the specified duration as a string value
-
-    #### TODO
-    Add formatting options and i18n support
-    */
-    var formatDuration = COG.formatDuration = function(duration) {
-
-        var days, hours, minutes, totalSeconds,
-            output = '';
-
-        if (duration.days) {
-            output = duration.days + ' days ';
-        } // if
-
-        if (duration.seconds) {
-            totalSeconds = duration.seconds;
-
-            if (totalSeconds >= 3600) {
-                hours = ~~(totalSeconds / 3600);
-                totalSeconds = totalSeconds - (hours * 3600);
-            } // if
-
-            if (totalSeconds >= 60) {
-                minutes = Math.round(totalSeconds / 60);
-                totalSeconds = totalSeconds - (minutes * 60);
-            } // if
-
-            if (hours) {
-                output = output + hours +
-                    (hours > 1 ? ' hrs ' : ' hr ') +
-                    (minutes ?
-                        (minutes > 10 ?
-                            minutes :
-                            '0' + minutes) + ' min '
-                        : '');
-            }
-            else if (minutes) {
-                output = output + minutes + ' min';
-            }
-            else if (totalSeconds > 0) {
-                output = output +
-                    (totalSeconds > 10 ?
-                        totalSeconds :
-                        '0' + totalSeconds) + ' sec';
-            } // if..else
-        } // if
-
-        return output;
-    }; // formatDuration
-
-    var parseDuration = COG.parseDuration = function(duration, format) {
-        var parser = format ? durationParsers[format] : null;
-
-        if (parser) {
-            return parser(duration);
-        }
-
-        COG.Log.warn('Could not find duration parser for specified format: ' + format);
-        return new Duration();
-    }; // durationToSeconds
 })();
 
-T5.Decarta = (function() {
-    var currentConfig = {
-        sessionID: new Date().getTime(),
-        server: "",
-        clientName: "",
-        clientPassword: "",
-        configuration: "",
-        maxResponses: 25,
-        release: "4.4.2sp03",
-        tileFormat: "PNG",
-        fixedGrid: true,
-        useCache: true,
-        tileHosts: [],
 
-        requestTimeout: 30000,
+    return {
+        Duration: Duration,
 
-        geocoding: {
-            countryCode: "US",
-            language: "EN"
-        }
+        parse: parse
     };
-
+})();
 var ZOOM_MAX = 18,
     ZOOM_MIN = 3;
 
@@ -6816,15 +6814,15 @@ T5.Registry.register('service', 'routing', function() {
             var fnresult = [],
                 instructions = instructionList && instructionList.RouteInstruction ?
                     instructionList.RouteInstruction : [],
-                totalDistance = 0,
-                totalTime = new COG.Duration();
+                totalDistance = new T5.Distance(),
+                totalTime = new TL.Duration();
 
             for (var ii = 0; ii < instructions.length; ii++) {
-                var distance = distanceToMeters(instructions[ii].distance),
-                    time = COG.parseDuration(instructions[ii].duration, '8601');
+                var distance = new T5.Distance(distanceToMeters(instructions[ii].distance)),
+                    time = TL.parse(instructions[ii].duration, '8601');
 
-                totalDistance = totalDistance + distance;
-                totalTime = COG.addDuration(totalTime, time);
+                totalDistance = totalDistance.add(distance);
+                totalTime = totalTime.add(time);
 
                 fnresult.push(new T5.RouteTools.Instruction({
                     position: new T5.Pos(instructions[ii].Point),

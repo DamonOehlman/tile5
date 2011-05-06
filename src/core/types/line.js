@@ -53,7 +53,7 @@ Line.prototype = _extend(new Array(), {
         // set the the default generalization
         generalization = generalization || VECTOR_SIMPLIFICATION;
 
-        var tidied = new Line(),
+        var tidied = new Line(this.allowCull),
             last = null;
 
         for (var ii = this.length; ii--; ) {

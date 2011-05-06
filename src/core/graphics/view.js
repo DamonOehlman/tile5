@@ -24,7 +24,7 @@ reg('view', 'view', function(params) {
         PADDING_AUTO = 'auto',
     
         // get the container context
-        caps = {},
+        _frozen = false,
         controls = [],
         layers = [],
         layerCount = 0,
@@ -459,6 +459,11 @@ reg('view', 'view', function(params) {
             viewpaneY,
             vp;
             
+        // if the view is frozen exit
+        if (_frozen) {
+            return;
+        }
+            
         // calculate the current pan speed
         self.panSpeed = panSpeed = abs(dx) + abs(dy);
         
@@ -767,6 +772,22 @@ reg('view', 'view', function(params) {
         panFrames = [];
     } // detach
     
+    /**
+    ### frozen(value)
+    */
+    function frozen(value) {
+        if (! _is(value, typeUndefined)) {
+            _frozen = value;
+            return _self;
+        }
+        else {
+            return _frozen;
+        } // if..else
+    } // frozen
+    
+    /**
+    ### invalidate()
+    */
     function invalidate() {
         viewChanges++;
     }
@@ -1043,6 +1064,7 @@ reg('view', 'view', function(params) {
         attachFrame: attachFrame,
         center: center,
         detach: detach,
+        frozen: frozen,
         layer: layer,
         invalidate: invalidate,
         pan: pan,

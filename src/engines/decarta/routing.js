@@ -31,18 +31,18 @@ T5.Registry.register('service', 'routing', function() {
             var fnresult = [],
                 instructions = instructionList && instructionList.RouteInstruction ? 
                     instructionList.RouteInstruction : [],
-                totalDistance = 0,
-                totalTime = new COG.Duration();
+                totalDistance = new T5.Distance(),
+                totalTime = new TL.Duration();
 
             // _log("parsing " + instructions.length + " instructions", instructions[0], instructions[1], instructions[2]);
             for (var ii = 0; ii < instructions.length; ii++) {
                 // initialise the time and duration for this instruction
-                var distance = distanceToMeters(instructions[ii].distance),
-                    time = COG.parseDuration(instructions[ii].duration, '8601');
+                var distance = new T5.Distance(distanceToMeters(instructions[ii].distance)),
+                    time = TL.parse(instructions[ii].duration, '8601');
                     
                 // increment the total distance and total time
-                totalDistance = totalDistance + distance;
-                totalTime = COG.addDuration(totalTime, time);
+                totalDistance = totalDistance.add(distance);
+                totalTime = totalTime.add(time);
                 
                 fnresult.push(new T5.RouteTools.Instruction({
                     position: new T5.Pos(instructions[ii].Point),

@@ -46,7 +46,8 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
         } // for
         
         // update the width
-        _self.updateBounds(new Rect(minX, minY, maxX - minX, maxY - minY), true);        
+        _self.updateBounds(new Rect(minX, minY, maxX - minX, maxY - minY), true);
+        view.invalidate();
     } // updateDrawPoints
         
     /* exported functions */

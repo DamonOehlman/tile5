@@ -4,3 +4,6 @@
 [submodule "interact"]
 	path = interact
 	url = /development/projects/github/sidelab/interact/
+[submodule "lib/timelord"]
+	path = lib/timelord
+	url = /development/projects/github/sidelab/timelord

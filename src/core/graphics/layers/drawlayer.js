@@ -121,7 +121,9 @@ reg('layer', 'draw', function(view, params) {
             storage.insert(drawable.bounds, drawable);
         } // if
 
-        triggerSort(view);
+        // sorting removed, pretty much irrelevant seeing as items are
+        // drawn from the spatial store
+        // triggerSort(view);
 
         // attach a move event handler
         drawable.bind('move', handleItemMove);
