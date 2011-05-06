@@ -5,28 +5,28 @@ T5.Registry.register('parser', 'geojson', function() {
         DEFAULT_FEATUREDEF = {
             processor: null,
             group: 'shapes',
-            layer: 'draw'
+            layerType: 'draw'
         };
 
     // initialise feature definitions
     var featureDefinitions = {
-            point: _extend({}, DEFAULT_FEATUREDEF, {
+            point: T5.ex({}, DEFAULT_FEATUREDEF, {
                 processor: processPoint,
                 group: 'markers',
-                layer: 'draw'
+                layerType: 'draw'
             }),
 
-            linestring: _extend({}, DEFAULT_FEATUREDEF, {
+            linestring: T5.ex({}, DEFAULT_FEATUREDEF, {
                 processor: processLineString
             }),
-            multilinestring: _extend({}, DEFAULT_FEATUREDEF, {
+            multilinestring: T5.ex({}, DEFAULT_FEATUREDEF, {
                 processor: processMultiLineString
             }),
 
-            polygon: _extend({}, DEFAULT_FEATUREDEF, {
+            polygon: T5.ex({}, DEFAULT_FEATUREDEF, {
                 processor: processPolygon
             }),
-            multipolygon: _extend({}, DEFAULT_FEATUREDEF, {
+            multipolygon: T5.ex({}, DEFAULT_FEATUREDEF, {
                 processor: processMultiPolygon
             })
         };
@@ -35,7 +35,7 @@ T5.Registry.register('parser', 'geojson', function() {
 
     function createShape(layer, coordinates, options, builder) {
         var vectors = readVectors(coordinates);
-        layer.add(builder(vectors, options));
+        builder(layer, vectors, options);
 
         return vectors.length;
     } // createShape
@@ -45,7 +45,7 @@ T5.Registry.register('parser', 'geojson', function() {
             positions = new Array(count);
 
         for (var ii = count; ii--; ) {
-            positions[ii] = new Pos(coordinates[ii][1], coordinates[ii][0]);
+            positions[ii] = new T5.Pos(coordinates[ii][1], coordinates[ii][0]);
         } // for
         
         return positions;
@@ -106,30 +106,30 @@ T5.Registry.register('parser', 'geojson', function() {
 
     /* define the GeoJSON parser */
 
-    var GeoJSONParser = function(data, callback, options, builders) {
+    function parseGeoJSON(view, data, callback, options, builders) {
         // initialise the options
-        options = _extend({
+        options = T5.ex({
             rowPreParse: null,
             simplify: false,
             layerPrefix: 'geojson-'
         }, options);
 
         // initialise the builders
-        builders = _extend({
-            marker: function(xy, builderOpts) {
-                return regCreate(typeDrawable, 'marker', {
+        builders = T5.ex({
+            marker: function(layer, xy, builderOpts) {
+                return layer.create('marker', {
                     xy: xy
                 });
             },
 
-            line: function(vectors, builderOpts) {
-                return regCreate(typeDrawable, 'line', _extend({
+            line: function(layer, vectors, builderOpts) {
+                return layer.create('line', T5.ex({
                     points: vectors
                 }, options, builderOpts));
             },
 
-            poly: function(vectors, builderOpts) {
-                return regCreate(typeDrawable, 'poly', _extend({
+            poly: function(layer, vectors, builderOpts) {
+                return layer.create('poly', T5.ex({
                     points: vectors
                 }, options, builderOpts));
             }
@@ -141,8 +141,8 @@ T5.Registry.register('parser', 'geojson', function() {
             layerPrefix = options.layerPrefix,
             featureIndex = 0,
             totalFeatures = 0,
-            childParser = null,
             childCount = 0,
+            childrenActive = 0,
             layers = {};
 
         // if we have no data, then exit
@@ -151,7 +151,7 @@ T5.Registry.register('parser', 'geojson', function() {
         } // if
 
         // check that the data is in an array, if not, then make one
-        if (! _is(data, typeArray)) {
+        if (! T5.is(data, 'array')) {
             data = [data];
         } // if
 
@@ -160,13 +160,13 @@ T5.Registry.register('parser', 'geojson', function() {
         function addFeature(definition, featureInfo) {
             var processor = definition.processor, 
                 layerId = layerPrefix + definition.group,
-                featureOpts = _extend({}, definition, options, {
+                featureOpts = T5.ex({}, definition, options, {
                     properties: featureInfo.properties
                 });
 
             if (processor) {
                 return processor(
-                    getLayer(layerId, definition.layerClass), 
+                    getLayer(layerId, definition.layerType), 
                     featureInfo.data, 
                     featureOpts,
                     builders);
@@ -195,15 +195,11 @@ T5.Registry.register('parser', 'geojson', function() {
         function featureToPoly(feature, callback) {
         } // featureToPrimitives
 
-        function getLayer(layerId, layerClass) {
+        function getLayer(layerId, layerType) {
             var layer = layers[layerId];
 
             if (! layer) {
-                layer = new layerClass({
-                    id: layerId
-                });
-
-                layers[layerId] = layer;
+                layers[layerId] = layer = view.layer(layerId, layerType, { visible: false });
             } // if
 
             return layer;
@@ -217,17 +213,12 @@ T5.Registry.register('parser', 'geojson', function() {
 
         function processData(tickCount) {
             var cycleCount = 0,
-                childOpts = _extend({}, options),
+                childOpts = T5.ex({}, options),
                 ii = featureIndex;
 
             // initialise the tick count if it isn't already defined
             // not all browsers pass through the ticks with the requestAnimationFrame :/
             tickCount = tickCount ? tickCount : new Date().getTime();
-
-            // if we have a child worker active, then don't do anything in this worker
-            if (childParser) {
-                return;
-            }
 
             // _log('processing data, featureIndex = ' + featureIndex + ', total features = ' + totalFeatures);
             for (; ii < totalFeatures; ii++) {
@@ -241,10 +232,12 @@ T5.Registry.register('parser', 'geojson', function() {
                     childOpts.layerPrefix = layerPrefix + (childCount++) + '-';
 
                     // create the worker
-                    childParser = new GeoJSONParser(
+                    childrenActive++;
+                    parseGeoJSON(
+                        view,
                         featureInfo.data.features, 
                         function(childLayers) {
-                            childParser = null;
+                            childrenActive--;
 
                             // copy the child layers back
                             for (var layerId in childLayers) {
@@ -276,7 +269,7 @@ T5.Registry.register('parser', 'geojson', function() {
             featureIndex = ii + 1;
 
             // if we have finished, then tell the worker we are done
-            if (childParser || (featureIndex < totalFeatures)) {
+            if (childrenActive || featureIndex < totalFeatures) {
                 setTimeout(processData, 0);
             }
             else {
@@ -291,9 +284,5 @@ T5.Registry.register('parser', 'geojson', function() {
         setTimeout(processData, 0);
     };
     
-    return {
-        parse: function(data, callback, options) {
-            return new GeoJSONParser(data, callback, options);
-        }
-    };
+    return parseGeoJSON;
 });

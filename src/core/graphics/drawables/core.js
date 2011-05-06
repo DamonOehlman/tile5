@@ -17,7 +17,8 @@ var Drawable = function(view, layer, params) {
         draggable: false,
         observable: true, // TODO: should this be true or false by default
         properties: {},
-        typeName: 'Shape'
+        typeName: 'Shape',
+        zindex: 0
     }, params);
     
     // copy the parameters to this

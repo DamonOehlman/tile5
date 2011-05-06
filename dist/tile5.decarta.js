@@ -1568,9 +1568,9 @@ var Runner = (function() {
     /* exports */
 
     /**
-    ### process(items, sliceCallback, completeCallback)
+    ### process(items, sliceCallback, completeCallback, syncParseThreshold)
     */
-    function process(items, sliceCallback, completeCallback) {
+    function process(items, sliceCallback, completeCallback, syncParseThreshold) {
         var itemsPerCycle,
             itemIndex = 0;
 
@@ -1613,9 +1613,19 @@ var Runner = (function() {
             } // if..else
         } // processSlice
 
-        if (processes.push(processSlice) === 1) {
-            Animator.attach(runLoop);
-        } // if
+        if (items.length > (syncParseThreshold || 0)) {
+            if (processes.push(processSlice) === 1) {
+                Animator.attach(runLoop);
+            } // if
+        }
+        else {
+            sliceCallback(items, items.length);
+
+            if (completeCallback) {
+                completeCallback();
+            } // if
+        }
+
     } // process
 
     return {
@@ -1791,7 +1801,8 @@ __inherits: [Array](https://developer.mozilla.org/en/JavaScript/Reference/Global
 
 ## Methods
 */
-function Line() {
+function Line(allowCull) {
+    this.allowCull = allowCull;
 };
 
 Line.prototype = _extend(new Array(), {
@@ -1799,25 +1810,29 @@ Line.prototype = _extend(new Array(), {
     ### cull(viewport)
     */
     cull: function(viewport) {
-        var minX = viewport.x,
-            minY = viewport.y,
-            maxX = viewport.x + viewport.w,
-            maxY = viewport.y + viewport.h,
-            firstIdx = Infinity,
-            lastIdx = 0,
-            inVP;
+        if (this.allowCull) {
+            var minX = viewport.x,
+                minY = viewport.y,
+                maxX = viewport.x + viewport.w,
+                maxY = viewport.y + viewport.h,
+                firstIdx = Infinity,
+                lastIdx = 0,
+                inVP;
 
-        for (var ii = this.length; ii--; ) {
-            inVP = this[ii].x >= minX && this[ii].x <= maxX &&
-                this[ii].y >= minY && this[ii].y <= maxY;
+            for (var ii = this.length; ii--; ) {
+                inVP = this[ii].x >= minX && this[ii].x <= maxX &&
+                    this[ii].y >= minY && this[ii].y <= maxY;
 
-            if (inVP) {
-                firstIdx = ii < firstIdx ? ii : firstIdx;
-                lastIdx = ii > lastIdx ? ii : lastIdx;
-            } // if
-        } // for
+                if (inVP) {
+                    firstIdx = ii < firstIdx ? ii : firstIdx;
+                    lastIdx = ii > lastIdx ? ii : lastIdx;
+                } // if
+            } // for
 
-        return this.slice(max(firstIdx - 1, 0), min(lastIdx + 1, this.length));
+            return this.slice(max(firstIdx - 1, 0), min(lastIdx + 1, this.length));
+        } // if
+
+        return this;
     },
 
     /**
@@ -2112,7 +2127,7 @@ var SpatialStore = function(cellsize) {
         } // if
     } // remove
 
-    function search(rect) {
+    function search(rect, sortField) {
         var minX = rect.x / cellsize | 0,
             minY = rect.y / cellsize | 0,
             maxX = (rect.x + rect.w) / cellsize | 0,
@@ -2140,6 +2155,12 @@ var SpatialStore = function(cellsize) {
                 ii--;
             }
         } // for
+
+        if (sortField) {
+            results.sort(function(itemA, itemB) {
+                return itemB[sortField] - itemA[sortField];
+            });
+        } // if
 
         return results;
     } // search
@@ -2426,6 +2447,27 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
             'lineWidth',
             'globalAlpha'
         ];
+
+    function checkBrokenPointInPath() {
+        var c2dp = CanvasRenderingContext2D.prototype;
+
+        function isPointInPath_mozilla(x, y) {
+            this.save();
+            this.setTransform( 1, 0, 0, 1, 0, 0 );
+            var ret = this.isPointInPath_old( x, y );
+            this.restore();
+            return ret;
+        }
+
+        var ctx = document.createElement( "canvas" ).getContext( "2d" );
+        ctx.translate( 50, 0 );
+        ctx.moveTo( 125, 50 );
+        ctx.arc( 100, 50, 25, 0, 360, false );
+        if (!ctx.isPointInPath( 150, 50 )) {
+            c2dp.isPointInPath_old = c2dp.isPointInPath;
+            c2dp.isPointInPath = isPointInPath_mozilla;
+        } // if
+    } // checkBrokenPointInPath
 
     function createCanvas() {
         if (panFrame) {
@@ -2723,7 +2765,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
     */
     function prepPoly(drawable, viewport, hitData, opts) {
         var first = true,
-            points = opts.points || drawable.points(),
+            points = opts.points || drawable.points().cull(viewport),
             offsetX = transform ? transform.x : drawOffsetX,
             offsetY = transform ? transform.y : drawOffsetY;
 
@@ -2747,6 +2789,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
 
     /* initialization */
 
+    checkBrokenPointInPath();
     createCanvas();
 
     var _this = _extend(baseRenderer, {
@@ -4192,7 +4235,8 @@ var Drawable = function(view, layer, params) {
         draggable: false,
         observable: true, // TODO: should this be true or false by default
         properties: {},
-        typeName: 'Shape'
+        typeName: 'Shape',
+        zindex: 0
     }, params);
 
     _extend(this, params);
@@ -4433,6 +4477,7 @@ is specified then the style of the T5.PolyLayer is used.
 */
 reg(typeDrawable, 'poly', function(view, layer, params) {
     params = _extend({
+        allowCull: false,
         simplify: false,
         fill: true,
         points: [],
@@ -4441,7 +4486,8 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
 
     /* internals */
 
-    var _points = new Line(),
+    var SYNC_PARSE_THRESHOLD = 500,
+        _points = new Line(params.allowCull),
         _drawPoints;
 
     function updateDrawPoints() {
@@ -4466,13 +4512,13 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
 
     function points(value) {
         if (_is(value, typeArray)) {
-            _points = new Line();
+            _points = new Line(params.allowCull);
 
             Runner.process(value, function(slice, sliceLen) {
                 for (var ii = 0; ii < sliceLen; ii++) {
                     _points.push(new view.XY(slice[ii]));
                 } // for
-            }, resync);
+            }, resync, SYNC_PARSE_THRESHOLD);
 
             return _self;
         }
@@ -4486,12 +4532,12 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
     Used to synchronize the points of the poly to the grid.
     */
     function resync() {
-        if (points.length) {
+        if (_points.length) {
             Runner.process(_points, function(slice, sliceLen) {
                 for (var ii = sliceLen; ii--; ) {
                     slice[ii].sync(view);
                 } // for
-            }, updateDrawPoints);
+            }, updateDrawPoints, SYNC_PARSE_THRESHOLD);
         } // if
     } // resync
 
@@ -4509,6 +4555,7 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
 */
 reg(typeDrawable, 'line', function(view, layer, params) {
     params.fill = false;
+    params.allowCull = true;
 
     return regCreate(typeDrawable, 'poly', view, layer, params);
 });
@@ -4662,10 +4709,11 @@ function ViewLayer(view, params) {
         animated: false,
         style: null,
         minXY: null,
-        maxXY: null
+        maxXY: null,
+        visible: true
     }, params);
 
-    this.visible = true;
+    this.visible = params.visible;
     this.view = view;
 
     _observable(_extend(this, params));

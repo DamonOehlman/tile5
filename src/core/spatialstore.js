@@ -110,7 +110,7 @@ var SpatialStore = function(cellsize) {
         } // if
     } // remove
     
-    function search(rect) {
+    function search(rect, sortField) {
         var minX = rect.x / cellsize | 0,
             minY = rect.y / cellsize | 0,
             maxX = (rect.x + rect.w) / cellsize | 0,
@@ -143,6 +143,12 @@ var SpatialStore = function(cellsize) {
                 ii--;
             }
         } // for
+        
+        if (sortField) {
+            results.sort(function(itemA, itemB) {
+                return itemB[sortField] - itemA[sortField];
+            });
+        } // if
         
         return results;
     } // search

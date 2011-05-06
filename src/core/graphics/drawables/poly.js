@@ -12,6 +12,7 @@ is specified then the style of the T5.PolyLayer is used.
 */
 reg(typeDrawable, 'poly', function(view, layer, params) {
     params = _extend({
+        allowCull: false,
         simplify: false,
         fill: true,
         points: [],
@@ -21,7 +22,8 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
     /* internals */
 
     // initialise variables
-    var _points = new Line(),
+    var SYNC_PARSE_THRESHOLD = 500,
+        _points = new Line(params.allowCull),
         _drawPoints;
         
     function updateDrawPoints() {
@@ -51,13 +53,13 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
     
     function points(value) {
         if (_is(value, typeArray)) {
-            _points = new Line();
+            _points = new Line(params.allowCull);
             
             Runner.process(value, function(slice, sliceLen) {
                 for (var ii = 0; ii < sliceLen; ii++) {
                     _points.push(new view.XY(slice[ii]));
                 } // for
-            }, resync);
+            }, resync, SYNC_PARSE_THRESHOLD);
             
             return _self;
         }
@@ -71,12 +73,12 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
     Used to synchronize the points of the poly to the grid.
     */
     function resync() {
-        if (points.length) {
+        if (_points.length) {
             Runner.process(_points, function(slice, sliceLen) {
                 for (var ii = sliceLen; ii--; ) {
                     slice[ii].sync(view);
                 } // for
-            }, updateDrawPoints);
+            }, updateDrawPoints, SYNC_PARSE_THRESHOLD);
         } // if
     } // resync
     

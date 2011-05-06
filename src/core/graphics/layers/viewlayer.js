@@ -35,11 +35,12 @@ function ViewLayer(view, params) {
         animated: false,
         style: null,
         minXY: null,
-        maxXY: null
+        maxXY: null,
+        visible: true
     }, params);
     
     // initialise members
-    this.visible = true;
+    this.visible = params.visible;
     this.view = view;
 
     // make view layers observable

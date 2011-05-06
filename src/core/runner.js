@@ -26,9 +26,9 @@ var Runner = (function() {
     /* exports */
     
     /**
-    ### process(items, sliceCallback, completeCallback)
+    ### process(items, sliceCallback, completeCallback, syncParseThreshold)
     */
-    function process(items, sliceCallback, completeCallback) {
+    function process(items, sliceCallback, completeCallback, syncParseThreshold) {
         var itemsPerCycle,
             itemIndex = 0;
         
@@ -78,9 +78,23 @@ var Runner = (function() {
             } // if..else
         } // processSlice
         
-        if (processes.push(processSlice) === 1) {
-            Animator.attach(runLoop);
-        } // if
+        // if the length of the list exceeds the sync parse threshold
+        // run in the background
+        if (items.length > (syncParseThreshold || 0)) {
+            if (processes.push(processSlice) === 1) {
+                Animator.attach(runLoop);
+            } // if
+        }
+        // otherwise run the chunk immediately
+        else {
+            // trigger the slice callback for the entire list
+            sliceCallback(items, items.length);
+            
+            if (completeCallback) {
+                completeCallback();
+            } // if
+        }
+        
     } // process
     
     return {

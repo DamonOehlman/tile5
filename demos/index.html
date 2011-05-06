@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>{{ page.title }}</title>
+<meta name="viewport" content="width=device-width; initial-scale=1.0; maximum-scale=1.0; user-scalable=0;"/>
+<script src="lib/jquery-1.6.min.js"></script>
+<script src="lib/Stats.js"></script>
+<style type="text/css">
+html, body, #mapContainer {
+	width: 100%;
+	height: 100%;
+	margin: 0;
+	overflow: hidden;
+}
+</style>
+</head>
+<body>
+<div id="mapContainer">
+</div>
+<script src="../dist/tile5.cloudmade.js"></script>
+<script>
+var stats = new Stats();
+
+// Align top-left
+stats.domElement.style.position = 'absolute';
+stats.domElement.style.left = '0px';
+stats.domElement.style.top = '0px';
+
+document.body.appendChild( stats.domElement );
+
+setInterval( function () {
+    stats.update();
+}, 1000 / 60 );
+</script>
+<script src="../dist/plugins/parser.geojson.js"></script>
+<script src="../dist/style/map-overlays.js"></script>
+<script src="runner.js"></script>
+<script src="data/world.js"></script>
+<script src="js/geojson-world.js"></script>
+</body>
+</html>
