@@ -24,7 +24,7 @@ var Animator = (function() {
         ],
         callbacks = [],
         frameIndex = 0,
-        useAnimFrame = (function() {
+        useAnimFrame = DOM && (function() {
             for (var ii = 0; ii < TEST_PROPS.length; ii++) {
                 window.animFrame = window.animFrame || window[TEST_PROPS[ii] + 'equestAnimationFrame'];
             } // for

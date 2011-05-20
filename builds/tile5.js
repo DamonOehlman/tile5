@@ -9,9 +9,9 @@
  * Build Date: @DATE
  */
 
-(function(exports) {
+(function(scope) {
     //= require "../src/tile5"
     
-    exports.T5 = T5;
-    exports.Tile5 = Tile5;
-})(window);
+    scope.T5 = T5;
+    scope.Tile5 = Tile5;
+})(typeof window != 'undefined' ? window : exports);

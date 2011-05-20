@@ -259,7 +259,6 @@ function makeServerRequest(request, callback) {
     // _log("making request: " + generateRequest(request));
     
     // make the request to the server
-    // TODO: convert ajax request to UG
     _jsonp(generateRequestUrl(request, generateRequest(request)), function(data) {
         // get the number of responses received
         var response = data.response.XLS.Response;

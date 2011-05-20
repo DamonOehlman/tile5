@@ -9,7 +9,7 @@
  * Build Date: @DATE
  */
 
-(function(exports) {
+(function(scope) {
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true */
 
 function _extend() {
@@ -411,7 +411,7 @@ variable (didn't work with multiple calls).
 http://www.nonobtrusive.com/2010/05/20/lightweight-jsonp-without-any-3rd-party-libraries/
 */
 var _jsonp = (function(){
-    var counter = 0, head, query, key, window = this;
+    var counter = 0, head, query, key;
 
     function load(url) {
         var script = document.createElement('script'),
@@ -434,7 +434,7 @@ var _jsonp = (function(){
         head.appendChild( script );
     } // load
 
-    return function(url, callback, callbackParam) {
+    function clientReq(url, callback, callbackParam) {
         url += url.indexOf("?") >= 0 ? "&" : "?";
 
         var jsonp = "json" + (++counter);
@@ -448,7 +448,21 @@ var _jsonp = (function(){
 
         load(url + (callbackParam ? callbackParam : "callback") + "=" + jsonp);
         return jsonp;
-    }; // jsonp
+    } // clientRect
+
+    function serverReq(url, callback, callbackParam) {
+        var request = require('request'),
+            requestURI = url + (url.indexOf("?") >= 0 ? "&" : "?") +
+                (callbackParam ? callbackParam : 'callback') + '=cb';
+
+        request({ uri: requestURI }, function(error, response, body) {
+            var cleaned = body.replace(/^.*\(/, '').replace(/\).*$/, '');
+
+            callback(JSON.parse(cleaned));
+        });
+    } // serverReq
+
+    return typeof window != 'undefined' ? clientReq : serverReq;
 }());
 /**
 # INTERACT
@@ -1360,7 +1374,7 @@ var Animator = (function() {
         ],
         callbacks = [],
         frameIndex = 0,
-        useAnimFrame = (function() {
+        useAnimFrame = DOM && (function() {
             for (var ii = 0; ii < TEST_PROPS.length; ii++) {
                 window.animFrame = window.animFrame || window[TEST_PROPS[ii] + 'equestAnimationFrame'];
             } // for
@@ -1453,7 +1467,7 @@ is done in the library.
 
 ## Methods
 */
-var DOM = (function() {
+var DOM = typeof window != 'undefined' ? (function() {
     /* internals */
 
     var CORE_STYLES = {
@@ -1470,7 +1484,7 @@ var DOM = (function() {
     function checkCaps(testProps) {
         for (var ii = 0; ii < testProps.length; ii++) {
             var propName = testProps[ii];
-            if (typeof document.body.style[propName] != 'undefined') {
+            if (DOM && typeof document.body.style[propName] != 'undefined') {
                 return propName;
             } // if
         } // for
@@ -1540,7 +1554,7 @@ var DOM = (function() {
         move: move,
         styles: styles
     };
-})();
+})() : null;
 /**
 # T5.Runner
 */
@@ -2453,7 +2467,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
             return ret;
         }
 
-        var ctx = document.createElement( "canvas" ).getContext( "2d" );
+        var ctx = document.createElement('canvas').getContext('2d');
         ctx.translate( 50, 0 );
         ctx.moveTo( 125, 50 );
         ctx.arc( 100, 50, 25, 0, 360, false );
@@ -2468,10 +2482,10 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
             vpWidth = panFrame.offsetWidth;
             vpHeight = panFrame.offsetHeight;
 
-            canvas = DOM.create('canvas', null, {
+            canvas = DOM ? DOM.create('canvas', null, {
                 position: 'absolute',
                 'z-index': 1
-            });
+            }) : new Canvas();
 
             canvas.width = vpWidth;
             canvas.height = vpHeight;
@@ -3071,7 +3085,6 @@ reg('view', 'view', function(params) {
         outer,
         dragObject = null,
         mainContext = null,
-        isIE = !_is(window.attachEvent, typeUndefined),
         hitFlagged = false,
         fastpan,
         pointerDown = false,
@@ -3227,8 +3240,8 @@ reg('view', 'view', function(params) {
     function createRenderer(typeName) {
         renderer = attachRenderer(typeName, _self, viewpane, outer, params);
 
-        fastpan = renderer.fastpan && DOM.transforms;
-        _allowTransforms = DOM.transforms && params.useTransforms;
+        fastpan = DOM && renderer.fastpan && DOM.transforms;
+        _allowTransforms = DOM && DOM.transforms && params.useTransforms;
 
         captureInteractionEvents();
     } // createRenderer
@@ -3238,7 +3251,7 @@ reg('view', 'view', function(params) {
             eventMonitor.unbind();
         } // if
 
-        if (renderer) {
+        if (DOM && renderer) {
             eventMonitor = INTERACT.watch(renderer.interactTarget || outer);
 
             if (params.scalable) {
@@ -3407,11 +3420,16 @@ reg('view', 'view', function(params) {
     } // initContainer
 
     function updateContainer(value) {
-        initContainer(outer = document.getElementById(value));
+        if (DOM) {
+            initContainer(outer = document.getElementById(value));
 
-        changeRenderer(params.renderer);
+            changeRenderer(params.renderer);
 
-        createControls(params.controls);
+            createControls(params.controls);
+        }
+        else {
+            changeRenderer('canvas');
+        } // if..else
     } // updateContainer
 
     /* draw code */
@@ -4016,7 +4034,7 @@ reg('view', 'view', function(params) {
 
     updateContainer(params.container);
 
-    if (isIE) {
+    if (DOM && (! _is(window.attachEvent, typeUndefined))) {
         window.attachEvent('onresize', handleResize);
     }
     else {
@@ -5900,6 +5918,6 @@ T5.Registry.register('generator', 'osm.cloudmade', function(params) {
 });
 })();
 
-    exports.T5 = T5;
-    exports.Tile5 = Tile5;
-})(window);
+    scope.T5 = T5;
+    scope.Tile5 = Tile5;
+})(typeof window != 'undefined' ? window : exports);

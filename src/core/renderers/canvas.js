@@ -64,7 +64,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         }
 
         //  test for the presence of the bug, and set the workaround function only if needed
-        var ctx = document.createElement( "canvas" ).getContext( "2d" );
+        var ctx = document.createElement('canvas').getContext('2d');
         ctx.translate( 50, 0 );
         ctx.moveTo( 125, 50 );
         ctx.arc( 100, 50, 25, 0, 360, false );
@@ -81,10 +81,10 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
             vpHeight = panFrame.offsetHeight;
             
             // create the canvas
-            canvas = DOM.create('canvas', null, {
+            canvas = DOM ? DOM.create('canvas', null, {
                 position: 'absolute',
                 'z-index': 1
-            });
+            }) : new Canvas();
             
             canvas.width = vpWidth;
             canvas.height = vpHeight;

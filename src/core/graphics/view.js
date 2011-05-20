@@ -33,7 +33,6 @@ reg('view', 'view', function(params) {
         outer,
         dragObject = null,
         mainContext = null,
-        isIE = !_is(window.attachEvent, typeUndefined),
         hitFlagged = false,
         fastpan,
         pointerDown = false,
@@ -203,8 +202,8 @@ reg('view', 'view', function(params) {
         renderer = attachRenderer(typeName, _self, viewpane, outer, params);
         
         // determine whether partial scaling is supporter
-        fastpan = renderer.fastpan && DOM.transforms;
-        _allowTransforms = DOM.transforms && params.useTransforms;
+        fastpan = DOM && renderer.fastpan && DOM.transforms;
+        _allowTransforms = DOM && DOM.transforms && params.useTransforms;
         
         // attach interaction handlers
         captureInteractionEvents();
@@ -215,7 +214,7 @@ reg('view', 'view', function(params) {
             eventMonitor.unbind();
         } // if
 
-        if (renderer) {
+        if (DOM && renderer) {
             // recreate the event monitor
             eventMonitor = INTERACT.watch(renderer.interactTarget || outer);
 
@@ -403,13 +402,18 @@ reg('view', 'view', function(params) {
     } // initContainer
     
     function updateContainer(value) {
-        initContainer(outer = document.getElementById(value));
-        
-        // change the renderer
-        changeRenderer(params.renderer);
-        
-        // create the controls
-        createControls(params.controls);
+        if (DOM) {
+            initContainer(outer = document.getElementById(value));
+
+            // change the renderer
+            changeRenderer(params.renderer);
+
+            // create the controls
+            createControls(params.controls);
+        }
+        else {
+            changeRenderer('canvas');
+        } // if..else
     } // updateContainer
     
     /* draw code */
@@ -1120,7 +1124,7 @@ reg('view', 'view', function(params) {
     updateContainer(params.container);
 
     // if autosized, then listen for resize events
-    if (isIE) {
+    if (DOM && (! _is(window.attachEvent, typeUndefined))) {
         window.attachEvent('onresize', handleResize);
     }
     else {

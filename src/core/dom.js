@@ -5,7 +5,7 @@ is done in the library.
 
 ## Methods
 */
-var DOM = (function() {
+var DOM = typeof window != 'undefined' ? (function() {
     /* internals */
     
     var CORE_STYLES = {
@@ -24,7 +24,7 @@ var DOM = (function() {
     function checkCaps(testProps) {
         for (var ii = 0; ii < testProps.length; ii++) {
             var propName = testProps[ii];
-            if (typeof document.body.style[propName] != 'undefined') {
+            if (DOM && typeof document.body.style[propName] != 'undefined') {
                 return propName;
             } // if
         } // for
@@ -99,4 +99,4 @@ var DOM = (function() {
         move: move,
         styles: styles
     };
-})();
+})() : null;
