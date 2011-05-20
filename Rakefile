@@ -50,5 +50,7 @@ task :docs => [] do
        --smartypants /development/tools/perl/SmartyPants.pl \
        --title \"Tile5 API Documentation\" \
        --template docs/html/template.html \
-       docs/ src/"
+       docs/T5/ src/"
+       
+  sh "cp docs/html/* dist/docs/"
 end

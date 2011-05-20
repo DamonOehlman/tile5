@@ -1,33 +1,4 @@
 T5.Addressing = (function() {
-function Address(params, locale) {
-    params = T5.ex({
-        streetDetails: "",
-        location: "",
-        country: "",
-        postalCode: "",
-        pos: null,
-        boundingBox: null
-    }, params);
-
-    T5.ex(this, params);
-
-    if (T5.is(params, 'string')) {
-        Address.prototype.parse.call(this, params, locale);
-    } // if
-}; // Address
-
-Address.prototype = {
-    constructor: Address,
-
-    parse: function(addressString, locale) {
-        var parts = addressString.split(',');
-    }, // parse
-
-    toString: function() {
-        return this.streetDetails + " " + this.location;
-    }
-};
-
     /* define the address tools */
 
     var REGEX_BUILDINGNO = /^(\d+).*$/,
@@ -94,8 +65,6 @@ Address.prototype = {
     } // normalize
 
     return {
-        Address: Address,
-
         buildingMatch: buildingMatch,
         normalize: normalize
     };

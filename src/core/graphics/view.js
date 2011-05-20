@@ -10,12 +10,11 @@ reg('view', 'view', function(params) {
         drawOnScale: true,
         padding: 128, // other values 'auto'
         inertia: true,
-        refreshDistance: 256,
+        refreshDistance: 128,
         pannable: true,
         scalable: true,
-        
-        // zoom parameters
-        renderer: 'canvas'
+        renderer: 'canvas',
+        useTransforms: true
     }, params);
     
     // initialise constants
@@ -24,6 +23,7 @@ reg('view', 'view', function(params) {
         PADDING_AUTO = 'auto',
     
         // get the container context
+        _allowTransforms = true,
         _frozen = false,
         controls = [],
         layers = [],
@@ -83,7 +83,16 @@ reg('view', 'view', function(params) {
     /* scaling functions */
     
     function handleZoom(evt, absXY, relXY, scaleChange, source) {
-        scale(max(scaleFactor + pow(2, scaleChange) - 1, 0.125), false, true);
+        var scaleVal;
+        
+        if (_allowTransforms) {
+            scaleVal = max(scaleFactor + pow(2, scaleChange) - 1, 0.125);
+        }
+        else {
+            scaleVal = scaleChange > 0 ? 2 : 0.5;
+        } // if..else
+            
+        scale(scaleVal, false, true);
     } // handleWheelZoom
     
     function getProjectedXY(srcX, srcY) {
@@ -195,6 +204,7 @@ reg('view', 'view', function(params) {
         
         // determine whether partial scaling is supporter
         fastpan = renderer.fastpan && DOM.transforms;
+        _allowTransforms = DOM.transforms && params.useTransforms;
         
         // attach interaction handlers
         captureInteractionEvents();
@@ -469,6 +479,9 @@ reg('view', 'view', function(params) {
         
         // update the panning flag
         scaleChanged = scaleFactor !== lastScaleFactor;
+        if (scaleChanged) {
+            _self.trigger('scale');
+        } // if
         
         if (panSpeed > 0 || scaleChanged || offsetTween || scaleTween || rotateTween) {
             viewChanges++;
@@ -516,7 +529,7 @@ reg('view', 'view', function(params) {
             } // if
             
             // if transforms are supported, then scale and rotate as approprate
-            if (DOM.transforms) {
+            if (_allowTransforms) {
                 if (scaleFactor !== 1) {
                     extraTransforms[extraTransforms.length] = 'scale(' + scaleFactor + ')';
                 } // if
@@ -542,8 +555,12 @@ reg('view', 'view', function(params) {
                     offsetY = values[1] | 0;
                 }
                 else {
-                    offsetX = (offsetX - panX / scaleFactor) | 0;
-                    offsetY = (offsetY - panY / scaleFactor) | 0;
+                    var theta = -rotation * DEGREES_TO_RADIANS,
+                        xChange = cos(theta) * panX + -sin(theta) * panY,
+                        yChange = sin(theta) * panX +  cos(theta) * panY;
+                    
+                    offsetX = (offsetX - xChange / scaleFactor) | 0;
+                    offsetY = (offsetY - yChange / scaleFactor) | 0;
                 } // if..else
 
                 // initialise the viewport

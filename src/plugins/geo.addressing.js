@@ -1,6 +1,4 @@
 T5.Addressing = (function() {
-    //= require "addressing/address"
-
     /* define the address tools */
 
     var REGEX_BUILDINGNO = /^(\d+).*$/,
@@ -74,8 +72,6 @@ T5.Addressing = (function() {
     } // normalize
 
     return {
-        Address: Address,
-        
         buildingMatch: buildingMatch,
         normalize: normalize
     };

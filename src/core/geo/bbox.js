@@ -28,10 +28,10 @@ function BBox(p1, p2) {
             } // if
         } // for
         
-        // initialise the min and max positions
+        // assign the min and max pos so the size can be calculated
         this.min = minPos;
         this.max = maxPos;
-
+        
         // if the amount of padding is undefined, then calculate
         if (_is(padding, typeUndefined)) {
             var size = this.size();
@@ -40,8 +40,9 @@ function BBox(p1, p2) {
             padding = max(size.x, size.y) * 0.3;
         } // if
 
-        // expand the bounds to give us some padding
-        this.expand(padding);
+        // update the min and max
+        this.min = new Pos(minPos.lat - padding, (minPos.lon - padding) % 360);
+        this.max = new Pos(maxPos.lat + padding, (maxPos.lon + padding) % 360);
     }
     // otherwise, assign p1 to the min pos and p2 to the max
     else {
@@ -92,10 +93,10 @@ BBox.prototype = {
     ### expand(amount)
     */
     expand: function(amount) {
-        this.min.lat -= amount;
-        this.max.lat += amount;
-        this.min.lon -= amount % 360;
-        this.max.lon += amount % 360;
+        return new BBox(
+            new Pos(this.min.lat - amount, (this.min.lon - amount) % 360),
+            new Pos(this.max.lat + amount, (this.max.lon + amount) % 360)
+        );
     },
     
     /**

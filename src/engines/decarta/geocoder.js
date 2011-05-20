@@ -2,15 +2,27 @@ T5.Registry.register('service', 'geocoder', function() {
     
     /* internals */
     
-    var GeocodeRequest = function(params) {
+    var geocodeRequestFormatter = T5.formatter(
+            '<xls:GeocodeRequest>' + 
+                '<xls:Address countryCode="{0}" language="{1}">{2}</xls:Address>' + 
+            '</xls:GeocodeRequest>'
+        ),
+        _streetAddressFormatter = T5.formatter(
+            '<xls:StreetAddress>' + 
+                '<xls:Building number="{0}" />' + 
+                '<xls:Street>{1}</xls:Street>' +
+            '</xls:StreetAddress>'
+        ),
+        placeTypes = ['Municipality', 'CountrySubdivision'];
+    
+    var GeocodeRequest = function(address, params) {
         params = T5.ex({
-            addresses: [],
-            parserReport: false,
-            parseOnly: false,
-            returnSpatialKeys: false
+            countryCode: currentConfig.geocoding.countryCode,
+            language: currentConfig.geocoding.language
         }, params);
         
-        var requestFormatter = _formatter('<xls:GeocodeRequest parserReport="{0}" parseOnly="{1}" returnSpatialKeys="{2}">');
+        // initialise variables
+        var parsed = ADDR.parse(address);
         
         function validMatch(match) {
             return match.GeocodeMatchCode && match.GeocodeMatchCode.matchType !== "NO_MATCH";
@@ -50,18 +62,13 @@ T5.Registry.register('service', 'geocoder', function() {
                 matchList = [responseList.GeocodedAddress];
             } // if..else
             
-            try {
-                // iterate through the response list
-                for (var ii = 0; matchList && (ii < matchList.length); ii++) {
-                    var matchResult = parseMatchResult(matchList[ii]);
-                    if (matchResult) {
-                        addresses.push(matchResult);
-                    } // if
-                } // for
-            } 
-            catch (e) {
-                _log(e, 'error');
-            } // try..except
+            // iterate through the response list
+            for (var ii = 0; matchList && (ii < matchList.length); ii++) {
+                var matchResult = parseMatchResult(matchList[ii]);
+                if (matchResult) {
+                    addresses.push(matchResult);
+                } // if
+            } // for
             
             return addresses;                
         } // getResponseAddresses
@@ -74,30 +81,27 @@ T5.Registry.register('service', 'geocoder', function() {
             methodName: "Geocode",
             
             getRequestBody: function() {
-                var body = requestFormatter(params.parserReport, params.parseOnly, params.returnSpatialKeys);
+                var addressXML = _streetAddressFormatter(parsed.number, parsed.street);
                 
-                // iterate through the addresses and create the inner tags
-                for (var ii = 0; ii < params.addresses.length; ii++) {
-                    body += params.addresses[ii].getXML();
+                /*
+                // iterate through the regions in the parsed street, and add to the address xml
+                for (var ii = 0; ii < parsed.regions.length; ii++) {
+                    if (ii < placeTypes.length) {
+                        addressXML += '<xls:Place type="' + placeTypes[ii] + '">' + parsed.regions[ii] + '</xls:Place>';
+                    } // if
                 } // for
+                */
                 
-                return body + "</xls:GeocodeRequest>";
+                addressXML += '<xls:Place type="Municipality">' + parsed.regions.join(' ') + '</xls:Place>';
+                
+                return geocodeRequestFormatter(
+                    params.countryCode,
+                    params.language,
+                    addressXML);
             },
             
             parseResponse: function(response) {
-                // _log("got response: ", response);
-
-                if (params.addresses.length === 1) {
-                    return [getResponseAddresses(response.GeocodeResponseList)];
-                }
-                else {
-                    var results = [];
-                    for (var ii = 0; ii < params.addresses.length; ii++) {
-                        results.push(getResponseAddresses(response.GeocodeResponseList[ii]));
-                    } // for
-                    
-                    return results;
-                } // if..else
+                return getResponseAddresses(response.GeocodeResponseList);
             }
         });
         
@@ -149,36 +153,9 @@ T5.Registry.register('service', 'geocoder', function() {
     /* exports */
     
     function forward(address, callback) {
-        // initialise variables
-        var ii, requestAddresses = [];
-        
-        // TODO: if the element is a simple object, then treat as a structured geocode
-        if (T5.is(address, 'object')) {
-            T5.log("attempting to geocode a simple object - not implemented", 'warn');
-        }
-        // else assume we are dealing with a free form routing request
-        else {
-            requestAddresses.push(new Address({
-                freeform: address
-            }));
-        }
-        
-        // if we have request addresses to process, then issue a geocoding request
-        // _log("attempting to geocode addresses: ", requestAddresses);
-        if (requestAddresses.length > 0) {
-            // create the geocoding request and execute it
-            var request = new GeocodeRequest({
-                addresses: requestAddresses
-            });
-        
-            makeServerRequest(request, function(geocodeResponses) {
-                // iterate through the address matches, and fire the complete event for each
-                for (ii = 0; callback && ii < geocodeResponses.length; ii++) {
-                    // fire the complete event
-                    callback(address, geocodeResponses[ii]);
-                } // for
-            });
-        } // if
+        makeServerRequest(new GeocodeRequest(address), function(geocodingResponse) {
+            callback(address, geocodingResponse);
+        });
     } // forward
     
     function reverse(pos, callback) {
@@ -193,6 +170,11 @@ T5.Registry.register('service', 'geocoder', function() {
             } // if
         });
     } // reverse
+
+    // check that the sidelab addressing module is available
+    if (typeof ADDR === 'undefined') {
+        T5.log('Sidelab addressing module not found, geocoder will not function', 'warn');
+    } // if
     
     return {
         forward: forward,

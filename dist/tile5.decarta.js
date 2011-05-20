@@ -3050,17 +3050,18 @@ reg('view', 'view', function(params) {
         drawOnScale: true,
         padding: 128, // other values 'auto'
         inertia: true,
-        refreshDistance: 256,
+        refreshDistance: 128,
         pannable: true,
         scalable: true,
-
-        renderer: 'canvas'
+        renderer: 'canvas',
+        useTransforms: true
     }, params);
 
     var PANSPEED_THRESHOLD_REFRESH = 2,
         PANSPEED_THRESHOLD_FASTPAN = 5,
         PADDING_AUTO = 'auto',
 
+        _allowTransforms = true,
         _frozen = false,
         controls = [],
         layers = [],
@@ -3120,7 +3121,16 @@ reg('view', 'view', function(params) {
     /* scaling functions */
 
     function handleZoom(evt, absXY, relXY, scaleChange, source) {
-        scale(max(scaleFactor + pow(2, scaleChange) - 1, 0.125), false, true);
+        var scaleVal;
+
+        if (_allowTransforms) {
+            scaleVal = max(scaleFactor + pow(2, scaleChange) - 1, 0.125);
+        }
+        else {
+            scaleVal = scaleChange > 0 ? 2 : 0.5;
+        } // if..else
+
+        scale(scaleVal, false, true);
     } // handleWheelZoom
 
     function getProjectedXY(srcX, srcY) {
@@ -3218,6 +3228,7 @@ reg('view', 'view', function(params) {
         renderer = attachRenderer(typeName, _self, viewpane, outer, params);
 
         fastpan = renderer.fastpan && DOM.transforms;
+        _allowTransforms = DOM.transforms && params.useTransforms;
 
         captureInteractionEvents();
     } // createRenderer
@@ -3458,6 +3469,9 @@ reg('view', 'view', function(params) {
         self.panSpeed = panSpeed = abs(dx) + abs(dy);
 
         scaleChanged = scaleFactor !== lastScaleFactor;
+        if (scaleChanged) {
+            _self.trigger('scale');
+        } // if
 
         if (panSpeed > 0 || scaleChanged || offsetTween || scaleTween || rotateTween) {
             viewChanges++;
@@ -3494,7 +3508,7 @@ reg('view', 'view', function(params) {
                 _self.trigger('pan');
             } // if
 
-            if (DOM.transforms) {
+            if (_allowTransforms) {
                 if (scaleFactor !== 1) {
                     extraTransforms[extraTransforms.length] = 'scale(' + scaleFactor + ')';
                 } // if
@@ -3517,8 +3531,12 @@ reg('view', 'view', function(params) {
                     offsetY = values[1] | 0;
                 }
                 else {
-                    offsetX = (offsetX - panX / scaleFactor) | 0;
-                    offsetY = (offsetY - panY / scaleFactor) | 0;
+                    var theta = -rotation * DEGREES_TO_RADIANS,
+                        xChange = cos(theta) * panX + -sin(theta) * panY,
+                        yChange = sin(theta) * panX +  cos(theta) * panY;
+
+                    offsetX = (offsetX - xChange / scaleFactor) | 0;
+                    offsetY = (offsetY - yChange / scaleFactor) | 0;
                 } // if..else
 
                 vp = viewport();
@@ -5522,7 +5540,8 @@ function BBox(p1, p2) {
             padding = max(size.x, size.y) * 0.3;
         } // if
 
-        this.expand(padding);
+        this.min = new Pos(minPos.lat - padding, (minPos.lon - padding) % 360);
+        this.max = new Pos(maxPos.lat + padding, (maxPos.lon + padding) % 360);
     }
     else {
         this.min = p1;
@@ -5562,10 +5581,10 @@ BBox.prototype = {
     ### expand(amount)
     */
     expand: function(amount) {
-        this.min.lat -= amount;
-        this.max.lat += amount;
-        this.min.lon -= amount % 360;
-        this.max.lon += amount % 360;
+        return new BBox(
+            new Pos(this.min.lat - amount, (this.min.lon - amount) % 360),
+            new Pos(this.max.lat + amount, (this.max.lon + amount) % 360)
+        );
     },
 
     /**
@@ -6422,23 +6441,37 @@ function makeServerRequest(request, callback) {
 function parseAddress(address, position) {
     var streetDetails = new Street({
             json: address.StreetAddress
-        });
+        }),
+        regions = [];
 
-    var placeDetails = new Place({
-        countryCode: address.countryCode
+    if (address.Place) {
+        if (! address.Place.length) {
+            address.Place = [address.Place];
+        } // if
+
+        for (var ii = address.Place.length; ii--; ) {
+            regions[regions.length] = address.Place[ii].content;
+        } // for
+    } // if
+
+    return new ADDR.Address({
+        building: streetDetails.building,
+        street: streetDetails.street,
+        regions: regions,
+        countryCode: address.countryCode || '',
+        postalCode: address.PostalCode || '',
+        pos: position
     });
 
-    placeDetails.parse(address.Place);
-
+    /*
     var addressParams = {
         streetDetails: streetDetails,
         location: placeDetails,
-        country: address.countryCode ? address.countryCode : "",
-        postalCode: address.PostalCode ? address.PostalCode : "",
         pos: position
     };
 
     return new T5.Addressing.Address(addressParams);
+    */
 } // parseAddress
 
 var Request = function() {
@@ -6607,15 +6640,26 @@ T5.Registry.register('service', 'geocoder', function() {
 
     /* internals */
 
-    var GeocodeRequest = function(params) {
+    var geocodeRequestFormatter = T5.formatter(
+            '<xls:GeocodeRequest>' +
+                '<xls:Address countryCode="{0}" language="{1}">{2}</xls:Address>' +
+            '</xls:GeocodeRequest>'
+        ),
+        _streetAddressFormatter = T5.formatter(
+            '<xls:StreetAddress>' +
+                '<xls:Building number="{0}" />' +
+                '<xls:Street>{1}</xls:Street>' +
+            '</xls:StreetAddress>'
+        ),
+        placeTypes = ['Municipality', 'CountrySubdivision'];
+
+    var GeocodeRequest = function(address, params) {
         params = T5.ex({
-            addresses: [],
-            parserReport: false,
-            parseOnly: false,
-            returnSpatialKeys: false
+            countryCode: currentConfig.geocoding.countryCode,
+            language: currentConfig.geocoding.language
         }, params);
 
-        var requestFormatter = _formatter('<xls:GeocodeRequest parserReport="{0}" parseOnly="{1}" returnSpatialKeys="{2}">');
+        var parsed = ADDR.parse(address);
 
         function validMatch(match) {
             return match.GeocodeMatchCode && match.GeocodeMatchCode.matchType !== "NO_MATCH";
@@ -6650,17 +6694,12 @@ T5.Registry.register('service', 'geocoder', function() {
                 matchList = [responseList.GeocodedAddress];
             } // if..else
 
-            try {
-                for (var ii = 0; matchList && (ii < matchList.length); ii++) {
-                    var matchResult = parseMatchResult(matchList[ii]);
-                    if (matchResult) {
-                        addresses.push(matchResult);
-                    } // if
-                } // for
-            }
-            catch (e) {
-                _log(e, 'error');
-            } // try..except
+            for (var ii = 0; matchList && (ii < matchList.length); ii++) {
+                var matchResult = parseMatchResult(matchList[ii]);
+                if (matchResult) {
+                    addresses.push(matchResult);
+                } // if
+            } // for
 
             return addresses;
         } // getResponseAddresses
@@ -6671,28 +6710,26 @@ T5.Registry.register('service', 'geocoder', function() {
             methodName: "Geocode",
 
             getRequestBody: function() {
-                var body = requestFormatter(params.parserReport, params.parseOnly, params.returnSpatialKeys);
+                var addressXML = _streetAddressFormatter(parsed.number, parsed.street);
 
-                for (var ii = 0; ii < params.addresses.length; ii++) {
-                    body += params.addresses[ii].getXML();
+                /*
+                for (var ii = 0; ii < parsed.regions.length; ii++) {
+                    if (ii < placeTypes.length) {
+                        addressXML += '<xls:Place type="' + placeTypes[ii] + '">' + parsed.regions[ii] + '</xls:Place>';
+                    } // if
                 } // for
+                */
 
-                return body + "</xls:GeocodeRequest>";
+                addressXML += '<xls:Place type="Municipality">' + parsed.regions.join(' ') + '</xls:Place>';
+
+                return geocodeRequestFormatter(
+                    params.countryCode,
+                    params.language,
+                    addressXML);
             },
 
             parseResponse: function(response) {
-
-                if (params.addresses.length === 1) {
-                    return [getResponseAddresses(response.GeocodeResponseList)];
-                }
-                else {
-                    var results = [];
-                    for (var ii = 0; ii < params.addresses.length; ii++) {
-                        results.push(getResponseAddresses(response.GeocodeResponseList[ii]));
-                    } // for
-
-                    return results;
-                } // if..else
+                return getResponseAddresses(response.GeocodeResponseList);
             }
         });
 
@@ -6741,28 +6778,9 @@ T5.Registry.register('service', 'geocoder', function() {
     /* exports */
 
     function forward(address, callback) {
-        var ii, requestAddresses = [];
-
-        if (T5.is(address, 'object')) {
-            T5.log("attempting to geocode a simple object - not implemented", 'warn');
-        }
-        else {
-            requestAddresses.push(new Address({
-                freeform: address
-            }));
-        }
-
-        if (requestAddresses.length > 0) {
-            var request = new GeocodeRequest({
-                addresses: requestAddresses
-            });
-
-            makeServerRequest(request, function(geocodeResponses) {
-                for (ii = 0; callback && ii < geocodeResponses.length; ii++) {
-                    callback(address, geocodeResponses[ii]);
-                } // for
-            });
-        } // if
+        makeServerRequest(new GeocodeRequest(address), function(geocodingResponse) {
+            callback(address, geocodingResponse);
+        });
     } // forward
 
     function reverse(pos, callback) {
@@ -6776,6 +6794,10 @@ T5.Registry.register('service', 'geocoder', function() {
             } // if
         });
     } // reverse
+
+    if (typeof ADDR === 'undefined') {
+        T5.log('Sidelab addressing module not found, geocoder will not function', 'warn');
+    } // if
 
     return {
         forward: forward,

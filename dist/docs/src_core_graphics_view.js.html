@@ -1,8 +1,16 @@
----
-layout: apidoc
-title: Tile5 API Documentation
----
-
+<!doctype html>
+<html lang="en">
+<head>
+<title>Tile5 API Documentation</title>
+<meta name="viewport" content="width=device-width; initial-scale=1.0; maximum-scale=1.0; user-scalable=0;"/>
+<link href='http://fonts.googleapis.com/css?family=Terminal+Dosis+Light' rel='stylesheet' type='text/css'>
+<link href='http://fonts.googleapis.com/css?family=Raleway:100' rel='stylesheet' type='text/css'>
+<link href='http://fonts.googleapis.com/css?family=Molengo' rel='stylesheet' type='text/css'>
+<link href='http://fonts.googleapis.com/css?family=Play' rel='stylesheet' type='text/css'>
+<link href='http://fonts.googleapis.com/css?family=Inconsolata' rel='stylesheet' type='text/css'> 
+<link rel="stylesheet" type="text/css" href="apidocs.css">
+</head>
+<body>
 <h1><a name="VIEW: simple">VIEW: simple</a></h1>
 
 <h3>attachFrame(element)</h3>
@@ -14,6 +22,10 @@ the view.</p>
 
 <p>If you plan on reusing a single canvas element to display different views then you 
 will definitely want to call the detach method between usages.</p>
+
+<h3>frozen(value)</h3>
+
+<h3>invalidate()</h3>
 
 <h3>setMaxOffset(maxX: int, maxY: int, wrapX: bool, wrapY: bool)</h3>
 
@@ -74,3 +86,6 @@ events and will do some of their recalculations when this is called.</p>
 <p>This function allows you to specified the absolute x and y offset that should 
 become the top-left corner of the view.  As per the <code>pan</code> function documentation, tween and
 callback arguments can be supplied to animate the transition.</p>
+
+</body>
+</html>

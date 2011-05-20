@@ -3050,17 +3050,18 @@ reg('view', 'view', function(params) {
         drawOnScale: true,
         padding: 128, // other values 'auto'
         inertia: true,
-        refreshDistance: 256,
+        refreshDistance: 128,
         pannable: true,
         scalable: true,
-
-        renderer: 'canvas'
+        renderer: 'canvas',
+        useTransforms: true
     }, params);
 
     var PANSPEED_THRESHOLD_REFRESH = 2,
         PANSPEED_THRESHOLD_FASTPAN = 5,
         PADDING_AUTO = 'auto',
 
+        _allowTransforms = true,
         _frozen = false,
         controls = [],
         layers = [],
@@ -3120,7 +3121,16 @@ reg('view', 'view', function(params) {
     /* scaling functions */
 
     function handleZoom(evt, absXY, relXY, scaleChange, source) {
-        scale(max(scaleFactor + pow(2, scaleChange) - 1, 0.125), false, true);
+        var scaleVal;
+
+        if (_allowTransforms) {
+            scaleVal = max(scaleFactor + pow(2, scaleChange) - 1, 0.125);
+        }
+        else {
+            scaleVal = scaleChange > 0 ? 2 : 0.5;
+        } // if..else
+
+        scale(scaleVal, false, true);
     } // handleWheelZoom
 
     function getProjectedXY(srcX, srcY) {
@@ -3218,6 +3228,7 @@ reg('view', 'view', function(params) {
         renderer = attachRenderer(typeName, _self, viewpane, outer, params);
 
         fastpan = renderer.fastpan && DOM.transforms;
+        _allowTransforms = DOM.transforms && params.useTransforms;
 
         captureInteractionEvents();
     } // createRenderer
@@ -3458,6 +3469,9 @@ reg('view', 'view', function(params) {
         self.panSpeed = panSpeed = abs(dx) + abs(dy);
 
         scaleChanged = scaleFactor !== lastScaleFactor;
+        if (scaleChanged) {
+            _self.trigger('scale');
+        } // if
 
         if (panSpeed > 0 || scaleChanged || offsetTween || scaleTween || rotateTween) {
             viewChanges++;
@@ -3494,7 +3508,7 @@ reg('view', 'view', function(params) {
                 _self.trigger('pan');
             } // if
 
-            if (DOM.transforms) {
+            if (_allowTransforms) {
                 if (scaleFactor !== 1) {
                     extraTransforms[extraTransforms.length] = 'scale(' + scaleFactor + ')';
                 } // if
@@ -3517,8 +3531,12 @@ reg('view', 'view', function(params) {
                     offsetY = values[1] | 0;
                 }
                 else {
-                    offsetX = (offsetX - panX / scaleFactor) | 0;
-                    offsetY = (offsetY - panY / scaleFactor) | 0;
+                    var theta = -rotation * DEGREES_TO_RADIANS,
+                        xChange = cos(theta) * panX + -sin(theta) * panY,
+                        yChange = sin(theta) * panX +  cos(theta) * panY;
+
+                    offsetX = (offsetX - xChange / scaleFactor) | 0;
+                    offsetY = (offsetY - yChange / scaleFactor) | 0;
                 } // if..else
 
                 vp = viewport();
@@ -5522,7 +5540,8 @@ function BBox(p1, p2) {
             padding = max(size.x, size.y) * 0.3;
         } // if
 
-        this.expand(padding);
+        this.min = new Pos(minPos.lat - padding, (minPos.lon - padding) % 360);
+        this.max = new Pos(maxPos.lat + padding, (maxPos.lon + padding) % 360);
     }
     else {
         this.min = p1;
@@ -5562,10 +5581,10 @@ BBox.prototype = {
     ### expand(amount)
     */
     expand: function(amount) {
-        this.min.lat -= amount;
-        this.max.lat += amount;
-        this.min.lon -= amount % 360;
-        this.max.lon += amount % 360;
+        return new BBox(
+            new Pos(this.min.lat - amount, (this.min.lon - amount) % 360),
+            new Pos(this.max.lat + amount, (this.max.lon + amount) % 360)
+        );
     },
 
     /**

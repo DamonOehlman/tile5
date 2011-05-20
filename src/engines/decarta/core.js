@@ -287,25 +287,39 @@ function makeServerRequest(request, callback) {
 function parseAddress(address, position) {
     var streetDetails = new Street({
             json: address.StreetAddress
-        });
+        }),
+        regions = [];
+
+    // iterate through the places
+    if (address.Place) {
+        if (! address.Place.length) {
+            address.Place = [address.Place];
+        } // if
         
-    var placeDetails = new Place({
-        countryCode: address.countryCode
+        for (var ii = address.Place.length; ii--; ) {
+            regions[regions.length] = address.Place[ii].content;
+        } // for
+    } // if
+        
+    return new ADDR.Address({
+        building: streetDetails.building,
+        street: streetDetails.street,
+        regions: regions,
+        countryCode: address.countryCode || '',
+        postalCode: address.PostalCode || '',
+        pos: position
     });
     
-    // parse the place details
-    placeDetails.parse(address.Place);
-    
+    /*
     // initialise the address params
     var addressParams = {
         streetDetails: streetDetails,
         location: placeDetails,
-        country: address.countryCode ? address.countryCode : "",
-        postalCode: address.PostalCode ? address.PostalCode : "",
         pos: position
     };
     
     return new T5.Addressing.Address(addressParams);
+    */
 } // parseAddress
 
 // define the basic request type

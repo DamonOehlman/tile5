@@ -1,0 +1,18 @@
+body {
+    font: 1em 'Raleway', Arial;
+    letter-spacing: 1.2px;
+    line-height: 2em;
+    padding: 0 40px 0 70px;
+}
+
+h1, h2, h3 {
+    font-family: Helvetica, Arial, Sans;
+}
+
+h1 {
+    margin: 40px 0 40px -20px;
+}
+
+pre, code {
+    font-family: 'Inconsolata', Courier, Serif;
+}
