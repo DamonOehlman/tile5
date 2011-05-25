@@ -112,7 +112,7 @@ T5.RouteTools = (function() {
         }, params);
 
         if (! params.boundingBox) {
-            params.boundingBox = new T5.BBox(params.geometry);
+            params.boundingBox = new GeoJS.BBox(params.geometry);
         } // if
 
         var _self = _extend({
@@ -202,6 +202,18 @@ T5.RouteTools = (function() {
                     routeData.geometry = generalize(routeData.geometry, routeData.getInstructionPositions());
                 } // if
 
+                if (routeData.instructions) {
+                    var totalTime = new TL.Duration(),
+                        totalDist = new GeoJS.Distance();
+
+                    for (var ii = 0, insCount = routeData.instructions.length; ii < insCount; ii++) {
+                        var instruction = routeData.instructions[ii];
+
+                        instruction.timeTotal = totalTime = totalTime.add(instruction.time);
+                        instruction.distanceTotal = totalDist = totalDist.add(instruction.distance);
+                    } // for
+                } // if
+
                 if (args.map) {
                     createMapOverlay(args.map, routeData);
 
@@ -213,7 +225,7 @@ T5.RouteTools = (function() {
                 if (args.success) {
                     args.success(routeData);
                 } // if
-            });
+            }, args.error);
         } // if
     } // calculate
 

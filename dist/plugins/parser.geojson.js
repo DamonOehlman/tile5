@@ -40,10 +40,10 @@ T5.Registry.register('parser', 'geojson', function() {
 
     function readVectors(coordinates) {
         var count = coordinates ? coordinates.length : 0,
-            positions = new Array(count);
+            positions = [];
 
         for (var ii = count; ii--; ) {
-            positions[ii] = new T5.Pos(coordinates[ii][1], coordinates[ii][0]);
+            positions[ii] = new GeoJS.Pos(coordinates[ii][1], coordinates[ii][0]);
         } // for
 
         return positions;
@@ -52,7 +52,7 @@ T5.Registry.register('parser', 'geojson', function() {
     /* feature processor functions */
 
     function processLineString(layer, featureData, options, builders) {
-        var vectors = readVectors(featureData && featureData.coordinates ? featureData.coordinates : []);
+        var vectors = featureData && featureData.coordinates ? featureData.coordinates : [];
 
         return createShape(layer, vectors, options, builders.line);
     } // processLineString
@@ -137,7 +137,8 @@ T5.Registry.register('parser', 'geojson', function() {
             totalFeatures = 0,
             childCount = 0,
             childrenActive = 0,
-            layers = {};
+            layers = {},
+            topLevelProps;
 
         if (! data) {
             return;
@@ -197,24 +198,18 @@ T5.Registry.register('parser', 'geojson', function() {
             return layer;
         } // getLayer
 
-        function parseComplete(evt) {
-            if (callback) {
-                callback(layers);
-            } // if
-        } // parseComplete
-
         function processData(tickCount) {
-            var cycleCount = 0,
-                childOpts = T5.ex({}, options),
+            var childOpts = T5.ex({}, options),
                 ii = featureIndex;
 
             tickCount = tickCount ? tickCount : new Date().getTime();
 
             for (; ii < totalFeatures; ii++) {
-                var featureInfo = extractFeatureInfo(rowPreParse ? rowPreParse(data[ii]) : data[ii]),
-                    processedCount = null;
+                var featureInfo = extractFeatureInfo(rowPreParse ? rowPreParse(data[ii]) : data[ii]);
 
                 if (featureInfo.isCollection) {
+                    topLevelProps = topLevelProps || featureInfo.properties;
+
                     childOpts.layerPrefix = layerPrefix + (childCount++) + '-';
 
                     childrenActive++;
@@ -227,23 +222,11 @@ T5.Registry.register('parser', 'geojson', function() {
                             for (var layerId in childLayers) {
                                 layers[layerId] = childLayers[layerId];
                             } // for
-
-                            if (featureIndex >= totalFeatures) {
-                                parseComplete();
-                            } // if
                         }, childOpts);
-
-                    processedCount += 1;
                 }
                 else if (featureInfo.definition) {
-                    processedCount = addFeature(featureInfo.definition, featureInfo);
+                    addFeature(featureInfo.definition, featureInfo);
                 } // if..else
-
-                cycleCount += processedCount ? processedCount : 1;
-
-                if (cycleCount >= VECTORS_PER_CYCLE) {
-                    break;
-                } // if
             } // for
 
             featureIndex = ii + 1;
@@ -251,9 +234,9 @@ T5.Registry.register('parser', 'geojson', function() {
             if (childrenActive || featureIndex < totalFeatures) {
                 setTimeout(processData, 0);
             }
-            else {
-                parseComplete();
-            }
+            else if (callback) {
+                callback(layers, topLevelProps);
+            } // if..else
         } // processData
 
         /* run the parser */

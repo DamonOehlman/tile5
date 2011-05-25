@@ -16,6 +16,9 @@ var abs = Math.abs,
     atan = Math.atan,
     atan2 = Math.atan2,
     
+    // detected commonjs implementation
+    isCommonJS = typeof module !== 'undefined' && module.exports,
+    
     // some type references
     typeUndefined = 'undefined',
     typeFunction = 'function',

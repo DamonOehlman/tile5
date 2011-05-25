@@ -19,5 +19,5 @@ var _unproject = _unproject || function(x, y) {
         iterCount++;
     } // while
 
-    return new Pos(newPhi * RADIANS_TO_DEGREES, (x % 360) * RADIANS_TO_DEGREES);
+    return new GeoJS.Pos(newPhi * RADIANS_TO_DEGREES, (x % 360) * RADIANS_TO_DEGREES);
 }; // _unproject

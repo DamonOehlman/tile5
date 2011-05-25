@@ -7,6 +7,9 @@
 - `style` (default = null) - the style override for this poly.  If none
 is specified then the style of the T5.PolyLayer is used.
 
+## Events
+
+### updatedPoints 
 
 ## Methods
 */
@@ -47,6 +50,8 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
         
         // update the width
         _self.updateBounds(new Rect(minX, minY, maxX - minX, maxY - minY), true);
+        
+        // invalidate the view
         view.invalidate();
     } // updateDrawPoints
         

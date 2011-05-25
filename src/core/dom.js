@@ -24,7 +24,7 @@ var DOM = typeof window != 'undefined' ? (function() {
     function checkCaps(testProps) {
         for (var ii = 0; ii < testProps.length; ii++) {
             var propName = testProps[ii];
-            if (DOM && typeof document.body.style[propName] != 'undefined') {
+            if (typeof document.body.style[propName] != 'undefined') {
                 return propName;
             } // if
         } // for

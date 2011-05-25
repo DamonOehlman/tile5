@@ -24,6 +24,7 @@ html, body, #mapContainer {
 <!-- include extra renderers -->
 <script src="../dist/plugins/renderer.raphael.js"></script>
 <script src="../dist/plugins/renderer.three.js"></script>
+<script src="../dist/plugins/parser.geojson.js"></script>
 <script>
 var stats = new Stats();
 
@@ -40,7 +41,8 @@ setInterval( function () {
 </script>
 <script src="runner.js"></script>
 <script>
-DEMO.load('geojson world');
+//DEMO.load('geojson world');
+DEMO.load('Drag and Drop GeoJSON');
 </script>
 </body>
 </html>

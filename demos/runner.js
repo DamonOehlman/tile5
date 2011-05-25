@@ -20,6 +20,9 @@ DEMO = (function() {
         }, {
             title: 'Animated Panning',
             script: 'js/animated-map-panning.js'
+        }, {
+            title: 'Drag and Drop GeoJSON',
+            script: 'js/dnd-geojson.js'
         }],
         startLat = -27.469592089206213,
         startLon = 153.0201530456543;

@@ -35,11 +35,11 @@ var Tweener = (function() {
                     valuesStart[ii], 
                     valuesChange[ii], 
                     duration);
-                    
-                if (viewToInvalidate) {
-                    viewToInvalidate.invalidate();
-                } // if
             } // for
+            
+            if (viewToInvalidate) {
+                viewToInvalidate.invalidate();
+            } // if
             
             if (complete || cancelTween) {
                  Animator.detach(tweenStep);

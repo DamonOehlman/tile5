@@ -35,7 +35,7 @@ T5.Registry.register('service', 'geocoder', function() {
             if (match && validMatch(match)) {
                 // if the point is defined, then convert that to a position
                 if (match && match.Point) {
-                    matchPos = new T5.Pos(match.Point.pos);
+                    matchPos = new GeoJS.Pos(match.Point.pos);
                 } // if
 
                 // if we have the address then convert that to an address
@@ -135,7 +135,7 @@ T5.Registry.register('service', 'geocoder', function() {
                 
                 // if the point is defined, then convert that to a position
                 if (response && response.Point) {
-                    matchPos = new T5.Pos(match.Point.pos);
+                    matchPos = new GeoJS.Pos(match.Point.pos);
                 } // if
 
                 // if we have the address then convert that to an address

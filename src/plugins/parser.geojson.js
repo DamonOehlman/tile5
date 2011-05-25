@@ -42,12 +42,12 @@ T5.Registry.register('parser', 'geojson', function() {
 
     function readVectors(coordinates) {
         var count = coordinates ? coordinates.length : 0,
-            positions = new Array(count);
-
+            positions = [];
+            
         for (var ii = count; ii--; ) {
-            positions[ii] = new T5.Pos(coordinates[ii][1], coordinates[ii][0]);
+            positions[ii] = new GeoJS.Pos(coordinates[ii][1], coordinates[ii][0]);
         } // for
-        
+
         return positions;
     } // getLineStringVectors
 
@@ -55,7 +55,7 @@ T5.Registry.register('parser', 'geojson', function() {
 
     function processLineString(layer, featureData, options, builders) {
         // TODO: check this is ok...
-        var vectors = readVectors(featureData && featureData.coordinates ? featureData.coordinates : []);
+        var vectors = featureData && featureData.coordinates ? featureData.coordinates : [];
 
         return createShape(layer, vectors, options, builders.line);
     } // processLineString
@@ -143,7 +143,8 @@ T5.Registry.register('parser', 'geojson', function() {
             totalFeatures = 0,
             childCount = 0,
             childrenActive = 0,
-            layers = {};
+            layers = {},
+            topLevelProps;
 
         // if we have no data, then exit
         if (! data) {
@@ -205,15 +206,8 @@ T5.Registry.register('parser', 'geojson', function() {
             return layer;
         } // getLayer
 
-        function parseComplete(evt) {
-            if (callback) {
-                callback(layers);
-            } // if
-        } // parseComplete
-
         function processData(tickCount) {
-            var cycleCount = 0,
-                childOpts = T5.ex({}, options),
+            var childOpts = T5.ex({}, options),
                 ii = featureIndex;
 
             // initialise the tick count if it isn't already defined
@@ -224,11 +218,14 @@ T5.Registry.register('parser', 'geojson', function() {
             for (; ii < totalFeatures; ii++) {
                 // get the feature data
                 // if a row preparser is defined, then use that
-                var featureInfo = extractFeatureInfo(rowPreParse ? rowPreParse(data[ii]) : data[ii]),
-                    processedCount = null;
+                var featureInfo = extractFeatureInfo(rowPreParse ? rowPreParse(data[ii]) : data[ii]);
 
                 // if we have a collection, then create the child worker to process the features
                 if (featureInfo.isCollection) {
+                    // update the top level properties
+                    topLevelProps = topLevelProps || featureInfo.properties;
+                    
+                    // create the child layer prefix
                     childOpts.layerPrefix = layerPrefix + (childCount++) + '-';
 
                     // create the worker
@@ -243,26 +240,12 @@ T5.Registry.register('parser', 'geojson', function() {
                             for (var layerId in childLayers) {
                                 layers[layerId] = childLayers[layerId];
                             } // for
-
-                            if (featureIndex >= totalFeatures) {
-                                parseComplete();
-                            } // if
                         }, childOpts);
-
-                    processedCount += 1;
                 }
                 // if the processor is defined, then run it
                 else if (featureInfo.definition) {
-                    processedCount = addFeature(featureInfo.definition, featureInfo);
+                    addFeature(featureInfo.definition, featureInfo);
                 } // if..else
-
-                // increment the cycle count
-                cycleCount += processedCount ? processedCount : 1;
-
-                // increase the cycle counter and check that we haven't processed too many
-                if (cycleCount >= VECTORS_PER_CYCLE) {
-                    break;
-                } // if
             } // for
 
             // increment the feature index to the next feature after this loop
@@ -272,9 +255,9 @@ T5.Registry.register('parser', 'geojson', function() {
             if (childrenActive || featureIndex < totalFeatures) {
                 setTimeout(processData, 0);
             }
-            else {
-                parseComplete();
-            }
+            else if (callback) {
+                callback(layers, topLevelProps);
+            } // if..else
         } // processData
 
         /* run the parser */

@@ -86,7 +86,7 @@ T5.SearchTools = (function() {
         /* tracking functions */
 
         function parsePosition(position) {
-            var currentPos = new Pos(
+            var currentPos = new GeoJS.Pos(
                     position.coords.latitude, 
                     position.coords.longitude);
 

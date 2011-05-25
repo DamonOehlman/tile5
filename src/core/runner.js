@@ -50,7 +50,7 @@ var Runner = (function() {
                         itemProcessTime = elapsed / sliceLen;
 
                     itemsPerCycle = itemProcessTime ? (TARGET_CYCLETIME / itemProcessTime | 0) : items.length;
-                    _log('calculated that we can process ' + itemsPerCycle + ' items per cycle');
+                    // _log('calculated that we can process ' + itemsPerCycle + ' items per cycle');
                 } // if
 
                 // increment the item index
@@ -77,10 +77,10 @@ var Runner = (function() {
                 
             } // if..else
         } // processSlice
-        
-        // if the length of the list exceeds the sync parse threshold
-        // run in the background
-        if (items.length > (syncParseThreshold || 0)) {
+
+        // if we are running in the browser and we have enough items
+        // to parse, then run in the animation process.
+        if (DOM && items.length > (syncParseThreshold || 0)) {
             if (processes.push(processSlice) === 1) {
                 Animator.attach(runLoop);
             } // if

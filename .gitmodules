@@ -7,3 +7,6 @@
 [submodule "lib/timelord"]
 	path = lib/timelord
 	url = /development/projects/github/sidelab/timelord
+[submodule "lib/geojs"]
+	path = lib/geojs
+	url = /development/projects/github/sidelab/geojs

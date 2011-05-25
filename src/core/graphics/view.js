@@ -479,7 +479,7 @@ reg('view', 'view', function(params) {
         }
             
         // calculate the current pan speed
-        self.panSpeed = panSpeed = abs(dx) + abs(dy);
+        _self.panSpeed = panSpeed = abs(dx) + abs(dy);
         
         // update the panning flag
         scaleChanged = scaleFactor !== lastScaleFactor;
@@ -553,7 +553,7 @@ reg('view', 'view', function(params) {
             if (rerender) {
                 if (offsetTween) {
                     var values = offsetTween();
-
+                    
                     // get the current offset values from the tween
                     offsetX = values[0] | 0;
                     offsetY = values[1] | 0;
@@ -1127,7 +1127,7 @@ reg('view', 'view', function(params) {
     if (DOM && (! _is(window.attachEvent, typeUndefined))) {
         window.attachEvent('onresize', handleResize);
     }
-    else {
+    else if (DOM) {
         window.addEventListener('resize', handleResize, false);
     }
     

@@ -37,7 +37,9 @@ var Animator = (function() {
         frameIndex++;
 
         // set the tick count in the case that it hasn't been set already
-        tickCount = tickCount || new Date().getTime();
+        tickCount = DOM ? (window.mozAnimationStartTime || 
+            tickCount || 
+            new Date().getTime()) : new Date().getTime();
         
         // iterate through the callbacks
         for (var ii = callbacks.length; ii--; ) {

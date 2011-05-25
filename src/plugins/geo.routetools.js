@@ -117,7 +117,7 @@ T5.RouteTools = (function() {
         
         // update the bounding box
         if (! params.boundingBox) {
-            params.boundingBox = new T5.BBox(params.geometry);
+            params.boundingBox = new GeoJS.BBox(params.geometry);
         } // if
         
         var _self = _extend({
@@ -214,6 +214,20 @@ T5.RouteTools = (function() {
                     routeData.geometry = generalize(routeData.geometry, routeData.getInstructionPositions());
                 } // if
                 
+                // calculate the instruction totals
+                if (routeData.instructions) {
+                    var totalTime = new TL.Duration(),
+                        totalDist = new GeoJS.Distance();
+
+                    for (var ii = 0, insCount = routeData.instructions.length; ii < insCount; ii++) {
+                        var instruction = routeData.instructions[ii];
+
+                        // update the total time and distance for the instruction
+                        instruction.timeTotal = totalTime = totalTime.add(instruction.time);
+                        instruction.distanceTotal = totalDist = totalDist.add(instruction.distance);
+                    } // for
+                } // if
+                
                 // firstly, if we have a map defined, then let's place the route on the map
                 // you know, just because we are nice like that
                 if (args.map) {
@@ -230,7 +244,7 @@ T5.RouteTools = (function() {
                 if (args.success) {
                     args.success(routeData);
                 } // if
-            });
+            }, args.error);
         } // if
     } // calculate
     

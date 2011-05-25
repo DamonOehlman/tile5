@@ -50,10 +50,10 @@ T5.Registry.register('layer', 'sensor', function(view, params) {
     } // compassError
     
     function trackingUpdate(position) {
-        var pos = new T5.Pos(position.coords.latitude, position.coords.longitude),
+        var pos = new GeoJS.Pos(position.coords.latitude, position.coords.longitude),
             posXY = new view.XY(pos),
             // convert the accuracy to meters
-            accuracy = new T5.Distance(position.coords.accuracy);
+            accuracy = new GeoJS.Distance(position.coords.accuracy);
             
         // if the accuracy is better than the last reading then update
         if (accuracy.meters <= lastAccuracy + ACCURACY_TOLERANCE) {

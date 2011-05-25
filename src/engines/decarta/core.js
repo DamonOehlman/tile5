@@ -249,13 +249,13 @@ function generateRequest(request) {
 
 function generateRequestUrl(request, request_data) {
     if (! currentConfig.server) {
-        _log("No server configured for deCarta - we are going to have issues", 'warn');
+        T5.log("No server configured for deCarta - we are going to have issues", 'warn');
     } // if
     
     return urlFormatter(currentConfig.server, request.requestID, escape(request_data));
 } // generateRequestUrl
 
-function makeServerRequest(request, callback) {
+function makeServerRequest(request, callback, errorCallback) {
     // _log("making request: " + generateRequest(request));
     
     // make the request to the server
@@ -277,8 +277,8 @@ function makeServerRequest(request, callback) {
             } // if
         }
         // otherwise, report the error
-        else {
-            _log("no responses from server: " + data.response, 'error');
+        else if (errorCallback) {
+            errorCallback('Server returned no responses', data.response);
         } // if..else
     });
 } // openlsComms

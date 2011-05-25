@@ -67,7 +67,7 @@ reg('view', 'map', function(params) {
             return zoom(zoomLevel).center(newBounds.center());
         }
         else {
-            return new BBox(
+            return new GeoJS.BBox(
                 new GeoXY(viewport.x, viewport.y2).sync(_self, true).pos(),
                 new GeoXY(viewport.x2, viewport.y).sync(_self, true).pos()
             );
@@ -139,6 +139,9 @@ reg('view', 'map', function(params) {
         bounds: bounds,
         zoom: zoom
     });
+    
+    // initialise the default rpp
+    rpp = _self.rpp = radsPerPixel(zoomLevel);
     
     // bind events
     _self.bind('refresh', handleRefresh);

@@ -10,6 +10,7 @@
 //= require <cog/cogs/typetools>
 //= require <cog/cogs/jsonp>
 //= require <interact/src/interact>
+//= require <geojs/src/geojs>
 
 // define T5
 var T5 = _observable({});
@@ -59,10 +60,7 @@ var T5 = _observable({});
 //= require "core/controls/base"
 //= require "core/controls/zoombar"
 
-//= require "core/geo/pos"
 //= require "core/geo/posfns"
-//= require "core/geo/bbox"
-//= require "core/geo/distance"
 
 /**
 # T5
@@ -99,9 +97,6 @@ _extend(T5, {
     Rect: Rect,
     XY: XY,
     Line: Line,
-    Pos: Pos,
-    BBox: BBox,
-    Distance: Distance,
     Hits: Hits,
     
     Control: Control,

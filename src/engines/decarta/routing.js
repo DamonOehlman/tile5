@@ -5,7 +5,7 @@ T5.Registry.register('service', 'routing', function() {
             positions = new Array(sourceLen);
 
         for (var ii = sourceLen; ii--; ) {
-            positions[ii] = new Pos(sourceData[ii]);
+            positions[ii] = new GeoJS.Pos(sourceData[ii]);
         } // for
 
         return positions;
@@ -30,32 +30,24 @@ T5.Registry.register('service', 'routing', function() {
         function parseInstructions(instructionList) {
             var fnresult = [],
                 instructions = instructionList && instructionList.RouteInstruction ? 
-                    instructionList.RouteInstruction : [],
-                totalDistance = new T5.Distance(),
-                totalTime = new TL.Duration();
+                    instructionList.RouteInstruction : [];
 
-            // _log("parsing " + instructions.length + " instructions", instructions[0], instructions[1], instructions[2]);
+            // T5.log("parsing " + instructions.length + " instructions", instructions[0], instructions[1], instructions[2]);
             for (var ii = 0; ii < instructions.length; ii++) {
                 // initialise the time and duration for this instruction
-                var distance = new T5.Distance(distanceToMeters(instructions[ii].distance)),
+                var distance = new GeoJS.Distance(distanceToMeters(instructions[ii].distance)),
                     time = TL.parse(instructions[ii].duration, '8601');
                     
-                // increment the total distance and total time
-                totalDistance = totalDistance.add(distance);
-                totalTime = totalTime.add(time);
-                
                 fnresult.push(new T5.RouteTools.Instruction({
-                    position: new T5.Pos(instructions[ii].Point),
+                    position: new GeoJS.Pos(instructions[ii].Point),
                     description: instructions[ii].Instruction,
                     distance: distance,
-                    distanceTotal: totalDistance,
-                    time: time,
-                    timeTotal: totalTime
+                    time: time
                 }));
             } // for
             
 
-            // _log("parsed " + fnresult.length + " instructions", fnresult[0], fnresult[1], fnresult[2]);
+            // T5.log("parsed " + fnresult.length + " instructions", fnresult[0], fnresult[1], fnresult[2]);
             return fnresult;
         } // parseInstructions
         
@@ -113,7 +105,7 @@ T5.Registry.register('service', 'routing', function() {
             },
             
             parseResponse: function(response) {
-                // _log("received route request response:", response);
+                // T5.log("received route request response:", response);
                 
                 // create a new route data object and map items 
                 return new T5.RouteTools.RouteData({
@@ -128,7 +120,7 @@ T5.Registry.register('service', 'routing', function() {
     
     /* exports */
     
-    function calculate(args, callback) {
+    function calculate(args, callback, errorCallback) {
         args = T5.ex({
            waypoints: []
         }, args);
@@ -141,10 +133,10 @@ T5.Registry.register('service', 'routing', function() {
                 if (callback) {
                     callback(routeData);
                 } // if
-            });
+            }, errorCallback);
         }
         else {
-            _log('Could not generate route, T5.RouteTools plugin not found', 'warn');
+            T5.log('Could not generate route, T5.RouteTools plugin not found', 'warn');
         } // if..else
     } // calculate
     

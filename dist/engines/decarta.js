@@ -390,13 +390,13 @@ function generateRequest(request) {
 
 function generateRequestUrl(request, request_data) {
     if (! currentConfig.server) {
-        _log("No server configured for deCarta - we are going to have issues", 'warn');
+        T5.log("No server configured for deCarta - we are going to have issues", 'warn');
     } // if
 
     return urlFormatter(currentConfig.server, request.requestID, escape(request_data));
 } // generateRequestUrl
 
-function makeServerRequest(request, callback) {
+function makeServerRequest(request, callback, errorCallback) {
 
     _jsonp(generateRequestUrl(request, generateRequest(request)), function(data) {
         var response = data.response.XLS.Response;
@@ -411,8 +411,8 @@ function makeServerRequest(request, callback) {
                 callback(parsedResponse);
             } // if
         }
-        else {
-            _log("no responses from server: " + data.response, 'error');
+        else if (errorCallback) {
+            errorCallback('Server returned no responses', data.response);
         } // if..else
     });
 } // openlsComms
@@ -650,7 +650,7 @@ T5.Registry.register('service', 'geocoder', function() {
 
             if (match && validMatch(match)) {
                 if (match && match.Point) {
-                    matchPos = new T5.Pos(match.Point.pos);
+                    matchPos = new GeoJS.Pos(match.Point.pos);
                 } // if
 
                 if (match && match.Address) {
@@ -740,7 +740,7 @@ T5.Registry.register('service', 'geocoder', function() {
                 var matchPos = null;
 
                 if (response && response.Point) {
-                    matchPos = new T5.Pos(match.Point.pos);
+                    matchPos = new GeoJS.Pos(match.Point.pos);
                 } // if
 
                 if (response && response.ReverseGeocodedLocation && response.ReverseGeocodedLocation.Address) {
@@ -790,7 +790,7 @@ T5.Registry.register('service', 'routing', function() {
             positions = new Array(sourceLen);
 
         for (var ii = sourceLen; ii--; ) {
-            positions[ii] = new Pos(sourceData[ii]);
+            positions[ii] = new GeoJS.Pos(sourceData[ii]);
         } // for
 
         return positions;
@@ -814,24 +814,17 @@ T5.Registry.register('service', 'routing', function() {
         function parseInstructions(instructionList) {
             var fnresult = [],
                 instructions = instructionList && instructionList.RouteInstruction ?
-                    instructionList.RouteInstruction : [],
-                totalDistance = new T5.Distance(),
-                totalTime = new TL.Duration();
+                    instructionList.RouteInstruction : [];
 
             for (var ii = 0; ii < instructions.length; ii++) {
-                var distance = new T5.Distance(distanceToMeters(instructions[ii].distance)),
+                var distance = new GeoJS.Distance(distanceToMeters(instructions[ii].distance)),
                     time = TL.parse(instructions[ii].duration, '8601');
 
-                totalDistance = totalDistance.add(distance);
-                totalTime = totalTime.add(time);
-
                 fnresult.push(new T5.RouteTools.Instruction({
-                    position: new T5.Pos(instructions[ii].Point),
+                    position: new GeoJS.Pos(instructions[ii].Point),
                     description: instructions[ii].Instruction,
                     distance: distance,
-                    distanceTotal: totalDistance,
-                    time: time,
-                    timeTotal: totalTime
+                    time: time
                 }));
             } // for
 
@@ -892,7 +885,7 @@ T5.Registry.register('service', 'routing', function() {
 
     /* exports */
 
-    function calculate(args, callback) {
+    function calculate(args, callback, errorCallback) {
         args = T5.ex({
            waypoints: []
         }, args);
@@ -903,10 +896,10 @@ T5.Registry.register('service', 'routing', function() {
                 if (callback) {
                     callback(routeData);
                 } // if
-            });
+            }, errorCallback);
         }
         else {
-            _log('Could not generate route, T5.RouteTools plugin not found', 'warn');
+            T5.log('Could not generate route, T5.RouteTools plugin not found', 'warn');
         } // if..else
     } // calculate
 

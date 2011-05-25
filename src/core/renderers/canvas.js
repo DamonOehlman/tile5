@@ -246,7 +246,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         if (context) {
             context.restore();
         }
-        else {
+        else if (canvas) {
             // get the context
             context = canvas.getContext('2d');
         } // if..else
@@ -271,10 +271,10 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
 
             // save the context
             context.save();
+            
+            // initialise the composite operation
+            context.globalCompositeOperation = 'source-over';
         } // if
-        
-        // initialise the composite operation
-        context.globalCompositeOperation = 'source-over';
 
         return context;
     } // prepare
@@ -422,9 +422,13 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
     } // prepPoly
     
     /* initialization */
+
+    // if we have a DOM then check for a broken implementation of point in path
+    if (DOM) {
+        checkBrokenPointInPath();
+    } // if
     
-    // initialise the panFrame
-    checkBrokenPointInPath();
+    // create the canvas
     createCanvas();
 
     var _this = _extend(baseRenderer, {
