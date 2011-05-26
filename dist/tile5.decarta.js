@@ -9,7 +9,7 @@
  * Build Date: @DATE
  */
 
-(function(scope) {
+(function() {
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true */
 
 function _extend() {
@@ -1199,7 +1199,8 @@ var LAT_VARIABILITIES = [
     0.488332580888611
 ];
 
-var TWO_PI = Math.PI * 2,
+var IS_COMMONJS = typeof module != 'undefined' && module.exports,
+    TWO_PI = Math.PI * 2,
     HALF_PI = Math.PI / 2,
     VECTOR_SIMPLIFICATION = 3,
     DEGREES_TO_RADIANS = Math.PI / 180,
@@ -1217,7 +1218,9 @@ var TWO_PI = Math.PI * 2,
     M_PER_RAD = KM_PER_RAD * M_PER_KM,
     ECC = 0.08181919084262157,
     PHI_EPSILON = 1E-7,
-    PHI_MAXITER = 12;
+    PHI_MAXITER = 12,
+
+    reDelimitedSplit = /[\,\s]+/;
 /**
 # GeoJS.Pos
 
@@ -1259,8 +1262,8 @@ Pos.prototype = {
             return 0;
         } // if
 
-        var halfdelta_lat = toRad(targetPos.lat - this.lat) >> 1;
-        var halfdelta_lon = toRad(targetPos.lon - this.lon) >> 1;
+        var halfdelta_lat = toRad(targetPos.lat - this.lat) / 2;
+        var halfdelta_lon = toRad(targetPos.lon - this.lon) / 2;
 
         var a = sin(halfdelta_lat) * sin(halfdelta_lat) +
                 (cos(toRad(this.lat)) * cos(toRad(targetPos.lat))) *
@@ -1378,7 +1381,7 @@ function BBox(p1, p2) {
             maxPos = new Pos(MIN_LAT, MIN_LON);
 
         for (var ii = p1.length; ii--; ) {
-            var testPos = p1[ii];
+            var testPos = typeof p1[ii] == 'string' ? new Pos(p1[ii]) : p1[ii];
 
             if (testPos.lat < minPos.lat) {
                 minPos.lat = testPos.lat;
@@ -1403,7 +1406,7 @@ function BBox(p1, p2) {
         if (typeof padding == 'undefined') {
             var size = this.size();
 
-            padding = max(size.x, size.y) * 0.3;
+            padding = Math.max(size.x, size.y) * 0.3;
         } // if
 
         this.min = new Pos(minPos.lat - padding, (minPos.lon - padding) % 360);
@@ -1421,17 +1424,25 @@ BBox.prototype = {
     /**
     ### bestZoomLevel(viewport)
     */
-    bestZoomLevel: function(viewport) {
+    bestZoomLevel: function(vpWidth, vpHeight) {
         var boundsCenter = this.center(),
             maxZoom = 1000,
-            variabilityIndex = min(round(abs(boundsCenter.lat) * 0.05), LAT_VARIABILITIES.length),
+            variabilityIndex = Math.min(
+                Math.round(Math.abs(boundsCenter.lat) * 0.05),
+                LAT_VARIABILITIES.length),
             variability = LAT_VARIABILITIES[variabilityIndex],
             delta = this.size(),
-            bestZoomH = ceil(log(LAT_VARIABILITIES[3] * viewport.h / delta.y) / log(2)),
-            bestZoomW = ceil(log(variability * viewport.w / delta.x) / log(2));
+            bestZoomH = Math.ceil(
+                Math.log(LAT_VARIABILITIES[3] * vpHeight / delta.y) / Math.LN2),
+
+            bestZoomW = Math.ceil(
+                Math.log(variability * vpWidth / delta.x) / Math.LN2);
 
 
-        return min(isNaN(bestZoomH) ? maxZoom : bestZoomH, isNaN(bestZoomW) ? maxZoom : bestZoomW);
+        return Math.min(
+            isNaN(bestZoomH) ? maxZoom : bestZoomH,
+            isNaN(bestZoomW) ? maxZoom : bestZoomW
+        );
     },
 
     /**
@@ -1440,7 +1451,7 @@ BBox.prototype = {
     center: function() {
         var size = this.size();
 
-        return new Pos(this.min.lat + (size.y >> 1), this.min.lon + (size.x >> 1));
+        return new Pos(this.min.lat + size.y / 2, this.min.lon + size.x / 2);
     },
 
     /**
@@ -1457,7 +1468,10 @@ BBox.prototype = {
     ### size(normalize)
     */
     size: function(normalize) {
-        var size = new XY(0, this.max.lat - this.min.lat);
+        var size = {
+            x: 0,
+            y: this.max.lat - this.min.lat
+        };
 
         if (typeof normalize != 'undefined' && normalize && (this.min.lon > this.max.lon)) {
             size.x = 360 - this.min.lon + this.max.lon;
@@ -1488,10 +1502,10 @@ BBox.prototype = {
                 var testMin = arguments[ii].min,
                     testMax = arguments[ii].max;
 
-                minPos.lat = min(minPos.lat, testMin.lat);
-                minPos.lon = min(minPos.lon, testMin.lon);
-                maxPos.lat = max(maxPos.lat, testMax.lat);
-                maxPos.lon = max(maxPos.lon, testMax.lon);
+                minPos.lat = Math.min(minPos.lat, testMin.lat);
+                minPos.lon = Math.min(minPos.lon, testMin.lon);
+                maxPos.lat = Math.max(maxPos.lat, testMax.lat);
+                maxPos.lon = Math.max(maxPos.lon, testMax.lon);
             } // if
         } // for
 
@@ -1504,6 +1518,15 @@ BBox.prototype = {
 ## Methods
 */
 function Distance(value) {
+    if (typeof value == 'string') {
+        var uom = (value.replace(/\d|\.|\s/g, '') || 'm').toLowerCase(),
+            multipliers = {
+                km: 1000
+            };
+
+        value = parseFloat(value) * (multipliers[uom] || 1);
+    } // if
+
     this.meters = value || 0;
 } // Distance
 
@@ -1515,7 +1538,10 @@ Distance.prototype = {
         var total = this.meters;
 
         for (var ii = arguments.length; ii--; ) {
-            total += arguments[ii].meters;
+            var dist = typeof arguments[ii] == 'string' ?
+                        new Distance(arguments[ii]) : arguments[ii];
+
+            total += dist.meters;
         } // for
 
         return new Distance(total);
@@ -1548,18 +1574,74 @@ Distance.prototype = {
     }
 };
 
+var DEFAULT_VECTORIZE_CHUNK_SIZE = 100,
+    VECTORIZE_PER_CYCLE = 500,
+    DEFAULT_GENERALIZATION_DISTANCE = 250;
+
+/* exports */
+
+/**
+### generalize(sourceData, requiredPositions, minDist)
+To be completed
+*/
+function generalize(sourceData, requiredPositions, minDist) {
+    var sourceLen = sourceData.length,
+        positions = [],
+        lastPosition = null;
+
+
+    minDist = (minDist || DEFAULT_GENERALIZATION_DISTANCE) / 1000;
+
+    for (var ii = sourceLen; ii--; ) {
+        if (ii === 0) {
+            positions.unshift(sourceData[ii]);
+        }
+        else {
+            var include = (! lastPosition) || sourceData[ii].inArray(requiredPositions),
+                posDiff = include ? minDist : lastPosition.distanceTo(sourceData[ii]);
+
+            if (sourceData[ii] && (posDiff >= minDist)) {
+                positions.unshift(sourceData[ii]);
+
+                lastPosition = sourceData[ii];
+            } // if
+        } // if..else
+    } // for
+
+    return positions;
+} // generalize
+
     var GeoJS = this.GeoJS = {
         Pos: Pos,
         BBox: BBox,
-        Distance: Distance
+        Distance: Distance,
+
+        generalize: generalize,
+
+        include: function(input) {
+            if (IS_COMMONJS) {
+                var plugins = input.split(','),
+                    pluginName;
+
+                for (var ii = 0; ii < plugins.length; ii++) {
+                    var plugin = require('./plugins/' + plugins[ii].trim());
+
+                    for (var key in plugin) {
+                        GeoJS[key] = plugin[key];
+                    } // for
+                } // for
+            }
+
+            return GeoJS;
+        }
     };
 
-    if (typeof module != 'undefined' && module.exports) {
+    if (IS_COMMONJS) {
         module.exports = GeoJS;
     } // if
 })();
 
-var T5 = _observable({});
+var T5 = this.T5 = _observable({});
 
 var Registry = (function() {
     /* internals */
@@ -2258,8 +2340,8 @@ function GeoXY(p1, p2, mercX, mercY) {
     if (_is(p1, typeString)) {
         _extend(this, Parser.parseXY(p1));
     } // if
-    else if (p1 && p1.toPixels) {
-        _extend(this, p1.toPixels());
+    else if (p1 && p1.toBounds) {
+        _extend(this, _project(p1.lon, p1.lat));
     }
     else {
         XY.call(this, p1, p2);
@@ -3428,11 +3510,10 @@ var Style = (function() {
     };
 })();
 /**
-# VIEW: simple
+# T5.View
 */
-reg('view', 'view', function(params) {
+var View = function(container, params) {
     params = _extend({
-        container: "",
         captureHover: true,
         controls: [],
         drawOnScale: true,
@@ -3595,7 +3676,7 @@ reg('view', 'view', function(params) {
                 if (changed) {
                     var oldCenter = center();
 
-                    updateContainer(params.container);
+                    updateContainer(container);
 
                     center(oldCenter.x, oldCenter.y);
                 } // if
@@ -4406,7 +4487,7 @@ reg('view', 'view', function(params) {
 
     layer('markers', 'draw', { zindex: 20 });
 
-    updateContainer(params.container);
+    updateContainer(container);
 
     if (DOM && (! _is(window.attachEvent, typeUndefined))) {
         window.attachEvent('onresize', handleResize);
@@ -4418,11 +4499,11 @@ reg('view', 'view', function(params) {
     Animator.attach(cycle);
 
     return _self;
-});
+};
 /**
-# VIEW: simple
+# T5.Map
 */
-reg('view', 'map', function(params) {
+var Map = function(container, params) {
     params = _extend({
         controls: ['zoombar'],
 
@@ -4474,7 +4555,7 @@ reg('view', 'map', function(params) {
         var viewport = _self.viewport();
 
         if (newBounds) {
-            var zoomLevel = max(newBounds.bestZoomLevel(viewport), maxZoomLevel || 0);
+            var zoomLevel = max(newBounds.bestZoomLevel(viewport.w, viewport.h), maxZoomLevel || 0);
 
             return zoom(zoomLevel).center(newBounds.center());
         }
@@ -4535,7 +4616,7 @@ reg('view', 'map', function(params) {
         } // if..else
     } // zoom
 
-    var _self = _extend(regCreate('view', 'view', params), {
+    var _self = _extend(new View(container, params), {
         XY: GeoXY,
 
         bounds: bounds,
@@ -4548,7 +4629,7 @@ reg('view', 'map', function(params) {
     _self.bind('scaleChanged', checkScaling);
 
     return _self;
-});
+};
 var Tweener = (function() {
 
     /* internals */
@@ -5708,48 +5789,6 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
     return _this;
 });
 
-(function() {
-    var DEFAULT_VECTORIZE_CHUNK_SIZE = 100,
-        VECTORIZE_PER_CYCLE = 500,
-        DEFAULT_GENERALIZATION_DISTANCE = 250;
-
-    /* exports */
-
-    /**
-    ### generalize(sourceData, requiredPositions, minDist)
-    To be completed
-    */
-    function generalize(sourceData, requiredPositions, minDist) {
-        var sourceLen = sourceData.length,
-            positions = [],
-            lastPosition = null;
-
-
-        minDist = (minDist || DEFAULT_GENERALIZATION_DISTANCE) / 1000;
-
-        for (var ii = sourceLen; ii--; ) {
-            if (ii === 0) {
-                positions.unshift(sourceData[ii]);
-            }
-            else {
-                var include = (! lastPosition) || sourceData[ii].inArray(requiredPositions),
-                    posDiff = include ? minDist : lastPosition.distanceTo(sourceData[ii]);
-
-                if (sourceData[ii] && (posDiff >= minDist)) {
-                    positions.unshift(sourceData[ii]);
-
-                    lastPosition = sourceData[ii];
-                } // if
-            } // if..else
-        } // for
-
-        return positions;
-    } // generalize
-
-
-    reg('fn', 'generalize', generalize);
-})();
-
 /**
 # T5
 
@@ -5788,8 +5827,15 @@ _extend(T5, {
 
     Control: Control,
     Tile: Tile,
-    Tweener: Tweener
+    Tweener: Tweener,
+
+    View: View,
+    Map: Map
 });
+
+if (typeof module != 'undefined' && module.exports) {
+    module.exports = T5;
+} // if
 
 /**
 # Tile5(target, settings, viewId)
@@ -5808,311 +5854,6 @@ function Tile5(target, settings) {
 
     return regCreate('view', settings.type, settings);
 } // Tile5
-/**
-# T5.RouteTools
-__PLUGIN__: `plugins/geo.routetools.js`
-
-
-## Events
-
-## Module Methods
-*/
-T5.RouteTools = (function() {
-
-    /* internals */
-
-    var customTurnTypeRules = undefined,
-        generalize = T5.fn('generalize'),
-
-        REGEX_BEAR = /bear/i,
-        REGEX_DIR_RIGHT = /right/i,
-
-        TurnTypeSprites = {
-            'unknown': '0:0',
-
-            'start': '1:0',
-            'continue': '1:1',
-            'arrive': '1:2',
-
-            'left': '2:0',
-            'left-slight': '2:1',
-            'left-sharp': '2:2',
-
-            'right': '3:0',
-            'right-slight': '3:1',
-            'right-sharp': '3:2',
-
-            'uturn-left': '4:0',
-            'uturn-right': '4:1',
-            'merge': '4:2',
-
-            'roundabout': '5:0',
-
-            'ramp': '6:0',
-            'ramp-exit': '6:1'
-        };
-
-    var DefaultTurnTypeRules = (function() {
-        var rules = [];
-
-        rules.push({
-            regex: /continue/i,
-            turnType: 'continue'
-        });
-
-        rules.push({
-            regex: /(take|bear|turn)(.*?)left/i,
-            customCheck: function(text, matches) {
-                return 'left' + getTurnAngle(matches[1]);
-            }
-        });
-
-        rules.push({
-            regex: /(take|bear|turn)(.*?)right/i,
-            customCheck: function(text, matches) {
-                return 'right' + getTurnAngle(matches[1]);
-            }
-        });
-
-        rules.push({
-            regex: /enter\s(roundabout|rotary)/i,
-            turnType: 'roundabout'
-        });
-
-        rules.push({
-            regex: /take.*?ramp/i,
-            turnType: 'ramp'
-        });
-
-        rules.push({
-            regex: /take.*?exit/i,
-            turnType: 'ramp-exit'
-        });
-
-        rules.push({
-            regex: /make(.*?)u\-turn/i,
-            customCheck: function(text, matches) {
-                return 'uturn' + getTurnDirection(matches[1]);
-            }
-        });
-
-        rules.push({
-            regex: /proceed/i,
-            turnType: 'start'
-        });
-
-        rules.push({
-            regex: /arrive/i,
-            turnType: 'arrive'
-        });
-
-        rules.push({
-            regex: /fell\sthrough/i,
-            turnType: 'merge'
-        });
-
-        return rules;
-    })();
-
-    var RouteData = function(params) {
-        params = _extend({
-            geometry: [],
-            instructions: [],
-            boundingBox: null
-        }, params);
-
-        if (! params.boundingBox) {
-            params.boundingBox = new GeoJS.BBox(params.geometry);
-        } // if
-
-        var _self = _extend({
-            getInstructionPositions: function() {
-                var positions = [];
-
-                for (var ii = 0; ii < params.instructions.length; ii++) {
-                    if (params.instructions[ii].position) {
-                        positions.push(params.instructions[ii].position);
-                    } // if
-                } // for
-
-                return positions;
-            }
-        }, params);
-
-        return _self;
-    }; // RouteData
-
-    var Instruction = function(params) {
-        params = _extend({
-            position: null,
-            description: "",
-            distance: 0,
-            distanceTotal: 0,
-            time: 0,
-            timeTotal: 0,
-            turnType: null
-        }, params);
-
-        params.description = markupInstruction(params.description);
-
-        if (! params.turnType) {
-            params.turnType = parseTurnType(params.description);
-        } // if
-
-        return params;
-    }; // instruction
-
-
-    /* internal functions */
-
-    function getTurnDirection(turnDir) {
-        return REGEX_DIR_RIGHT.test(turnDir) ? '-right' : '-left';
-    } // getTurnDirection
-
-    function getTurnAngle(turnText) {
-        if (REGEX_BEAR.test(turnText)) {
-            return '-slight';
-        } // if
-
-        return '';
-    } // getTurnAngle
-
-    /*
-    This function is used to cleanup a turn instruction that has been passed
-    back from a routing engine.  At present it has been optimized to work with
-    decarta instructions but will be modified to work with others in time
-    */
-    function markupInstruction(text) {
-        text = text.replace(/(\w)(\/)(\w)/g, '$1 $2 $3');
-
-        return text;
-    } // markupInstruction
-
-    /* exports */
-
-    /**
-    ### calculate(args)
-    To be completed
-    */
-    function calculate(args) {
-        args = _extend({
-            engineId: "",
-            waypoints: [],
-            map: null,
-            error: null,
-            autoFit: true,
-            success: null,
-            generalize: false
-        }, args);
-
-        var service = T5.Registry.create('service', 'routing');
-        if (service) {
-            service.calculate(args, function(routeData) {
-                if (args.generalize) {
-                    routeData.geometry = generalize(routeData.geometry, routeData.getInstructionPositions());
-                } // if
-
-                if (routeData.instructions) {
-                    var totalTime = new TL.Duration(),
-                        totalDist = new GeoJS.Distance();
-
-                    for (var ii = 0, insCount = routeData.instructions.length; ii < insCount; ii++) {
-                        var instruction = routeData.instructions[ii];
-
-                        instruction.timeTotal = totalTime = totalTime.add(instruction.time);
-                        instruction.distanceTotal = totalDist = totalDist.add(instruction.distance);
-                    } // for
-                } // if
-
-                if (args.map) {
-                    createMapOverlay(args.map, routeData);
-
-                    if (args.autoFit) {
-                        args.map.bounds(routeData.boundingBox);
-                    } // if
-                } // if
-
-                if (args.success) {
-                    args.success(routeData);
-                } // if
-            }, args.error);
-        } // if
-    } // calculate
-
-    /**
-    ### createMapOverlay(map, routeData)
-    To be completed
-    */
-    function createMapOverlay(map, routeData) {
-        if (routeData.geometry) {
-            map.layer('route', 'draw').create('line', {
-                points: routeData.geometry,
-                style: 'waypoints',
-                simplify: true
-            });
-        } // if
-    } // createMapOverlay
-
-    /**
-    ### getSpriteOffset(turnType)
-    This is a utility function that provides the sprite offset that can be used in a `background-position`
-    CSS rule if one of the standard turn icon sprite sheets are being used.
-    */
-    function getSpriteOffset(turnType, spriteSize) {
-        var spritePos = TurnTypeSprites[turnType],
-            spriteCoords = spritePos ? spritePos.split(':') : null;
-
-        if (spriteCoords) {
-            return {
-                x: -spriteCoords[0] * (spriteSize || 16),
-                y: -spriteCoords[1] * (spriteSize || 16)
-            };
-        } // if
-
-        return null;
-    } // getSpriteOffset
-
-    /**
-    ### parseTurnType(text)
-    To be completed
-    */
-    function parseTurnType(text) {
-        var turnType = 'unknown',
-            rules = customTurnTypeRules || DefaultTurnTypeRules;
-
-        for (var ii = 0; ii < rules.length; ii++) {
-            rules[ii].regex.lastIndex = -1;
-
-            var matches = rules[ii].regex.exec(text);
-            if (matches) {
-                if (rules[ii].customCheck) {
-                    turnType = rules[ii].customCheck(text, matches);
-                }
-                else {
-                    turnType = rules[ii].turnType;
-                } // if..else
-
-                break;
-            } // if
-        } // for
-
-        return turnType;
-    } // parseTurnType
-
-    var module = {
-        calculate: calculate,
-        createMapOverlay: createMapOverlay,
-        getSpriteOffset: getSpriteOffset,
-        parseTurnType: parseTurnType,
-
-        Instruction: Instruction,
-        RouteData: RouteData
-    };
-
-    T5.observable(module);
-
-    return module;
-})();
 T5.Decarta = (function() {
     var currentConfig = {
         sessionID: new Date().getTime(),
@@ -6306,21 +6047,6 @@ var lastZoom = null,
     urlFormatter = _formatter('{0}/JSON?reqID={1}&chunkNo=1&numChunks=1&data={2}&responseFormat=JSON');
 
 /* internal decarta functions */
-
-/*
-This function is used to convert from the deCarta distance JSON data
-to an integer value representing the distance in meters
-*/
-function distanceToMeters(distance) {
-    var uom = distance.uom ? distance.uom.toUpperCase() : 'M',
-        conversionFactors = {
-            'M': 1,
-            'KM': 1000
-        },
-        factor = conversionFactors[uom];
-
-    return distance.value && factor ? distance.value * factor : 0;
-} // uomToMeters
 
 var Address = function(params) {
         params = T5.ex({
@@ -6517,13 +6243,13 @@ function makeServerRequest(request, callback, errorCallback) {
         var response = data.response.XLS.Response;
 
         if ((response.numberOfResponses > 0) && response[request.methodName + 'Response']) {
-            var parsedResponse = null;
+            var responseValues = [];
             if (request.parseResponse) {
-                parsedResponse = request.parseResponse(response[request.methodName + 'Response']);
+                responseValues = request.parseResponse(response[request.methodName + 'Response']);
             } // if
 
             if (callback) {
-                callback(parsedResponse);
+                callback.apply(null, responseValues);
             } // if
         }
         else if (errorCallback) {
@@ -6548,14 +6274,14 @@ function parseAddress(address, position) {
         } // for
     } // if
 
-    return new ADDR.Address({
+    return {
         building: streetDetails.building,
         street: streetDetails.street,
         regions: regions,
         countryCode: address.countryCode || '',
         postalCode: address.PostalCode || '',
         pos: position
-    });
+    };
 
     /*
     var addressParams = {
@@ -6580,7 +6306,7 @@ var Request = function() {
         },
 
         parseResponse: function(response) {
-            return response;
+            return [response];
         }
     }; // _self
 
@@ -6592,10 +6318,10 @@ var RUOKRequest = function(params) {
         methodName: 'RUOK',
 
         parseResponse: function(response) {
-            return {
+            return [{
                 aliasCount: response.maxHostAliases,
                 host: response.hostName
-            };
+            }];
         }
     });
 }; // RUOKRequest
@@ -6753,8 +6479,6 @@ T5.Registry.register('service', 'geocoder', function() {
             language: currentConfig.geocoding.language
         }, params);
 
-        var parsed = ADDR.parse(address);
-
         function validMatch(match) {
             return match.GeocodeMatchCode && match.GeocodeMatchCode.matchType !== "NO_MATCH";
         } // validMatch
@@ -6804,7 +6528,7 @@ T5.Registry.register('service', 'geocoder', function() {
             methodName: "Geocode",
 
             getRequestBody: function() {
-                var addressXML = _streetAddressFormatter(parsed.number, parsed.street);
+                var addressXML = _streetAddressFormatter(address.number, address.street);
 
                 /*
                 for (var ii = 0; ii < parsed.regions.length; ii++) {
@@ -6814,7 +6538,7 @@ T5.Registry.register('service', 'geocoder', function() {
                 } // for
                 */
 
-                addressXML += '<xls:Place type="Municipality">' + parsed.regions.join(' ') + '</xls:Place>';
+                addressXML += '<xls:Place type="Municipality">' + address.regions.join(' ') + '</xls:Place>';
 
                 return geocodeRequestFormatter(
                     params.countryCode,
@@ -6823,7 +6547,7 @@ T5.Registry.register('service', 'geocoder', function() {
             },
 
             parseResponse: function(response) {
-                return getResponseAddresses(response.GeocodeResponseList);
+                return [getResponseAddresses(response.GeocodeResponseList)];
             }
         });
 
@@ -6859,10 +6583,10 @@ T5.Registry.register('service', 'geocoder', function() {
                 } // if
 
                 if (response && response.ReverseGeocodedLocation && response.ReverseGeocodedLocation.Address) {
-                    return parseAddress(response.ReverseGeocodedLocation.Address, matchPos);
+                    return [parseAddress(response.ReverseGeocodedLocation.Address, matchPos)];
                 } // if
 
-                return null;
+                return [];
             }
         });
 
@@ -6900,20 +6624,8 @@ T5.Registry.register('service', 'geocoder', function() {
 });
 T5.Registry.register('service', 'routing', function() {
 
-    function parsePositions(sourceData) {
-        var sourceLen = sourceData.length,
-            positions = new Array(sourceLen);
-
-        for (var ii = sourceLen; ii--; ) {
-            positions[ii] = new GeoJS.Pos(sourceData[ii]);
-        } // for
-
-        return positions;
-    } // parsePositions
-
-    var RouteRequest = function(params) {
+    var RouteRequest = function(waypoints, params) {
         params = T5.ex({
-            waypoints: [],
             provideRouteHandle: false,
             distanceUnit: "KM",
             routeQueryType: "RMAN",
@@ -6932,15 +6644,14 @@ T5.Registry.register('service', 'routing', function() {
                     instructionList.RouteInstruction : [];
 
             for (var ii = 0; ii < instructions.length; ii++) {
-                var distance = new GeoJS.Distance(distanceToMeters(instructions[ii].distance)),
-                    time = TL.parse(instructions[ii].duration, '8601');
+                var distance = instructions[ii].distance;
 
-                fnresult.push(new T5.RouteTools.Instruction({
-                    position: new GeoJS.Pos(instructions[ii].Point),
-                    description: instructions[ii].Instruction,
-                    distance: distance,
-                    time: time
-                }));
+                fnresult.push({
+                    text: instructions[ii].Instruction,
+                    latlng: instructions[ii].Point,
+                    distance: distance.value + (distance.uom || 'M').toUpperCase(),
+                    time: TL.parse(instructions[ii].duration, '8601')
+                });
             } // for
 
 
@@ -6951,7 +6662,7 @@ T5.Registry.register('service', 'routing', function() {
             methodName: "DetermineRoute",
 
             getRequestBody: function() {
-                if (params.waypoints.length < 2) {
+                if (waypoints.length < 2) {
                     throw new Error("Cannot send RouteRequest, less than 2 waypoints specified");
                 } // if
 
@@ -6963,10 +6674,10 @@ T5.Registry.register('service', 'routing', function() {
 
                 body += "<xls:WayPointList>";
 
-                for (var ii = 0; ii < params.waypoints.length; ii++) {
-                    var tagName = (ii === 0 ? "StartPoint" : (ii === params.waypoints.length-1 ? "EndPoint" : "ViaPoint"));
+                for (var ii = 0; ii < waypoints.length; ii++) {
+                    var tagName = (ii === 0 ? "StartPoint" : (ii === waypoints.length-1 ? "EndPoint" : "ViaPoint"));
 
-                    body += waypointFormatter(tagName, params.waypoints[ii].toString());
+                    body += waypointFormatter(tagName, waypoints[ii].toString());
                 }
 
                 body += "</xls:WayPointList>";
@@ -6987,11 +6698,10 @@ T5.Registry.register('service', 'routing', function() {
             },
 
             parseResponse: function(response) {
-
-                return new T5.RouteTools.RouteData({
-                    geometry: parsePositions(response.RouteGeometry.LineString.pos),
-                    instructions: parseInstructions(response.RouteInstructionsList)
-                });
+                return [
+                    response.RouteGeometry.LineString.pos,
+                    parseInstructions(response.RouteInstructionsList)
+                ];
             }
         });
 
@@ -7000,22 +6710,8 @@ T5.Registry.register('service', 'routing', function() {
 
     /* exports */
 
-    function calculate(args, callback, errorCallback) {
-        args = T5.ex({
-           waypoints: []
-        }, args);
-
-        if (typeof T5.RouteTools !== 'undefined') {
-            var request = new RouteRequest(args);
-            makeServerRequest(request, function(routeData) {
-                if (callback) {
-                    callback(routeData);
-                } // if
-            }, errorCallback);
-        }
-        else {
-            T5.log('Could not generate route, T5.RouteTools plugin not found', 'warn');
-        } // if..else
+    function calculate(waypoints, callback, errorCallback) {
+        makeServerRequest(new RouteRequest(waypoints), callback, errorCallback);
     } // calculate
 
     return {
@@ -7040,7 +6736,4 @@ T5.Registry.register('service', 'routing', function() {
         })()
     };
 })();
-
-    scope.T5 = T5;
-    scope.Tile5 = Tile5;
-})(typeof window != 'undefined' ? window : exports);
+})();

@@ -21,9 +21,6 @@ T5.Registry.register('service', 'geocoder', function() {
             language: currentConfig.geocoding.language
         }, params);
         
-        // initialise variables
-        var parsed = ADDR.parse(address);
-        
         function validMatch(match) {
             return match.GeocodeMatchCode && match.GeocodeMatchCode.matchType !== "NO_MATCH";
         } // validMatch
@@ -81,7 +78,7 @@ T5.Registry.register('service', 'geocoder', function() {
             methodName: "Geocode",
             
             getRequestBody: function() {
-                var addressXML = _streetAddressFormatter(parsed.number, parsed.street);
+                var addressXML = _streetAddressFormatter(address.number, address.street);
                 
                 /*
                 // iterate through the regions in the parsed street, and add to the address xml
@@ -92,7 +89,7 @@ T5.Registry.register('service', 'geocoder', function() {
                 } // for
                 */
                 
-                addressXML += '<xls:Place type="Municipality">' + parsed.regions.join(' ') + '</xls:Place>';
+                addressXML += '<xls:Place type="Municipality">' + address.regions.join(' ') + '</xls:Place>';
                 
                 return geocodeRequestFormatter(
                     params.countryCode,
@@ -101,7 +98,7 @@ T5.Registry.register('service', 'geocoder', function() {
             },
             
             parseResponse: function(response) {
-                return getResponseAddresses(response.GeocodeResponseList);
+                return [getResponseAddresses(response.GeocodeResponseList)];
             }
         });
         
@@ -140,10 +137,10 @@ T5.Registry.register('service', 'geocoder', function() {
 
                 // if we have the address then convert that to an address
                 if (response && response.ReverseGeocodedLocation && response.ReverseGeocodedLocation.Address) {
-                    return parseAddress(response.ReverseGeocodedLocation.Address, matchPos);
-                } // if                    
+                    return [parseAddress(response.ReverseGeocodedLocation.Address, matchPos)];
+                } // if
                 
-                return null;
+                return [];
             }
         });
         

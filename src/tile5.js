@@ -13,7 +13,7 @@
 //= require <geojs/src/geojs>
 
 // define T5
-var T5 = _observable({});
+var T5 = this.T5 = _observable({});
 
 //= require "core/registry"
 //= require "core/messages"
@@ -60,8 +60,6 @@ var T5 = _observable({});
 //= require "core/controls/base"
 //= require "core/controls/zoombar"
 
-//= require "core/geo/posfns"
-
 /**
 # T5
 
@@ -101,7 +99,15 @@ _extend(T5, {
     
     Control: Control,
     Tile: Tile,
-    Tweener: Tweener
+    Tweener: Tweener,
+    
+    View: View,
+    Map: Map
 });
+
+// support commonJS exports
+if (typeof module != 'undefined' && module.exports) {
+    module.exports = T5;
+} // if
 
 //= require "core/factory"

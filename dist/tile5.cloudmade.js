@@ -9,7 +9,7 @@
  * Build Date: @DATE
  */
 
-(function(scope) {
+(function() {
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true */
 
 function _extend() {
@@ -1199,7 +1199,8 @@ var LAT_VARIABILITIES = [
     0.488332580888611
 ];
 
-var TWO_PI = Math.PI * 2,
+var IS_COMMONJS = typeof module != 'undefined' && module.exports,
+    TWO_PI = Math.PI * 2,
     HALF_PI = Math.PI / 2,
     VECTOR_SIMPLIFICATION = 3,
     DEGREES_TO_RADIANS = Math.PI / 180,
@@ -1217,7 +1218,9 @@ var TWO_PI = Math.PI * 2,
     M_PER_RAD = KM_PER_RAD * M_PER_KM,
     ECC = 0.08181919084262157,
     PHI_EPSILON = 1E-7,
-    PHI_MAXITER = 12;
+    PHI_MAXITER = 12,
+
+    reDelimitedSplit = /[\,\s]+/;
 /**
 # GeoJS.Pos
 
@@ -1259,8 +1262,8 @@ Pos.prototype = {
             return 0;
         } // if
 
-        var halfdelta_lat = toRad(targetPos.lat - this.lat) >> 1;
-        var halfdelta_lon = toRad(targetPos.lon - this.lon) >> 1;
+        var halfdelta_lat = toRad(targetPos.lat - this.lat) / 2;
+        var halfdelta_lon = toRad(targetPos.lon - this.lon) / 2;
 
         var a = sin(halfdelta_lat) * sin(halfdelta_lat) +
                 (cos(toRad(this.lat)) * cos(toRad(targetPos.lat))) *
@@ -1378,7 +1381,7 @@ function BBox(p1, p2) {
             maxPos = new Pos(MIN_LAT, MIN_LON);
 
         for (var ii = p1.length; ii--; ) {
-            var testPos = p1[ii];
+            var testPos = typeof p1[ii] == 'string' ? new Pos(p1[ii]) : p1[ii];
 
             if (testPos.lat < minPos.lat) {
                 minPos.lat = testPos.lat;
@@ -1403,7 +1406,7 @@ function BBox(p1, p2) {
         if (typeof padding == 'undefined') {
             var size = this.size();
 
-            padding = max(size.x, size.y) * 0.3;
+            padding = Math.max(size.x, size.y) * 0.3;
         } // if
 
         this.min = new Pos(minPos.lat - padding, (minPos.lon - padding) % 360);
@@ -1421,17 +1424,25 @@ BBox.prototype = {
     /**
     ### bestZoomLevel(viewport)
     */
-    bestZoomLevel: function(viewport) {
+    bestZoomLevel: function(vpWidth, vpHeight) {
         var boundsCenter = this.center(),
             maxZoom = 1000,
-            variabilityIndex = min(round(abs(boundsCenter.lat) * 0.05), LAT_VARIABILITIES.length),
+            variabilityIndex = Math.min(
+                Math.round(Math.abs(boundsCenter.lat) * 0.05),
+                LAT_VARIABILITIES.length),
             variability = LAT_VARIABILITIES[variabilityIndex],
             delta = this.size(),
-            bestZoomH = ceil(log(LAT_VARIABILITIES[3] * viewport.h / delta.y) / log(2)),
-            bestZoomW = ceil(log(variability * viewport.w / delta.x) / log(2));
+            bestZoomH = Math.ceil(
+                Math.log(LAT_VARIABILITIES[3] * vpHeight / delta.y) / Math.LN2),
+
+            bestZoomW = Math.ceil(
+                Math.log(variability * vpWidth / delta.x) / Math.LN2);
 
 
-        return min(isNaN(bestZoomH) ? maxZoom : bestZoomH, isNaN(bestZoomW) ? maxZoom : bestZoomW);
+        return Math.min(
+            isNaN(bestZoomH) ? maxZoom : bestZoomH,
+            isNaN(bestZoomW) ? maxZoom : bestZoomW
+        );
     },
 
     /**
@@ -1440,7 +1451,7 @@ BBox.prototype = {
     center: function() {
         var size = this.size();
 
-        return new Pos(this.min.lat + (size.y >> 1), this.min.lon + (size.x >> 1));
+        return new Pos(this.min.lat + size.y / 2, this.min.lon + size.x / 2);
     },
 
     /**
@@ -1457,7 +1468,10 @@ BBox.prototype = {
     ### size(normalize)
     */
     size: function(normalize) {
-        var size = new XY(0, this.max.lat - this.min.lat);
+        var size = {
+            x: 0,
+            y: this.max.lat - this.min.lat
+        };
 
         if (typeof normalize != 'undefined' && normalize && (this.min.lon > this.max.lon)) {
             size.x = 360 - this.min.lon + this.max.lon;
@@ -1488,10 +1502,10 @@ BBox.prototype = {
                 var testMin = arguments[ii].min,
                     testMax = arguments[ii].max;
 
-                minPos.lat = min(minPos.lat, testMin.lat);
-                minPos.lon = min(minPos.lon, testMin.lon);
-                maxPos.lat = max(maxPos.lat, testMax.lat);
-                maxPos.lon = max(maxPos.lon, testMax.lon);
+                minPos.lat = Math.min(minPos.lat, testMin.lat);
+                minPos.lon = Math.min(minPos.lon, testMin.lon);
+                maxPos.lat = Math.max(maxPos.lat, testMax.lat);
+                maxPos.lon = Math.max(maxPos.lon, testMax.lon);
             } // if
         } // for
 
@@ -1504,6 +1518,15 @@ BBox.prototype = {
 ## Methods
 */
 function Distance(value) {
+    if (typeof value == 'string') {
+        var uom = (value.replace(/\d|\.|\s/g, '') || 'm').toLowerCase(),
+            multipliers = {
+                km: 1000
+            };
+
+        value = parseFloat(value) * (multipliers[uom] || 1);
+    } // if
+
     this.meters = value || 0;
 } // Distance
 
@@ -1515,7 +1538,10 @@ Distance.prototype = {
         var total = this.meters;
 
         for (var ii = arguments.length; ii--; ) {
-            total += arguments[ii].meters;
+            var dist = typeof arguments[ii] == 'string' ?
+                        new Distance(arguments[ii]) : arguments[ii];
+
+            total += dist.meters;
         } // for
 
         return new Distance(total);
@@ -1548,18 +1574,74 @@ Distance.prototype = {
     }
 };
 
+var DEFAULT_VECTORIZE_CHUNK_SIZE = 100,
+    VECTORIZE_PER_CYCLE = 500,
+    DEFAULT_GENERALIZATION_DISTANCE = 250;
+
+/* exports */
+
+/**
+### generalize(sourceData, requiredPositions, minDist)
+To be completed
+*/
+function generalize(sourceData, requiredPositions, minDist) {
+    var sourceLen = sourceData.length,
+        positions = [],
+        lastPosition = null;
+
+
+    minDist = (minDist || DEFAULT_GENERALIZATION_DISTANCE) / 1000;
+
+    for (var ii = sourceLen; ii--; ) {
+        if (ii === 0) {
+            positions.unshift(sourceData[ii]);
+        }
+        else {
+            var include = (! lastPosition) || sourceData[ii].inArray(requiredPositions),
+                posDiff = include ? minDist : lastPosition.distanceTo(sourceData[ii]);
+
+            if (sourceData[ii] && (posDiff >= minDist)) {
+                positions.unshift(sourceData[ii]);
+
+                lastPosition = sourceData[ii];
+            } // if
+        } // if..else
+    } // for
+
+    return positions;
+} // generalize
+
     var GeoJS = this.GeoJS = {
         Pos: Pos,
         BBox: BBox,
-        Distance: Distance
+        Distance: Distance,
+
+        generalize: generalize,
+
+        include: function(input) {
+            if (IS_COMMONJS) {
+                var plugins = input.split(','),
+                    pluginName;
+
+                for (var ii = 0; ii < plugins.length; ii++) {
+                    var plugin = require('./plugins/' + plugins[ii].trim());
+
+                    for (var key in plugin) {
+                        GeoJS[key] = plugin[key];
+                    } // for
+                } // for
+            }
+
+            return GeoJS;
+        }
     };
 
-    if (typeof module != 'undefined' && module.exports) {
+    if (IS_COMMONJS) {
         module.exports = GeoJS;
     } // if
 })();
 
-var T5 = _observable({});
+var T5 = this.T5 = _observable({});
 
 var Registry = (function() {
     /* internals */
@@ -2258,8 +2340,8 @@ function GeoXY(p1, p2, mercX, mercY) {
     if (_is(p1, typeString)) {
         _extend(this, Parser.parseXY(p1));
     } // if
-    else if (p1 && p1.toPixels) {
-        _extend(this, p1.toPixels());
+    else if (p1 && p1.toBounds) {
+        _extend(this, _project(p1.lon, p1.lat));
     }
     else {
         XY.call(this, p1, p2);
@@ -3428,11 +3510,10 @@ var Style = (function() {
     };
 })();
 /**
-# VIEW: simple
+# T5.View
 */
-reg('view', 'view', function(params) {
+var View = function(container, params) {
     params = _extend({
-        container: "",
         captureHover: true,
         controls: [],
         drawOnScale: true,
@@ -3595,7 +3676,7 @@ reg('view', 'view', function(params) {
                 if (changed) {
                     var oldCenter = center();
 
-                    updateContainer(params.container);
+                    updateContainer(container);
 
                     center(oldCenter.x, oldCenter.y);
                 } // if
@@ -4406,7 +4487,7 @@ reg('view', 'view', function(params) {
 
     layer('markers', 'draw', { zindex: 20 });
 
-    updateContainer(params.container);
+    updateContainer(container);
 
     if (DOM && (! _is(window.attachEvent, typeUndefined))) {
         window.attachEvent('onresize', handleResize);
@@ -4418,11 +4499,11 @@ reg('view', 'view', function(params) {
     Animator.attach(cycle);
 
     return _self;
-});
+};
 /**
-# VIEW: simple
+# T5.Map
 */
-reg('view', 'map', function(params) {
+var Map = function(container, params) {
     params = _extend({
         controls: ['zoombar'],
 
@@ -4474,7 +4555,7 @@ reg('view', 'map', function(params) {
         var viewport = _self.viewport();
 
         if (newBounds) {
-            var zoomLevel = max(newBounds.bestZoomLevel(viewport), maxZoomLevel || 0);
+            var zoomLevel = max(newBounds.bestZoomLevel(viewport.w, viewport.h), maxZoomLevel || 0);
 
             return zoom(zoomLevel).center(newBounds.center());
         }
@@ -4535,7 +4616,7 @@ reg('view', 'map', function(params) {
         } // if..else
     } // zoom
 
-    var _self = _extend(regCreate('view', 'view', params), {
+    var _self = _extend(new View(container, params), {
         XY: GeoXY,
 
         bounds: bounds,
@@ -4548,7 +4629,7 @@ reg('view', 'map', function(params) {
     _self.bind('scaleChanged', checkScaling);
 
     return _self;
-});
+};
 var Tweener = (function() {
 
     /* internals */
@@ -5708,48 +5789,6 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
     return _this;
 });
 
-(function() {
-    var DEFAULT_VECTORIZE_CHUNK_SIZE = 100,
-        VECTORIZE_PER_CYCLE = 500,
-        DEFAULT_GENERALIZATION_DISTANCE = 250;
-
-    /* exports */
-
-    /**
-    ### generalize(sourceData, requiredPositions, minDist)
-    To be completed
-    */
-    function generalize(sourceData, requiredPositions, minDist) {
-        var sourceLen = sourceData.length,
-            positions = [],
-            lastPosition = null;
-
-
-        minDist = (minDist || DEFAULT_GENERALIZATION_DISTANCE) / 1000;
-
-        for (var ii = sourceLen; ii--; ) {
-            if (ii === 0) {
-                positions.unshift(sourceData[ii]);
-            }
-            else {
-                var include = (! lastPosition) || sourceData[ii].inArray(requiredPositions),
-                    posDiff = include ? minDist : lastPosition.distanceTo(sourceData[ii]);
-
-                if (sourceData[ii] && (posDiff >= minDist)) {
-                    positions.unshift(sourceData[ii]);
-
-                    lastPosition = sourceData[ii];
-                } // if
-            } // if..else
-        } // for
-
-        return positions;
-    } // generalize
-
-
-    reg('fn', 'generalize', generalize);
-})();
-
 /**
 # T5
 
@@ -5788,8 +5827,15 @@ _extend(T5, {
 
     Control: Control,
     Tile: Tile,
-    Tweener: Tweener
+    Tweener: Tweener,
+
+    View: View,
+    Map: Map
 });
+
+if (typeof module != 'undefined' && module.exports) {
+    module.exports = T5;
+} // if
 
 /**
 # Tile5(target, settings, viewId)
@@ -5981,7 +6027,4 @@ T5.Registry.register('generator', 'osm.cloudmade', function(params) {
     });
 });
 })();
-
-    scope.T5 = T5;
-    scope.Tile5 = Tile5;
-})(typeof window != 'undefined' ? window : exports);
+})();

@@ -9,11 +9,7 @@
  * Build Date: @DATE
  */
 
-(function(scope) {
+(function() {
     //= require "../src/tile5"
-    //= require "../src/plugins/geo.routetools"
     //= require "../src/engines/decarta"
-    
-    scope.T5 = T5;
-    scope.Tile5 = Tile5;
-})(typeof window != 'undefined' ? window : exports);
+})();

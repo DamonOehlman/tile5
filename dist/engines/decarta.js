@@ -192,21 +192,6 @@ var lastZoom = null,
 
 /* internal decarta functions */
 
-/*
-This function is used to convert from the deCarta distance JSON data
-to an integer value representing the distance in meters
-*/
-function distanceToMeters(distance) {
-    var uom = distance.uom ? distance.uom.toUpperCase() : 'M',
-        conversionFactors = {
-            'M': 1,
-            'KM': 1000
-        },
-        factor = conversionFactors[uom];
-
-    return distance.value && factor ? distance.value * factor : 0;
-} // uomToMeters
-
 var Address = function(params) {
         params = T5.ex({
             countryCode: currentConfig.geocoding.countryCode,
@@ -402,13 +387,13 @@ function makeServerRequest(request, callback, errorCallback) {
         var response = data.response.XLS.Response;
 
         if ((response.numberOfResponses > 0) && response[request.methodName + 'Response']) {
-            var parsedResponse = null;
+            var responseValues = [];
             if (request.parseResponse) {
-                parsedResponse = request.parseResponse(response[request.methodName + 'Response']);
+                responseValues = request.parseResponse(response[request.methodName + 'Response']);
             } // if
 
             if (callback) {
-                callback(parsedResponse);
+                callback.apply(null, responseValues);
             } // if
         }
         else if (errorCallback) {
@@ -433,14 +418,14 @@ function parseAddress(address, position) {
         } // for
     } // if
 
-    return new ADDR.Address({
+    return {
         building: streetDetails.building,
         street: streetDetails.street,
         regions: regions,
         countryCode: address.countryCode || '',
         postalCode: address.PostalCode || '',
         pos: position
-    });
+    };
 
     /*
     var addressParams = {
@@ -465,7 +450,7 @@ var Request = function() {
         },
 
         parseResponse: function(response) {
-            return response;
+            return [response];
         }
     }; // _self
 
@@ -477,10 +462,10 @@ var RUOKRequest = function(params) {
         methodName: 'RUOK',
 
         parseResponse: function(response) {
-            return {
+            return [{
                 aliasCount: response.maxHostAliases,
                 host: response.hostName
-            };
+            }];
         }
     });
 }; // RUOKRequest
@@ -638,8 +623,6 @@ T5.Registry.register('service', 'geocoder', function() {
             language: currentConfig.geocoding.language
         }, params);
 
-        var parsed = ADDR.parse(address);
-
         function validMatch(match) {
             return match.GeocodeMatchCode && match.GeocodeMatchCode.matchType !== "NO_MATCH";
         } // validMatch
@@ -689,7 +672,7 @@ T5.Registry.register('service', 'geocoder', function() {
             methodName: "Geocode",
 
             getRequestBody: function() {
-                var addressXML = _streetAddressFormatter(parsed.number, parsed.street);
+                var addressXML = _streetAddressFormatter(address.number, address.street);
 
                 /*
                 for (var ii = 0; ii < parsed.regions.length; ii++) {
@@ -699,7 +682,7 @@ T5.Registry.register('service', 'geocoder', function() {
                 } // for
                 */
 
-                addressXML += '<xls:Place type="Municipality">' + parsed.regions.join(' ') + '</xls:Place>';
+                addressXML += '<xls:Place type="Municipality">' + address.regions.join(' ') + '</xls:Place>';
 
                 return geocodeRequestFormatter(
                     params.countryCode,
@@ -708,7 +691,7 @@ T5.Registry.register('service', 'geocoder', function() {
             },
 
             parseResponse: function(response) {
-                return getResponseAddresses(response.GeocodeResponseList);
+                return [getResponseAddresses(response.GeocodeResponseList)];
             }
         });
 
@@ -744,10 +727,10 @@ T5.Registry.register('service', 'geocoder', function() {
                 } // if
 
                 if (response && response.ReverseGeocodedLocation && response.ReverseGeocodedLocation.Address) {
-                    return parseAddress(response.ReverseGeocodedLocation.Address, matchPos);
+                    return [parseAddress(response.ReverseGeocodedLocation.Address, matchPos)];
                 } // if
 
-                return null;
+                return [];
             }
         });
 
@@ -785,20 +768,8 @@ T5.Registry.register('service', 'geocoder', function() {
 });
 T5.Registry.register('service', 'routing', function() {
 
-    function parsePositions(sourceData) {
-        var sourceLen = sourceData.length,
-            positions = new Array(sourceLen);
-
-        for (var ii = sourceLen; ii--; ) {
-            positions[ii] = new GeoJS.Pos(sourceData[ii]);
-        } // for
-
-        return positions;
-    } // parsePositions
-
-    var RouteRequest = function(params) {
+    var RouteRequest = function(waypoints, params) {
         params = T5.ex({
-            waypoints: [],
             provideRouteHandle: false,
             distanceUnit: "KM",
             routeQueryType: "RMAN",
@@ -817,15 +788,14 @@ T5.Registry.register('service', 'routing', function() {
                     instructionList.RouteInstruction : [];
 
             for (var ii = 0; ii < instructions.length; ii++) {
-                var distance = new GeoJS.Distance(distanceToMeters(instructions[ii].distance)),
-                    time = TL.parse(instructions[ii].duration, '8601');
+                var distance = instructions[ii].distance;
 
-                fnresult.push(new T5.RouteTools.Instruction({
-                    position: new GeoJS.Pos(instructions[ii].Point),
-                    description: instructions[ii].Instruction,
-                    distance: distance,
-                    time: time
-                }));
+                fnresult.push({
+                    text: instructions[ii].Instruction,
+                    latlng: instructions[ii].Point,
+                    distance: distance.value + (distance.uom || 'M').toUpperCase(),
+                    time: TL.parse(instructions[ii].duration, '8601')
+                });
             } // for
 
 
@@ -836,7 +806,7 @@ T5.Registry.register('service', 'routing', function() {
             methodName: "DetermineRoute",
 
             getRequestBody: function() {
-                if (params.waypoints.length < 2) {
+                if (waypoints.length < 2) {
                     throw new Error("Cannot send RouteRequest, less than 2 waypoints specified");
                 } // if
 
@@ -848,10 +818,10 @@ T5.Registry.register('service', 'routing', function() {
 
                 body += "<xls:WayPointList>";
 
-                for (var ii = 0; ii < params.waypoints.length; ii++) {
-                    var tagName = (ii === 0 ? "StartPoint" : (ii === params.waypoints.length-1 ? "EndPoint" : "ViaPoint"));
+                for (var ii = 0; ii < waypoints.length; ii++) {
+                    var tagName = (ii === 0 ? "StartPoint" : (ii === waypoints.length-1 ? "EndPoint" : "ViaPoint"));
 
-                    body += waypointFormatter(tagName, params.waypoints[ii].toString());
+                    body += waypointFormatter(tagName, waypoints[ii].toString());
                 }
 
                 body += "</xls:WayPointList>";
@@ -872,11 +842,10 @@ T5.Registry.register('service', 'routing', function() {
             },
 
             parseResponse: function(response) {
-
-                return new T5.RouteTools.RouteData({
-                    geometry: parsePositions(response.RouteGeometry.LineString.pos),
-                    instructions: parseInstructions(response.RouteInstructionsList)
-                });
+                return [
+                    response.RouteGeometry.LineString.pos,
+                    parseInstructions(response.RouteInstructionsList)
+                ];
             }
         });
 
@@ -885,22 +854,8 @@ T5.Registry.register('service', 'routing', function() {
 
     /* exports */
 
-    function calculate(args, callback, errorCallback) {
-        args = T5.ex({
-           waypoints: []
-        }, args);
-
-        if (typeof T5.RouteTools !== 'undefined') {
-            var request = new RouteRequest(args);
-            makeServerRequest(request, function(routeData) {
-                if (callback) {
-                    callback(routeData);
-                } // if
-            }, errorCallback);
-        }
-        else {
-            T5.log('Could not generate route, T5.RouteTools plugin not found', 'warn');
-        } // if..else
+    function calculate(waypoints, callback, errorCallback) {
+        makeServerRequest(new RouteRequest(waypoints), callback, errorCallback);
     } // calculate
 
     return {

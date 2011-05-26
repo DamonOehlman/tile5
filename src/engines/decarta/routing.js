@@ -1,19 +1,7 @@
 T5.Registry.register('service', 'routing', function() {
     
-    function parsePositions(sourceData) {
-        var sourceLen = sourceData.length,
-            positions = new Array(sourceLen);
-
-        for (var ii = sourceLen; ii--; ) {
-            positions[ii] = new GeoJS.Pos(sourceData[ii]);
-        } // for
-
-        return positions;
-    } // parsePositions
-    
-    var RouteRequest = function(params) {
+    var RouteRequest = function(waypoints, params) {
         params = T5.ex({
-            waypoints: [],
             provideRouteHandle: false,
             distanceUnit: "KM",
             routeQueryType: "RMAN",
@@ -31,19 +19,18 @@ T5.Registry.register('service', 'routing', function() {
             var fnresult = [],
                 instructions = instructionList && instructionList.RouteInstruction ? 
                     instructionList.RouteInstruction : [];
-
+                    
             // T5.log("parsing " + instructions.length + " instructions", instructions[0], instructions[1], instructions[2]);
             for (var ii = 0; ii < instructions.length; ii++) {
                 // initialise the time and duration for this instruction
-                var distance = new GeoJS.Distance(distanceToMeters(instructions[ii].distance)),
-                    time = TL.parse(instructions[ii].duration, '8601');
+                var distance = instructions[ii].distance;
                     
-                fnresult.push(new T5.RouteTools.Instruction({
-                    position: new GeoJS.Pos(instructions[ii].Point),
-                    description: instructions[ii].Instruction,
-                    distance: distance,
-                    time: time
-                }));
+                fnresult.push({
+                    text: instructions[ii].Instruction,
+                    latlng: instructions[ii].Point,
+                    distance: distance.value + (distance.uom || 'M').toUpperCase(),
+                    time: TL.parse(instructions[ii].duration, '8601')
+                });
             } // for
             
 
@@ -57,7 +44,7 @@ T5.Registry.register('service', 'routing', function() {
             
             getRequestBody: function() {
                 // check that we have some waypoints, if not throw an exception 
-                if (params.waypoints.length < 2) {
+                if (waypoints.length < 2) {
                     throw new Error("Cannot send RouteRequest, less than 2 waypoints specified");
                 } // if
                 
@@ -73,12 +60,12 @@ T5.Registry.register('service', 'routing', function() {
                 body += "<xls:WayPointList>";
                 
                 // add the waypoints
-                for (var ii = 0; ii < params.waypoints.length; ii++) {
+                for (var ii = 0; ii < waypoints.length; ii++) {
                     // determine the appropriate tag to use for the waypoint
                     // as to why this is required, who knows....
-                    var tagName = (ii === 0 ? "StartPoint" : (ii === params.waypoints.length-1 ? "EndPoint" : "ViaPoint"));
+                    var tagName = (ii === 0 ? "StartPoint" : (ii === waypoints.length-1 ? "EndPoint" : "ViaPoint"));
                     
-                    body += waypointFormatter(tagName, params.waypoints[ii].toString());
+                    body += waypointFormatter(tagName, waypoints[ii].toString());
                 }
                 
                 // close the waypoint list
@@ -106,12 +93,10 @@ T5.Registry.register('service', 'routing', function() {
             
             parseResponse: function(response) {
                 // T5.log("received route request response:", response);
-                
-                // create a new route data object and map items 
-                return new T5.RouteTools.RouteData({
-                    geometry: parsePositions(response.RouteGeometry.LineString.pos),
-                    instructions: parseInstructions(response.RouteInstructionsList)
-                });
+                return [
+                    response.RouteGeometry.LineString.pos,
+                    parseInstructions(response.RouteInstructionsList)
+                ];
             }
         });
         
@@ -120,24 +105,9 @@ T5.Registry.register('service', 'routing', function() {
     
     /* exports */
     
-    function calculate(args, callback, errorCallback) {
-        args = T5.ex({
-           waypoints: []
-        }, args);
-        
-        // check for the route tools
-        if (typeof T5.RouteTools !== 'undefined') {
-            // create the geocoding request and execute it
-            var request = new RouteRequest(args);
-            makeServerRequest(request, function(routeData) {
-                if (callback) {
-                    callback(routeData);
-                } // if
-            }, errorCallback);
-        }
-        else {
-            T5.log('Could not generate route, T5.RouteTools plugin not found', 'warn');
-        } // if..else
+    function calculate(waypoints, callback, errorCallback) {
+        // create the geocoding request and execute it
+        makeServerRequest(new RouteRequest(waypoints), callback, errorCallback);
     } // calculate
     
     return {

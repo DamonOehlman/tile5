@@ -28,21 +28,6 @@ var lastZoom = null,
 
 /* internal decarta functions */
 
-/*
-This function is used to convert from the deCarta distance JSON data
-to an integer value representing the distance in meters
-*/
-function distanceToMeters(distance) {
-    var uom = distance.uom ? distance.uom.toUpperCase() : 'M',
-        conversionFactors = {
-            'M': 1,
-            'KM': 1000
-        },
-        factor = conversionFactors[uom];
-        
-    return distance.value && factor ? distance.value * factor : 0;
-} // uomToMeters
-
 // define the decarta internal types
 var Address = function(params) {
         params = T5.ex({
@@ -266,14 +251,14 @@ function makeServerRequest(request, callback, errorCallback) {
         // if we have one or more responeses, then handle them
         if ((response.numberOfResponses > 0) && response[request.methodName + 'Response']) {
             // parse the response if the handler is assigned
-            var parsedResponse = null;
+            var responseValues = [];
             if (request.parseResponse) {
-                parsedResponse = request.parseResponse(response[request.methodName + 'Response']);
+                responseValues = request.parseResponse(response[request.methodName + 'Response']);
             } // if
             
             // if the callback is assigned, then process the parsed response
             if (callback) {
-                callback(parsedResponse);
+                callback.apply(null, responseValues);
             } // if
         }
         // otherwise, report the error
@@ -300,14 +285,14 @@ function parseAddress(address, position) {
         } // for
     } // if
         
-    return new ADDR.Address({
+    return {
         building: streetDetails.building,
         street: streetDetails.street,
         regions: regions,
         countryCode: address.countryCode || '',
         postalCode: address.PostalCode || '',
         pos: position
-    });
+    };
     
     /*
     // initialise the address params
@@ -335,7 +320,7 @@ var Request = function() {
         },
 
         parseResponse: function(response) {
-            return response;
+            return [response];
         }
     }; // _self
 
@@ -347,10 +332,10 @@ var RUOKRequest = function(params) {
         methodName: 'RUOK',
         
         parseResponse: function(response) {
-            return {
+            return [{
                 aliasCount: response.maxHostAliases,
                 host: response.hostName
-            };
+            }];
         }
     });
 }; // RUOKRequest

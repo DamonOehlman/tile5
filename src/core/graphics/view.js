@@ -1,10 +1,9 @@
 /**
-# VIEW: simple
+# T5.View
 */
-reg('view', 'view', function(params) {
+var View = function(container, params) {
     // initialise defaults
     params = _extend({
-        container: "",
         captureHover: true,
         controls: [],
         drawOnScale: true,
@@ -179,7 +178,7 @@ reg('view', 'view', function(params) {
                     var oldCenter = center();
 
                     // update the container
-                    updateContainer(params.container);
+                    updateContainer(container);
                     
                     // restore the center position
                     center(oldCenter.x, oldCenter.y);
@@ -1121,7 +1120,7 @@ reg('view', 'view', function(params) {
     layer('markers', 'draw', { zindex: 20 });
     
     // create the renderer
-    updateContainer(params.container);
+    updateContainer(container);
 
     // if autosized, then listen for resize events
     if (DOM && (! _is(window.attachEvent, typeUndefined))) {
@@ -1136,4 +1135,4 @@ reg('view', 'view', function(params) {
     Animator.attach(cycle);
     
     return _self;
-});
+};

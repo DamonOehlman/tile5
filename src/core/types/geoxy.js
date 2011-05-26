@@ -13,8 +13,8 @@ function GeoXY(p1, p2, mercX, mercY) {
         _extend(this, Parser.parseXY(p1));
     } // if
     // otherwise, if the first parameter is a position, then convert to pixels
-    else if (p1 && p1.toPixels) {
-        _extend(this, p1.toPixels());
+    else if (p1 && p1.toBounds) {
+        _extend(this, _project(p1.lon, p1.lat));
     }
     else {
         XY.call(this, p1, p2);

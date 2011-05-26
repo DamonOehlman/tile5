@@ -1,7 +1,7 @@
 /**
-# VIEW: simple
+# T5.Map
 */
-reg('view', 'map', function(params) {
+var Map = function(container, params) {
     // initialise defaults
     params = _extend({
         controls: ['zoombar'],
@@ -61,7 +61,7 @@ reg('view', 'map', function(params) {
         
         if (newBounds) {
             // calculate the zoom level we are going to
-            var zoomLevel = max(newBounds.bestZoomLevel(viewport), maxZoomLevel || 0);
+            var zoomLevel = max(newBounds.bestZoomLevel(viewport.w, viewport.h), maxZoomLevel || 0);
             
             // move the map
             return zoom(zoomLevel).center(newBounds.center());
@@ -133,7 +133,7 @@ reg('view', 'map', function(params) {
         } // if..else
     } // zoom    
     
-    var _self = _extend(regCreate('view', 'view', params), {
+    var _self = _extend(new View(container, params), {
         XY: GeoXY, 
         
         bounds: bounds,
@@ -148,4 +148,4 @@ reg('view', 'map', function(params) {
     _self.bind('scaleChanged', checkScaling);
     
     return _self;
-});
+};

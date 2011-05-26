@@ -53,13 +53,13 @@ We are currently targeting a RC1 release of Tile5 1.0 for around the middle of t
 ### Creating a Map / View
 
 ```js
-var map = Tile5('mapContainer', settings /* a settings hash */);
+var map = new T5.Map('mapContainer', settings /* a settings hash */);
 ```
 
 #### EXAMPLE: Initializing a Map
 
 ```js
-var map = Tile5('mapContainer')
+var map = new T5.Map('mapContainer')
 	.zoom(3) // set the zoom level
 	.center('-27 133'); // set the center position
 ```

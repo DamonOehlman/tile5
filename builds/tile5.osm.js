@@ -9,10 +9,7 @@
  * Build Date: @DATE
  */
 
-(function(scope) {
+(function() {
     //= require "../src/tile5"
     //= require "../src/engines/osm"
-    
-    scope.T5 = T5;
-    scope.Tile5 = Tile5;
-})(typeof window != 'undefined' ? window : exports);
+})();
