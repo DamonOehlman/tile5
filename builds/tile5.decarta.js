@@ -9,6 +9,8 @@
  * Build Date: @DATE
  */
 
+//= require <geojs/src/geojs>
+
 (function() {
     //= require "../src/tile5"
     //= require "../src/engines/decarta"

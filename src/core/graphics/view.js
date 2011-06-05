@@ -17,8 +17,8 @@ var View = function(container, params) {
     }, params);
     
     // initialise constants
-    var PANSPEED_THRESHOLD_REFRESH = 2,
-        PANSPEED_THRESHOLD_FASTPAN = 5,
+    var PANSPEED_THRESHOLD_REFRESH = 0,
+        PANSPEED_THRESHOLD_FASTPAN = 2,
         PADDING_AUTO = 'auto',
     
         // get the container context
@@ -68,7 +68,6 @@ var View = function(container, params) {
             index: 0,
             draw: false
         },
-        partialScaling = true,
         tweeningOffset = false, // TODO: find a better way to determine this than with a flag
         cycleDelay = 1000 / params.fps | 0,
         viewChanges = 0,
@@ -101,8 +100,8 @@ var View = function(container, params) {
         if (! projectedXY) {
             var vp = viewport(),
                 invScaleFactor = 1 / scaleFactor,
-                scaledX = vp ? (vp.x + srcX * invScaleFactor) : srcX,
-                scaledY = vp ? (vp.y + srcY * invScaleFactor) : srcY;
+                scaledX = vp ? (vp.x + (srcX + vp.padding.x) * invScaleFactor) : srcX,
+                scaledY = vp ? (vp.y + (srcY + vp.padding.y) * invScaleFactor) : srcY;
 
             projectedXY = new _self.XY(scaledX, scaledY);
         } // if
@@ -111,18 +110,17 @@ var View = function(container, params) {
     } // getProjectedXY
     
     function handleDoubleTap(evt, absXY, relXY) {
-        triggerAll(
-            'doubleTap', 
-            absXY,
-            relXY,
-            getProjectedXY(relXY.x, relXY.y));
+        var projXY = getProjectedXY(relXY.x, relXY.y);
+
+        // trigger the double tap event
+        _self.trigger('doubleTap', absXY, relXY, projXY);
             
         if (params.scalable) {
             // animate the scaling
             scale(2, {
-                easing: 'quad.out',
-                duration: 300
-            }, true);
+                easing: 'sine.inout',
+                duration: 700
+            }, true, projXY);
         } // if
     } // handleDoubleTap
     
@@ -145,8 +143,8 @@ var View = function(container, params) {
         dragSelected(absXY, relXY, false);
         
         if (! dragObject) {
-            dx = deltaXY.x;
-            dy = deltaXY.y;
+            dx += deltaXY.x;
+            dy += deltaXY.y;
         } // if
     } // handlePointerMove
     
@@ -159,7 +157,7 @@ var View = function(container, params) {
         var layerIndex = _indexOf(layers, layer.id);
         if ((layerIndex >= 0) && (layerIndex < layerCount)) {
             layers.splice(layerIndex, 1);
-            invalidate();
+            viewChanges++;
         } // if
         
         // update the layer count
@@ -335,7 +333,7 @@ var View = function(container, params) {
                     drop);
                 
             if (dragOk) {
-                invalidate();
+                viewChanges++;
             } // if
             
             if (drop) {
@@ -446,7 +444,7 @@ var View = function(container, params) {
                 downY = hitData.gridY;
             
             // iterate through objects from last to first (first get drawn last so sit underneath)
-            for (ii = elements.length; ii--; ) {
+            for (ii = elements.length; pointerDown && ii--; ) {
                 if (dragStart(elements[ii], downX, downY)) {
                     break;
                 } // if
@@ -497,7 +495,7 @@ var View = function(container, params) {
         } // if
             
         // determine whether a refresh is required
-        if (panSpeed < PANSPEED_THRESHOLD_REFRESH && 
+        if ((! pointerDown) && panSpeed <= PANSPEED_THRESHOLD_REFRESH && 
                 (abs(offsetX - refreshX) >= refreshDist ||
                 abs(offsetY - refreshY) >= refreshDist)) {
             refresh();
@@ -543,28 +541,30 @@ var View = function(container, params) {
             } // if
             
             // determine whether we should rerender or not
-            rerender = (! fastpan) || (
+            rerender = hitFlagged || (! fastpan) || (
+                (! pointerDown) && 
+                (! offsetTween) &&
                 (params.drawOnScale || scaleFactor === 1) && 
-                panSpeed < PANSPEED_THRESHOLD_FASTPAN
+                panSpeed <= PANSPEED_THRESHOLD_FASTPAN
             );
             
+            // if an offset tween is active, then get the updated values
+            if (offsetTween) {
+                var values = offsetTween();
+                
+                // get the current offset values from the tween
+                panX = offsetX - values[0] | 0;
+                panY = offsetY - values[1] | 0;
+            } // if
+
             // otherwise, reset the view pane position and refire the renderer
             if (rerender) {
-                if (offsetTween) {
-                    var values = offsetTween();
-                    
-                    // get the current offset values from the tween
-                    offsetX = values[0] | 0;
-                    offsetY = values[1] | 0;
-                }
-                else {
-                    var theta = -rotation * DEGREES_TO_RADIANS,
-                        xChange = cos(theta) * panX + -sin(theta) * panY,
-                        yChange = sin(theta) * panX +  cos(theta) * panY;
-                    
-                    offsetX = (offsetX - xChange / scaleFactor) | 0;
-                    offsetY = (offsetY - yChange / scaleFactor) | 0;
-                } // if..else
+                var theta = -rotation * DEGREES_TO_RADIANS,
+                    xChange = cos(theta) * panX + -sin(theta) * panY,
+                    yChange = sin(theta) * panX +  cos(theta) * panY;
+                
+                offsetX = (offsetX - xChange / scaleFactor) | 0;
+                offsetY = (offsetY - yChange / scaleFactor) | 0;
 
                 // initialise the viewport
                 vp = viewport();
@@ -679,6 +679,9 @@ var View = function(container, params) {
             txXY
         );
         
+        // reset the hit flagged state
+        hitFlagged = false;
+        
         // iterate through the layers and check to see if we have hit potential
         // iterate through all layers as some layers may use the hit guess operation
         // to initialise hit data rather than doing it in the draw loop 
@@ -737,7 +740,7 @@ var View = function(container, params) {
     
     function center(p1, p2, tween) {
         // if we have been passed a string argument, then parse
-        if (_is(p1, typeString) || _is(p1, typeObject)) {
+        if (typeof p1 != 'undefined' && (_is(p1, typeString) || _is(p1, 'object'))) {
             var centerXY = new _self.XY(p1);
             
             // sync
@@ -891,12 +894,18 @@ var View = function(container, params) {
         // TODO: handle when an existing view is passed via the second arg
         else if (_is(id, typeString)) {
             // create the layer using the registry
-            var layer = regCreate('layer', layerType, _self, settings);
+            var layer = regCreate('layer', layerType, _self, settings),
+                layerIndex = getLayerIndex(id);
+                
+            if (layerIndex !== layerCount) {
+                // trigger a layer changed event
+                _self.trigger('layerRemove', layers[layerIndex]);
+            } // if
             
             // initialise the layer attributes
             layer.added = ticks();
             layer.id = id;
-            layers[getLayerIndex(id)] = layer;
+            layers[layerIndex] = layer;
 
             // resort the layers
             // sort the layers
@@ -915,7 +924,7 @@ var View = function(container, params) {
             _self.trigger('layerChange', _self, layer);
 
             // invalidate the map
-            invalidate();
+            viewChanges++;
 
             // return the layer so we can chain if we want
             return layer;
@@ -985,22 +994,27 @@ var View = function(container, params) {
     } // rotate
     
     /**
-    ### scale(value, tween, isAbsolute)
+    ### scale(value, tween, isAbsolute, targetXY)
     */
-    function scale(value, tween, isAbsolute) {
+    function scale(value, tween, isAbsolute, targetXY) {
         // if we are setting the scale,
         if (_is(value, typeNumber)) {
             var scaleFactorExp,
                 targetVal = isAbsolute ? value : scaleFactor * value;
 
             // if partial scrolling is disabled handle it
-            if (! partialScaling) {
-                tween = null;
-
+            if (! _allowTransforms) {
+                tween = undefined;
                 scaleFactorExp = round(log(targetVal) / Math.LN2);
 
                 // round the scale factor to the nearest power of 2
                 targetVal = pow(2, scaleFactorExp);
+            } // if
+            
+            // if the target xy has been specified, then pan to the location
+            if (targetXY) {
+                var center = _self.center();
+                _self.pan(targetXY.x - center.x, targetXY.y - center.y, tween);
             } // if
 
             if (tween) {
@@ -1023,20 +1037,6 @@ var View = function(container, params) {
     } // scale
     
     /**
-    ### triggerAll(eventName: string, args*)
-    Trigger an event on the view and all layers currently contained in the view
-    */
-    function triggerAll() {
-        var cancel = _self.trigger.apply(null, arguments).cancel;
-        for (var ii = layers.length; ii--; ) {
-            cancel = layers[ii].trigger.apply(null, arguments).cancel || cancel;
-        } // for
-        
-        return (! cancel);
-    } // triggerAll
-    
-    
-    /**
     ### offset(x: int, y: int, tween: TweenOpts)
 
     This function allows you to specified the absolute x and y offset that should 
@@ -1052,7 +1052,12 @@ var View = function(container, params) {
                     [x, y], 
                     tween,
                     function() {
+                        offsetX = x | 0;
+                        offsetY = y | 0;
+                        panX = panY = 0;
+
                         offsetTween = null;
+                        viewChanges++;
                     }
                 );
             }
@@ -1091,7 +1096,6 @@ var View = function(container, params) {
         refresh: refresh,
         rotate: rotate,
         scale: scale,
-        triggerAll: triggerAll,
         
         /* offset methods */
         

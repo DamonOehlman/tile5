@@ -10,7 +10,6 @@
 //= require <cog/cogs/typetools>
 //= require <cog/cogs/jsonp>
 //= require <interact/src/interact>
-//= require <geojs/src/geojs>
 
 // define T5
 var T5 = this.T5 = _observable({});

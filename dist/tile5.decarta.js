@@ -10,6 +10,466 @@
  */
 
 (function() {
+var LAT_VARIABILITIES = [
+    1.406245461070741,
+    1.321415085624082,
+    1.077179995861952,
+    0.703119412486786,
+    0.488332580888611
+];
+
+var IS_COMMONJS = typeof module != 'undefined' && module.exports,
+    TWO_PI = Math.PI * 2,
+    HALF_PI = Math.PI / 2,
+    VECTOR_SIMPLIFICATION = 3,
+    DEGREES_TO_RADIANS = Math.PI / 180,
+    RADIANS_TO_DEGREES = 180 / Math.PI,
+    MAX_LAT = 90, //  85.0511 * DEGREES_TO_RADIANS, // TODO: validate this instead of using HALF_PI
+    MIN_LAT = -MAX_LAT,
+    MAX_LON = 180,
+    MIN_LON = -MAX_LON,
+    MAX_LAT_RAD = MAX_LAT * DEGREES_TO_RADIANS,
+    MIN_LAT_RAD = -MAX_LAT_RAD,
+    MAX_LON_RAD = MAX_LON * DEGREES_TO_RADIANS,
+    MIN_LON_RAD = -MAX_LON_RAD,
+    M_PER_KM = 1000,
+    KM_PER_RAD = 6371,
+    M_PER_RAD = KM_PER_RAD * M_PER_KM,
+    ECC = 0.08181919084262157,
+    PHI_EPSILON = 1E-7,
+    PHI_MAXITER = 12,
+
+    reDelimitedSplit = /[\,\s]+/;
+/**
+# GeoJS.Pos
+
+## Methods
+*/
+function Pos(p1, p2) {
+    if (p1 && p1.split) {
+        var coords = p1.split(reDelimitedSplit);
+
+        if (coords.length > 1) {
+            p1 = coords[0];
+            p2 = coords[1];
+        } // if
+    }
+    else if (p1 && p1.lat) {
+        p2 = p1.lon;
+        p1 = p1.lat;
+    } // if..else
+
+    this.lat = parseFloat(p1 || 0);
+    this.lon = parseFloat(p2 || 0);
+} // Pos constructor
+
+Pos.prototype = {
+    constructor: Pos,
+
+    /**
+    ### copy()
+    */
+    copy: function() {
+        return new Pos(this.lat, this.lon);
+    },
+
+    /**
+    ### distanceTo(targetPos)
+    */
+    distanceTo: function(pos) {
+        if ((! pos) || this.empty() || pos.empty()) {
+            return 0;
+        } // if
+
+        var halfdelta_lat = ((pos.lat - this.lat) * DEGREES_TO_RADIANS) / 2;
+        var halfdelta_lon = ((pos.lon - this.lon) * DEGREES_TO_RADIANS) / 2;
+
+        var a = Math.sin(halfdelta_lat) * Math.sin(halfdelta_lat) +
+                (Math.cos(this.lat * DEGREES_TO_RADIANS) * Math.cos(pos.lat * DEGREES_TO_RADIANS)) *
+                (Math.sin(halfdelta_lon) * Math.sin(halfdelta_lon)),
+            c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return KM_PER_RAD * c;
+    },
+
+    /**
+    ### equalTo(testPos)
+    */
+    equalTo: function(testPos) {
+        return pos && (this.lat === testPos.lat) && (this.lon === testPos.lon);
+    },
+
+    /**
+    ### empty()
+    */
+    empty: function() {
+        return this.lat === 0 && this.lon === 0;
+    },
+
+    /**
+    ### inArray(testArray)
+    */
+    inArray: function(testArray) {
+        if (testArray) {
+            for (var ii = testArray.length; ii--; ) {
+                if (this.equal(testArray[ii])) {
+                    return true;
+                } // if
+            } // for
+        } // if
+
+        return false;
+    },
+
+    /**
+    ### offset(latOffset, lonOffset)
+    Return a new position which is the original `pos` offset by
+    the specified `latOffset` and `lonOffset` (which are specified in
+    km distance)
+    */
+    offset: function(latOffset, lonOffset) {
+        var radOffsetLat = latOffset / KM_PER_RAD,
+            radOffsetLon = lonOffset / KM_PER_RAD,
+            radLat = this.lat * DEGREES_TO_RADIANS,
+            radLon = this.lon * DEGREES_TO_RADIANS,
+            newLat = radLat + radOffsetLat,
+            deltaLon = Math.asin(Math.sin(radOffsetLon) / Math.cos(radLat)),
+            newLon = radLon + deltaLon;
+
+        newLat = ((newLat + HALF_PI) % Math.PI) - HALF_PI;
+        newLon = newLon % TWO_PI;
+
+        return new Pos(newLat * RADIANS_TO_DEGREES, newLon * RADIANS_TO_DEGREES);
+    },
+
+    /**
+    ### toBounds(distance)
+    This function is very useful for creating a Geo.BoundingBox given a
+    center position and a radial distance (specified in KM) from the center
+    position.  Basically, imagine a circle is drawn around the center
+    position with a radius of distance from the center position, and then
+    a box is drawn to surround that circle.  Adapted from the [functions written
+    in Java by Jan Philip Matuschek](http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates)
+    */
+    toBounds: function(distance) {
+        var radDist = distance.radians(),
+            radLat = this.lat * DEGREES_TO_RADIANS,
+            radLon = this.lon * DEGREES_TO_RADIANS,
+            minLat = radLat - radDist,
+            maxLat = radLat + radDist,
+            minLon, maxLon;
+
+
+        if ((minLat > MIN_LAT_RAD) && (maxLat < MAX_LAT_RAD)) {
+            var deltaLon = Math.asin(Math.sin(radDist) / Math.cos(radLat));
+
+            minLon = radLon - deltaLon;
+            if (minLon < MIN_LON_RAD) {
+                minLon += TWO_PI;
+            } // if
+
+            maxLon = radLon + deltaLon;
+            if (maxLon > MAX_LON_RAD) {
+                maxLon -= TWO_PI;
+            } // if
+        }
+        else {
+            minLat = Math.max(minLat, MIN_LAT_RAD);
+            maxLat = Math.min(maxLat, MAX_LAT_RAD);
+            minLon = MIN_LON;
+            maxLon = MAX_LON;
+        } // if..else
+
+        return new BBox(
+            new Pos(minLat * RADIANS_TO_DEGREES, minLon * RADIANS_TO_DEGREES),
+            new Pos(maxLat * RADIANS_TO_DEGREES, maxLon * RADIANS_TO_DEGREES));
+    },
+
+    /**
+    ### toString()
+    */
+    toString: function(delimiter) {
+        return this.lat + (delimiter || ' ') + this.lon;
+    },
+
+    /**
+    ### valid()
+    */
+    valid: function() {
+        return !(isNaN(this.lat) || isNaN(this.lon));
+    }
+};
+/**
+# GeoJS.BBox
+*/
+function BBox(p1, p2) {
+    if (p1 && p1.splice) {
+        var padding = p2,
+            minPos = new Pos(MAX_LAT, MAX_LON),
+            maxPos = new Pos(MIN_LAT, MIN_LON);
+
+        for (var ii = p1.length; ii--; ) {
+            var testPos = typeof p1[ii] == 'string' ? new Pos(p1[ii]) : p1[ii];
+
+            if (testPos.lat < minPos.lat) {
+                minPos.lat = testPos.lat;
+            } // if
+
+            if (testPos.lat > maxPos.lat) {
+                maxPos.lat = testPos.lat;
+            } // if
+
+            if (testPos.lon < minPos.lon) {
+                minPos.lon = testPos.lon;
+            } // if
+
+            if (testPos.lon > maxPos.lon) {
+                maxPos.lon = testPos.lon;
+            } // if
+        } // for
+
+        this.min = minPos;
+        this.max = maxPos;
+
+        if (typeof padding == 'undefined') {
+            var size = this.size();
+
+            padding = Math.max(size.x, size.y) * 0.3;
+        } // if
+
+        this.min = new Pos(minPos.lat - padding, (minPos.lon - padding) % 360);
+        this.max = new Pos(maxPos.lat + padding, (maxPos.lon + padding) % 360);
+    }
+    else {
+        this.min = p1;
+        this.max = p2;
+    } // if..else
+} // BoundingBox
+
+BBox.prototype = {
+    constructor: BBox,
+
+    /**
+    ### bestZoomLevel(viewport)
+    */
+    bestZoomLevel: function(vpWidth, vpHeight) {
+        var boundsCenter = this.center(),
+            maxZoom = 1000,
+            variabilityIndex = Math.min(
+                Math.round(Math.abs(boundsCenter.lat) * 0.05),
+                LAT_VARIABILITIES.length),
+            variability = LAT_VARIABILITIES[variabilityIndex],
+            delta = this.size(),
+            bestZoomH = Math.ceil(
+                Math.log(LAT_VARIABILITIES[3] * vpHeight / delta.y) / Math.LN2),
+
+            bestZoomW = Math.ceil(
+                Math.log(variability * vpWidth / delta.x) / Math.LN2);
+
+
+        return Math.min(
+            isNaN(bestZoomH) ? maxZoom : bestZoomH,
+            isNaN(bestZoomW) ? maxZoom : bestZoomW
+        );
+    },
+
+    /**
+    ### center()
+    */
+    center: function() {
+        var size = this.size();
+
+        return new Pos(this.min.lat + size.y / 2, this.min.lon + size.x / 2);
+    },
+
+    /**
+    ### expand(amount)
+    */
+    expand: function(amount) {
+        return new BBox(
+            new Pos(this.min.lat - amount, (this.min.lon - amount) % 360),
+            new Pos(this.max.lat + amount, (this.max.lon + amount) % 360)
+        );
+    },
+
+    /**
+    ### size(normalize)
+    */
+    size: function(normalize) {
+        var size = {
+            x: 0,
+            y: this.max.lat - this.min.lat
+        };
+
+        if (typeof normalize != 'undefined' && normalize && (this.min.lon > this.max.lon)) {
+            size.x = 360 - this.min.lon + this.max.lon;
+        }
+        else {
+            size.x = this.max.lon - this.min.lon;
+        } // if..else
+
+        return size;
+    },
+
+    /**
+    ### toString()
+    */
+    toString: function() {
+        return "min: " + this.min + ", max: " + this.max;
+    },
+
+    /**
+    ### union
+    */
+    union: function() {
+        var minPos = this.min.copy(),
+            maxPos = this.max.copy();
+
+        for (var ii = arguments.length; ii--; ) {
+            if (arguments[ii]) {
+                var testMin = arguments[ii].min,
+                    testMax = arguments[ii].max;
+
+                minPos.lat = Math.min(minPos.lat, testMin.lat);
+                minPos.lon = Math.min(minPos.lon, testMin.lon);
+                maxPos.lat = Math.max(maxPos.lat, testMax.lat);
+                maxPos.lon = Math.max(maxPos.lon, testMax.lon);
+            } // if
+        } // for
+
+        return new BBox(minPos, maxPos);
+    }
+};
+/**
+# GeoJS.Distance
+
+## Methods
+*/
+function Distance(value) {
+    if (typeof value == 'string') {
+        var uom = (value.replace(/\d|\.|\s/g, '') || 'm').toLowerCase(),
+            multipliers = {
+                km: 1000
+            };
+
+        value = parseFloat(value) * (multipliers[uom] || 1);
+    } // if
+
+    this.meters = value || 0;
+} // Distance
+
+Distance.prototype = {
+    /**
+    ### add(args*)
+    */
+    add: function() {
+        var total = this.meters;
+
+        for (var ii = arguments.length; ii--; ) {
+            var dist = typeof arguments[ii] == 'string' ?
+                        new Distance(arguments[ii]) : arguments[ii];
+
+            total += dist.meters;
+        } // for
+
+        return new Distance(total);
+    },
+
+
+    /**
+    ### radians(value)
+    */
+    radians: function(value) {
+        if (typeof value != 'undefined') {
+            this.meters = value * M_PER_RAD;
+
+            return this;
+        }
+        else {
+            return this.meters / M_PER_RAD;
+        } // if..else
+    },
+
+    /**
+    ### toString()
+    */
+    toString: function() {
+        if (this.meters > M_PER_KM) {
+            return ((this.meters / 10 | 0) / 100) + 'km';
+        } // if
+
+        return this.meters + 'm';
+    }
+};
+
+var DEFAULT_VECTORIZE_CHUNK_SIZE = 100,
+    VECTORIZE_PER_CYCLE = 500,
+    DEFAULT_GENERALIZATION_DISTANCE = 250;
+
+/* exports */
+
+/**
+### generalize(sourceData, requiredPositions, minDist)
+To be completed
+*/
+function generalize(sourceData, requiredPositions, minDist) {
+    var sourceLen = sourceData.length,
+        positions = [],
+        lastPosition = null;
+
+
+    minDist = (minDist || DEFAULT_GENERALIZATION_DISTANCE) / 1000;
+
+    for (var ii = sourceLen; ii--; ) {
+        if (ii === 0) {
+            positions.unshift(sourceData[ii]);
+        }
+        else {
+            var include = (! lastPosition) || sourceData[ii].inArray(requiredPositions),
+                posDiff = include ? minDist : lastPosition.distanceTo(sourceData[ii]);
+
+            if (sourceData[ii] && (posDiff >= minDist)) {
+                positions.unshift(sourceData[ii]);
+
+                lastPosition = sourceData[ii];
+            } // if
+        } // if..else
+    } // for
+
+    return positions;
+} // generalize
+
+    var GeoJS = this.GeoJS = {
+        Pos: Pos,
+        BBox: BBox,
+        Distance: Distance,
+
+        generalize: generalize,
+
+        include: function(input) {
+            if (IS_COMMONJS) {
+                var plugins = input.split(','),
+                    pluginName;
+
+                for (var ii = 0; ii < plugins.length; ii++) {
+                    var plugin = require('./plugins/' + plugins[ii].trim());
+
+                    for (var key in plugin) {
+                        GeoJS[key] = plugin[key];
+                    } // for
+                } // for
+            }
+
+            return GeoJS;
+        }
+    };
+
+    if (IS_COMMONJS) {
+        module.exports = GeoJS;
+    } // if
+})();
+
+(function() {
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true */
 
 function _extend() {
@@ -456,9 +916,16 @@ var _jsonp = (function(){
                 (callbackParam ? callbackParam : 'callback') + '=cb';
 
         request({ uri: requestURI }, function(error, response, body) {
-            var cleaned = body.replace(/^.*\(/, '').replace(/\).*$/, '');
+            if (! error) {
+                var cleaned = body.replace(/^.*\(/, '').replace(/\).*$/, '');
 
-            callback(JSON.parse(cleaned));
+                callback(JSON.parse(cleaned));
+            }
+            else {
+                callback({
+                    error: error
+                });
+            } // if..else
         });
     } // serverReq
 
@@ -737,8 +1204,6 @@ var MouseHandler = function(targetElement, observable, opts) {
     } // getPagePos
 
     function handleDoubleClick(evt) {
-        _log('captured double click');
-
         if (matchTarget(evt, targetElement)) {
             var clickXY = getPagePos(evt);
 
@@ -839,6 +1304,10 @@ var MouseHandler = function(targetElement, observable, opts) {
         return button == 1;
     } // leftPressed
 
+    function preventDrag(evt) {
+        return false;
+    } // preventDrag
+
     function triggerCurrent(evt, eventName, overrideX, overrideY, updateLast) {
         var evtX = typeof overrideX != 'undefined' ? overrideX : currentX,
             evtY = typeof overrideY != 'undefined' ? overrideY : currentY,
@@ -875,6 +1344,9 @@ var MouseHandler = function(targetElement, observable, opts) {
     opts.binder('mousemove', handleMouseMove);
     opts.binder('mouseup', handleMouseUp);
     opts.binder('dblclick', handleDoubleClick);
+
+    opts.binder('selectstart', preventDrag);
+    opts.binder('dragstart', preventDrag);
 
     opts.binder('mousewheel', handleWheel);
     opts.binder('DOMMouseScroll', handleWheel);
@@ -1190,456 +1662,6 @@ register('pointer', {
         watch: watch
     };
 })();
-(function() {
-var LAT_VARIABILITIES = [
-    1.406245461070741,
-    1.321415085624082,
-    1.077179995861952,
-    0.703119412486786,
-    0.488332580888611
-];
-
-var IS_COMMONJS = typeof module != 'undefined' && module.exports,
-    TWO_PI = Math.PI * 2,
-    HALF_PI = Math.PI / 2,
-    VECTOR_SIMPLIFICATION = 3,
-    DEGREES_TO_RADIANS = Math.PI / 180,
-    RADIANS_TO_DEGREES = 180 / Math.PI,
-    MAX_LAT = 90, //  85.0511 * DEGREES_TO_RADIANS, // TODO: validate this instead of using HALF_PI
-    MIN_LAT = -MAX_LAT,
-    MAX_LON = 180,
-    MIN_LON = -MAX_LON,
-    MAX_LAT_RAD = MAX_LAT * DEGREES_TO_RADIANS,
-    MIN_LAT_RAD = -MAX_LAT_RAD,
-    MAX_LON_RAD = MAX_LON * DEGREES_TO_RADIANS,
-    MIN_LON_RAD = -MAX_LON_RAD,
-    M_PER_KM = 1000,
-    KM_PER_RAD = 6371,
-    M_PER_RAD = KM_PER_RAD * M_PER_KM,
-    ECC = 0.08181919084262157,
-    PHI_EPSILON = 1E-7,
-    PHI_MAXITER = 12,
-
-    reDelimitedSplit = /[\,\s]+/;
-/**
-# GeoJS.Pos
-
-## Methods
-*/
-function Pos(p1, p2) {
-    if (p1 && p1.split) {
-        var coords = p1.split(reDelimitedSplit);
-
-        if (coords.length > 1) {
-            p1 = coords[0];
-            p2 = coords[1];
-        } // if
-    }
-    else if (p1 && p1.lat) {
-        p2 = p1.lon;
-        p1 = p1.lat;
-    } // if..else
-
-    this.lat = parseFloat(p1 || 0);
-    this.lon = parseFloat(p2 || 0);
-} // Pos constructor
-
-Pos.prototype = {
-    constructor: Pos,
-
-    /**
-    ### copy()
-    */
-    copy: function() {
-        return new Pos(this.lat, this.lon);
-    },
-
-    /**
-    ### distanceTo(targetPos)
-    */
-    distanceTo: function(pos) {
-        if ((! targetPos) || this.empty() || targetPos.empty()) {
-            return 0;
-        } // if
-
-        var halfdelta_lat = toRad(targetPos.lat - this.lat) / 2;
-        var halfdelta_lon = toRad(targetPos.lon - this.lon) / 2;
-
-        var a = sin(halfdelta_lat) * sin(halfdelta_lat) +
-                (cos(toRad(this.lat)) * cos(toRad(targetPos.lat))) *
-                (sin(halfdelta_lon) * sin(halfdelta_lon)),
-            c = 2 * atan2(sqrt(a), sqrt(1 - a));
-
-        return KM_PER_RAD * c;
-    },
-
-    /**
-    ### equalTo(testPos)
-    */
-    equalTo: function(testPos) {
-        return pos && (this.lat === testPos.lat) && (this.lon === testPos.lon);
-    },
-
-    /**
-    ### empty()
-    */
-    empty: function() {
-        return this.lat === 0 && this.lon === 0;
-    },
-
-    /**
-    ### inArray(testArray)
-    */
-    inArray: function(testArray) {
-        for (var ii = testArray.length; ii--; ) {
-            if (this.equal(testArray[ii])) {
-                return true;
-            } // if
-        } // for
-
-        return false;
-    },
-
-    /**
-    ### offset(latOffset, lonOffset)
-    Return a new position which is the original `pos` offset by
-    the specified `latOffset` and `lonOffset` (which are specified in
-    km distance)
-    */
-    offset: function(latOffset, lonOffset) {
-        var radOffsetLat = latOffset / KM_PER_RAD,
-            radOffsetLon = lonOffset / KM_PER_RAD,
-            radLat = this.lat * DEGREES_TO_RADIANS,
-            radLon = this.lon * DEGREES_TO_RADIANS,
-            newLat = radLat + radOffsetLat,
-            deltaLon = asin(sin(radOffsetLon) / cos(radLat)),
-            newLon = radLon + deltaLon;
-
-        newLat = ((newLat + HALF_PI) % Math.PI) - HALF_PI;
-        newLon = newLon % TWO_PI;
-
-        return new Pos(newLat * RADIANS_TO_DEGREES, newLon * RADIANS_TO_DEGREES);
-    },
-
-    /**
-    ### toBounds(distance)
-    This function is very useful for creating a Geo.BoundingBox given a
-    center position and a radial distance (specified in KM) from the center
-    position.  Basically, imagine a circle is drawn around the center
-    position with a radius of distance from the center position, and then
-    a box is drawn to surround that circle.  Adapted from the [functions written
-    in Java by Jan Philip Matuschek](http://janmatuschek.de/LatitudeLongitudeBoundingCoordinates)
-    */
-    toBounds: function(distance) {
-        var radDist = distance.radians(),
-            radLat = this.lat * DEGREES_TO_RADIANS,
-            radLon = this.lon * DEGREES_TO_RADIANS,
-            minLat = radLat - radDist,
-            maxLat = radLat + radDist,
-            minLon, maxLon;
-
-
-        if ((minLat > MIN_LAT_RAD) && (maxLat < MAX_LAT_RAD)) {
-            var deltaLon = asin(sin(radDist) / cos(radLat));
-
-            minLon = radLon - deltaLon;
-            if (minLon < MIN_LON_RAD) {
-                minLon += TWO_PI;
-            } // if
-
-            maxLon = radLon + deltaLon;
-            if (maxLon > MAX_LON_RAD) {
-                maxLon -= TWO_PI;
-            } // if
-        }
-        else {
-            minLat = max(minLat, MIN_LAT_RAD);
-            maxLat = min(maxLat, MAX_LAT_RAD);
-            minLon = MIN_LON;
-            maxLon = MAX_LON;
-        } // if..else
-
-        return new BBox(
-            new Pos(minLat * RADIANS_TO_DEGREES, minLon * RADIANS_TO_DEGREES),
-            new Pos(maxLat * RADIANS_TO_DEGREES, maxLon * RADIANS_TO_DEGREES));
-    },
-
-    /**
-    ### toString()
-    */
-    toString: function(delimiter) {
-        return this.lat + (delimiter || ' ') + this.lon;
-    }
-};
-/**
-# GeoJS.BBox
-*/
-function BBox(p1, p2) {
-    if (p1 && p1.splice) {
-        var padding = p2,
-            minPos = new Pos(MAX_LAT, MAX_LON),
-            maxPos = new Pos(MIN_LAT, MIN_LON);
-
-        for (var ii = p1.length; ii--; ) {
-            var testPos = typeof p1[ii] == 'string' ? new Pos(p1[ii]) : p1[ii];
-
-            if (testPos.lat < minPos.lat) {
-                minPos.lat = testPos.lat;
-            } // if
-
-            if (testPos.lat > maxPos.lat) {
-                maxPos.lat = testPos.lat;
-            } // if
-
-            if (testPos.lon < minPos.lon) {
-                minPos.lon = testPos.lon;
-            } // if
-
-            if (testPos.lon > maxPos.lon) {
-                maxPos.lon = testPos.lon;
-            } // if
-        } // for
-
-        this.min = minPos;
-        this.max = maxPos;
-
-        if (typeof padding == 'undefined') {
-            var size = this.size();
-
-            padding = Math.max(size.x, size.y) * 0.3;
-        } // if
-
-        this.min = new Pos(minPos.lat - padding, (minPos.lon - padding) % 360);
-        this.max = new Pos(maxPos.lat + padding, (maxPos.lon + padding) % 360);
-    }
-    else {
-        this.min = p1;
-        this.max = p2;
-    } // if..else
-} // BoundingBox
-
-BBox.prototype = {
-    constructor: BBox,
-
-    /**
-    ### bestZoomLevel(viewport)
-    */
-    bestZoomLevel: function(vpWidth, vpHeight) {
-        var boundsCenter = this.center(),
-            maxZoom = 1000,
-            variabilityIndex = Math.min(
-                Math.round(Math.abs(boundsCenter.lat) * 0.05),
-                LAT_VARIABILITIES.length),
-            variability = LAT_VARIABILITIES[variabilityIndex],
-            delta = this.size(),
-            bestZoomH = Math.ceil(
-                Math.log(LAT_VARIABILITIES[3] * vpHeight / delta.y) / Math.LN2),
-
-            bestZoomW = Math.ceil(
-                Math.log(variability * vpWidth / delta.x) / Math.LN2);
-
-
-        return Math.min(
-            isNaN(bestZoomH) ? maxZoom : bestZoomH,
-            isNaN(bestZoomW) ? maxZoom : bestZoomW
-        );
-    },
-
-    /**
-    ### center()
-    */
-    center: function() {
-        var size = this.size();
-
-        return new Pos(this.min.lat + size.y / 2, this.min.lon + size.x / 2);
-    },
-
-    /**
-    ### expand(amount)
-    */
-    expand: function(amount) {
-        return new BBox(
-            new Pos(this.min.lat - amount, (this.min.lon - amount) % 360),
-            new Pos(this.max.lat + amount, (this.max.lon + amount) % 360)
-        );
-    },
-
-    /**
-    ### size(normalize)
-    */
-    size: function(normalize) {
-        var size = {
-            x: 0,
-            y: this.max.lat - this.min.lat
-        };
-
-        if (typeof normalize != 'undefined' && normalize && (this.min.lon > this.max.lon)) {
-            size.x = 360 - this.min.lon + this.max.lon;
-        }
-        else {
-            size.x = this.max.lon - this.min.lon;
-        } // if..else
-
-        return size;
-    },
-
-    /**
-    ### toString()
-    */
-    toString: function() {
-        return "min: " + this.min + ", max: " + this.max;
-    },
-
-    /**
-    ### union
-    */
-    union: function() {
-        var minPos = this.min.copy(),
-            maxPos = this.max.copy();
-
-        for (var ii = arguments.length; ii--; ) {
-            if (arguments[ii]) {
-                var testMin = arguments[ii].min,
-                    testMax = arguments[ii].max;
-
-                minPos.lat = Math.min(minPos.lat, testMin.lat);
-                minPos.lon = Math.min(minPos.lon, testMin.lon);
-                maxPos.lat = Math.max(maxPos.lat, testMax.lat);
-                maxPos.lon = Math.max(maxPos.lon, testMax.lon);
-            } // if
-        } // for
-
-        return new BBox(minPos, maxPos);
-    }
-};
-/**
-# GeoJS.Distance
-
-## Methods
-*/
-function Distance(value) {
-    if (typeof value == 'string') {
-        var uom = (value.replace(/\d|\.|\s/g, '') || 'm').toLowerCase(),
-            multipliers = {
-                km: 1000
-            };
-
-        value = parseFloat(value) * (multipliers[uom] || 1);
-    } // if
-
-    this.meters = value || 0;
-} // Distance
-
-Distance.prototype = {
-    /**
-    ### add(args*)
-    */
-    add: function() {
-        var total = this.meters;
-
-        for (var ii = arguments.length; ii--; ) {
-            var dist = typeof arguments[ii] == 'string' ?
-                        new Distance(arguments[ii]) : arguments[ii];
-
-            total += dist.meters;
-        } // for
-
-        return new Distance(total);
-    },
-
-
-    /**
-    ### radians(value)
-    */
-    radians: function(value) {
-        if (typeof value != 'undefined') {
-            this.meters = value * M_PER_RAD;
-
-            return this;
-        }
-        else {
-            return this.meters / M_PER_RAD;
-        } // if..else
-    },
-
-    /**
-    ### toString()
-    */
-    toString: function() {
-        if (this.meters > M_PER_KM) {
-            return ((this.meters / 10 | 0) / 100) + 'km';
-        } // if
-
-        return this.meters + 'm';
-    }
-};
-
-var DEFAULT_VECTORIZE_CHUNK_SIZE = 100,
-    VECTORIZE_PER_CYCLE = 500,
-    DEFAULT_GENERALIZATION_DISTANCE = 250;
-
-/* exports */
-
-/**
-### generalize(sourceData, requiredPositions, minDist)
-To be completed
-*/
-function generalize(sourceData, requiredPositions, minDist) {
-    var sourceLen = sourceData.length,
-        positions = [],
-        lastPosition = null;
-
-
-    minDist = (minDist || DEFAULT_GENERALIZATION_DISTANCE) / 1000;
-
-    for (var ii = sourceLen; ii--; ) {
-        if (ii === 0) {
-            positions.unshift(sourceData[ii]);
-        }
-        else {
-            var include = (! lastPosition) || sourceData[ii].inArray(requiredPositions),
-                posDiff = include ? minDist : lastPosition.distanceTo(sourceData[ii]);
-
-            if (sourceData[ii] && (posDiff >= minDist)) {
-                positions.unshift(sourceData[ii]);
-
-                lastPosition = sourceData[ii];
-            } // if
-        } // if..else
-    } // for
-
-    return positions;
-} // generalize
-
-    var GeoJS = this.GeoJS = {
-        Pos: Pos,
-        BBox: BBox,
-        Distance: Distance,
-
-        generalize: generalize,
-
-        include: function(input) {
-            if (IS_COMMONJS) {
-                var plugins = input.split(','),
-                    pluginName;
-
-                for (var ii = 0; ii < plugins.length; ii++) {
-                    var plugin = require('./plugins/' + plugins[ii].trim());
-
-                    for (var key in plugin) {
-                        GeoJS[key] = plugin[key];
-                    } // for
-                } // for
-            }
-
-            return GeoJS;
-        }
-    };
-
-    if (IS_COMMONJS) {
-        module.exports = GeoJS;
-    } // if
-})();
 
 var T5 = this.T5 = _observable({});
 
@@ -1783,11 +1805,8 @@ var abs = Math.abs,
     isCommonJS = typeof module !== 'undefined' && module.exports,
 
     typeUndefined = 'undefined',
-    typeFunction = 'function',
     typeString = 'string',
-    typeObject = 'object',
     typeNumber = 'number',
-    typeArray = 'array',
 
     typeDrawable = 'drawable',
     typeLayer = 'layer',
@@ -3526,8 +3545,8 @@ var View = function(container, params) {
         useTransforms: true
     }, params);
 
-    var PANSPEED_THRESHOLD_REFRESH = 2,
-        PANSPEED_THRESHOLD_FASTPAN = 5,
+    var PANSPEED_THRESHOLD_REFRESH = 0,
+        PANSPEED_THRESHOLD_FASTPAN = 2,
         PADDING_AUTO = 'auto',
 
         _allowTransforms = true,
@@ -3576,7 +3595,6 @@ var View = function(container, params) {
             index: 0,
             draw: false
         },
-        partialScaling = true,
         tweeningOffset = false, // TODO: find a better way to determine this than with a flag
         cycleDelay = 1000 / params.fps | 0,
         viewChanges = 0,
@@ -3607,8 +3625,8 @@ var View = function(container, params) {
         if (! projectedXY) {
             var vp = viewport(),
                 invScaleFactor = 1 / scaleFactor,
-                scaledX = vp ? (vp.x + srcX * invScaleFactor) : srcX,
-                scaledY = vp ? (vp.y + srcY * invScaleFactor) : srcY;
+                scaledX = vp ? (vp.x + (srcX + vp.padding.x) * invScaleFactor) : srcX,
+                scaledY = vp ? (vp.y + (srcY + vp.padding.y) * invScaleFactor) : srcY;
 
             projectedXY = new _self.XY(scaledX, scaledY);
         } // if
@@ -3617,17 +3635,15 @@ var View = function(container, params) {
     } // getProjectedXY
 
     function handleDoubleTap(evt, absXY, relXY) {
-        triggerAll(
-            'doubleTap',
-            absXY,
-            relXY,
-            getProjectedXY(relXY.x, relXY.y));
+        var projXY = getProjectedXY(relXY.x, relXY.y);
+
+        _self.trigger('doubleTap', absXY, relXY, projXY);
 
         if (params.scalable) {
             scale(2, {
-                easing: 'quad.out',
-                duration: 300
-            }, true);
+                easing: 'sine.inout',
+                duration: 700
+            }, true, projXY);
         } // if
     } // handleDoubleTap
 
@@ -3646,8 +3662,8 @@ var View = function(container, params) {
         dragSelected(absXY, relXY, false);
 
         if (! dragObject) {
-            dx = deltaXY.x;
-            dy = deltaXY.y;
+            dx += deltaXY.x;
+            dy += deltaXY.y;
         } // if
     } // handlePointerMove
 
@@ -3660,7 +3676,7 @@ var View = function(container, params) {
         var layerIndex = _indexOf(layers, layer.id);
         if ((layerIndex >= 0) && (layerIndex < layerCount)) {
             layers.splice(layerIndex, 1);
-            invalidate();
+            viewChanges++;
         } // if
 
         layerCount = layers.length;
@@ -3815,7 +3831,7 @@ var View = function(container, params) {
                     drop);
 
             if (dragOk) {
-                invalidate();
+                viewChanges++;
             } // if
 
             if (drop) {
@@ -3912,7 +3928,7 @@ var View = function(container, params) {
             var downX = hitData.gridX,
                 downY = hitData.gridY;
 
-            for (ii = elements.length; ii--; ) {
+            for (ii = elements.length; pointerDown && ii--; ) {
                 if (dragStart(elements[ii], downX, downY)) {
                     break;
                 } // if
@@ -3955,7 +3971,7 @@ var View = function(container, params) {
             } // if
         } // if
 
-        if (panSpeed < PANSPEED_THRESHOLD_REFRESH &&
+        if ((! pointerDown) && panSpeed <= PANSPEED_THRESHOLD_REFRESH &&
                 (abs(offsetX - refreshX) >= refreshDist ||
                 abs(offsetY - refreshY) >= refreshDist)) {
             refresh();
@@ -3991,26 +4007,27 @@ var View = function(container, params) {
                 } // if
             } // if
 
-            rerender = (! fastpan) || (
+            rerender = hitFlagged || (! fastpan) || (
+                (! pointerDown) &&
+                (! offsetTween) &&
                 (params.drawOnScale || scaleFactor === 1) &&
-                panSpeed < PANSPEED_THRESHOLD_FASTPAN
+                panSpeed <= PANSPEED_THRESHOLD_FASTPAN
             );
 
+            if (offsetTween) {
+                var values = offsetTween();
+
+                panX = offsetX - values[0] | 0;
+                panY = offsetY - values[1] | 0;
+            } // if
+
             if (rerender) {
-                if (offsetTween) {
-                    var values = offsetTween();
+                var theta = -rotation * DEGREES_TO_RADIANS,
+                    xChange = cos(theta) * panX + -sin(theta) * panY,
+                    yChange = sin(theta) * panX +  cos(theta) * panY;
 
-                    offsetX = values[0] | 0;
-                    offsetY = values[1] | 0;
-                }
-                else {
-                    var theta = -rotation * DEGREES_TO_RADIANS,
-                        xChange = cos(theta) * panX + -sin(theta) * panY,
-                        yChange = sin(theta) * panX +  cos(theta) * panY;
-
-                    offsetX = (offsetX - xChange / scaleFactor) | 0;
-                    offsetY = (offsetY - yChange / scaleFactor) | 0;
-                } // if..else
+                offsetX = (offsetX - xChange / scaleFactor) | 0;
+                offsetY = (offsetY - yChange / scaleFactor) | 0;
 
                 vp = viewport();
 
@@ -4105,6 +4122,8 @@ var View = function(container, params) {
             txXY
         );
 
+        hitFlagged = false;
+
         for (var ii = layerCount; ii--; ) {
             if (layers[ii].visible) {
                 hitFlagged = hitFlagged || (layers[ii].hitGuess ?
@@ -4148,7 +4167,7 @@ var View = function(container, params) {
     } // attachFrame
 
     function center(p1, p2, tween) {
-        if (_is(p1, typeString) || _is(p1, typeObject)) {
+        if (typeof p1 != 'undefined' && (_is(p1, typeString) || _is(p1, 'object'))) {
             var centerXY = new _self.XY(p1);
 
             centerXY.sync(_self);
@@ -4283,11 +4302,16 @@ var View = function(container, params) {
             return undefined;
         }
         else if (_is(id, typeString)) {
-            var layer = regCreate('layer', layerType, _self, settings);
+            var layer = regCreate('layer', layerType, _self, settings),
+                layerIndex = getLayerIndex(id);
+
+            if (layerIndex !== layerCount) {
+                _self.trigger('layerRemove', layers[layerIndex]);
+            } // if
 
             layer.added = ticks();
             layer.id = id;
-            layers[getLayerIndex(id)] = layer;
+            layers[layerIndex] = layer;
 
             layers.sort(function(itemA, itemB) {
                 return itemB.zindex - itemA.zindex || itemB.added - itemA.added;
@@ -4300,7 +4324,7 @@ var View = function(container, params) {
 
             _self.trigger('layerChange', _self, layer);
 
-            invalidate();
+            viewChanges++;
 
             return layer;
         }
@@ -4364,19 +4388,23 @@ var View = function(container, params) {
     } // rotate
 
     /**
-    ### scale(value, tween, isAbsolute)
+    ### scale(value, tween, isAbsolute, targetXY)
     */
-    function scale(value, tween, isAbsolute) {
+    function scale(value, tween, isAbsolute, targetXY) {
         if (_is(value, typeNumber)) {
             var scaleFactorExp,
                 targetVal = isAbsolute ? value : scaleFactor * value;
 
-            if (! partialScaling) {
-                tween = null;
-
+            if (! _allowTransforms) {
+                tween = undefined;
                 scaleFactorExp = round(log(targetVal) / Math.LN2);
 
                 targetVal = pow(2, scaleFactorExp);
+            } // if
+
+            if (targetXY) {
+                var center = _self.center();
+                _self.pan(targetXY.x - center.x, targetXY.y - center.y, tween);
             } // if
 
             if (tween) {
@@ -4399,20 +4427,6 @@ var View = function(container, params) {
     } // scale
 
     /**
-    ### triggerAll(eventName: string, args*)
-    Trigger an event on the view and all layers currently contained in the view
-    */
-    function triggerAll() {
-        var cancel = _self.trigger.apply(null, arguments).cancel;
-        for (var ii = layers.length; ii--; ) {
-            cancel = layers[ii].trigger.apply(null, arguments).cancel || cancel;
-        } // for
-
-        return (! cancel);
-    } // triggerAll
-
-
-    /**
     ### offset(x: int, y: int, tween: TweenOpts)
 
     This function allows you to specified the absolute x and y offset that should
@@ -4427,7 +4441,12 @@ var View = function(container, params) {
                     [x, y],
                     tween,
                     function() {
+                        offsetX = x | 0;
+                        offsetY = y | 0;
+                        panX = panY = 0;
+
                         offsetTween = null;
+                        viewChanges++;
                     }
                 );
             }
@@ -4463,7 +4482,6 @@ var View = function(container, params) {
         refresh: refresh,
         rotate: rotate,
         scale: scale,
-        triggerAll: triggerAll,
 
         /* offset methods */
 
@@ -4590,13 +4608,8 @@ var Map = function(container, params) {
                     ((zoomY || offset.y + halfHeight) - scaledHalfHeight) * scaling
                 );
 
-                refreshX = 0;
-                refreshY = 0;
-
                 _self.trigger('zoom', value);
                 _self.trigger('reset');
-
-                var gridSize;
 
                 rpp = _self.rpp = radsPerPixel(zoomLevel);
 
@@ -4999,7 +5012,7 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
 
     var SYNC_PARSE_THRESHOLD = 500,
         _points = new Line(params.allowCull),
-        _drawPoints;
+        _drawPoints = [];
 
     function updateDrawPoints() {
         var ii, x, y, maxX, maxY, minX, minY, drawPoints;
@@ -5024,7 +5037,7 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
     /* exported functions */
 
     function points(value) {
-        if (_is(value, typeArray)) {
+        if (_is(value, 'array')) {
             _points = new Line(params.allowCull);
 
             Runner.process(value, function(slice, sliceLen) {
@@ -6019,24 +6032,38 @@ var parse = (function() {
     };
 })();
 var ZOOM_MAX = 18,
-    ZOOM_MIN = 3;
+    ZOOM_MIN = 3,
+    REGEX_BUILDINGNO = /^(\d+).*$/,
+    REGEX_NUMBERRANGE = /(\d+)\s?\-\s?(\d+)/,
+    ROADTYPE_REGEX = null,
 
-var placeFormatters = {
-    DEFAULT: function(params) {
-        var keys = ["landmark", "municipalitySubdivision", "municipality", "countrySubdivision"];
-        var place = "";
+    ROADTYPE_REPLACEMENTS = {
+        RD: "ROAD",
+        ST: "STREET",
+        CR: "CRESCENT",
+        CRES: "CRESCENT",
+        CT: "COURT",
+        LN: "LANE",
+        HWY: "HIGHWAY",
+        MWY: "MOTORWAY"
+    },
 
-        for (var ii = 0; ii < keys.length; ii++) {
-            if (params[keys[ii]]) {
-                place += params[keys[ii]] + " ";
-            } // if
-        } // for
+    placeFormatters = {
+        DEFAULT: function(params) {
+            var keys = ["landmark", "municipalitySubdivision", "municipality", "countrySubdivision"];
+            var place = "";
 
-        return place;
-    } // DEFAULT formatter
-};
+            for (var ii = 0; ii < keys.length; ii++) {
+                if (params[keys[ii]]) {
+                    place += params[keys[ii]] + " ";
+                } // if
+            } // for
 
-var lastZoom = null,
+            return place;
+        } // DEFAULT formatter
+    },
+
+    lastZoom = null,
     requestCounter = 1,
     header = _formatter(
         "<xls:XLS version='1' xls:lang='en' xmlns:xls='http://www.opengis.net/xls' rel='{4}' xmlns:gml='http://www.opengis.net/gml'>" +
@@ -6178,11 +6205,11 @@ var Address = function(params) {
 
             calcMatchPercentage: function(input) {
                 var fnresult = 0,
-                    test1 = T5.Addressing.normalize(input),
-                    test2 = T5.Addressing.normalize(street);
+                    test1 = normalize(input),
+                    test2 = normalize(street);
 
                 if (params.json.Building) {
-                    if (T5.Addressing.buildingMatch(input, params.json.Building.number.toString())) {
+                    if (buildingMatch(input, params.json.Building.number.toString())) {
                         fnresult += 0.2;
                     } // if
                 } // if
@@ -6238,8 +6265,11 @@ function generateRequestUrl(request, request_data) {
 } // generateRequestUrl
 
 function makeServerRequest(request, callback, errorCallback) {
+    _log("making request: " + generateRequest(request));
 
     _jsonp(generateRequestUrl(request, generateRequest(request)), function(data) {
+        console.log(data.response);
+
         var response = data.response.XLS.Response;
 
         if ((response.numberOfResponses > 0) && response[request.methodName + 'Response']) {
@@ -6282,17 +6312,57 @@ function parseAddress(address, position) {
         postalCode: address.PostalCode || '',
         pos: position
     };
-
-    /*
-    var addressParams = {
-        streetDetails: streetDetails,
-        location: placeDetails,
-        pos: position
-    };
-
-    return new T5.Addressing.Address(addressParams);
-    */
 } // parseAddress
+
+/* define the address tools */
+
+function buildingMatch(freeform, numberRange, name) {
+    REGEX_BUILDINGNO.lastIndex = -1;
+    if (REGEX_BUILDINGNO.test(freeform)) {
+        var buildingNo = freeform.replace(REGEX_BUILDINGNO, "$1");
+
+        var numberRanges = numberRange.split(",");
+        for (var ii = 0; ii < numberRanges.length; ii++) {
+            REGEX_NUMBERRANGE.lastIndex = -1;
+            if (REGEX_NUMBERRANGE.test(numberRanges[ii])) {
+                var matches = REGEX_NUMBERRANGE.exec(numberRanges[ii]);
+                if ((buildingNo >= parseInt(matches[1], 10)) && (buildingNo <= parseInt(matches[2], 10))) {
+                    return true;
+                } // if
+            }
+            else if (buildingNo == numberRanges[ii]) {
+                return true;
+            } // if..else
+        } // for
+    } // if
+
+    return false;
+} // buildingMatch
+
+function normalize(addressText) {
+    if (! addressText) { return ""; }
+
+    addressText = addressText.toUpperCase();
+
+    if (! ROADTYPE_REGEX) {
+        var abbreviations = [];
+        for (var roadTypes in ROADTYPE_REPLACEMENTS) {
+            abbreviations.push(roadTypes);
+        } // for
+
+        ROADTYPE_REGEX = new RegExp("(\\s)(" + abbreviations.join("|") + ")(\\s|$)", "i");
+    } // if
+
+    ROADTYPE_REGEX.lastIndex = -1;
+
+    var matches = ROADTYPE_REGEX.exec(addressText);
+    if (matches) {
+        var normalizedRoadType = ROADTYPE_REPLACEMENTS[matches[2]];
+        addressText = addressText.replace(ROADTYPE_REGEX, "$1" + normalizedRoadType);
+    } // if
+
+    return addressText;
+} // normalize
 
 var Request = function() {
     var _self = {
@@ -6356,7 +6426,7 @@ T5.Registry.register('generator', 'decarta', function(params) {
         "0.000691272945568983,0.000686645507812500",
         "0.000345636472797214,0.000343322753906250"
     ],
-    hosts = null;
+    tileConfig = currentConfig.tileConfig;
 
     /* internals */
 
@@ -6378,6 +6448,7 @@ T5.Registry.register('generator', 'decarta', function(params) {
                     h: yTiles * tileSize
                 }),
                 tileIds = {},
+                hosts = tileConfig.hosts,
                 ii;
 
             for (ii = tiles.length; ii--; ) {
@@ -6398,10 +6469,10 @@ T5.Registry.register('generator', 'decarta', function(params) {
                                '&DS=navteq-world' +
                                '&WIDTH=' + (256 /* * dpr*/) +
                                '&HEIGHT=' + (256 /* * dpr*/) +
-                               '&CLIENTNAME=' + currentConfig.clientName +
-                               '&SESSIONID=' + currentConfig.sessionID +
+                               '&CLIENTNAME=' + tileConfig.clientName +
+                               '&SESSIONID=' + tileConfig.sessionID +
                                '&FORMAT=PNG' +
-                               '&CONFIG=' + currentConfig.configuration +
+                               '&CONFIG=' + tileConfig.configuration +
                                '&N=' + tileY +
                                '&E=' + tileX,
                             tile = new T5.Tile(
@@ -6427,33 +6498,31 @@ T5.Registry.register('generator', 'decarta', function(params) {
     /* exports */
 
     function run(view, viewRect, store, callback) {
-        if (hosts) {
+        if (tileConfig) {
             createTiles(view, viewRect, store, callback);
         }
         else {
-            makeServerRequest(new RUOKRequest(), function(tileConfig) {
-                hosts = [];
+            var userId = currentConfig.clientName.replace(/.*?\:/, '');
 
-                if (tileConfig.aliasCount) {
-                    for (var ii = 0; ii < tileConfig.aliasCount; ii++) {
-                        hosts[ii] = 'http://' + tileConfig.host.replace('^(.*?)\.(.*)$', '\1-0' + (ii + 1) + '.\2');
-                    } // for
-                }
-                else {
-                    hosts = ['http://' + tileConfig.host];
-                } // if..else
+            T5.Decarta.getTileConfig(userId, function(config) {
+                setTileConfig(config);
 
                 createTiles(view, viewRect, store, callback);
             });
-        }
+        } // if..else
     } // run
+
+    function setTileConfig(config) {
+        tileConfig = config;
+    } // setTileConfig
 
     /* define the generator */
 
     T5.userMessage('ack', 'decarta', '&copy; deCarta, Inc. Map and Imagery Data &copy; NAVTEQ or Tele Atlas or DigitalGlobe');
 
     return {
-        run: run
+        run: run,
+        setTileConfig: setTileConfig
     };
 });
 T5.Registry.register('service', 'geocoder', function() {
@@ -6629,7 +6698,7 @@ T5.Registry.register('service', 'routing', function() {
             provideRouteHandle: false,
             distanceUnit: "KM",
             routeQueryType: "RMAN",
-            routePreference: "Fastest",
+            preference: "Fastest",
             routeInstructions: true,
             routeGeometry: true
         }, params);
@@ -6670,7 +6739,7 @@ T5.Registry.register('service', 'routing', function() {
 
                 body += "<xls:RoutePlan>";
 
-                body += "<xls:RoutePreference>" + params.routePreference + "</xls:RoutePreference>";
+                body += "<xls:RoutePreference>" + params.preference + "</xls:RoutePreference>";
 
                 body += "<xls:WayPointList>";
 
@@ -6710,8 +6779,14 @@ T5.Registry.register('service', 'routing', function() {
 
     /* exports */
 
-    function calculate(waypoints, callback, errorCallback) {
-        makeServerRequest(new RouteRequest(waypoints), callback, errorCallback);
+    function calculate(waypoints, callback, errorCallback, opts) {
+        opts = T5.ex({
+            preference: 'Fastest'
+        }, opts);
+
+        var routeRequest = new RouteRequest(waypoints, opts);
+
+        makeServerRequest(routeRequest, callback, errorCallback);
     } // calculate
 
     return {
@@ -6722,6 +6797,34 @@ T5.Registry.register('service', 'routing', function() {
     return {
         applyConfig: function(args) {
             T5.ex(currentConfig, args);
+        },
+
+        getTileConfig: function(userId, callback) {
+            makeServerRequest(new RUOKRequest(), function(config) {
+                var clientName = currentConfig.clientName.replace(/\:.*/, ':' + (userId || ''));
+
+                hosts = [];
+
+                if (config.aliasCount) {
+                    for (var ii = 0; ii < config.aliasCount; ii++) {
+                        hosts[ii] = 'http://' + config.host.replace('^(.*?)\.(.*)$', '\1-0' + (ii + 1) + '.\2');
+                    } // for
+                }
+                else {
+                    hosts = ['http://' + config.host];
+                } // if..else
+
+                callback({
+                    hosts: hosts,
+                    clientName: clientName,
+                    sessionID: currentConfig.sessionID,
+                    configuration: currentConfig.configuration
+                });
+            });
+        },
+
+        setTileConfig: function(data) {
+            currentConfig.tileConfig = data;
         },
 
         compareFns: (function() {

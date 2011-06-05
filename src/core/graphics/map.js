@@ -99,16 +99,10 @@ var Map = function(container, params) {
                     ((zoomY || offset.y + halfHeight) - scaledHalfHeight) * scaling
                 );
 
-                // reset the last offset
-                refreshX = 0;
-                refreshY = 0;
-
                 // trigger the change
                 _self.trigger('zoom', value);
                 _self.trigger('reset');
                 
-                var gridSize;
-
                 // update the rads per pixel to reflect the zoom level change
                 rpp = _self.rpp = radsPerPixel(zoomLevel);
 

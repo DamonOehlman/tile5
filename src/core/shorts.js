@@ -21,11 +21,8 @@ var abs = Math.abs,
     
     // some type references
     typeUndefined = 'undefined',
-    typeFunction = 'function',
     typeString = 'string',
-    typeObject = 'object',
     typeNumber = 'number',
-    typeArray = 'array',
     
     // type references for internal types
     typeDrawable = 'drawable',

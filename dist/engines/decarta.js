@@ -163,24 +163,38 @@ var parse = (function() {
     };
 })();
 var ZOOM_MAX = 18,
-    ZOOM_MIN = 3;
+    ZOOM_MIN = 3,
+    REGEX_BUILDINGNO = /^(\d+).*$/,
+    REGEX_NUMBERRANGE = /(\d+)\s?\-\s?(\d+)/,
+    ROADTYPE_REGEX = null,
 
-var placeFormatters = {
-    DEFAULT: function(params) {
-        var keys = ["landmark", "municipalitySubdivision", "municipality", "countrySubdivision"];
-        var place = "";
+    ROADTYPE_REPLACEMENTS = {
+        RD: "ROAD",
+        ST: "STREET",
+        CR: "CRESCENT",
+        CRES: "CRESCENT",
+        CT: "COURT",
+        LN: "LANE",
+        HWY: "HIGHWAY",
+        MWY: "MOTORWAY"
+    },
 
-        for (var ii = 0; ii < keys.length; ii++) {
-            if (params[keys[ii]]) {
-                place += params[keys[ii]] + " ";
-            } // if
-        } // for
+    placeFormatters = {
+        DEFAULT: function(params) {
+            var keys = ["landmark", "municipalitySubdivision", "municipality", "countrySubdivision"];
+            var place = "";
 
-        return place;
-    } // DEFAULT formatter
-};
+            for (var ii = 0; ii < keys.length; ii++) {
+                if (params[keys[ii]]) {
+                    place += params[keys[ii]] + " ";
+                } // if
+            } // for
 
-var lastZoom = null,
+            return place;
+        } // DEFAULT formatter
+    },
+
+    lastZoom = null,
     requestCounter = 1,
     header = _formatter(
         "<xls:XLS version='1' xls:lang='en' xmlns:xls='http://www.opengis.net/xls' rel='{4}' xmlns:gml='http://www.opengis.net/gml'>" +
@@ -322,11 +336,11 @@ var Address = function(params) {
 
             calcMatchPercentage: function(input) {
                 var fnresult = 0,
-                    test1 = T5.Addressing.normalize(input),
-                    test2 = T5.Addressing.normalize(street);
+                    test1 = normalize(input),
+                    test2 = normalize(street);
 
                 if (params.json.Building) {
-                    if (T5.Addressing.buildingMatch(input, params.json.Building.number.toString())) {
+                    if (buildingMatch(input, params.json.Building.number.toString())) {
                         fnresult += 0.2;
                     } // if
                 } // if
@@ -382,8 +396,11 @@ function generateRequestUrl(request, request_data) {
 } // generateRequestUrl
 
 function makeServerRequest(request, callback, errorCallback) {
+    _log("making request: " + generateRequest(request));
 
     _jsonp(generateRequestUrl(request, generateRequest(request)), function(data) {
+        console.log(data.response);
+
         var response = data.response.XLS.Response;
 
         if ((response.numberOfResponses > 0) && response[request.methodName + 'Response']) {
@@ -426,17 +443,57 @@ function parseAddress(address, position) {
         postalCode: address.PostalCode || '',
         pos: position
     };
-
-    /*
-    var addressParams = {
-        streetDetails: streetDetails,
-        location: placeDetails,
-        pos: position
-    };
-
-    return new T5.Addressing.Address(addressParams);
-    */
 } // parseAddress
+
+/* define the address tools */
+
+function buildingMatch(freeform, numberRange, name) {
+    REGEX_BUILDINGNO.lastIndex = -1;
+    if (REGEX_BUILDINGNO.test(freeform)) {
+        var buildingNo = freeform.replace(REGEX_BUILDINGNO, "$1");
+
+        var numberRanges = numberRange.split(",");
+        for (var ii = 0; ii < numberRanges.length; ii++) {
+            REGEX_NUMBERRANGE.lastIndex = -1;
+            if (REGEX_NUMBERRANGE.test(numberRanges[ii])) {
+                var matches = REGEX_NUMBERRANGE.exec(numberRanges[ii]);
+                if ((buildingNo >= parseInt(matches[1], 10)) && (buildingNo <= parseInt(matches[2], 10))) {
+                    return true;
+                } // if
+            }
+            else if (buildingNo == numberRanges[ii]) {
+                return true;
+            } // if..else
+        } // for
+    } // if
+
+    return false;
+} // buildingMatch
+
+function normalize(addressText) {
+    if (! addressText) { return ""; }
+
+    addressText = addressText.toUpperCase();
+
+    if (! ROADTYPE_REGEX) {
+        var abbreviations = [];
+        for (var roadTypes in ROADTYPE_REPLACEMENTS) {
+            abbreviations.push(roadTypes);
+        } // for
+
+        ROADTYPE_REGEX = new RegExp("(\\s)(" + abbreviations.join("|") + ")(\\s|$)", "i");
+    } // if
+
+    ROADTYPE_REGEX.lastIndex = -1;
+
+    var matches = ROADTYPE_REGEX.exec(addressText);
+    if (matches) {
+        var normalizedRoadType = ROADTYPE_REPLACEMENTS[matches[2]];
+        addressText = addressText.replace(ROADTYPE_REGEX, "$1" + normalizedRoadType);
+    } // if
+
+    return addressText;
+} // normalize
 
 var Request = function() {
     var _self = {
@@ -500,7 +557,7 @@ T5.Registry.register('generator', 'decarta', function(params) {
         "0.000691272945568983,0.000686645507812500",
         "0.000345636472797214,0.000343322753906250"
     ],
-    hosts = null;
+    tileConfig = currentConfig.tileConfig;
 
     /* internals */
 
@@ -522,6 +579,7 @@ T5.Registry.register('generator', 'decarta', function(params) {
                     h: yTiles * tileSize
                 }),
                 tileIds = {},
+                hosts = tileConfig.hosts,
                 ii;
 
             for (ii = tiles.length; ii--; ) {
@@ -542,10 +600,10 @@ T5.Registry.register('generator', 'decarta', function(params) {
                                '&DS=navteq-world' +
                                '&WIDTH=' + (256 /* * dpr*/) +
                                '&HEIGHT=' + (256 /* * dpr*/) +
-                               '&CLIENTNAME=' + currentConfig.clientName +
-                               '&SESSIONID=' + currentConfig.sessionID +
+                               '&CLIENTNAME=' + tileConfig.clientName +
+                               '&SESSIONID=' + tileConfig.sessionID +
                                '&FORMAT=PNG' +
-                               '&CONFIG=' + currentConfig.configuration +
+                               '&CONFIG=' + tileConfig.configuration +
                                '&N=' + tileY +
                                '&E=' + tileX,
                             tile = new T5.Tile(
@@ -571,33 +629,31 @@ T5.Registry.register('generator', 'decarta', function(params) {
     /* exports */
 
     function run(view, viewRect, store, callback) {
-        if (hosts) {
+        if (tileConfig) {
             createTiles(view, viewRect, store, callback);
         }
         else {
-            makeServerRequest(new RUOKRequest(), function(tileConfig) {
-                hosts = [];
+            var userId = currentConfig.clientName.replace(/.*?\:/, '');
 
-                if (tileConfig.aliasCount) {
-                    for (var ii = 0; ii < tileConfig.aliasCount; ii++) {
-                        hosts[ii] = 'http://' + tileConfig.host.replace('^(.*?)\.(.*)$', '\1-0' + (ii + 1) + '.\2');
-                    } // for
-                }
-                else {
-                    hosts = ['http://' + tileConfig.host];
-                } // if..else
+            T5.Decarta.getTileConfig(userId, function(config) {
+                setTileConfig(config);
 
                 createTiles(view, viewRect, store, callback);
             });
-        }
+        } // if..else
     } // run
+
+    function setTileConfig(config) {
+        tileConfig = config;
+    } // setTileConfig
 
     /* define the generator */
 
     T5.userMessage('ack', 'decarta', '&copy; deCarta, Inc. Map and Imagery Data &copy; NAVTEQ or Tele Atlas or DigitalGlobe');
 
     return {
-        run: run
+        run: run,
+        setTileConfig: setTileConfig
     };
 });
 T5.Registry.register('service', 'geocoder', function() {
@@ -773,7 +829,7 @@ T5.Registry.register('service', 'routing', function() {
             provideRouteHandle: false,
             distanceUnit: "KM",
             routeQueryType: "RMAN",
-            routePreference: "Fastest",
+            preference: "Fastest",
             routeInstructions: true,
             routeGeometry: true
         }, params);
@@ -814,7 +870,7 @@ T5.Registry.register('service', 'routing', function() {
 
                 body += "<xls:RoutePlan>";
 
-                body += "<xls:RoutePreference>" + params.routePreference + "</xls:RoutePreference>";
+                body += "<xls:RoutePreference>" + params.preference + "</xls:RoutePreference>";
 
                 body += "<xls:WayPointList>";
 
@@ -854,8 +910,14 @@ T5.Registry.register('service', 'routing', function() {
 
     /* exports */
 
-    function calculate(waypoints, callback, errorCallback) {
-        makeServerRequest(new RouteRequest(waypoints), callback, errorCallback);
+    function calculate(waypoints, callback, errorCallback, opts) {
+        opts = T5.ex({
+            preference: 'Fastest'
+        }, opts);
+
+        var routeRequest = new RouteRequest(waypoints, opts);
+
+        makeServerRequest(routeRequest, callback, errorCallback);
     } // calculate
 
     return {
@@ -866,6 +928,34 @@ T5.Registry.register('service', 'routing', function() {
     return {
         applyConfig: function(args) {
             T5.ex(currentConfig, args);
+        },
+
+        getTileConfig: function(userId, callback) {
+            makeServerRequest(new RUOKRequest(), function(config) {
+                var clientName = currentConfig.clientName.replace(/\:.*/, ':' + (userId || ''));
+
+                hosts = [];
+
+                if (config.aliasCount) {
+                    for (var ii = 0; ii < config.aliasCount; ii++) {
+                        hosts[ii] = 'http://' + config.host.replace('^(.*?)\.(.*)$', '\1-0' + (ii + 1) + '.\2');
+                    } // for
+                }
+                else {
+                    hosts = ['http://' + config.host];
+                } // if..else
+
+                callback({
+                    hosts: hosts,
+                    clientName: clientName,
+                    sessionID: currentConfig.sessionID,
+                    configuration: currentConfig.configuration
+                });
+            });
+        },
+
+        setTileConfig: function(data) {
+            currentConfig.tileConfig = data;
         },
 
         compareFns: (function() {

@@ -42,6 +42,16 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
         panFrame.removeChild(paper.canvas);
     } // handleDetach
 
+    function handleLayerRemove(evt, layer) {
+        if (layer.find) {
+            var drawables = layer.find();
+
+            for (var ii = drawables.length; ii--; ) {
+                delete currentObjects[drawables[ii].id];
+            } // for
+        } // if
+    } // handleLayerRemove
+
     function handlePredraw(evt, viewport) {
         removeOldObjects(activeObjects, currentObjects);
         currentObjects = {};
@@ -281,6 +291,7 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
     _this.bind('predraw', handlePredraw);
     _this.bind('detach', handleDetach);
     view.bind('reset', handleReset);
+    view.bind('layerRemove', handleLayerRemove);
 
     loadStyles();
 

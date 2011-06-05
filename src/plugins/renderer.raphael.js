@@ -47,6 +47,18 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
         panFrame.removeChild(paper.canvas);
     } // handleDetach
     
+    function handleLayerRemove(evt, layer) {
+        // if the layer has a find method, then get the objects on the layer
+        if (layer.find) {
+            var drawables = layer.find();
+            
+            // remove each of the drawables in the layer from the current objects
+            for (var ii = drawables.length; ii--; ) {
+                delete currentObjects[drawables[ii].id];
+            } // for
+        } // if
+    } // handleLayerRemove
+    
     function handlePredraw(evt, viewport) {
         // remove any old objects
         removeOldObjects(activeObjects, currentObjects);
@@ -314,6 +326,7 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
     _this.bind('predraw', handlePredraw);
     _this.bind('detach', handleDetach);
     view.bind('reset', handleReset);
+    view.bind('layerRemove', handleLayerRemove);
     
     // load styles
     loadStyles();

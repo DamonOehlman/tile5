@@ -32,7 +32,7 @@ T5.Registry.register('generator', 'decarta', function(params) {
         "0.000691272945568983,0.000686645507812500",
         "0.000345636472797214,0.000343322753906250"
     ],
-    hosts = null;
+    tileConfig = currentConfig.tileConfig;
     
     /* internals */
     
@@ -54,6 +54,7 @@ T5.Registry.register('generator', 'decarta', function(params) {
                     h: yTiles * tileSize
                 }),
                 tileIds = {},
+                hosts = tileConfig.hosts,
                 ii;
 
             // iterate through the tiles and create the tile id index
@@ -76,10 +77,10 @@ T5.Registry.register('generator', 'decarta', function(params) {
                                '&DS=navteq-world' +
                                '&WIDTH=' + (256 /* * dpr*/) +
                                '&HEIGHT=' + (256 /* * dpr*/) +
-                               '&CLIENTNAME=' + currentConfig.clientName +
-                               '&SESSIONID=' + currentConfig.sessionID +
+                               '&CLIENTNAME=' + tileConfig.clientName +
+                               '&SESSIONID=' + tileConfig.sessionID +
                                '&FORMAT=PNG' +
-                               '&CONFIG=' + currentConfig.configuration +
+                               '&CONFIG=' + tileConfig.configuration +
                                '&N=' + tileY +
                                '&E=' + tileX,
                             tile = new T5.Tile(
@@ -107,36 +108,31 @@ T5.Registry.register('generator', 'decarta', function(params) {
     /* exports */
     
     function run(view, viewRect, store, callback) {
-        if (hosts) {
+        if (tileConfig) {
             createTiles(view, viewRect, store, callback);
         }
         else {
-            // make an RUOK request to retrieve configuration information
-            makeServerRequest(new RUOKRequest(), function(tileConfig) {
-                // reset the tile hosts
-                hosts = [];
-
-                // initialise the hosts
-                if (tileConfig.aliasCount) {
-                    for (var ii = 0; ii < tileConfig.aliasCount; ii++) {
-                        hosts[ii] = 'http://' + tileConfig.host.replace('^(.*?)\.(.*)$', '\1-0' + (ii + 1) + '.\2');
-                    } // for
-                }
-                else {
-                    hosts = ['http://' + tileConfig.host];
-                } // if..else
-
+            var userId = currentConfig.clientName.replace(/.*?\:/, '');
+            
+            T5.Decarta.getTileConfig(userId, function(config) {
+                setTileConfig(config);
+                
                 // create the tiles
                 createTiles(view, viewRect, store, callback);
             });
-        }
+        } // if..else
     } // run
+    
+    function setTileConfig(config) {
+        tileConfig = config;
+    } // setTileConfig
     
     /* define the generator */
     
     T5.userMessage('ack', 'decarta', '&copy; deCarta, Inc. Map and Imagery Data &copy; NAVTEQ or Tele Atlas or DigitalGlobe');
     
     return {
-        run: run
+        run: run,
+        setTileConfig: setTileConfig
     };
 });

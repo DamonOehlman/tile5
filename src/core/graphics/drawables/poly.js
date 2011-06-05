@@ -27,7 +27,7 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
     // initialise variables
     var SYNC_PARSE_THRESHOLD = 500,
         _points = new Line(params.allowCull),
-        _drawPoints;
+        _drawPoints = [];
         
     function updateDrawPoints() {
         var ii, x, y, maxX, maxY, minX, minY, drawPoints;
@@ -58,7 +58,7 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
     /* exported functions */
     
     function points(value) {
-        if (_is(value, typeArray)) {
+        if (_is(value, 'array')) {
             _points = new Line(params.allowCull);
             
             Runner.process(value, function(slice, sliceLen) {

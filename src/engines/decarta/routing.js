@@ -5,7 +5,7 @@ T5.Registry.register('service', 'routing', function() {
             provideRouteHandle: false,
             distanceUnit: "KM",
             routeQueryType: "RMAN",
-            routePreference: "Fastest",
+            preference: "Fastest",
             routeInstructions: true,
             routeGeometry: true
         }, params);
@@ -54,7 +54,7 @@ T5.Registry.register('service', 'routing', function() {
                 body += "<xls:RoutePlan>";
                                 
                 // specify the route preference
-                body += "<xls:RoutePreference>" + params.routePreference + "</xls:RoutePreference>";
+                body += "<xls:RoutePreference>" + params.preference + "</xls:RoutePreference>";
                 
                 // open the waypoint list
                 body += "<xls:WayPointList>";
@@ -105,9 +105,16 @@ T5.Registry.register('service', 'routing', function() {
     
     /* exports */
     
-    function calculate(waypoints, callback, errorCallback) {
+    function calculate(waypoints, callback, errorCallback, opts) {
+        opts = T5.ex({
+            preference: 'Fastest'
+        }, opts);
+        
+        // create the route request, mapping the common opts to decarta opts
+        var routeRequest = new RouteRequest(waypoints, opts);
+        
         // create the geocoding request and execute it
-        makeServerRequest(new RouteRequest(waypoints), callback, errorCallback);
+        makeServerRequest(routeRequest, callback, errorCallback);
     } // calculate
     
     return {
