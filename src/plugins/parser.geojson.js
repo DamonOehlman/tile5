@@ -34,21 +34,22 @@ T5.Registry.register('parser', 'geojson', function() {
     /* feature processor utilities */
 
     function createShape(layer, coordinates, options, builder) {
-        var vectors = readVectors(coordinates);
+        var vectors = readVectors(coordinates, options);
         builder(layer, vectors, options);
 
         return vectors.length;
     } // createShape
 
-    function readVectors(coordinates) {
+    function readVectors(coordinates, options) {
         var count = coordinates ? coordinates.length : 0,
             positions = [];
             
         for (var ii = count; ii--; ) {
             positions[ii] = new GeoJS.Pos(coordinates[ii][1], coordinates[ii][0]);
         } // for
-
-        return positions;
+        
+        // if we are to simplify the positions then generalize via GeoJS
+        return options.simplify ? GeoJS.generalize(positions) : positions;
     } // getLineStringVectors
 
     /* feature processor functions */

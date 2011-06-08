@@ -41,7 +41,7 @@
     planeStart = startPosition.offset(0, -arcRadius);
 
     // initialise the map
-    map = Tile5('mapContainer', {
+    map = new T5.Map('mapContainer', {
 		renderer: 'canvas',
 		padding: 'auto'
 	});
@@ -76,6 +76,4 @@
     map.bind('tapHit', function(evt, elements, absXY, relXY, offsetXY) {
         DEMO.status('tapped the plane', 1200);
     });
-    
-    T5.Animator.
 })();

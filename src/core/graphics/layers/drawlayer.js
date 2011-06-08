@@ -9,7 +9,8 @@ reg('layer', 'draw', function(view, params) {
     // initialise variables
     var drawables = [],
         storage,
-        sortTimeout = 0;
+        sortTimeout = 0,
+        resyncCallbackId;
         
     /* private functions */
     
@@ -62,14 +63,32 @@ reg('layer', 'draw', function(view, params) {
     /* event handlers */
     
     function handleItemMove(evt, drawable, newBounds, oldBounds) {
-        // remove the item from the tree at the specified position
-        if (oldBounds) {
-            storage.remove(oldBounds, drawable);
+        if (storage) {
+            // remove the item from the tree at the specified position
+            if (oldBounds) {
+                storage.remove(oldBounds, drawable);
+            } // if
+
+            // add the item back to the tree at the new position
+            storage.insert(newBounds, drawable);
         } // if
-        
-        // add the item back to the tree at the new position
-        storage.insert(newBounds, drawable);
     } // handleItemMove
+    
+    function handleLayerRemove(evt, layer) {
+        // if this layer is being removed, then clean up
+        if (layer === _self) {
+            // kill the storage
+            storage = null;
+            
+            // reset the drawables
+            drawables = [];
+            
+            // unbind the resync handler
+            view.unbind('resync', resyncCallbackId);
+            
+            // TODO: unbind item move events
+        } // if
+    } // handleLayerRemove
     
     function handleResync(evt) {
         // create the storage with an appropriate cell size
@@ -245,7 +264,10 @@ reg('layer', 'draw', function(view, params) {
     });
     
     // bind to refresh events as we will use those to populate the items to be drawn
-    view.bind('resync', handleResync);
+    resyncCallbackId = view.bind('resync', handleResync);
+    
+    // handle the layer being removed
+    view.bind('layerRemove', handleLayerRemove);
     
     return _self;
 });

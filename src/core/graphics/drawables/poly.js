@@ -50,6 +50,9 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
         
         // update the width
         _self.updateBounds(new Rect(minX, minY, maxX - minX, maxY - minY), true);
+
+        // trigger the points recalc event
+        _self.trigger('pointsUpdate', _self, _drawPoints);
         
         // invalidate the view
         view.invalidate();

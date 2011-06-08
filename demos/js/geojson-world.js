@@ -69,7 +69,7 @@
     
     $('#animate').click(animate);
 
-	map = Tile5('mapContainer', {
+	map = new T5.Map('mapContainer', {
 		renderer: 'canvas'
 	});
 	

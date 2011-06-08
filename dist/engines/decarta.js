@@ -31,9 +31,15 @@ period of "human-time".  A duration value contains both days and seconds values.
 
 ## Methods
 */
-function Duration(days, seconds) {
-    this.days = days || 0;
-    this.seconds = seconds || 0;
+function Duration(p1, p2) {
+    if (typeof p1 == 'number') {
+        this.days = p1 || 0;
+        this.seconds = p2 || 0;
+    }
+    else if (typeof p1 != 'undefined') {
+        this.days = p1.days || 0;
+        this.seconds = p1.seconds || 0;
+    } // if..else
 } // Duration
 
 Duration.prototype = {

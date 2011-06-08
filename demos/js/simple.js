@@ -1,4 +1,4 @@
-map = Tile5('mapContainer', {
+map = new T5.Map('mapContainer', {
 	renderer: 'canvas',
 	padding: 'auto'
 });

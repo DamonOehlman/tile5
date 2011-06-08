@@ -44,8 +44,28 @@ var IS_COMMONJS = typeof module != 'undefined' && module.exports,
 # GeoJS.Pos
 
 ## Methods
+
+### bearing(target)
+Return the bearing in degrees to the target position.
+
+### copy()
+Return a copy of the position
+
+### distanceTo(target)
+Calculate the distance to the specified target position.  The distance
+returned is in KM.
+
+### equalTo(testPos)
+Determine whether or not the position is equal to the test position.
+
+### empty()
+Return true if the position is empty
+
+### to(dest, distance)
+Calculate the position that sits between the destination Pos for the given distance.
+
 */
-function Pos(p1, p2) {
+function Pos(p1, p2, radius) {
     if (p1 && p1.split) {
         var coords = p1.split(reDelimitedSplit);
 
@@ -61,21 +81,28 @@ function Pos(p1, p2) {
 
     this.lat = parseFloat(p1 || 0);
     this.lon = parseFloat(p2 || 0);
+    this.radius = radius || KM_PER_RAD;
 } // Pos constructor
 
 Pos.prototype = {
     constructor: Pos,
 
-    /**
-    ### copy()
-    */
+    bearing: function(target) {
+        var lat1 = this.lat * DEGREES_TO_RADIANS,
+            lat2 = target.lat * DEGREES_TO_RADIANS,
+            dlon = (target.lon - this.lon) * DEGREES_TO_RADIANS,
+            y = Math.sin(dlon) * Math.cos(lat2),
+            x = Math.cos(lat1) * Math.sin(lat2) -
+                Math.sin(lat1) * Math.cos(lat2) * Math.cos(dlon),
+            brng = Math.atan2(y, x);
+
+        return (brng * RADIANS_TO_DEGREES + 360) % 360;
+    },
+
     copy: function() {
         return new Pos(this.lat, this.lon);
     },
 
-    /**
-    ### distanceTo(targetPos)
-    */
     distanceTo: function(pos) {
         if ((! pos) || this.empty() || pos.empty()) {
             return 0;
@@ -89,19 +116,13 @@ Pos.prototype = {
                 (Math.sin(halfdelta_lon) * Math.sin(halfdelta_lon)),
             c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
-        return KM_PER_RAD * c;
+        return this.radius * c;
     },
 
-    /**
-    ### equalTo(testPos)
-    */
     equalTo: function(testPos) {
         return pos && (this.lat === testPos.lat) && (this.lon === testPos.lon);
     },
 
-    /**
-    ### empty()
-    */
     empty: function() {
         return this.lat === 0 && this.lon === 0;
     },
@@ -128,8 +149,8 @@ Pos.prototype = {
     km distance)
     */
     offset: function(latOffset, lonOffset) {
-        var radOffsetLat = latOffset / KM_PER_RAD,
-            radOffsetLon = lonOffset / KM_PER_RAD,
+        var radOffsetLat = latOffset / this.radius,
+            radOffsetLon = lonOffset / this.radius,
             radLat = this.lat * DEGREES_TO_RADIANS,
             radLon = this.lon * DEGREES_TO_RADIANS,
             newLat = radLat + radOffsetLat,
@@ -140,6 +161,27 @@ Pos.prototype = {
         newLon = newLon % TWO_PI;
 
         return new Pos(newLat * RADIANS_TO_DEGREES, newLon * RADIANS_TO_DEGREES);
+    },
+
+    to: function(bearing, distance) {
+        if (typeof bearing == 'object') {
+            bearing = this.bearing(bearing);
+        } // if
+
+        var radDist = distance / this.radius,
+            radBearing = bearing * DEGREES_TO_RADIANS,
+            lat1 = this.lat * DEGREES_TO_RADIANS,
+            lon1 = this.lon * DEGREES_TO_RADIANS,
+            lat2 = Math.asin(Math.sin(lat1) * Math.cos(radDist) +
+                    Math.cos(lat1) * Math.sin(radDist) * Math.cos(radBearing)),
+            lon2 = lon1 + Math.atan2(
+                    Math.sin(radBearing) * Math.sin(radDist) * Math.cos(lat1),
+                    Math.cos(radDist) - Math.sin(lat1) * Math.sin(lat2)
+            );
+
+      lon2 = (lon2+3*Math.PI)%(2*Math.PI) - Math.PI;  // normalise to -180...+180
+
+      return new Pos(lat2 * RADIANS_TO_DEGREES, lon2 * RADIANS_TO_DEGREES);
     },
 
     /**
@@ -197,6 +239,106 @@ Pos.prototype = {
     */
     valid: function() {
         return !(isNaN(this.lat) || isNaN(this.lon));
+    }
+};
+/**
+# GeoJS.Line
+
+## Constructor
+
+    new GeoJS.Line(positions);
+
+## Methods
+
+### distance()
+The distance method is used to return the distance between the
+positions specified in the Line.  A compound value is returned from the
+method in the following form:
+
+    {
+        total: 0, // the total distance from the start to end position
+        segments: [], // distance segments, 0 indexed. 0 = distance between pos 0 + pos 1
+    }
+
+### traverse(distance, distData)
+This method is used to traverse along the line by the specified distance (in km). The method
+will return the position that equates to the end point from travelling the distance.  If the
+distance specified is longer than the line, then the end of the line is returned.  In some
+cases you would call this method after a call to the `distance()` method, and if this is the
+case it is best to pass that distance data in the `distData` argument.  If not, this will
+be recalculated.
+
+*/
+function Line(positions) {
+    this.positions = [];
+
+    for (var ii = positions.length; ii--; ) {
+        if (typeof positions[ii] == 'string') {
+            this.positions[ii] = new Pos(positions[ii]);
+        }
+        else {
+            this.positions[ii] = positions[ii];
+        } // if..else
+    } // for
+} // Line
+
+Line.prototype = {
+    constructor: Line,
+
+    distance: function() {
+        var totalDist = 0,
+            segmentDistances = [],
+            distance;
+
+        for (var ii = this.positions.length - 1; ii--; ) {
+            distance = this.positions[ii].distanceTo(this.positions[ii + 1]);
+
+            totalDist += segmentDistances[ii] = distance;;
+        } // for
+
+        return {
+            total: totalDist,
+            segments: segmentDistances
+        };
+    },
+
+    traverse: function(distance, distData) {
+        var elapsed = 0,
+            posIdx = 0;
+
+        if ((! distData) || (! distData.segments)) {
+            distData = this.distance();
+        } // if
+
+        if (distance > distData.total) {
+            return this.positions[this.positions.length - 1];
+        }
+        else if (distance <= 0) {
+            return this.positions[0];
+        }
+        else {
+            while (posIdx < distData.segments.length) {
+                elapsed += distData.segments[posIdx];
+
+                if (elapsed > distance) {
+                    elapsed -= distData.segments[posIdx];
+                    break;
+                } // if
+
+                posIdx++;
+            } // while
+
+            if (posIdx < this.positions.length - 1) {
+                var pos1 = this.positions[posIdx],
+                    pos2 = this.positions[posIdx + 1],
+                    bearing = pos1.bearing(pos2);
+
+                return pos1.to(bearing, distance - elapsed);
+            }
+            else {
+                return this.positions[posIdx];
+            } // if..else
+        } // if..else
     }
 };
 /**
@@ -441,6 +583,7 @@ function generalize(sourceData, requiredPositions, minDist) {
 
     var GeoJS = this.GeoJS = {
         Pos: Pos,
+        Line: Line,
         BBox: BBox,
         Distance: Distance,
 
@@ -502,6 +645,13 @@ function _log(msg, level) {
         console[level || 'log'](msg);
     } // if
 } // _log
+
+function _logError(error) {
+    if (typeof console !== 'undefined') {
+        console.error(error);
+        console.log(error.stack);
+    } // if
+} // _logError
 var REGEX_FORMAT_HOLDERS = /\{(\d+)(?=\})/g;
 
 function _formatter(format) {
@@ -4573,7 +4723,7 @@ var Map = function(container, params) {
         var viewport = _self.viewport();
 
         if (newBounds) {
-            var zoomLevel = max(newBounds.bestZoomLevel(viewport.w, viewport.h), maxZoomLevel || 0);
+            var zoomLevel = max(newBounds.bestZoomLevel(viewport.w, viewport.h) - 1, maxZoomLevel || 0);
 
             return zoom(zoomLevel).center(newBounds.center());
         }
@@ -5031,6 +5181,8 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
 
         _self.updateBounds(new Rect(minX, minY, maxX - minX, maxY - minY), true);
 
+        _self.trigger('pointsUpdate', _self, _drawPoints);
+
         view.invalidate();
     } // updateDrawPoints
 
@@ -5367,7 +5519,8 @@ reg('layer', 'draw', function(view, params) {
 
     var drawables = [],
         storage,
-        sortTimeout = 0;
+        sortTimeout = 0,
+        resyncCallbackId;
 
     /* private functions */
 
@@ -5415,12 +5568,25 @@ reg('layer', 'draw', function(view, params) {
     /* event handlers */
 
     function handleItemMove(evt, drawable, newBounds, oldBounds) {
-        if (oldBounds) {
-            storage.remove(oldBounds, drawable);
-        } // if
+        if (storage) {
+            if (oldBounds) {
+                storage.remove(oldBounds, drawable);
+            } // if
 
-        storage.insert(newBounds, drawable);
+            storage.insert(newBounds, drawable);
+        } // if
     } // handleItemMove
+
+    function handleLayerRemove(evt, layer) {
+        if (layer === _self) {
+            storage = null;
+
+            drawables = [];
+
+            view.unbind('resync', resyncCallbackId);
+
+        } // if
+    } // handleLayerRemove
 
     function handleResync(evt) {
         storage = createStoreForZoomLevel(view.zoom(), storage); // TODO: populate with the previous storage
@@ -5570,7 +5736,9 @@ reg('layer', 'draw', function(view, params) {
         hitGuess: hitGuess
     });
 
-    view.bind('resync', handleResync);
+    resyncCallbackId = view.bind('resync', handleResync);
+
+    view.bind('layerRemove', handleLayerRemove);
 
     return _self;
 });

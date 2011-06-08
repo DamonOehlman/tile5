@@ -16,10 +16,11 @@ DEMO = (function() {
             ]
         }, {
             title: 'Simple',
-            script: 'js/simple.js' 
+            script: 'js/simple.js'
         }, {
             title: 'Animated Panning',
-            script: 'js/animated-map-panning.js'
+            script: 'js/animated-map-panning.js',
+            disabled: true
         }, {
             title: 'Drag and Drop GeoJSON',
             script: 'js/dnd-geojson.js'
@@ -35,11 +36,28 @@ DEMO = (function() {
         
         document.body.appendChild(scriptEl);
     } // addScript
+    
+    function buildUI() {
+        var options = '';
+        
+        // iterate through the demos
+        for (var ii = 0; ii < demos.length; ii++) {
+            if (! demos[ii].disabled) {
+                options += '<option>' + demos[ii].title + '</option>';
+            } // if
+        } // for
+        
+        $('#demoSelector')
+            .html(options)
+            .change(function() {
+                load(this.value);
+            });
+    } // buildUI
         
     /* exports */
     
     function getHomePosition() {
-        return new T5.Pos(startLat, startLon);
+        return new GeoJS.Pos(startLat, startLon);
     } // getHomePosition
     
     function load(demoTitle) {
@@ -49,6 +67,9 @@ DEMO = (function() {
             map.detach();
             $('#mapContainer').html('');
         } // if
+        
+        // set the demo title to the first demo if not specified
+        demoTitle = demoTitle || demos[0].title;
         
         // iterate through the demos, look for the requested demo
         for (var ii = 0; ii < demos.length; ii++) {
@@ -84,6 +105,8 @@ DEMO = (function() {
     function status(message) {
         T5.log(message);
     } // status
+    
+    $(document).ready(buildUI);
         
     return {
         getHomePosition: getHomePosition,
