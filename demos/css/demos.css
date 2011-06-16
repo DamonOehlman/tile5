@@ -11,6 +11,6 @@ html, body, #mapContainer {
     background: -webkit-gradient(linear, left top, left bottom, from(#555), to(#222));
 }
 
-#demoSelector {
+#toolbar select {
     float: right;
 }

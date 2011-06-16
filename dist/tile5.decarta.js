@@ -3737,6 +3737,7 @@ var View = function(container, params) {
         rotation = 0,
         rotateTween = null,
         scaleFactor = 1,
+        origScaleFactor,
         scaleTween = null,
         lastScaleFactor = 1,
         lastCycleTicks = 0,
@@ -3745,28 +3746,50 @@ var View = function(container, params) {
             index: 0,
             draw: false
         },
+        scaleEasing = {
+            easing: 'sine.out',
+            duration: 500
+        },
         tweeningOffset = false, // TODO: find a better way to determine this than with a flag
         cycleDelay = 1000 / params.fps | 0,
         viewChanges = 0,
         width, height,
         halfWidth, halfHeight,
-        halfOuterWidth, halfOuterHeight;
+        halfOuterWidth, halfOuterHeight,
+        wheelZoomTimeout = 0;
 
     /* event handlers */
 
     /* scaling functions */
 
     function handleZoom(evt, absXY, relXY, scaleChange, source) {
-        var scaleVal;
+        if (scaleTween) {
+            return;
+        } // if
 
-        if (_allowTransforms) {
-            scaleVal = max(scaleFactor + pow(2, scaleChange) - 1, 0.125);
+        if (source === 'wheel') {
+            clearTimeout(wheelZoomTimeout);
+            wheelZoomTimeout = setTimeout(function() {
+                scale(
+                    scaleChange > 0 ? 2 : 0.5,
+                    _allowTransforms ? scaleEasing : false,
+                    true,
+                    _allowTransforms ? getProjectedXY(relXY.x, relXY.y) : null
+                );
+            }, 200);
         }
         else {
-            scaleVal = scaleChange > 0 ? 2 : 0.5;
-        } // if..else
+            var scaleVal;
 
-        scale(scaleVal, false, true);
+            if (_allowTransforms) {
+                scaleVal = max(scaleFactor + pow(2, scaleChange) - 1, 0.125);
+            }
+            else {
+                scaleVal = scaleChange > 0 ? 2 : 0.5;
+            } // if..else
+
+            scale(scaleVal, false, true, getProjectedXY(relXY.x, relXY.y));
+        } // if..else
     } // handleWheelZoom
 
     function getProjectedXY(srcX, srcY) {
@@ -3774,9 +3797,8 @@ var View = function(container, params) {
 
         if (! projectedXY) {
             var vp = viewport(),
-                invScaleFactor = 1 / scaleFactor,
-                scaledX = vp ? (vp.x + (srcX + vp.padding.x) * invScaleFactor) : srcX,
-                scaledY = vp ? (vp.y + (srcY + vp.padding.y) * invScaleFactor) : srcY;
+                scaledX = vp ? (vp.x + (srcX + vp.padding.x) / scaleFactor) : srcX,
+                scaledY = vp ? (vp.y + (srcY + vp.padding.y) / scaleFactor) : srcY;
 
             projectedXY = new _self.XY(scaledX, scaledY);
         } // if
@@ -3790,10 +3812,7 @@ var View = function(container, params) {
         _self.trigger('doubleTap', absXY, relXY, projXY);
 
         if (params.scalable) {
-            scale(2, {
-                easing: 'sine.inout',
-                duration: 700
-            }, true, projXY);
+            scale(2, scaleEasing, true, projXY);
         } // if
     } // handleDoubleTap
 
@@ -4165,10 +4184,15 @@ var View = function(container, params) {
             );
 
             if (offsetTween) {
-                var values = offsetTween();
+                var values = offsetTween(),
+                    scaleFactorDiff = 1;
 
-                panX = offsetX - values[0] | 0;
-                panY = offsetY - values[1] | 0;
+                if (origScaleFactor) {
+                    scaleFactorDiff = scaleFactor / origScaleFactor;
+                } // if
+
+                panX = (offsetX - values[0] | 0) * scaleFactorDiff;
+                panY = (offsetY - values[1] | 0) * scaleFactorDiff;
             } // if
 
             if (rerender) {
@@ -4487,7 +4511,7 @@ var View = function(container, params) {
     ### pan(x, y, tween)
     */
     function pan(x, y, tween) {
-        offset(offsetX + x, offsetY + y, tween);
+        return offset(offsetX + x, offsetY + y, tween);
     } // pan
 
     /**
@@ -4554,13 +4578,21 @@ var View = function(container, params) {
 
             if (targetXY) {
                 var center = _self.center();
-                _self.pan(targetXY.x - center.x, targetXY.y - center.y, tween);
+
+                offset(
+                    offsetX + targetXY.x - center.x,
+                    offsetY + targetXY.y - center.y,
+                    tween
+                );
             } // if
 
             if (tween) {
+                origScaleFactor = scaleFactor;
+
                 scaleTween = Tweener.tween([scaleFactor], [targetVal], tween, function() {
                     scaleFactor = targetVal;
                     scaleTween = null;
+                    origScaleFactor = null;
                     viewChanges++;
                 });
             }

@@ -6,7 +6,11 @@ DEMO = (function() {
     /* internals */
     
     // define the demos
-    var demos = [{
+    var renderer = 'canvas',
+        demos = [{
+            title: 'Simple',
+            script: 'js/simple.js'
+        },{
             title: 'GeoJSON World',
             script: 'js/geojson-world.js',
             deps: [
@@ -15,12 +19,17 @@ DEMO = (function() {
                 'data/world.js'
             ]
         }, {
-            title: 'Simple',
-            script: 'js/simple.js'
-        }, {
             title: 'Animated Panning',
             script: 'js/animated-map-panning.js',
             disabled: true
+        }, {
+            title: 'heatcanvas',
+            script: 'js/heatmap.js',
+            deps: [
+                'lib/heatcanvas.js',
+                '../dist/plugins/layers/heatcanvas.js',
+                'data/heatmap-data.js'
+            ]
         }, {
             title: 'Drag and Drop GeoJSON',
             script: 'js/dnd-geojson.js'
@@ -38,10 +47,11 @@ DEMO = (function() {
     } // addScript
     
     function buildUI() {
-        var options = '';
+        var options = '',
+            ii;
         
         // iterate through the demos
-        for (var ii = 0; ii < demos.length; ii++) {
+        for (ii = 0; ii < demos.length; ii++) {
             if (! demos[ii].disabled) {
                 options += '<option>' + demos[ii].title + '</option>';
             } // if
@@ -52,6 +62,10 @@ DEMO = (function() {
             .change(function() {
                 load(this.value);
             });
+            
+        $('#renderer').change(function() {
+            map.renderer(renderer = this.value);
+        });
     } // buildUI
         
     /* exports */
@@ -109,6 +123,10 @@ DEMO = (function() {
     $(document).ready(buildUI);
         
     return {
+        getRenderer: function() {
+            return renderer;
+        },
+        
         getHomePosition: getHomePosition,
         load: load,
         rotate: rotate,
