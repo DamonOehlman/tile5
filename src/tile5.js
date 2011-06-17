@@ -93,6 +93,7 @@ _extend(T5, {
     DOM: DOM,
     Rect: Rect,
     XY: XY,
+    GeoXY: GeoXY,
     Line: Line,
     Hits: Hits,
     

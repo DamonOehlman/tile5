@@ -4179,6 +4179,7 @@ var View = function(container, params) {
             rerender = hitFlagged || (! fastpan) || (
                 (! pointerDown) &&
                 (! offsetTween) &&
+                (! scaleTween) &&
                 (params.drawOnScale || scaleFactor === 1) &&
                 panSpeed <= PANSPEED_THRESHOLD_FASTPAN
             );
@@ -6035,6 +6036,7 @@ _extend(T5, {
     DOM: DOM,
     Rect: Rect,
     XY: XY,
+    GeoXY: GeoXY,
     Line: Line,
     Hits: Hits,
 

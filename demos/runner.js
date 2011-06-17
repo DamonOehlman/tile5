@@ -19,6 +19,15 @@ DEMO = (function() {
                 'data/world.js'
             ]
         }, {
+            title: 'Marker Hit Test',
+            script: 'js/marker-hit-test.js',
+            deps: [
+                'data/heatmap-data.js'
+            ]
+        }, {
+           title: 'PDXAPI',
+           script: 'js/geojson-pdxapi.js' 
+        }, {
             title: 'Animated Panning',
             script: 'js/animated-map-panning.js',
             disabled: true
