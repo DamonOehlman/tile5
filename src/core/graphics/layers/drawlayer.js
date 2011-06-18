@@ -109,7 +109,7 @@ reg('layer', 'draw', function(view, params) {
     */
     function clear() {
         // reset the storage
-        storage = new SpatialStore();
+        storage.clear();
         
         // reset the drawables
         drawables = [];

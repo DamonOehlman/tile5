@@ -103,9 +103,13 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
 
     function objDraw(drawData) {
         if (this.rObject) {
-            var updates = T5.ex({}, styles[currentStyle] || styles.basic),
+            var updates = {},
                 offsetX = drawOffsetX - this.translateX,
                 offsetY = drawOffsetY - this.translateY;
+
+            if (this.rObject.type !== 'image') {
+                T5.ex(updates, styles[currentStyle] || styles.basic);
+            } // if
 
             switch (this.rObject.type) {
                 case 'circle':

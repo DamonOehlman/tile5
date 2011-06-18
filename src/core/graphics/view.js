@@ -86,40 +86,21 @@ var View = function(container, params) {
     /* scaling functions */
     
     function handleZoom(evt, absXY, relXY, scaleChange, source) {
-        // if there is a current scale tween active, then ignore zoom events
+        // if there is a current scale tween active, then cancel it
         if (scaleTween) {
-            return;
+            scaleTween(true);
         } // if
         
-        // if the source is the mouse wheel, then animated to the next 
-        // zoom level.  Unless of course we don't allow transforms, then 
-        // don't bother tweening.  Oh, and in this case best to keep the 
-        // zoom center position in the center of the map (otherwise it 
-        // gets confusing for the user)
-        if (source === 'wheel') {
-            clearTimeout(wheelZoomTimeout);
-            wheelZoomTimeout = setTimeout(function() {
-                // animate the scaling
-                scale(
-                    scaleChange > 0 ? 2 : 0.5, 
-                    _allowTransforms ? scaleEasing : false, 
-                    true, 
-                    _allowTransforms ? getProjectedXY(relXY.x, relXY.y) : null
-                );
-            }, 200);
+        var scaleVal;
+
+        if (_allowTransforms) {
+            scaleVal = max(scaleFactor + pow(2, scaleChange) - 1, 0.125);
         }
         else {
-            var scaleVal;
-
-            if (_allowTransforms) {
-                scaleVal = max(scaleFactor + pow(2, scaleChange) - 1, 0.125);
-            }
-            else {
-                scaleVal = scaleChange > 0 ? 2 : 0.5;
-            } // if..else
-
-            scale(scaleVal, false, true, getProjectedXY(relXY.x, relXY.y));
+            scaleVal = scaleChange > 0 ? 2 : 0.5;
         } // if..else
+
+        scale(scaleVal, false, true); // , getProjectedXY(relXY.x, relXY.y));
     } // handleWheelZoom
     
     function getProjectedXY(srcX, srcY) {

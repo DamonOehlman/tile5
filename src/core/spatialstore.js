@@ -46,6 +46,15 @@ var SpatialStore = function(cellsize) {
     /* exports */
     
     /**
+    ### clear()
+    */
+    function clear() {
+        // reset the buckets and lookup
+        buckets = [];
+        lookup = {};
+    } // clear
+    
+    /**
     ### copyInto(target)
     This function is used to copy the items in the current store into the specified store.
     We use this primarily when we are creating a store with a new cellsize and need to copy
@@ -148,6 +157,7 @@ var SpatialStore = function(cellsize) {
     } // search
     
     return {
+        clear: clear,
         copyInto: copyInto,
         insert: insert,
         remove: remove,

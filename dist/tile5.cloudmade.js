@@ -2709,6 +2709,14 @@ var SpatialStore = function(cellsize) {
     /* exports */
 
     /**
+    ### clear()
+    */
+    function clear() {
+        buckets = [];
+        lookup = {};
+    } // clear
+
+    /**
     ### copyInto(target)
     This function is used to copy the items in the current store into the specified store.
     We use this primarily when we are creating a store with a new cellsize and need to copy
@@ -2796,6 +2804,7 @@ var SpatialStore = function(cellsize) {
     } // search
 
     return {
+        clear: clear,
         copyInto: copyInto,
         insert: insert,
         remove: remove,
@@ -3525,6 +3534,8 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
 
             if (inactive) {
                 if (item.image && item.image.parentNode) {
+                    item.image.src = '';
+
                     imageDiv.removeChild(item.image);
 
                     item.image = null;
@@ -3764,32 +3775,19 @@ var View = function(container, params) {
 
     function handleZoom(evt, absXY, relXY, scaleChange, source) {
         if (scaleTween) {
-            return;
+            scaleTween(true);
         } // if
 
-        if (source === 'wheel') {
-            clearTimeout(wheelZoomTimeout);
-            wheelZoomTimeout = setTimeout(function() {
-                scale(
-                    scaleChange > 0 ? 2 : 0.5,
-                    _allowTransforms ? scaleEasing : false,
-                    true,
-                    _allowTransforms ? getProjectedXY(relXY.x, relXY.y) : null
-                );
-            }, 200);
+        var scaleVal;
+
+        if (_allowTransforms) {
+            scaleVal = max(scaleFactor + pow(2, scaleChange) - 1, 0.125);
         }
         else {
-            var scaleVal;
-
-            if (_allowTransforms) {
-                scaleVal = max(scaleFactor + pow(2, scaleChange) - 1, 0.125);
-            }
-            else {
-                scaleVal = scaleChange > 0 ? 2 : 0.5;
-            } // if..else
-
-            scale(scaleVal, false, true, getProjectedXY(relXY.x, relXY.y));
+            scaleVal = scaleChange > 0 ? 2 : 0.5;
         } // if..else
+
+        scale(scaleVal, false, true); // , getProjectedXY(relXY.x, relXY.y));
     } // handleWheelZoom
 
     function getProjectedXY(srcX, srcY) {
@@ -5636,7 +5634,7 @@ reg('layer', 'draw', function(view, params) {
     ### clear()
     */
     function clear() {
-        storage = new SpatialStore();
+        storage.clear();
 
         drawables = [];
         _self.trigger('cleared');
