@@ -126,8 +126,17 @@ var View = function(container, params) {
         _self.trigger('doubleTap', absXY, relXY, projXY);
             
         if (params.scalable) {
+            var center = _self.center();
+            
+            // update the offset to the tapped position
+            offset(
+                offsetX + projXY.x - center.x, 
+                offsetY + projXY.y - center.y, 
+                _allowTransforms ? scaleEasing : null
+            );
+            
             // animate the scaling
-            scale(2, scaleEasing, true, projXY);
+            scale(2, scaleEasing, true);
         } // if
     } // handleDoubleTap
     
@@ -428,10 +437,12 @@ var View = function(container, params) {
     function checkHits() {
         var changed = true,
             elements = hitData ? hitData.elements : [],
+            doubleHover = hitData && lastHitData && hitData.type === 'hover' &&
+                lastHitData.type === 'hover',
             ii;
         
         // if we have last hits, then check for elements
-        if (lastHitData && lastHitData.type === 'hover') {
+        if (doubleHover) {
             diffElements = Hits.diffHits(lastHitData.elements, elements);
             
             // if we have diff elements then trigger an out event
@@ -707,7 +718,7 @@ var View = function(container, params) {
                     false);
             } // if
         } // for
-
+        
         // if we have a potential hit then invalidate the view so a more detailed
         // test can be run
         if (hitFlagged) {
@@ -1007,9 +1018,9 @@ var View = function(container, params) {
     } // rotate
     
     /**
-    ### scale(value, tween, isAbsolute, targetXY)
+    ### scale(value, tween, isAbsolute)
     */
-    function scale(value, tween, isAbsolute, targetXY) {
+    function scale(value, tween, isAbsolute) {
         // if we are setting the scale,
         if (_is(value, typeNumber)) {
             var scaleFactorExp,
@@ -1024,18 +1035,6 @@ var View = function(container, params) {
                 targetVal = pow(2, scaleFactorExp);
             } // if
             
-            // if the target xy has been specified, then pan to the location
-            if (targetXY) {
-                var center = _self.center();
-                
-                // tween the offset
-                offset(
-                    offsetX + targetXY.x - center.x, 
-                    offsetY + targetXY.y - center.y, 
-                    tween
-                );
-            } // if
-
             if (tween) {
                 // save the original scale factor
                 origScaleFactor = scaleFactor;

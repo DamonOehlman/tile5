@@ -1109,10 +1109,6 @@ var EventMonitor = function(target, handlers, params) {
 
     /* internals */
 
-    function deltaGreaterThan(value) {
-        return Math.abs(totalDeltaX) > value || Math.abs(totalDeltaY) > value;
-    } // deltaGreaterThan
-
     function handlePointerMove(evt, absXY, relXY, deltaXY) {
         totalDeltaX += deltaXY.x || 0;
         totalDeltaY += deltaXY.y || 0;
@@ -1124,7 +1120,9 @@ var EventMonitor = function(target, handlers, params) {
     } // handlePointerDown
 
     function handlePointerUp(evt, absXY, relXY) {
-        if (! deltaGreaterThan(MAXMOVE_TAP)) {
+        var moveDelta = Math.max(Math.abs(totalDeltaX), Math.abs(totalDeltaY));
+
+        if (moveDelta <= MAXMOVE_TAP) {
             observable.triggerCustom('tap', evt, absXY, relXY);
         } // if
     } // handlePointerUP
@@ -3810,7 +3808,15 @@ var View = function(container, params) {
         _self.trigger('doubleTap', absXY, relXY, projXY);
 
         if (params.scalable) {
-            scale(2, scaleEasing, true, projXY);
+            var center = _self.center();
+
+            offset(
+                offsetX + projXY.x - center.x,
+                offsetY + projXY.y - center.y,
+                _allowTransforms ? scaleEasing : null
+            );
+
+            scale(2, scaleEasing, true);
         } // if
     } // handleDoubleTap
 
@@ -4078,9 +4084,11 @@ var View = function(container, params) {
     function checkHits() {
         var changed = true,
             elements = hitData ? hitData.elements : [],
+            doubleHover = hitData && lastHitData && hitData.type === 'hover' &&
+                lastHitData.type === 'hover',
             ii;
 
-        if (lastHitData && lastHitData.type === 'hover') {
+        if (doubleHover) {
             diffElements = Hits.diffHits(lastHitData.elements, elements);
 
             if (diffElements.length > 0) {
@@ -4561,9 +4569,9 @@ var View = function(container, params) {
     } // rotate
 
     /**
-    ### scale(value, tween, isAbsolute, targetXY)
+    ### scale(value, tween, isAbsolute)
     */
-    function scale(value, tween, isAbsolute, targetXY) {
+    function scale(value, tween, isAbsolute) {
         if (_is(value, typeNumber)) {
             var scaleFactorExp,
                 targetVal = isAbsolute ? value : scaleFactor * value;
@@ -4573,16 +4581,6 @@ var View = function(container, params) {
                 scaleFactorExp = round(log(targetVal) / Math.LN2);
 
                 targetVal = pow(2, scaleFactorExp);
-            } // if
-
-            if (targetXY) {
-                var center = _self.center();
-
-                offset(
-                    offsetX + targetXY.x - center.x,
-                    offsetY + targetXY.y - center.y,
-                    tween
-                );
             } // if
 
             if (tween) {
