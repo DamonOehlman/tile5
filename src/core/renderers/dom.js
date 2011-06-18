@@ -86,7 +86,10 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
             // if the object is not in the current objects, remove from the scene
             if (inactive) {
                 if (item.image && item.image.parentNode) {
-                    // remove the object from the raphael paper
+                    // reset the image src 
+                    item.image.src = '';
+
+                    // remove the image from the dom
                     imageDiv.removeChild(item.image);
 
                     // reset to null
