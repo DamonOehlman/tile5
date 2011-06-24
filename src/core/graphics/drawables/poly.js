@@ -26,20 +26,21 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
 
     // initialise variables
     var SYNC_PARSE_THRESHOLD = 500,
-        _points = new Line(params.allowCull),
-        _drawPoints = [];
+        _poly = new Line(params.allowCull),
+        _drawPoly = new Line(params.allowCull);
         
     function updateDrawPoints() {
         var ii, x, y, maxX, maxY, minX, minY, drawPoints;
         
         // simplify the vectors for drawing (if required)
         // TODO: move simplification to the runner as well
-        _drawPoints = params.simplify ? _points.simplify() : _points;
+        _drawPoly = params.simplify ? _poly.simplify() : _poly;
+        drawPoints = _drawPoly.points;
 
         // determine the bounds of the shape
-        for (ii = _drawPoints.length; ii--; ) {
-            x = _drawPoints[ii].x;
-            y = _drawPoints[ii].y;
+        for (ii = drawPoints.length; ii--; ) {
+            x = drawPoints[ii].x;
+            y = drawPoints[ii].y;
                 
             // update the min and max values
             minX = _is(minX, typeUndefined) || x < minX ? x : minX;
@@ -52,7 +53,7 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
         _self.updateBounds(new Rect(minX, minY, maxX - minX, maxY - minY), true);
 
         // trigger the points recalc event
-        _self.trigger('pointsUpdate', _self, _drawPoints);
+        _self.trigger('pointsUpdate', _self, drawPoints);
         
         // invalidate the view
         view.invalidate();
@@ -60,21 +61,24 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
         
     /* exported functions */
     
-    function points(value) {
+    function line(value) {
         if (_is(value, 'array')) {
-            _points = new Line(params.allowCull);
-            
+            var polyPoints;
+
+            _poly = new Line(params.allowCull);
+            polyPoints = _poly.points;
+
             Runner.process(value, function(slice, sliceLen) {
                 for (var ii = 0; ii < sliceLen; ii++) {
-                    _points.push(new view.XY(slice[ii]));
+                    polyPoints.push(new view.XY(slice[ii]));
                 } // for
             }, resync, SYNC_PARSE_THRESHOLD);
-            
+
             return _self;
         }
         else {
-            return _drawPoints;
-        }
+            return _drawPoly;
+        } // if..else
     } // points
     
     /**
@@ -82,8 +86,8 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
     Used to synchronize the points of the poly to the grid.
     */
     function resync() {
-        if (_points.length) {
-            Runner.process(_points, function(slice, sliceLen) {
+        if (_poly.points.length) {
+            Runner.process(_poly.points, function(slice, sliceLen) {
                 for (var ii = sliceLen; ii--; ) {
                     slice[ii].sync(view);
                 } // for
@@ -93,12 +97,12 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
     
     // extend this
     var _self = _extend(new Drawable(view, layer, params), {
-        points: points,
+        line: line,
         resync: resync
     });
     
     // if we have points to parse
-    points(params.points);
+    line(params.points);
     
     // initialise the first item to the first element in the array
     return _self;
