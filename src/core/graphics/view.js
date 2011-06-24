@@ -10,6 +10,7 @@ var View = function(container, params) {
         padding: 128, // other values 'auto'
         inertia: true,
         refreshDistance: 128,
+        noDrawOnTween: true,
         pannable: true,
         scalable: true,
         renderer: 'canvas',
@@ -39,6 +40,7 @@ var View = function(container, params) {
         totalDX = 0,
         totalDY = 0,
         refreshDist = params.refreshDistance,
+        noDrawOnTween = params.noDrawOnTween,
         offsetX = 0,
         offsetY = 0,
         panX = 0,
@@ -211,17 +213,6 @@ var View = function(container, params) {
     
     /* private functions */
     
-    function createRenderer(typeName) {
-        renderer = attachRenderer(typeName, _self, viewpane, outer, params);
-        
-        // determine whether partial scaling is supporter
-        fastpan = DOM && renderer.fastpan && DOM.transforms;
-        _allowTransforms = DOM && DOM.transforms && params.useTransforms;
-        
-        // attach interaction handlers
-        captureInteractionEvents();
-    } // createRenderer
-    
     function captureInteractionEvents() {
         if (eventMonitor) {
             eventMonitor.unbind();
@@ -259,9 +250,17 @@ var View = function(container, params) {
         } // if
         
         // now create the new renderer
-        createRenderer(value);
+        renderer = attachRenderer(value, _self, viewpane, outer, params);
+        
+        // determine whether partial scaling is supporter
+        fastpan = DOM && renderer.fastpan && DOM.transforms;
+        _allowTransforms = DOM && DOM.transforms && params.useTransforms;
+        
+        // attach interaction handlers
+        captureInteractionEvents();
 
         // reset the view (renderers will pick this up)
+        _self.trigger('changeRenderer', renderer);
         _self.trigger('reset');
 
         // refresh the display
@@ -561,8 +560,8 @@ var View = function(container, params) {
             // determine whether we should rerender or not
             rerender = hitFlagged || (! fastpan) || (
                 (! pointerDown) && 
-                (! offsetTween) &&
-                (! scaleTween) && 
+                (! (offsetTween && noDrawOnTween)) &&
+                (! (scaleTween && noDrawOnTween)) && 
                 (params.drawOnScale || scaleFactor === 1) && 
                 panSpeed <= PANSPEED_THRESHOLD_FASTPAN
             );
@@ -832,6 +831,10 @@ var View = function(container, params) {
         } // if..else
     } // frozen
     
+    function getRenderer() {
+        return renderer;
+    } // getRenderer
+    
     /**
     ### invalidate()
     */
@@ -918,7 +921,7 @@ var View = function(container, params) {
         // TODO: handle when an existing view is passed via the second arg
         else if (_is(id, typeString)) {
             // create the layer using the registry
-            var layer = regCreate('layer', layerType, _self, settings),
+            var layer = regCreate('layer', layerType, _self, panContainer, outer, settings),
                 layerIndex = getLayerIndex(id);
                 
             if (layerIndex !== layerCount) {
@@ -1113,6 +1116,7 @@ var View = function(container, params) {
         center: center,
         detach: detach,
         frozen: frozen,
+        getRenderer: getRenderer,
         layer: layer,
         invalidate: invalidate,
         pan: pan,

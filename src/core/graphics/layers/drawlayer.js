@@ -1,7 +1,7 @@
 /**
 # LAYER: Draw
 */
-reg('layer', 'draw', function(view, params) {
+reg('layer', 'draw', function(view, panFrame, container, params) {
     params = _extend({
         zindex: 10
     }, params);
@@ -108,16 +108,20 @@ reg('layer', 'draw', function(view, params) {
     ### clear()
     */
     function clear() {
-        // reset the storage
-        storage.clear();
-        
-        // reset the drawables
-        drawables = [];
-        _self.trigger('cleared');
-        _self.itemCount = 0;
-        
-        // invalidate the view
-        view.invalidate();
+        // if we have storage, then clear
+        // if we don't then the layer has been removed, and nothing should be done
+        if (storage) {
+            // reset the storage
+            storage.clear();
+
+            // reset the drawables
+            drawables = [];
+            _self.trigger('cleared');
+            _self.itemCount = 0;
+
+            // invalidate the view
+            view.invalidate();
+        } // if
     } // clear
     
     /**
@@ -253,7 +257,7 @@ reg('layer', 'draw', function(view, params) {
     
     /* initialise _self */
     
-    var _self = _extend(new ViewLayer(view, params), {
+    var _self = _extend(new ViewLayer(view, panFrame, container, params), {
         itemCount: 0,
         
         clear: clear,

@@ -976,7 +976,7 @@ var _configurable = (function() {
     }; // _configurable
 })();
 
-var _indexOf = Array.prototype.indexOf || function(target) {
+var _indexOf = Array.indexOf || function(target) {
     for (var ii = 0; ii < this.length; ii++) {
         if (this[ii] === target) {
             return ii;
@@ -1197,7 +1197,6 @@ var EventMonitor = function(target, handlers, params) {
 
             for (var checkKey in interactor.checks) {
                 var check = interactor.checks[checkKey];
-                _log('checking ' + checkKey + ' capability. require: ' + check + ', capability = ' + capabilities[checkKey]);
 
                 checksPass = checksPass && (check === capabilities[checkKey]);
             } // for
@@ -1244,7 +1243,6 @@ var EventMonitor = function(target, handlers, params) {
         }, caps);
 
         if (! opts.observable) {
-            _log('creating observable');
             opts.observable = _observable({});
             globalOpts = opts;
         } // if
@@ -1790,8 +1788,6 @@ var TouchHandler = function(targetElement, observable, opts) {
     opts.binder('touchstart', handleTouchStart);
     opts.binder('touchmove', handleTouchMove);
     opts.binder('touchend', handleTouchEnd);
-
-    _log('initialized touch handler');
 
     return {
         unbind: unbind
@@ -2431,12 +2427,11 @@ XY.prototype = {
 /**
 # T5.Line
 
-__inherits: [Array](https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Array)
-
 ## Methods
 */
 function Line(allowCull) {
     this.allowCull = allowCull;
+    this.points = [];
 };
 
 Line.prototype = _extend(new Array(), {
@@ -2451,11 +2446,12 @@ Line.prototype = _extend(new Array(), {
                 maxY = viewport.y + viewport.h,
                 firstIdx = Infinity,
                 lastIdx = 0,
+                points = this.points,
                 inVP;
 
-            for (var ii = this.length; ii--; ) {
-                inVP = this[ii].x >= minX && this[ii].x <= maxX &&
-                    this[ii].y >= minY && this[ii].y <= maxY;
+            for (var ii = points.length; ii--; ) {
+                inVP = points[ii].x >= minX && points[ii].x <= maxX &&
+                    points[ii].y >= minY && points[ii].y <= maxY;
 
                 if (inVP) {
                     firstIdx = ii < firstIdx ? ii : firstIdx;
@@ -2463,7 +2459,7 @@ Line.prototype = _extend(new Array(), {
                 } // if
             } // for
 
-            return this.slice(max(firstIdx - 1, 0), min(lastIdx + 1, this.length));
+            return points.slice(max(firstIdx - 1, 0), min(lastIdx + 1, points.length));
         } // if
 
         return this;
@@ -2476,10 +2472,11 @@ Line.prototype = _extend(new Array(), {
         generalization = generalization || VECTOR_SIMPLIFICATION;
 
         var tidied = new Line(this.allowCull),
+            points = this.points,
             last = null;
 
-        for (var ii = this.length; ii--; ) {
-            var current = this[ii];
+        for (var ii = points.length; ii--; ) {
+            var current = points[ii];
 
             include = !last || ii === 0 ||
                 (abs(current.x - last.x) +
@@ -2487,7 +2484,7 @@ Line.prototype = _extend(new Array(), {
                     generalization);
 
             if (include) {
-                tidied.unshift(current);
+                tidied.points.unshift(current);
                 last = current;
             }
         } // for
@@ -3402,7 +3399,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
     */
     function prepPoly(drawable, viewport, hitData, opts) {
         var first = true,
-            points = opts.points || drawable.points().cull(viewport),
+            points = opts.points || drawable.line().cull(viewport),
             offsetX = transform ? transform.x : drawOffsetX,
             offsetY = transform ? transform.y : drawOffsetY;
 
@@ -3444,6 +3441,10 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         prepImage: prepImage,
         prepMarker: prepMarker,
         prepPoly: prepPoly,
+
+        getCanvas: function() {
+            return canvas;
+        },
 
         getContext: function() {
             return context;
@@ -3698,6 +3699,7 @@ var View = function(container, params) {
         padding: 128, // other values 'auto'
         inertia: true,
         refreshDistance: 128,
+        noDrawOnTween: true,
         pannable: true,
         scalable: true,
         renderer: 'canvas',
@@ -3725,6 +3727,7 @@ var View = function(container, params) {
         totalDX = 0,
         totalDY = 0,
         refreshDist = params.refreshDistance,
+        noDrawOnTween = params.noDrawOnTween,
         offsetX = 0,
         offsetY = 0,
         panX = 0,
@@ -3881,15 +3884,6 @@ var View = function(container, params) {
 
     /* private functions */
 
-    function createRenderer(typeName) {
-        renderer = attachRenderer(typeName, _self, viewpane, outer, params);
-
-        fastpan = DOM && renderer.fastpan && DOM.transforms;
-        _allowTransforms = DOM && DOM.transforms && params.useTransforms;
-
-        captureInteractionEvents();
-    } // createRenderer
-
     function captureInteractionEvents() {
         if (eventMonitor) {
             eventMonitor.unbind();
@@ -3921,8 +3915,14 @@ var View = function(container, params) {
             renderer = null;
         } // if
 
-        createRenderer(value);
+        renderer = attachRenderer(value, _self, viewpane, outer, params);
 
+        fastpan = DOM && renderer.fastpan && DOM.transforms;
+        _allowTransforms = DOM && DOM.transforms && params.useTransforms;
+
+        captureInteractionEvents();
+
+        _self.trigger('changeRenderer', renderer);
         _self.trigger('reset');
 
         refresh();
@@ -4184,8 +4184,8 @@ var View = function(container, params) {
 
             rerender = hitFlagged || (! fastpan) || (
                 (! pointerDown) &&
-                (! offsetTween) &&
-                (! scaleTween) &&
+                (! (offsetTween && noDrawOnTween)) &&
+                (! (scaleTween && noDrawOnTween)) &&
                 (params.drawOnScale || scaleFactor === 1) &&
                 panSpeed <= PANSPEED_THRESHOLD_FASTPAN
             );
@@ -4407,6 +4407,10 @@ var View = function(container, params) {
         } // if..else
     } // frozen
 
+    function getRenderer() {
+        return renderer;
+    } // getRenderer
+
     /**
     ### invalidate()
     */
@@ -4483,7 +4487,7 @@ var View = function(container, params) {
             return undefined;
         }
         else if (_is(id, typeString)) {
-            var layer = regCreate('layer', layerType, _self, settings),
+            var layer = regCreate('layer', layerType, _self, panContainer, outer, settings),
                 layerIndex = getLayerIndex(id);
 
             if (layerIndex !== layerCount) {
@@ -4655,6 +4659,7 @@ var View = function(container, params) {
         center: center,
         detach: detach,
         frozen: frozen,
+        getRenderer: getRenderer,
         layer: layer,
         invalidate: invalidate,
         pan: pan,
@@ -5190,17 +5195,18 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
     /* internals */
 
     var SYNC_PARSE_THRESHOLD = 500,
-        _points = new Line(params.allowCull),
-        _drawPoints = [];
+        _poly = new Line(params.allowCull),
+        _drawPoly = new Line(params.allowCull);
 
     function updateDrawPoints() {
         var ii, x, y, maxX, maxY, minX, minY, drawPoints;
 
-        _drawPoints = params.simplify ? _points.simplify() : _points;
+        _drawPoly = params.simplify ? _poly.simplify() : _poly;
+        drawPoints = _drawPoly.points;
 
-        for (ii = _drawPoints.length; ii--; ) {
-            x = _drawPoints[ii].x;
-            y = _drawPoints[ii].y;
+        for (ii = drawPoints.length; ii--; ) {
+            x = drawPoints[ii].x;
+            y = drawPoints[ii].y;
 
             minX = _is(minX, typeUndefined) || x < minX ? x : minX;
             minY = _is(minY, typeUndefined) || y < minY ? y : minY;
@@ -5210,28 +5216,31 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
 
         _self.updateBounds(new Rect(minX, minY, maxX - minX, maxY - minY), true);
 
-        _self.trigger('pointsUpdate', _self, _drawPoints);
+        _self.trigger('pointsUpdate', _self, drawPoints);
 
         view.invalidate();
     } // updateDrawPoints
 
     /* exported functions */
 
-    function points(value) {
+    function line(value) {
         if (_is(value, 'array')) {
-            _points = new Line(params.allowCull);
+            var polyPoints;
+
+            _poly = new Line(params.allowCull);
+            polyPoints = _poly.points;
 
             Runner.process(value, function(slice, sliceLen) {
                 for (var ii = 0; ii < sliceLen; ii++) {
-                    _points.push(new view.XY(slice[ii]));
+                    polyPoints.push(new view.XY(slice[ii]));
                 } // for
             }, resync, SYNC_PARSE_THRESHOLD);
 
             return _self;
         }
         else {
-            return _drawPoints;
-        }
+            return _drawPoly;
+        } // if..else
     } // points
 
     /**
@@ -5239,8 +5248,8 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
     Used to synchronize the points of the poly to the grid.
     */
     function resync() {
-        if (_points.length) {
-            Runner.process(_points, function(slice, sliceLen) {
+        if (_poly.points.length) {
+            Runner.process(_poly.points, function(slice, sliceLen) {
                 for (var ii = sliceLen; ii--; ) {
                     slice[ii].sync(view);
                 } // for
@@ -5249,11 +5258,11 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
     } // resync
 
     var _self = _extend(new Drawable(view, layer, params), {
-        points: points,
+        line: line,
         resync: resync
     });
 
-    points(params.points);
+    line(params.points);
 
     return _self;
 });
@@ -5409,7 +5418,7 @@ can do this by binding to the change method
 ## Methods
 
 */
-function ViewLayer(view, params) {
+function ViewLayer(view, panFrame, container, params) {
     params = _extend({
         id: 'layer_' + layerCounter++,
         zindex: 0,
@@ -5480,7 +5489,7 @@ ViewLayer.prototype = {
 /**
 # LAYER: tile
 */
-reg('layer', 'tile', function(view, params) {
+reg('layer', 'tile', function(view, panFrame, container, params) {
     params = _extend({
         generator: 'osm',
         imageLoadArgs: {}
@@ -5529,7 +5538,7 @@ reg('layer', 'tile', function(view, params) {
 
     /* definition */
 
-    var _self = _extend(new ViewLayer(view, params), {
+    var _self = _extend(new ViewLayer(view, panFrame, container, params), {
         draw: draw
     });
 
@@ -5541,7 +5550,7 @@ reg('layer', 'tile', function(view, params) {
 /**
 # LAYER: Draw
 */
-reg('layer', 'draw', function(view, params) {
+reg('layer', 'draw', function(view, panFrame, container, params) {
     params = _extend({
         zindex: 10
     }, params);
@@ -5632,13 +5641,15 @@ reg('layer', 'draw', function(view, params) {
     ### clear()
     */
     function clear() {
-        storage.clear();
+        if (storage) {
+            storage.clear();
 
-        drawables = [];
-        _self.trigger('cleared');
-        _self.itemCount = 0;
+            drawables = [];
+            _self.trigger('cleared');
+            _self.itemCount = 0;
 
-        view.invalidate();
+            view.invalidate();
+        } // if
     } // clear
 
     /**
@@ -5755,7 +5766,7 @@ reg('layer', 'draw', function(view, params) {
 
     /* initialise _self */
 
-    var _self = _extend(new ViewLayer(view, params), {
+    var _self = _extend(new ViewLayer(view, panFrame, container, params), {
         itemCount: 0,
 
         clear: clear,
@@ -6040,6 +6051,7 @@ _extend(T5, {
     Tile: Tile,
     Tweener: Tweener,
 
+    ViewLayer: ViewLayer,
     View: View,
     Map: Map
 });

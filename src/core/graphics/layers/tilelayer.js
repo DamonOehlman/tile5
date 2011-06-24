@@ -1,7 +1,7 @@
 /**
 # LAYER: tile
 */
-reg('layer', 'tile', function(view, params) {
+reg('layer', 'tile', function(view, panFrame, container, params) {
     params = _extend({
         generator: 'osm',
         imageLoadArgs: {}
@@ -53,7 +53,7 @@ reg('layer', 'tile', function(view, params) {
     
     /* definition */
     
-    var _self = _extend(new ViewLayer(view, params), {
+    var _self = _extend(new ViewLayer(view, panFrame, container, params), {
         draw: draw
     });
     

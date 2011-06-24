@@ -44,6 +44,8 @@
 
     function nextCity() {
         var cityData = cities[cityIndex++];
+        
+        console.log(cityData);
             
         // clear the map markers and add one for the new city
         // pan to the next city position
@@ -58,9 +60,10 @@
         } // if
     }
     
-    map = Tile5('mapContainer', {
-		renderer: 'canvas',
-		padding: 'auto'
+    map = new T5.Map('mapContainer', {
+		renderer: DEMO.getRenderer(),
+		padding: 'auto',
+		noDrawOnTween: false
 	});
 	
 	map.layer('tiles', 'tile', {

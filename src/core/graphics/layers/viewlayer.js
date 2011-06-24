@@ -28,7 +28,7 @@ can do this by binding to the change method
 ## Methods
 
 */
-function ViewLayer(view, params) {
+function ViewLayer(view, panFrame, container, params) {
     params = _extend({
         id: 'layer_' + layerCounter++,
         zindex: 0,

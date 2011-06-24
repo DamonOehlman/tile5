@@ -100,7 +100,8 @@ _extend(T5, {
     Control: Control,
     Tile: Tile,
     Tweener: Tweener,
-    
+
+    ViewLayer: ViewLayer,
     View: View,
     Map: Map
 });

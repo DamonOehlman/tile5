@@ -397,7 +397,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
     */
     function prepPoly(drawable, viewport, hitData, opts) {
         var first = true,
-            points = opts.points || drawable.points().cull(viewport),
+            points = opts.points || drawable.line().cull(viewport),
             offsetX = transform ? transform.x : drawOffsetX,
             offsetY = transform ? transform.y : drawOffsetY;
 
@@ -443,6 +443,10 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         prepImage: prepImage,
         prepMarker: prepMarker,
         prepPoly: prepPoly,
+        
+        getCanvas: function() {
+            return canvas;
+        },
         
         getContext: function() { 
             return context;

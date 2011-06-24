@@ -1,7 +1,7 @@
 /**
 # LAYER: cluster (plugin)
 */
-T5.Registry.register('layer', 'cluster', function(view, params) {
+T5.Registry.register('layer', 'cluster', function(view, panFrame, container, params) {
     params = T5.ex({
         dist: 32,
         source: null,

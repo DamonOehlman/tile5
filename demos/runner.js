@@ -19,6 +19,9 @@ DEMO = (function() {
                 'data/world.js'
             ]
         }, {
+           title: 'Animated Map Panning',
+           script: 'js/animated-map-panning.js' 
+        }, {
             title: 'Marker Hit Test',
             script: 'js/marker-hit-test.js',
             deps: [
@@ -50,7 +53,7 @@ DEMO = (function() {
     
     function addScript(scriptUrl) {
         var scriptEl = document.createElement('script');
-        scriptEl.src = scriptUrl;
+        scriptEl.src = scriptUrl + '?ticks=' + new Date().getTime();
         
         document.body.appendChild(scriptEl);
     } // addScript

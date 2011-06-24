@@ -1,7 +1,7 @@
 /**
 # LAYER: cluster (plugin)
 */
-T5.Registry.register('layer', 'sensor', function(view, params) {
+T5.Registry.register('layer', 'sensor', function(view, panFrame, container, params) {
     params = T5.ex({
         once: false,
         follow: true,
