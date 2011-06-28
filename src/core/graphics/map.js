@@ -20,6 +20,7 @@ var Map = function(container, params) {
     var lastBoundsChangeOffset = new GeoXY(),
         rpp,
         zoomLevel = params.zoom || params.zoomLevel,
+        residualScaleFactor = 0,
         zoomTimeout = 0;
     
     function checkScaling(evt, scaleFactor) {
@@ -28,7 +29,8 @@ var Map = function(container, params) {
 
         // _log('scale factor = ' + scaleFactor + ', exp = ' + scaleFactorExp);
         if (scaleFactorExp !== 0) {
-            scaleFactor = pow(2, scaleFactorExp);
+            // scaleFactor = pow(2, scaleFactorExp);
+            residualScaleFactor = scaleFactor - pow(2, scaleFactorExp);
             
             clearTimeout(zoomTimeout);
             zoomTimeout = setTimeout(function() {
@@ -110,7 +112,8 @@ var Map = function(container, params) {
                 _self.setMaxOffset(TWO_PI / rpp | 0, TWO_PI / rpp | 0, true, false);
 
                 // reset the scale factor
-                _self.scale(1, false, true);
+                _self.scale(1 + residualScaleFactor, false, true);
+                residualScaleFactor = 0;
 
                 // reset scaling and resync the map
                 _self.trigger('resync');

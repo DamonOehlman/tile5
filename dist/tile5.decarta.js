@@ -4755,13 +4755,14 @@ var Map = function(container, params) {
     var lastBoundsChangeOffset = new GeoXY(),
         rpp,
         zoomLevel = params.zoom || params.zoomLevel,
+        residualScaleFactor = 0,
         zoomTimeout = 0;
 
     function checkScaling(evt, scaleFactor) {
         var scaleFactorExp = log(scaleFactor) / Math.LN2 | 0;
 
         if (scaleFactorExp !== 0) {
-            scaleFactor = pow(2, scaleFactorExp);
+            residualScaleFactor = scaleFactor - pow(2, scaleFactorExp);
 
             clearTimeout(zoomTimeout);
             zoomTimeout = setTimeout(function() {
@@ -4832,7 +4833,8 @@ var Map = function(container, params) {
 
                 _self.setMaxOffset(TWO_PI / rpp | 0, TWO_PI / rpp | 0, true, false);
 
-                _self.scale(1, false, true);
+                _self.scale(1 + residualScaleFactor, false, true);
+                residualScaleFactor = 0;
 
                 _self.trigger('resync');
 
