@@ -80,6 +80,18 @@ var DOM = typeof window != 'undefined' ? (function() {
     } // move
     
     /**
+    ### rect(domObj)
+    */
+    function rect(domObj) {
+        return new Rect(
+            domObj.offsetLeft,
+            domObj.offsetTop,
+            domObj.offsetWidth,
+            domObj.offsetHeight
+        );
+    } // rect
+    
+    /**
     ### styles(extraStyles)
     */
     function styles(extraStyles) {
@@ -97,6 +109,7 @@ var DOM = typeof window != 'undefined' ? (function() {
         
         create: create,
         move: move,
+        rect: rect,
         styles: styles
     };
 })() : null;

@@ -248,10 +248,10 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
     */
     function hitGuess(hitX, hitY, view) {
         return storage && storage.search({
-            x: hitX - 10, 
-            y: hitY - 10, 
-            w: 20,
-            h: 20
+            x: hitX - 5, 
+            y: hitY - 5, 
+            w: 10,
+            h: 10
         }).length > 0;
     } // hitGuess
     

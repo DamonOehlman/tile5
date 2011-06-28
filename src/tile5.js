@@ -58,6 +58,7 @@ var T5 = this.T5 = _observable({});
 
 //= require "core/controls/base"
 //= require "core/controls/zoombar"
+//= require "core/controls/copyright"
 
 /**
 # T5

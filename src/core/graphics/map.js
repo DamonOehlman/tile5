@@ -4,7 +4,7 @@
 var Map = function(container, params) {
     // initialise defaults
     params = _extend({
-        controls: ['zoombar'],
+        controls: ['zoombar', 'copyright'],
         
         // zoom parameters
         minZoom: 1,
@@ -61,7 +61,7 @@ var Map = function(container, params) {
         
         if (newBounds) {
             // calculate the zoom level we are going to
-            var zoomLevel = max(newBounds.bestZoomLevel(viewport.w, viewport.h) - 1, maxZoomLevel || 0);
+            var zoomLevel = max(newBounds.bestZoomLevel(viewport.w, viewport.h), maxZoomLevel || 0);
             
             // move the map
             return zoom(zoomLevel).center(newBounds.center());

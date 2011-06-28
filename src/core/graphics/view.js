@@ -54,7 +54,7 @@ var View = function(container, params) {
         offsetTween = null,
         padding,
         panFrames = [],
-        hitData = null,
+        hits = [],
         lastHitData = null,
         renderer,
         resizeCanvasTimeout = 0,
@@ -384,10 +384,18 @@ var View = function(container, params) {
     } // getLayerIndex
     
     function initContainer() {
-        outer.appendChild(panContainer = DOM.create('div', '', DOM.styles({
+        // calculate the width and height
+        var outerRect = DOM.rect(outer);
+        
+        // if we have a pan container, then remove it from the dom
+        if (panContainer) {
+            outer.removeChild(panContainer);
+        } // if
+        
+        outer.appendChild(panContainer = DOM.create('div', 't5-panframe', DOM.styles({
             overflow: 'hidden',
-            width: outer.offsetWidth + 'px',
-            height: outer.offsetHeight + 'px'
+            width: outerRect.w + 'px',
+            height: outerRect.h + 'px'
         })));
         
         // initialise the padding
@@ -398,14 +406,14 @@ var View = function(container, params) {
         height = panContainer.offsetHeight + padding.y * 2;
         halfWidth = width / 2;
         halfHeight = height / 2;
-        halfOuterWidth = outer.offsetWidth / 2;
-        halfOuterHeight = outer.offsetHeight / 2;
+        halfOuterWidth = outerRect.w / 2;
+        halfOuterHeight = outerRect.h / 2;
         
         // initialise the translation center
         txCenter = new XY(halfWidth, halfHeight);
         
         // create the view div and append to the pan container
-        panContainer.appendChild(viewpane = DOM.create('div', '', DOM.styles({
+        panContainer.appendChild(viewpane = DOM.create('div', 't5-view', DOM.styles({
             width: width + 'px',
             height: height + 'px',
             'z-index': 2,
@@ -433,10 +441,10 @@ var View = function(container, params) {
     /*
     ### checkHits
     */
-    function checkHits() {
+    function checkHits(hitSample) {
         var changed = true,
-            elements = hitData ? hitData.elements : [],
-            doubleHover = hitData && lastHitData && hitData.type === 'hover' &&
+            elements = hitSample ? hitSample.elements : [],
+            doubleHover = hitSample && lastHitData && hitSample.type === 'hover' &&
                 lastHitData.type === 'hover',
             ii;
         
@@ -457,8 +465,8 @@ var View = function(container, params) {
 
         // if we have elements
         if (elements.length > 0) {
-            var downX = hitData.gridX,
-                downY = hitData.gridY;
+            var downX = hitSample.gridX,
+                downY = hitSample.gridY;
             
             // iterate through objects from last to first (first get drawn last so sit underneath)
             for (ii = elements.length; pointerDown && ii--; ) {
@@ -469,12 +477,12 @@ var View = function(container, params) {
 
             // if the event state has changed trigger the event
             if (changed) {
-                Hits.triggerEvent(hitData, _self);
+                Hits.triggerEvent(hitSample, _self);
             } // if
         } // if
         
         // save the last hit elements
-        lastHitData = elements.length > 0 ? _extend({}, hitData) : null;
+        lastHitData = elements.length > 0 ? _extend({}, hitSample) : null;
     } // checkHits
     
     function cycle(tickCount) {
@@ -605,7 +613,7 @@ var View = function(container, params) {
                 renderer.trigger('predraw', vp);
 
                 // prepare the renderer
-                if (renderer.prepare(layers, vp, tickCount, hitData)) {
+                if (renderer.prepare(layers, vp, tickCount, hits[0])) {
                     // reset the view changes count
                     viewChanges = 0;
                     viewpaneX = panX = 0;
@@ -627,7 +635,7 @@ var View = function(container, params) {
                                 vp,
                                 _self,
                                 tickCount,
-                                hitData);
+                                hits[0]);
 
                             // if we applied a style, then restore the previous style if supplied
                             if (previousStyle) {
@@ -672,9 +680,14 @@ var View = function(container, params) {
             } // if..else            
             
             // check for hits 
-            if (hitData) {
-                checkHits();
-                hitData = null;
+            if (hits.length) {
+                // iterate through the hits and check 
+                for (ii = 0; ii < hits.length; ii++) {
+                    checkHits(hits[ii]);
+                } // for
+                
+                // reset the hits
+                hits = [];
             } // if
 
             // check for a scale factor change
@@ -686,7 +699,8 @@ var View = function(container, params) {
     } // cycle
     
     function initHitData(hitType, absXY, relXY) {
-        var txXY = new XY(
+        var hitSample,
+            txXY = new XY(
                 relXY.x - halfOuterWidth + halfWidth,
                 relXY.y - halfOuterHeight + halfHeight
             )
@@ -694,7 +708,7 @@ var View = function(container, params) {
             .scale(1/scaleFactor, txCenter);
         
         // initialise the hit data
-        hitData = Hits.init(
+        hits[hits.length] = hitSample = Hits.init(
             hitType, 
             absXY, 
             relXY, 
@@ -713,10 +727,14 @@ var View = function(container, params) {
             // if the layer is visible then check for hits
             if (layers[ii].visible) {
                 hitFlagged = hitFlagged || (layers[ii].hitGuess ? 
-                    layers[ii].hitGuess(hitData.gridX, hitData.gridY, _self) :
+                    layers[ii].hitGuess(hitSample.gridX, hitSample.gridY, _self) :
                     false);
             } // if
         } // for
+        
+        if (hitFlagged) {
+            _log('captured hit, hit type = ' + hitType + ', ticks = ' + new Date().getTime());
+        } // if
         
         // if we have a potential hit then invalidate the view so a more detailed
         // test can be run

@@ -1451,7 +1451,7 @@ var MouseHandler = function(targetElement, observable, opts) {
     } // leftPressed
 
     function preventDrag(evt) {
-        return false;
+        return !matchTarget(evt, targetElement);
     } // preventDrag
 
     function triggerCurrent(evt, eventName, overrideX, overrideY, updateLast) {
@@ -2152,6 +2152,18 @@ var DOM = typeof window != 'undefined' ? (function() {
     } // move
 
     /**
+    ### rect(domObj)
+    */
+    function rect(domObj) {
+        return new Rect(
+            domObj.offsetLeft,
+            domObj.offsetTop,
+            domObj.offsetWidth,
+            domObj.offsetHeight
+        );
+    } // rect
+
+    /**
     ### styles(extraStyles)
     */
     function styles(extraStyles) {
@@ -2169,6 +2181,7 @@ var DOM = typeof window != 'undefined' ? (function() {
 
         create: create,
         move: move,
+        rect: rect,
         styles: styles
     };
 })() : null;
@@ -3741,7 +3754,7 @@ var View = function(container, params) {
         offsetTween = null,
         padding,
         panFrames = [],
-        hitData = null,
+        hits = [],
         lastHitData = null,
         renderer,
         resizeCanvasTimeout = 0,
@@ -4038,10 +4051,16 @@ var View = function(container, params) {
     } // getLayerIndex
 
     function initContainer() {
-        outer.appendChild(panContainer = DOM.create('div', '', DOM.styles({
+        var outerRect = DOM.rect(outer);
+
+        if (panContainer) {
+            outer.removeChild(panContainer);
+        } // if
+
+        outer.appendChild(panContainer = DOM.create('div', 't5-panframe', DOM.styles({
             overflow: 'hidden',
-            width: outer.offsetWidth + 'px',
-            height: outer.offsetHeight + 'px'
+            width: outerRect.w + 'px',
+            height: outerRect.h + 'px'
         })));
 
         initPadding(params.padding);
@@ -4050,12 +4069,12 @@ var View = function(container, params) {
         height = panContainer.offsetHeight + padding.y * 2;
         halfWidth = width / 2;
         halfHeight = height / 2;
-        halfOuterWidth = outer.offsetWidth / 2;
-        halfOuterHeight = outer.offsetHeight / 2;
+        halfOuterWidth = outerRect.w / 2;
+        halfOuterHeight = outerRect.h / 2;
 
         txCenter = new XY(halfWidth, halfHeight);
 
-        panContainer.appendChild(viewpane = DOM.create('div', '', DOM.styles({
+        panContainer.appendChild(viewpane = DOM.create('div', 't5-view', DOM.styles({
             width: width + 'px',
             height: height + 'px',
             'z-index': 2,
@@ -4081,10 +4100,10 @@ var View = function(container, params) {
     /*
     ### checkHits
     */
-    function checkHits() {
+    function checkHits(hitSample) {
         var changed = true,
-            elements = hitData ? hitData.elements : [],
-            doubleHover = hitData && lastHitData && hitData.type === 'hover' &&
+            elements = hitSample ? hitSample.elements : [],
+            doubleHover = hitSample && lastHitData && hitSample.type === 'hover' &&
                 lastHitData.type === 'hover',
             ii;
 
@@ -4100,8 +4119,8 @@ var View = function(container, params) {
         } // if
 
         if (elements.length > 0) {
-            var downX = hitData.gridX,
-                downY = hitData.gridY;
+            var downX = hitSample.gridX,
+                downY = hitSample.gridY;
 
             for (ii = elements.length; pointerDown && ii--; ) {
                 if (dragStart(elements[ii], downX, downY)) {
@@ -4110,11 +4129,11 @@ var View = function(container, params) {
             } // for
 
             if (changed) {
-                Hits.triggerEvent(hitData, _self);
+                Hits.triggerEvent(hitSample, _self);
             } // if
         } // if
 
-        lastHitData = elements.length > 0 ? _extend({}, hitData) : null;
+        lastHitData = elements.length > 0 ? _extend({}, hitSample) : null;
     } // checkHits
 
     function cycle(tickCount) {
@@ -4221,7 +4240,7 @@ var View = function(container, params) {
 
                 renderer.trigger('predraw', vp);
 
-                if (renderer.prepare(layers, vp, tickCount, hitData)) {
+                if (renderer.prepare(layers, vp, tickCount, hits[0])) {
                     viewChanges = 0;
                     viewpaneX = panX = 0;
                     viewpaneY = panY = 0;
@@ -4239,7 +4258,7 @@ var View = function(container, params) {
                                 vp,
                                 _self,
                                 tickCount,
-                                hitData);
+                                hits[0]);
 
                             if (previousStyle) {
                                 renderer.applyStyle(previousStyle);
@@ -4275,9 +4294,12 @@ var View = function(container, params) {
                 } // if
             } // if..else
 
-            if (hitData) {
-                checkHits();
-                hitData = null;
+            if (hits.length) {
+                for (ii = 0; ii < hits.length; ii++) {
+                    checkHits(hits[ii]);
+                } // for
+
+                hits = [];
             } // if
 
             if (lastScaleFactor !== scaleFactor) {
@@ -4288,14 +4310,15 @@ var View = function(container, params) {
     } // cycle
 
     function initHitData(hitType, absXY, relXY) {
-        var txXY = new XY(
+        var hitSample,
+            txXY = new XY(
                 relXY.x - halfOuterWidth + halfWidth,
                 relXY.y - halfOuterHeight + halfHeight
             )
             .rotate(-rotation * DEGREES_TO_RADIANS, txCenter)
             .scale(1/scaleFactor, txCenter);
 
-        hitData = Hits.init(
+        hits[hits.length] = hitSample = Hits.init(
             hitType,
             absXY,
             relXY,
@@ -4308,10 +4331,14 @@ var View = function(container, params) {
         for (var ii = layerCount; ii--; ) {
             if (layers[ii].visible) {
                 hitFlagged = hitFlagged || (layers[ii].hitGuess ?
-                    layers[ii].hitGuess(hitData.gridX, hitData.gridY, _self) :
+                    layers[ii].hitGuess(hitSample.gridX, hitSample.gridY, _self) :
                     false);
             } // if
         } // for
+
+        if (hitFlagged) {
+            _log('captured hit, hit type = ' + hitType + ', ticks = ' + new Date().getTime());
+        } // if
 
         if (hitFlagged) {
             viewChanges++;
@@ -4707,7 +4734,7 @@ var View = function(container, params) {
 */
 var Map = function(container, params) {
     params = _extend({
-        controls: ['zoombar'],
+        controls: ['zoombar', 'copyright'],
 
         minZoom: 1,
         maxZoom: 18,
@@ -4757,7 +4784,7 @@ var Map = function(container, params) {
         var viewport = _self.viewport();
 
         if (newBounds) {
-            var zoomLevel = max(newBounds.bestZoomLevel(viewport.w, viewport.h) - 1, maxZoomLevel || 0);
+            var zoomLevel = max(newBounds.bestZoomLevel(viewport.w, viewport.h), maxZoomLevel || 0);
 
             return zoom(zoomLevel).center(newBounds.center());
         }
@@ -5757,10 +5784,10 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
     */
     function hitGuess(hitX, hitY, view) {
         return storage && storage.search({
-            x: hitX - 10,
-            y: hitY - 10,
-            w: 20,
-            h: 20
+            x: hitX - 5,
+            y: hitY - 5,
+            w: 10,
+            h: 10
         }).length > 0;
     } // hitGuess
 
@@ -6006,6 +6033,79 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
     view.bind('zoom', handleZoomLevelChange);
 
     setThumbVal(view.zoom());
+
+    return _this;
+});
+/**
+# CONTROL: Zoombar
+*/
+reg('control', 'copyright', function(view, panFrame, container, params) {
+    params = _extend({
+        align: 'right',
+        text: 'Some test copyright message',
+        spacing: 0
+    }, params);
+
+    /* internals */
+
+    var copydiv;
+
+    function createCopyright() {
+        copydiv = DOM.create('div', 't5-copyright', {
+            position: 'absolute',
+            overflow: 'hidden',
+            'text-overflow': 'ellipsis',
+            'z-index': 49
+        });
+
+        if (container.childNodes[0]) {
+            container.insertBefore(copydiv, container.childNodes[0]);
+        }
+        else {
+            container.appendChild(copydiv);
+        } // if..else
+
+        if (params.text) {
+            setText(params.text);
+        } // if
+    } // createImageContainer
+
+    function getMargin() {
+        var padding = view.viewport().padding,
+            containerRect = DOM.rect(container),
+            marginLeft = params.spacing,
+            marginTop = containerRect.h - copydiv.offsetHeight - params.spacing,
+            formatter = _formatter('{0}px 0 0 {1}px');
+
+        if (params.align === 'right') {
+            marginLeft = containerRect.w - copydiv.offsetWidth - params.spacing;
+        } // if
+
+        return formatter(marginTop, marginLeft);
+    } // getMargin
+
+    function handleDetach() {
+        if (copydiv) {
+            container.removeChild(copydiv);
+        } // if
+    } // handleDetach
+
+    function setText(text) {
+        if (copydiv) {
+            copydiv.innerHTML = text;
+            copydiv.style.margin = getMargin();
+        } // if
+    } // setText
+
+    /* exports */
+
+    /* initialization */
+
+    createCopyright();
+
+    var _this = new Control(view);
+
+    _this.bind('detach', handleDetach);
 
     return _this;
 });
