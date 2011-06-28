@@ -732,10 +732,6 @@ var View = function(container, params) {
             } // if
         } // for
         
-        if (hitFlagged) {
-            _log('captured hit, hit type = ' + hitType + ', ticks = ' + new Date().getTime());
-        } // if
-        
         // if we have a potential hit then invalidate the view so a more detailed
         // test can be run
         if (hitFlagged) {

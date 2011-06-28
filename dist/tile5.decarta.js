@@ -4337,10 +4337,6 @@ var View = function(container, params) {
         } // for
 
         if (hitFlagged) {
-            _log('captured hit, hit type = ' + hitType + ', ticks = ' + new Date().getTime());
-        } // if
-
-        if (hitFlagged) {
             viewChanges++;
         } // if
     } // initHitData
