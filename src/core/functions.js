@@ -13,13 +13,6 @@ function ticks() {
     return new Date().getTime();
 } // getTicks
 
-/**
-### userMessage(msgType, msgKey, msgHtml)
-*/
-function userMessage(msgType, msgKey, msgHtml) {
-    T5.trigger('userMessage', msgType, msgKey, msgHtml);
-} // userMessage
-
 /* exports */
 
 /**

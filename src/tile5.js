@@ -87,7 +87,6 @@ _extend(T5, {
     unproject: _unproject,
     
     getImage: getImage,
-    userMessage: userMessage,
     
     Registry: Registry,
     Style: Style,

@@ -24,9 +24,6 @@ T5.Generator.register('osm.wms', function(params) {
         return llat + "," + llon + "," + tlat + "," + tlon;
     } // tileToExtend
 
-
-    T5.userMessage('ack', 'osm.wms', '');
-
     return _extend(new T5.Geo.OSM.Generator(params), {
         buildTileUrl: function(tileX, tileY, zoomLevel, numTiles) {
             return params.mapurl + "&BBOX=" + tileToExtent(tileX, tileY, zoomLevel, numTiles);

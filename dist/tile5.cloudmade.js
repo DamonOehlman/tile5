@@ -1865,13 +1865,6 @@ function ticks() {
     return new Date().getTime();
 } // getTicks
 
-/**
-### userMessage(msgType, msgKey, msgHtml)
-*/
-function userMessage(msgType, msgKey, msgHtml) {
-    T5.trigger('userMessage', msgType, msgKey, msgHtml);
-} // userMessage
-
 /* exports */
 
 /**
@@ -3708,6 +3701,7 @@ var View = function(container, params) {
     params = _extend({
         captureHover: true,
         controls: [],
+        copyright: '',
         drawOnScale: true,
         padding: 128, // other values 'auto'
         inertia: true,
@@ -3726,6 +3720,7 @@ var View = function(container, params) {
         _allowTransforms = true,
         _frozen = false,
         controls = [],
+        copyright = '',
         layers = [],
         layerCount = 0,
         viewpane = null,
@@ -4356,6 +4351,11 @@ var View = function(container, params) {
 
     /* exports */
 
+    function addCopy(text) {
+        copyright = copyright ? copyright + ' ' + text : text;
+        _self.trigger('copyright', copyright);
+    } // addCopy
+
     /**
     ### attachFrame(element)
     The attachFrame method is used to attach a dom element that will be panned around along with
@@ -4429,6 +4429,10 @@ var View = function(container, params) {
             return _frozen;
         } // if..else
     } // frozen
+
+    function getCopy() {
+        return copyright;
+    } // getCopy
 
     function getRenderer() {
         return renderer;
@@ -4678,10 +4682,12 @@ var View = function(container, params) {
         id: params.id,
         panSpeed: 0,
 
+        addCopy: addCopy,
         attachFrame: attachFrame,
         center: center,
         detach: detach,
         frozen: frozen,
+        getCopy: getCopy,
         getRenderer: getRenderer,
         layer: layer,
         invalidate: invalidate,
@@ -4719,7 +4725,11 @@ var View = function(container, params) {
     }
     else if (DOM) {
         window.addEventListener('resize', handleResize, false);
-    }
+    } // if
+
+    if (params.copyright) {
+        addCopy(params.copyright);
+    } // if
 
     Animator.attach(cycle);
 
@@ -5519,7 +5529,7 @@ reg('layer', 'tile', function(view, panFrame, container, params) {
     }, params);
 
     var TILELOAD_MAX_PANSPEED = 2,
-        genFn = regCreate('generator', params.generator, params).run,
+        genFn = regCreate('generator', params.generator, view, params).run,
         generating = false,
         storage = null,
         zoomTrees = [],
@@ -5527,9 +5537,9 @@ reg('layer', 'tile', function(view, panFrame, container, params) {
 
     /* event handlers */
 
-    function handleRefresh(evt, view, viewport) {
+    function handleRefresh(evt) {
         if (storage) {
-            genFn(view, viewport, storage, function() {
+            genFn(storage, function() {
                 view.invalidate();
             });
         } // if
@@ -6032,14 +6042,11 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
 
     return _this;
 });
-/**
-# CONTROL: Zoombar
-*/
 reg('control', 'copyright', function(view, panFrame, container, params) {
     params = _extend({
         align: 'right',
-        text: 'Some test copyright message',
-        spacing: 0
+        text: null,
+        spacing: 5
     }, params);
 
     /* internals */
@@ -6047,10 +6054,17 @@ reg('control', 'copyright', function(view, panFrame, container, params) {
     var copydiv;
 
     function createCopyright() {
+        var containerRect = DOM.rect(container),
+            text = params.text || view.getCopy(),
+            maxWidth = Math.max(
+                containerRect.w >> 1,
+                Math.min(400, containerRect.w - params.spacing * 2)
+            );
+
         copydiv = DOM.create('div', 't5-copyright', {
             position: 'absolute',
             overflow: 'hidden',
-            'text-overflow': 'ellipsis',
+            'max-width': maxWidth + 'px',
             'z-index': 49
         });
 
@@ -6061,8 +6075,8 @@ reg('control', 'copyright', function(view, panFrame, container, params) {
             container.appendChild(copydiv);
         } // if..else
 
-        if (params.text) {
-            setText(params.text);
+        if (text) {
+            setText(text);
         } // if
     } // createImageContainer
 
@@ -6080,11 +6094,21 @@ reg('control', 'copyright', function(view, panFrame, container, params) {
         return formatter(marginTop, marginLeft);
     } // getMargin
 
+    function handleCopyright(evt, copyright) {
+        setText(view.getCopy());
+    } // handleCopyrightUpdate
+
     function handleDetach() {
         if (copydiv) {
             container.removeChild(copydiv);
         } // if
     } // handleDetach
+
+    /* exports */
+
+    function getText() {
+        return copydiv ? copydiv.innerHTML : '';
+    } // getText
 
     function setText(text) {
         if (copydiv) {
@@ -6093,15 +6117,20 @@ reg('control', 'copyright', function(view, panFrame, container, params) {
         } // if
     } // setText
 
-    /* exports */
-
     /* initialization */
 
     createCopyright();
 
-    var _this = new Control(view);
+    var _this = _extend(new Control(view), {
+        getText: getText,
+        setText: setText
+    });
 
     _this.bind('detach', handleDetach);
+
+    if (! params.text) {
+        view.bind('copyright', handleCopyright);
+    } // if
 
     return _this;
 });
@@ -6132,7 +6161,6 @@ _extend(T5, {
     unproject: _unproject,
 
     getImage: getImage,
-    userMessage: userMessage,
 
     Registry: Registry,
     Style: Style,
@@ -6176,7 +6204,7 @@ function Tile5(target, settings) {
 /**
 # GENERATOR: osm
 */
-reg('generator', 'osm', function(params) {
+reg('generator', 'osm', function(view, params) {
     params = _extend({
         flipY: false,
         tileSize: 256,
@@ -6243,8 +6271,9 @@ reg('generator', 'osm', function(params) {
         } // if
     } // buildTileUrl
 
-    function run(view, viewport, store, callback) {
-        var zoomLevel = view.zoom ? view.zoom() : 0;
+    function run(store, callback) {
+        var zoomLevel = view.zoom ? view.zoom() : 0,
+            viewport = view.viewport();
 
         if (zoomLevel) {
             var numTiles = 2 << (zoomLevel - 1),
@@ -6319,24 +6348,23 @@ reg('generator', 'osm', function(params) {
     };
 
     if (params.osmDataAck) {
-        userMessage('ack', 'osm', 'Map data (c) <a href="http://openstreetmap.org/" target="_blank">OpenStreetMap</a> (and) contributors, CC-BY-SA');
+        view.addCopy('Map data &copy; <a href="http://openstreetmap.org/" target="_blank">OpenStreetMap</a> (and) contributors, CC-BY-SA');
     } // if
 
 
     return _self;
 });
 T5.Cloudmade = (function() {
-T5.Registry.register('generator', 'osm.cloudmade', function(params) {
+T5.Registry.register('generator', 'osm.cloudmade', function(view, params) {
     params = T5.ex({
         apikey: null,
         styleid: 1
     }, params);
 
     var urlFormatter = T5.formatter('http://{3}.tile.cloudmade.com/{0}/{1}/{2}/');
+    view.addCopy('This product uses the <a href="http://cloudmade.com/" target="_blank">CloudMade</a> APIs, but is not endorsed or certified by CloudMade.');
 
-    T5.userMessage('ack', 'osm.cloudmade', 'This product uses the <a href="http://cloudmade.com/" target="_blank">CloudMade</a> APIs, but is not endorsed or certified by CloudMade.');
-
-    return T5.ex(T5.Registry.create('generator', 'osm', params), {
+    return T5.ex(T5.Registry.create('generator', 'osm', view, params), {
         getServerDetails: function() {
             return {
                 baseUrl: urlFormatter(params.apikey, params.styleid, 256, '{0}'),

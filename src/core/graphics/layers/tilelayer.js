@@ -9,7 +9,7 @@ reg('layer', 'tile', function(view, panFrame, container, params) {
     
     // initialise variables
     var TILELOAD_MAX_PANSPEED = 2,
-        genFn = regCreate('generator', params.generator, params).run,
+        genFn = regCreate('generator', params.generator, view, params).run,
         generating = false,
         storage = null,
         zoomTrees = [],
@@ -17,10 +17,10 @@ reg('layer', 'tile', function(view, panFrame, container, params) {
     
     /* event handlers */
 
-    function handleRefresh(evt, view, viewport) {
+    function handleRefresh(evt) {
         if (storage) {
             // fire the generator
-            genFn(view, viewport, storage, function() {
+            genFn(storage, function() {
                 view.invalidate();
             });
         } // if

@@ -5,15 +5,30 @@ html, body, #mapContainer {
     overflow: hidden;
 }
 
-#mapContainer {
-}
-
 #toolbar {
-    padding: 2% 10px;
-    overflow: hidden;
+    padding: 12px 10px;
+    position: absolute;
+    margin-left: 80px;
+    overflow: auto;
     background: -webkit-gradient(linear, left top, left bottom, from(#555), to(#222));
+    z-index: 200;
+    -webkit-border-radius: 0 0 10px 0;
 }
 
 #toolbar select {
     float: right;
+}
+
+/* tile5 map element styling */
+
+.t5-copyright {
+    font-size: 0.8em;
+    padding: 5px 10px;
+    background: rgba(30, 30, 30, 0.7);
+    color: white;
+    text-align: justify;
+}
+
+.t5-copyright a {
+    color: white;
 }

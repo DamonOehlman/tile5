@@ -532,7 +532,7 @@ var RUOKRequest = function(params) {
         }
     });
 }; // RUOKRequest
-T5.Registry.register('generator', 'decarta', function(params) {
+T5.Registry.register('generator', 'decarta', function(view, params) {
     params = T5.ex({
         tileSize: 256
     }, params);
@@ -567,17 +567,18 @@ T5.Registry.register('generator', 'decarta', function(params) {
 
     /* internals */
 
-    function createTiles(view, viewRect, store, callback) {
-        var zoomLevel = view.zoom ? view.zoom() : 0;
+    function createTiles(store, callback) {
+        var zoomLevel = view.zoom ? view.zoom() : 0,
+            viewport = view.viewport();
 
         if (zoomLevel) {
             var numTiles = 2 << (zoomLevel - 1),
                 numTilesHalf = numTiles >> 1,
                 tileSize = params.tileSize,
-                xTiles = (viewRect.w / tileSize | 0) + 1,
-                yTiles = (viewRect.h / tileSize | 0) + 1,
-                xTile = (viewRect.x / tileSize | 0) - numTilesHalf,
-                yTile = numTiles - (viewRect.y / tileSize | 0) - numTilesHalf - yTiles,
+                xTiles = (viewport.w / tileSize | 0) + 1,
+                yTiles = (viewport.h / tileSize | 0) + 1,
+                xTile = (viewport.x / tileSize | 0) - numTilesHalf,
+                yTile = numTiles - (viewport.y / tileSize | 0) - numTilesHalf - yTiles,
                 tiles = store.search({
                     x: (numTilesHalf + xTile) * tileSize,
                     y: (numTilesHalf + yTile*-1 - yTiles) * tileSize,
@@ -634,9 +635,9 @@ T5.Registry.register('generator', 'decarta', function(params) {
 
     /* exports */
 
-    function run(view, viewRect, store, callback) {
+    function run(store, callback) {
         if (tileConfig) {
-            createTiles(view, viewRect, store, callback);
+            createTiles(store, callback);
         }
         else {
             var userId = currentConfig.clientName.replace(/.*?\:/, '');
@@ -644,7 +645,7 @@ T5.Registry.register('generator', 'decarta', function(params) {
             T5.Decarta.getTileConfig(userId, function(config) {
                 setTileConfig(config);
 
-                createTiles(view, viewRect, store, callback);
+                createTiles(store, callback);
             });
         } // if..else
     } // run
@@ -655,7 +656,7 @@ T5.Registry.register('generator', 'decarta', function(params) {
 
     /* define the generator */
 
-    T5.userMessage('ack', 'decarta', '&copy; deCarta, Inc. Map and Imagery Data &copy; NAVTEQ or Tele Atlas or DigitalGlobe');
+    view.addCopy('&copy; deCarta, Inc. Map and Imagery Data &copy; NAVTEQ or Tele Atlas or DigitalGlobe');
 
     return {
         run: run,

@@ -6,6 +6,7 @@ var View = function(container, params) {
     params = _extend({
         captureHover: true,
         controls: [],
+        copyright: '',
         drawOnScale: true,
         padding: 128, // other values 'auto'
         inertia: true,
@@ -26,6 +27,7 @@ var View = function(container, params) {
         _allowTransforms = true,
         _frozen = false,
         controls = [],
+        copyright = '',
         layers = [],
         layerCount = 0,
         viewpane = null,
@@ -756,6 +758,12 @@ var View = function(container, params) {
     
     /* exports */
     
+    function addCopy(text) {
+        // update the copyright and trigger the event
+        copyright = copyright ? copyright + ' ' + text : text;
+        _self.trigger('copyright', copyright);
+    } // addCopy
+    
     /**
     ### attachFrame(element)
     The attachFrame method is used to attach a dom element that will be panned around along with
@@ -844,6 +852,10 @@ var View = function(container, params) {
             return _frozen;
         } // if..else
     } // frozen
+    
+    function getCopy() {
+        return copyright;
+    } // getCopy
     
     function getRenderer() {
         return renderer;
@@ -1126,10 +1138,12 @@ var View = function(container, params) {
         id: params.id,
         panSpeed: 0,
         
+        addCopy: addCopy,
         attachFrame: attachFrame,
         center: center,
         detach: detach,
         frozen: frozen,
+        getCopy: getCopy,
         getRenderer: getRenderer,
         layer: layer,
         invalidate: invalidate,
@@ -1173,7 +1187,12 @@ var View = function(container, params) {
     }
     else if (DOM) {
         window.addEventListener('resize', handleResize, false);
-    }
+    } // if
+    
+    // if we have some copyright, then add it
+    if (params.copyright) {
+        addCopy(params.copyright);
+    } // if
     
     // start the animation frame
     // setInterval(cycle, 1000 / 60);

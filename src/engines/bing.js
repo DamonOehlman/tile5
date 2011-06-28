@@ -29,13 +29,7 @@ T5.Geo.Bing = (function() {
                 subDomains = resourceData.imageUrlSubdomains;
 
                 logoUrl = data.brandLogoUri;
-
-                // display the copyright appropriately
-                T5.userMessage('ack', 'bing', data.copyright);
-
-                // _self.setZoomRange(resourceData.zoomMin + 1, resourceData.zoomMax);
-
-                // T5.Tiling.tileSize = resourceData.imageHeight;
+                copyrightText = data.copyright;
 
                 if (callback) {
                     callback();
@@ -44,7 +38,7 @@ T5.Geo.Bing = (function() {
         } // if..else
     } // authenticate    
 
-    var BingGenerator = function(params) {
+    var BingGenerator = function(view, params) {
         params = _extend({
             apikey: null,
             style: 'Road',
@@ -53,7 +47,7 @@ T5.Geo.Bing = (function() {
         
         var currentImageUrl = '',
             subDomainIdx = 0,
-            osmGenerator = new T5.Geo.OSM.Generator(params),
+            osmGenerator = new T5.Geo.OSM.Generator(view, params),
             osmRun = osmGenerator.run;
 
         /* internal functions */
@@ -85,11 +79,12 @@ T5.Geo.Bing = (function() {
                 .replace("{subdomain}", subDomains[subDomainIdx]);
         } // buildTileUrl
         
-        function run(view, viewport, store, callback) {
+        function run(store, callback) {
             if (! imageUrls[params.style]) {
                 // authenticate with bing
                 authenticate(params.apikey, params.style, function() {
                     currentImageUrl = imageUrls[params.style];
+                    view.addCopy(copyrightText);
 
                     osmRun(view, viewport, store, callback);
                 });
@@ -104,6 +99,10 @@ T5.Geo.Bing = (function() {
             buildTileUrl: buildTileUrl,
             run: run
         });
+        
+        if (copyrightText) {
+            view.addCopy(copyrightText);
+        } // if
             
         return _self;        
     };

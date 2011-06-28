@@ -1,25 +1,29 @@
-/**
-# CONTROL: Zoombar
-*/
 reg('control', 'copyright', function(view, panFrame, container, params) {
     params = _extend({
         align: 'right',
-        text: 'Some test copyright message',
-        spacing: 0
+        text: null,
+        spacing: 5
     }, params);
-    
+
     /* internals */
-    
+
     var copydiv;
-    
+
     function createCopyright() {
+        var containerRect = DOM.rect(container),
+            text = params.text || view.getCopy(),
+            maxWidth = Math.max(
+                containerRect.w >> 1, 
+                Math.min(400, containerRect.w - params.spacing * 2)
+            );
+        
         copydiv = DOM.create('div', 't5-copyright', {
             position: 'absolute',
             overflow: 'hidden',
-            'text-overflow': 'ellipsis',
+            'max-width': maxWidth + 'px',
             'z-index': 49
         });
-        
+
         // add the zoom bar
         if (container.childNodes[0]) {
             container.insertBefore(copydiv, container.childNodes[0]);
@@ -27,13 +31,13 @@ reg('control', 'copyright', function(view, panFrame, container, params) {
         else {
             container.appendChild(copydiv);
         } // if..else
-        
+
         // if we have text, then update it
-        if (params.text) {
-            setText(params.text);
+        if (text) {
+            setText(text);
         } // if
     } // createImageContainer    
-    
+
     function getMargin() {
         var padding = view.viewport().padding,
             containerRect = DOM.rect(container),
@@ -44,34 +48,50 @@ reg('control', 'copyright', function(view, panFrame, container, params) {
         if (params.align === 'right') {
             marginLeft = containerRect.w - copydiv.offsetWidth - params.spacing;
         } // if
-        
+
         return formatter(marginTop, marginLeft);
     } // getMargin
     
+    function handleCopyright(evt, copyright) {
+        setText(view.getCopy());
+    } // handleCopyrightUpdate
+
     function handleDetach() {
         // remove the image div from the panFrame
         if (copydiv) {
             container.removeChild(copydiv);
         } // if
     } // handleDetach
-    
+
+    /* exports */
+
+    function getText() {
+        return copydiv ? copydiv.innerHTML : '';
+    } // getText
+
     function setText(text) {
         if (copydiv) {
             copydiv.innerHTML = text;
             copydiv.style.margin = getMargin();
         } // if
     } // setText
-    
-    /* exports */
-    
+
     /* initialization */
-    
+
     createCopyright();
-    
-    var _this = new Control(view);
-    
+
+    var _this = _extend(new Control(view), {
+        getText: getText,
+        setText: setText
+    });
+
     // handle the predraw
     _this.bind('detach', handleDetach);
     
+    // if we don't have custom text respond to view copyright changes
+    if (! params.text) {
+        view.bind('copyright', handleCopyright);
+    } // if
+
     return _this;
 });

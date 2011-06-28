@@ -1,7 +1,7 @@
 /**
 # GENERATOR: osm
 */
-reg('generator', 'osm', function(params) {
+reg('generator', 'osm', function(view, params) {
     params = _extend({
         flipY: false,
         tileSize: 256,
@@ -68,8 +68,9 @@ reg('generator', 'osm', function(params) {
         } // if
     } // buildTileUrl
 
-    function run(view, viewport, store, callback) {
-        var zoomLevel = view.zoom ? view.zoom() : 0;
+    function run(store, callback) {
+        var zoomLevel = view.zoom ? view.zoom() : 0,
+            viewport = view.viewport();
 
         if (zoomLevel) {
             var numTiles = 2 << (zoomLevel - 1),
@@ -144,7 +145,7 @@ reg('generator', 'osm', function(params) {
     };
 
     if (params.osmDataAck) {
-        userMessage('ack', 'osm', 'Map data (c) <a href="http://openstreetmap.org/" target="_blank">OpenStreetMap</a> (and) contributors, CC-BY-SA');
+        view.addCopy('Map data &copy; <a href="http://openstreetmap.org/" target="_blank">OpenStreetMap</a> (and) contributors, CC-BY-SA');
     } // if
 
 
