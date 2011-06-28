@@ -3003,12 +3003,6 @@ var Renderer = function(view, container, outer, params) {
         },
 
         /**
-        ### prepare(layers, tickCount, hitData)
-        */
-        prepare: function(layers, tickCount, hitData) {
-        },
-
-        /**
         ### projectXY(srcX, srcY)
         This function is optionally implemented by a renderer to manually take
         care of projecting an x and y coordinate to the target drawing area.
@@ -3140,8 +3134,39 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         panFrame.removeChild(canvas);
     } // handleDetach
 
-    function handleResize() {
+    function handlePredraw(evt, layers, viewport, tickcount, hits) {
+        var ii,
+            canClip = false;
 
+        if (context) {
+            context.restore();
+        }
+        else if (canvas) {
+            context = canvas.getContext('2d');
+        } // if..else
+
+        for (ii = layers.length; ii--; ) {
+            canClip = canClip || layers[ii].clip;
+        } // for
+
+        drawOffsetX = viewport.x;
+        drawOffsetY = viewport.y;
+        paddingX = viewport.padding.x;
+        paddingY = viewport.padding.y;
+        scaleFactor = viewport.scaleFactor;
+
+        if (context) {
+            if (! canClip) {
+                context.clearRect(0, 0, vpWidth, vpHeight);
+            } // if
+
+            context.save();
+
+            context.globalCompositeOperation = 'source-over';
+        } // if
+    } // handlePredraw
+
+    function handleResize() {
     } // handleResize
 
     function handleStyleDefined(evt, styleId, styleData) {
@@ -3257,40 +3282,6 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
             } // if..else
         } // for
     } // drawTiles
-
-    function prepare(layers, viewport, tickCount, hitData) {
-        var ii,
-            canClip = false;
-
-        if (context) {
-            context.restore();
-        }
-        else if (canvas) {
-            context = canvas.getContext('2d');
-        } // if..else
-
-        for (ii = layers.length; ii--; ) {
-            canClip = canClip || layers[ii].clip;
-        } // for
-
-        drawOffsetX = viewport.x;
-        drawOffsetY = viewport.y;
-        paddingX = viewport.padding.x;
-        paddingY = viewport.padding.y;
-        scaleFactor = viewport.scaleFactor;
-
-        if (context) {
-            if (! canClip) {
-                context.clearRect(0, 0, vpWidth, vpHeight);
-            } // if
-
-            context.save();
-
-            context.globalCompositeOperation = 'source-over';
-        } // if
-
-        return context;
-    } // prepare
 
     /**
     ### prepArc(drawable, viewport, hitData, opts)
@@ -3441,8 +3432,6 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
 
         drawTiles: drawTiles,
 
-        prepare: prepare,
-
         prepArc: prepArc,
         prepImage: prepImage,
         prepMarker: prepMarker,
@@ -3459,6 +3448,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
 
     loadStyles();
 
+    _this.bind('predraw', handlePredraw);
     _this.bind('detach', handleDetach);
     _this.bind('resize', handleResize);
 
@@ -3478,7 +3468,7 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
         currentTiles = {};
 
     function createImageContainer() {
-        imageDiv = DOM.create('div', '', DOM.styles({
+        imageDiv = DOM.create('div', 't5-tiles', DOM.styles({
             width: panFrame.offsetWidth + 'px',
             height: panFrame.offsetHeight + 'px'
         }));
@@ -3498,7 +3488,6 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
 
         activeTiles[tile.id] = tile;
 
-        image.src = tile.url;
         image.onload = function() {
             if (currentTiles[tile.id]) {
                 imageDiv.appendChild(this);
@@ -3507,6 +3496,8 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
                 tile.image = null;
             } // if..else
         };
+
+        image.src = tile.url;
 
         image.style.cssText = '-webkit-user-select: none; -webkit-box-shadow: none; -moz-box-shadow: none; box-shadow: none; border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px; margin-top: 0px; margin-right: 0px; margin-bottom: 0px; margin-left: 0px; position: absolute;';
 
@@ -3517,7 +3508,7 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
         panFrame.removeChild(imageDiv);
     } // handleDetach
 
-    function handlePredraw(evt, viewport) {
+    function handlePredraw(evt, layers, viewport, tickcount, hits) {
         removeOldObjects(activeTiles, currentTiles);
         currentTiles = {};
     } // handlePredraw
@@ -4233,40 +4224,38 @@ var View = function(container, params) {
                 */
 
 
-                renderer.trigger('predraw', vp);
+                renderer.trigger('predraw', layers, vp, tickCount, hits);
 
-                if (renderer.prepare(layers, vp, tickCount, hits[0])) {
-                    viewChanges = 0;
-                    viewpaneX = panX = 0;
-                    viewpaneY = panY = 0;
+                viewChanges = 0;
+                viewpaneX = panX = 0;
+                viewpaneY = panY = 0;
 
-                    for (ii = layerCount; ii--; ) {
-                        var drawLayer = layers[ii];
+                for (ii = layerCount; ii--; ) {
+                    var drawLayer = layers[ii];
 
-                        if (drawLayer.visible) {
-                            var previousStyle = drawLayer.style ?
-                                    renderer.applyStyle(drawLayer.style, true) :
-                                    null;
+                    if (drawLayer.visible) {
+                        var previousStyle = drawLayer.style ?
+                                renderer.applyStyle(drawLayer.style, true) :
+                                null;
 
-                            drawLayer.draw(
-                                renderer,
-                                vp,
-                                _self,
-                                tickCount,
-                                hits[0]);
+                        drawLayer.draw(
+                            renderer,
+                            vp,
+                            _self,
+                            tickCount,
+                            hits[0]);
 
-                            if (previousStyle) {
-                                renderer.applyStyle(previousStyle);
-                            } // if
+                        if (previousStyle) {
+                            renderer.applyStyle(previousStyle);
                         } // if
-                    } // for
+                    } // if
+                } // for
 
-                    renderer.trigger('render', vp);
+                renderer.trigger('render', vp);
 
-                    _self.trigger('drawComplete', vp, tickCount);
+                _self.trigger('drawComplete', vp, tickCount);
 
-                    DOM.move(viewpane, viewpaneX, viewpaneY, extraTransforms, txCenter);
-                } // if
+                DOM.move(viewpane, viewpaneX, viewpaneY, extraTransforms, txCenter);
             }
             else {
                 DOM.move(viewpane, panX, panY, extraTransforms, txCenter);
@@ -5541,11 +5530,13 @@ reg('layer', 'tile', function(view, panFrame, container, params) {
 
     function handleRefresh(evt) {
         if (storage) {
-            genFn(storage, function() {
-                view.invalidate();
-            });
+            genFn(storage, view.invalidate);
         } // if
     } // handleViewIdle
+
+    function handleReset(evt) {
+        storage.clear();
+    } // reset
 
     function handleResync(evt) {
         var zoomLevel = view && view.zoom ? view.zoom() : 0;
@@ -5579,6 +5570,7 @@ reg('layer', 'tile', function(view, panFrame, container, params) {
 
     view.bind('resync', handleResync);
     view.bind('refresh', handleRefresh);
+    view.bind('reset', handleReset);
 
     return _self;
 });

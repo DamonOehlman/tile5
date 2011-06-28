@@ -135,6 +135,32 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
         ];
     } // handleStyleDefined
     
+    function handlePredraw(evt, layers, viewport, tickCount, hitData) {
+        // update the offset x and y
+        drawOffsetX = viewport.x;
+        drawOffsetY = viewport.y;
+            
+        // move the tile bg
+        shiftViewport(
+            drawOffsetX + (vpWidth >> 1), 
+            drawOffsetY + (vpHeight >> 1),
+            viewport.scaleFactor
+        );
+        // camera.position.x = tileBg.position.x = drawOffsetX + vpWidth / 2;
+        //tileBg.position.z = drawOffsetY - vpHeight / 2;
+        //camera.position.z = tileBg.position.y - 200 / viewport.scaleFactor;
+        
+        //camera.position.y = -150 / viewport.scaleFactor;
+        
+        // remove any old objects
+        removeOldObjects(activeObjects, currentObjects);
+        currentObjects = {};
+        
+        // remove any old tiles
+        removeOldObjects(activeTiles, currentTiles);
+        currentTiles = {};
+    } // handlePredraw
+    
     function handleRender(evt, viewport) {
         // render the scene
         renderer.render(scene, camera);
@@ -443,34 +469,6 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
         scene.addObject(mesh);
     } // meshInit
     
-    function prepare(layers, viewport, tickCount, hitData) {
-        // update the offset x and y
-        drawOffsetX = viewport.x;
-        drawOffsetY = viewport.y;
-            
-        // move the tile bg
-        shiftViewport(
-            drawOffsetX + (vpWidth >> 1), 
-            drawOffsetY + (vpHeight >> 1),
-            viewport.scaleFactor
-        );
-        // camera.position.x = tileBg.position.x = drawOffsetX + vpWidth / 2;
-        //tileBg.position.z = drawOffsetY - vpHeight / 2;
-        //camera.position.z = tileBg.position.y - 200 / viewport.scaleFactor;
-        
-        //camera.position.y = -150 / viewport.scaleFactor;
-        
-        // remove any old objects
-        removeOldObjects(activeObjects, currentObjects);
-        currentObjects = {};
-        
-        // remove any old tiles
-        removeOldObjects(activeTiles, currentTiles);
-        currentTiles = {};
-        
-        return true;
-    } // prepare
-    
     /**
     ### prepArc(drawable, viewport, hitData, opts)
     */
@@ -630,7 +628,6 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
         
         drawTiles: drawTiles,
         
-        prepare: prepare,
         prepArc: prepArc,
         prepImage: prepImage,
         prepMarker: prepMarker,
@@ -647,6 +644,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
     
     // handle cleanup
     _this.bind('detach', handleDetach);
+    _this.bind('predraw', handlePredraw);
     _this.bind('render', handleRender);
     view.bind('reset', handleReset);
     

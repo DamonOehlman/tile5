@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width; initial-scale=1.0; maximum-scale=1.0; user-scalable=0;"/>
 <link rel="stylesheet" href="css/demos.css" />
 <script src="lib/jquery-1.6.min.js"></script>
+<script src="lib/modernizr-2.0.6.js"></script>
 <script src="lib/Stats.js"></script>
 </head>
 <body>
@@ -12,7 +13,8 @@
 	<select id="demoSelector">
 	</select>
 	<select id="renderer">
-		<option value="canvas">Canvas</option>
+		<option value="canvas" class="req-canvas">Canvas</option>
+		<option value="raphael/dom">Raphael/DOM</option>
 		<option value="dom">DOM</option>
 		<option value="three:webgl">three.js</option>
 	</select>
@@ -21,6 +23,9 @@
 </div>
 <script src="../dist/tile5.cloudmade.js"></script>
 <!-- include extra renderers -->
+<script src="lib/raphael-min.js"></script>
+<script src="../dist/plugins/renderer.raphael.js"></script>
+<!-- include tile5 plugins -->
 <script src="../dist/plugins/parser.geojson.js"></script>
 <script>
 var stats = new Stats();

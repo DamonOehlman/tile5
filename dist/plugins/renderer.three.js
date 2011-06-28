@@ -202,6 +202,24 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
         ];
     } // handleStyleDefined
 
+    function handlePredraw(evt, layers, viewport, tickCount, hitData) {
+        drawOffsetX = viewport.x;
+        drawOffsetY = viewport.y;
+
+        shiftViewport(
+            drawOffsetX + (vpWidth >> 1),
+            drawOffsetY + (vpHeight >> 1),
+            viewport.scaleFactor
+        );
+
+
+        removeOldObjects(activeObjects, currentObjects);
+        currentObjects = {};
+
+        removeOldObjects(activeTiles, currentTiles);
+        currentTiles = {};
+    } // handlePredraw
+
     function handleRender(evt, viewport) {
         renderer.render(scene, camera);
     } // handleRender
@@ -467,26 +485,6 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
         scene.addObject(mesh);
     } // meshInit
 
-    function prepare(layers, viewport, tickCount, hitData) {
-        drawOffsetX = viewport.x;
-        drawOffsetY = viewport.y;
-
-        shiftViewport(
-            drawOffsetX + (vpWidth >> 1),
-            drawOffsetY + (vpHeight >> 1),
-            viewport.scaleFactor
-        );
-
-
-        removeOldObjects(activeObjects, currentObjects);
-        currentObjects = {};
-
-        removeOldObjects(activeTiles, currentTiles);
-        currentTiles = {};
-
-        return true;
-    } // prepare
-
     /**
     ### prepArc(drawable, viewport, hitData, opts)
     */
@@ -636,7 +634,6 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
 
         drawTiles: drawTiles,
 
-        prepare: prepare,
         prepArc: prepArc,
         prepImage: prepImage,
         prepMarker: prepMarker,
@@ -652,6 +649,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
     });
 
     _this.bind('detach', handleDetach);
+    _this.bind('predraw', handlePredraw);
     _this.bind('render', handleRender);
     view.bind('reset', handleReset);
 

@@ -20,11 +20,13 @@ reg('layer', 'tile', function(view, panFrame, container, params) {
     function handleRefresh(evt) {
         if (storage) {
             // fire the generator
-            genFn(storage, function() {
-                view.invalidate();
-            });
+            genFn(storage, view.invalidate);
         } // if
     } // handleViewIdle
+    
+    function handleReset(evt) {
+        storage.clear();
+    } // reset
     
     function handleResync(evt) {
         // get the zoom level for the view
@@ -59,6 +61,7 @@ reg('layer', 'tile', function(view, panFrame, container, params) {
     
     view.bind('resync', handleResync);
     view.bind('refresh', handleRefresh);
+    view.bind('reset', handleReset);
     
     return _self;
 });

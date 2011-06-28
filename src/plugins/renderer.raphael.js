@@ -59,7 +59,11 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
         } // if
     } // handleLayerRemove
     
-    function handlePredraw(evt, viewport) {
+    function handlePredraw(evt, layers, viewport, tickcount, hits) {
+        // save the viewport x and y as the draw offset x and y
+        drawOffsetX = viewport.x;
+        drawOffsetY = viewport.y;
+        
         // remove any old objects
         removeOldObjects(activeObjects, currentObjects);
         currentObjects = {};
@@ -220,14 +224,6 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
         }
     } // applyTransform
     
-    function prepare(layers, viewport, tickCount, hitData) {
-        // save the viewport x and y as the draw offset x and y
-        drawOffsetX = viewport.x;
-        drawOffsetY = viewport.y;
-        
-        return paper;
-    } // prepare
-    
     /**
     ### prepArc(drawable, viewport, hitData, opts)
     */
@@ -324,8 +320,6 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
         applyStyle: applyStyle,
         applyTransform: applyTransform,
         
-        prepare: prepare,
-
         prepArc: prepArc,
         prepMarker: prepMarker,
         prepPoly: prepPoly

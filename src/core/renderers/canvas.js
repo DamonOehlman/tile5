@@ -111,8 +111,46 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         panFrame.removeChild(canvas);
     } // handleDetach
     
-    function handleResize() {
+    function handlePredraw(evt, layers, viewport, tickcount, hits) {
+        var ii,
+            canClip = false;
+            
+        // if we already have a context, then restore
+        if (context) {
+            context.restore();
+        }
+        else if (canvas) {
+            // get the context
+            context = canvas.getContext('2d');
+        } // if..else
         
+        // check to see if we can clip
+        for (ii = layers.length; ii--; ) {
+            canClip = canClip || layers[ii].clip;
+        } // for
+        
+        // update the offset x and y
+        drawOffsetX = viewport.x;
+        drawOffsetY = viewport.y;
+        paddingX = viewport.padding.x;
+        paddingY = viewport.padding.y;
+        scaleFactor = viewport.scaleFactor;
+        
+        if (context) {
+            // if we can't clip then clear the context
+            if (! canClip) {
+                context.clearRect(0, 0, vpWidth, vpHeight);
+            } // if
+
+            // save the context
+            context.save();
+            
+            // initialise the composite operation
+            context.globalCompositeOperation = 'source-over';
+        } // if
+    } // handlePredraw
+    
+    function handleResize() {
     } // handleResize
     
     function handleStyleDefined(evt, styleId, styleData) {
@@ -237,47 +275,6 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
             } // if..else
         } // for
     } // drawTiles
-    
-    function prepare(layers, viewport, tickCount, hitData) {
-        var ii,
-            canClip = false;
-            
-        // if we already have a context, then restore
-        if (context) {
-            context.restore();
-        }
-        else if (canvas) {
-            // get the context
-            context = canvas.getContext('2d');
-        } // if..else
-        
-        // check to see if we can clip
-        for (ii = layers.length; ii--; ) {
-            canClip = canClip || layers[ii].clip;
-        } // for
-        
-        // update the offset x and y
-        drawOffsetX = viewport.x;
-        drawOffsetY = viewport.y;
-        paddingX = viewport.padding.x;
-        paddingY = viewport.padding.y;
-        scaleFactor = viewport.scaleFactor;
-        
-        if (context) {
-            // if we can't clip then clear the context
-            if (! canClip) {
-                context.clearRect(0, 0, vpWidth, vpHeight);
-            } // if
-
-            // save the context
-            context.save();
-            
-            // initialise the composite operation
-            context.globalCompositeOperation = 'source-over';
-        } // if
-
-        return context;
-    } // prepare
     
     /**
     ### prepArc(drawable, viewport, hitData, opts)
@@ -437,8 +434,6 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         
         drawTiles: drawTiles,
         
-        prepare: prepare,
-
         prepArc: prepArc,
         prepImage: prepImage,
         prepMarker: prepMarker,
@@ -457,6 +452,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
     loadStyles();
     
     // handle detaching
+    _this.bind('predraw', handlePredraw);
     _this.bind('detach', handleDetach);
     _this.bind('resize', handleResize);
     

@@ -52,7 +52,10 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
         } // if
     } // handleLayerRemove
 
-    function handlePredraw(evt, viewport) {
+    function handlePredraw(evt, layers, viewport, tickcount, hits) {
+        drawOffsetX = viewport.x;
+        drawOffsetY = viewport.y;
+
         removeOldObjects(activeObjects, currentObjects);
         currentObjects = {};
     } // handlePredraw
@@ -190,13 +193,6 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
         }
     } // applyTransform
 
-    function prepare(layers, viewport, tickCount, hitData) {
-        drawOffsetX = viewport.x;
-        drawOffsetY = viewport.y;
-
-        return paper;
-    } // prepare
-
     /**
     ### prepArc(drawable, viewport, hitData, opts)
     */
@@ -288,8 +284,6 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
     var _this = T5.ex(baseRenderer, {
         applyStyle: applyStyle,
         applyTransform: applyTransform,
-
-        prepare: prepare,
 
         prepArc: prepArc,
         prepMarker: prepMarker,

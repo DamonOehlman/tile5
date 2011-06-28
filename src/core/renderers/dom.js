@@ -12,7 +12,7 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
         currentTiles = {};
     
     function createImageContainer() {
-        imageDiv = DOM.create('div', '', DOM.styles({
+        imageDiv = DOM.create('div', 't5-tiles', DOM.styles({
             width: panFrame.offsetWidth + 'px',
             height: panFrame.offsetHeight + 'px'
         }));
@@ -35,7 +35,7 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
         // save to the tile cache so we can remove it once no longer needed
         activeTiles[tile.id] = tile;
 
-        image.src = tile.url;
+        // set the image load handler
         image.onload = function() {
             if (currentTiles[tile.id]) {
                 // check that this image is still valid (it will be in the tile cache)
@@ -46,6 +46,9 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
                 tile.image = null;
             } // if..else
         };
+        
+        // initialise the image source
+        image.src = tile.url;
 
         // initialise the image style
         image.style.cssText = '-webkit-user-select: none; -webkit-box-shadow: none; -moz-box-shadow: none; box-shadow: none; border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px; margin-top: 0px; margin-right: 0px; margin-bottom: 0px; margin-left: 0px; position: absolute;';
@@ -59,7 +62,7 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
         panFrame.removeChild(imageDiv);
     } // handleDetach
     
-    function handlePredraw(evt, viewport) {
+    function handlePredraw(evt, layers, viewport, tickcount, hits) {
         // remove old tiles
         removeOldObjects(activeTiles, currentTiles);
         currentTiles = {};

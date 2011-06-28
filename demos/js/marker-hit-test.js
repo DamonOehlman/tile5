@@ -125,7 +125,7 @@
     /* exports */
     
     map = new T5.Map('mapContainer', {
-    	renderer: 'canvas',
+    	renderer: DEMO.getRenderer(),
     	padding: 'auto'
     });
 
@@ -147,6 +147,8 @@
     
     // load the easing types
     loadEasingTypes();
+    
+    DEMO.createMarkers = createMarkers;
 
     // create the markers
     createMarkers();

@@ -612,50 +612,47 @@ var View = function(container, params) {
                 // TODO: if we have a hover offset, check that no elements have moved under the cursor (maybe)
 
                 // trigger the predraw event
-                renderer.trigger('predraw', vp);
+                renderer.trigger('predraw', layers, vp, tickCount, hits);
 
-                // prepare the renderer
-                if (renderer.prepare(layers, vp, tickCount, hits[0])) {
-                    // reset the view changes count
-                    viewChanges = 0;
-                    viewpaneX = panX = 0;
-                    viewpaneY = panY = 0;
+                // reset the view changes count
+                viewChanges = 0;
+                viewpaneX = panX = 0;
+                viewpaneY = panY = 0;
 
-                    for (ii = layerCount; ii--; ) {
-                        var drawLayer = layers[ii];
+                for (ii = layerCount; ii--; ) {
+                    var drawLayer = layers[ii];
 
-                        // determine whether we need to draw
-                        if (drawLayer.visible) {
-                            // if the layer has style, then apply it and save the current style
-                            var previousStyle = drawLayer.style ? 
-                                    renderer.applyStyle(drawLayer.style, true) : 
-                                    null;
+                    // determine whether we need to draw
+                    if (drawLayer.visible) {
+                        // if the layer has style, then apply it and save the current style
+                        var previousStyle = drawLayer.style ? 
+                                renderer.applyStyle(drawLayer.style, true) : 
+                                null;
 
-                            // draw the layer
-                            drawLayer.draw(
-                                renderer,
-                                vp,
-                                _self,
-                                tickCount,
-                                hits[0]);
+                        // draw the layer
+                        drawLayer.draw(
+                            renderer,
+                            vp,
+                            _self,
+                            tickCount,
+                            hits[0]);
 
-                            // if we applied a style, then restore the previous style if supplied
-                            if (previousStyle) {
-                                renderer.applyStyle(previousStyle);
-                            } // if
+                        // if we applied a style, then restore the previous style if supplied
+                        if (previousStyle) {
+                            renderer.applyStyle(previousStyle);
                         } // if
-                    } // for
+                    } // if
+                } // for
 
-                    // get the renderer to render the view
-                    // NB: some renderers will do absolutely nothing here...
-                    renderer.trigger('render', vp);
+                // get the renderer to render the view
+                // NB: some renderers will do absolutely nothing here...
+                renderer.trigger('render', vp);
 
-                    // trigger the draw complete event
-                    _self.trigger('drawComplete', vp, tickCount);
+                // trigger the draw complete event
+                _self.trigger('drawComplete', vp, tickCount);
 
-                    // reset the view pan position
-                    DOM.move(viewpane, viewpaneX, viewpaneY, extraTransforms, txCenter);
-                } // if
+                // reset the view pan position
+                DOM.move(viewpane, viewpaneX, viewpaneY, extraTransforms, txCenter);
             }
             else {
                 // move the view pane

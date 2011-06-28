@@ -63,12 +63,6 @@ var Renderer = function(view, container, outer, params) {
         },
         
         /**
-        ### prepare(layers, tickCount, hitData)
-        */
-        prepare: function(layers, tickCount, hitData) {
-        },
-        
-        /**
         ### projectXY(srcX, srcY)
         This function is optionally implemented by a renderer to manually take
         care of projecting an x and y coordinate to the target drawing area. 

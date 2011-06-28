@@ -104,6 +104,28 @@ T5.Registry.register('renderer', 'webgl', function(view, panFrame, container, pa
         // remove teh canvas
         panFrame.removeChild(canvas);
     } // handleDetach
+    
+    function handlePredraw(evt, layers, viewport, tickCount, hitData) {
+        // update the offset x and y
+        drawOffsetX = viewport.x;
+        drawOffsetY = viewport.y;
+        
+        // reset the draw buffers
+        tilesToRender = [];
+            
+        gl.viewport(0, 0, vpWidth, vpHeight);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+ 
+        mat4.perspective(45, vpWidth / vpHeight, 0.1, 1000, pMatrix);
+ 
+        mat4.identity(mvMatrix);
+        mat4.rotate(mvMatrix, -Math.PI / 4, [1, 0, 0]);
+        mat4.translate(mvMatrix, [
+            -drawOffsetX - vpWidth / 2, 
+            drawOffsetY + 200 / viewport.scaleFactor, 
+            -200 / viewport.scaleFactor]
+        ); 
+    } // handlePredraw
         
     function init() {
         var xSeg, ySeg;
@@ -251,30 +273,6 @@ T5.Registry.register('renderer', 'webgl', function(view, panFrame, container, pa
     function image(image, x, y, width, height) {
     } // image    
     
-    function prepare(layers, viewport, tickCount, hitData) {
-        // update the offset x and y
-        drawOffsetX = viewport.x;
-        drawOffsetY = viewport.y;
-        
-        // reset the draw buffers
-        tilesToRender = [];
-            
-        gl.viewport(0, 0, vpWidth, vpHeight);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
- 
-        mat4.perspective(45, vpWidth / vpHeight, 0.1, 1000, pMatrix);
- 
-        mat4.identity(mvMatrix);
-        mat4.rotate(mvMatrix, -Math.PI / 4, [1, 0, 0]);
-        mat4.translate(mvMatrix, [
-            -drawOffsetX - vpWidth / 2, 
-            drawOffsetY + 200 / viewport.scaleFactor, 
-            -200 / viewport.scaleFactor]
-        ); 
-        
-        return true;
-    } // prepare
-    
     function render() {
         // iterate through the tiles to render and render
         for (var ii = tilesToRender.length; ii--; ) {
@@ -328,7 +326,6 @@ T5.Registry.register('renderer', 'webgl', function(view, panFrame, container, pa
         arc: arc,
         drawTiles: drawTiles,
         image: image,
-        prepare: prepare,
         render: render,
         path: path,
         
@@ -352,6 +349,7 @@ T5.Registry.register('renderer', 'webgl', function(view, panFrame, container, pa
     
     // handle detach requests
     _this.bind('detach', handleDetach);
+    _this.bind('predraw', handlePredraw);
     
     return _this;
 });
