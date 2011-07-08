@@ -106,4 +106,6 @@ reg(typeDrawable, 'image', function(view, layer, params) {
         imgOffsetX = this.centerOffset.x;
         imgOffsetY = this.centerOffset.y;
     } // if
+    
+    return _self;
 });

@@ -7,8 +7,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
     }, params);
     
     // initialise variables
-    var drawables = [],
-        storage,
+    var storage,
         sortTimeout = 0,
         resyncCallbackId;
         
@@ -43,23 +42,6 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
         return true;
     } // dragObject
     
-    function triggerSort(view) {
-        clearTimeout(sortTimeout);
-        sortTimeout = setTimeout(function() {
-            // sort the shapes so the topmost, leftmost is drawn first followed by other shapes
-            drawables.sort(function(shapeA, shapeB) {
-                if (shapeB.xy && shapeA.xy) {
-                    var diff = shapeB.xy.y - shapeA.xy.y;
-                    return diff != 0 ? diff : shapeB.xy.x - shapeA.xy.x;
-                } // if
-            });
-
-            if (view) {
-                view.invalidate();
-            } // if
-        }, 50);
-    } // triggerSort
-    
     /* event handlers */
     
     function handleItemMove(evt, drawable, newBounds, oldBounds) {
@@ -80,9 +62,6 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
             // kill the storage
             storage = null;
             
-            // reset the drawables
-            drawables = [];
-            
             // unbind the resync handler
             view.unbind('resync', resyncCallbackId);
             
@@ -91,15 +70,16 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
     } // handleLayerRemove
     
     function handleResync(evt) {
+        // get the current drawables
+        var drawables = storage ? storage.all() : [];
+        
         // create the storage with an appropriate cell size
         storage = createStoreForZoomLevel(view.zoom(), storage); // TODO: populate with the previous storage
-        
+
         // iterate through the shapes and resync to the grid
         for (var ii = drawables.length; ii--; ) {
             drawables[ii].resync();
         } // for
-        
-        // triggerSort(view);
     } // handleParentChange
     
     /* exports */
@@ -113,11 +93,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
         if (storage) {
             // reset the storage
             storage.clear();
-
-            // reset the drawables
-            drawables = [];
             _self.trigger('cleared');
-            _self.itemCount = 0;
 
             // invalidate the view
             view.invalidate();
@@ -131,28 +107,16 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
         var drawable = regCreate(typeDrawable, type, view, _self, settings);
 
         // add the the shapes array
-        if (prepend) {
-            drawables.unshift(drawable);
-        }
-        else {
-            drawables[drawables.length] = drawable;
-        } // if..else
-
-        // sync this shape with the parent view
         drawable.resync();
         if (storage && drawable.bounds) {
             storage.insert(drawable.bounds, drawable);
         } // if
 
-        // sorting removed, pretty much irrelevant seeing as items are
-        // drawn from the spatial store
-        // triggerSort(view);
-
         // attach a move event handler
         drawable.bind('move', handleItemMove);
+        drawable.trigger('created');
 
         // update the item count
-        _self.itemCount = drawables.length;
         _self.trigger(type + 'Added', drawable);
         
         // return the drawable
@@ -167,7 +131,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
             },
             drawItems = storage && viewport ? storage.search(viewport): [];
             
-        // iterate through the drawabless and draw the layers
+        // iterate through the draw items and draw the layers
         for (var ii = drawItems.length; ii--; ) {
             var drawable = drawItems[ii],
                 overrideStyle = drawable.style || _self.style, 
@@ -238,7 +202,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
     layer that match the selector expression.  For now though, it just returns all shapes
     */
     function find(selector) {
-        return [].concat(drawables);
+        return storage.all();
     } // find    
     
     /**
@@ -258,8 +222,6 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
     /* initialise _self */
     
     var _self = _extend(new ViewLayer(view, panFrame, container, params), {
-        itemCount: 0,
-        
         clear: clear,
         create: create,
         draw: draw,

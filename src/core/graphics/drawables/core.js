@@ -15,7 +15,6 @@ var Drawable = function(view, layer, params) {
         fill: false,
         stroke: true,
         draggable: false,
-        observable: true, // TODO: should this be true or false by default
         properties: {},
         typeName: 'Shape',
         zindex: 0
@@ -46,9 +45,13 @@ var Drawable = function(view, layer, params) {
     this.translateY = 0;
     
     // make the shape observable
-    if (this.observable) {
-        _observable(this);
-    } // if
+    _observable(this);
+    
+    var _this = this;
+    _this.initialized = false;
+    this.bind('initialized', function(evt) {
+        _this.initialized = true;
+    });
 };
 
 Drawable.prototype = {
@@ -103,6 +106,8 @@ Drawable.prototype = {
                     this.size));
             } // if
         } // if
+        
+        return this;
     },
     
     /**

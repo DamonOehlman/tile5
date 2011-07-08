@@ -62,6 +62,12 @@ Hits = (function() {
         };
     } // initHit
     
+    function match(hit, testType, testXY) {
+        return testType === hit.type
+            && testXY.x === hit.absXY.x 
+            && testXY.y === hit.absXY.y;
+    } // match
+    
     /**
     ### triggerEvent(hitData, target, evtSuffix, elements)
     */
@@ -83,6 +89,7 @@ Hits = (function() {
         diffHits: diffHits,
         init: init,
         initHit: initHit,
+        match: match,
         triggerEvent: triggerEvent
     };
 })();

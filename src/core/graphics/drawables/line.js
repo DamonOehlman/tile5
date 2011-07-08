@@ -1,7 +1,7 @@
 /**
 # DRAWABLE: line
 */
-reg(typeDrawable, 'line', function(view, layer, params) {
+reg(typeDrawable, 'line', function(view, layer, params, callback) {
     params.fill = false;
     params.allowCull = true;
     

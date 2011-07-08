@@ -83,6 +83,7 @@ var View = function(container, params) {
         width, height,
         halfWidth, halfHeight,
         halfOuterWidth, halfOuterHeight,
+        viewTapTimeout,
         wheelZoomTimeout = 0;
         
     /* event handlers */
@@ -125,6 +126,9 @@ var View = function(container, params) {
     
     function handleDoubleTap(evt, absXY, relXY) {
         var projXY = getProjectedXY(relXY.x, relXY.y);
+        
+        // clear the view tap timeout
+        clearTimeout(viewTapTimeout);
 
         // trigger the double tap event
         _self.trigger('doubleTap', absXY, relXY, projXY);
@@ -208,9 +212,11 @@ var View = function(container, params) {
     function handlePointerTap(evt, absXY, relXY) {
         // initialise the hit data
         initHitData('tap', absXY, relXY);
-
-        // trigger the tap on all layers
-        _self.trigger('tap', absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
+        
+        // trigger a tap in 20ms unless an object has been tapped
+        viewTapTimeout = setTimeout(function() {
+            _self.trigger('tap', absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
+        }, 20);
     } // handlePointerTap
     
     /* private functions */
@@ -480,6 +486,11 @@ var View = function(container, params) {
             // if the event state has changed trigger the event
             if (changed) {
                 Hits.triggerEvent(hitSample, _self);
+                
+                // if we have a tap, then clear the view tap timeout
+                if (hitSample.type === 'tap') {
+                    clearTimeout(viewTapTimeout);
+                } // if
             } // if
         } // if
         
@@ -705,36 +716,38 @@ var View = function(container, params) {
             )
             .rotate(-rotation * DEGREES_TO_RADIANS, txCenter)
             .scale(1/scaleFactor, txCenter);
-        
-        // initialise the hit data
-        hits[hits.length] = hitSample = Hits.init(
-            hitType, 
-            absXY, 
-            relXY, 
-            getProjectedXY(relXY.x, relXY.y, true),
-            txXY
-        );
-        
-        // reset the hit flagged state
-        hitFlagged = false;
-        
-        // iterate through the layers and check to see if we have hit potential
-        // iterate through all layers as some layers may use the hit guess operation
-        // to initialise hit data rather than doing it in the draw loop 
-        // (T5.MarkerLayer for instance)
-        for (var ii = layerCount; ii--; ) {
-            // if the layer is visible then check for hits
-            if (layers[ii].visible) {
-                hitFlagged = hitFlagged || (layers[ii].hitGuess ? 
-                    layers[ii].hitGuess(hitSample.gridX, hitSample.gridY, _self) :
-                    false);
+            
+        if (hits.length === 0 || (! Hits.match(hits[hits.length - 1], hitType, absXY))) {
+            // initialise the hit data
+            hits[hits.length] = hitSample = Hits.init(
+                hitType, 
+                absXY, 
+                relXY, 
+                getProjectedXY(relXY.x, relXY.y, true),
+                txXY
+            );
+
+            // reset the hit flagged state
+            hitFlagged = false;
+
+            // iterate through the layers and check to see if we have hit potential
+            // iterate through all layers as some layers may use the hit guess operation
+            // to initialise hit data rather than doing it in the draw loop 
+            // (T5.MarkerLayer for instance)
+            for (var ii = layerCount; ii--; ) {
+                // if the layer is visible then check for hits
+                if (layers[ii].visible) {
+                    hitFlagged = hitFlagged || (layers[ii].hitGuess ? 
+                        layers[ii].hitGuess(hitSample.gridX, hitSample.gridY, _self) :
+                        false);
+                } // if
+            } // for
+
+            // if we have a potential hit then invalidate the view so a more detailed
+            // test can be run
+            if (hitFlagged) {
+                viewChanges++;
             } // if
-        } // for
-        
-        // if we have a potential hit then invalidate the view so a more detailed
-        // test can be run
-        if (hitFlagged) {
-            viewChanges++;
         } // if
     } // initHitData
     

@@ -46,6 +46,19 @@ var SpatialStore = function(cellsize) {
     /* exports */
     
     /**
+    ### all()
+    */
+    function all() {
+        var items = [];
+        
+        for (var id in lookup) {
+            items[items.length] = lookup[id];
+        } // for
+        
+        return items;
+    } // all
+    
+    /**
     ### clear()
     */
     function clear() {
@@ -157,6 +170,7 @@ var SpatialStore = function(cellsize) {
     } // search
     
     return {
+        all: all,
         clear: clear,
         copyInto: copyInto,
         insert: insert,
