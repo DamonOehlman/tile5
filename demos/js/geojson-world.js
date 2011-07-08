@@ -94,7 +94,7 @@
         displayFirstElement(elements, 100);
     });
     */
-
+    
     DEMO.status('Parsing GeoJSON');
     parser(map, worldData, function(layers) {
         for (var layerId in layers) {

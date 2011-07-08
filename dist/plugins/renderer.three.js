@@ -490,7 +490,7 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
     */
     function prepArc(drawable, viewport, hitData, opts) {
         if (! drawable.mesh) {
-            var sphere = new Sphere(drawable.size, 15, 15),
+            var sphere = new THREE.Sphere(drawable.size, 15, 15),
                 mesh = drawable.mesh = new THREE.Mesh(
                     sphere
                 );

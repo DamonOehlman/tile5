@@ -1,17 +1,13 @@
 T5.Registry.register('parser', 'geojson', function() {
-    var FEATURE_TYPE_COLLECTION = 'featurecollection',
-        FEATURE_TYPE_FEATURE = 'feature',
-        DEFAULT_FEATUREDEF = {
+    var DEFAULT_FEATUREDEF = {
             processor: null,
-            group: 'shapes',
-            layerType: 'draw'
+            group: 'shapes'
         };
 
     var featureDefinitions = {
             point: T5.ex({}, DEFAULT_FEATUREDEF, {
                 processor: processPoint,
-                group: 'markers',
-                layerType: 'draw'
+                group: 'markers'
             }),
 
             linestring: T5.ex({}, DEFAULT_FEATUREDEF, {
@@ -31,9 +27,12 @@ T5.Registry.register('parser', 'geojson', function() {
 
     /* feature processor utilities */
 
-    function createShape(layer, coordinates, options, builder) {
+    function createShape(layer, coordinates, options, shapeType) {
         var vectors = readVectors(coordinates, options);
-        builder(layer, vectors, options);
+
+        layer.create(shapeType || 'poly', T5.ex({}, {
+            points: vectors
+        }, options));
 
         return vectors.length;
     } // createShape
@@ -51,51 +50,48 @@ T5.Registry.register('parser', 'geojson', function() {
 
     /* feature processor functions */
 
-    function processLineString(layer, featureData, options, builders) {
+    function processLineString(layer, featureData, options) {
         var vectors = featureData && featureData.coordinates ? featureData.coordinates : [];
 
-        return createShape(layer, vectors, options, builders.line);
+        return createShape(layer, vectors, options, 'line');
     } // processLineString
 
-    function processMultiLineString(layer, featureData, options, builders) {
+    function processMultiLineString(layer, featureData, options) {
         var coordinates = featureData && featureData.coordinates ? featureData.coordinates : [],
             pointsProcessed = 0;
 
         for (var ii = coordinates.length; ii--; ) {
-            pointsProcessed += createShape(layer, coordinates[ii], options, builders.line);
+            pointsProcessed += createShape(layer, coordinates[ii], options, 'line');
         } // for
 
         return pointsProcessed;
     } // processMultiLineString
 
-    function processPoint(layer, featureData, options, builders) {
+    function processPoint(layer, featureData, options) {
         var points = readVectors([featureData.coordinates]);
 
         if (points.length > 0) {
-            var marker = builders.marker(points[0], options);
-
-            if (marker) {
-                layer.add(marker);
-                return points.length;
-            } // if
+            layer.create('marker', options);
         } // if
+
+        return points.length;
     } // processPoint
 
-    function processPolygon(layer, featureData, options, builders) {
+    function processPolygon(layer, featureData, options) {
         var coordinates = featureData && featureData.coordinates ? featureData.coordinates : [];
         if (coordinates.length > 0) {
-            return createShape(layer, coordinates[0], options, builders.poly);
+            return createShape(layer, coordinates[0], options);
         } // if
 
         return 0;
     } // processPolygon
 
-    function processMultiPolygon(layer, featureData, options, builders) {
+    function processMultiPolygon(layer, featureData, options) {
         var coordinates = featureData && featureData.coordinates ? featureData.coordinates : [],
             pointsProcessed = 0;
 
         for (var ii = 0; ii < coordinates.length; ii++) {
-            pointsProcessed += createShape(layer, coordinates[ii][0], options, builders.poly);
+            pointsProcessed += createShape(layer, coordinates[ii][0], options);
         } // for
 
         return pointsProcessed;
@@ -103,35 +99,14 @@ T5.Registry.register('parser', 'geojson', function() {
 
     /* define the GeoJSON parser */
 
-    function parseGeoJSON(view, data, callback, options, builders) {
+    function parseGeoJSON(view, data, callback, options) {
         options = T5.ex({
             rowPreParse: null,
             simplify: false,
             layerPrefix: 'geojson-'
         }, options);
 
-        builders = T5.ex({
-            marker: function(layer, xy, builderOpts) {
-                return layer.create('marker', {
-                    xy: xy
-                });
-            },
-
-            line: function(layer, vectors, builderOpts) {
-                return layer.create('line', T5.ex({
-                    points: vectors
-                }, options, builderOpts));
-            },
-
-            poly: function(layer, vectors, builderOpts) {
-                return layer.create('poly', T5.ex({
-                    points: vectors
-                }, options, builderOpts));
-            }
-        }, builders);
-
-        var VECTORS_PER_CYCLE = 500,
-            rowPreParse = options.rowPreParse,
+        var rowPreParse = options.rowPreParse,
             layerPrefix = options.layerPrefix,
             featureIndex = 0,
             totalFeatures = 0,
@@ -159,10 +134,9 @@ T5.Registry.register('parser', 'geojson', function() {
 
             if (processor) {
                 return processor(
-                    getLayer(layerId, definition.layerType),
+                    getLayer(layerId),
                     featureInfo.data,
-                    featureOpts,
-                    builders);
+                    featureOpts);
             } // if
 
             return 0;
@@ -171,13 +145,13 @@ T5.Registry.register('parser', 'geojson', function() {
         function extractFeatureInfo(featureData, properties) {
             var featureType = featureData && featureData.type ? featureData.type.toLowerCase() : null;
 
-            if (featureType && featureType === FEATURE_TYPE_FEATURE) {
+            if (featureType === 'feature') {
                 return extractFeatureInfo(featureData.geometry, featureData.properties);
             }
             else {
                 return {
                     type: featureType,
-                    isCollection: (featureType ? featureType === FEATURE_TYPE_COLLECTION : false),
+                    isCollection: (featureType ? featureType === 'featurecollection' : false),
                     definition: featureDefinitions[featureType],
                     data: featureData,
                     properties: properties ? properties : featureData.properties
@@ -185,14 +159,11 @@ T5.Registry.register('parser', 'geojson', function() {
             } // if..else
         } // extractFeatureInfo
 
-        function featureToPoly(feature, callback) {
-        } // featureToPrimitives
-
-        function getLayer(layerId, layerType) {
-            var layer = layers[layerId];
+        function getLayer(layerId) {
+            var layer = view.layer(layerId);
 
             if (! layer) {
-                layers[layerId] = layer = view.layer(layerId, layerType, { visible: false });
+                layers[layerId] = layer = view.layer(layerId, 'draw', { visible: false });
             } // if
 
             return layer;

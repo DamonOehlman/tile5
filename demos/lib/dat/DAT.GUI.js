@@ -846,8 +846,14 @@ DAT.GUI.Controller.prototype.onFinishChange = function(fnc) {
 
 DAT.GUI.Controller.prototype.options = function() {
   var i, opt, _this = this;
+  
+  // remove the select if created
+  if (_this.select && _this.select.parentNode) {
+      _this.domElement.removeChild(_this.select);
+  } // if
+ 
   _this.select = document.createElement('select');
-  if (arguments.length == 1) {
+  if (arguments.length == 1 && (! arguments[0].length)) {
     var arr = arguments[0];
     for (i in arr) {
       opt = document.createElement('option');
@@ -1311,7 +1317,10 @@ DAT.GUI.ControllerString = function() {
   };
 
   this.options = function() {
-    _this.domElement.removeChild(input);
+    if (input && input.parentNode) {
+        _this.domElement.removeChild(input);
+    } // if
+    
     return DAT.GUI.Controller.prototype.options.apply(this, arguments);
   };
 

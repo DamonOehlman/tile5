@@ -12,18 +12,19 @@ DEMO = (function() {
     // define the demos
     var sampleGui,
         demo = {
+            group: 'main',
             sample: 'Simple',
             renderer: 'canvas'
         },
         reTitle = /(?:^|\-)(\w)(\w+)/g,
+        reGroup = /^(.*?)\/(.*)$/,
+        groups = {},
+        groupNames = [],
+        sampleField,
         demoData = {
             'geojson-world': {
                 title: 'GeoJSON World',
-                deps: [
-                    '../dist/plugins/parser.geojson.js',
-                    '../dist/style/map-overlays.js',
-                    'data/world.js'
-                ]
+                deps: ['data/world.js']
             },
             
             'marker-hit-test': {
@@ -32,7 +33,7 @@ DEMO = (function() {
                 ]                
             },
             
-            'heatcanvas': {
+            'plugins/heatmap': {
                 deps: [
                     'lib/heatcanvas.js',
                     '../dist/plugins/layers/heatcanvas.js',
@@ -40,24 +41,25 @@ DEMO = (function() {
                 ]
             },
             
-            'visualization-walmart': {
+            'visualization/walmart': {
                 deps: ['data/walmarts.js']
             },
             
-            'visualization-earthquakes': {
+            'visualization/earthquakes': {
                 deps: ['data/cached-quakes.js']
             }
         },
         demos = [
             'simple',
             'geojson-world',
-            'animated-map-panning',
-            'animated-map-markers',
+            'animation/map-panning',
+            'animation/map-markers',
             'marker-hit-test',
             // 'geojson-pdxapi',
-            'visualization-walmart',
-            'visualization-earthquakes',
-            'heatcanvas'
+            'visualization/walmart',
+            'visualization/earthquakes',
+            'drawing/creator',
+            'plugins/heatmap'
         ],
         startLat = -27.469592089206213,
         startLon = 153.0201530456543;
@@ -65,29 +67,24 @@ DEMO = (function() {
     /* internals */
     
     function buildUI() {
-        var options = [],
-            sampleField = gui.add(demo, 'sample'),
-            ii;
-            
+        var groupField = gui.add(demo, 'group');
+        
+        // initialise the groups
         loadDemoData();
         
-        // iterate through the demos
-        for (ii = 0; ii < demos.length; ii++) {
-            if (! demos[ii].disabled) {
-                options.push(demos[ii].title);
-            } // if
-        } // for
+        // initialise the group field
+        groupField.onChange(selectGroup).options.apply(groupField, groupNames);
         
         // add the demos
-        sampleField.options.apply(sampleField, options);
+        sampleField = gui.add(demo, 'sample');
         sampleField.onChange(load);
         sampleField.listen();
 
         // add the renderer control
         gui.add(demo, 'renderer')
-            .options('canvas', 'raphael/dom', 'dom', 'three:webgl')
+            .options('canvas', 'raphael/dom (beta)', 'dom (beta)', 'three:webgl (alpha)')
             .onChange(function(newRenderer) {
-                map.renderer(newRenderer);
+                map.renderer(newRenderer.replace(/\((alpha|beta)\)/, '').trim());
             });
             
         gui.domElement.style.position = 'absolute';
@@ -95,12 +92,12 @@ DEMO = (function() {
         gui.domElement.style.left = '10px';
         gui.domElement.style['z-index'] = 1001;
         
+        // select the group
+        selectGroup(demo.group, location.hash);
+        
         document.body.appendChild(gui.domElement);
         $('.guidat-controllers').height('auto');
         $('.guidat-toggle').hide();
-        
-        // load the demo
-        load(location.hash);
     } // buildUI
     
     function genTitle(id) {
@@ -109,7 +106,7 @@ DEMO = (function() {
             
         // clean up the status text
         reTitle.lastIndex = 0;
-        match = reTitle.exec(id);
+        match = reTitle.exec(id.replace(reGroup, '$2'));
         while (match) {
             title += match[1].toUpperCase() + match[2] + ' ';
             match = reTitle.exec(id);
@@ -131,11 +128,13 @@ DEMO = (function() {
     
     function loadDemoData() {
         for (var ii = 0; ii < demos.length; ii++) {
-            var demoId = demos[ii];
-            
+            var demoId = demos[ii],
+                group = reGroup.test(demoId) ? demoId.replace(reGroup, '$1') : 'main';
+                
             // replace the demo with the demo data
             demos[ii] = demoData[demoId] || {};
             demos[ii].id = '#' + demoId;
+            demos[ii].group = group;
             
             // if we don't have a title, generate one from the id
             if (! demos[ii].title) {
@@ -143,14 +142,43 @@ DEMO = (function() {
             } // if
             
             demos[ii].script = 'js/' + demoId + '.js';
+            
+            // create the group if not created
+            if (! groups[group]) {
+                groups[group] = [];
+                groupNames[groupNames.length] = group;
+            } // if
+            
+            // add to the group
+            groups[group].push(demos[ii]);
         } // for
     } // loadDemoData
+    
+    function selectGroup(groupName, targetDemo) {
+        var options = [],
+            groupDemos = groups[groupName] || [];
+        
+        // iterate through the group demos and fill the options
+        for (var ii = 0; ii < groupDemos.length; ii++) {
+            options[options.length] = groupDemos[ii].title;
+        } // for
+        
+        // update the sample field
+        sampleField.options.apply(sampleField, options);
+        
+        // load the first demo in the options
+        load(targetDemo || options[0] || '#simple');
+    }
         
     /* exports */
     
     function getHomePosition() {
         return new GeoJS.Pos(startLat, startLon);
     } // getHomePosition
+    
+    function getRenderer() {
+        return demo.renderer.replace(/\((alpha|beta)\)/, '').trim();
+    } // getRenderer
     
     function load(demoTitle) {
         var selectedDemo,
@@ -184,7 +212,6 @@ DEMO = (function() {
         // default to the first demo if we don't have a proper demo
         selectedDemo = selectedDemo || demos[0];
         
-        status('loading demo: ' + selectedDemo.title);
         demo.sample = selectedDemo.title;
         location.hash = selectedDemo.id;
         
@@ -198,6 +225,22 @@ DEMO = (function() {
         });
     } // load
     
+    function makeMap(zoomLevel, startPos, options) {
+        // create the map
+        map = new T5.Map('mapContainer', T5.ex({
+            renderer: getRenderer()
+        }, options));
+
+        map.layer('tiles', 'tile', {
+            generator: 'osm.cloudmade',
+            // demo api key, register for an API key at http://dev.cloudmade.com/
+            apikey: '7960daaf55f84bfdb166014d0b9f8d41'
+        });
+
+        map.zoom(zoomLevel || 8).center(startPos || getHomePosition());
+        return map;
+    } // makeMap
+    
     function makeSampleUI() {
         if (sampleGui && sampleGui.domElement.parentNode) {
             document.body.removeChild(sampleGui.domElement);
@@ -210,7 +253,7 @@ DEMO = (function() {
             gui:sampleGui,
             done: function() {
                 sampleGui.domElement.style.position = 'absolute';
-                sampleGui.domElement.style.top = '80px';
+                sampleGui.domElement.style.top = '115px';
                 sampleGui.domElement.style.left = '10px';
                 sampleGui.domElement.style['z-index'] = 1001;
 
@@ -238,13 +281,12 @@ DEMO = (function() {
     $(document).ready(buildUI);
         
     return T5.ex(demo, {
-        getRenderer: function() {
-            return demo.renderer;
-        },
-        
+        getRenderer: getRenderer,
         getHomePosition: getHomePosition,
         
         load: load,
+        
+        makeMap: makeMap,
         makeSampleUI: makeSampleUI,
         rotate: rotate,
         status: status

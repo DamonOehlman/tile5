@@ -5,9 +5,11 @@ html, body, #mapContainer {
     overflow: hidden;
 }
 
+/*
 .t5-view {
     background: url(../img/map-bg.png);
 }
+*/
 
 .guidat {
     opacity: 0.75;

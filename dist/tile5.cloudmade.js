@@ -2829,6 +2829,12 @@ Hits = (function() {
         };
     } // initHit
 
+    function match(hit, testType, testXY) {
+        return testType === hit.type
+            && testXY.x === hit.absXY.x
+            && testXY.y === hit.absXY.y;
+    } // match
+
     /**
     ### triggerEvent(hitData, target, evtSuffix, elements)
     */
@@ -2850,6 +2856,7 @@ Hits = (function() {
         diffHits: diffHits,
         init: init,
         initHit: initHit,
+        match: match,
         triggerEvent: triggerEvent
     };
 })();
@@ -2894,6 +2901,19 @@ var SpatialStore = function(cellsize) {
     } // getBuckets
 
     /* exports */
+
+    /**
+    ### all()
+    */
+    function all() {
+        var items = [];
+
+        for (var id in lookup) {
+            items[items.length] = lookup[id];
+        } // for
+
+        return items;
+    } // all
 
     /**
     ### clear()
@@ -2991,6 +3011,7 @@ var SpatialStore = function(cellsize) {
     } // search
 
     return {
+        all: all,
         clear: clear,
         copyInto: copyInto,
         insert: insert,
@@ -3953,6 +3974,7 @@ var View = function(container, params) {
         width, height,
         halfWidth, halfHeight,
         halfOuterWidth, halfOuterHeight,
+        viewTapTimeout,
         wheelZoomTimeout = 0;
 
     /* event handlers */
@@ -3992,6 +4014,8 @@ var View = function(container, params) {
 
     function handleDoubleTap(evt, absXY, relXY) {
         var projXY = getProjectedXY(relXY.x, relXY.y);
+
+        clearTimeout(viewTapTimeout);
 
         _self.trigger('doubleTap', absXY, relXY, projXY);
 
@@ -4064,7 +4088,9 @@ var View = function(container, params) {
     function handlePointerTap(evt, absXY, relXY) {
         initHitData('tap', absXY, relXY);
 
-        _self.trigger('tap', absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
+        viewTapTimeout = setTimeout(function() {
+            _self.trigger('tap', absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
+        }, 20);
     } // handlePointerTap
 
     /* private functions */
@@ -4302,6 +4328,10 @@ var View = function(container, params) {
 
             if (changed) {
                 Hits.triggerEvent(hitSample, _self);
+
+                if (hitSample.type === 'tap') {
+                    clearTimeout(viewTapTimeout);
+                } // if
             } // if
         } // if
 
@@ -4488,26 +4518,28 @@ var View = function(container, params) {
             .rotate(-rotation * DEGREES_TO_RADIANS, txCenter)
             .scale(1/scaleFactor, txCenter);
 
-        hits[hits.length] = hitSample = Hits.init(
-            hitType,
-            absXY,
-            relXY,
-            getProjectedXY(relXY.x, relXY.y, true),
-            txXY
-        );
+        if (hits.length === 0 || (! Hits.match(hits[hits.length - 1], hitType, absXY))) {
+            hits[hits.length] = hitSample = Hits.init(
+                hitType,
+                absXY,
+                relXY,
+                getProjectedXY(relXY.x, relXY.y, true),
+                txXY
+            );
 
-        hitFlagged = false;
+            hitFlagged = false;
 
-        for (var ii = layerCount; ii--; ) {
-            if (layers[ii].visible) {
-                hitFlagged = hitFlagged || (layers[ii].hitGuess ?
-                    layers[ii].hitGuess(hitSample.gridX, hitSample.gridY, _self) :
-                    false);
+            for (var ii = layerCount; ii--; ) {
+                if (layers[ii].visible) {
+                    hitFlagged = hitFlagged || (layers[ii].hitGuess ?
+                        layers[ii].hitGuess(hitSample.gridX, hitSample.gridY, _self) :
+                        false);
+                } // if
+            } // for
+
+            if (hitFlagged) {
+                viewChanges++;
             } // if
-        } // for
-
-        if (hitFlagged) {
-            viewChanges++;
         } // if
     } // initHitData
 
@@ -5150,7 +5182,6 @@ var Drawable = function(view, layer, params) {
         fill: false,
         stroke: true,
         draggable: false,
-        observable: true, // TODO: should this be true or false by default
         properties: {},
         typeName: 'Shape',
         zindex: 0
@@ -5175,9 +5206,13 @@ var Drawable = function(view, layer, params) {
     this.translateX = 0;
     this.translateY = 0;
 
-    if (this.observable) {
-        _observable(this);
-    } // if
+    _observable(this);
+
+    var _this = this;
+    _this.initialized = false;
+    this.bind('initialized', function(evt) {
+        _this.initialized = true;
+    });
 };
 
 Drawable.prototype = {
@@ -5231,6 +5266,8 @@ Drawable.prototype = {
                     this.size));
             } // if
         } // if
+
+        return this;
     },
 
     /**
@@ -5446,7 +5483,7 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
                 for (var ii = 0; ii < sliceLen; ii++) {
                     polyPoints.push(new view.XY(slice[ii]));
                 } // for
-            }, resync, SYNC_PARSE_THRESHOLD);
+            }, _self.initialized ? resync : null, SYNC_PARSE_THRESHOLD);
 
             return _self;
         }
@@ -5481,7 +5518,7 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
 /**
 # DRAWABLE: line
 */
-reg(typeDrawable, 'line', function(view, layer, params) {
+reg(typeDrawable, 'line', function(view, layer, params, callback) {
     params.fill = false;
     params.allowCull = true;
 
@@ -5586,6 +5623,8 @@ reg(typeDrawable, 'image', function(view, layer, params) {
         imgOffsetX = this.centerOffset.x;
         imgOffsetY = this.centerOffset.y;
     } // if
+
+    return _self;
 });
 /**
 # DRAWABLE: arc
@@ -5770,8 +5809,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
         zindex: 10
     }, params);
 
-    var drawables = [],
-        storage,
+    var storage,
         sortTimeout = 0,
         resyncCallbackId;
 
@@ -5802,22 +5840,6 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
         return true;
     } // dragObject
 
-    function triggerSort(view) {
-        clearTimeout(sortTimeout);
-        sortTimeout = setTimeout(function() {
-            drawables.sort(function(shapeA, shapeB) {
-                if (shapeB.xy && shapeA.xy) {
-                    var diff = shapeB.xy.y - shapeA.xy.y;
-                    return diff != 0 ? diff : shapeB.xy.x - shapeA.xy.x;
-                } // if
-            });
-
-            if (view) {
-                view.invalidate();
-            } // if
-        }, 50);
-    } // triggerSort
-
     /* event handlers */
 
     function handleItemMove(evt, drawable, newBounds, oldBounds) {
@@ -5834,20 +5856,19 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
         if (layer === _self) {
             storage = null;
 
-            drawables = [];
-
             view.unbind('resync', resyncCallbackId);
 
         } // if
     } // handleLayerRemove
 
     function handleResync(evt) {
+        var drawables = storage ? storage.all() : [];
+
         storage = createStoreForZoomLevel(view.zoom(), storage); // TODO: populate with the previous storage
 
         for (var ii = drawables.length; ii--; ) {
             drawables[ii].resync();
         } // for
-
     } // handleParentChange
 
     /* exports */
@@ -5858,10 +5879,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
     function clear() {
         if (storage) {
             storage.clear();
-
-            drawables = [];
             _self.trigger('cleared');
-            _self.itemCount = 0;
 
             view.invalidate();
         } // if
@@ -5873,22 +5891,14 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
     function create(type, settings, prepend) {
         var drawable = regCreate(typeDrawable, type, view, _self, settings);
 
-        if (prepend) {
-            drawables.unshift(drawable);
-        }
-        else {
-            drawables[drawables.length] = drawable;
-        } // if..else
-
         drawable.resync();
         if (storage && drawable.bounds) {
             storage.insert(drawable.bounds, drawable);
         } // if
 
-
         drawable.bind('move', handleItemMove);
+        drawable.trigger('created');
 
-        _self.itemCount = drawables.length;
         _self.trigger(type + 'Added', drawable);
 
         return drawable;
@@ -5962,7 +5972,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
     layer that match the selector expression.  For now though, it just returns all shapes
     */
     function find(selector) {
-        return [].concat(drawables);
+        return storage.all();
     } // find
 
     /**
@@ -5982,8 +5992,6 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
     /* initialise _self */
 
     var _self = _extend(new ViewLayer(view, panFrame, container, params), {
-        itemCount: 0,
-
         clear: clear,
         create: create,
         draw: draw,
