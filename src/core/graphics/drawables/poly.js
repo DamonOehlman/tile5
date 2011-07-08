@@ -72,7 +72,7 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
                 for (var ii = 0; ii < sliceLen; ii++) {
                     polyPoints.push(new view.XY(slice[ii]));
                 } // for
-            }, _self.initialized ? resync : null, SYNC_PARSE_THRESHOLD);
+            }, resync, SYNC_PARSE_THRESHOLD);
 
             return _self;
         }

@@ -43,15 +43,10 @@ var Drawable = function(view, layer, params) {
     this.scaling = 1;
     this.translateX = 0;
     this.translateY = 0;
+    this.visible = true;
     
     // make the shape observable
     _observable(this);
-    
-    var _this = this;
-    _this.initialized = false;
-    this.bind('initialized', function(evt) {
-        _this.initialized = true;
-    });
 };
 
 Drawable.prototype = {

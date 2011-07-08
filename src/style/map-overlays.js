@@ -13,7 +13,8 @@ T5.Style.define({
     'area.highlight': {
        lineWidth: 1,
        stroke: '#000000',
-       fill: '#f8d461'
+       fill: '#f8d461',
+       opacity: 0.8
     },
 
     'area.parkland': {

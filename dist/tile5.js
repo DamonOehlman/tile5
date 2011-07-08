@@ -46,8 +46,9 @@
 
                 if (IS_COMMONJS) {
                     plugin = require('./plugins/' + pluginFile);
-                } // if
-
+                }
+                else if (labLoader) {
+                } // if..else
             } // for
         } // for
 
@@ -1084,6 +1085,8 @@ var _observable = (function() {
                 if (! eventCallbacks) {
                     return null;
                 } // if
+
+                eventCallbacks = eventCallbacks.concat(getHandlersForName(target, '*'));
 
                 eventArgs = Array.prototype.slice.call(arguments, 2);
 
@@ -2654,7 +2657,7 @@ Line.prototype = _extend(new Array(), {
             return points.slice(max(firstIdx - 1, 0), min(lastIdx + 1, points.length));
         } // if
 
-        return this;
+        return this.points;
     },
 
     /**
@@ -5205,14 +5208,9 @@ var Drawable = function(view, layer, params) {
     this.scaling = 1;
     this.translateX = 0;
     this.translateY = 0;
+    this.visible = true;
 
     _observable(this);
-
-    var _this = this;
-    _this.initialized = false;
-    this.bind('initialized', function(evt) {
-        _this.initialized = true;
-    });
 };
 
 Drawable.prototype = {
@@ -5483,7 +5481,7 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
                 for (var ii = 0; ii < sliceLen; ii++) {
                     polyPoints.push(new view.XY(slice[ii]));
                 } // for
-            }, _self.initialized ? resync : null, SYNC_PARSE_THRESHOLD);
+            }, resync, SYNC_PARSE_THRESHOLD);
 
             return _self;
         }
@@ -5928,7 +5926,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
             } // if
 
             transform = renderer.applyTransform(drawable);
-            drawData = prepFn ? prepFn.call(renderer,
+            drawData = drawable.visible && prepFn ? prepFn.call(renderer,
                 drawable,
                 viewport,
                 hitData,

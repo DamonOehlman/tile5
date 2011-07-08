@@ -149,7 +149,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
             } // if
             
             transform = renderer.applyTransform(drawable);
-            drawData = prepFn ? prepFn.call(renderer, 
+            drawData = drawable.visible && prepFn ? prepFn.call(renderer, 
                 drawable,
                 viewport,
                 hitData,
