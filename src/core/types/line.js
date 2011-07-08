@@ -43,7 +43,7 @@ Line.prototype = _extend(new Array(), {
         } // if
         
         // otherwise just return the array
-        return this;
+        return this.points;
     },
     
     /**
