@@ -3254,6 +3254,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
     var vpWidth,
         vpHeight,
         canvas,
+        cr = new T5.Rect(),
         createdCanvas = false,
         context,
         drawOffsetX = 0,
@@ -3345,8 +3346,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
     } // handleDetach
 
     function handlePredraw(evt, layers, viewport, tickcount, hits) {
-        var ii,
-            canClip = false;
+        var ii;
 
         if (context) {
             context.restore();
@@ -3355,10 +3355,6 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
             context = canvas.getContext('2d');
         } // if..else
 
-        for (ii = layers.length; ii--; ) {
-            canClip = canClip || layers[ii].clip;
-        } // for
-
         drawOffsetX = viewport.x;
         drawOffsetY = viewport.y;
         paddingX = viewport.padding.x;
@@ -3366,9 +3362,8 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         scaleFactor = viewport.scaleFactor;
 
         if (context) {
-            if (! canClip) {
-                context.clearRect(0, 0, vpWidth, vpHeight);
-            } // if
+            context.clearRect(cr.x, cr.y, cr.w, cr.h);
+            cr = new T5.Rect();
 
             context.save();
 
@@ -3402,15 +3397,6 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
 
             context: context
         };
-
-        /*
-        DEBUGGING CODE: draw the hit point on the canvas - very useful :)
-        if (hitData) {
-            context.beginPath();
-            context.arc(hitData.x, hitData.y, 5, 0, Math.PI * 2, false);
-            context.fill();
-        } // if
-        */
     } // initDrawData
 
     function loadStyles() {
@@ -3420,6 +3406,33 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
 
         T5.bind('styleDefined', handleStyleDefined);
     } // loadStyles
+
+    function updateClearRect(x, y, w, h, full) {
+        if (! cr.full) {
+            if (x.bounds) {
+                var drawable = x,
+                    bounds = drawable.bounds,
+                    xy = drawable.xy;
+
+                w = (bounds.w * drawable.scaling * 1.2) | 0;
+                h = (bounds.h * drawable.scaling * 1.2) | 0;
+                x = xy.x - drawOffsetX - (w >> 1);
+                y = xy.y - drawOffsetY - (h >> 1);
+            } // if
+
+            var x2 = x + w,
+                y2 = y + h;
+
+            cr.x = x < cr.x ? x : cr.x;
+            cr.y = y < cr.y ? y : cr.y;
+            cr.x2 = x2 > cr.x2 ? x2 : cr.x2;
+            cr.y2 = y2 > cr.y2 ? y2 : cr.y2;
+            cr.w = cr.x2 - cr.x;
+            cr.h = cr.y2 - cr.y;
+        } // if
+
+        cr.full = cr.full || full;
+    } // updateClearRect
 
     /* exports */
 
@@ -3478,6 +3491,8 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
             maxX = viewport.x2,
             maxY = viewport.y2;
 
+        updateClearRect(0, 0, viewport.w, viewport.h, true);
+
         for (var ii = tiles.length; ii--; ) {
             tile = tiles[ii];
 
@@ -3498,6 +3513,8 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
     */
     function prepArc(drawable, viewport, hitData, opts) {
         context.beginPath();
+        updateClearRect(drawable);
+
         context.arc(
             drawable.xy.x - (transform ? transform.x : drawOffsetX),
             drawable.xy.y - (transform ? transform.y : drawOffsetY),
@@ -3546,19 +3563,18 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         var markerX = drawable.xy.x - (transform ? transform.x : drawOffsetX),
             markerY = drawable.xy.y - (transform ? transform.y : drawOffsetY),
             size = drawable.size,
+            drawX = markerX - (size >> 1),
+            drawY = markerY - (size >> 1),
             drawOverride = undefined;
 
         context.beginPath();
+        updateClearRect(drawable);
 
         switch (drawable.markerType.toLowerCase()) {
             case 'image':
                 drawOverride = drawNothing;
 
-                context.rect(
-                    markerX - (size >> 1),
-                    markerY - (size >> 1),
-                    size,
-                    size);
+                context.rect(drawX, drawY, size, size);
 
                 if (drawable.reset && drawable.image) {
                     drawable.image = null;
@@ -3566,25 +3582,13 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
                 } // if
 
                 if (drawable.image) {
-                    context.drawImage(
-                        drawable.image,
-                        markerX - (size >> 1),
-                        markerY - (size >> 1),
-                        size,
-                        size
-                    );
+                    context.drawImage(drawable.image, drawX, drawY, size, size);
                 }
                 else {
                     getImage(drawable.imageUrl, function(image) {
                         drawable.image = image;
 
-                        context.drawImage(
-                            drawable.image,
-                            markerX - (size >> 1),
-                            markerY - (size >> 1),
-                            size,
-                            size
-                        );
+                        context.drawImage(drawable.image, drawX, drawY, size, size);
                     });
                 } // if..else
 
@@ -3611,6 +3615,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
             offsetY = transform ? transform.y : drawOffsetY;
 
         context.beginPath();
+        updateClearRect(drawable);
 
         for (var ii = points.length; ii--; ) {
             var x = points[ii].x - offsetX,
@@ -4716,7 +4721,9 @@ var View = function(container, params) {
     ```
     */
     function layer(id, layerType, settings) {
-        if (_is(id, typeString) && _is(layerType, typeUndefined)) {
+        var haveId = typeof id != 'undefined';
+
+        if (haveId && _is(layerType, typeUndefined)) {
             for (var ii = 0; ii < layerCount; ii++) {
                 if (layers[ii].id === id) {
                     return layers[ii];
@@ -4725,7 +4732,7 @@ var View = function(container, params) {
 
             return undefined;
         }
-        else if (_is(id, typeString)) {
+        else if (haveId) {
             var layer = regCreate('layer', layerType, _self, panContainer, outer, settings),
                 layerIndex = getLayerIndex(id);
 

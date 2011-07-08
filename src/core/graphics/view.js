@@ -945,8 +945,10 @@ var View = function(container, params) {
     ```
     */
     function layer(id, layerType, settings) {
+        var haveId = typeof id != 'undefined';
+        
         // if the layer type is undefined, then assume we are doing a get
-        if (_is(id, typeString) && _is(layerType, typeUndefined)) {
+        if (haveId && _is(layerType, typeUndefined)) {
             // look for the matching layer, and return when found
             for (var ii = 0; ii < layerCount; ii++) {
                 if (layers[ii].id === id) {
@@ -958,7 +960,7 @@ var View = function(container, params) {
         }
         // otherwise, let's create the layer and add it to the view
         // TODO: handle when an existing view is passed via the second arg
-        else if (_is(id, typeString)) {
+        else if (haveId) {
             // create the layer using the registry
             var layer = regCreate('layer', layerType, _self, panContainer, outer, settings),
                 layerIndex = getLayerIndex(id);
@@ -1208,7 +1210,6 @@ var View = function(container, params) {
     } // if
     
     // start the animation frame
-    // setInterval(cycle, 1000 / 60);
     Animator.attach(cycle);
     
     return _self;

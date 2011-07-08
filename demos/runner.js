@@ -55,6 +55,7 @@ DEMO = (function() {
             'animation/map-markers',
             'marker-hit-test',
             'geojson/pdxapi',
+            'geojson/geocommons',
             'visualization/walmart',
             'visualization/earthquakes',
             'drawing/creator',
@@ -81,7 +82,7 @@ DEMO = (function() {
 
         // add the renderer control
         gui.add(demo, 'renderer')
-            .options('canvas', 'raphael/dom (beta)', 'dom (beta)', 'three:webgl (alpha)')
+            .options('canvas', 'canvas/dom (beta)', 'raphael/dom (beta)', 'dom (beta)', 'three:webgl (alpha)')
             .onChange(function(newRenderer) {
                 map.renderer(newRenderer.replace(/\((alpha|beta)\)/, '').trim());
             });

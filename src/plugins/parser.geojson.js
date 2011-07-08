@@ -1,5 +1,17 @@
-T5.GeoJSONParser = function() {
+T5.GeoJSONParser = function(params) {
+    params = T5.ex({
+        generalizer: null
+    }, params);
+    
     // internals
+    
+    var generalizer = params.generalizer,
+        reMulti = /^multi(.*)$/i,
+        handlers = {
+            linestring: line,
+            point: point,
+            polygon: poly
+        };
 
     function asPositions(coords) {
         var positions = [];
@@ -8,7 +20,7 @@ T5.GeoJSONParser = function() {
             positions[ii] = new GeoJS.Pos(coords[ii][1], coords[ii][0]);
         } // for
         
-        return positions;
+        return generalizer ? generalizer(positions) : positions;
     } // asPoints
     
     function line(coordinates, properties) {
@@ -35,7 +47,7 @@ T5.GeoJSONParser = function() {
     function run(data) {
         var ii;
         
-        if (! data.type) {
+        if (!data || !data.type) {
             return;
         } // if
         
@@ -53,39 +65,20 @@ T5.GeoJSONParser = function() {
                 } // if
                 
                 var geomType = (data.geometry.type || '').toLowerCase(),
-                    coordinates = data.geometry.coordinates || [];
-                
-                switch (geomType) {
-                    case 'point': {
-                        point(coordinates, data.properties);
-                    }
+                    multiMatch = reMulti.exec(geomType),
+                    coordinates = data.geometry.coordinates || [],
+                    handler = handlers[geomType];
                     
-                    case 'linestring': {
-                        line(coordinates, data.properties);
-                    } // line
+                if (multiMatch) {
+                    handler = handlers[multiMatch[1]];
                     
-                    case 'polygon': {
-                        poly(coordinates, data.properties);
-                    }
-                    
-                    case 'multipoint': {
-                        for (ii = coordinates.length; ii--; ) {
-                            point(coordinates[ii], data.properties);
-                        } // for
-                    } // multipoint
-                    
-                    case 'multilinestring': {
-                        for (ii = coordinates.length; ii--; ) {
-                            line(coordinates[ii], data.properties);
-                        } // for
-                    }
-                    
-                    case 'multipolygon': {
-                        for (ii = coordinates.length; ii--; ) {
-                            poly(coordinates[ii], data.properties);
-                        } // for
-                    }
-                } // switch
+                    for (ii = coordinates.length; handler && ii--; ) {
+                        handler(coordinates[ii], data.properties);
+                    } // for
+                }
+                else if (handler) {
+                    handler(coordinates, data.properties);
+                } // if..else
             }
         } // switch
     } // run
