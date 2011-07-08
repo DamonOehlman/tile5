@@ -815,6 +815,9 @@ var View = function(container, params) {
     will definitely want to call the detach method between usages.
     */
     function detach() {
+        // detach from the animator
+        Animator.detach(cycle);
+        
         // if we have a renderer, then detach 
         if (renderer) {
             renderer.trigger('detach');

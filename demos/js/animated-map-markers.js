@@ -1,34 +1,37 @@
 (function() {
     var arcRadius = 500, // distance in km
         angle = 0,
-        cycleSpeed = 5000,
+        sample = {
+            speed: 2
+        },
         startPosition,
         planeStart,
         lastTickCount = 0,
         TWO_PI = Math.PI * 2,
-        map,
         plane;
 
     function getPlaneScale() {
-        return (map.getZoomLevel() / 16) * 0.7;
+        return (map.zoom() / 16) * 0.7;
     } // getPlaneScale
 
-    function movePlane(evt, tickCount) {
+    function movePlane(evt, viewport, tickCount) {
         // if we have a last tick count we can perform some animation
         if (lastTickCount) {
-            var deltaChange = (tickCount - lastTickCount) / cycleSpeed,
+            var deltaChange = (tickCount - lastTickCount) / (10000 / sample.speed),
                 newPosition;
 
+            // calculate the angle
             angle = (angle + (TWO_PI * deltaChange)) % TWO_PI;
-            newPosition = statePosition.offset(
+            newPosition = startPosition.offset(
                 arcRadius * Math.sin(angle),
                 arcRadius * Math.cos(angle)
             );
             
-            T5.GeoXY.updatePos(plane.xy, newPosition);
+            // update the plane's position
+            plane.xy = new T5.GeoXY(newPosition).sync(map);
 
-            plane.rotate(TWO_PI - angle);
-            // map.panToPosition(newPosition);
+            // rotate the plane
+            plane.rotate(deltaChange * -360);
             map.invalidate();
         }
 
@@ -55,17 +58,17 @@
 	map.center(startPosition).zoom(5);
 
     plane = map.layer('markers').create('marker', {
-        xy: T5.GeoXY.init(planeStart),
+        xy: new T5.GeoXY(planeStart),
         markerType: 'image',
         size: 100,
-        imageUrl: '/img/fly/plane.png'
+        imageUrl: 'img/plane.png'
     });
 
     // make the plane transformable
     plane.scale(getPlaneScale());
 
     // handle the draw complete
-    map.bind('enterFrame', movePlane);
+    map.bind('drawComplete', movePlane);
 
     // handle zoom level changes
     map.bind('zoomLevelChange', function(evt, zoomLevel) {
@@ -76,4 +79,8 @@
     map.bind('tapHit', function(evt, elements, absXY, relXY, offsetXY) {
         DEMO.status('tapped the plane', 1200);
     });
+    
+    var ui = DEMO.makeSampleUI();
+    ui.gui.add(sample, 'speed', 1, 10);
+    ui.done();
 })();

@@ -12,12 +12,13 @@ DEMO = (function() {
     // define the demos
     var sampleGui,
         demo = {
-            sample: '',
+            sample: 'Simple',
             renderer: 'canvas'
         },
         reTitle = /(?:^|\-)(\w)(\w+)/g,
         demoData = {
             'geojson-world': {
+                title: 'GeoJSON World',
                 deps: [
                     '../dist/plugins/parser.geojson.js',
                     '../dist/style/map-overlays.js',
@@ -37,27 +38,31 @@ DEMO = (function() {
                     '../dist/plugins/layers/heatcanvas.js',
                     'data/heatmap-data.js'
                 ]
+            },
+            
+            'visualization-walmart': {
+                deps: ['data/walmarts.js']
+            },
+            
+            'visualization-earthquakes': {
+                deps: ['data/cached-quakes.js']
             }
         },
         demos = [
             'simple',
             'geojson-world',
             'animated-map-panning',
+            'animated-map-markers',
             'marker-hit-test',
-            'geojson-pdxapi',
+            // 'geojson-pdxapi',
+            'visualization-walmart',
+            'visualization-earthquakes',
             'heatcanvas'
         ],
         startLat = -27.469592089206213,
         startLon = 153.0201530456543;
         
     /* internals */
-    
-    function addScript(scriptUrl) {
-        var scriptEl = document.createElement('script');
-        scriptEl.src = scriptUrl + '?ticks=' + new Date().getTime();
-        
-        document.body.appendChild(scriptEl);
-    } // addScript
     
     function buildUI() {
         var options = [],
@@ -76,6 +81,7 @@ DEMO = (function() {
         // add the demos
         sampleField.options.apply(sampleField, options);
         sampleField.onChange(load);
+        sampleField.listen();
 
         // add the renderer control
         gui.add(demo, 'renderer')
@@ -94,7 +100,7 @@ DEMO = (function() {
         $('.guidat-toggle').hide();
         
         // load the demo
-        load();
+        load(location.hash);
     } // buildUI
     
     function genTitle(id) {
@@ -129,6 +135,7 @@ DEMO = (function() {
             
             // replace the demo with the demo data
             demos[ii] = demoData[demoId] || {};
+            demos[ii].id = '#' + demoId;
             
             // if we don't have a title, generate one from the id
             if (! demos[ii].title) {
@@ -146,7 +153,8 @@ DEMO = (function() {
     } // getHomePosition
     
     function load(demoTitle) {
-        var demo;
+        var selectedDemo,
+            loaderChain = $LAB;
         
         if (map) {
             map.detach();
@@ -163,25 +171,31 @@ DEMO = (function() {
         
         // iterate through the demos, look for the requested demo
         for (var ii = 0; ii < demos.length; ii++) {
-            if (demos[ii].title.toLowerCase() === demoTitle.toLowerCase()) {
-                demo = demos[ii];
+            var matchingDemo = 
+                demos[ii].title.toLowerCase() === demoTitle.toLowerCase() || 
+                demos[ii].id === demoTitle;
+            
+            if (matchingDemo) {
+                selectedDemo = demos[ii];
                 break;
             }
         } // for
+
+        // default to the first demo if we don't have a proper demo
+        selectedDemo = selectedDemo || demos[0];
         
-        if (demo) {
-            status('loading demo: ' + demo.title);
-            $('h1').html(demo.title);
-            
-            // add the scripts to the body
-            for (var depIdx = 0; demo.deps && depIdx < demo.deps.length; depIdx++) {
-                addScript(demo.deps[depIdx]);
-            } // for
-            
-            setTimeout(function() {
-                addScript(demo.script);
-            }, 500);
-        } // if
+        status('loading demo: ' + selectedDemo.title);
+        demo.sample = selectedDemo.title;
+        location.hash = selectedDemo.id;
+        
+        // add the scripts to the body
+        for (var depIdx = 0; selectedDemo.deps && depIdx < selectedDemo.deps.length; depIdx++) {
+            loaderChain = loaderChain.script(selectedDemo.deps[depIdx]);
+        } // for
+        
+        loaderChain.wait(function() {
+            $LAB.script(selectedDemo.script + '?ticks=' + new Date().getTime());
+        });
     } // load
     
     function makeSampleUI() {
@@ -223,7 +237,7 @@ DEMO = (function() {
     
     $(document).ready(buildUI);
         
-    return {
+    return T5.ex(demo, {
         getRenderer: function() {
             return demo.renderer;
         },
@@ -234,5 +248,5 @@ DEMO = (function() {
         makeSampleUI: makeSampleUI,
         rotate: rotate,
         status: status
-    };
+    });
 })();

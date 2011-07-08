@@ -4574,6 +4574,8 @@ var View = function(container, params) {
     will definitely want to call the detach method between usages.
     */
     function detach() {
+        Animator.detach(cycle);
+
         if (renderer) {
             renderer.trigger('detach');
         } // if

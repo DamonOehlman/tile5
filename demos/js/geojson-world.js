@@ -67,8 +67,6 @@
         } // if
     } 
     
-    $('#animate').click(animate);
-
 	map = new T5.Map('mapContainer', {
 		renderer: DEMO.getRenderer()
 	});
@@ -102,12 +100,8 @@
         for (var layerId in layers) {
             // initialise the layer styles
             layers[layerId].style = 'area.simple';
-            //layers[layerId].hoverStyle = 'area.highlight';
-            //layers[layerId].downStyle = 'area.highlight';
         } // for
 
         DEMO.status();
-        
-        animate();
     });
 })();
