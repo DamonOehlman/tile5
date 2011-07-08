@@ -5,7 +5,11 @@
     var SEARCH_URL = 'http://ws.geonames.org/searchJSON?country=AU&fcode=PPL&maxRows=100',
         minRotate = 0,
         maxRotate = Math.PI / 2,
-        clusterer;
+        clusterer,
+        sample = {
+            createMarkers: createMarkers,
+            easing: 'sine.out'
+        };
         
     function animateMarkers(easingType) {
         var aniOpts,
@@ -18,7 +22,7 @@
 
             // initialise the animation opts
             aniOpts = {
-                easing: easingType || 'sine.out',
+                easing: sample.easing,
                 duration: Math.random() * 1000 + 500 | 0
             };
 
@@ -97,7 +101,7 @@
     } // handleTap
     
     function loadEasingTypes() {
-        var types = ['sine.out', 'sine.in', 'quad.in', 'bounce.out', 'linear'],
+        var types = [],
             items = '';
         
         for (var ii = 0; ii < types.length; ii++) {
@@ -149,6 +153,11 @@
     loadEasingTypes();
     
     DEMO.createMarkers = createMarkers;
+    
+    var ui = DEMO.makeSampleUI();
+    ui.gui.add(sample, 'easing').options('sine.out', 'sine.in', 'quad.in', 'bounce.out', 'linear');
+    ui.gui.add(sample, 'createMarkers').name('Drop Markers');
+    ui.done();
 
     // create the markers
     createMarkers();

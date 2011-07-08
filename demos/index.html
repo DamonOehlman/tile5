@@ -3,23 +3,14 @@
 <head>
 <title>Tile5 Demo Runner</title>
 <meta name="viewport" content="width=device-width; initial-scale=1.0; maximum-scale=1.0; user-scalable=0;"/>
+<link rel="stylesheet" href="lib/dat/GUI.css" />
 <link rel="stylesheet" href="css/demos.css" />
-<script src="lib/jquery-1.6.min.js"></script>
+<script src="lib/dat/DAT.GUI.min.js"></script>
+<script src="lib/jquery-1.6.1.min.js"></script>
 <script src="lib/modernizr-2.0.6.js"></script>
-<script src="lib/Stats.js"></script>
 </head>
 <body>
-<div id="toolbar">
-	<select id="demoSelector">
-	</select>
-	<select id="renderer">
-		<option value="canvas" class="req-canvas">Canvas</option>
-		<option value="raphael/dom">Raphael/DOM</option>
-		<option value="dom">DOM</option>
-		<option value="three:webgl">three.js</option>
-	</select>
-</div>
-<div id="mapContainer">
+<div data-role="content" id="mapContainer">
 </div>
 <script src="../dist/tile5.cloudmade.js"></script>
 <!-- include extra renderers -->
@@ -27,23 +18,6 @@
 <script src="../dist/plugins/renderer.raphael.js"></script>
 <!-- include tile5 plugins -->
 <script src="../dist/plugins/parser.geojson.js"></script>
-<script>
-var stats = new Stats();
-
-// Align top-left
-stats.domElement.style.position = 'absolute';
-stats.domElement.style.left = '0px';
-stats.domElement.style.top = '0px';
-
-document.body.appendChild( stats.domElement );
-
-setInterval( function () {
-    stats.update();
-}, 1000 / 60 );
-</script>
 <script src="runner.js"></script>
-<script>
-DEMO.load();
-</script>
 </body>
 </html>

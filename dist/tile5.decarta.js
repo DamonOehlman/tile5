@@ -10,6 +10,61 @@
  */
 
 (function() {
+
+    /* internals */
+
+    var loadedPlugins = {};
+
+    function define(id, definition) {
+        loadedPlugins[id] = definition;
+    } // define
+
+    function findPlugins(input) {
+        var plugins = input.split(','),
+            requestedPlugins = [];
+
+        for (var ii = 0; ii < plugins.length; ii++) {
+            var pluginId = plugins[ii].trim().replace('.', '/');
+            requestedPlugins[ii] = loadedPlugins[pluginId];
+        } // for
+
+        return requestedPlugins;
+    } // findPlugins
+
+    function require(input, callback) {
+        var plugins = input.split(','),
+            allLoaded = true,
+            labLoader = typeof $LAB !== 'undefined' ? $LAB : null,
+            pluginName;
+
+        for (var ii = 0; ii < plugins.length; ii++) {
+            var pluginId = plugins[ii].trim().replace('.', '/'),
+                plugin;
+
+            if (! loadedPlugins[pluginId]) {
+                allLoaded = false;
+
+                if (IS_COMMONJS) {
+                    plugin = require('./plugins/' + pluginFile);
+                } // if
+
+            } // for
+        } // for
+
+        if (callback) {
+            if (IS_COMMONJS || allLoaded) {
+                callback.apply(GeoJS, findPlugins(input));
+            }
+            else if (labLoader) {
+                $LAB.wait(function() {
+                    callback.apply(GeoJS, findPlugins(input));
+                });
+            } // if..else
+        } // if
+
+        return GeoJS;
+    } // include
+
 var LAT_VARIABILITIES = [
     1.406245461070741,
     1.321415085624082,
@@ -382,6 +437,10 @@ function BBox(p1, p2) {
         this.min = new Pos(minPos.lat - padding, (minPos.lon - padding) % 360);
         this.max = new Pos(maxPos.lat + padding, (maxPos.lon + padding) % 360);
     }
+    else if (p1 && p1.min) {
+        this.min = new Pos(p1.min);
+        this.max = new Pos(p1.max);
+    }
     else {
         this.min = p1;
         this.max = p2;
@@ -581,6 +640,144 @@ function generalize(sourceData, requiredPositions, minDist) {
     return positions;
 } // generalize
 
+/**
+# GeoJS.Duration
+A Timelord duration is what IMO is a sensible and usable representation of a
+period of "human-time".  A duration value contains both days and seconds values.
+
+## Methods
+*/
+function Duration(p1, p2) {
+    if (typeof p1 == 'number') {
+        this.days = p1 || 0;
+        this.seconds = p2 || 0;
+    }
+    else if (typeof p1 != 'undefined') {
+        this.days = p1.days || 0;
+        this.seconds = p1.seconds || 0;
+    } // if..else
+} // Duration
+
+Duration.prototype = {
+    /**
+    ### add(args*)
+    The add method returns a new Duration object that is the value of the current
+    duration plus the days and seconds value provided.
+    */
+    add: function() {
+        var result = new Duration(this.days, this.seconds);
+
+        for (var ii = arguments.length; ii--; ) {
+            result.days += arguments[ii].days;
+            result.seconds += arguments[ii].seconds;
+        } // for
+
+        return result;
+    },
+
+    /**
+    ### toString()
+    Convert the duration to it's string represenation
+
+    __TODO__:
+    - Improve the implementation
+    - Add internationalization support
+    */
+    toString: function() {
+
+        var days, hours, minutes, totalSeconds,
+            output = '';
+
+        if (this.days) {
+            output = this.days + ' days ';
+        } // if
+
+        if (this.seconds) {
+            totalSeconds = this.seconds;
+
+            if (totalSeconds >= 3600) {
+                hours = ~~(totalSeconds / 3600);
+                totalSeconds = totalSeconds - (hours * 3600);
+            } // if
+
+            if (totalSeconds >= 60) {
+                minutes = Math.round(totalSeconds / 60);
+                totalSeconds = totalSeconds - (minutes * 60);
+            } // if
+
+            if (hours) {
+                output = output + hours +
+                    (hours > 1 ? ' hrs ' : ' hr ') +
+                    (minutes ?
+                        (minutes > 10 ?
+                            minutes :
+                            '0' + minutes) + ' min '
+                        : '');
+            }
+            else if (minutes) {
+                output = output + minutes + ' min';
+            }
+            else if (totalSeconds > 0) {
+                output = output +
+                    (totalSeconds > 10 ?
+                        totalSeconds :
+                        '0' + totalSeconds) + ' sec';
+            } // if..else
+        } // if
+
+        return output;
+    }
+};
+
+var parseDuration = (function() {
+    var DAY_SECONDS = 86400;
+
+    var periodRegex = /^P(\d+Y)?(\d+M)?(\d+D)?$/,
+        timeRegex = /^(\d+H)?(\d+M)?(\d+S)?$/,
+        durationParsers = {
+            8601: parse8601Duration
+        };
+
+    /* internal functions */
+
+    /*
+    Used to convert a ISO8601 duration value (not W3C subset)
+    (see http://en.wikipedia.org/wiki/ISO_8601#Durations) into a
+    composite value in days and seconds
+    */
+    function parse8601Duration(input) {
+        var durationParts = input.split('T'),
+            periodMatches = null,
+            timeMatches = null,
+            days = 0,
+            seconds = 0;
+
+        periodRegex.lastIndex = -1;
+        periodMatches = periodRegex.exec(durationParts[0]);
+
+        days = days + (periodMatches[3] ? parseInt(periodMatches[3].slice(0, -1), 10) : 0);
+
+        timeRegex.lastIndex = -1;
+        timeMatches = timeRegex.exec(durationParts[1]);
+
+        seconds = seconds + (timeMatches[1] ? parseInt(timeMatches[1].slice(0, -1), 10) * 3600 : 0);
+        seconds = seconds + (timeMatches[2] ? parseInt(timeMatches[2].slice(0, -1), 10) * 60 : 0);
+        seconds = seconds + (timeMatches[3] ? parseInt(timeMatches[3].slice(0, -1), 10) : 0);
+
+        return new Duration(days, seconds);
+    } // parse8601Duration
+
+    return function(duration, format) {
+        var parser = durationParsers[format];
+
+        if (! parser) {
+            throw 'No parser found for the duration format: ' + format;
+        } // if
+
+        return parser(duration);
+    };
+})();
+
     var GeoJS = this.GeoJS = {
         Pos: Pos,
         Line: Line,
@@ -589,22 +786,11 @@ function generalize(sourceData, requiredPositions, minDist) {
 
         generalize: generalize,
 
-        include: function(input) {
-            if (IS_COMMONJS) {
-                var plugins = input.split(','),
-                    pluginName;
+        Duration: Duration,
+        parseDuration: parseDuration,
 
-                for (var ii = 0; ii < plugins.length; ii++) {
-                    var plugin = require('./plugins/' + plugins[ii].trim());
-
-                    for (var key in plugin) {
-                        GeoJS[key] = plugin[key];
-                    } // for
-                } // for
-            }
-
-            return GeoJS;
-        }
+        define: define,
+        require: require
     };
 
     if (IS_COMMONJS) {
@@ -4780,7 +4966,7 @@ var Map = function(container, params) {
         var viewport = _self.viewport();
 
         if (newBounds) {
-            var zoomLevel = max(newBounds.bestZoomLevel(viewport.w, viewport.h), maxZoomLevel || 0);
+            var zoomLevel = max(newBounds.bestZoomLevel(viewport.w, viewport.h) - 1, maxZoomLevel || 0);
 
             return zoom(zoomLevel).center(newBounds.center());
         }
