@@ -1,7 +1,7 @@
 (function() {
     // define constants
-    var PDXAPI = 'http://pdxapi.com/{0}/geojson?bbox={1},{2},{3},{4}',
-        parser = T5.Registry.create('parser', 'geojson'),
+    var pdxApiFormatter = T5.formatter('http://pdxapi.com/{0}/geojson?bbox={1},{2},{3},{4}'),
+        parser = new T5.GeoJSONParser(),
         MAXDIST = 40;
     
     // initialise variables
@@ -49,29 +49,28 @@
         
     function retrieveData(dsid, bounds) {
         var requestId, 
-            boundsSize = T5.Geo.Position.calcDistance(bounds.min, bounds.max),
-            dsUrl = COG.formatStr(PDXAPI,
+            dsUrl = pdxApiFormatter(
                 dsid,
                 bounds.min.lon,
                 bounds.min.lat,
                 bounds.max.lon,
-                bounds.max.lat);
+                bounds.max.lat
+            );
                 
         if (datasources[dsid].requestActive) {
             return;
         } // if
 
-        if (boundsSize > MAXDIST) {
-            showMessage('Selected bounds too large - try zooming in', 'error', 3000);
-            return;
-        } // if
-                
-        COG.info('selected dataset: ' + dsid + ', bounds size = ', boundsSize);
         $('#' + dsid + '_title').addClass('loader');
         
         datasources[dsid].requestActive = true;
-        COG.jsonp(dsUrl, function(data) {
-            updateData(dsid, data);
+
+        $.ajax({
+            url: dsUrl,
+            dataType: 'jsonp',
+            success: function(data) {
+                updateData(dsid, data);
+            }
         });
         
         lastUrl = dsUrl;
@@ -106,26 +105,20 @@
     } // toggleLayer
     
     function updateData(dsid, data) {
-        COG.info('received data for dataset: ' + dsid);
+        var layer = map.layer(dsid, 'draw', datasources[dsid]);
         
-        parser(map, data.rows, function(layers) {
-            T5.log('geojson parsing complete for: ' + dsid);
-            
-            for (layerId in layers) {
-                var layer = layers[layerId];
-                
-                layer.style = datasources[dsid].style;
-                layer.zindex = datasources[dsid].zindex;
-                layer.visible = true;
-            } // for
-            
-            datasources[dsid].requestActive = false;
-            
-        }, {
-            rowPreParse: function(row) {
-                return row.value.geometry;
-            }
+        // unbind previous handlers
+        parser.unbind();
+        parser.bind('*', function(evt, data) {
+            layer.create(evt.name, data);
         });
+        
+        for (var ii = data.rows.length; ii--; ) {
+            parser.run({
+                type: 'Feature',
+                geometry: data.rows[ii].geometry
+            });
+        } // for
     } // updateData
     
     function updateLayers(bounds) {
@@ -151,5 +144,5 @@
         apikey: '7960daaf55f84bfdb166014d0b9f8d41'
     });
     
-    map.zoom(13).center('45.52615953236141 -122.67342567443849');
+    map.zoom(15).center('45.52615953236141 -122.67342567443849');
 })();

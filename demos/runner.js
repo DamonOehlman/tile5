@@ -22,8 +22,7 @@ DEMO = (function() {
         groupNames = [],
         sampleField,
         demoData = {
-            'geojson-world': {
-                title: 'GeoJSON World',
+            'geojson/world': {
                 deps: ['data/world.js']
             },
             
@@ -51,11 +50,11 @@ DEMO = (function() {
         },
         demos = [
             'simple',
-            'geojson-world',
+            'geojson/world',
             'animation/map-panning',
             'animation/map-markers',
             'marker-hit-test',
-            // 'geojson-pdxapi',
+            'geojson/pdxapi',
             'visualization/walmart',
             'visualization/earthquakes',
             'drawing/creator',
@@ -73,7 +72,7 @@ DEMO = (function() {
         loadDemoData();
         
         // initialise the group field
-        groupField.onChange(selectGroup).options.apply(groupField, groupNames);
+        groupField.onChange(selectGroup).options.apply(groupField, groupNames).listen();
         
         // add the demos
         sampleField = gui.add(demo, 'sample');
@@ -154,7 +153,7 @@ DEMO = (function() {
         } // for
     } // loadDemoData
     
-    function selectGroup(groupName, targetDemo) {
+    function selectGroup(groupName, targetDemo, preventLoad) {
         var options = [],
             groupDemos = groups[groupName] || [];
         
@@ -165,6 +164,11 @@ DEMO = (function() {
         
         // update the sample field
         sampleField.options.apply(sampleField, options);
+        
+        // if the prevent load parameter is supplied, then exit
+        if (preventLoad) {
+            return;
+        }
         
         // load the first demo in the options
         load(targetDemo || options[0] || '#simple');
@@ -213,6 +217,7 @@ DEMO = (function() {
         selectedDemo = selectedDemo || demos[0];
         
         demo.sample = selectedDemo.title;
+        selectGroup(demo.group = selectedDemo.group, null, true);
         location.hash = selectedDemo.id;
         
         // add the scripts to the body

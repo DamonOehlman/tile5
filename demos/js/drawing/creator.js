@@ -58,7 +58,7 @@
     map.bind('tap', handleTap);
     
     ui = DEMO.makeSampleUI();
-    ui.gui.add(sample, 'type').options('marker', 'line', 'poly');
+    ui.gui.add(sample, 'type').options('marker');
     ui.gui.add(sample, 'rotation', 0, 360, 1).onChange(rotateSelection);
     ui.gui.add(sample, 'scale', 0.25, 4).onChange(scaleSelection);
     ui.gui.add(sample, 'selectAll').name('Select All');

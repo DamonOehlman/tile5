@@ -1,13 +1,12 @@
 (function() {
-    var parser = T5.Registry.create('parser', 'geojson');
-
-    function animate() {
-        var layers = map.layer();
-        
-        for (var ii = 0; ii < layers.length; ii++) {
-            animateLayer(layers[ii]);
-        } // for
-    }
+    var parser = new T5.GeoJSONParser(),
+        worldLayer,
+        ui,
+        sample = {
+            animate: function() {
+                animateLayer(worldLayer);
+            }
+        };
 
     function animateLayer(layer) {
         var shapes = layer.find(),
@@ -30,8 +29,6 @@
             shapes[ii].scale(0.1).scale(1, aniOpts, true);
             shapes[ii].rotate(360, aniOpts, true);
         } // for
-        
-        layer.visible = true;
     } // animateLayer
     
     function animateElements(elements) {
@@ -57,6 +54,16 @@
             }
         } // for
     }
+    
+    function hideElements(elements) {
+        for (var ii = elements.length; ii--; ) {
+            if (elements[ii].target) {
+                elements[ii].target.visible = false;
+            } // if
+        } // for
+        
+        map.invalidate();
+    } // hideElements
 
     function displayFirstElement(elements, hideDelay) {
         if (elements.length > 0) {
@@ -70,38 +77,31 @@
 	map = new T5.Map('mapContainer', {
 		renderer: DEMO.getRenderer()
 	});
-	
-	/*
+
 	map.layer('tiles', 'tile', {
 		generator: 'osm.cloudmade',
         // demo api key, register for an API key at http://dev.cloudmade.com/
         apikey: '7960daaf55f84bfdb166014d0b9f8d41'
 	});
-	*/
 	
 	map.center('20 0').zoom(3);
 
-    map.bind('hoverHit', function(evt, elements, absXY, relXY, offsetXY) {
-        animateElements(elements); // displayFirstElement(elements);
-    });
-
     map.bind('tapHit', function(evt, elements, absXY, relXY, offsetXY) {
-        animateElements(elements);
+        hideElements(elements);
     });
-
-    /*
-    map.bind('hoverOut', function(evt, elements, absXY, relXY, offsetXY) {
-        displayFirstElement(elements, 100);
-    });
-    */
     
-    DEMO.status('Parsing GeoJSON');
-    parser(map, worldData, function(layers) {
-        for (var layerId in layers) {
-            // initialise the layer styles
-            layers[layerId].style = 'area.simple';
-        } // for
+    ui = DEMO.makeSampleUI();
+    ui.gui.add(sample, 'animate');
+    ui.done();
 
-        DEMO.status();
+    // create the world layer
+    worldLayer = map.layer('world', 'draw');
+    worldLayer.hoverStyle = 'area.highlight';
+    
+    parser.bind('poly', function(evt, data) {
+        var item = worldLayer.create('poly', data);
+        item.style = 'area.simple';
     });
+
+    parser.run(worldData);
 })();

@@ -11,6 +11,17 @@ html, body, #mapContainer {
 }
 */
 
+.t5-copyright {
+    background: rgba(255, 255, 255, 0.7);
+    color: #333;
+    padding: 4px 0 4px 8px;
+    font: 0.7em Arial;
+}
+
+.t5-copyright a {
+    color: #555;
+}
+
 .guidat {
     opacity: 0.75;
 }
