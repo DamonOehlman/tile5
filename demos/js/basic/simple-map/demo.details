@@ -8,4 +8,5 @@ resources:
   - https://raw.github.com/sidelab/tile5/master/dist/tile5.cloudmade.js
 
 normalize_css: no
+js_wrap: onDomReady
 ...
