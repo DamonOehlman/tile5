@@ -26,7 +26,7 @@ DEMO = (function() {
                 deps: ['data/world.js']
             },
             
-            'marker-hit-test': {
+            'basic/marker-hit-test': {
                 deps: [
                     'data/heatmap-data.js'
                 ]                
@@ -49,11 +49,11 @@ DEMO = (function() {
             }
         },
         demos = [
-            'simple',
+            'basic/simple-map',
             'geojson/world',
             'animation/map-panning',
             'animation/map-markers',
-            'marker-hit-test',
+            'basic/marker-hit-test',
             'geojson/pdxapi',
             'geojson/geocommons',
             'visualization/walmart',
@@ -141,7 +141,7 @@ DEMO = (function() {
                 demos[ii].title = genTitle(demoId);
             } // if
             
-            demos[ii].script = 'js/' + demoId + '.js';
+            demos[ii].script = 'js/' + demoId + '/demo.js';
             
             // create the group if not created
             if (! groups[group]) {
