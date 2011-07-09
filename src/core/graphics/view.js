@@ -431,13 +431,20 @@ var View = function(container, params) {
     
     function updateContainer(value) {
         if (DOM) {
-            initContainer(outer = document.getElementById(value));
+            // get the outer element
+            outer = document.getElementById(value);
+            if (outer) {
+                initContainer(outer);
 
-            // change the renderer
-            changeRenderer(params.renderer);
+                // change the renderer
+                changeRenderer(params.renderer);
 
-            // create the controls
-            createControls(params.controls);
+                // create the controls
+                createControls(params.controls);
+            }
+            else {
+                throw new Error('Unable to find map container element with id: ' + value);
+            } // if..else
         }
         else {
             changeRenderer('canvas');

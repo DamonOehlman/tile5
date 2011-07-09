@@ -4295,11 +4295,17 @@ var View = function(container, params) {
 
     function updateContainer(value) {
         if (DOM) {
-            initContainer(outer = document.getElementById(value));
+            outer = document.getElementById(value);
+            if (outer) {
+                initContainer(outer);
 
-            changeRenderer(params.renderer);
+                changeRenderer(params.renderer);
 
-            createControls(params.controls);
+                createControls(params.controls);
+            }
+            else {
+                throw new Error('Unable to find map container element with id: ' + value);
+            } // if..else
         }
         else {
             changeRenderer('canvas');
