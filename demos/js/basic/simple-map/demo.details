@@ -5,7 +5,7 @@ authors:
   - Damon Oehlman
 
 resources:
-  - https://raw.github.com/sidelab/tile5/master/dist/tile5.cloudmade.min.js
+  - https://raw.github.com/sidelab/tile5/master/dist/tile5.cloudmade.js
 
 normalize_css: no
 ...
