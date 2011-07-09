@@ -2278,12 +2278,17 @@ var DOM = typeof window != 'undefined' ? (function() {
         testTransformOriginProps = ['-webkit-transform-origin', 'MozTransformOrigin'],
         transformProp,
         css3dTransformProp,
-        transformOriginProp;
+        transformOriginProp,
+        testElemStyle;
 
     function checkCaps(testProps) {
+        if (! testElemStyle) {
+            testElemStyle = document.createElement('t5test').style;
+        } // if
+
         for (var ii = 0; ii < testProps.length; ii++) {
             var propName = testProps[ii];
-            if (typeof document.body.style[propName] != 'undefined') {
+            if (typeof testElemStyle[propName] != 'undefined') {
                 return propName;
             } // if
         } // for
