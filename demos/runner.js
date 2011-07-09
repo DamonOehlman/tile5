@@ -83,9 +83,7 @@ DEMO = (function() {
         // add the renderer control
         gui.add(demo, 'renderer')
             .options('canvas', 'canvas/dom (beta)', 'raphael/dom (beta)', 'dom (beta)', 'three:webgl (alpha)')
-            .onChange(function(newRenderer) {
-                map.renderer(newRenderer.replace(/\((alpha|beta)\)/, '').trim());
-            });
+            .onChange(changeRenderer);
             
         gui.domElement.style.position = 'absolute';
         gui.domElement.style.top = '10px';
@@ -99,6 +97,12 @@ DEMO = (function() {
         $('.guidat-controllers').height('auto');
         $('.guidat-toggle').hide();
     } // buildUI
+    
+    function changeRenderer(newRenderer) {
+        if (map) {
+            map.renderer(newRenderer.replace(/\((alpha|beta)\)/, '').trim());
+        } // if
+    } // changeRenderer
     
     function genTitle(id) {
         var title = '',
@@ -227,7 +231,9 @@ DEMO = (function() {
         } // for
         
         loaderChain.wait(function() {
-            $LAB.script(selectedDemo.script + '?ticks=' + new Date().getTime());
+            $LAB.script(selectedDemo.script + '?ticks=' + new Date().getTime()).wait(function() {
+                changeRenderer(getRenderer());
+            });
         });
     } // load
     
