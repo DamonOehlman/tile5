@@ -3347,7 +3347,9 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
     } // getPreviousStyle
 
     function handleDetach() {
-        panFrame.removeChild(canvas);
+        if (canvas && canvas.parentNode) {
+            panFrame.removeChild(canvas);
+        } // if
     } // handleDetach
 
     function handlePredraw(evt, layers, viewport, tickcount, hits) {

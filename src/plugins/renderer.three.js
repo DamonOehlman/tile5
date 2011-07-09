@@ -110,7 +110,9 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
         // TODO: clean up the scene
         
         // remove the dom element from the panFrame
-        container.removeChild(renderer.domElement);
+        if (renderer && renderer.domElement && renderer.domElement.parentNode) {
+            container.removeChild(renderer.domElement);
+        } // if
     } // handleDetach
     
     function handleStyleDefined(evt, styleId, styleData) {

@@ -11,6 +11,7 @@ DEMO = (function() {
     
     // define the demos
     var sampleGui,
+        editor,
         demo = {
             group: 'main',
             sample: 'Simple',
@@ -85,10 +86,7 @@ DEMO = (function() {
             .options('canvas', 'canvas/dom (beta)', 'raphael/dom (beta)', 'dom (beta)', 'three:webgl (alpha)')
             .onChange(changeRenderer);
             
-        gui.domElement.style.position = 'absolute';
         gui.domElement.style.top = '10px';
-        gui.domElement.style.left = '10px';
-        gui.domElement.style['z-index'] = 1001;
         
         // select the group
         selectGroup(demo.group, location.hash);
@@ -96,6 +94,17 @@ DEMO = (function() {
         document.body.appendChild(gui.domElement);
         $('.guidat-controllers').height('auto');
         $('.guidat-toggle').hide();
+        
+        // create the editor
+        resizeEditor();
+        
+        editor = ace.edit('editor');
+        editor.setTheme('ace/theme/twilight');
+        
+        var JavaScriptMode = require('ace/mode/javascript').Mode;
+        editor.getSession().setMode(new JavaScriptMode());
+        
+        $('#btnRun').click(runCode);
     } // buildUI
     
     function changeRenderer(newRenderer) {
@@ -103,6 +112,18 @@ DEMO = (function() {
             map.renderer(newRenderer.replace(/\((alpha|beta)\)/, '').trim());
         } // if
     } // changeRenderer
+    
+    function cleanupLastDemo() {
+        if (map) {
+            map.detach();
+            $('#mapContainer').html('');
+        } // if
+        
+        if (sampleGui && sampleGui.domElement.parentNode) {
+            document.body.removeChild(sampleGui.domElement);
+            sampleGui = null;
+        } // if
+    } // cleanupLastDemo
     
     function genTitle(id) {
         var title = '',
@@ -158,6 +179,14 @@ DEMO = (function() {
         } // for
     } // loadDemoData
     
+    function resizeEditor() {
+        var frame = $('#editorFrame');
+        
+        
+        frame.width($(document).width() - $('#mapContainer').outerWidth());
+        $('#editor').height(frame.height() - $('#editorTools').outerHeight());
+    } // resizeEditor
+    
     function selectGroup(groupName, targetDemo, preventLoad) {
         var options = [],
             groupDemos = groups[groupName] || [];
@@ -192,16 +221,9 @@ DEMO = (function() {
     function load(demoTitle) {
         var selectedDemo,
             loaderChain = $LAB;
-        
-        if (map) {
-            map.detach();
-            $('#mapContainer').html('');
-        } // if
-        
-        if (sampleGui && sampleGui.domElement.parentNode) {
-            document.body.removeChild(sampleGui.domElement);
-            sampleGui = null;
-        } // if
+            
+        // cleanup the last demo
+        cleanupLastDemo();
         
         // set the demo title to the first demo if not specified
         demoTitle = demoTitle || demos[0].title;
@@ -231,9 +253,22 @@ DEMO = (function() {
         } // for
         
         loaderChain.wait(function() {
+            $.ajax({
+                url: selectedDemo.script + '?ticks=' + new Date().getTime(),
+                dataType: 'text',
+                success: function(data) {
+                    editor.getSession().setValue(data);
+                    editor.gotoLine(1);
+                    
+                    runCode();
+                }
+            });
+            
+            /*
             $LAB.script(selectedDemo.script + '?ticks=' + new Date().getTime()).wait(function() {
                 changeRenderer(getRenderer());
             });
+            */
         });
     } // load
     
@@ -264,11 +299,7 @@ DEMO = (function() {
         return {
             gui:sampleGui,
             done: function() {
-                sampleGui.domElement.style.position = 'absolute';
                 sampleGui.domElement.style.top = '115px';
-                sampleGui.domElement.style.left = '10px';
-                sampleGui.domElement.style['z-index'] = 1001;
-
                 document.body.appendChild(sampleGui.domElement);
                 
                 $('.guidat-controllers').height('auto');
@@ -285,6 +316,24 @@ DEMO = (function() {
             }
         });
     }
+    
+    function runCode() {
+        var code = editor.getSession().getValue();
+        
+        // cleanup the last demo
+        cleanupLastDemo();
+        
+        // if we have a demo code script, then remove it
+        $('#demoCode').remove();
+        
+        // add a new demo code script
+        var demoCode = document.createElement('script');
+        demoCode.id = 'demoCode';
+        demoCode.innerHTML = code;
+        
+        $('head').append(demoCode);
+        changeRenderer(getRenderer());
+    } // runCode
     
     function status(message) {
         T5.log(message);

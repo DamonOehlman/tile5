@@ -76,7 +76,7 @@
         apikey: '7960daaf55f84bfdb166014d0b9f8d41'
 	});
 	
-	map.center(cities[cities.length - 1].pos).zoom(6);
+	map.center(cities[cities.length - 1].pos).zoom(4);
     
     // add the map markers
     for (var ii = cities.length; ii--; ) {
@@ -88,6 +88,6 @@
     setTimeout(nextCity, 1000);
     
     var sampleUI = DEMO.makeSampleUI();
-    sampleUI.gui.add(sample, 'easing').options('sine.out', 'back.out');
+    sampleUI.gui.add(sample, 'easing').options('sine.out', 'back.out', 'bounce.out', 'elastic.out');
     sampleUI.done();
 })();

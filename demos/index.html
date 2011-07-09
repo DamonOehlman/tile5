@@ -10,9 +10,17 @@
 <script src="lib/lab/fLAB.js"></script>
 <script src="lib/jquery-1.6.1.min.js"></script>
 <script src="lib/modernizr-2.0.6.js"></script>
+<script src="lib/ace/ace.js"></script>
+<script src="lib/ace/theme-twilight.js"></script>
+<script src="lib/ace/mode-javascript.js"></script>
 </head>
 <body>
-<div data-role="content" id="mapContainer">
+<div id="mapContainer"></div>
+<div id="editorFrame">
+	<ul id="editorTools">
+		<li><button id="btnRun">Run Code</button></li>
+	</ul>
+	<div id="editor"></div>
 </div>
 <script src="../dist/tile5.cloudmade.js"></script>
 <!-- include extra renderers -->

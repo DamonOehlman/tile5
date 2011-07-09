@@ -1,8 +1,37 @@
-html, body, #mapContainer {
+html, body {
     height: 100%;
     padding: 0;
     margin: 0;
     overflow: hidden;
+    background: #333;
+}
+
+#mapContainer {
+    float: left;
+    width: 480px;
+    height: 100%;
+}
+
+#editorFrame {
+    position: absolute;
+    left: 481px;
+    height: 100%;
+    width: 480px;
+}
+
+#editorTools {
+    margin: 0;
+    padding: 0;
+    list-style-type: none;
+    background: #c8c8c8;
+}
+
+#editorTools li {
+    padding: 4px;
+}
+
+#editor {
+    width: 100%;
 }
 
 /*
@@ -24,4 +53,16 @@ html, body, #mapContainer {
 
 .guidat {
     opacity: 0.75;
+    position: absolute;
+    left: 10px;
+    z-index: 1001;
+}
+
+@media screen and (max-width: 640px) {
+    #mapContainer {
+        float: none;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+    }
 }

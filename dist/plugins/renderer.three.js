@@ -179,7 +179,9 @@ T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, contain
 
     function handleDetach() {
 
-        container.removeChild(renderer.domElement);
+        if (renderer && renderer.domElement && renderer.domElement.parentNode) {
+            container.removeChild(renderer.domElement);
+        } // if
     } // handleDetach
 
     function handleStyleDefined(evt, styleId, styleData) {
