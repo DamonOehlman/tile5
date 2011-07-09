@@ -6,6 +6,7 @@ authors:
 
 resources:
   - https://raw.github.com/sidelab/tile5/master/dist/tile5.cloudmade.min.js
+  - https://raw.github.com/sidelab/tile5/master/demos/runner.js
 
 normalize_css: no
 ...
