@@ -16,7 +16,7 @@ is specified then the style of the T5.PolyLayer is used.
 reg(typeDrawable, 'poly', function(view, layer, params) {
     params = _extend({
         allowCull: false,
-        simplify: false,
+        simplify: true,
         fill: true,
         points: [],
         typeName: 'Poly'
