@@ -47,7 +47,7 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
         panFrame.removeChild(paper.canvas);
     } // handleDetach
     
-    function handleLayerRemove(evt, layer) {
+    function handleBeforeLayerRemove(evt, layer) {
         // if the layer has a find method, then get the objects on the layer
         if (layer.find) {
             var drawables = layer.find();
@@ -329,7 +329,7 @@ T5.Registry.register('renderer', 'raphael', function(view, panFrame, container, 
     _this.bind('predraw', handlePredraw);
     _this.bind('detach', handleDetach);
     view.bind('reset', handleReset);
-    view.bind('layerRemove', handleLayerRemove);
+    view.bind('beforeLayerRemove', handleBeforeLayerRemove);
     
     // load styles
     loadStyles();

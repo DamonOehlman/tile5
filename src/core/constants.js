@@ -28,8 +28,5 @@ var TWO_PI = Math.PI * 2,
     PHI_EPSILON = 1E-7,
     PHI_MAXITER = 12,
 
-    // some event names
-    EVT_REMOVELAYER = 'layerRemove',
-    
     // some style constants
     STYLE_RESET = 'reset';

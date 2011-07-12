@@ -56,19 +56,19 @@ T5.Registry.register('layer', 'sensor', function(view, panFrame, container, para
 
         if (accuracy.meters <= lastAccuracy + ACCURACY_TOLERANCE) {
             posXY.sync(view);
-            _self.trigger('locationUpdate', position, accuracy, posXY);
+            _this.trigger('locationUpdate', position, accuracy, posXY);
 
             T5.log('captured tracking up to pos: ' + pos + ', accuracy: ' + accuracy);
 
             if (initialUpdate) {
-                overlays[overlays.length] = _self.create('arc', {
+                overlays[overlays.length] = _this.create('arc', {
                     xy: posXY,
                     fill: true,
                     style: sensorRingStyle,
                     size: accuracy.radians() / view.rpp | 0
                 });
 
-                overlays[overlays.length] = _self.create('marker', {
+                overlays[overlays.length] = _this.create('marker', {
                     xy: posXY,
                     markerType: 'image',
                     imageUrl: LOCATOR_IMAGE,
@@ -136,7 +136,7 @@ T5.Registry.register('layer', 'sensor', function(view, panFrame, container, para
 
     /* exports */
 
-    var _self = T5.ex(T5.Registry.create('layer', 'draw', view, params), {
+    var _this = T5.ex(T5.Registry.create('layer', 'draw', view, params), {
     });
 
     if (navigator.geolocation) {
@@ -149,17 +149,15 @@ T5.Registry.register('layer', 'sensor', function(view, panFrame, container, para
             }
         );
 
-        view.bind('layerRemove', function(evt, layer) {
-            if (layer === _self) {
-                navigator.geolocation.clearWatch(watchId);
-            } // if
+        _this.bind('removed', function(evt) {
+            navigator.geolocation.clearWatch(watchId);
         });
     }
     else {
         T5.log('No W3C geolocation support', 'warn');
     } // if..else
 
-    T5.configurable(_self, params, {
+    T5.configurable(_this, params, {
         lock: updateLock,
         compass: updateCompassTracking
     });
@@ -172,5 +170,5 @@ T5.Registry.register('layer', 'sensor', function(view, panFrame, container, para
     updateLock(params.lock);
     updateCompassTracking(params.compass);
 
-    return _self;
+    return _this;
 });

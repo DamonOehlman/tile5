@@ -56,17 +56,12 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
         } // if
     } // handleItemMove
     
-    function handleLayerRemove(evt, layer) {
-        // if this layer is being removed, then clean up
-        if (layer === _self) {
-            // kill the storage
-            storage = null;
-            
-            // unbind the resync handler
-            view.unbind('resync', resyncCallbackId);
-            
-            // TODO: unbind item move events
-        } // if
+    function handleRemoved(evt) {
+        // kill the storage
+        storage = null;
+        
+        // unbind the resync handler
+        view.unbind('resync', resyncCallbackId);
     } // handleLayerRemove
     
     function handleResync(evt) {
@@ -93,7 +88,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
         if (storage) {
             // reset the storage
             storage.clear();
-            _self.trigger('cleared');
+            _this.trigger('cleared');
 
             // invalidate the view
             view.invalidate();
@@ -104,7 +99,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
     ### create(type, settings, prepend)
     */
     function create(type, settings, prepend) {
-        var drawable = regCreate(typeDrawable, type, view, _self, settings);
+        var drawable = regCreate(typeDrawable, type, view, _this, settings);
 
         // add the the shapes array
         drawable.resync();
@@ -117,7 +112,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
         drawable.trigger('created');
 
         // update the item count
-        _self.trigger(type + 'Added', drawable);
+        _this.trigger(type + 'Added', drawable);
         
         // return the drawable
         return drawable;
@@ -134,7 +129,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
         // iterate through the draw items and draw the layers
         for (var ii = drawItems.length; ii--; ) {
             var drawable = drawItems[ii],
-                overrideStyle = drawable.style || _self.style, 
+                overrideStyle = drawable.style || _this.style, 
                 styleType,
                 previousStyle,
                 transform,
@@ -169,7 +164,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
                     styleType = hitData.type + 'Style';
 
                     // now update the override style to use the specified style if it exists
-                    overrideStyle = drawable[styleType] || _self[styleType] || overrideStyle;
+                    overrideStyle = drawable[styleType] || _this[styleType] || overrideStyle;
                 } // if
 
                 // save the previous style
@@ -219,9 +214,9 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
         }).length > 0;
     } // hitGuess
     
-    /* initialise _self */
+    /* initialise _this */
     
-    var _self = _extend(new ViewLayer(view, panFrame, container, params), {
+    var _this = _extend(new ViewLayer(view, panFrame, container, params), {
         clear: clear,
         create: create,
         draw: draw,
@@ -233,7 +228,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
     resyncCallbackId = view.bind('resync', handleResync);
     
     // handle the layer being removed
-    view.bind('layerRemove', handleLayerRemove);
+    _this.bind('removed', handleRemoved);
     
-    return _self;
+    return _this;
 });

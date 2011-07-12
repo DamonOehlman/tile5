@@ -13,7 +13,9 @@
 
     /* internals */
 
-    var loadedPlugins = {};
+    var loadedPlugins = {},
+        reTrim = /^(.*)\s+$/,
+        reDots = /\./g;
 
     function define(id, definition) {
         loadedPlugins[id] = definition;
@@ -24,7 +26,7 @@
             requestedPlugins = [];
 
         for (var ii = 0; ii < plugins.length; ii++) {
-            var pluginId = plugins[ii].trim().replace('.', '/');
+            var pluginId = plugins[ii].replace(reTrim, '$1').replace(reDots, '/');
             requestedPlugins[ii] = loadedPlugins[pluginId];
         } // for
 
@@ -38,7 +40,7 @@
             pluginName;
 
         for (var ii = 0; ii < plugins.length; ii++) {
-            var pluginId = plugins[ii].trim().replace('.', '/'),
+            var pluginId = plugins[ii].replace(reTrim, '$1').replace(reDots, '/'),
                 plugin;
 
             if (! loadedPlugins[pluginId]) {
@@ -409,20 +411,22 @@ function BBox(p1, p2) {
         for (var ii = p1.length; ii--; ) {
             var testPos = typeof p1[ii] == 'string' ? new Pos(p1[ii]) : p1[ii];
 
-            if (testPos.lat < minPos.lat) {
-                minPos.lat = testPos.lat;
-            } // if
+            if (testPos) {
+                if (testPos.lat < minPos.lat) {
+                    minPos.lat = testPos.lat;
+                } // if
 
-            if (testPos.lat > maxPos.lat) {
-                maxPos.lat = testPos.lat;
-            } // if
+                if (testPos.lat > maxPos.lat) {
+                    maxPos.lat = testPos.lat;
+                } // if
 
-            if (testPos.lon < minPos.lon) {
-                minPos.lon = testPos.lon;
-            } // if
+                if (testPos.lon < minPos.lon) {
+                    minPos.lon = testPos.lon;
+                } // if
 
-            if (testPos.lon > maxPos.lon) {
-                maxPos.lon = testPos.lon;
+                if (testPos.lon > maxPos.lon) {
+                    maxPos.lon = testPos.lon;
+                } // if
             } // if
         } // for
 
@@ -2107,8 +2111,6 @@ var TWO_PI = Math.PI * 2,
     ECC = 0.08181919084262157,
     PHI_EPSILON = 1E-7,
     PHI_MAXITER = 12,
-
-    EVT_REMOVELAYER = 'layerRemove',
 
     STYLE_RESET = 'reset';
 var abs = Math.abs,
@@ -4021,10 +4023,10 @@ var View = function(container, params) {
                 scaledX = vp ? (vp.x + (srcX + vp.padding.x) / scaleFactor) : srcX,
                 scaledY = vp ? (vp.y + (srcY + vp.padding.y) / scaleFactor) : srcY;
 
-            projectedXY = new _self.XY(scaledX, scaledY);
+            projectedXY = new _this.XY(scaledX, scaledY);
         } // if
 
-        return projectedXY.sync(_self, true);
+        return projectedXY.sync(_this, true);
     } // getProjectedXY
 
     function handleDoubleTap(evt, absXY, relXY) {
@@ -4032,10 +4034,10 @@ var View = function(container, params) {
 
         clearTimeout(viewTapTimeout);
 
-        _self.trigger('doubleTap', absXY, relXY, projXY);
+        _this.trigger('doubleTap', absXY, relXY, projXY);
 
         if (params.scalable) {
-            var center = _self.center();
+            var center = _this.center();
 
             offset(
                 offsetX + projXY.x - center.x,
@@ -4072,16 +4074,6 @@ var View = function(container, params) {
         pointerDown = false;
     } // handlePointerUp
 
-    function handleRemoveLayer(evt, layer) {
-        var layerIndex = _indexOf(layers, layer.id);
-        if ((layerIndex >= 0) && (layerIndex < layerCount)) {
-            layers.splice(layerIndex, 1);
-            viewChanges++;
-        } // if
-
-        layerCount = layers.length;
-    } // handleRemoveLayer
-
     function handleResize(evt) {
         clearTimeout(resizeCanvasTimeout);
         resizeCanvasTimeout = setTimeout(function() {
@@ -4104,7 +4096,7 @@ var View = function(container, params) {
         initHitData('tap', absXY, relXY);
 
         viewTapTimeout = setTimeout(function() {
-            _self.trigger('tap', absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
+            _this.trigger('tap', absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
         }, 20);
     } // handlePointerTap
 
@@ -4141,15 +4133,15 @@ var View = function(container, params) {
             renderer = null;
         } // if
 
-        renderer = attachRenderer(value, _self, viewpane, outer, params);
+        renderer = attachRenderer(value, _this, viewpane, outer, params);
 
         fastpan = DOM && renderer.fastpan && DOM.transforms;
         _allowTransforms = DOM && DOM.transforms && params.useTransforms;
 
         captureInteractionEvents();
 
-        _self.trigger('changeRenderer', renderer);
-        _self.trigger('reset');
+        _this.trigger('changeRenderer', renderer);
+        _this.trigger('reset');
 
         refresh();
     } // changeRenderer
@@ -4211,7 +4203,7 @@ var View = function(container, params) {
             controls[controls.length] = regCreate(
                 'control',
                 controlTypes[ii],
-                _self,
+                _this,
                 panContainer,
                 outer,
                 params[controlTypes[ii]]
@@ -4330,7 +4322,7 @@ var View = function(container, params) {
             diffElements = Hits.diffHits(lastHitData.elements, elements);
 
             if (diffElements.length > 0) {
-                Hits.triggerEvent(lastHitData, _self, 'Out', diffElements);
+                Hits.triggerEvent(lastHitData, _this, 'Out', diffElements);
             }
             else {
                 changed = false;
@@ -4348,7 +4340,7 @@ var View = function(container, params) {
             } // for
 
             if (changed) {
-                Hits.triggerEvent(hitSample, _self);
+                Hits.triggerEvent(hitSample, _this);
 
                 if (hitSample.type === 'tap') {
                     clearTimeout(viewTapTimeout);
@@ -4372,11 +4364,11 @@ var View = function(container, params) {
             return;
         }
 
-        _self.panSpeed = panSpeed = abs(dx) + abs(dy);
+        _this.panSpeed = panSpeed = abs(dx) + abs(dy);
 
         scaleChanged = scaleFactor !== lastScaleFactor;
         if (scaleChanged) {
-            _self.trigger('scale');
+            _this.trigger('scale');
         } // if
 
         if (panSpeed > 0 || scaleChanged || offsetTween || scaleTween || rotateTween) {
@@ -4411,7 +4403,7 @@ var View = function(container, params) {
             panY += dy;
 
             if (dx || dy) {
-                _self.trigger('pan');
+                _this.trigger('pan');
             } // if
 
             if (_allowTransforms) {
@@ -4478,7 +4470,7 @@ var View = function(container, params) {
                         drawLayer.draw(
                             renderer,
                             vp,
-                            _self,
+                            _this,
                             tickCount,
                             hits[0]);
 
@@ -4490,7 +4482,7 @@ var View = function(container, params) {
 
                 renderer.trigger('render', vp);
 
-                _self.trigger('drawComplete', vp, tickCount);
+                _this.trigger('drawComplete', vp, tickCount);
 
                 DOM.move(viewpane, viewpaneX, viewpaneY, extraTransforms, txCenter);
             }
@@ -4524,7 +4516,7 @@ var View = function(container, params) {
             } // if
 
             if (lastScaleFactor !== scaleFactor) {
-                _self.trigger('scaleChanged', scaleFactor);
+                _this.trigger('scaleChanged', scaleFactor);
                 lastScaleFactor = scaleFactor;
             };
         } // if
@@ -4553,7 +4545,7 @@ var View = function(container, params) {
             for (var ii = layerCount; ii--; ) {
                 if (layers[ii].visible) {
                     hitFlagged = hitFlagged || (layers[ii].hitGuess ?
-                        layers[ii].hitGuess(hitSample.gridX, hitSample.gridY, _self) :
+                        layers[ii].hitGuess(hitSample.gridX, hitSample.gridY, _this) :
                         false);
                 } // if
             } // for
@@ -4581,7 +4573,7 @@ var View = function(container, params) {
 
     function addCopy(text) {
         copyright = copyright ? copyright + ' ' + text : text;
-        _self.trigger('copyright', copyright);
+        _this.trigger('copyright', copyright);
     } // addCopy
 
     /**
@@ -4600,9 +4592,9 @@ var View = function(container, params) {
 
     function center(p1, p2, tween) {
         if (typeof p1 != 'undefined' && (_is(p1, typeString) || _is(p1, 'object'))) {
-            var centerXY = new _self.XY(p1);
+            var centerXY = new _this.XY(p1);
 
-            centerXY.sync(_self);
+            centerXY.sync(_this);
 
             p1 = centerXY.x;
             p2 = centerXY.y;
@@ -4611,13 +4603,13 @@ var View = function(container, params) {
         if (_is(p1, typeNumber)) {
             offset(p1 - halfOuterWidth - padding.x, p2 - halfOuterHeight - padding.y, tween);
 
-            return _self;
+            return _this;
         }
         else {
             return offset().offset(
                 halfOuterWidth + padding.x | 0,
                 halfOuterHeight + padding.y | 0
-            ).sync(_self, true);
+            ).sync(_this, true);
         } // if..else
     } // center
 
@@ -4653,7 +4645,7 @@ var View = function(container, params) {
     function frozen(value) {
         if (! _is(value, typeUndefined)) {
             _frozen = value;
-            return _self;
+            return _this;
         }
         else {
             return _frozen;
@@ -4746,11 +4738,11 @@ var View = function(container, params) {
             return undefined;
         }
         else if (haveId) {
-            var layer = regCreate('layer', layerType, _self, panContainer, outer, settings),
+            var layer = regCreate('layer', layerType, _this, panContainer, outer, settings),
                 layerIndex = getLayerIndex(id);
 
             if (layerIndex !== layerCount) {
-                _self.trigger('layerRemove', layers[layerIndex]);
+                removeLayer(layers[layerIndex]);
             } // if
 
             layer.added = ticks();
@@ -4763,10 +4755,10 @@ var View = function(container, params) {
 
             layerCount = layers.length;
 
-            _self.trigger('resync');
+            _this.trigger('resync');
             refresh();
 
-            _self.trigger('layerChange', _self, layer);
+            _this.trigger('layerChange', _this, layer);
 
             viewChanges++;
 
@@ -4799,11 +4791,34 @@ var View = function(container, params) {
             refreshX = offsetX;
             refreshY = offsetY;
 
-            _self.trigger('refresh', _self, vp);
+            _this.trigger('refresh', _this, vp);
 
             viewChanges++;
         } // if
     } // refresh
+
+    /**
+    ### removeLayer()
+    */
+    function removeLayer(layer) {
+        if (_is(layer, typeString)) {
+            layer = layer(layer);
+        } // if
+
+        if (layer) {
+            _this.trigger('beforeRemoveLayer', layer);
+
+            var layerIndex = _indexOf(layers, layer.id);
+            if ((layerIndex >= 0) && (layerIndex < layerCount)) {
+                layers.splice(layerIndex, 1);
+                viewChanges++;
+            } // if
+
+            layerCount = layers.length;
+
+            layer.trigger('removed');
+        } // if
+    } // removeLayer
 
     /**
     ### rotate(value, tween, isAbsolute)
@@ -4824,7 +4839,7 @@ var View = function(container, params) {
                 viewChanges++;
             } // if..else
 
-            return _self;
+            return _this;
         }
         else {
             return rotation;
@@ -4861,7 +4876,7 @@ var View = function(container, params) {
                 viewChanges++;
             }
 
-            return _self;
+            return _this;
         } // if
         else {
             return scaleFactor;
@@ -4899,16 +4914,16 @@ var View = function(container, params) {
                 viewChanges++;
             } // if..else
 
-            return _self;
+            return _this;
         }
         else {
-            return new _self.XY(offsetX, offsetY).sync(_self, true);
+            return new _this.XY(offsetX, offsetY).sync(_this, true);
         } // if..else
     } // offset
 
     /* object definition */
 
-    var _self = {
+    var _this = {
         XY: XY,
 
         id: params.id,
@@ -4925,6 +4940,7 @@ var View = function(container, params) {
         invalidate: invalidate,
         pan: pan,
         refresh: refresh,
+        removeLayer: removeLayer,
         rotate: rotate,
         scale: scale,
 
@@ -4935,12 +4951,11 @@ var View = function(container, params) {
         viewport: viewport
     };
 
-    _observable(_self);
+    _observable(_this);
 
-    _self.bind('resize', handleResize);
-    _self.bind(EVT_REMOVELAYER, handleRemoveLayer);
+    _this.bind('resize', handleResize);
 
-    _configurable(_self, params, {
+    _configurable(_this, params, {
         container: updateContainer,
         captureHover: captureInteractionEvents,
         scalable: captureInteractionEvents,
@@ -4965,7 +4980,7 @@ var View = function(container, params) {
 
     Animator.attach(cycle);
 
-    return _self;
+    return _this;
 };
 /**
 # T5.Map
@@ -5453,7 +5468,7 @@ is specified then the style of the T5.PolyLayer is used.
 reg(typeDrawable, 'poly', function(view, layer, params) {
     params = _extend({
         allowCull: false,
-        simplify: false,
+        simplify: true,
         fill: true,
         points: [],
         typeName: 'Poly'
@@ -5746,14 +5761,7 @@ ViewLayer.prototype = {
     and then make use of canvas functions such as `isPointInPath` to do most of the heavy
     lifting for us
     */
-    hitGuess: null,
-
-    /**
-    ### remove()
-    */
-    remove: function() {
-        this.view.trigger(EVT_REMOVELAYER, this);
-    }
+    hitGuess: null
 }; // ViewLayer.prototype
 /**
 # LAYER: tile
@@ -5870,13 +5878,10 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
         } // if
     } // handleItemMove
 
-    function handleLayerRemove(evt, layer) {
-        if (layer === _self) {
-            storage = null;
+    function handleRemoved(evt) {
+        storage = null;
 
-            view.unbind('resync', resyncCallbackId);
-
-        } // if
+        view.unbind('resync', resyncCallbackId);
     } // handleLayerRemove
 
     function handleResync(evt) {
@@ -5897,7 +5902,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
     function clear() {
         if (storage) {
             storage.clear();
-            _self.trigger('cleared');
+            _this.trigger('cleared');
 
             view.invalidate();
         } // if
@@ -5907,7 +5912,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
     ### create(type, settings, prepend)
     */
     function create(type, settings, prepend) {
-        var drawable = regCreate(typeDrawable, type, view, _self, settings);
+        var drawable = regCreate(typeDrawable, type, view, _this, settings);
 
         drawable.resync();
         if (storage && drawable.bounds) {
@@ -5917,7 +5922,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
         drawable.bind('move', handleItemMove);
         drawable.trigger('created');
 
-        _self.trigger(type + 'Added', drawable);
+        _this.trigger(type + 'Added', drawable);
 
         return drawable;
     } // create
@@ -5932,7 +5937,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
 
         for (var ii = drawItems.length; ii--; ) {
             var drawable = drawItems[ii],
-                overrideStyle = drawable.style || _self.style,
+                overrideStyle = drawable.style || _this.style,
                 styleType,
                 previousStyle,
                 transform,
@@ -5962,7 +5967,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
 
                     styleType = hitData.type + 'Style';
 
-                    overrideStyle = drawable[styleType] || _self[styleType] || overrideStyle;
+                    overrideStyle = drawable[styleType] || _this[styleType] || overrideStyle;
                 } // if
 
                 previousStyle = overrideStyle ? renderer.applyStyle(overrideStyle, true) : null;
@@ -6007,9 +6012,9 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
         }).length > 0;
     } // hitGuess
 
-    /* initialise _self */
+    /* initialise _this */
 
-    var _self = _extend(new ViewLayer(view, panFrame, container, params), {
+    var _this = _extend(new ViewLayer(view, panFrame, container, params), {
         clear: clear,
         create: create,
         draw: draw,
@@ -6019,9 +6024,9 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
 
     resyncCallbackId = view.bind('resync', handleResync);
 
-    view.bind('layerRemove', handleLayerRemove);
+    _this.bind('removed', handleRemoved);
 
-    return _self;
+    return _this;
 });
 
 function Control(view) {

@@ -104,6 +104,21 @@ DEMO = (function() {
         var JavaScriptMode = require('ace/mode/javascript').Mode;
         editor.getSession().setMode(new JavaScriptMode());
         
+        // attach the reload handler to running code instead of reloading the page
+        var canon = require('pilot/canon');
+        
+        canon.addCommand({
+            name: 'runCode',
+            bindKey: {
+                win: 'Ctrl-B',
+                mac: 'Command-B',
+                sender: 'editor'
+            },
+            exec: function(env, args, request) {
+                runCode();
+            }
+        });
+        
         $('#btnRun').click(runCode);
     } // buildUI
     

@@ -118,10 +118,10 @@ var View = function(container, params) {
                 scaledX = vp ? (vp.x + (srcX + vp.padding.x) / scaleFactor) : srcX,
                 scaledY = vp ? (vp.y + (srcY + vp.padding.y) / scaleFactor) : srcY;
 
-            projectedXY = new _self.XY(scaledX, scaledY);
+            projectedXY = new _this.XY(scaledX, scaledY);
         } // if
         
-        return projectedXY.sync(_self, true);
+        return projectedXY.sync(_this, true);
     } // getProjectedXY
     
     function handleDoubleTap(evt, absXY, relXY) {
@@ -131,10 +131,10 @@ var View = function(container, params) {
         clearTimeout(viewTapTimeout);
 
         // trigger the double tap event
-        _self.trigger('doubleTap', absXY, relXY, projXY);
+        _this.trigger('doubleTap', absXY, relXY, projXY);
             
         if (params.scalable) {
-            var center = _self.center();
+            var center = _this.center();
             
             // update the offset to the tapped position
             offset(
@@ -177,17 +177,6 @@ var View = function(container, params) {
         pointerDown = false;
     } // handlePointerUp
     
-    function handleRemoveLayer(evt, layer) {
-        var layerIndex = _indexOf(layers, layer.id);
-        if ((layerIndex >= 0) && (layerIndex < layerCount)) {
-            layers.splice(layerIndex, 1);
-            viewChanges++;
-        } // if
-        
-        // update the layer count
-        layerCount = layers.length;
-    } // handleRemoveLayer
-    
     function handleResize(evt) {
         clearTimeout(resizeCanvasTimeout);
         resizeCanvasTimeout = setTimeout(function() {
@@ -215,7 +204,7 @@ var View = function(container, params) {
         
         // trigger a tap in 20ms unless an object has been tapped
         viewTapTimeout = setTimeout(function() {
-            _self.trigger('tap', absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
+            _this.trigger('tap', absXY, relXY, getProjectedXY(relXY.x, relXY.y, true));
         }, 20);
     } // handlePointerTap
     
@@ -258,7 +247,7 @@ var View = function(container, params) {
         } // if
         
         // now create the new renderer
-        renderer = attachRenderer(value, _self, viewpane, outer, params);
+        renderer = attachRenderer(value, _this, viewpane, outer, params);
         
         // determine whether partial scaling is supporter
         fastpan = DOM && renderer.fastpan && DOM.transforms;
@@ -268,8 +257,8 @@ var View = function(container, params) {
         captureInteractionEvents();
 
         // reset the view (renderers will pick this up)
-        _self.trigger('changeRenderer', renderer);
-        _self.trigger('reset');
+        _this.trigger('changeRenderer', renderer);
+        _this.trigger('reset');
 
         // refresh the display
         refresh();
@@ -337,7 +326,7 @@ var View = function(container, params) {
             controls[controls.length] = regCreate(
                 'control', 
                 controlTypes[ii],
-                _self,
+                _this,
                 panContainer,
                 outer,
                 params[controlTypes[ii]]
@@ -469,7 +458,7 @@ var View = function(container, params) {
             
             // if we have diff elements then trigger an out event
             if (diffElements.length > 0) {
-                Hits.triggerEvent(lastHitData, _self, 'Out', diffElements);
+                Hits.triggerEvent(lastHitData, _this, 'Out', diffElements);
             }
             // otherwise, reset the changed state as we have nothing to do
             // (that we haven't already done before)
@@ -492,7 +481,7 @@ var View = function(container, params) {
 
             // if the event state has changed trigger the event
             if (changed) {
-                Hits.triggerEvent(hitSample, _self);
+                Hits.triggerEvent(hitSample, _this);
                 
                 // if we have a tap, then clear the view tap timeout
                 if (hitSample.type === 'tap') {
@@ -521,12 +510,12 @@ var View = function(container, params) {
         }
             
         // calculate the current pan speed
-        _self.panSpeed = panSpeed = abs(dx) + abs(dy);
+        _this.panSpeed = panSpeed = abs(dx) + abs(dy);
         
         // update the panning flag
         scaleChanged = scaleFactor !== lastScaleFactor;
         if (scaleChanged) {
-            _self.trigger('scale');
+            _this.trigger('scale');
         } // if
         
         if (panSpeed > 0 || scaleChanged || offsetTween || scaleTween || rotateTween) {
@@ -552,7 +541,7 @@ var View = function(container, params) {
 
         // trigger the enter frame event
         // TODO: investigate whether this can be removed...
-        // _self.trigger('enterFrame', tickCount, frameData);
+        // _this.trigger('enterFrame', tickCount, frameData);
         
         // if we a due for a redraw then do on
         if (renderer && frameData.draw) {
@@ -571,7 +560,7 @@ var View = function(container, params) {
             panY += dy;
             
             if (dx || dy) {
-                _self.trigger('pan');
+                _this.trigger('pan');
             } // if
             
             // if transforms are supported, then scale and rotate as approprate
@@ -651,7 +640,7 @@ var View = function(container, params) {
                         drawLayer.draw(
                             renderer,
                             vp,
-                            _self,
+                            _this,
                             tickCount,
                             hits[0]);
 
@@ -667,7 +656,7 @@ var View = function(container, params) {
                 renderer.trigger('render', vp);
 
                 // trigger the draw complete event
-                _self.trigger('drawComplete', vp, tickCount);
+                _this.trigger('drawComplete', vp, tickCount);
 
                 // reset the view pan position
                 DOM.move(viewpane, viewpaneX, viewpaneY, extraTransforms, txCenter);
@@ -709,7 +698,7 @@ var View = function(container, params) {
 
             // check for a scale factor change
             if (lastScaleFactor !== scaleFactor) {
-                _self.trigger('scaleChanged', scaleFactor);
+                _this.trigger('scaleChanged', scaleFactor);
                 lastScaleFactor = scaleFactor;
             };
         } // if
@@ -745,7 +734,7 @@ var View = function(container, params) {
                 // if the layer is visible then check for hits
                 if (layers[ii].visible) {
                     hitFlagged = hitFlagged || (layers[ii].hitGuess ? 
-                        layers[ii].hitGuess(hitSample.gridX, hitSample.gridY, _self) :
+                        layers[ii].hitGuess(hitSample.gridX, hitSample.gridY, _this) :
                         false);
                 } // if
             } // for
@@ -778,7 +767,7 @@ var View = function(container, params) {
     function addCopy(text) {
         // update the copyright and trigger the event
         copyright = copyright ? copyright + ' ' + text : text;
-        _self.trigger('copyright', copyright);
+        _this.trigger('copyright', copyright);
     } // addCopy
     
     /**
@@ -803,10 +792,10 @@ var View = function(container, params) {
     function center(p1, p2, tween) {
         // if we have been passed a string argument, then parse
         if (typeof p1 != 'undefined' && (_is(p1, typeString) || _is(p1, 'object'))) {
-            var centerXY = new _self.XY(p1);
+            var centerXY = new _this.XY(p1);
             
             // sync
-            centerXY.sync(_self);
+            centerXY.sync(_this);
 
             // push the x and y parameters to the arguments
             p1 = centerXY.x;
@@ -818,14 +807,14 @@ var View = function(container, params) {
             offset(p1 - halfOuterWidth - padding.x, p2 - halfOuterHeight - padding.y, tween);
             
             // return the view so we can chain methods
-            return _self;
+            return _this;
         }
         // otherwise, return the center 
         else {
             return offset().offset(
                 halfOuterWidth + padding.x | 0, 
                 halfOuterHeight + padding.y | 0
-            ).sync(_self, true);
+            ).sync(_this, true);
         } // if..else
     } // center
     
@@ -866,7 +855,7 @@ var View = function(container, params) {
     function frozen(value) {
         if (! _is(value, typeUndefined)) {
             _frozen = value;
-            return _self;
+            return _this;
         }
         else {
             return _frozen;
@@ -969,12 +958,12 @@ var View = function(container, params) {
         // TODO: handle when an existing view is passed via the second arg
         else if (haveId) {
             // create the layer using the registry
-            var layer = regCreate('layer', layerType, _self, panContainer, outer, settings),
+            var layer = regCreate('layer', layerType, _this, panContainer, outer, settings),
                 layerIndex = getLayerIndex(id);
                 
             if (layerIndex !== layerCount) {
-                // trigger a layer changed event
-                _self.trigger('layerRemove', layers[layerIndex]);
+                // remove the layer
+                removeLayer(layers[layerIndex]);
             } // if
             
             // initialise the layer attributes
@@ -992,11 +981,11 @@ var View = function(container, params) {
             layerCount = layers.length;                
 
             // trigger a refresh on the layer
-            _self.trigger('resync');
+            _this.trigger('resync');
             refresh();
 
             // trigger a layer changed event
-            _self.trigger('layerChange', _self, layer);
+            _this.trigger('layerChange', _this, layer);
 
             // invalidate the map
             viewChanges++;
@@ -1035,12 +1024,40 @@ var View = function(container, params) {
             refreshY = offsetY;
             
             // trigger the refresh event
-            _self.trigger('refresh', _self, vp);
+            _this.trigger('refresh', _this, vp);
 
             // invalidate
             viewChanges++;
         } // if
     } // refresh
+    
+    /**
+    ### removeLayer()
+    */
+    function removeLayer(layer) {
+        // if we have been passed a layer id, then get the layer object
+        if (_is(layer, typeString)) {
+            layer = layer(layer);
+        } // if
+        
+        // if we have a layer, then remove it
+        if (layer) {
+            // trigger the beforeRemoveEvent
+            _this.trigger('beforeRemoveLayer', layer);
+            
+            var layerIndex = _indexOf(layers, layer.id);
+            if ((layerIndex >= 0) && (layerIndex < layerCount)) {
+                layers.splice(layerIndex, 1);
+                viewChanges++;
+            } // if
+
+            // update the layer count
+            layerCount = layers.length;
+
+            // trigger the layer removal
+            layer.trigger('removed');
+        } // if
+    } // removeLayer
     
     /**
     ### rotate(value, tween, isAbsolute)
@@ -1061,7 +1078,7 @@ var View = function(container, params) {
                 viewChanges++;
             } // if..else
             
-            return _self;
+            return _this;
         }
         else {
             return rotation;
@@ -1103,7 +1120,7 @@ var View = function(container, params) {
                 viewChanges++;
             }
             
-            return _self;
+            return _this;
         } // if
         else {
             return scaleFactor;
@@ -1142,19 +1159,19 @@ var View = function(container, params) {
                 viewChanges++;
             } // if..else
             
-            return _self;
+            return _this;
         }
         // otherwise, simply return it
         else {
             // return the last calculated cycle offset
-            return new _self.XY(offsetX, offsetY).sync(_self, true);
+            return new _this.XY(offsetX, offsetY).sync(_this, true);
         } // if..else
     } // offset
     
     /* object definition */
     
-    // initialise _self
-    var _self = {
+    // initialise _this
+    var _this = {
         XY: XY, 
         
         id: params.id,
@@ -1171,6 +1188,7 @@ var View = function(container, params) {
         invalidate: invalidate,
         pan: pan,
         refresh: refresh,
+        removeLayer: removeLayer,
         rotate: rotate,
         scale: scale,
         
@@ -1182,14 +1200,13 @@ var View = function(container, params) {
     };
 
     // make the view observable
-    _observable(_self);
+    _observable(_this);
     
     // handle the view being resynced
-    _self.bind('resize', handleResize);
-    _self.bind(EVT_REMOVELAYER, handleRemoveLayer);
+    _this.bind('resize', handleResize);
     
     // route auto configuration methods
-    _configurable(_self, params, {
+    _configurable(_this, params, {
         container: updateContainer,
         captureHover: captureInteractionEvents,
         scalable: captureInteractionEvents,
@@ -1219,5 +1236,5 @@ var View = function(container, params) {
     // start the animation frame
     Animator.attach(cycle);
     
-    return _self;
+    return _this;
 };
