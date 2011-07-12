@@ -1,5 +1,6 @@
-<img src="https://github.com/sidelab/tile5/raw/master/demos/img/tile5.png" style="float:right">
 # Tile5 - Alternative HTML5 Mapping
+
+<img src="https://github.com/sidelab/tile5/raw/master/demos/img/tile5.png" />
 
 Tile5 is a progressive HTML5 mapping library that uses the stuff that "all the cool kids" are playing with and makes a mapping library with it.  
 
