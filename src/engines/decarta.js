@@ -20,6 +20,10 @@ T5.Decarta = (function() {
         geocoding: {
             countryCode: "US",
             language: "EN"
+        },
+        
+        routing: {
+            rulesFile: 'maneuver-rules'
         }
     };
     

@@ -7,13 +7,15 @@ T5.Registry.register('service', 'routing', function() {
             routeQueryType: "RMAN",
             preference: "Fastest",
             routeInstructions: true,
-            routeGeometry: true
+            routeGeometry: true,
+            rulesFile: 'maneuver-rules'
         }, params);
         
         // define the base request
         var parent = new Request(),
             routeHeaderFormatter = T5.formatter('<xls:DetermineRouteRequest provideRouteHandle="{0}" distanceUnit="{1}" routeQueryType="{2}">'),
-            waypointFormatter = T5.formatter('<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>');
+            waypointFormatter = T5.formatter('<xls:{0}><xls:Position><gml:Point><gml:pos>{1}</gml:pos></gml:Point></xls:Position></xls:{0}>'),
+            routeInsFormatter = T5.formatter('<xls:RouteInstructionsRequest rules="{0}" providePoint="true" />');
         
         function parseInstructions(instructionList) {
             var fnresult = [],
@@ -78,7 +80,7 @@ T5.Registry.register('service', 'routing', function() {
                 
                 // add the route instruction request
                 if (params.routeInstructions) {
-                    body += "<xls:RouteInstructionsRequest rules=\"maneuver-rules\" providePoint=\"true\" />";
+                    body += routeInsFormatter(params.rulesFile);
                 } // if
                 
                 // add the geometry request
@@ -107,8 +109,9 @@ T5.Registry.register('service', 'routing', function() {
     
     function calculate(waypoints, callback, errorCallback, opts) {
         opts = T5.ex({
-            preference: 'Fastest'
-        }, opts);
+            preference: 'Fastest',
+            rulesFile: 'maneuver-rules'
+        }, currentConfig.routing, opts);
         
         // create the route request, mapping the common opts to decarta opts
         var routeRequest = new RouteRequest(waypoints, opts);
