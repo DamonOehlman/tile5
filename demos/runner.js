@@ -51,6 +51,7 @@ DEMO = (function() {
         },
         demos = [
             'basic/simple-map',
+            'basic/simple-marker',
             'geojson/world',
             'animation/map-panning',
             'animation/map-markers',
