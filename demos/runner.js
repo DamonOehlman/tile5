@@ -3,6 +3,10 @@ DAT.GUI.autoPlace = false;
 // define the map and gui globals for simplicities sake
 var map, gui = new DAT.GUI();
 
+DEMOCONFIG = {
+    basePath: ''
+};
+
 DEMO = (function() {
     
     /* internals */
@@ -270,7 +274,7 @@ DEMO = (function() {
         
         loaderChain.wait(function() {
             $.ajax({
-                url: selectedDemo.script + '?ticks=' + new Date().getTime(),
+                url: DEMOCONFIG.basePath + selectedDemo.script + '?ticks=' + new Date().getTime(),
                 dataType: 'text',
                 success: function(data) {
                     editor.getSession().setValue(data);
