@@ -1,9 +1,0 @@
-[submodule "lib/cog"]
-	path = lib/cog
-	url = /development/projects/github/sidelab/cog/
-[submodule "interact"]
-	path = interact
-	url = /development/projects/github/sidelab/interact/
-[submodule "lib/timelord"]
-	path = lib/timelord
-	url = /development/projects/github/sidelab/timelord
