@@ -1,64 +1,64 @@
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true */
 
-//= require <cog/cogs/extend>
-//= require <cog/cogs/log>
-//= require <cog/cogs/stringtools>
-//= require <cog/cogs/easing>
-//= require <cog/cogs/observable>
-//= require <cog/cogs/configurable>
-//= require <cog/cogs/arraytools>
-//= require <cog/cogs/typetools>
-//= require <cog/cogs/jsonp>
-//= require <interact/src/interact>
+//= cog!extend
+//= cog!log
+//= cog!stringtools
+//= cog!easing
+//= cog!observable
+//= cog!configurable
+//= cog!arraytools
+//= cog!typetools
+//= cog!jsonp
+//= interact!interact
 
 // define T5
 var T5 = this.T5 = _observable({});
 
-//= require "core/registry"
-//= require "core/messages"
-//= require "core/functions"
-//= require "core/constants"
-//= require "core/shorts"
-//= require "core/animator"
-//= require "core/parser"
-//= require "core/dom"
-//= require "core/runner"
+//= core/registry
+//= core/messages
+//= core/functions
+//= core/constants
+//= core/shorts
+//= core/animator
+//= core/parser
+//= core/dom
+//= core/runner
 
-//= require "core/geo/projections/default"
-//= require "core/types/xy"
-//= require "core/types/line"
-//= require "core/types/geoxy"
-//= require "core/types/rect"
+//= core/geo/projections/default
+//= core/types/xy
+//= core/types/line
+//= core/types/geoxy
+//= core/types/rect
 
-//= require "core/hits"
-//= require "core/spatialstore"
+//= core/hits
+//= core/spatialstore
 
-//= require "core/images/loader"
-//= require "core/images/tile"
+//= core/images/loader
+//= core/images/tile
 
-//= require "core/renderers/base"
-//= require "core/renderers/canvas"
-//= require "core/renderers/dom"
+//= core/renderers/base
+//= core/renderers/canvas
+//= core/renderers/dom
 
-//= require "core/graphics/style"
-//= require "core/graphics/view"
-//= require "core/graphics/map"
-//= require "core/graphics/tweener"
+//= core/graphics/style
+//= core/graphics/view
+//= core/graphics/map
+//= core/graphics/tweener
 
-//= require "core/graphics/drawables/core"
-//= require "core/graphics/drawables/marker"
-//= require "core/graphics/drawables/poly"
-//= require "core/graphics/drawables/line"
-//= require "core/graphics/drawables/image"
-//= require "core/graphics/drawables/arc"
+//= core/graphics/drawables/core
+//= core/graphics/drawables/marker
+//= core/graphics/drawables/poly
+//= core/graphics/drawables/line
+//= core/graphics/drawables/image
+//= core/graphics/drawables/arc
 
-//= require "core/graphics/layers/viewlayer"
-//= require "core/graphics/layers/tilelayer"
-//= require "core/graphics/layers/drawlayer"
+//= core/graphics/layers/viewlayer
+//= core/graphics/layers/tilelayer
+//= core/graphics/layers/drawlayer
 
-//= require "core/controls/base"
-//= require "core/controls/zoombar"
-//= require "core/controls/copyright"
+//= core/controls/base
+//= core/controls/zoombar
+//= core/controls/copyright
 
 /**
 # T5
@@ -111,4 +111,4 @@ if (typeof module != 'undefined' && module.exports) {
     module.exports = T5;
 } // if
 
-//= require "core/factory"
+//= core/factory

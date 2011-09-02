@@ -9,8 +9,8 @@
  * Build Date: @DATE
  */
 
-//= require <geojs/src/geojs>
+//= geojs!geojs
 
 (function() {
-    //= require "../src/tile5"
+    //= ../src/tile5
 })();

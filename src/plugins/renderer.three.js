@@ -1,4 +1,4 @@
-//= require <colorparser.js>
+//= colorparser!
 
 T5.Registry.register('renderer', 'three:webgl', function(view, panFrame, container, params, baseRenderer) {
     params = T5.ex({

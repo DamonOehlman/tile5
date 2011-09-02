@@ -958,7 +958,7 @@ var View = function(container, params) {
         // TODO: handle when an existing view is passed via the second arg
         else if (haveId) {
             // create the layer using the registry
-            var layer = regCreate('layer', layerType, _this, panContainer, outer, settings),
+            var newLayer = regCreate('layer', layerType, _this, panContainer, outer, settings),
                 layerIndex = getLayerIndex(id);
                 
             if (layerIndex !== layerCount) {
@@ -967,9 +967,9 @@ var View = function(container, params) {
             } // if
             
             // initialise the layer attributes
-            layer.added = ticks();
-            layer.id = id;
-            layers[layerIndex] = layer;
+            newLayer.added = ticks();
+            newLayer.id = id;
+            layers.push(newLayer);
 
             // resort the layers
             // sort the layers
@@ -985,13 +985,13 @@ var View = function(container, params) {
             refresh();
 
             // trigger a layer changed event
-            _this.trigger('layerChange', _this, layer);
+            _this.trigger('layerChange', _this, newLayer);
 
             // invalidate the map
             viewChanges++;
 
             // return the layer so we can chain if we want
-            return layer;
+            return newLayer;
         }
         // otherwise, return the view layers
         else {
@@ -1034,18 +1034,18 @@ var View = function(container, params) {
     /**
     ### removeLayer()
     */
-    function removeLayer(layer) {
+    function removeLayer(targetLayer) {
         // if we have been passed a layer id, then get the layer object
-        if (_is(layer, typeString)) {
-            layer = layer(layer);
+        if (_is(targetLayer, typeString)) {
+            targetLayer = layer(targetLayer);
         } // if
         
         // if we have a layer, then remove it
-        if (layer) {
+        if (targetLayer) {
             // trigger the beforeRemoveEvent
-            _this.trigger('beforeRemoveLayer', layer);
+            _this.trigger('beforeRemoveLayer', targetLayer);
             
-            var layerIndex = _indexOf(layers, layer.id);
+            var layerIndex = getLayerIndex(targetLayer.id);
             if ((layerIndex >= 0) && (layerIndex < layerCount)) {
                 layers.splice(layerIndex, 1);
                 viewChanges++;
@@ -1055,7 +1055,7 @@ var View = function(container, params) {
             layerCount = layers.length;
 
             // trigger the layer removal
-            layer.trigger('removed');
+            targetLayer.trigger('removed');
         } // if
     } // removeLayer
     

@@ -1,4 +1,4 @@
-//= require <glMatrix>
+//= glMatrix!
 
 T5.Registry.register('renderer', 'webgl', function(view, panFrame, container, params, baseRenderer) {
     params = _extend({

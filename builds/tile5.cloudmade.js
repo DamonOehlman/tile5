@@ -9,10 +9,10 @@
  * Build Date: @DATE
  */
 
-//= require <geojs/src/geojs>
+//= geojs!geojs
 
 (function() {
-    //= require "../src/tile5"
-    //= require "../src/engines/osm"
-    //= require "../src/engines/cloudmade"
+    //= ../src/tile5
+    //= ../src/engines/osm
+    //= ../src/engines/cloudmade
 })();

@@ -27,11 +27,11 @@ T5.Decarta = (function() {
         }
     };
     
-    //= require <timelord/timelord>
-    //= require "decarta/core"
-    //= require "decarta/generator"
-    //= require "decarta/geocoder"
-    //= require "decarta/routing"
+    //= timelord!
+    //= decarta/core
+    //= decarta/generator
+    //= decarta/geocoder
+    //= decarta/routing
     
     return {
         applyConfig: function(args) {
