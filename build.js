@@ -2,10 +2,10 @@ var interleave = require('interleave'),
     fs = require('fs'),
     config = {
         aliases: {
-            geojs: 'github://sidelab/geojs/lib/$1',
+            geojs: 'github://DamonOehlman/geojs/lib/$1',
             cog: 'github://sidelab/cog/cogs/$1',
-            interact: 'github://sidelab/interact/$1',
-            timelord: 'github://sidelab/timelord/timelord',
+            interact: 'github://DamonOehlman/interact/$1',
+            timelord: 'github://sidelab/DamonOehlman/timelord',
             colorparser: 'lib/colorparser',
             glMatrix: 'gcode://glmatrix/hg/glMatrix'
         }
