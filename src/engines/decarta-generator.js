@@ -32,7 +32,12 @@ T5.Registry.register('generator', 'decarta', function(view, params) {
         "0.000691272945568983,0.000686645507812500",
         "0.000345636472797214,0.000343322753906250"
     ],
-    tileConfig = currentConfig.tileConfig;
+    tileConfig = {
+        hosts: [],
+        clientName: 'unknown',
+        sessionID: new Date().getTime(),
+        configuration: 'decarta-global'
+    };
     
     /* internals */
     
