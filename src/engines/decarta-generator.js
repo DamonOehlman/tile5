@@ -1,7 +1,10 @@
 T5.Registry.register('generator', 'decarta', function(view, params) {
-    params = T5.ex({
-        tileSize: 256
-    }, params);
+    params = params || {};
+    params.tileSize = params.tileSize || 256;
+    params.hosts = params.hosts || [];
+    params.clientName = params.clientName || 'unknown';
+    params.sessionID = params.sessionID || new Date().getTime();
+    params.configuration = params.configuration || 'decarta-global';
     
     // initialise constants
     var DEGREES_TO_RADIANS = Math.PI / 180,
@@ -31,13 +34,7 @@ T5.Registry.register('generator', 'decarta', function(view, params) {
         "0.001382546303032519,0.001373291015625000",
         "0.000691272945568983,0.000686645507812500",
         "0.000345636472797214,0.000343322753906250"
-    ],
-    tileConfig = {
-        hosts: [],
-        clientName: 'unknown',
-        sessionID: new Date().getTime(),
-        configuration: 'decarta-global'
-    };
+    ];
     
     /* internals */
     
@@ -60,7 +57,7 @@ T5.Registry.register('generator', 'decarta', function(view, params) {
                     h: yTiles * tileSize
                 }),
                 tileIds = {},
-                hosts = tileConfig.hosts,
+                hosts = params.hosts,
                 ii;
 
             // iterate through the tiles and create the tile id index
@@ -83,10 +80,10 @@ T5.Registry.register('generator', 'decarta', function(view, params) {
                                '&DS=navteq-world' +
                                '&WIDTH=' + (256 /* * dpr*/) +
                                '&HEIGHT=' + (256 /* * dpr*/) +
-                               '&CLIENTNAME=' + tileConfig.clientName +
-                               '&SESSIONID=' + tileConfig.sessionID +
+                               '&CLIENTNAME=' + params.clientName +
+                               '&SESSIONID=' + params.sessionID +
                                '&FORMAT=PNG' +
-                               '&CONFIG=' + tileConfig.configuration +
+                               '&CONFIG=' + params.configuration +
                                '&N=' + tileY +
                                '&E=' + tileX,
                             tile = new T5.Tile(
@@ -114,23 +111,13 @@ T5.Registry.register('generator', 'decarta', function(view, params) {
     /* exports */
     
     function run(store, callback) {
-        if (tileConfig) {
-            createTiles(store, callback);
-        }
-        else {
-            var userId = currentConfig.clientName.replace(/.*?\:/, '');
-            
-            T5.Decarta.getTileConfig(userId, function(config) {
-                setTileConfig(config);
-                
-                // create the tiles
-                createTiles(store, callback);
-            });
-        } // if..else
+        createTiles(store, callback);
     } // run
     
     function setTileConfig(config) {
-        tileConfig = config;
+        for (var key in config) {
+            params[key] = config[key];
+        } // for
     } // setTileConfig
     
     /* define the generator */
