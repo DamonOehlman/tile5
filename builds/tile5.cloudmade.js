@@ -1,12 +1,12 @@
 /*!
- * Sidelab Tile5 Javascript Library v<%= T5_VERSION %>
+ * Sidelab Tile5 Javascript Library v${version}
  * http://tile5.org/
  *
- * Copyright 2010, <%= T5_AUTHOR %>
+ * Copyright 2010, ${author}
  * Licensed under the MIT licence
- * https://github.com/sidelab/tile5/blob/master/LICENSE.mdown
+ * https://github.com/DamonOehlman/tile5/blob/master/LICENSE.mdown
  *
- * Build Date: @DATE
+ * Build Date: ${builddate}
  */
 
 //= geojs!geojs

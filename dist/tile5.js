@@ -1,73 +1,57 @@
 /*!
- * Sidelab Tile5 Javascript Library v<%= T5_VERSION %>
+ * Sidelab Tile5 Javascript Library v${version}
  * http://tile5.org/
  *
- * Copyright 2010, <%= T5_AUTHOR %>
+ * Copyright 2010, ${author}
  * Licensed under the MIT licence
- * https://github.com/sidelab/tile5/blob/master/LICENSE.mdown
+ * https://github.com/DamonOehlman/tile5/blob/master/LICENSE.mdown
  *
- * Build Date: @DATE
+ * Build Date: ${builddate}
  */
 
 (function() {
     
     /* internals */
     
-    var loadedPlugins = {},
-        reTrim = /^(.*)\s+$/,
+    var definedModules = {},
+        reTrim = /^\s*(.*?)\s*$/,
         reDots = /\./g;
     
-    function define(id, definition) {
-        loadedPlugins[id] = definition;
+    function define(id) {
+        return definedModules[id] = {
+            exports: {}
+        };
     } // define
-    
-    function findPlugins(input) {
-        var plugins = input.split(','),
-            requestedPlugins = [];
-
-        for (var ii = 0; ii < plugins.length; ii++) {
-            var pluginId = plugins[ii].replace(reTrim, '$1').replace(reDots, '/');
-            requestedPlugins[ii] = loadedPlugins[pluginId];
-        } // for
-        
-        return requestedPlugins;
-    } // findPlugins
 
     function plugin(input, callback) {
         var plugins = input.split(','),
-            allLoaded = true,
-            labLoader = typeof $LAB !== 'undefined' ? $LAB : null,
-            pluginName;
+            requested = [],
+            errors = [];
             
         for (var ii = 0; ii < plugins.length; ii++) {
-            var pluginId = plugins[ii].replace(reTrim, '$1').replace(reDots, '/'),
-                plugin;
-
-            if (! loadedPlugins[pluginId]) {
-                if (IS_COMMONJS) {
-                    plugin = loadedPlugins[pluginId] = require('./plugins/' + pluginId);
+            var pluginId = plugins[ii].replace(reTrim, '$1').replace(reDots, '/');
+                
+            if (IS_COMMONJS) {
+                try {
+                    var modPath = require('path').resolve(__dirname, 'plugins/' + pluginId),
+                        mod = require(modPath);
+                        
+                    requested.push(mod);
                 }
-                else if (labLoader) {
-                    // unset the all loaded flag
-                    allLoaded = false;
-
-                    // TODO: add $LABjs loading here also
-                } // if..else
-            } // for
+                catch (e) {
+                    errors.push('Unable to load ' + pluginId);
+                }
+            }
+            else {
+                requested.push(definedModules[pluginId].exports);
+            } // if..else
         } // for
 
-        if (callback) {
-            if (IS_COMMONJS || allLoaded) {
-                callback.apply(GeoJS, findPlugins(input));
-            }
-            else if (labLoader) {
-                $LAB.wait(function() {
-                    callback.apply(GeoJS, findPlugins(input));
-                });
-            } // if..else
-        } // if
+        requested.unshift(errors.join(','));
 
-        return GeoJS;
+        if (callback) {
+            callback.apply(null, requested);
+        } // if
     } // plugin
     
     var LAT_VARIABILITIES = [
@@ -189,7 +173,7 @@
         },
         
         equalTo: function(testPos) {
-            return pos && (this.lat === testPos.lat) && (this.lon === testPos.lon);
+            return testPos && (this.lat === testPos.lat) && (this.lon === testPos.lon);
         },
         
         empty: function() {
@@ -202,7 +186,7 @@
         inArray: function(testArray) {
             if (testArray) {
                 for (var ii = testArray.length; ii--; ) {
-                    if (this.equal(testArray[ii])) {
+                    if (this.equalTo(testArray[ii])) {
                         return true;
                     } // if
                 } // for
