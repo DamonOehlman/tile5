@@ -90,13 +90,13 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
             if (inactive) {
                 if (item.image && item.image.parentNode) {
                     // reset the image src 
-                    item.image.src = '';
+                    delete item.image.src;
 
                     // remove the image from the dom
                     imageDiv.removeChild(item.image);
 
                     // reset to null
-                    item.image = null;
+                    delete item.image;
                 } // if
                 
                 // add to the deleted keys
