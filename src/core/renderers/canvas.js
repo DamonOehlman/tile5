@@ -96,6 +96,8 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
             // initialise the context
             context = null;
         } // if
+        
+        return canvas;
     } // createCanvas
     
     function getPreviousStyle(canvasId) {
@@ -435,36 +437,38 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         checkBrokenPointInPath();
     } // if
     
+    var _this = baseRenderer;
+    
     // create the canvas
-    createCanvas();
+    if (createCanvas()) {
+        _this = _extend(baseRenderer, {
+            applyStyle: applyStyle,
+            applyTransform: applyTransform,
 
-    var _this = _extend(baseRenderer, {
-        applyStyle: applyStyle,
-        applyTransform: applyTransform,
-        
-        drawTiles: drawTiles,
-        
-        prepArc: prepArc,
-        prepImage: prepImage,
-        prepMarker: prepMarker,
-        prepPoly: prepPoly,
-        
-        getCanvas: function() {
-            return canvas;
-        },
-        
-        getContext: function() { 
-            return context;
-        }
-    });
-    
-    // load the styles
-    loadStyles();
-    
-    // handle detaching
-    _this.bind('predraw', handlePredraw);
-    _this.bind('detach', handleDetach);
-    _this.bind('resize', handleResize);
+            drawTiles: drawTiles,
+
+            prepArc: prepArc,
+            prepImage: prepImage,
+            prepMarker: prepMarker,
+            prepPoly: prepPoly,
+
+            getCanvas: function() {
+                return canvas;
+            },
+
+            getContext: function() { 
+                return context;
+            }
+        });
+
+        // load the styles
+        loadStyles();
+
+        // handle detaching
+        _this.bind('predraw', handlePredraw);
+        _this.bind('detach', handleDetach);
+        _this.bind('resize', handleResize);        
+    } // if
     
     return _this;
 });
