@@ -86,6 +86,29 @@
         
         reDelimitedSplit = /[\,\s]+/;
 
+    
+    function ActivityLog() {
+        this.entries = [];
+        
+        this._startTick = new Date().getTime();
+        this._lastTick = this._startTick;
+    };
+    
+    ActivityLog.prototype.entry = function(text) {
+        var tick = new Date().getTime();
+        
+        // add an entry
+        this.entries.push({
+            text: text,
+            elapsed: tick - this._lastTick,
+            total: tick - this._startTick
+        });
+        
+        // update the last tick
+        this._lastTick = tick;
+    };
+
+    
     /**
     # GeoJS.Pos 
     
@@ -148,6 +171,11 @@
                 brng = Math.atan2(y, x);
     
             return (brng * RADIANS_TO_DEGREES + 360) % 360;        
+        },
+        
+        // return the serializable clean version of the data
+        clean: function() {
+            return this.toString();
         },
         
         copy: function() {
@@ -854,6 +882,8 @@
 
     
     var GeoJS = this.GeoJS = {
+        ActivityLog: ActivityLog,
+        
         Pos: Pos,
         Line: Line,
         BBox: BBox,
@@ -3070,7 +3100,7 @@
     
                 // create a slice of the points for the visible points
                 // including one point either side
-                return points.slice(max(firstIdx - 1, 0), min(lastIdx + 1, points.length));
+                return points.slice(max(firstIdx - 2, 0), min(lastIdx + 2, points.length));
             } // if
             
             // otherwise just return the array
@@ -3545,7 +3575,8 @@
             // otherwise, create and load the image
             else {
                 var imageToLoad = new Image();
-    
+                
+                // initialise the id
                 imageToLoad.id = '_ldimg' + (++imageCount);
     
                 // add the image to the loading data
@@ -3562,6 +3593,19 @@
                 loadingUrls[loadingUrls.length] = url;
             } // if..else
         } // loadImage
+        
+        function resetLoadingState(imageUrl) {
+            // remove from the cache
+            delete loadingData[imageUrl];
+            
+            // iterate through the loading urls and locate the url
+            for (var ii = loadingUrls.length; ii--; ) {
+                if (loadingUrls[ii] === imageUrl) {
+                    loadingUrls.splice(ii, 1);
+                    break;
+                }
+            } // for
+        } // resetLoadingState
         
         // check for image loads every 5 seconds
         Animator.attach(checkImageLoads, 250);
@@ -3621,7 +3665,7 @@
                 tile.image = image;
                 
                 if (callback) {
-                    callback();
+                    callback(tile);
                 } // if
             });
         }
@@ -3824,6 +3868,8 @@
                 // initialise the context
                 context = null;
             } // if
+            
+            return canvas;
         } // createCanvas
         
         function getPreviousStyle(canvasId) {
@@ -4163,36 +4209,38 @@
             checkBrokenPointInPath();
         } // if
         
+        var _this = baseRenderer;
+        
         // create the canvas
-        createCanvas();
+        if (createCanvas()) {
+            _this = _extend(baseRenderer, {
+                applyStyle: applyStyle,
+                applyTransform: applyTransform,
     
-        var _this = _extend(baseRenderer, {
-            applyStyle: applyStyle,
-            applyTransform: applyTransform,
-            
-            drawTiles: drawTiles,
-            
-            prepArc: prepArc,
-            prepImage: prepImage,
-            prepMarker: prepMarker,
-            prepPoly: prepPoly,
-            
-            getCanvas: function() {
-                return canvas;
-            },
-            
-            getContext: function() { 
-                return context;
-            }
-        });
-        
-        // load the styles
-        loadStyles();
-        
-        // handle detaching
-        _this.bind('predraw', handlePredraw);
-        _this.bind('detach', handleDetach);
-        _this.bind('resize', handleResize);
+                drawTiles: drawTiles,
+    
+                prepArc: prepArc,
+                prepImage: prepImage,
+                prepMarker: prepMarker,
+                prepPoly: prepPoly,
+    
+                getCanvas: function() {
+                    return canvas;
+                },
+    
+                getContext: function() { 
+                    return context;
+                }
+            });
+    
+            // load the styles
+            loadStyles();
+    
+            // handle detaching
+            _this.bind('predraw', handlePredraw);
+            _this.bind('detach', handleDetach);
+            _this.bind('resize', handleResize);        
+        } // if
         
         return _this;
     });
@@ -4208,7 +4256,8 @@
             PREFIX_LENGTH = ID_PREFIX.length,
             imageDiv = null,
             activeTiles = {},
-            currentTiles = {};
+            currentTiles = {},
+            offsetX = 0, offsetY = 0;
         
         function createImageContainer() {
             imageDiv = DOM.create('div', 't5-tiles', DOM.styles({
@@ -4227,35 +4276,6 @@
             view.attachFrame(imageDiv);
         } // createImageContainer
         
-        function createTileImage(tile) {
-            // create the image
-            var image = tile.image = new Image();
-            
-            // save to the tile cache so we can remove it once no longer needed
-            activeTiles[tile.id] = tile;
-    
-            // set the image load handler
-            image.onload = function() {
-                if (currentTiles[tile.id]) {
-                    // check that this image is still valid (it will be in the tile cache)
-                    imageDiv.appendChild(this);
-                }
-                // otherwise, reset the image
-                else {
-                    tile.image = null;
-                } // if..else
-            };
-            
-            // initialise the image source
-            image.src = tile.url;
-    
-            // initialise the image style
-            image.style.cssText = '-webkit-user-select: none; -webkit-box-shadow: none; -moz-box-shadow: none; box-shadow: none; border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px; margin-top: 0px; margin-right: 0px; margin-bottom: 0px; margin-left: 0px; position: absolute;';
-         
-            // return the image
-            return image;
-        }
-        
         function handleDetach() {
             // remove the image div from the panFrame
             panFrame.removeChild(imageDiv);
@@ -4266,6 +4286,20 @@
             removeOldObjects(activeTiles, currentTiles);
             currentTiles = {};
         } // handlePredraw
+        
+        function handleTileLoad(tile) {
+            var image = activeTiles[tile.id] = tile.image;
+                
+            // initialise the image style
+            image.style.cssText = '-webkit-user-select: none; -webkit-box-shadow: none; -moz-box-shadow: none; box-shadow: none; border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px; margin-top: 0px; margin-right: 0px; margin-bottom: 0px; margin-left: 0px; position: absolute;';
+            
+            // add to the images div
+            DOM.move(image, tile.x - offsetX, tile.y - offsetY);
+            imageDiv.appendChild(image);
+            
+            // invalidate the view
+            view.invalidate();
+        } // handleTileLoad
         
         function handleReset(evt) {
             removeOldObjects(activeTiles, currentTiles = {});
@@ -4287,15 +4321,13 @@
                     
                 // if the object is not in the current objects, remove from the scene
                 if (inactive) {
-                    if (item.image && item.image.parentNode) {
-                        // reset the image src 
-                        item.image.src = '';
+                    if (item && item.parentNode) {
+                        // TODO: investigate releasing image effectively 
+                        // other mapping libraries have implemented techniques, but then removed them
+                        // based on unpredicatable behaviour in some mobile browsers
     
                         // remove the image from the dom
-                        imageDiv.removeChild(item.image);
-    
-                        // reset to null
-                        item.image = null;
+                        imageDiv.removeChild(item);
                     } // if
                     
                     // add to the deleted keys
@@ -4313,26 +4345,26 @@
         
         function drawTiles(viewport, tiles, okToLoad) {
             var tile,
-                image,
-                offsetX = viewport.x, 
-                offsetY = viewport.y;
+                image;
+            
+            // save the x and y offset
+            offsetX = viewport.x;
+            offsetY = viewport.y;
     
             // draw the tiles
             for (var ii = tiles.length; ii--; ) {
                 tile = tiles[ii];
+                image = activeTiles[tile.id];
                 
-                if (tile.url) {
-                    // get the tile image
-                    image = tile.image || (okToLoad ? createTileImage(tile) : null);
-                    
-                    // if we have an image, then move it
-                    if (image) {
-                        DOM.move(image, tile.x - offsetX, tile.y - offsetY);
-                    } // if
-    
-                    // flag the tile as current
-                    currentTiles[tile.id] = tile;
+                if (image) {
+                    DOM.move(image, tile.x - offsetX, tile.y - offsetY);
+                }
+                else if (okToLoad && (! (tile.loaded || tile.loading))) {
+                    tile.load(handleTileLoad);
                 } // if
+                
+                // flag the tile as current
+                currentTiles[tile.id] = tile;
             } // for
         } // drawTiles
         
@@ -4614,6 +4646,9 @@
             
             // initialise the hit data
             initHitData('down', absXY, relXY);
+            
+            // bubble the event up
+            _this.trigger('pointerDown', absXY, relXY);
         } // handlePointerDown
         
         function handlePointerHover(evt, absXY, relXY) {
@@ -4629,11 +4664,17 @@
                 dx += deltaXY.x;
                 dy += deltaXY.y;
             } // if
+            
+            // bubble the event up
+            _this.trigger('pointerMove', absXY, relXY, deltaXY);
         } // handlePointerMove
         
         function handlePointerUp(evt, absXY, relXY) {
             dragSelected(absXY, relXY, true);
             pointerDown = false;
+            
+            // bubble the event up
+            _this.trigger('pointerUp', absXY, relXY);
         } // handlePointerUp
         
         function handleResize(evt) {
@@ -4881,6 +4922,7 @@
             if (DOM) {
                 // get the outer element
                 outer = document.getElementById(value);
+                
                 if (outer) {
                     initContainer(outer);
     
@@ -5657,13 +5699,13 @@
             offset: offset,
             viewport: viewport
         };
-    
+        
         // make the view observable
         _observable(_this);
         
         // handle the view being resynced
         _this.bind('resize', handleResize);
-        
+    
         // route auto configuration methods
         _configurable(_this, params, {
             container: updateContainer,
@@ -5714,7 +5756,7 @@
             
             zoombar: {}
         }, params);
-        
+    
         /* internals */
         
         var lastBoundsChangeOffset = new GeoXY(),
@@ -5828,7 +5870,7 @@
             else {
                 return zoomLevel;
             } // if..else
-        } // zoom    
+        } // zoom
         
         var _self = _extend(new View(container, params), {
             XY: GeoXY, 

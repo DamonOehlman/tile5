@@ -6,3 +6,4 @@ apidoc
 test/qunit
 .DS_Store
 closed-*
+node_modules

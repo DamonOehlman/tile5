@@ -155,6 +155,9 @@ var View = function(container, params) {
         
         // initialise the hit data
         initHitData('down', absXY, relXY);
+        
+        // bubble the event up
+        _this.trigger('pointerDown', absXY, relXY);
     } // handlePointerDown
     
     function handlePointerHover(evt, absXY, relXY) {
@@ -170,11 +173,17 @@ var View = function(container, params) {
             dx += deltaXY.x;
             dy += deltaXY.y;
         } // if
+        
+        // bubble the event up
+        _this.trigger('pointerMove', absXY, relXY, deltaXY);
     } // handlePointerMove
     
     function handlePointerUp(evt, absXY, relXY) {
         dragSelected(absXY, relXY, true);
         pointerDown = false;
+        
+        // bubble the event up
+        _this.trigger('pointerUp', absXY, relXY);
     } // handlePointerUp
     
     function handleResize(evt) {
@@ -422,6 +431,7 @@ var View = function(container, params) {
         if (DOM) {
             // get the outer element
             outer = document.getElementById(value);
+            
             if (outer) {
                 initContainer(outer);
 
@@ -1198,13 +1208,13 @@ var View = function(container, params) {
         offset: offset,
         viewport: viewport
     };
-
+    
     // make the view observable
     _observable(_this);
     
     // handle the view being resynced
     _this.bind('resize', handleResize);
-    
+
     // route auto configuration methods
     _configurable(_this, params, {
         container: updateContainer,
