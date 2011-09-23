@@ -14,7 +14,7 @@ var Map = function(container, params) {
         
         zoombar: {}
     }, params);
-    
+
     /* internals */
     
     var lastBoundsChangeOffset = new GeoXY(),
@@ -128,7 +128,7 @@ var Map = function(container, params) {
         else {
             return zoomLevel;
         } // if..else
-    } // zoom    
+    } // zoom
     
     var _self = _extend(new View(container, params), {
         XY: GeoXY, 
