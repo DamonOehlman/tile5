@@ -67,7 +67,8 @@ var getImage = (function() {
         // otherwise, create and load the image
         else {
             var imageToLoad = new Image();
-
+            
+            // initialise the id
             imageToLoad.id = '_ldimg' + (++imageCount);
 
             // add the image to the loading data
@@ -84,6 +85,19 @@ var getImage = (function() {
             loadingUrls[loadingUrls.length] = url;
         } // if..else
     } // loadImage
+    
+    function resetLoadingState(imageUrl) {
+        // remove from the cache
+        delete loadingData[imageUrl];
+        
+        // iterate through the loading urls and locate the url
+        for (var ii = loadingUrls.length; ii--; ) {
+            if (loadingUrls[ii] === imageUrl) {
+                loadingUrls.splice(ii, 1);
+                break;
+            }
+        } // for
+    } // resetLoadingState
     
     // check for image loads every 5 seconds
     Animator.attach(checkImageLoads, 250);
