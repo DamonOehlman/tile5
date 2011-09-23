@@ -4253,11 +4253,14 @@
         /* internals */
         
         var ID_PREFIX = 'tile_',
+            DATA_X = 'data-x',
+            DATA_Y = 'data-y',
+            DATA_DISPOSE = 'data-dispose',
             PREFIX_LENGTH = ID_PREFIX.length,
             imageDiv = null,
-            activeTiles = {},
             currentTiles = {},
-            offsetX = 0, offsetY = 0;
+            offsetX = 0, offsetY = 0,
+            reTile = /^tile\/(.*)$/;
         
         function createImageContainer() {
             imageDiv = DOM.create('div', 't5-tiles', DOM.styles({
@@ -4279,30 +4282,31 @@
         function handleDetach() {
             // remove the image div from the panFrame
             panFrame.removeChild(imageDiv);
+            imageDiv = null;
         } // handleDetach
         
-        function handlePredraw(evt, layers, viewport, tickcount, hits) {
+        function handleDrawComplete(evt, layers, viewport, tickcount, hits) {
             // remove old tiles
-            removeOldObjects(activeTiles, currentTiles);
-            currentTiles = {};
+            removeOldObjects();
         } // handlePredraw
         
         function handleTileLoad(tile) {
-            var image = activeTiles[tile.id] = tile.image;
-                
+            var image = tile.image;
+    
             // initialise the image style
             image.style.cssText = '-webkit-user-select: none; -webkit-box-shadow: none; -moz-box-shadow: none; box-shadow: none; border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px; margin-top: 0px; margin-right: 0px; margin-bottom: 0px; margin-left: 0px; position: absolute;';
-            
+    
             // add to the images div
             DOM.move(image, tile.x - offsetX, tile.y - offsetY);
-            imageDiv.appendChild(image);
+            image.className = 'tile/' + tile.id;
+            image[DATA_X] = tile.x;
+            image[DATA_Y] = tile.y;
             
-            // invalidate the view
-            view.invalidate();
+            imageDiv.appendChild(image);
         } // handleTileLoad
         
         function handleReset(evt) {
-            removeOldObjects(activeTiles, currentTiles = {});
+            currentTiles = {};
             
             // remove all the children of the image div (just to be sure)
             while (imageDiv.childNodes.length > 0) {
@@ -4310,61 +4314,61 @@
             } // while
         } // handleReset
         
-        function removeOldObjects(activeObj, currentObj, flagField) {
-            var deletedKeys = [];
-            
-            // iterate through the active objects 
-            // TODO: use something other than a for in loop please...
-            for (var objId in activeObj) {
-                var item = activeObj[objId],
-                    inactive = flagField ? item[flagField] : (! currentObj[objId]);
-                    
-                // if the object is not in the current objects, remove from the scene
-                if (inactive) {
-                    if (item && item.parentNode) {
-                        // TODO: investigate releasing image effectively 
-                        // other mapping libraries have implemented techniques, but then removed them
-                        // based on unpredicatable behaviour in some mobile browsers
+        function removeOldObjects() {
+            var elements = [].concat(imageDiv.childNodes),
+                ii, tileId;
     
-                        // remove the image from the dom
-                        imageDiv.removeChild(item);
-                    } // if
-                    
-                    // add to the deleted keys
-                    deletedKeys[deletedKeys.length] = objId;
+            // iterate through the elements and if the image is not a current tile, then remove it
+            for (ii = elements.length; ii--; ) {
+                tileId = elements[ii].className.replace(reTile, '$1');
+    
+                // if the tile is not current, then remove it
+                if ((! currentTiles[tileId]) && (! elements[ii][DATA_DISPOSE])) {
+                    removeTile(elements[ii]);
                 } // if
             } // for
+        } // removeOldObjects
+        
+        function removeTile(image) {
+            // mark as disposed
+            image[DATA_DISPOSE] = true;
             
-            // remove the deleted keys from the active objects
-            for (var ii = deletedKeys.length; ii--; ) {
-                delete activeObj[deletedKeys[ii]];
-            } // for
-        } // removeOldObjects    
+            // TODO: remove the tile after a delay
+            imageDiv.removeChild(image);
+        } // removeTile
         
         /* exports */
         
         function drawTiles(viewport, tiles, okToLoad) {
-            var tile,
-                image;
+            var image, ii;
+                
+            // reset the current tiles
+            currentTiles = {};
             
             // save the x and y offset
             offsetX = viewport.x;
             offsetY = viewport.y;
+            
+            // move existing tiles
+            for (ii = imageDiv.childNodes.length; ii--; ) {
+                image = imageDiv.childNodes[ii];
     
-            // draw the tiles
-            for (var ii = tiles.length; ii--; ) {
-                tile = tiles[ii];
-                image = activeTiles[tile.id];
-                
-                if (image) {
-                    DOM.move(image, tile.x - offsetX, tile.y - offsetY);
-                }
-                else if (okToLoad && (! (tile.loaded || tile.loading))) {
-                    tile.load(handleTileLoad);
+                // move the image
+                DOM.move(
+                    image,
+                    image[DATA_X] - offsetX,
+                    image[DATA_Y] - offsetY
+                );
+            } // for
+    
+            // load new tiles
+            for (ii = tiles.length; ii--; ) {
+                if (okToLoad && (! (tiles[ii].loaded || tiles[ii].loading))) {
+                    tiles[ii].load(handleTileLoad);
                 } // if
                 
-                // flag the tile as current
-                currentTiles[tile.id] = tile;
+                // flag as current
+                currentTiles[tiles[ii].id] = true;
             } // for
         } // drawTiles
         
@@ -4377,8 +4381,7 @@
             drawTiles: drawTiles
         });
         
-        // handle the predraw
-        _this.bind('predraw', handlePredraw);
+        _this.bind('drawComplete', handleDrawComplete);
         _this.bind('detach', handleDetach);
         view.bind('reset', handleReset);
         
