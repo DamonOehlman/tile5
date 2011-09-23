@@ -33,7 +33,7 @@ Tile.prototype = {
             tile.image = image;
             
             if (callback) {
-                callback();
+                callback(tile);
             } // if
         });
     }
