@@ -9,7 +9,8 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
         PREFIX_LENGTH = ID_PREFIX.length,
         imageDiv = null,
         activeTiles = {},
-        currentTiles = {};
+        currentTiles = {},
+        offsetX = 0, offsetY = 0;
     
     function createImageContainer() {
         imageDiv = DOM.create('div', 't5-tiles', DOM.styles({
@@ -28,35 +29,6 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
         view.attachFrame(imageDiv);
     } // createImageContainer
     
-    function createTileImage(tile) {
-        // create the image
-        var image = tile.image = new Image();
-        
-        // save to the tile cache so we can remove it once no longer needed
-        activeTiles[tile.id] = tile;
-
-        // set the image load handler
-        image.onload = function() {
-            if (currentTiles[tile.id]) {
-                // check that this image is still valid (it will be in the tile cache)
-                imageDiv.appendChild(this);
-            }
-            // otherwise, reset the image
-            else {
-                tile.image = null;
-            } // if..else
-        };
-        
-        // initialise the image source
-        image.src = tile.url;
-
-        // initialise the image style
-        image.style.cssText = '-webkit-user-select: none; -webkit-box-shadow: none; -moz-box-shadow: none; box-shadow: none; border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px; margin-top: 0px; margin-right: 0px; margin-bottom: 0px; margin-left: 0px; position: absolute;';
-     
-        // return the image
-        return image;
-    }
-    
     function handleDetach() {
         // remove the image div from the panFrame
         panFrame.removeChild(imageDiv);
@@ -67,6 +39,20 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
         removeOldObjects(activeTiles, currentTiles);
         currentTiles = {};
     } // handlePredraw
+    
+    function handleTileLoad(tile) {
+        var image = activeTiles[tile.id] = tile.image;
+            
+        // initialise the image style
+        image.style.cssText = '-webkit-user-select: none; -webkit-box-shadow: none; -moz-box-shadow: none; box-shadow: none; border-top-width: 0px; border-right-width: 0px; border-bottom-width: 0px; border-left-width: 0px; border-style: initial; border-color: initial; padding-top: 0px; padding-right: 0px; padding-bottom: 0px; padding-left: 0px; margin-top: 0px; margin-right: 0px; margin-bottom: 0px; margin-left: 0px; position: absolute;';
+        
+        // add to the images div
+        DOM.move(image, tile.x - offsetX, tile.y - offsetY);
+        imageDiv.appendChild(image);
+        
+        // invalidate the view
+        view.invalidate();
+    } // handleTileLoad
     
     function handleReset(evt) {
         removeOldObjects(activeTiles, currentTiles = {});
@@ -88,15 +74,13 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
                 
             // if the object is not in the current objects, remove from the scene
             if (inactive) {
-                if (item.image && item.image.parentNode) {
-                    // reset the image src 
-                    delete item.image.src;
+                if (item && item.parentNode) {
+                    // TODO: investigate releasing image effectively 
+                    // other mapping libraries have implemented techniques, but then removed them
+                    // based on unpredicatable behaviour in some mobile browsers
 
                     // remove the image from the dom
-                    imageDiv.removeChild(item.image);
-
-                    // reset to null
-                    delete item.image;
+                    imageDiv.removeChild(item);
                 } // if
                 
                 // add to the deleted keys
@@ -114,26 +98,26 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
     
     function drawTiles(viewport, tiles, okToLoad) {
         var tile,
-            image,
-            offsetX = viewport.x, 
-            offsetY = viewport.y;
+            image;
+        
+        // save the x and y offset
+        offsetX = viewport.x;
+        offsetY = viewport.y;
 
         // draw the tiles
         for (var ii = tiles.length; ii--; ) {
             tile = tiles[ii];
+            image = activeTiles[tile.id];
             
-            if (tile.url) {
-                // get the tile image
-                image = tile.image || (okToLoad ? createTileImage(tile) : null);
-                
-                // if we have an image, then move it
-                if (image) {
-                    DOM.move(image, tile.x - offsetX, tile.y - offsetY);
-                } // if
-
-                // flag the tile as current
-                currentTiles[tile.id] = tile;
+            if (image) {
+                DOM.move(image, tile.x - offsetX, tile.y - offsetY);
+            }
+            else if (okToLoad && (! (tile.loaded || tile.loading))) {
+                tile.load(handleTileLoad);
             } // if
+            
+            // flag the tile as current
+            currentTiles[tile.id] = tile;
         } // for
     } // drawTiles
     
