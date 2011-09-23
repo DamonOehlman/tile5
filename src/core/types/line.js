@@ -39,7 +39,7 @@ Line.prototype = _extend(new Array(), {
 
             // create a slice of the points for the visible points
             // including one point either side
-            return points.slice(max(firstIdx - 1, 0), min(lastIdx + 1, points.length));
+            return points.slice(max(firstIdx - 2, 0), min(lastIdx + 2, points.length));
         } // if
         
         // otherwise just return the array
