@@ -1390,15 +1390,17 @@
         // set (which is extremely silly, I know)
         function serverReq(url, callback, callbackParam) {
             var request = require('request'),
-                requestURI = url + (url.indexOf("?") >= 0 ? "&" : "?") + 
-                    (callbackParam ? callbackParam : 'callback') + '=cb';
+                requestURI = url + (url.indexOf("?") >= 0 ? "&" : "?") +
+                    (callbackParam ? callbackParam : 'callback') + '=cb',
+                requestOpts = typeof REQUEST_OPTS != 'undefined' ? REQUEST_OPTS : {};
+                   
+            // set the uri
+            requestOpts.uri = requestURI;
     
-            request({ uri: requestURI }, function(error, response, body) {
+            request(requestOpts, function(error, response, body) {
                 if (! error) {
-                    // remove the silly callback parameter
                     var cleaned = body.replace(/^.*\(/, '').replace(/\).*$/, '');
     
-                    // fire the callback, first parsing the JSON
                     callback(JSON.parse(cleaned));
                 }
                 else {
@@ -2577,7 +2579,7 @@
             frameIndex++;
     
             // set the tick count in the case that it hasn't been set already
-            tickCount = DOM ? (window.mozAnimationStartTime || 
+            tickCount = DOM && useAnimFrame ? (window.mozAnimationStartTime || 
                 tickCount || 
                 new Date().getTime()) : new Date().getTime();
             
@@ -3303,7 +3305,7 @@
         */
         function triggerEvent(hitData, target, evtSuffix, elements) {
             target.triggerCustom(
-                hitData.type + (evtSuffix ? evtSuffix : 'Hit'), {
+                hitData.type + (evtSuffix || 'Hit'), {
                     hitType: hitData.type
                 },
                 elements ? elements : hitData.elements, 
@@ -5002,6 +5004,7 @@
             // check to see if we are panning
             var extraTransforms = [],
                 panning,
+                panSpeed,
                 scaleChanged,
                 rerender,
                 viewpaneX,
@@ -5930,6 +5933,8 @@
                         valuesChange[ii], 
                         duration);
                 } // for
+                
+                console.log(valuesCurrent);
                 
                 if (viewToInvalidate) {
                     viewToInvalidate.invalidate();

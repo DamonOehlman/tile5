@@ -73,7 +73,7 @@ Hits = (function() {
     */
     function triggerEvent(hitData, target, evtSuffix, elements) {
         target.triggerCustom(
-            hitData.type + (evtSuffix ? evtSuffix : 'Hit'), {
+            hitData.type + (evtSuffix || 'Hit'), {
                 hitType: hitData.type
             },
             elements ? elements : hitData.elements, 

@@ -508,6 +508,7 @@ var View = function(container, params) {
         // check to see if we are panning
         var extraTransforms = [],
             panning,
+            panSpeed,
             scaleChanged,
             rerender,
             viewpaneX,
