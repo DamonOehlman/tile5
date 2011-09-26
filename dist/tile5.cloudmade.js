@@ -5934,8 +5934,6 @@
                         duration);
                 } // for
                 
-                console.log(valuesCurrent);
-                
                 if (viewToInvalidate) {
                     viewToInvalidate.invalidate();
                 } // if
