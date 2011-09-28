@@ -1,0 +1,16 @@
+html, body, #mapContainer {
+    margin: 0;
+    height: 100%;
+    width: 100%;
+}
+
+body {
+    font: 1em Helvetica, Arial;
+}
+
+.t5-copyright {
+    background: #e8e8e8;
+    opacity: 0.4;
+    font-size: 0.8em;
+    padding: 5px;
+}

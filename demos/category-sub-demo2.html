@@ -1,0 +1,98 @@
+<!doctype html>
+<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en"> <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+
+  <title></title>
+  <meta name="description" content="">
+  <meta name="author" content="Damon Oehlman">
+
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script src="_demogen/js/modernizr-2.0.6.min.js"></script>
+</head>
+
+<body>
+  
+  <style type="text/css">html, body, #mapContainer {
+    margin: 0;
+    height: 100%;
+    width: 100%;
+}
+
+body {
+    font: 1em Helvetica, Arial;
+}
+
+.t5-copyright {
+    background: #e8e8e8;
+    opacity: 0.4;
+    font-size: 0.8em;
+    padding: 5px;
+}</style>
+  
+  <div id="mapContainer"></div>
+
+
+  <!--[if lt IE 7 ]>
+    <script src="//ajax.googleapis.com/ajax/libs/chrome-frame/1.0.3/CFInstall.min.js"></script>
+    <script>window.attachEvent('onload',function(){CFInstall.check({mode:'overlay'})})</script>
+  <![endif]-->
+
+  <pre id="demosrc" style="display:none">// create the map
+var map = new T5.Map('mapContainer', {
+    renderer: settings.renderer || 'canvas',
+    drawOnMove: settings.drawOnMove,
+    drawOnTween: settings.drawOnTween
+});
+
+map.layer('tiles', 'tile', {
+    generator: 'osm.cloudmade',
+    // demo api key, register for an API key at http://dev.cloudmade.com/
+    apikey: '7960daaf55f84bfdb166014d0b9f8d41',
+    styleid: settings.mapstyle
+});
+
+map.zoom(8).center('-27.469 153.020');
+
+setInterval(function() {
+    document.write('sub demo 2\n');
+}, 500);
+
+</pre>
+  <script src="_demogen/js/keymaster.min.js"></script>
+  <script src="_demogen/js/jquery-1.6.2.min.js"></script>
+  <script src="_demogen/js/ace/ace.js"></script>
+  <script src="_demogen/js/ace/theme-twilight.js"></script>
+  <script src="_demogen/js/ace/mode-javascript.js"></script>
+  <script src="_demogen/js/runner.js"></script>
+  <script src="../dist/tile5.cloudmade.js"></script>
+  <script>
+  var settings = {"theme":"twilight","mode":"javascript","body":"<div id=\"mapContainer\"></div>"};
+  </script>
+  <script defer="defer">// create the map
+var map = new T5.Map('mapContainer', {
+    renderer: settings.renderer || 'canvas',
+    drawOnMove: settings.drawOnMove,
+    drawOnTween: settings.drawOnTween
+});
+
+map.layer('tiles', 'tile', {
+    generator: 'osm.cloudmade',
+    // demo api key, register for an API key at http://dev.cloudmade.com/
+    apikey: '7960daaf55f84bfdb166014d0b9f8d41',
+    styleid: settings.mapstyle
+});
+
+map.zoom(8).center('-27.469 153.020');
+
+setInterval(function() {
+    document.write('sub demo 2\n');
+}, 500);
+
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+{
+    "drawOnMove": true,
+    "mapstyle": 999,
+    "renderer": "canvas/dom"
+}

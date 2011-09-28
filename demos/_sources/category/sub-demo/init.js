@@ -1,0 +1,1 @@
+$('body').css('background', 'red');

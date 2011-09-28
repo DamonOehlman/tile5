@@ -11,7 +11,8 @@ var View = function(container, params) {
         padding: 128, // other values 'auto'
         inertia: true,
         refreshDistance: 128,
-        noDrawOnTween: true,
+        drawOnMove: false,
+        drawOnTween: false,
         pannable: true,
         scalable: true,
         renderer: 'canvas',
@@ -42,7 +43,6 @@ var View = function(container, params) {
         totalDX = 0,
         totalDY = 0,
         refreshDist = params.refreshDistance,
-        noDrawOnTween = params.noDrawOnTween,
         offsetX = 0,
         offsetY = 0,
         panX = 0,
@@ -587,9 +587,8 @@ var View = function(container, params) {
             
             // determine whether we should rerender or not
             rerender = hitFlagged || (! fastpan) || (
-                (! pointerDown) && 
-                (! (offsetTween && noDrawOnTween)) &&
-                (! (scaleTween && noDrawOnTween)) && 
+                (params.drawOnMove || (! pointerDown)) && 
+                (params.drawOnTween || (! (offsetTween || scaleTween))) && 
                 (params.drawOnScale || scaleFactor === 1) && 
                 panSpeed <= PANSPEED_THRESHOLD_FASTPAN
             );

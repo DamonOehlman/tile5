@@ -1,0 +1,400 @@
+<!doctype html>
+<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en"> <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+
+  <title></title>
+  <meta name="description" content="">
+  <meta name="author" content="Damon Oehlman">
+
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script src="_demogen/js/modernizr-2.0.6.min.js"></script>
+</head>
+
+<body>
+  
+  <style type="text/css">html, body, #mapContainer {
+    margin: 0;
+    height: 100%;
+    width: 100%;
+}
+
+body {
+    font: 1em Helvetica, Arial;
+}
+
+.t5-copyright {
+    background: #e8e8e8;
+    opacity: 0.4;
+    font-size: 0.8em;
+    padding: 5px;
+}</style>
+  
+  <div id="mapContainer"></div>
+
+
+  <!--[if lt IE 7 ]>
+    <script src="//ajax.googleapis.com/ajax/libs/chrome-frame/1.0.3/CFInstall.min.js"></script>
+    <script>window.attachEvent('onload',function(){CFInstall.check({mode:'overlay'})})</script>
+  <![endif]-->
+
+  <pre id="demosrc" style="display:none">// create the map
+var map = new T5.Map('mapContainer', {
+    renderer: settings.renderer || 'canvas',
+    drawOnMove: settings.drawOnMove,
+    drawOnTween: settings.drawOnTween
+});
+
+map.layer('tiles', 'tile', {
+    generator: 'osm.cloudmade',
+    // demo api key, register for an API key at http://dev.cloudmade.com/
+    apikey: '7960daaf55f84bfdb166014d0b9f8d41',
+    styleid: settings.mapstyle
+});
+
+map.zoom(8).center('-27.469 153.020');
+
+(function() {
+    var parser = new T5.GeoJSONParser({ generalizer: GeoJS.generalize }),
+        worldLayer,
+        ui,
+        sample = {
+            animate: function() {
+                animateLayer(worldLayer);
+            }
+        };
+
+    function animateLayer(layer) {
+        var shapes = layer.find(),
+            aniDuration,
+            startX, startY,
+            aniOpts;
+
+        // animate the shapes (just because)
+        for (var ii = shapes.length; ii--; ) {
+            aniDuration = (Math.random() * 1000 + 500) | 0;
+            startX = (Math.random() * 4000 - 2000) | 0;
+            startY = (Math.random() * 4000 - 2000) | 0;
+
+            aniOpts = {
+                easing: 'sine.out',
+                duration: aniDuration
+            };
+
+            shapes[ii].translate(startX, startY).translate(0, 0, aniOpts, true);
+            shapes[ii].scale(0.1).scale(1, aniOpts, true);
+            shapes[ii].rotate(360, aniOpts, true);
+        } // for
+    } // animateLayer
+    
+    function animateElements(elements) {
+        for (var ii = elements.length; ii--; ) {
+            var target = elements[ii].target;
+            if (target) {
+                target.style = 'area.highlight';
+                target.zindex = 10;
+                
+                target.scale(0.75, {
+                    easing: 'back.out',
+                    duration: 500,
+                    complete: function() {
+                        target.scale(1, { 
+                            complete: function() {
+                                target.style = 'area.simple';
+                                target.zindex = 0;
+                            },
+                            duration: 500 
+                        }, true);
+                    }
+                }, true);
+            }
+        } // for
+    }
+    
+    function hideElements(elements) {
+        for (var ii = elements.length; ii--; ) {
+            if (elements[ii].target) {
+                elements[ii].target.visible = false;
+            } // if
+        } // for
+        
+        map.invalidate();
+    } // hideElements
+
+    function displayFirstElement(elements, hideDelay) {
+        if (elements.length > 0) {
+            var props = elements[0].target ? elements[0].target.properties : null;
+            if (props) {
+                DEMO.status(props.name, hideDelay);
+            } // if
+        } // if
+    } 
+    
+	map = new T5.Map('mapContainer', {
+		renderer: DEMO.getRenderer()
+	});
+
+    /*
+	map.layer('tiles', 'tile', {
+		generator: 'osm.cloudmade',
+        // demo api key, register for an API key at http://dev.cloudmade.com/
+        apikey: '7960daaf55f84bfdb166014d0b9f8d41'
+	});
+	*/
+	
+	map.center('20 0').zoom(3);
+
+    map.bind('tapHit', function(evt, elements, absXY, relXY, offsetXY) {
+        hideElements(elements);
+    });
+    
+    ui = DEMO.makeSampleUI();
+    ui.gui.add(sample, 'animate');
+    ui.done();
+
+    // create the world layer
+    worldLayer = map.layer('world', 'draw');
+    worldLayer.hoverStyle = 'area.highlight';
+    
+    parser.bind('poly', function(evt, data) {
+        var item = worldLayer.create('poly', data);
+        item.style = 'area.simple';
+    });
+
+    parser.run(worldData);
+})();
+
+(function() {
+    var parser = T5.Registry.create('parser', 'geojson'),
+        container = $('#mapContainer')[0];
+
+    map = new T5.Map('mapContainer', {
+    	renderer: 'canvas',
+    	padding: 'auto'
+    });
+
+    map.layer('tiles', 'tile', {
+    	generator: 'osm.cloudmade',
+        // demo api key, register for an API key at http://dev.cloudmade.com/
+        apikey: '7960daaf55f84bfdb166014d0b9f8d41'
+    });
+
+    map.center(DEMO.getHomePosition()).zoom(4);
+     
+    container.addEventListener("dragover", function (evt) {
+        evt.preventDefault();
+    }, false);
+
+    // Handle dropped image file - only Firefox and Google Chrome
+    container.addEventListener("drop", function (evt) {
+        var files = evt.dataTransfer.files;
+        if (files.length > 0) {
+            var file = files[0];
+            if (typeof FileReader !== "undefined") {
+                var reader = new FileReader();
+                // Note: addEventListener doesn't work in Google Chrome for this event
+                reader.onload = function (evt) {
+                    parser(map, JSON.parse(evt.target.result), function(layers) {
+                        for (var key in layers) {
+                            layers[key].visible = true;
+                        } // for
+                        
+                        map.invalidate();
+                    });
+                };
+                reader.readAsText(file);
+            }
+        }
+        evt.preventDefault();
+    }, false);
+})();
+
+</pre>
+  <script src="_demogen/js/keymaster.min.js"></script>
+  <script src="_demogen/js/jquery-1.6.2.min.js"></script>
+  <script src="_demogen/js/ace/ace.js"></script>
+  <script src="_demogen/js/ace/theme-twilight.js"></script>
+  <script src="_demogen/js/ace/mode-javascript.js"></script>
+  <script src="_demogen/js/runner.js"></script>
+  <script src="../dist/tile5.cloudmade.js"></script>
+  <script>
+  var settings = {"theme":"twilight","mode":"javascript","body":"<div id=\"mapContainer\"></div>"};
+  </script>
+  <script defer="defer">// create the map
+var map = new T5.Map('mapContainer', {
+    renderer: settings.renderer || 'canvas',
+    drawOnMove: settings.drawOnMove,
+    drawOnTween: settings.drawOnTween
+});
+
+map.layer('tiles', 'tile', {
+    generator: 'osm.cloudmade',
+    // demo api key, register for an API key at http://dev.cloudmade.com/
+    apikey: '7960daaf55f84bfdb166014d0b9f8d41',
+    styleid: settings.mapstyle
+});
+
+map.zoom(8).center('-27.469 153.020');
+
+(function() {
+    var parser = new T5.GeoJSONParser({ generalizer: GeoJS.generalize }),
+        worldLayer,
+        ui,
+        sample = {
+            animate: function() {
+                animateLayer(worldLayer);
+            }
+        };
+
+    function animateLayer(layer) {
+        var shapes = layer.find(),
+            aniDuration,
+            startX, startY,
+            aniOpts;
+
+        // animate the shapes (just because)
+        for (var ii = shapes.length; ii--; ) {
+            aniDuration = (Math.random() * 1000 + 500) | 0;
+            startX = (Math.random() * 4000 - 2000) | 0;
+            startY = (Math.random() * 4000 - 2000) | 0;
+
+            aniOpts = {
+                easing: 'sine.out',
+                duration: aniDuration
+            };
+
+            shapes[ii].translate(startX, startY).translate(0, 0, aniOpts, true);
+            shapes[ii].scale(0.1).scale(1, aniOpts, true);
+            shapes[ii].rotate(360, aniOpts, true);
+        } // for
+    } // animateLayer
+    
+    function animateElements(elements) {
+        for (var ii = elements.length; ii--; ) {
+            var target = elements[ii].target;
+            if (target) {
+                target.style = 'area.highlight';
+                target.zindex = 10;
+                
+                target.scale(0.75, {
+                    easing: 'back.out',
+                    duration: 500,
+                    complete: function() {
+                        target.scale(1, { 
+                            complete: function() {
+                                target.style = 'area.simple';
+                                target.zindex = 0;
+                            },
+                            duration: 500 
+                        }, true);
+                    }
+                }, true);
+            }
+        } // for
+    }
+    
+    function hideElements(elements) {
+        for (var ii = elements.length; ii--; ) {
+            if (elements[ii].target) {
+                elements[ii].target.visible = false;
+            } // if
+        } // for
+        
+        map.invalidate();
+    } // hideElements
+
+    function displayFirstElement(elements, hideDelay) {
+        if (elements.length > 0) {
+            var props = elements[0].target ? elements[0].target.properties : null;
+            if (props) {
+                DEMO.status(props.name, hideDelay);
+            } // if
+        } // if
+    } 
+    
+	map = new T5.Map('mapContainer', {
+		renderer: DEMO.getRenderer()
+	});
+
+    /*
+	map.layer('tiles', 'tile', {
+		generator: 'osm.cloudmade',
+        // demo api key, register for an API key at http://dev.cloudmade.com/
+        apikey: '7960daaf55f84bfdb166014d0b9f8d41'
+	});
+	*/
+	
+	map.center('20 0').zoom(3);
+
+    map.bind('tapHit', function(evt, elements, absXY, relXY, offsetXY) {
+        hideElements(elements);
+    });
+    
+    ui = DEMO.makeSampleUI();
+    ui.gui.add(sample, 'animate');
+    ui.done();
+
+    // create the world layer
+    worldLayer = map.layer('world', 'draw');
+    worldLayer.hoverStyle = 'area.highlight';
+    
+    parser.bind('poly', function(evt, data) {
+        var item = worldLayer.create('poly', data);
+        item.style = 'area.simple';
+    });
+
+    parser.run(worldData);
+})();
+
+(function() {
+    var parser = T5.Registry.create('parser', 'geojson'),
+        container = $('#mapContainer')[0];
+
+    map = new T5.Map('mapContainer', {
+    	renderer: 'canvas',
+    	padding: 'auto'
+    });
+
+    map.layer('tiles', 'tile', {
+    	generator: 'osm.cloudmade',
+        // demo api key, register for an API key at http://dev.cloudmade.com/
+        apikey: '7960daaf55f84bfdb166014d0b9f8d41'
+    });
+
+    map.center(DEMO.getHomePosition()).zoom(4);
+     
+    container.addEventListener("dragover", function (evt) {
+        evt.preventDefault();
+    }, false);
+
+    // Handle dropped image file - only Firefox and Google Chrome
+    container.addEventListener("drop", function (evt) {
+        var files = evt.dataTransfer.files;
+        if (files.length > 0) {
+            var file = files[0];
+            if (typeof FileReader !== "undefined") {
+                var reader = new FileReader();
+                // Note: addEventListener doesn't work in Google Chrome for this event
+                reader.onload = function (evt) {
+                    parser(map, JSON.parse(evt.target.result), function(layers) {
+                        for (var key in layers) {
+                            layers[key].visible = true;
+                        } // for
+                        
+                        map.invalidate();
+                    });
+                };
+                reader.readAsText(file);
+            }
+        }
+        evt.preventDefault();
+    }, false);
+})();
+
+</script>
+</body>
+</html>

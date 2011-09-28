@@ -1,0 +1,382 @@
+<!doctype html>
+<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en"> <![endif]-->
+<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en"> <![endif]-->
+<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en"> <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en"> <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+
+  <title></title>
+  <meta name="description" content="">
+  <meta name="author" content="Damon Oehlman">
+
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <script src="_demogen/js/modernizr-2.0.6.min.js"></script>
+</head>
+
+<body>
+  
+  <style type="text/css">html, body, #mapContainer {
+    margin: 0;
+    height: 100%;
+    width: 100%;
+}
+
+body {
+    font: 1em Helvetica, Arial;
+}
+
+.t5-copyright {
+    background: #e8e8e8;
+    opacity: 0.4;
+    font-size: 0.8em;
+    padding: 5px;
+}</style>
+  
+  <div id="mapContainer"></div>
+
+
+  <!--[if lt IE 7 ]>
+    <script src="//ajax.googleapis.com/ajax/libs/chrome-frame/1.0.3/CFInstall.min.js"></script>
+    <script>window.attachEvent('onload',function(){CFInstall.check({mode:'overlay'})})</script>
+  <![endif]-->
+
+  <pre id="demosrc" style="display:none">// create the map
+var map = new T5.Map('mapContainer', {
+    renderer: settings.renderer || 'canvas',
+    drawOnMove: settings.drawOnMove,
+    drawOnTween: settings.drawOnTween
+});
+
+map.layer('tiles', 'tile', {
+    generator: 'osm.cloudmade',
+    // demo api key, register for an API key at http://dev.cloudmade.com/
+    apikey: '7960daaf55f84bfdb166014d0b9f8d41',
+    styleid: settings.mapstyle
+});
+
+map.zoom(8).center('-27.469 153.020');
+
+(function() {
+    // define constants
+    var urlFormatter = T5.formatter('http://geocommons.com/overlays/{0}/features.json?geojson=1'),
+        parser = new T5.GeoJSONParser({ generalizer: GeoJS.generalize }),
+        REQUEST_TIMEOUT = 15000;
+    
+    // initialise variables
+    var loading = false,
+        layerData = {},
+        sample = {
+            allowCached: true,
+            layerId: 2646,
+            run: run
+        },
+        ui,
+        sequenceCounter = 0;
+        
+    /* internal functions */
+    
+    function displayOverlay(overlayId, data) {
+        // create the layer
+        var layer = map.layer(overlayId, 'draw', {
+            style: 'area.parkland'
+        });
+        
+        parser.unbind().bind('*', function(evt, data) {
+            layer.create(evt.name, data);
+        });
+        
+        parser.run(data);
+    } // displayOverlay
+    
+    function loadLayerData(layerId, callback, sequenceId) {
+        if (layerData[layerId]) {
+            callback(layerData[layerId]);
+        }
+        else {
+            var ajaxOpts = {
+                    url: urlFormatter(layerId),
+                    dataType: 'jsonp',
+                    success: function(data, textStatus, raw) {
+                        T5.log('received response');
+                        layerData[layerId] = data;
+                        callback(data);
+                    
+                    },
+                    error: function(raw, textStatus, errorThrown) {
+                        T5.log('error triggered');
+                        DEMO.status();
+                    },
+                    complete: function(raw, textStatus) {
+                        T5.log('complete triggered');
+                        if (! layerData[layerId]) {
+                            DEMO.status();
+                        } // if
+                    }
+                };
+                
+            if (sample.allowCached) {
+                ajaxOpts = $.extend(ajaxOpts, {
+                    cache: true,
+                    jsonpCallback: 'callback' + layerId
+                });
+            } // if
+            
+            DEMO.status('Retrieving Layer (#' + layerId + ') Data');
+            
+            $.ajax(ajaxOpts);
+        } // if..else
+    } // loadLayerData
+    
+    function run() {
+        var sequenceId,
+            layerId = sample.layerId;
+        
+        // increment sequence counter and assign
+        sequenceCounter += 1;
+        sequenceId = sequenceCounter;
+        
+        // load the layer data
+        loadLayerData(layerId, function(data) {
+            // if this request is still valid then process
+            if (sequenceId === sequenceCounter) {
+                displayOverlay(layerId, data);
+            } // if
+        }, sequenceId);
+    } // loadOverlay
+    
+    /* module definition */
+    
+    // create the ui
+    ui = DEMO.makeSampleUI();
+    ui.gui.add(sample, 'layerId').name('Layer ID');
+    ui.gui.add(sample, 'allowCached').name('Allow cached');
+    ui.gui.add(sample, 'run');
+    ui.done();
+
+    // make a map at the default location
+    DEMO.makeMap(5);
+})();
+
+(function() {
+    var parser = T5.Registry.create('parser', 'geojson'),
+        container = $('#mapContainer')[0];
+
+    map = new T5.Map('mapContainer', {
+    	renderer: 'canvas',
+    	padding: 'auto'
+    });
+
+    map.layer('tiles', 'tile', {
+    	generator: 'osm.cloudmade',
+        // demo api key, register for an API key at http://dev.cloudmade.com/
+        apikey: '7960daaf55f84bfdb166014d0b9f8d41'
+    });
+
+    map.center(DEMO.getHomePosition()).zoom(4);
+     
+    container.addEventListener("dragover", function (evt) {
+        evt.preventDefault();
+    }, false);
+
+    // Handle dropped image file - only Firefox and Google Chrome
+    container.addEventListener("drop", function (evt) {
+        var files = evt.dataTransfer.files;
+        if (files.length > 0) {
+            var file = files[0];
+            if (typeof FileReader !== "undefined") {
+                var reader = new FileReader();
+                // Note: addEventListener doesn't work in Google Chrome for this event
+                reader.onload = function (evt) {
+                    parser(map, JSON.parse(evt.target.result), function(layers) {
+                        for (var key in layers) {
+                            layers[key].visible = true;
+                        } // for
+                        
+                        map.invalidate();
+                    });
+                };
+                reader.readAsText(file);
+            }
+        }
+        evt.preventDefault();
+    }, false);
+})();
+
+</pre>
+  <script src="_demogen/js/keymaster.min.js"></script>
+  <script src="_demogen/js/jquery-1.6.2.min.js"></script>
+  <script src="_demogen/js/ace/ace.js"></script>
+  <script src="_demogen/js/ace/theme-twilight.js"></script>
+  <script src="_demogen/js/ace/mode-javascript.js"></script>
+  <script src="_demogen/js/runner.js"></script>
+  <script src="../dist/tile5.cloudmade.js"></script>
+  <script>
+  var settings = {"theme":"twilight","mode":"javascript","body":"<div id=\"mapContainer\"></div>"};
+  </script>
+  <script defer="defer">// create the map
+var map = new T5.Map('mapContainer', {
+    renderer: settings.renderer || 'canvas',
+    drawOnMove: settings.drawOnMove,
+    drawOnTween: settings.drawOnTween
+});
+
+map.layer('tiles', 'tile', {
+    generator: 'osm.cloudmade',
+    // demo api key, register for an API key at http://dev.cloudmade.com/
+    apikey: '7960daaf55f84bfdb166014d0b9f8d41',
+    styleid: settings.mapstyle
+});
+
+map.zoom(8).center('-27.469 153.020');
+
+(function() {
+    // define constants
+    var urlFormatter = T5.formatter('http://geocommons.com/overlays/{0}/features.json?geojson=1'),
+        parser = new T5.GeoJSONParser({ generalizer: GeoJS.generalize }),
+        REQUEST_TIMEOUT = 15000;
+    
+    // initialise variables
+    var loading = false,
+        layerData = {},
+        sample = {
+            allowCached: true,
+            layerId: 2646,
+            run: run
+        },
+        ui,
+        sequenceCounter = 0;
+        
+    /* internal functions */
+    
+    function displayOverlay(overlayId, data) {
+        // create the layer
+        var layer = map.layer(overlayId, 'draw', {
+            style: 'area.parkland'
+        });
+        
+        parser.unbind().bind('*', function(evt, data) {
+            layer.create(evt.name, data);
+        });
+        
+        parser.run(data);
+    } // displayOverlay
+    
+    function loadLayerData(layerId, callback, sequenceId) {
+        if (layerData[layerId]) {
+            callback(layerData[layerId]);
+        }
+        else {
+            var ajaxOpts = {
+                    url: urlFormatter(layerId),
+                    dataType: 'jsonp',
+                    success: function(data, textStatus, raw) {
+                        T5.log('received response');
+                        layerData[layerId] = data;
+                        callback(data);
+                    
+                    },
+                    error: function(raw, textStatus, errorThrown) {
+                        T5.log('error triggered');
+                        DEMO.status();
+                    },
+                    complete: function(raw, textStatus) {
+                        T5.log('complete triggered');
+                        if (! layerData[layerId]) {
+                            DEMO.status();
+                        } // if
+                    }
+                };
+                
+            if (sample.allowCached) {
+                ajaxOpts = $.extend(ajaxOpts, {
+                    cache: true,
+                    jsonpCallback: 'callback' + layerId
+                });
+            } // if
+            
+            DEMO.status('Retrieving Layer (#' + layerId + ') Data');
+            
+            $.ajax(ajaxOpts);
+        } // if..else
+    } // loadLayerData
+    
+    function run() {
+        var sequenceId,
+            layerId = sample.layerId;
+        
+        // increment sequence counter and assign
+        sequenceCounter += 1;
+        sequenceId = sequenceCounter;
+        
+        // load the layer data
+        loadLayerData(layerId, function(data) {
+            // if this request is still valid then process
+            if (sequenceId === sequenceCounter) {
+                displayOverlay(layerId, data);
+            } // if
+        }, sequenceId);
+    } // loadOverlay
+    
+    /* module definition */
+    
+    // create the ui
+    ui = DEMO.makeSampleUI();
+    ui.gui.add(sample, 'layerId').name('Layer ID');
+    ui.gui.add(sample, 'allowCached').name('Allow cached');
+    ui.gui.add(sample, 'run');
+    ui.done();
+
+    // make a map at the default location
+    DEMO.makeMap(5);
+})();
+
+(function() {
+    var parser = T5.Registry.create('parser', 'geojson'),
+        container = $('#mapContainer')[0];
+
+    map = new T5.Map('mapContainer', {
+    	renderer: 'canvas',
+    	padding: 'auto'
+    });
+
+    map.layer('tiles', 'tile', {
+    	generator: 'osm.cloudmade',
+        // demo api key, register for an API key at http://dev.cloudmade.com/
+        apikey: '7960daaf55f84bfdb166014d0b9f8d41'
+    });
+
+    map.center(DEMO.getHomePosition()).zoom(4);
+     
+    container.addEventListener("dragover", function (evt) {
+        evt.preventDefault();
+    }, false);
+
+    // Handle dropped image file - only Firefox and Google Chrome
+    container.addEventListener("drop", function (evt) {
+        var files = evt.dataTransfer.files;
+        if (files.length > 0) {
+            var file = files[0];
+            if (typeof FileReader !== "undefined") {
+                var reader = new FileReader();
+                // Note: addEventListener doesn't work in Google Chrome for this event
+                reader.onload = function (evt) {
+                    parser(map, JSON.parse(evt.target.result), function(layers) {
+                        for (var key in layers) {
+                            layers[key].visible = true;
+                        } // for
+                        
+                        map.invalidate();
+                    });
+                };
+                reader.readAsText(file);
+            }
+        }
+        evt.preventDefault();
+    }, false);
+})();
+
+</script>
+</body>
+</html>
