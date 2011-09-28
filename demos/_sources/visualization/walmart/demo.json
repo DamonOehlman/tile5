@@ -1,5 +1,6 @@
 {
     "drawOnMove": true,
     "mapstyle": 999,
-    "renderer": "canvas/dom"
+    "renderer": "canvas/dom",
+    "includes": ["_data/walmarts.js"]
 }

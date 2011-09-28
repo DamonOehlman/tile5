@@ -42,27 +42,6 @@ body {
     <script>window.attachEvent('onload',function(){CFInstall.check({mode:'overlay'})})</script>
   <![endif]-->
 
-  <pre id="demosrc" style="display:none">// create the map
-var map = new T5.Map('mapContainer', {
-    renderer: settings.renderer || 'canvas',
-    drawOnMove: settings.drawOnMove,
-    drawOnTween: settings.drawOnTween
-});
-
-map.layer('tiles', 'tile', {
-    generator: 'osm.cloudmade',
-    // demo api key, register for an API key at http://dev.cloudmade.com/
-    apikey: '7960daaf55f84bfdb166014d0b9f8d41',
-    styleid: settings.mapstyle
-});
-
-map.zoom(8).center('-27.469 153.020');
-
-setInterval(function() {
-    document.write('hello\n');
-}, 500);
-
-</pre>
   <script src="_demogen/js/keymaster.min.js"></script>
   <script src="_demogen/js/jquery-1.6.2.min.js"></script>
   <script src="_demogen/js/ace/ace.js"></script>
@@ -70,6 +49,7 @@ setInterval(function() {
   <script src="_demogen/js/ace/mode-javascript.js"></script>
   <script src="_demogen/js/runner.js"></script>
   <script src="../dist/tile5.cloudmade.js"></script>
+  
   <script>
   var settings = {"theme":"twilight","mode":"javascript","body":"<div id=\"mapContainer\"></div>"};
   </script>

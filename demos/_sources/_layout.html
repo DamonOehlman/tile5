@@ -27,7 +27,6 @@
     <script>window.attachEvent('onload',function(){CFInstall.check({mode:'overlay'})})</script>
   <![endif]-->
 
-  <pre id="demosrc" style="display:none">{{{ code }}}</pre>
   <script src="_demogen/js/keymaster.min.js"></script>
   <script src="_demogen/js/jquery-1.6.2.min.js"></script>
   <script src="_demogen/js/ace/ace.js"></script>
@@ -35,6 +34,7 @@
   <script src="_demogen/js/ace/mode-{{ mode }}.js"></script>
   <script src="_demogen/js/runner.js"></script>
   <script src="../dist/tile5.cloudmade.js"></script>
+  {{#includes}}<script src="{{ this }}"></script>{{/includes}}
   <script>
   var settings = {{{ settings }}};
   </script>
