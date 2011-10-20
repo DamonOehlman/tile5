@@ -9,7 +9,6 @@
 //= cog!arraytools
 //= cog!typetools
 //= cog!jsonp
-//= interact!interact
 
 // define T5
 var T5 = this.T5 = _observable({});

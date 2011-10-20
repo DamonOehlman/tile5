@@ -169,14 +169,16 @@ var View = function(container, params) {
         // drag the selected if we 
         dragSelected(absXY, relXY, false);
         
-        if (! dragObject) {
-            dx += deltaXY.x;
-            dy += deltaXY.y;
-        } // if
-        
         // bubble the event up
         _this.trigger('pointerMove', absXY, relXY, deltaXY);
     } // handlePointerMove
+    
+    function handlePan(evt, deltaX, deltaY) {
+        if (! dragObject) {
+            dx += deltaX;
+            dy += deltaY;
+        } // if
+    } // handlePan
     
     function handlePointerUp(evt, absXY, relXY) {
         dragSelected(absXY, relXY, true);
@@ -220,31 +222,32 @@ var View = function(container, params) {
     /* private functions */
     
     function captureInteractionEvents() {
-        if (eventMonitor) {
-            eventMonitor.unbind();
-        } // if
+        // TODO: unbind events
 
         if (DOM && renderer) {
+            var targetId = (renderer.interactTarget || outer).id || '*';
+            
             // recreate the event monitor
             eventMonitor = INTERACT.watch(renderer.interactTarget || outer);
 
             // if this view is scalable, attach zooming event handlers
             if (params.scalable) {
-                eventMonitor.bind('zoom', handleZoom);
-                eventMonitor.bind('doubleTap', handleDoubleTap);
+                eve.on('interact.zoom.*.' + targetId, handleZoom);
+                eve.on('interact.doubletap.' + targetId, handleDoubleTap);
             } // if
             
             // handle pointer down tests
-            eventMonitor.bind('pointerDown', handlePointerDown);
-            eventMonitor.bind('pointerMove', handlePointerMove);
-            eventMonitor.bind('pointerUp', handlePointerUp);
+            eve.on('interact.pointer.down.' + targetId, handlePointerDown);
+            eve.on('interact.pointer.move.' + targetId, handlePointerMove);
+            eve.on('interact.pointer.up.' + targetId, handlePointerUp);
+            eve.on('interact.pan.' + targetId, handlePan);
 
             if (params.captureHover) {
-                eventMonitor.bind('pointerHover', handlePointerHover);
+                eve.on('interact.pointer.hover.' + targetId, handlePointerHover);
             } // if
 
             // handle tap events
-            eventMonitor.bind('tap', handlePointerTap);
+            eve.on('interact.tap.' + targetId, handlePointerTap);
         } // if
     } // captureInteractionEvents
     

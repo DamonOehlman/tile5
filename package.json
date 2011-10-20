@@ -1,0 +1,29 @@
+{
+    "name": "tile5",
+    "description": "Canvas (and others) mapping library",
+    "main": "./index",
+    "author": "Damon Oehlman",
+    "version": "1.0.0",
+    
+    "repository": {
+        "type": "git",
+        "url": "http://github.com/DamonOehlman/tile5.git"
+    },
+    
+    "bugs": {
+        "web": "https://github.com/DamonOehlman/tile5/issues"
+    },
+    
+    "dependencies": {
+    },
+    
+    "devDependencies": {
+        "vows": "0.5.x",
+        "interleave": "0.x.x"
+    },
+    
+    "licenses": [{
+        "type": "MIT",
+        "url": "http://github.com/DamonOehlman/tile5/raw/LICENCE"
+    }]
+}

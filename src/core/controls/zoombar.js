@@ -47,15 +47,14 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
         
     function bindEvents() {
         // attach the event monitor
-        eventMonitor = INTERACT.watch(zoomBar, {
+        INTERACT.watch(zoomBar, {
             bindTarget: zoomBar
         });
         
-        // handle pointer move events
-        eventMonitor.bind('pointerMove', handlePointerMove);
-        eventMonitor.bind('pointerDown', handlePointerDown);
-        eventMonitor.bind('pointerUp', handlePointerUp);
-        eventMonitor.bind('tap', handlePointerTap);
+        eve.on('interact.pointer.down.' + zoomBar.id, handlePointerDown);
+        eve.on('interact.pointer.move.' + zoomBar.id, handlePointerMove);
+        eve.on('interact.pointer.up.' + zoomBar.id, handlePointerUp);
+        eve.on('interact.tap.' + zoomBar.id, handlePointerTap);
     } // bindEvents
     
     function createButton(btnIndex, marginTop) {
@@ -87,6 +86,7 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
     
     function createZoomBar() {
         zoomBar = DOM.create('div', 't5-zoombar', {
+            id: 'zoombar_' + (new Date().getTime()),
             position: 'absolute',
             background: getBackground(),
             'z-index': 50,
@@ -144,14 +144,19 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
     } // getThumbBackground
     
     function handleDetach() {
-        // unbind the event monitor
-        eventMonitor.unbind();
+        // unbind event handlers
+        eve.unbind('interact.pointer.down.' + zoomBar.id, handlePointerDown);
+        eve.unbind('interact.pointer.move.' + zoomBar.id, handlePointerMove);
+        eve.unbind('interact.pointer.up.' + zoomBar.id, handlePointerUp);
+        eve.unbind('interact.tap.' + zoomBar.id, handlePointerTap);
         
         // remove the image div from the panFrame
         container.removeChild(zoomBar);
     } // handleDetach
     
     function handlePointerDown(evt, absXY, relXY) {
+        if (this !== zoomBar) { return; }
+
         updateSpriteState(evt.target, STATE_DOWN);
     } // handlePointerDown
     

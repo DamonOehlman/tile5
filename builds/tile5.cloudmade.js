@@ -10,6 +10,7 @@
  */
 
 //= geojs!geojs
+//= interact!interact
 
 (function() {
     //= ../src/tile5

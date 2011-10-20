@@ -34,6 +34,270 @@ body {
     padding: 5px;
 }</style>
   
+  <style type="text/css">#demoFrame {
+    width: 100%;
+    height: 100%;
+    z-index: 500;
+    overflow: hidden;
+    background: rgba(30, 30, 30, 0.6);
+    position: absolute;
+}
+
+#demoFrame .emulator {
+    margin: 2% auto 0;
+    width: 90%;
+    height: 92%;
+    overflow-y: scroll;
+}
+
+#demoFrame .emulator.dropShadow {
+    padding: 5px;
+}
+
+#demoFrame .emulator.mobile {
+    width: 320px;
+    height: 450px;
+    overflow-y: hidden;
+}
+
+#demoFrame .emulator.ripple {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+#demoFrame iframe {
+    width: 100%;
+    height: 100%;
+    border: 0;
+}
+
+ul.buttons {
+    position: absolute;
+    right: 16px;
+    list-style-type: none;
+    margin: 0px;
+    height: 64px;
+    z-index: 1000;
+}
+
+ul.buttons li {
+    float: right;
+    margin: 0;
+    padding: 0;
+}
+
+ul.buttons li a {
+    width: 32px;
+    height: 32px;
+    background-size: 100%;
+    display: inline-block;
+    text-decoration: none;
+    background-color: rgba(120, 120, 120, 0.5);
+    margin: 2px;
+    -webkit-border-radius: 4px;
+}
+
+ul.buttons li a:hover {
+    background-color: rgba(200, 200, 200, 0.5);
+}
+
+ul.buttons li a.run {
+    background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAABHNCSVQICAgIfAhkiAAAAAlwSFlzAAAN1wAADdcBQiibeAAAABl0RVh0U29mdHdhcmUAd3d3Lmlua3NjYXBlLm9yZ5vuPBoAAARRSURBVHic7ZtNiFZVGMd/z8xAYpYfMwQ2IYYUIykoKkbQgK2KLMyiFgWuBKUgKGgRRAtHCFeZEBbUqtq4DCakRQs1YggzkQINUzT8jMEaZxyc8Wlx7tCd273vez7fe6fxD4d53/M+5/n43+d83xFVZT6jq24H6sZdAup2oG7MewJ6YikSkSXATuBxYA1wGvgB+FxVL8WyEx2qGlyAJ4HzgJaUq8DWGHZSFAmdBkVkPTBC+2x6WlUPBxlLgCACRKQLk+abLMTPAWtU9aa3wQQIHQSfwS54gJXAjkB70RFKwAZH+XWB9qIjlADXgNYG2ouOUAJuOMr/FWgvOkIJ+MlR/mSgvegIJeA74I6jfKMQYx3wMbDbQvRrVX1eRFYCK4CxYlFVFzKjIAYBizFrgYEWYheAJzCD5pfA/RVy45QQA+xX1eEgR6sQaSm8EPiU8qXwIWAp8C4wXSHTrpwie1iNWwrnISIrgM3M3gyNAx8BLwWqf1lVDwXq+C9SbTKAXmAfhgCfp14sJ0mQBamCfxWzRogReL5snysEnPYIbhL4AniK6q31idhZkCL4Ps+nO5jTsQWzviiT29Z0Ah72JOCbgp4PK+SON52AtQF9/LmcngXAL+3kmkjApgACfgPuyenaCNwukfs+lr8pToUnA9quAt6a+aKqPwJDBZmLwNsBNmYjQQY8QthUNwb05/T1YM4cFTgM9DV9DHgokAAFviroHADeA7pi+xt1KQwgIn3AtQiqBlX1SAQ9LeFFgIgcBB7FbIJmyr25z62OyG8Aiy3MnAA2aOotsmeaH8UvtS8CbzjI74qd8rFmgSue7YaBz7DvIkMisszTlhU6ToCqTgD7LeV7gT2etuzg2QXexz39J4FFWfulwN+W7W4D3am6gO/t8OWK+jvAdUyGzJTL2d8zqjqWkT4qIp9gt6DpAR4Aktww+xJwDHiHf4ObKddUddpSh8sR+XKaRICqnsKc04XA5VbpQeB4oL1SdPwNERG5T0QOAG86NFueyp9ob4jYQES2AQcwy2UXJJsKO0KAiPRjAn/BU0UyP5N2ARHpEpHXMQcbvsFDQj+TMSsiqzC3QJsdmg1jjtRWF+q7Y/lVRMoMGMQ++HFgt6o+S/ll69zLAOCWpdwI8Jqqnsm+LymRmZUBItKLmUYfw9xCLcNMy/tUddzFyZQETLT5fQrYCwyp6lSuvmyrPCAir2AuWLdggpaCzIsY0j9wcbKuDBjFvDY3kq8UkW5gUYn89qy0wwV79wxSjgGtMuDXYvAZbA5KWuF31wYpCWiVAVcr6sv6vwvOujaoKwNSEDChqlW71Eo0LQNCusA5n0Z1zQJVBJzF7n2jMvzh06iuWaCUAFU9DxxM4045mjYGdBxNGwM6jmQEZKu7qYqf//8EZCjLgmngz8R2rZGagLJx4Hry6y4H1JEBjUl/SH8k9i3QX6j7ObFNJ0S/Hp9rmPf/OHmXgLodqBv/AFzOO91ZaECTAAAAAElFTkSuQmCC);
+}
+
+/* http://nicolasgallagher.com/css-drop-shadows-without-images/ */
+
+.drop-shadow {
+    position:relative;
+    padding:1em; 
+    margin:2em 10px 4em; 
+    background:#fff;
+    -webkit-box-shadow:0 1px 4px rgba(0, 0, 0, 0.3), 0 0 40px rgba(0, 0, 0, 0.1) inset;
+       -moz-box-shadow:0 1px 4px rgba(0, 0, 0, 0.3), 0 0 40px rgba(0, 0, 0, 0.1) inset;
+            box-shadow:0 1px 4px rgba(0, 0, 0, 0.3), 0 0 40px rgba(0, 0, 0, 0.1) inset;
+}
+
+.drop-shadow:before,
+.drop-shadow:after {
+    content:&quot;&quot;;
+    position:absolute; 
+    z-index:-2;
+}
+
+.drop-shadow p {
+    font-size:16px;
+    font-weight:bold;
+}
+
+/* Lifted corners */
+
+.lifted {
+    -moz-border-radius:4px; 
+         border-radius:4px;
+}
+
+.lifted:before,
+.lifted:after { 
+    bottom:15px;
+    left:10px;
+    width:50%;
+    height:20%;
+    max-width:300px;
+    -webkit-box-shadow:0 15px 10px rgba(0, 0, 0, 0.7);   
+       -moz-box-shadow:0 15px 10px rgba(0, 0, 0, 0.7);
+            box-shadow:0 15px 10px rgba(0, 0, 0, 0.7);
+    -webkit-transform:rotate(-3deg);    
+       -moz-transform:rotate(-3deg);   
+        -ms-transform:rotate(-3deg);   
+         -o-transform:rotate(-3deg);
+            transform:rotate(-3deg);
+}
+
+.lifted:after {
+    right:10px; 
+    left:auto;
+    -webkit-transform:rotate(3deg);   
+       -moz-transform:rotate(3deg);  
+        -ms-transform:rotate(3deg);  
+         -o-transform:rotate(3deg);
+            transform:rotate(3deg);
+}
+
+/* Curled corners */
+
+.curled {
+    border:1px solid #efefef; 
+    -moz-border-radius:0 0 120px 120px / 0 0 6px 6px;    
+         border-radius:0 0 120px 120px / 0 0 6px 6px;
+}
+
+.curled:before,
+.curled:after {
+    bottom:12px;
+    left:10px;
+    width:50%;
+    height:55%;
+    max-width:200px;
+    -webkit-box-shadow:0 8px 12px rgba(0, 0, 0, 0.5); 
+       -moz-box-shadow:0 8px 12px rgba(0, 0, 0, 0.5); 
+            box-shadow:0 8px 12px rgba(0, 0, 0, 0.5); 
+    -webkit-transform:skew(-8deg) rotate(-3deg);
+       -moz-transform:skew(-8deg) rotate(-3deg);
+        -ms-transform:skew(-8deg) rotate(-3deg);
+         -o-transform:skew(-8deg) rotate(-3deg);
+            transform:skew(-8deg) rotate(-3deg);
+} 
+
+.curled:after { 
+    right:10px; 
+    left:auto;
+    -webkit-transform:skew(8deg) rotate(3deg); 
+       -moz-transform:skew(8deg) rotate(3deg);     
+        -ms-transform:skew(8deg) rotate(3deg);     
+         -o-transform:skew(8deg) rotate(3deg); 
+            transform:skew(8deg) rotate(3deg);
+}
+
+/* Perspective */
+
+.perspective:before {
+    left:80px;
+    bottom:5px;
+    width:50%;
+    height:35%;
+    max-width:200px;
+    -webkit-box-shadow:-80px 0 8px rgba(0, 0, 0, 0.4);
+       -moz-box-shadow:-80px 0 8px rgba(0, 0, 0, 0.4);
+            box-shadow:-80px 0 8px rgba(0, 0, 0, 0.4);
+    -webkit-transform:skew(50deg);
+       -moz-transform:skew(50deg);
+        -ms-transform:skew(50deg);
+         -o-transform:skew(50deg);
+            transform:skew(50deg);
+    -webkit-transform-origin:0 100%;
+       -moz-transform-origin:0 100%;
+        -ms-transform-origin:0 100%;
+         -o-transform-origin:0 100%;
+            transform-origin:0 100%;
+}
+
+.perspective:after {
+    display:none;
+}
+
+/* Raised shadow - no pseudo-elements needed */
+
+.raised {
+    -webkit-box-shadow: 0 15px 10px -10px rgba(0, 0, 0, 0.5), 0 1px 4px rgba(0, 0, 0, 0.3), 0 0 40px rgba(0, 0, 0, 0.1) inset;
+       -moz-box-shadow: 0 15px 10px -10px rgba(0, 0, 0, 0.5), 0 1px 4px rgba(0, 0, 0, 0.3), 0 0 40px rgba(0, 0, 0, 0.1) inset;
+            box-shadow: 0 15px 10px -10px rgba(0, 0, 0, 0.5), 0 1px 4px rgba(0, 0, 0, 0.3), 0 0 40px rgba(0, 0, 0, 0.1) inset;
+}
+
+/* Curved shadows */
+
+.curved:before {
+    top:10px;
+    bottom:10px;
+    left:0;
+    right:50%;
+    -webkit-box-shadow:0 0 15px rgba(0,0,0,0.6);
+    -moz-box-shadow:0 0 15px rgba(0,0,0,0.6);
+    box-shadow:0 0 15px rgba(0,0,0,0.6);
+    -moz-border-radius:10px / 100px;
+    border-radius:10px / 100px;
+}
+
+.curved-vt-2:before {
+    right:0;
+}
+
+.curved-hz-1:before {
+    top:50%;
+    bottom:0;
+    left:10px;
+    right:10px;
+    -moz-border-radius:100px / 10px;
+    border-radius:100px / 10px;
+}
+
+.curved-hz-2:before {
+    top:0;
+    bottom:0;
+    left:10px;
+    right:10px;
+    -moz-border-radius:100px / 10px;
+    border-radius:100px / 10px;
+}
+
+/* Rotated box */
+
+.rotated {
+    -webkit-box-shadow:none;
+       -moz-box-shadow:none;
+            box-shadow:none;
+    -webkit-transform:rotate(-3deg);    
+       -moz-transform:rotate(-3deg);   
+        -ms-transform:rotate(-3deg);
+         -o-transform:rotate(-3deg);
+            transform:rotate(-3deg);
+}
+
+.rotated &gt; :first-child:before {
+    content:&quot;&quot;;
+    position:absolute;
+    z-index:-1;
+    top:0;
+    bottom:0;
+    left:0;
+    right:0;
+    background:#fff;
+    -webkit-box-shadow:0 1px 4px rgba(0, 0, 0, 0.3), 0 0 40px rgba(0, 0, 0, 0.1) inset;
+       -moz-box-shadow:0 1px 4px rgba(0, 0, 0, 0.3), 0 0 40px rgba(0, 0, 0, 0.1) inset;
+            box-shadow:0 1px 4px rgba(0, 0, 0, 0.3), 0 0 40px rgba(0, 0, 0, 0.1) inset;
+}</style>
+  
   <div id="mapContainer"></div>
 
 
@@ -45,13 +309,13 @@ body {
   <script src="_demogen/js/keymaster.min.js"></script>
   <script src="_demogen/js/jquery-1.6.2.min.js"></script>
   <script src="_demogen/js/ace/ace.js"></script>
-  <script src="_demogen/js/ace/theme-twilight.js"></script>
+  <script src="_demogen/js/ace/theme-dawn.js"></script>
   <script src="_demogen/js/ace/mode-javascript.js"></script>
-  <script src="_demogen/js/runner.js"></script>
   <script src="../dist/tile5.cloudmade.js"></script>
+  <script src="_demogen/js/runner.js"></script>
   
   <script>
-  var settings = {"theme":"twilight","mode":"javascript","body":"<div id=\"mapContainer\"></div>"};
+  var settings = {"theme":"dawn","mode":"javascript","body":"<div id=\"mapContainer\"></div>"};
   </script>
   <script defer="defer">// create the map
 var map = new T5.Map('mapContainer', {
@@ -213,8 +477,6 @@ map.zoom(8).center('-27.469 153.020');
         }
         evt.preventDefault();
     }, false);
-})();
-
-</script>
+})();</script>
 </body>
 </html>
