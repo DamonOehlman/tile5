@@ -43,7 +43,10 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
             button1: function() {
                 view.zoom(view.zoom() - 1);
             }
-        };
+        },
+        _targetButton = 'button',
+        _targetThumb = 'thumb',
+        _moveOK = false;
         
     function bindEvents() {
         // attach the event monitor
@@ -53,8 +56,8 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
         
         eve.on('interact.pointer.down.' + zoomBar.id, handlePointerDown);
         eve.on('interact.pointer.move.' + zoomBar.id, handlePointerMove);
-        eve.on('interact.pointer.up.' + zoomBar.id, handlePointerUp);
-        eve.on('interact.tap.' + zoomBar.id, handlePointerTap);
+        eve.on('interact.pointer.up', handlePointerUp);
+        // eve.on('interact.tap.' + zoomBar.id, handlePointerTap);
     } // bindEvents
     
     function createButton(btnIndex, marginTop) {
@@ -86,7 +89,6 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
     
     function createZoomBar() {
         zoomBar = DOM.create('div', 't5-zoombar', {
-            id: 'zoombar_' + (new Date().getTime()),
             position: 'absolute',
             background: getBackground(),
             'z-index': 50,
@@ -95,6 +97,9 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
             height: params.height + 'px',
             margin: getMargin()
         });
+        
+        // set the zoombar id
+        zoomBar.id = 'zoombar_' + (new Date().getTime());
             
         // add the zoom bar
         if (container.childNodes[0]) {
@@ -147,8 +152,8 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
         // unbind event handlers
         eve.unbind('interact.pointer.down.' + zoomBar.id, handlePointerDown);
         eve.unbind('interact.pointer.move.' + zoomBar.id, handlePointerMove);
-        eve.unbind('interact.pointer.up.' + zoomBar.id, handlePointerUp);
-        eve.unbind('interact.tap.' + zoomBar.id, handlePointerTap);
+        eve.unbind('interact.pointer.up', handlePointerUp);
+        // eve.unbind('interact.tap.' + zoomBar.id, handlePointerTap);
         
         // remove the image div from the panFrame
         container.removeChild(zoomBar);
@@ -157,25 +162,38 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
     function handlePointerDown(evt, absXY, relXY) {
         if (this !== zoomBar) { return; }
 
-        updateSpriteState(evt.target, STATE_DOWN);
+        var targetCode = updateSpriteState(evt.target, STATE_DOWN);
+        
+        // if we don't have a target code, then we hit the bar
+        if (! targetCode) {
+            // update the thumb pos
+            thumbPos = Math.min(Math.max(thumbMin, relXY.y - (thumbHeight >> 1)), thumbMax);
+
+            setThumbVal(zoomSteps - ((thumbPos - thumbMin) / thumbMax) * zoomSteps | 0);
+        }
+        else {
+            _moveOK = targetCode === _targetThumb;
+        }
     } // handlePointerDown
     
     function handlePointerMove(evt, absXY, relXY) {
-        // update the thumb pos
-        thumbPos = Math.min(Math.max(thumbMin, relXY.y - (thumbHeight >> 1)), thumbMax);
-        
-        setThumbVal(zoomSteps - ((thumbPos - thumbMin) / thumbMax) * zoomSteps | 0);
+        if (_moveOK) {
+            // update the thumb pos
+            thumbPos = Math.min(Math.max(thumbMin, relXY.y - (thumbHeight >> 1)), thumbMax);
+
+            setThumbVal(zoomSteps - ((thumbPos - thumbMin) / thumbMax) * zoomSteps | 0);
+        }
     } // handlePointerMove
     
-    function handlePointerTap(evt, absXY, relXY) {
-        var handler = tapHandlers[updateSpriteState(evt.target, STATE_DOWN)];
+    function handlePointerUp(evt, absXY, relXY) {
+        var handler = tapHandlers[updateSpriteState(evt.target, STATE_STATIC)];
         if (handler) {
             handler();
         } // if
-    }
-    
-    function handlePointerUp(evt, absXY, relXY) {
-        updateSpriteState(evt.target, STATE_STATIC);
+        
+        // reset the thumb to the static state in all instances
+        updateSpriteState(thumb, STATE_STATIC);
+        _moveOK = false;
     } // handlePointerUp
     
     function handleZoomLevelChange(evt, zoomLevel) {
@@ -183,16 +201,16 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
     } // handleZoomLevelChange
     
     function updateSpriteState(target, state) {
-        var targetCode;
+        var targetCode = '';
         
         if (target === thumb) {
             thumb.style.background = getThumbBackground(state);
-            targetCode = 'thumb';
+            targetCode = _targetThumb;
         }
         else {
             for (var ii = 0; ii < buttons.length; ii++) {
                 if (target === buttons[ii]) {
-                    targetCode = 'button' + ii;
+                    targetCode = _targetButton + ii;
                     buttons[ii].style.background = getButtonBackground(ii, state);
                     break;
                 } // if
