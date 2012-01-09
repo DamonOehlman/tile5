@@ -160,9 +160,9 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
     } // handleDetach
     
     function handlePointerDown(evt, absXY, relXY) {
-        // if (this !== zoomBar) { return; }
+        if (this !== zoomBar) { return; }
 
-        var targetCode = updateSpriteState(evt.target, STATE_DOWN);
+        var targetCode = updateSpriteState(evt.target || evt.srcElement, STATE_DOWN);
         _moveOK = targetCode === _targetThumb;
     } // handlePointerDown
     
@@ -176,7 +176,7 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
     } // handlePointerMove
     
     function handlePointerUp(evt, absXY, relXY) {
-        var handler = tapHandlers[updateSpriteState(evt.target, STATE_STATIC)];
+        var handler = tapHandlers[updateSpriteState(evt.target || evt.srcElement, STATE_STATIC)];
         if (handler) {
             handler();
         }
