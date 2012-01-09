@@ -9,14 +9,18 @@
  * Build Date: ${builddate}
  */
 
-(function() {
+(function(glob) {
     
     /* internals */
     
     var definedModules = {},
         reTrim = /^\s*(.*?)\s*$/,
-        reDots = /\./g;
-    
+        reDots = /\./g,
+        GeoJS = {
+            define: define,
+            plugin: plugin
+        };
+        
     function define(id) {
         return definedModules[id] = {
             exports: {}
@@ -87,7 +91,7 @@
         reDelimitedSplit = /[\,\s]+/;
 
     
-    function ActivityLog() {
+    var ActivityLog = GeoJS.ActivityLog = function() {
         this.entries = [];
         
         this._startTick = new Date().getTime();
@@ -134,7 +138,7 @@
     Calculate the position that sits between the destination Pos for the given distance.
     
     */
-    function Pos(p1, p2, radius) {
+    var Pos = GeoJS.Pos = function(p1, p2, radius) {
         // if the first parameter is a string, then parse the value
         if (p1 && p1.split) {
             var coords = p1.split(reDelimitedSplit);
@@ -155,7 +159,7 @@
         this.lat = parseFloat(p1 || 0);
         this.lon = parseFloat(p2 || 0);
         this.radius = radius || KM_PER_RAD;
-    } // Pos constructor
+    };
     
     Pos.prototype = {
         constructor: Pos,
@@ -361,7 +365,7 @@
     be recalculated.
     
     */
-    function Line(positions) {
+    var Line = GeoJS.Line = function(positions) {
         this.positions = [];
         
         // iterate through the positions and if we have text, then convert to a position
@@ -376,7 +380,7 @@
                 this.positions[ii] = positions[ii];
             } // if..else
         } // for
-    } // Line
+    };
     
     Line.prototype = {
         constructor: Line,
@@ -453,10 +457,7 @@
         }
     };
 
-    /**
-    # GeoJS.BBox
-    */
-    function BBox(p1, p2) {
+    var BBox = GeoJS.BBox = function(p1, p2) {
         // if p1 is an array, then calculate the bounding box for the positions supplied
         if (p1 && p1.splice) {
             var padding = p2,
@@ -510,7 +511,7 @@
             this.min = p1;
             this.max = p2;
         } // if..else
-    } // BoundingBox
+    };
     
     BBox.prototype = {
         constructor: BBox,
@@ -618,12 +619,7 @@
         }
     };
 
-    /**
-    # GeoJS.Distance
-    
-    ## Methods
-    */
-    function Distance(value) {
+    var Distance = GeoJS.Distance = function(value) {
         if (typeof value == 'string') {
             var uom = (value.replace(/\d|\.|\s/g, '') || 'm').toLowerCase(),
                 multipliers = {
@@ -634,7 +630,7 @@
         } // if
         
         this.meters = value || 0;
-    } // Distance
+    };
     
     Distance.prototype = {
         /**
@@ -683,226 +679,8 @@
     };
 
     
-    var DEFAULT_VECTORIZE_CHUNK_SIZE = 100,
-        VECTORIZE_PER_CYCLE = 500,
-        DEFAULT_GENERALIZATION_DISTANCE = 250;
-        
-    /* exports */
-    
-    /**
-    ### generalize(sourceData, requiredPositions, minDist)
-    To be completed
-    */
-    function generalize(sourceData, requiredPositions, minDist) {
-        var sourceLen = sourceData.length,
-            positions = [],
-            lastPosition = null;
-            
-    
-        // convert min distance to km
-        minDist = (minDist || DEFAULT_GENERALIZATION_DISTANCE) / 1000;
-    
-        // iterate thorugh the source data and add positions the differ by the required amount to 
-        // the result positions
-        for (var ii = sourceLen; ii--; ) {
-            if (ii === 0) {
-                positions.unshift(sourceData[ii]);
-            }
-            else {
-                var include = (! lastPosition) || sourceData[ii].inArray(requiredPositions),
-                    posDiff = include ? minDist : lastPosition.distanceTo(sourceData[ii]);
-    
-                // if the position difference is suitable then include
-                if (sourceData[ii] && (posDiff >= minDist)) {
-                    positions.unshift(sourceData[ii]);
-    
-                    // update the last position
-                    lastPosition = sourceData[ii];
-                } // if
-            } // if..else
-        } // for
-    
-        return positions;
-    } // generalize
-
-    
-    /**
-    # GeoJS.Duration
-    A Timelord duration is what IMO is a sensible and usable representation of a 
-    period of "human-time".  A duration value contains both days and seconds values.
-    
-    ## Methods
-    */
-    function Duration(p1, p2) {
-        if (typeof p1 == 'number') {
-            this.days = p1 || 0;
-            this.seconds = p2 || 0;
-        }
-        else if (typeof p1 != 'undefined') {
-            this.days = p1.days || 0;
-            this.seconds = p1.seconds || 0;
-        } // if..else
-    } // Duration
-    
-    Duration.prototype = {
-        /**
-        ### add(args*)
-        The add method returns a new Duration object that is the value of the current
-        duration plus the days and seconds value provided.
-        */
-        add: function() {
-            var result = new Duration(this.days, this.seconds);
-            
-            // iterate through the arguments and add their days and seconds values to the result
-            for (var ii = arguments.length; ii--; ) {
-                result.days += arguments[ii].days;
-                result.seconds += arguments[ii].seconds;
-            } // for
-            
-            return result;
-        },
-        
-        /**
-        ### toString()
-        Convert the duration to it's string represenation
-        
-        __TODO__:
-        - Improve the implementation
-        - Add internationalization support
-        */
-        toString: function() {
-            // TODO: Im sure this can be implemented better....
-            
-            var days, hours, minutes, totalSeconds,
-                output = '';
-                
-            if (this.days) {
-                output = this.days + ' days ';
-            } // if
-            
-            if (this.seconds) {
-                totalSeconds = this.seconds;
-    
-                // if we have hours, then get them
-                if (totalSeconds >= 3600) {
-                    hours = ~~(totalSeconds / 3600);
-                    totalSeconds = totalSeconds - (hours * 3600);
-                } // if
-                
-                // if we have minutes then extract those
-                if (totalSeconds >= 60) {
-                    minutes = Math.round(totalSeconds / 60);
-                    totalSeconds = totalSeconds - (minutes * 60);
-                } // if
-                
-                // format the result
-                if (hours) {
-                    output = output + hours + 
-                        (hours > 1 ? ' hrs ' : ' hr ') + 
-                        (minutes ? 
-                            (minutes > 10 ? 
-                                minutes : 
-                                '0' + minutes) + ' min ' 
-                            : '');
-                }
-                else if (minutes) {
-                    output = output + minutes + ' min';
-                }
-                else if (totalSeconds > 0) {
-                    output = output + 
-                        (totalSeconds > 10 ? 
-                            totalSeconds : 
-                            '0' + totalSeconds) + ' sec';
-                } // if..else
-            } // if
-            
-            return output;
-        }
-    };
-    
-    var parseDuration = (function() {
-        // initialise constants
-        var DAY_SECONDS = 86400;
-        
-        // the period regex (the front half of the ISO8601 post the T-split)
-        var periodRegex = /^P(\d+Y)?(\d+M)?(\d+D)?$/,
-            // the time regex (the back half of the ISO8601 post the T-split)
-            timeRegex = /^(\d+H)?(\d+M)?(\d+S)?$/,
-            // initialise the duration parsers
-            durationParsers = {
-                8601: parse8601Duration
-            };
-            
-        /* internal functions */
-        
-        /*
-        Used to convert a ISO8601 duration value (not W3C subset)
-        (see http://en.wikipedia.org/wiki/ISO_8601#Durations) into a
-        composite value in days and seconds
-        */   
-        function parse8601Duration(input) {
-            var durationParts = input.split('T'),
-                periodMatches = null,
-                timeMatches = null,
-                days = 0,
-                seconds = 0;
-            
-            // parse the period part
-            periodRegex.lastIndex = -1;
-            periodMatches = periodRegex.exec(durationParts[0]);
-            
-            // increment the days by the valid number of years, months and days
-            // TODO: add handling for more than just days here but for the moment
-            // that is all that is required
-            days = days + (periodMatches[3] ? parseInt(periodMatches[3].slice(0, -1), 10) : 0);
-            
-            // parse the time part
-            timeRegex.lastIndex = -1;
-            timeMatches = timeRegex.exec(durationParts[1]);
-            
-            // increment the time by the required number of hour, minutes and seconds
-            seconds = seconds + (timeMatches[1] ? parseInt(timeMatches[1].slice(0, -1), 10) * 3600 : 0);
-            seconds = seconds + (timeMatches[2] ? parseInt(timeMatches[2].slice(0, -1), 10) * 60 : 0);
-            seconds = seconds + (timeMatches[3] ? parseInt(timeMatches[3].slice(0, -1), 10) : 0);
-    
-            return new Duration(days, seconds);
-        } // parse8601Duration
-    
-        return function(duration, format) {
-            var parser = durationParsers[format];
-            
-            // if we don't have a parser for the requested format, then throw an exception
-            if (! parser) {
-                throw 'No parser found for the duration format: ' + format;
-            } // if
-            
-            return parser(duration);
-        };
-    })();
-
-    
-    var GeoJS = this.GeoJS = {
-        ActivityLog: ActivityLog,
-        
-        Pos: Pos,
-        Line: Line,
-        BBox: BBox,
-        Distance: Distance,
-        
-        generalize: generalize,
-        
-        // time types and helpers
-        Duration: Duration,
-        parseDuration: parseDuration,
-        
-        define: define,
-        plugin: plugin
-    };
-    
-    if (IS_COMMONJS) {
-        module.exports = GeoJS;
-    } // if
-})();
+    (typeof module != "undefined" && module.exports) ? (module.exports = GeoJS) : (glob.GeoJS = GeoJS);
+})(this);
 
 // ┌──────────────────────────────────────────────────────────────────────────────────────┐ \\
 // │ Eve 0.3.2 - JavaScript Events Library                                                │ \\
@@ -1192,7 +970,7 @@
 // Interact 0.3.0 - Mouse and Touch Handling
 // Copyright (c) 2010-2011 Damon Oehlman (damon.oehlman -at- sidelab.com)
 // Licensed under the MIT (http://www.opensource.org/licenses/mit-license.php) license
-INTERACT = (function() {
+var Interact = INTERACT = (function() {
     // initialise variables
     var interactors = [],
         reLastChunk = /.*\.(.*)$/,
@@ -1259,6 +1037,17 @@ INTERACT = (function() {
     
     /* exports */
     
+    /*\
+     * Interact.register
+     [ function ]
+     **
+     * Register an interaction handler
+     **
+     > Arguments
+     **
+     - typeName (string) the name of the interaction handler being registered
+     - opts (object) an object containing options for the new interactor
+    \*/
     function register(typeName, opts) {
         // initialise options
         opts = opts || {};
@@ -1268,9 +1057,18 @@ INTERACT = (function() {
         interactors.push(opts);
     } // register
     
-    /**
-    ### watch(target, opts, caps)
-    */
+    /*\
+     * Interact.watch
+     [ function ]
+     **
+     * Watch a particular DOM element for interaction events
+     **
+     > Arguments
+     **
+     - target (DOMElement) the element in the DOM to monitor for events
+     - opts (object) any specific capture options
+     - caps (object) device capability overrides
+    \*/
     function watch(target, opts, caps) {
         var handlers;
         
@@ -1364,7 +1162,8 @@ INTERACT = (function() {
             WHEEL_DELTA_LEVEL = WHEEL_DELTA_STEP * 8;
         
         // initialise variables
-        var ignoreButton = opts.isIE,
+        var aggressiveCapture = opts.aggressiveCapture,
+            ignoreButton = opts.isIE,
             isFlashCanvas = typeof FlashCanvas != 'undefined',
             buttonDown = false,
             start,
@@ -1417,14 +1216,15 @@ INTERACT = (function() {
         function handleMouseDown(evt) {
             if (matchTarget(evt, targetElement)) {
                 buttonDown = isLeftButton(evt);
+                if (aggressiveCapture) {
+                    preventDefault(evt, true);
+                }
                 
                 if (buttonDown) {
                     var pagePos = getPagePos(evt);
                     
                     // update the cursor and prevent the default
                     targetElement.style.cursor = 'move';
-                    preventDefault(evt, true);
-                    
                     start = point(pagePos.x, pagePos.y);
                     
                     // trigger the pointer down event
@@ -1494,7 +1294,10 @@ INTERACT = (function() {
                         deltaY / WHEEL_DELTA_LEVEL
                     );
                     
-                    preventDefault(evt); 
+                    if (aggressiveCapture) {
+                        preventDefault(evt, true);
+                    }
+    
                     evt.returnValue = false;
                 } // if
             } // if
@@ -1515,6 +1318,10 @@ INTERACT = (function() {
                 evtY = typeof overrideY != 'undefined' ? overrideY : currentY,
                 current = point(evtX, evtY);
                 
+            if (aggressiveCapture) {
+                preventDefault(evt, true);
+            }
+            
             // trigger the event
             eve(
                 eventName + evtTargetId,
@@ -1596,7 +1403,8 @@ INTERACT = (function() {
             TOUCH_MODE_PINCH = 3;    
         
         // initialise variables
-        var offset,
+        var aggressiveCapture = opts.aggressiveCapture,
+            offset,
             touchMode,
             touchDown = false,
             touchesStart,
@@ -1719,6 +1527,11 @@ INTERACT = (function() {
                     relTouches = copyTouches(changedTouches, offset.left, offset.top),
                     evtArgs = [targetElement, evt, changedTouches, relTouches];
                 
+                // prevent the default action
+                if (aggressiveCapture) {
+                    preventDefault(evt, true);
+                }
+    
                 if (! touchesStart) {
                     // reset the touch mode to unknown
                     touchMode = TOUCH_MODE_TAP;
@@ -1750,8 +1563,10 @@ INTERACT = (function() {
             
             if (matchTarget(evt, targetElement)) {
                 // prevent the default action
-                preventDefault(evt);
-                
+                if (aggressiveCapture) {
+                    preventDefault(evt, true);
+                }
+    
                 // fill the touch data
                 touchesCurrent = getTouchData(evt);
                 
@@ -1837,6 +1652,11 @@ INTERACT = (function() {
                 // get the current touches
                 touchesCurrent = getTouchData(evt);
                 
+                // prevent the default action
+                if (aggressiveCapture) {
+                    preventDefault(evt, true);
+                }
+    
                 // if this is the last touch to be removed do some extra checks
                 if (! touchesCurrent) {
                     eve.apply(eve, [evtPointerUp].concat(evtArgs));
@@ -4654,6 +4474,16 @@ INTERACT = (function() {
             viewTapTimeout,
             wheelZoomTimeout = 0;
             
+        /* private */
+        
+        function _isInView(element) {
+            while (element && element !== viewpane) {
+                element = element.parentNode;
+            }
+            
+            return element === viewpane;
+        } // _isInView
+            
         /* event handlers */
         
         /* scaling functions */
@@ -4693,39 +4523,44 @@ INTERACT = (function() {
         } // getProjectedXY
         
         function handleDoubleTap(evt, absXY, relXY) {
-            var projXY = getProjectedXY(relXY.x, relXY.y);
-            
-            // clear the view tap timeout
-            clearTimeout(viewTapTimeout);
+            if (_isInView(evt.target || evt.srcElement)) {
+                var projXY = getProjectedXY(relXY.x, relXY.y);
     
-            // trigger the double tap event
-            _this.trigger('doubleTap', absXY, relXY, projXY);
-                
-            if (params.scalable) {
-                var center = _this.center();
-                
-                // update the offset to the tapped position
-                offset(
-                    offsetX + projXY.x - center.x, 
-                    offsetY + projXY.y - center.y, 
-                    _allowTransforms ? scaleEasing : null
-                );
-                
-                // animate the scaling
-                scale(2, scaleEasing, true);
-            } // if
+                // clear the view tap timeout
+                clearTimeout(viewTapTimeout);
+    
+                // trigger the double tap event
+                _this.trigger('doubleTap', absXY, relXY, projXY);
+    
+                if (params.scalable) {
+                    var center = _this.center();
+    
+                    // update the offset to the tapped position
+                    offset(
+                        offsetX + projXY.x - center.x, 
+                        offsetY + projXY.y - center.y, 
+                        _allowTransforms ? scaleEasing : null
+                    );
+    
+                    // animate the scaling
+                    scale(2, scaleEasing, true);
+                } // if
+            }
         } // handleDoubleTap
         
         function handlePointerDown(evt, absXY, relXY) {
-            // reset the hover offset and the drag element
-            dragObject = null;
-            pointerDown = true;
-            
-            // initialise the hit data
-            initHitData('down', absXY, relXY);
-            
-            // bubble the event up
-            _this.trigger('pointerDown', absXY, relXY);
+            // check that the pointer has hit a tile or the tile container
+            if (_isInView(evt.target || evt.srcElement)) {
+                // reset the hover offset and the drag element
+                dragObject = null;
+                pointerDown = true;
+    
+                // initialise the hit data
+                initHitData('down', absXY, relXY);
+    
+                // bubble the event up
+                _this.trigger('pointerDown', absXY, relXY);
+            }
         } // handlePointerDown
         
         function handlePointerHover(evt, absXY, relXY) {
@@ -4734,26 +4569,30 @@ INTERACT = (function() {
         } // handlePointerHover
         
         function handlePointerMove(evt, absXY, relXY, deltaXY) {
-            // drag the selected if we 
-            dragSelected(absXY, relXY, false);
-            
-            // bubble the event up
-            _this.trigger('pointerMove', absXY, relXY, deltaXY);
+            if (pointerDown) {
+                // drag the selected if we 
+                dragSelected(absXY, relXY, false);
+    
+                // bubble the event up
+                _this.trigger('pointerMove', absXY, relXY, deltaXY);
+            }
         } // handlePointerMove
         
         function handlePan(evt, deltaX, deltaY) {
-            if (! dragObject) {
+            if (pointerDown && (! dragObject)) {
                 dx += deltaX;
                 dy += deltaY;
             } // if
         } // handlePan
         
         function handlePointerUp(evt, absXY, relXY) {
-            dragSelected(absXY, relXY, true);
-            pointerDown = false;
-            
-            // bubble the event up
-            _this.trigger('pointerUp', absXY, relXY);
+            if (pointerDown) {
+                dragSelected(absXY, relXY, true);
+                pointerDown = false;
+    
+                // bubble the event up
+                _this.trigger('pointerUp', absXY, relXY);
+            }
         } // handlePointerUp
         
         function handleResize(evt) {
@@ -7028,7 +6867,10 @@ INTERACT = (function() {
                 button1: function() {
                     view.zoom(view.zoom() - 1);
                 }
-            };
+            },
+            _targetButton = 'button',
+            _targetThumb = 'thumb',
+            _moveOK = false;
             
         function bindEvents() {
             // attach the event monitor
@@ -7038,8 +6880,8 @@ INTERACT = (function() {
             
             eve.on('interact.pointer.down.' + zoomBar.id, handlePointerDown);
             eve.on('interact.pointer.move.' + zoomBar.id, handlePointerMove);
-            eve.on('interact.pointer.up.' + zoomBar.id, handlePointerUp);
-            eve.on('interact.tap.' + zoomBar.id, handlePointerTap);
+            eve.on('interact.pointer.up', handlePointerUp);
+            // eve.on('interact.tap.' + zoomBar.id, handlePointerTap);
         } // bindEvents
         
         function createButton(btnIndex, marginTop) {
@@ -7071,7 +6913,6 @@ INTERACT = (function() {
         
         function createZoomBar() {
             zoomBar = DOM.create('div', 't5-zoombar', {
-                id: 'zoombar_' + (new Date().getTime()),
                 position: 'absolute',
                 background: getBackground(),
                 'z-index': 50,
@@ -7080,6 +6921,9 @@ INTERACT = (function() {
                 height: params.height + 'px',
                 margin: getMargin()
             });
+            
+            // set the zoombar id
+            zoomBar.id = 'zoombar_' + (new Date().getTime());
                 
             // add the zoom bar
             if (container.childNodes[0]) {
@@ -7132,35 +6976,46 @@ INTERACT = (function() {
             // unbind event handlers
             eve.unbind('interact.pointer.down.' + zoomBar.id, handlePointerDown);
             eve.unbind('interact.pointer.move.' + zoomBar.id, handlePointerMove);
-            eve.unbind('interact.pointer.up.' + zoomBar.id, handlePointerUp);
-            eve.unbind('interact.tap.' + zoomBar.id, handlePointerTap);
+            eve.unbind('interact.pointer.up', handlePointerUp);
+            // eve.unbind('interact.tap.' + zoomBar.id, handlePointerTap);
             
             // remove the image div from the panFrame
             container.removeChild(zoomBar);
         } // handleDetach
         
         function handlePointerDown(evt, absXY, relXY) {
-            if (this !== zoomBar) { return; }
+            // if (this !== zoomBar) { return; }
     
-            updateSpriteState(evt.target, STATE_DOWN);
+            var targetCode = updateSpriteState(evt.target, STATE_DOWN);
+            _moveOK = targetCode === _targetThumb;
         } // handlePointerDown
         
         function handlePointerMove(evt, absXY, relXY) {
-            // update the thumb pos
-            thumbPos = Math.min(Math.max(thumbMin, relXY.y - (thumbHeight >> 1)), thumbMax);
-            
-            setThumbVal(zoomSteps - ((thumbPos - thumbMin) / thumbMax) * zoomSteps | 0);
+            if (_moveOK) {
+                // update the thumb pos
+                thumbPos = Math.min(Math.max(thumbMin, relXY.y - (thumbHeight >> 1)), thumbMax);
+    
+                setThumbVal(zoomSteps - ((thumbPos - thumbMin) / thumbMax) * zoomSteps | 0);
+            }
         } // handlePointerMove
         
-        function handlePointerTap(evt, absXY, relXY) {
-            var handler = tapHandlers[updateSpriteState(evt.target, STATE_DOWN)];
+        function handlePointerUp(evt, absXY, relXY) {
+            var handler = tapHandlers[updateSpriteState(evt.target, STATE_STATIC)];
             if (handler) {
                 handler();
-            } // if
-        }
-        
-        function handlePointerUp(evt, absXY, relXY) {
-            updateSpriteState(evt.target, STATE_STATIC);
+            }
+            /*
+            // otherwise, up position to the specified point
+            else {
+                // update the thumb pos
+                thumbPos = Math.min(Math.max(thumbMin, relXY.y - (thumbHeight >> 1)), thumbMax);
+                setThumbVal(zoomSteps - ((thumbPos - thumbMin) / thumbMax) * zoomSteps | 0);
+            }
+            */
+            
+            // reset the thumb to the static state in all instances
+            updateSpriteState(thumb, STATE_STATIC);
+            _moveOK = false;
         } // handlePointerUp
         
         function handleZoomLevelChange(evt, zoomLevel) {
@@ -7168,16 +7023,16 @@ INTERACT = (function() {
         } // handleZoomLevelChange
         
         function updateSpriteState(target, state) {
-            var targetCode;
+            var targetCode = '';
             
             if (target === thumb) {
                 thumb.style.background = getThumbBackground(state);
-                targetCode = 'thumb';
+                targetCode = _targetThumb;
             }
             else {
                 for (var ii = 0; ii < buttons.length; ii++) {
                     if (target === buttons[ii]) {
-                        targetCode = 'button' + ii;
+                        targetCode = _targetButton + ii;
                         buttons[ii].style.background = getButtonBackground(ii, state);
                         break;
                     } // if

@@ -160,20 +160,10 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
     } // handleDetach
     
     function handlePointerDown(evt, absXY, relXY) {
-        if (this !== zoomBar) { return; }
+        // if (this !== zoomBar) { return; }
 
         var targetCode = updateSpriteState(evt.target, STATE_DOWN);
-        
-        // if we don't have a target code, then we hit the bar
-        if (! targetCode) {
-            // update the thumb pos
-            thumbPos = Math.min(Math.max(thumbMin, relXY.y - (thumbHeight >> 1)), thumbMax);
-
-            setThumbVal(zoomSteps - ((thumbPos - thumbMin) / thumbMax) * zoomSteps | 0);
-        }
-        else {
-            _moveOK = targetCode === _targetThumb;
-        }
+        _moveOK = targetCode === _targetThumb;
     } // handlePointerDown
     
     function handlePointerMove(evt, absXY, relXY) {
@@ -189,7 +179,15 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
         var handler = tapHandlers[updateSpriteState(evt.target, STATE_STATIC)];
         if (handler) {
             handler();
-        } // if
+        }
+        /*
+        // otherwise, up position to the specified point
+        else {
+            // update the thumb pos
+            thumbPos = Math.min(Math.max(thumbMin, relXY.y - (thumbHeight >> 1)), thumbMax);
+            setThumbVal(zoomSteps - ((thumbPos - thumbMin) / thumbMax) * zoomSteps | 0);
+        }
+        */
         
         // reset the thumb to the static state in all instances
         updateSpriteState(thumb, STATE_STATIC);
