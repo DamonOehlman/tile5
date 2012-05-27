@@ -19,7 +19,7 @@
     
     "devDependencies": {
         "vows": "0.5.x",
-        "interleave": "0.x.x"
+        "interleave": "0.4.x"
     },
     
     "licenses": [{
