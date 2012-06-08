@@ -2,7 +2,7 @@
 # LAYER: Draw
 */
 reg('layer', 'draw', function(view, panFrame, container, params) {
-    params = _extend({
+    params = cog.extend({
         zindex: 10
     }, params);
     
@@ -216,7 +216,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
     
     /* initialise _this */
     
-    var _this = _extend(new ViewLayer(view, panFrame, container, params), {
+    var _this = cog.extend(new ViewLayer(view, panFrame, container, params), {
         clear: clear,
         create: create,
         draw: draw,

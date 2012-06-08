@@ -2,7 +2,7 @@
 # LAYER: tile
 */
 reg('layer', 'tile', function(view, panFrame, container, params) {
-    params = _extend({
+    params = cog.extend({
         generator: 'osm',
         imageLoadArgs: {}
     }, params);
@@ -55,7 +55,7 @@ reg('layer', 'tile', function(view, panFrame, container, params) {
     
     /* definition */
     
-    var _self = _extend(new ViewLayer(view, panFrame, container, params), {
+    var _self = cog.extend(new ViewLayer(view, panFrame, container, params), {
         draw: draw
     });
     

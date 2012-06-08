@@ -49,7 +49,7 @@ XY.prototype = {
     ### copy(x, y)
     */
     copy: function(x, y) {
-        var copy = _extend({}, this);
+        var copy = cog.extend({}, this);
         
         // override the x and y positions with the updated values
         copy.x = x || copy.x;

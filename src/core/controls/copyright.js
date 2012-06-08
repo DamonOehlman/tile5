@@ -1,5 +1,5 @@
 reg('control', 'copyright', function(view, panFrame, container, params) {
-    params = _extend({
+    params = cog.extend({
         align: 'right',
         text: null,
         spacing: 5
@@ -43,7 +43,7 @@ reg('control', 'copyright', function(view, panFrame, container, params) {
             containerRect = DOM.rect(container),
             marginLeft = params.spacing,
             marginTop = containerRect.h - copydiv.offsetHeight - params.spacing,
-            formatter = _formatter('{0}px 0 0 {1}px');
+            formatter = formatter('{{0}}px 0 0 {{1}}px');
 
         if (params.align === 'right') {
             marginLeft = containerRect.w - copydiv.offsetWidth - params.spacing;
@@ -80,7 +80,7 @@ reg('control', 'copyright', function(view, panFrame, container, params) {
 
     createCopyright();
 
-    var _this = _extend(new Control(view), {
+    var _this = cog.extend(new Control(view), {
         getText: getText,
         setText: setText
     });

@@ -2,7 +2,7 @@
 # CONTROL: Zoombar
 */
 reg('control', 'zoombar', function(view, panFrame, container, params) {
-    params = _extend({
+    params = cog.extend({
         width: 24,
         height: 200,
         images: 'img/zoom.png',
@@ -133,7 +133,7 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
     
     function getMargin() {
         var marginLeft = params.spacing,
-            formatter = _formatter('{0}px 0 0 {1}px');
+            formatter = formatter('{{0}}px 0 0 {{1}}px');
 
         if (params.align === 'right') {
             marginLeft = container.offsetWidth - params.width - params.spacing;

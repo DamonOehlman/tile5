@@ -3,7 +3,7 @@
 */
 var View = function(container, params) {
     // initialise defaults
-    params = _extend({
+    params = cog.extend({
         captureHover: true,
         controls: [],
         copyright: '',
@@ -504,7 +504,7 @@ var View = function(container, params) {
         } // if
         
         // save the last hit elements
-        lastHitData = elements.length > 0 ? _extend({}, hitSample) : null;
+        lastHitData = elements.length > 0 ? cog.extend({}, hitSample) : null;
     } // checkHits
     
     function cycle(tickCount) {
@@ -685,7 +685,7 @@ var View = function(container, params) {
                 dx = 0;
                 dy = 0;
             }
-            else if (dx != 0 || dy != 0) {
+            else if (dx !== 0 || dy !== 0) {
                 dx *= 0.8;
                 dy *= 0.8;
                 
@@ -713,7 +713,7 @@ var View = function(container, params) {
             if (lastScaleFactor !== scaleFactor) {
                 _this.trigger('scaleChanged', scaleFactor);
                 lastScaleFactor = scaleFactor;
-            };
+            }
         } // if
     } // cycle
     
@@ -804,7 +804,7 @@ var View = function(container, params) {
     
     function center(p1, p2, tween) {
         // if we have been passed a string argument, then parse
-        if (typeof p1 != 'undefined' && (_is(p1, typeString) || _is(p1, 'object'))) {
+        if (typeof p1 == 'string' || (p1 instanceof String)) {
             var centerXY = new _this.XY(p1);
             
             // sync
@@ -816,7 +816,7 @@ var View = function(container, params) {
         } // if
         
         // update if appropriate
-        if (_is(p1, typeNumber)) {
+        if (sniff(p1) == 'number') {
             offset(p1 - halfOuterWidth - padding.x, p2 - halfOuterHeight - padding.y, tween);
             
             // return the view so we can chain methods
@@ -866,7 +866,7 @@ var View = function(container, params) {
     ### frozen(value)
     */
     function frozen(value) {
-        if (! _is(value, typeUndefined)) {
+        if (typeof value != 'undefined') {
             _frozen = value;
             return _this;
         }
@@ -957,7 +957,7 @@ var View = function(container, params) {
         var haveId = typeof id != 'undefined';
         
         // if the layer type is undefined, then assume we are doing a get
-        if (haveId && _is(layerType, typeUndefined)) {
+        if (haveId && typeof layerType == 'undefined') {
             // look for the matching layer, and return when found
             for (var ii = 0; ii < layerCount; ii++) {
                 if (layers[ii].id === id) {
@@ -1049,7 +1049,7 @@ var View = function(container, params) {
     */
     function removeLayer(targetLayer) {
         // if we have been passed a layer id, then get the layer object
-        if (_is(targetLayer, typeString)) {
+        if (sniff(targetLayer) == 'string') {
             targetLayer = layer(targetLayer);
         } // if
         
@@ -1076,7 +1076,7 @@ var View = function(container, params) {
     ### rotate(value, tween, isAbsolute)
     */
     function rotate(value, tween, isAbsolute) {
-        if (_is(value, typeNumber)) {
+        if (sniff(value) == 'number') {
             var targetVal = isAbsolute ? value : rotation + value;
 
             if (tween) {
@@ -1103,7 +1103,7 @@ var View = function(container, params) {
     */
     function scale(value, tween, isAbsolute) {
         // if we are setting the scale,
-        if (_is(value, typeNumber)) {
+        if (sniff(value) == 'number') {
             var scaleFactorExp,
                 targetVal = isAbsolute ? value : scaleFactor * value;
 
@@ -1149,7 +1149,7 @@ var View = function(container, params) {
     */
     function offset(x, y, tween) {
         // if we have arguments update the offset
-        if (_is(x, typeNumber)) {
+        if (sniff(x) == 'number') {
             if (tween) {
                 offsetTween = Tweener.tween(
                     [offsetX, offsetY],
@@ -1213,13 +1213,13 @@ var View = function(container, params) {
     };
     
     // make the view observable
-    _observable(_this);
+    cog.observable(_this);
     
     // handle the view being resynced
     _this.bind('resize', handleResize);
 
     // route auto configuration methods
-    _configurable(_this, params, {
+    cog.configurable(_this, params, {
         container: updateContainer,
         captureHover: captureInteractionEvents,
         scalable: captureInteractionEvents,
@@ -1234,7 +1234,7 @@ var View = function(container, params) {
     updateContainer(container);
 
     // if autosized, then listen for resize events
-    if (DOM && (! _is(window.attachEvent, typeUndefined))) {
+    if (DOM && typeof window.attachEvent != 'undefined') {
         window.attachEvent('onresize', handleResize);
     }
     else if (DOM) {

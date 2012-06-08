@@ -10,18 +10,18 @@ function GeoXY(p1, p2, mercX, mercY) {
     
     // if the first parameter is a string, then parse
     if (_is(p1, typeString)) {
-        _extend(this, Parser.parseXY(p1));
+        cog.extend(this, Parser.parseXY(p1));
     } // if
     // otherwise, if the first parameter is a position, then convert to pixels
     else if (p1 && p1.toBounds) {
-        _extend(this, _project(p1.lon, p1.lat));
+        cog.extend(this, _project(p1.lon, p1.lat));
     }
     else {
         XY.call(this, p1, p2);
     }
 } // GeoXY
 
-GeoXY.prototype = _extend(new XY(), {
+GeoXY.prototype = cog.extend(new XY(), {
     constructor: GeoXY,
     
     /**

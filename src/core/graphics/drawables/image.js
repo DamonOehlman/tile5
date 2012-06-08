@@ -2,7 +2,7 @@
 # DRAWABLE: image
 */
 reg(typeDrawable, 'image', function(view, layer, params) {
-    params = _extend({
+    params = cog.extend({
         image: null,
         imageUrl: null,
         centerOffset: null,
@@ -90,7 +90,7 @@ reg(typeDrawable, 'image', function(view, layer, params) {
     } // resync
     
     // call the inherited constructor
-    var _self = _extend(new Drawable(view, layer, params), {
+    var _self = cog.extend(new Drawable(view, layer, params), {
         changeImage: changeImage,
         getProps: getProps,
         resync: resync

@@ -1,6 +1,6 @@
 function Control(view) {
-    _observable(this);
-};
+    cog.observable(this);
+}
 
 Control.prototype = {
     constructor: Control

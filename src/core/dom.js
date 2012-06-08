@@ -100,7 +100,7 @@ var DOM = typeof window != 'undefined' ? (function() {
     ### styles(extraStyles)
     */
     function styles(extraStyles) {
-        return _extend({}, CORE_STYLES, extraStyles);
+        return cog.extend({}, CORE_STYLES, extraStyles);
     } // extraStyles
 
     /* initialization */
@@ -110,7 +110,7 @@ var DOM = typeof window != 'undefined' ? (function() {
     transformOriginProp = checkCaps(testTransformOriginProps);
     
     return {
-        transforms: _is(transformProp, typeString),
+        transforms: sniff(transformProp) === 'string',
         
         create: create,
         move: move,

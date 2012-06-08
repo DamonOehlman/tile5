@@ -1,17 +1,13 @@
 /*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true */
 
-//= cog!extend
-//= cog!log
-//= cog!stringtools
-//= cog!easing
-//= cog!observable
-//= cog!configurable
-//= cog!arraytools
-//= cog!typetools
+// req: shim[js#Array.forEach]
+// req: cog[fn#extend, fn#easing, fn#log, fn#observable, fn#configurable]
+// req: sniff, formatter, interact, geojs
+
 //= cog!jsonp
 
 // define T5
-var T5 = this.T5 = _observable({});
+var T5 = this.T5 = cog.observable({});
 
 //= core/registry
 //= core/messages
@@ -64,13 +60,12 @@ var T5 = this.T5 = _observable({});
 
 ## Methods
 */
-_extend(T5, {
+cog.extend(T5, {
     // expose some cog functions
-    ex: _extend,
+    ex: cog.extend,
     log: _log,
     observable: _observable,
     configurable: _configurable,
-    formatter: _formatter,
     wordExists: _wordExists,
     is: _is,
     indexOf: _indexOf,

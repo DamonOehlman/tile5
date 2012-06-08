@@ -2,7 +2,7 @@
 # Tile5(target, settings, viewId)
 */
 function Tile5(target, settings) {
-    settings = _extend({
+    settings = cog.extend({
         container: target,
         type: 'map',
         renderer: 'canvas',

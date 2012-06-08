@@ -2,10 +2,10 @@
 # GENERATOR: osm
 */
 reg('generator', 'osm', function(view, params) {
-    params = _extend({
+    params = cog.extend({
         flipY: false,
         tileSize: 256,
-        tilePath: '{0}/{1}/{2}.png',
+        tilePath: '{{0}}/{{1}}/{{2}}.png',
         osmDataAck: true
     }, params);
     
@@ -15,7 +15,7 @@ reg('generator', 'osm', function(view, params) {
         serverDetails = null,
         subDomains = [],
         subdomainFormatter,
-        pathFormatter = _formatter(params.tilePath);
+        pathFormatter = formatter(params.tilePath);
     
     /* internal functions */
     
@@ -64,7 +64,7 @@ reg('generator', 'osm', function(view, params) {
                 tileX,
                 flipY ? Math.abs(tileY - numTiles + 1) : tileY);
 
-            // _log('getting url for tile x = ' + tileX + ', y = ' + tileY);
+            // cog.log('getting url for tile x = ' + tileX + ', y = ' + tileY);
             if (serverDetails) {
                 tileUrl = subdomainFormatter(subDomains[tileX % (subDomains.length || 1)]) + tileUrl;
             } // if
@@ -104,13 +104,13 @@ reg('generator', 'osm', function(view, params) {
                 tileIds[tiles[ii].id] = true;
             } // for
             
-            // _log('tile pixels = ' + tilePixels + ', viewrect.x1 = ' + viewport.x);
+            // cog.log('tile pixels = ' + tilePixels + ', viewrect.x1 = ' + viewport.x);
                 
             // initialise the server details
             serverDetails = _self.getServerDetails ? _self.getServerDetails() : null;
             subDomains = serverDetails && serverDetails.subDomains ? 
                 serverDetails.subDomains : [];
-            subdomainFormatter = _formatter(serverDetails ? serverDetails.baseUrl : ''); 
+            subdomainFormatter = formatter(serverDetails ? serverDetails.baseUrl : ''); 
                 
             for (var xx = 0; xx <= xTiles; xx++) {
                 for (var yy = 0; yy <= yTiles; yy++) {

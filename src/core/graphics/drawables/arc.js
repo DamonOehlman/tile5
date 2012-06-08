@@ -2,7 +2,7 @@
 # DRAWABLE: arc
 */
 reg(typeDrawable, 'arc', function(view, layer, params) {
-    params = _extend({
+    params = cog.extend({
         startAngle: 0,
         endAngle: Math.PI * 2,
         typeName: 'Arc'

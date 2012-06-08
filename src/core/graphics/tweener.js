@@ -5,7 +5,7 @@ var Tweener = (function() {
     /* exports */
 
     function tween(valuesStart, valuesEnd, params, callback, viewToInvalidate) {
-        params = _extend({
+        params = cog.extend({
             easing: 'sine.out',
             duration: 1000,
             complete: null
@@ -14,7 +14,7 @@ var Tweener = (function() {
         var valueCount = valuesStart.length,
             valuesCurrent = [].concat(valuesStart),
             callbacks = [callback, params.complete],
-            easingFn = _easing(params.easing),
+            easingFn = cog.easing(params.easing),
             valuesChange = [],
             finishedCount = 0,
             cancelTween = false,

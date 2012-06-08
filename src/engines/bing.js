@@ -6,12 +6,12 @@ T5.Geo.Bing = (function() {
         logoUrl, 
         copyrightText,
         subDomains = [],
-        urlFormatter = _formatter('http://dev.virtualearth.net/REST/V1/Imagery/Metadata/{0}?key={1}');
+        urlFormatter = formatter('http://dev.virtualearth.net/REST/V1/Imagery/Metadata/{{0}}?key={{1}}');
         
     /* internal functions */
     
     function authenticate(apikey, style, callback) {
-        _log('attempting authentication, apikey = ' + apikey + ', style = ' + style);
+        cog.log('attempting authentication, apikey = ' + apikey + ', style = ' + style);
         
         // if we already have the image urls for that style, then just fire the callback
         if (imageUrls[style]) {
@@ -39,7 +39,7 @@ T5.Geo.Bing = (function() {
     } // authenticate    
 
     var BingGenerator = function(view, params) {
-        params = _extend({
+        params = cog.extend({
             apikey: null,
             style: 'Road',
             osmDataAck: false
@@ -95,7 +95,7 @@ T5.Geo.Bing = (function() {
         } // run
 
         // initialise the generator
-        var _self = _extend(osmGenerator, {
+        var _self = cog.extend(osmGenerator, {
             buildTileUrl: buildTileUrl,
             run: run
         });

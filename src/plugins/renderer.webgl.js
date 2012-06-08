@@ -1,7 +1,7 @@
 //= glMatrix!
 
 T5.Registry.register('renderer', 'webgl', function(view, panFrame, container, params, baseRenderer) {
-    params = _extend({
+    params = cog.extend({
     }, params);
     
     /* some shaders */
@@ -204,7 +204,7 @@ T5.Registry.register('renderer', 'webgl', function(view, panFrame, container, pa
         
         gl.linkProgram(shaderProgram);
         if (!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-            _log("Could not initialise shaders", 'warn');
+            cog.log("Could not initialise shaders", 'warn');
         }
  
         gl.useProgram(shaderProgram);
@@ -318,7 +318,7 @@ T5.Registry.register('renderer', 'webgl', function(view, panFrame, container, pa
     // initialise the panFrame
     init();
 
-    var _this = _extend(baseRenderer, {
+    var _this = cog.extend(baseRenderer, {
         interactTarget: canvas,
         
         applyStyle: applyStyle,
@@ -345,7 +345,7 @@ T5.Registry.register('renderer', 'webgl', function(view, panFrame, container, pa
         }
     });
     
-    _log('created webgl renderer');
+    cog.log('created webgl renderer');
     
     // handle detach requests
     _this.bind('detach', handleDetach);

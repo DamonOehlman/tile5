@@ -19,7 +19,7 @@ accept the following:
 
 */
 reg(typeDrawable, 'marker', function(view, layer, params) {
-    params = _extend({
+    params = cog.extend({
         fill: true,
         stroke: false,
         markerType: 'simple',

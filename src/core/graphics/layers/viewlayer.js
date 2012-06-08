@@ -29,7 +29,7 @@ can do this by binding to the change method
 
 */
 function ViewLayer(view, panFrame, container, params) {
-    params = _extend({
+    params = cog.extend({
         id: 'layer_' + layerCounter++,
         zindex: 0,
         animated: false,
@@ -44,7 +44,7 @@ function ViewLayer(view, panFrame, container, params) {
     this.view = view;
 
     // make view layers observable
-    _observable(_extend(this, params));
+    _observable(cog.extend(this, params));
 }; // ViewLayer constructor
 
 ViewLayer.prototype = {

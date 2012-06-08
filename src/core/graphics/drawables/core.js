@@ -8,7 +8,7 @@ DRAWABLE
 - 
 */
 var Drawable = function(view, layer, params) {
-    params = _extend({
+    params = cog.extend({
         style: null,
         xy: null,
         size: 20,
@@ -21,10 +21,10 @@ var Drawable = function(view, layer, params) {
     }, params);
     
     // copy the parameters to this
-    _extend(this, params);
+    cog.extend(this, params);
     
     // if the xy is a string, then parse it
-    if (_is(this.xy, typeString)) {
+    if (sniff(this.xy) === 'string') {
         this.xy = new view.XY(this.xy);
     } // if
     
@@ -46,7 +46,7 @@ var Drawable = function(view, layer, params) {
     this.visible = true;
     
     // make the shape observable
-    _observable(this);
+    cog.observable(this);
 };
 
 Drawable.prototype = {
@@ -109,7 +109,7 @@ Drawable.prototype = {
     ### rotate(value, tween, isAbsolute)
     */
     rotate: function(value, tween, isAbsolute) {
-        if (_is(value, typeNumber)) {
+        if (sniff(value) == 'number') {
             // by default rotation is relative
             var targetVal = (isAbsolute ? value : this.rotation * RADIANS_TO_DEGREES + value) * DEGREES_TO_RADIANS;
             
@@ -138,7 +138,7 @@ Drawable.prototype = {
     ### scale(value, tween, isAbsolute)
     */
     scale: function(value, tween, isAbsolute) {
-        if (_is(value, typeNumber)) {
+        if (sniff(value) == 'number') {
             // by default rotation is relative
             var targetVal = (isAbsolute ? value : this.scaling * value);
             
@@ -167,7 +167,7 @@ Drawable.prototype = {
     ### translate(x, y, tween, isAbsolute)
     */
     translate: function(x, y, tween, isAbsolute) {
-        if (_is(x, typeNumber)) {
+        if (sniff(x) == 'number') {
             var targetX = isAbsolute ? x : this.translateX + x,
                 targetY = isAbsolute ? y : this.translateY + y;
             

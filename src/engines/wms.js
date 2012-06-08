@@ -1,5 +1,5 @@
 T5.Generator.register('osm.wms', function(params) {
-    params = _extend({ 
+    params = cog.extend({ 
         extent: [-90, -180, 90, 180], 
         mapurl: "" 
     }, params);
@@ -24,7 +24,7 @@ T5.Generator.register('osm.wms', function(params) {
         return llat + "," + llon + "," + tlat + "," + tlon; 
     } // tileToExtend
 
-    return _extend(new T5.Geo.OSM.Generator(params), { 
+    return cog.extend(new T5.Geo.OSM.Generator(params), { 
         buildTileUrl: function(tileX, tileY, zoomLevel, numTiles) { 
             return params.mapurl + "&BBOX=" + tileToExtent(tileX, tileY, zoomLevel, numTiles); 
         } 

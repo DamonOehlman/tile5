@@ -130,7 +130,7 @@ reg('renderer', 'dom', function(view, panFrame, container, params, baseRenderer)
     // attach the background image display
     createImageContainer();
     
-    var _this = _extend(baseRenderer, {
+    var _this = cog.extend(baseRenderer, {
         drawTiles: drawTiles
     });
     

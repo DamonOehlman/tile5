@@ -2,7 +2,7 @@
 # RENDERER: canvas
 */
 reg('renderer', 'canvas', function(view, panFrame, container, params, baseRenderer) {
-    params = _extend({
+    params = cog.extend({
     }, params);
     
     /* internals */
@@ -413,7 +413,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
         updateClearRect(drawable);
         
         // now draw the lines
-        // _log('drawing poly: have ' + drawVectors.length + ' vectors');
+        // cog.log('drawing poly: have ' + drawVectors.length + ' vectors');
         for (var ii = points.length; ii--; ) {
             var x = points[ii].x - offsetX,
                 y = points[ii].y - offsetY;
@@ -441,7 +441,7 @@ reg('renderer', 'canvas', function(view, panFrame, container, params, baseRender
     
     // create the canvas
     if (createCanvas()) {
-        _this = _extend(baseRenderer, {
+        _this = cog.extend(baseRenderer, {
             applyStyle: applyStyle,
             applyTransform: applyTransform,
 

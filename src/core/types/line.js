@@ -8,7 +8,7 @@ function Line(allowCull) {
     this.points = [];
 };
 
-Line.prototype = _extend(new Array(), {
+Line.prototype = cog.extend(new Array(), {
     /**
     ### cull(viewport)
     */

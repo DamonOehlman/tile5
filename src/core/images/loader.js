@@ -31,7 +31,7 @@ var getImage = (function() {
 
                 // add the image to the cached images
                 imageCache[url] = imageData.image;
-                // _log('IMAGE LOADED: ' + url + ', in ' + requestAge + ' ms');
+                // cog.log('IMAGE LOADED: ' + url + ', in ' + requestAge + ' ms');
 
                 // fire the callbacks
                 for (var cbIdx = 0; cbIdx < callbacks.length; cbIdx++) {

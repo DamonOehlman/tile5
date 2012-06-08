@@ -18,7 +18,6 @@
     },
     
     "devDependencies": {
-        "vows": "0.5.x",
         "interleave": "0.4.x"
     },
     

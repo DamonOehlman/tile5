@@ -18,7 +18,7 @@ var Runner = (function() {
                 processes[ii](processCount);
             }
             catch (e) {
-                _log(e.toString(), 'error');
+                cog.log(e.toString(), 'error');
             } // try..catch
         } // for
     } // runLoop
@@ -50,7 +50,7 @@ var Runner = (function() {
                         itemProcessTime = elapsed / sliceLen;
 
                     itemsPerCycle = itemProcessTime ? (TARGET_CYCLETIME / itemProcessTime | 0) : items.length;
-                    // _log('calculated that we can process ' + itemsPerCycle + ' items per cycle');
+                    // cog.log('calculated that we can process ' + itemsPerCycle + ' items per cycle');
                 } // if
 
                 // increment the item index

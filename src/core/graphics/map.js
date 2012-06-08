@@ -3,7 +3,7 @@
 */
 var Map = function(container, params) {
     // initialise defaults
-    params = _extend({
+    params = cog.extend({
         controls: ['zoombar', 'copyright'],
         
         // zoom parameters
@@ -27,7 +27,7 @@ var Map = function(container, params) {
         // calculate the scale factor exponent
         var scaleFactorExp = log(scaleFactor) / Math.LN2 | 0;
 
-        // _log('scale factor = ' + scaleFactor + ', exp = ' + scaleFactorExp);
+        // cog.log('scale factor = ' + scaleFactor + ', exp = ' + scaleFactorExp);
         if (scaleFactorExp !== 0) {
             // scaleFactor = pow(2, scaleFactorExp);
             residualScaleFactor = scaleFactor - pow(2, scaleFactorExp);
@@ -81,7 +81,7 @@ var Map = function(container, params) {
     Either update or simply return the current zoomlevel.
     */
     function zoom(value, zoomX, zoomY) {
-        if (_is(value, typeNumber)) {
+        if (sniff(value) == 'number') {
             value = max(params.minZoom, min(params.maxZoom, value | 0));
             if (value !== zoomLevel) {
                 var viewport = _self.viewport(),
@@ -130,7 +130,7 @@ var Map = function(container, params) {
         } // if..else
     } // zoom
     
-    var _self = _extend(new View(container, params), {
+    var _self = cog.extend(new View(container, params), {
         XY: GeoXY, 
         
         bounds: bounds,

@@ -25,7 +25,7 @@ var Registry = (function() {
         
         // log a warning if the type already exists
         if (types[type][name]) {
-            _log(WARN_REGOVERRIDE(type, name), 'warn');
+            cog.log(WARN_REGOVERRIDE(type, name), 'warn');
         } // if
 
         // add to the registry

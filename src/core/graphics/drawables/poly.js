@@ -14,7 +14,7 @@ is specified then the style of the T5.PolyLayer is used.
 ## Methods
 */
 reg(typeDrawable, 'poly', function(view, layer, params) {
-    params = _extend({
+    params = cog.extend({
         allowCull: false,
         simplify: true,
         fill: true,
@@ -43,10 +43,10 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
             y = drawPoints[ii].y;
                 
             // update the min and max values
-            minX = _is(minX, typeUndefined) || x < minX ? x : minX;
-            minY = _is(minY, typeUndefined) || y < minY ? y : minY;
-            maxX = _is(maxX, typeUndefined) || x > maxX ? x : maxX;
-            maxY = _is(maxY, typeUndefined) || y > maxY ? y : maxY;
+            minX = sniff(minX) == 'undefined' || x < minX ? x : minX;
+            minY = sniff(minY) == 'undefined' || y < minY ? y : minY;
+            maxX = sniff(maxX) == 'undefined' || x > maxX ? x : maxX;
+            maxY = sniff(maxY) == 'undefined' || y > maxY ? y : maxY;
         } // for
         
         // update the width
@@ -62,7 +62,7 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
     /* exported functions */
     
     function line(value) {
-        if (_is(value, 'array')) {
+        if (sniff(value) == 'array') {
             var polyPoints;
 
             _poly = new Line(params.allowCull);
@@ -96,7 +96,7 @@ reg(typeDrawable, 'poly', function(view, layer, params) {
     } // resync
     
     // extend this
-    var _self = _extend(new Drawable(view, layer, params), {
+    var _self = cog.extend(new Drawable(view, layer, params), {
         line: line,
         resync: resync
     });
