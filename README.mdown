@@ -1,6 +1,15 @@
 # Tile5 - Alternative HTML5 Mapping
 
-<img src="https://github.com/sidelab/tile5/raw/master/demos/img/tile5.png" />
+<img src="https://github.com/DamonOehlman/tile5/raw/master/demos/img/tile5.png" />
+
+
+## Tile5 Refresh
+
+I'm currently doing a refresh on Tile5 to make it have some points of difference from other Mapping libraries.  If you are looking for a great, stable mapping library, then I would recommend checking out [LeafletJS](http://leaflet.cloudmade.com/).  It is far and away the best choice.
+
+Additionally, if you want to work with older version of Tile5 (unsupoorted) then the best place for you to start is probably the [pre-refresh branch]().
+
+## About Tile5
 
 Tile5 is a progressive HTML5 mapping library that uses the stuff that "all the cool kids" are playing with and makes a mapping library with it.  
 
