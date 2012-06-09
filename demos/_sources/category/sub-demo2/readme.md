@@ -1,3 +1,0 @@
-## Subtitle
-
-This demo has a subtitle... that's pretty cool...
