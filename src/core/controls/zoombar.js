@@ -50,7 +50,7 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
         
     function bindEvents() {
         // attach the event monitor
-        INTERACT.watch(zoomBar, {
+        interact(zoomBar, {
             bindTarget: zoomBar
         });
         
@@ -133,13 +133,13 @@ reg('control', 'zoombar', function(view, panFrame, container, params) {
     
     function getMargin() {
         var marginLeft = params.spacing,
-            formatter = formatter('{{0}}px 0 0 {{1}}px');
+            format = formatter('{{0}}px 0 0 {{1}}px');
 
         if (params.align === 'right') {
             marginLeft = container.offsetWidth - params.width - params.spacing;
         } // if
         
-        return formatter(params.marginTop, marginLeft);
+        return format(params.marginTop, marginLeft);
     } // getMargin
     
     function getThumbBackground(state) {

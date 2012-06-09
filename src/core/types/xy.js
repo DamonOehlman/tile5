@@ -8,7 +8,7 @@ to a prototypal pattern in areas of the Tile5 library.
 */
 function XY(p1, p2) {
     // if the first parameter is a string, then parse
-    if (_is(p1, typeString)) {
+    if (sniff(p1) == 'string') {
         var xyVals = p1.split(reDelimitedSplit);
         
         this.x = parseFloat(xyVals[0]);

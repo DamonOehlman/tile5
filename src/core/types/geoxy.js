@@ -9,7 +9,7 @@ function GeoXY(p1, p2, mercX, mercY) {
     this.mercY = mercY;
     
     // if the first parameter is a string, then parse
-    if (_is(p1, typeString)) {
+    if (sniff(p1) == 'string') {
         cog.extend(this, Parser.parseXY(p1));
     } // if
     // otherwise, if the first parameter is a position, then convert to pixels

@@ -4,7 +4,7 @@
 Utility module for creating and managing hit tests and the hits that are
 associated with that hit test.
 */
-Hits = (function() {
+var Hits = T5.Hits = (function() {
     
     /* interials */
     
@@ -63,9 +63,7 @@ Hits = (function() {
     } // initHit
     
     function match(hit, testType, testXY) {
-        return testType === hit.type
-            && testXY.x === hit.absXY.x 
-            && testXY.y === hit.absXY.y;
+        return testType === hit.type && testXY.x === hit.absXY.x && testXY.y === hit.absXY.y;
     } // match
     
     /**

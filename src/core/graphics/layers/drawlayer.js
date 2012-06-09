@@ -154,7 +154,7 @@ reg('layer', 'draw', function(view, panFrame, container, params) {
             if (drawData) {
                 // if the element has been hit then update
                 if (hitData && drawData.hit) {
-                    hitData.elements.push(Hits.initHit(
+                    hitData.elements.push(T5.Hits.initHit(
                         drawable.type, 
                         drawable, 
                         drawable.draggable ? dragObject : null)

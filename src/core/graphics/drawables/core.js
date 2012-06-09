@@ -2,7 +2,7 @@
 DRAWABLE
 
 ## Constructor
-`new T5.Drawable(view, layer, params);`
+`new tile5.Drawable(view, layer, params);`
 
 ## Settings
 - 

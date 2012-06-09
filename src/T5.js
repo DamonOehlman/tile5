@@ -1,13 +1,30 @@
-/*jslint white: true, safe: true, onevar: true, undef: true, nomen: true, eqeqeq: true, newcap: true, immed: true, strict: true */
+"use strict"
 
-// req: shim[js#Array.forEach]
-// req: cog[fn#extend, fn#easing, fn#log, fn#observable, fn#configurable]
-// req: sniff, formatter, interact, geojs
+// req: shim[js#Array.indexOf]
+// req: cog[fn#extend, fn#easing, fn#log, fn#observable, fn#configurable, fn#jsonp]
+// req: eve, sniff, formatter, interact, geojs
 
-//= cog!jsonp
+/**
+# T5(target, settings, viewId)
+*/
+function T5(target, settings) {
+    settings = cog.extend({
+        container: target,
+        type: 'map',
+        renderer: 'canvas',
+        starpos: null,
+        zoom: 1,
+        fastpan: false,
+        drawOnScale: true,
+        zoombar: {}
+    }, settings);
+    
+    // create the view
+    return regCreate('view', settings.type, settings);
+} // Tile5
 
 // define T5
-var T5 = this.T5 = cog.observable({});
+cog.observable(T5);
 
 //= core/registry
 //= core/messages
@@ -55,21 +72,14 @@ var T5 = this.T5 = cog.observable({});
 //= core/controls/zoombar
 //= core/controls/copyright
 
+//= engines/osm
+
 /**
 # T5
 
 ## Methods
 */
-cog.extend(T5, {
-    // expose some cog functions
-    ex: cog.extend,
-    log: _log,
-    observable: _observable,
-    configurable: _configurable,
-    wordExists: _wordExists,
-    is: _is,
-    indexOf: _indexOf,
-    
+cog.extend(T5, cog, {
     /**
     ### fn(name)
     */
@@ -89,7 +99,6 @@ cog.extend(T5, {
     XY: XY,
     GeoXY: GeoXY,
     Line: Line,
-    Hits: Hits,
     
     Control: Control,
     Tile: Tile,
@@ -99,10 +108,3 @@ cog.extend(T5, {
     View: View,
     Map: Map
 });
-
-// support commonJS exports
-if (typeof module != 'undefined' && module.exports) {
-    module.exports = T5;
-} // if
-
-//= core/factory

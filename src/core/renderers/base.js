@@ -76,7 +76,7 @@ var Renderer = function(view, container, outer, params) {
         }
     };
     
-    return _observable(_this);
+    return cog.observable(_this);
 };
 
 /**

@@ -43,13 +43,13 @@ reg('control', 'copyright', function(view, panFrame, container, params) {
             containerRect = DOM.rect(container),
             marginLeft = params.spacing,
             marginTop = containerRect.h - copydiv.offsetHeight - params.spacing,
-            formatter = formatter('{{0}}px 0 0 {{1}}px');
+            format = formatter('{{0}}px 0 0 {{1}}px');
 
         if (params.align === 'right') {
             marginLeft = containerRect.w - copydiv.offsetWidth - params.spacing;
         } // if
 
-        return formatter(marginTop, marginLeft);
+        return format(marginTop, marginLeft);
     } // getMargin
     
     function handleCopyright(evt, copyright) {

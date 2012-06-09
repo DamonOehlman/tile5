@@ -1,5 +1,5 @@
 /**
-# T5.Animator
+# tile5.Animator
 The animator centralizes the callbacks requiring regular update intervals in Tile5.  
 This simple utility module exposes `attach` and `detach` methods that allow other
 classes in Tile5 to fire callbacks on a regular basis without needing to hook into

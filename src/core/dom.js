@@ -1,5 +1,5 @@
 /**
-# T5.DOM
+# tile5.DOM
 This is a minimal set of DOM utilities that Tile5 uses for the DOM manipulation that
 is done in the library.
 
@@ -12,11 +12,11 @@ var DOM = typeof window != 'undefined' ? (function() {
             '-webkit-user-select': 'none',
             position: 'absolute'
         },
-        css3dTransformProps = ['WebkitPerspective', 'MozPerspective'],
+        css3DTransformProps = ['WebkitPerspective', 'MozPerspective'],
         testTransformProps = ['-webkit-transform', 'MozTransform'],
         testTransformOriginProps = ['-webkit-transform-origin', 'MozTransformOrigin'],
         transformProp,
-        css3dTransformProp,
+        css3DTransformProp,
         transformOriginProp,
         testElemStyle;
         
@@ -67,8 +67,8 @@ var DOM = typeof window != 'undefined' ? (function() {
     ### move(element, x, y, extraTransforms, origin)
     */
     function move(element, x, y, extraTransforms, origin) {
-        if (css3dTransformProp || transformProp) {
-            var translate = css3dTransformProp ? 
+        if (css3DTransformProp || transformProp) {
+            var translate = css3DTransformProp ? 
                     'translate3d(' + x +'px, ' + y + 'px, 0)' : 
                     'translate(' + x + 'px, ' + y + 'px)';
             
@@ -106,7 +106,7 @@ var DOM = typeof window != 'undefined' ? (function() {
     /* initialization */
     
     transformProp = checkCaps(testTransformProps);
-    css3DTransformProp = checkCaps(css3dTransformProps);
+    css3DTransformProp = checkCaps(css3DTransformProps);
     transformOriginProp = checkCaps(testTransformOriginProps);
     
     return {

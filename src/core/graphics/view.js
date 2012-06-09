@@ -228,7 +228,7 @@ var View = function(container, params) {
             var targetId = (renderer.interactTarget || outer).id || '*';
             
             // recreate the event monitor
-            eventMonitor = INTERACT.watch(renderer.interactTarget || outer);
+            eventMonitor = interact(renderer.interactTarget || outer);
 
             // if this view is scalable, attach zooming event handlers
             if (params.scalable) {
@@ -516,7 +516,8 @@ var View = function(container, params) {
             rerender,
             viewpaneX,
             viewpaneY,
-            vp;
+            vp,
+            ii;
             
         // if the view is frozen exit
         if (_frozen) {

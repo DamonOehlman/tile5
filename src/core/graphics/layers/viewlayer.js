@@ -44,7 +44,7 @@ function ViewLayer(view, panFrame, container, params) {
     this.view = view;
 
     // make view layers observable
-    _observable(cog.extend(this, params));
+    cog.observable(cog.extend(this, params));
 }; // ViewLayer constructor
 
 ViewLayer.prototype = {

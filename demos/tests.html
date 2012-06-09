@@ -306,16 +306,19 @@ ul.buttons li a.run {
     <script>window.attachEvent('onload',function(){CFInstall.check({mode:'overlay'})})</script>
   <![endif]-->
 
-  <script src="_demogen/js/raphael-min.js"></script>
-  <script src="../dist/tile5.cloudmade.js"></script>
-  <script src="../dist/plugins/renderer.raphael.js"></script>
+
+  <script src="_demogen/js/keymaster.min.js"></script>
+  <script src="_demogen/js/jquery-1.6.2.min.js"></script>
+  <script src="_demogen/js/tile5.js"></script>
+  <script src="../dist/engines/cloudmade.js"></script>
+  <script src="_demogen/js/runner.js"></script>
   
   <script>
   var settings = {"theme":"dawn","mode":"javascript","body":"<div id=\"mapContainer\"></div>"};
   </script>
   <script defer="defer">// create the map
 var map = new T5.Map('mapContainer', {
-    renderer: 'raphael',
+    renderer: settings.renderer || 'canvas',
     drawOnMove: settings.drawOnMove,
     drawOnTween: settings.drawOnTween
 });
