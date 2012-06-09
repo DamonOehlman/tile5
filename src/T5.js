@@ -15,8 +15,7 @@ function T5(target, settings) {
         starpos: null,
         zoom: 1,
         fastpan: false,
-        drawOnScale: true,
-        zoombar: {}
+        drawOnScale: true
     }, settings);
     
     // create the view
@@ -68,10 +67,6 @@ cog.observable(T5);
 //= core/graphics/layers/tilelayer
 //= core/graphics/layers/drawlayer
 
-//= core/controls/base
-//= core/controls/zoombar
-//= core/controls/copyright
-
 //= engines/osm
 
 /**
@@ -100,7 +95,6 @@ cog.extend(T5, cog, {
     GeoXY: GeoXY,
     Line: Line,
     
-    Control: Control,
     Tile: Tile,
     Tweener: Tweener,
 

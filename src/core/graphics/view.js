@@ -322,30 +322,6 @@ var View = function(container, params) {
         } // if
     } // constrainOffset
     
-    function createControls(controlTypes) {
-        var ii;
-        
-        // if we have existing controls, then tell them to detach
-        for (ii = 0; ii < controls.length; ii++) {
-            controls[ii].trigger('detach');
-        } // for
-        
-        // clear the controls array
-        controls = [];
-        
-        // iterate through the specified control types and create the controls
-        for (ii = 0; ii < controlTypes.length; ii++) {
-            controls[controls.length] = regCreate(
-                'control', 
-                controlTypes[ii],
-                _this,
-                panContainer,
-                outer,
-                params[controlTypes[ii]]
-            );
-        } // for
-    } // createControls
-    
     function dragSelected(absXY, relXY, drop) {
         if (dragObject) {
             var scaledOffset = getProjectedXY(relXY.x, relXY.y),
@@ -440,9 +416,6 @@ var View = function(container, params) {
 
                 // change the renderer
                 changeRenderer(params.renderer);
-
-                // create the controls
-                createControls(params.controls);
             }
             else {
                 throw new Error('Unable to find map container element with id: ' + value);
