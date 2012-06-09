@@ -20,13 +20,13 @@
 	<div id="mapContainer">
 		<div id="testControls"></div>
 	</div>
-	<script src="../dist/tile5.cloudmade.js"></script>
+	<script src="tile5.js"></script>
+	<script src="../dist/engines/cloudmade.js"></script>
 	<script src="../dist/plugins/renderer.raphael.js"></script>
 	<script src="../dist/plugins/renderer.three.js"></script>
 	<script src="js/testenv.js"></script>
 	
 	<script src="specs/types/xy.js"></script>
-	<script src="specs/types/pos.js"></script>
 
 	<script src="specs/map/basic.js"></script>
 	
@@ -36,7 +36,7 @@
 	<script src="specs/map/movement.js"></script>
 	
 	<script>
-	var map = Tile5('mapContainer', {
+	var map = new T5.Map('mapContainer', {
 			renderer: 'canvas'
 		}),
 		startLat = -27.469592089206213,

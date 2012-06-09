@@ -5,7 +5,7 @@ describe('drawables.line', function() {
         var positions = [];
         
         for (var ii = POS_COUNT; ii--; ) {
-            positions[ii] = new T5.Pos(startLat + Math.random() - 0.5, startLon + Math.random() - 0.5);
+            positions[ii] = new GeoJS.Pos(startLat + Math.random() - 0.5, startLon + Math.random() - 0.5);
         } // for
         
         // create a line with the positions
