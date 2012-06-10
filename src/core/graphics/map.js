@@ -4,14 +4,11 @@
 var Map = function(container, params) {
     // initialise defaults
     params = cog.extend({
-        controls: ['zoombar', 'copyright'],
-        
         // zoom parameters
         minZoom: 1,
         maxZoom: 18,
         renderer: 'canvas/dom',
         zoom: 1,
-        
         zoombar: {}
     }, params);
 

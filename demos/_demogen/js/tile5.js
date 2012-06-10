@@ -4677,9 +4677,6 @@ cog.jsonp = (function(){
             hitFlagged = false,
             fastpan,
             pointerDown = false,
-            dx = 0, dy = 0,
-            totalDX = 0,
-            totalDY = 0,
             refreshDist = params.refreshDistance,
             offsetX = 0,
             offsetY = 0,
@@ -4813,8 +4810,8 @@ cog.jsonp = (function(){
         
         function handlePan(evt, deltaX, deltaY) {
             if (! dragObject) {
-                dx += deltaX;
-                dy += deltaY;
+                panX += deltaX;
+                panY += deltaY;
             } // if
         } // handlePan
         
@@ -5136,7 +5133,7 @@ cog.jsonp = (function(){
             }
                 
             // calculate the current pan speed
-            _this.panSpeed = panSpeed = abs(dx) + abs(dy);
+            _this.panSpeed = panSpeed = abs(panX) + abs(panY);
             
             // update the panning flag
             scaleChanged = scaleFactor !== lastScaleFactor;
@@ -5163,8 +5160,8 @@ cog.jsonp = (function(){
             
             // initialise the frame data
             frameData.index++;
-            frameData.draw = viewChanges || panSpeed || totalDX || totalDY;
-    
+            frameData.draw = viewChanges || panSpeed;
+            
             // trigger the enter frame event
             // TODO: investigate whether this can be removed...
             // _this.trigger('enterFrame', tickCount, frameData);
@@ -5181,11 +5178,7 @@ cog.jsonp = (function(){
                     rotation = rotateTween()[0];
                 } // if
     
-                // update the pan x and y
-                panX += dx;
-                panY += dy;
-                
-                if (dx || dy) {
+                if (panX || panY) {
                     _this.trigger('pan');
                 } // if
                 
@@ -5290,25 +5283,6 @@ cog.jsonp = (function(){
                     // move the view pane
                     DOM.move(viewpane, panX, panY, extraTransforms, txCenter);
                 } // if..else
-                
-                // apply the inertial dampeners 
-                // really just wanted to say that...
-                if (pointerDown || (! params.inertia)) {
-                    dx = 0;
-                    dy = 0;
-                }
-                else if (dx !== 0 || dy !== 0) {
-                    dx *= 0.8;
-                    dy *= 0.8;
-                    
-                    if (abs(dx) < 0.5) {
-                        dx = 0;
-                    } // if
-                    
-                    if (abs(dy) < 0.5) {
-                        dy = 0;
-                    } // if
-                } // if..else            
                 
                 // check for hits 
                 if (hits.length) {
@@ -5869,14 +5843,11 @@ cog.jsonp = (function(){
     var Map = function(container, params) {
         // initialise defaults
         params = cog.extend({
-            controls: ['zoombar', 'copyright'],
-            
             // zoom parameters
             minZoom: 1,
             maxZoom: 18,
             renderer: 'canvas/dom',
             zoom: 1,
-            
             zoombar: {}
         }, params);
     
