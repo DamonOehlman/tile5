@@ -7,7 +7,7 @@
 
 I'm currently doing a refresh on Tile5 to make it have some points of difference from other Mapping libraries.  If you are looking for a great, stable mapping library, then I would recommend checking out [LeafletJS](http://leaflet.cloudmade.com/).  It is far and away the best choice.
 
-Additionally, if you want to work with older version of Tile5 (unsupoorted) then the best place for you to start is probably the [pre-refresh tag](https://github.com/DamonOehlman/tile5/tree/pre-refresh/).
+Additionally, if you want to work with older version of Tile5 (unsupported) then the best place for you to start is probably the [pre-refresh tag](https://github.com/DamonOehlman/tile5/tree/pre-refresh/).
 
 The new version will essentially abandon previous work using CSS3D transforms and focus purely on manipulating a `<canvas>` element to draw a tile layer with annotations.  In summary it will:
     
