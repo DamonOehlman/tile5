@@ -1,0 +1,24 @@
+{
+  "name": "tile5",
+  "version": "0.0.0",
+  "description": "Pure 2D Context Canvas Mapping Library",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "gendocs": "gendocs > README.md"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DamonOehlman/tile5.git"
+  },
+  "keywords": [
+    "geo",
+    "mapping",
+    "canvas"
+  ],
+  "author": "Damon Oehlman <damon.oehlman@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/DamonOehlman/tile5/issues"
+  }
+}
